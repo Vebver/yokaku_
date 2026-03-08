@@ -1,30 +1,42 @@
-<script setup>
-import HelloWorld from './components/HelloWorld.vue'
-</script>
-
 <template>
-  <div>
-    <a href="https://vite.dev" target="_blank">
-      <img src="/vite.svg" class="logo" alt="Vite logo" />
-    </a>
-    <a href="https://vuejs.org/" target="_blank">
-      <img src="./assets/vue.svg" class="logo vue" alt="Vue logo" />
-    </a>
+  <div class="container py-4">
+    <header class="text-center py-4 border-bottom">
+      <h1 class="mb-3">My App</h1>
+      <p class="lead">Welcome to your application</p>
+    </header>
+    
+    <main class="py-4">
+      <div class="card shadow-sm mb-3">
+        <div class="card-body">
+          <h2 class="card-title">Dashboard</h2>
+          <p class="card-text">This is a simple dashboard layout.</p>
+          <button class="btn btn-primary">Get Started</button>
+        </div>
+      </div>
+      
+      <div class="card shadow-sm mb-3">
+        <div class="card-body">
+          <h2 class="card-title">Features</h2>
+          <ul class="list-group list-group-flush">
+            <li class="list-group-item">Feature 1</li>
+            <li class="list-group-item">Feature 2</li>
+            <li class="list-group-item">Feature 3</li>
+          </ul>
+        </div>
+      </div>
+    </main>
+    
+    <footer class="text-center py-3 border-top text-muted">
+      <p class="mb-0">&copy; 2024 My App. All rights reserved.</p>
+    </footer>
   </div>
-  <HelloWorld msg="Vite + Vue" />
 </template>
 
-<style scoped>
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.vue:hover {
-  filter: drop-shadow(0 0 2em #42b883aa);
-}
-</style>
+<script setup>
+import { ref } from 'vue'
+
+const message = ref('Welcome to My App')
+</script>
+
+
+
