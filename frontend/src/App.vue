@@ -1,35 +1,73 @@
 <template>
-  <div class="container py-4">
-    <header class="text-center py-4 border-bottom">
-      <h1 class="mb-3">My App</h1>
-      <p class="lead">Welcome to your application</p>
-    </header>
-    
-    <main class="py-4">
-      <div class="card shadow-sm mb-3">
-        <div class="card-body">
-          <h2 class="card-title">Dashboard</h2>
-          <p class="card-text">This is a simple dashboard layout.</p>
-          <button class="btn btn-primary">Get Started</button>
-        </div>
-      </div>
-      
-      <div class="card shadow-sm mb-3">
-        <div class="card-body">
-          <h2 class="card-title">Features</h2>
-          <ul class="list-group list-group-flush">
-            <li class="list-group-item">Feature 1</li>
-            <li class="list-group-item">Feature 2</li>
-            <li class="list-group-item">Feature 3</li>
-          </ul>
-        </div>
-      </div>
-    </main>
-    
-    <footer class="text-center py-3 border-top text-muted">
-      <p class="mb-0">&copy; 2024 My App. All rights reserved.</p>
-    </footer>
+  <div id="app">
+    <Navbar />
+    <HeroSection />
+    <FeaturedMenu />
+    <AboutSection />
+    <PromoSection />
+    <ReviewsSection />
+    <Footer />
   </div>
 </template>
 
-// This is where you start building 
+<script>
+import Navbar from './components/Navbar.vue';
+import HeroSection from './components/HeroSection.vue';
+import FeaturedMenu from './components/FeaturedMenu.vue';
+import AboutSection from './components/AboutSection.vue';
+import PromoSection from './components/PromoSection.vue';
+import ReviewsSection from './components/ReviewsSection.vue';
+import Footer from './components/Footer.vue';
+
+export default {
+  name: 'App',
+  components: {
+    Navbar,
+    HeroSection,
+    FeaturedMenu,
+    AboutSection,
+    PromoSection,
+    ReviewsSection,
+    Footer,
+  },
+};
+</script>
+
+<style>
+/* Global Styles */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #fff;
+  color: #222;
+  line-height: 1.5;
+}
+
+/* Smooth Scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Remove outline on focus for better UX */
+button:focus,
+a:focus {
+  outline: none;
+}
+
+/* Image styling */
+img {
+  max-width: 100%;
+  display: block;
+}
+
+/* Button global styles */
+button {
+  font-family: inherit;
+}
+</style>

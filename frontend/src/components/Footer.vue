@@ -1,0 +1,102 @@
+<template>
+  <footer>
+    <div class="footer-logo">
+      <span class="logo-circle">Y</span>
+      <span class="logo-name">YOYAKU</span>
+    </div>
+    <div class="footer-columns">
+      <div>
+        <h4>CONTACT US</h4>
+        <p><strong>Facebook:</strong> Hangout Resto Marilao Bulacan</p>
+        <p><strong>Email:</strong> abrevointernational@gmail.com</p>
+        <p><strong>Phone:</strong> 0905 804 5458</p>
+      </div>
+      <div>
+        <h4>ABOUT US</h4>
+        <p><strong>Location:</strong> Purok 3, Ibayo, Marilao, Bulacan, 3019 (PS Bank RCH Building near 7-Eleven)</p>
+        <p><strong>Open Daily:</strong> 10:00 AM - 11:00 PM</p>
+      </div>
+    </div>
+  </footer>
+</template>
+
+<script>
+export default {
+  name: 'Footer',
+};
+</script>
+
+<style scoped>
+footer {
+  background-color: #222;
+  color: #ccc;
+  padding: 3rem 2rem 2rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-around;
+  gap: 2rem;
+}
+
+.footer-logo {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 150px;
+}
+
+.logo-circle {
+  background-color: #FFD400;
+  color: black;
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  font-weight: 900;
+  font-size: 2.8rem;
+  line-height: 90px;
+  text-align: center;
+  user-select: none;
+}
+
+.logo-name {
+  font-weight: 900;
+  font-size: 1.8rem;
+  color: white;
+  text-transform: uppercase;
+}
+
+.footer-columns {
+  display: flex;
+  gap: 4rem;
+  flex-wrap: wrap;
+  flex: 1 1 400px;
+  min-width: 300px;
+}
+
+.footer-columns > div {
+  min-width: 200px;
+}
+
+footer h4 {
+  color: white;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  letter-spacing: 0.05em;
+}
+
+footer p {
+  font-size: 0.9rem;
+  line-height: 1.35;
+  margin-bottom: 0.7rem;
+}
+
+footer p strong {
+  color: #FFD400;
+}
+
+@media (max-width: 900px) {
+  .footer-columns {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+</style>
