@@ -7,7 +7,7 @@ function Footer() {
         <span className="logo-circle">H</span>
         <span className="logo-name">HANGOUT</span>
       </div>
-      <div className="footer-columns">
+      <div className="footer-columns" id="contact-section">
         <div>
           <h4>CONTACT US</h4>
           <p><strong>Facebook:</strong> Hangout Resto Marilao Bulacan</p>

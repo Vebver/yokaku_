@@ -8,7 +8,7 @@ function AboutSection() {
   ]
 
   return (
-    <section className="about-us">
+    <section className="about-us" id="about-section">
       <h2>ABOUT US</h2>
       <div className="about-content">
         <div className="about-images">

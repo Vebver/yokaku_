@@ -84,17 +84,6 @@
   color: #000;
 }
 
-.navbar .signup-btn {
-  background: #FFD400;
-  color: #000;
-}
-
-.navbar .signup-btn:hover {
-  background: #e6c700;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 10px rgba(255, 212, 0, 0.3);
-}
-
 @media (max-width: 900px) {
   .navbar {
     flex-wrap: wrap;

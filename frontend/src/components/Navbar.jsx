@@ -17,17 +17,22 @@ function Navbar() {
       
       <nav className="nav-menu">
         <ul>
-          {navItems.map((item, index) => (
-            <li key={index}>  
-              <a href="#">{item}</a>
-            </li>
-          ))}
+          {navItems.map((item, index) => {
+            let path = "#";
+            if (item === "ABOUT") path = "#about-section";
+            if (item === "PROMOS") path = "#promos-section";
+            if (item === "CONTACT") path = "#contact-section";
+            return (
+              <li key={index}>
+                <a href={path}>{item}</a>
+              </li>
+            )
+          })};
         </ul>
       </nav>
       
       <div className="auth-buttons">
         <button className="login-btn" onClick={handleLogin}>LOGIN</button>
-        <button className="signup-btn" onClick={handleSignup}>SIGNUP</button>
       </div>
     </header>
   )
