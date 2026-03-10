@@ -18,16 +18,17 @@ function Navbar() {
       <nav className="nav-menu">
         <ul>
           {navItems.map((item, index) => {
-            let path = "#";
-            if (item === "ABOUT") path = "#about-section";
-            if (item === "PROMOS") path = "#promos-section";
-            if (item === "CONTACT") path = "#contact-section";
+            let path = "#"
+            if (item === "ABOUT") path = "#about-section"
+            if (item === "PROMOS") path = "#promos-section"
+            if (item === "CONTACT") path = "#contact-section"
+            if (item === "MENU") path = "#menu-section"
             return (
               <li key={index}>
                 <a href={path}>{item}</a>
               </li>
             )
-          })};
+          })}
         </ul>
       </nav>
       

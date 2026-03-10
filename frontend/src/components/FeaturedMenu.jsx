@@ -12,7 +12,7 @@ function FeaturedMenu() {
   }
 
   return (
-    <section className="featured-menu">
+    <section className="featured-menu" id="menu-section">
       <h2>FEATURED MENU</h2>
       <div className="menu-items">
         {menus.map((menu, index) => (
