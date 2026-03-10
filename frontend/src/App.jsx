@@ -8,6 +8,7 @@ import PromoSection from './components/PromoSection';
 import ReviewsSection from './components/ReviewsSection';
 import Footer from './components/Footer';
 import LoginSection from './components/LoginSection'; 
+import './Style/App.css'
 
 function App() {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
