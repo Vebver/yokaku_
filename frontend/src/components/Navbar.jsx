@@ -7,10 +7,6 @@ function Navbar() {
     alert('Login functionality coming soon!')
   }
 
-  const handleSignup = () => {
-    alert('Signup functionality coming soon!')
-  }
-
   return (
     <header className="navbar">
       <div className="logo">HANGOUT</div>
