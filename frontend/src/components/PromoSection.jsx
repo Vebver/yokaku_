@@ -8,7 +8,7 @@ function PromoSection() {
   ]
 
   return (
-    <section className="promos">
+    <section className="promos" id="promos-section">
       <h2>DON'T MISS OUR <span className="highlight">EXCLUSIVE PROMOS</span></h2>
       <div className="promo-images">
         {promos.map((promo, idx) => (
