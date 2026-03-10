@@ -1,0 +1,39 @@
+/* Promo Section Styles */
+.promos {
+  text-align: center;
+  padding: 3rem 2rem;
+  background-color: white;
+}
+
+.promos h2 {
+  font-weight: 900;
+  font-size: 1.8rem;
+  margin-bottom: 2rem;
+  letter-spacing: 0.05em;
+  color: black;
+}
+
+.promos .highlight {
+  color: #FFD400;
+  text-shadow: 2px 2px 2px #a68300;
+}
+
+.promos .promo-images {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.promos .promo-images img {
+  width: 280px;
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease;
+  cursor: pointer;
+}
+
+.promos .promo-images img:hover {
+  transform: scale(1.05);
+}
+

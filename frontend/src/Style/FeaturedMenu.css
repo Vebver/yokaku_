@@ -1,39 +1,4 @@
-<template>
-  <section class="featured-menu">
-    <h2>FEATURED MENU</h2>
-    <div class="menu-items">
-      <div v-for="(menu, index) in menus" :key="index" class="menu-card">
-        <img :src="menu.img" :alt="menu.title" />
-        <span>{{ menu.title }}</span>
-      </div>
-    </div>
-    <button class="all-menu-btn" @click="handleAllMenu">
-      ALL AVAILABLE MENU
-    </button>
-  </section>
-</template>
-
-<script>
-export default {
-  name: 'FeaturedMenu',
-  data() {
-    return {
-      menus: [
-        { title: 'UNLIMITED WINGS & MORE', img: '/images/wings.jpg' },
-        { title: 'PIZZA & PIZZA BURGERS', img: '/images/pizza.jpg' },
-        { title: 'RAMEN SETS', img: '/images/ramen.jpg' },
-      ],
-    };
-  },
-  methods: {
-    handleAllMenu() {
-      alert('Show all menu functionality coming soon!');
-    },
-  },
-};
-</script>
-
-<style scoped>
+/* Featured Menu Styles */
 .featured-menu {
   padding: 3rem 2rem;
   text-align: center;
@@ -46,7 +11,7 @@ export default {
   letter-spacing: 1.2px;
 }
 
-.menu-items {
+.featured-menu .menu-items {
   display: flex;
   justify-content: center;
   gap: 2rem;
@@ -54,7 +19,7 @@ export default {
   margin-bottom: 1.8rem;
 }
 
-.menu-card {
+.featured-menu .menu-card {
   background-color: #ffd400;
   border-radius: 15px;
   width: 220px;
@@ -68,12 +33,12 @@ export default {
   gap: 1rem;
 }
 
-.menu-card:hover {
+.featured-menu .menu-card:hover {
   transform: translateY(-6px);
   box-shadow: 0 10px 18px rgba(0, 0, 0, 0.15);
 }
 
-.menu-card img {
+.featured-menu .menu-card img {
   width: 180px;
   height: 140px;
   border-radius: 15px;
@@ -81,7 +46,7 @@ export default {
   box-shadow: 0 6px 10px rgba(0, 0, 0, 0.3);
 }
 
-.menu-card span {
+.featured-menu .menu-card span {
   font-weight: 700;
   font-size: 1rem;
   color: #1c1c1c;
@@ -89,7 +54,7 @@ export default {
   line-height: 1.1;
 }
 
-.all-menu-btn {
+.featured-menu .all-menu-btn {
   padding: 0.6rem 1.6rem;
   border-radius: 30px;
   border: 2px solid #000;
@@ -99,8 +64,8 @@ export default {
   transition: background 0.3s, color 0.3s;
 }
 
-.all-menu-btn:hover {
+.featured-menu .all-menu-btn:hover {
   background: #000;
   color: #fff;
 }
-</style>
+
