@@ -90,7 +90,7 @@ function LoginSection({ onClose }) {
                       height="20"
                       viewBox="0 0 24 24"
                       fill="none"
-                      stroke="currentColor"
+                      stroke="currentColor" /* This will use the white color from your CSS */
                       strokeWidth="2"
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -98,6 +98,8 @@ function LoginSection({ onClose }) {
                     >
                       <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                       <circle cx="12" cy="12" r="3"></circle>
+
+                      {/* This line (the slash) appears only when password is HIDDEN */}
                       {!showPassword && <line x1="3" y1="3" x2="21" y2="21" />}
                     </svg>
                   </span>
@@ -109,48 +111,52 @@ function LoginSection({ onClose }) {
                   </p>
                 )}
 
-                {/*Sign up*/view === "signup" && (
-                  <>
-                    <div className="password-container">
-                      <input
-                        type={showConfirmPassword ? "text" : "password"}
-                        placeholder="Confirm Password"
-                        className="login-input"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        required
-                      />
-                      <span
-                        className="password-toggle-icon-confirm"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="20"
-                          height="20"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="eye-svg-confirm"
+                {
+                  /*Sign up*/ view === "signup" && (
+                    <>
+                      <div className="password-container">
+                        <input
+                          type={showConfirmPassword ? "text" : "password"}
+                          placeholder="Confirm Password"
+                          className="login-input"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          required
+                        />
+                        <span
+                          className="password-toggle-icon-confirm"
+                          onClick={() =>
+                            setShowConfirmPassword(!showConfirmPassword)
+                          }
                         >
-                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                          <circle cx="12" cy="12" r="3"></circle>
-                          {!showConfirmPassword && (
-                            <line x1="3" y1="3" x2="21" y2="21" />
-                          )}
-                        </svg>
-                      </span>
-                    </div>
-                    {confirmPassword && password !== confirmPassword && (
-                      <p className="password-warning">
-                        Passwords do not match.
-                      </p>
-                    )}
-                  </>
-                )}
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="20"
+                            height="20"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="eye-svg-confirm"
+                          >
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                            {!showConfirmPassword && (
+                              <line x1="3" y1="3" x2="21" y2="21" />
+                            )}
+                          </svg>
+                        </span>
+                      </div>
+                      {confirmPassword && password !== confirmPassword && (
+                        <p className="password-warning">
+                          Passwords do not match.
+                        </p>
+                      )}
+                    </>
+                  )
+                }
 
                 <button
                   type="submit"

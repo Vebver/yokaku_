@@ -238,6 +238,20 @@
   animation: slideUp 0.4s ease-out;
 }
 
+/* This hides the default "eye" icon that Microsoft Edge adds */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}
+
+/* This hides the default icons in Chrome and Safari (if they appear) */
+input::-webkit-contacts-auto-fill-button,
+input::-webkit-credentials-auto-fill-button {
+  visibility: hidden;
+  display: none !important;
+  pointer-events: none;
+}
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
