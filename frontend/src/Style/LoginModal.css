@@ -73,7 +73,7 @@
   padding-right: 45px;
 }
 
-.password-toggle-icon {
+.password-toggle-icon, .password-toggle-icon-confirm {
   position: absolute;
   right: 12px;
   top: 50%;
@@ -84,13 +84,13 @@
   z-index: 10;
 }
 
-.eye-svg {
+.eye-svg, .eye-svg-confirm {
   color: #888;
   transition: color 0.2s;
 }
 
 .password-toggle-icon:hover .eye-svg,
-.eye-svg.active {
+.eye-svg.active, .password-toggle-icon-confirm:hover .eye-svg-confirm, .eye-svg-confirm.active{
   color: #ffcc00;
 }
 
