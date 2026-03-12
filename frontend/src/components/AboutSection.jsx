@@ -1,6 +1,6 @@
 import '../Style/AboutSection.css'
 
-function AboutSection() {
+function AboutSection({onLoginClick}) {
   return (
     <section className="about-us" id="about-section">
       <div className="container">
@@ -35,7 +35,7 @@ function AboutSection() {
               Today, Hangout Restobar continues to provide a fun and comfortable atmosphere
               where every visit feels like a great hangout.
             </p>
-            <button className="read-more-btn">Explore Menu</button>
+            <button className="read-more-btn" onClick={ onLoginClick }>Explore Menu</button>
           </div>
         </div>
       </div>

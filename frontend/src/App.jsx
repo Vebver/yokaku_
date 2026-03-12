@@ -22,9 +22,9 @@ function App() {
         <Routes>
           <Route path="/" element={
             <>
-              <HeroSection />
-              <div id="menu-section"><FeaturedMenu /></div>
-              <div id="about-section"><AboutSection /></div>
+              <HeroSection onLoginClick={() => setIsLoginOpen(true)}/>
+              <div id="menu-section"><FeaturedMenu onLoginClick={() => setIsLoginOpen(true)}/></div>
+              <div id="about-section"><AboutSection onLoginClick={() => setIsLoginOpen(true)}/></div>
               <div id="promos-section"><PromoSection /></div>
               <ReviewsSection />
               {/* Footer moved inside the route content to keep it at the bottom */}

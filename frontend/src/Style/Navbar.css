@@ -66,7 +66,6 @@
   border-radius: 9999px;
   font-weight: 700;
   padding: 0.4rem 1.2rem;
-  border: none;
   cursor: pointer;
   transition: all 0.3s ease;
   font-size: 0.85rem;
@@ -76,7 +75,7 @@
 .navbar .login-btn {
   background: transparent;
   color: #FFD400;
-  border: 2px solid #FFD400;
+  border: 1px solid #FFD400;
 }
 
 .navbar .login-btn:hover {
