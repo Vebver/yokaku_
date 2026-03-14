@@ -36,10 +36,27 @@ function LoginSection({ onClose }) {
     setLoading(false);
   };
 
-  const handleSignUpSubmit = (e) => {
+  const handleSignUpSubmit = async (e) => {
     e.preventDefault();
     if (password.length >= 8 && password === confirmPassword) {
-      setView("verify");
+      try {
+        await axios.post('/api/auth/signup', { name, email });
+        alert('OTP sent to ' + email);
+        setView("verify");
+      } catch (err) {
+        setError(err.response?.data?.error || 'Signup failed');
+      }
+    }
+  };
+
+  const handleVerifyOTP = async (code) => {
+    try {
+      const res = await axios.post('/api/auth/verifyOTP', { email, otp: code });
+      localStorage.setItem('token', res.data.token);
+      window.location.href = '/';
+      onClose();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Verification failed');
     }
   };
 
@@ -56,14 +73,19 @@ function LoginSection({ onClose }) {
           trigger the slideUp/fadeIn animation. 
         */}
         <div key={view} className="fade-in">
-          {view === "verify" ? (
+{view === "verify" ? (
             <VerifyEmail
               email={email}
-              onVerify={(code) => {
-                alert("Success!");
-                onClose();
-              }}
+              onVerify={handleVerifyOTP}
               onBack={() => setView("signup")}
+              onResend={async () => {
+                try {
+                  await axios.post('/api/auth/signup', { name, email });
+                  alert('OTP resent to ' + email);
+                } catch (err) {
+                  setError('Resend failed');
+                }
+              }}
             />
           ) : (
             <>

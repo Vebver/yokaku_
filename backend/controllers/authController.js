@@ -23,13 +23,14 @@ const otpLimiter = rateLimit({
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
 const sendOTP = async (email, otp) => {
-  console.log(`OTP ${otp} sent to ${email} (add SMTP .env for real email)`);
-  // await transporter.sendMail({
-  //   from: process.env.SMTP_USER,
-  //   to: email,
-  //   subject: 'Yokaku Admin Login OTP',
-  //   text: `Your OTP is ${otp}. Valid for 5 mins.`
-  // });
+  await transporter.sendMail({
+    from: process.env.SMTP_USER,
+    to: email,
+    subject: 'Yokaku OTP Verification',
+    text: `Your OTP is ${otp}. Valid for 5 mins.`,
+    html: `<h2>Your Yokaku OTP</h2><p style="font-size: 24px; font-weight: bold;">${otp}</p><p>Valid for 5 minutes.</p>`
+  });
+  console.log(`Real OTP ${otp} sent to ${email}`);
 };
 
 const authController = {
@@ -42,9 +43,46 @@ const authController = {
         return res.status(401).json({ error: 'Invalid credentials' });
       }
 
-      // Direct JWT - no OTP
-      const token = jwt.sign({ userId: user.id, role: user.role || 'admin' }, process.env.JWT_SECRET, { expiresIn: '24h' });
-      res.json({ token, user: { id: user.id, email: user.email, role: user.role || 'admin' } });
+      const token = jwt.sign({ userId: user.id, role: user.role || 'customer' }, process.env.JWT_SECRET, { expiresIn: '24h' });
+      res.json({ token, user: { id: user.id, email: user.email, role: user.role || 'customer' } });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+  async signup(req, res) {
+    try {
+      const { name, email } = req.body;
+      const otp = generateOTP();
+      
+      // Store OTP temporarily (use Redis or DB in production)
+      req.app.locals.pendingOTPs = req.app.locals.pendingOTPs || {};
+      req.app.locals.pendingOTPs[email] = { otp, expires: Date.now() + 5*60*1000 };
+      
+      await sendOTP(email, otp);
+      
+      res.json({ message: 'OTP sent to email', email });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+  async verifyOTP(req, res) {
+    try {
+      const { email, otp } = req.body;
+      const pending = req.app.locals.pendingOTPs?.[email];
+      
+      if (!pending || pending.expires < Date.now() || pending.otp !== otp) {
+        return res.status(400).json({ error: 'Invalid or expired OTP' });
+      }
+
+      // Create user
+      const password = 'default123'; // In production, collect password
+      const userId = await User.create(email, password);
+      
+      // Cleanup OTP
+      delete req.app.locals.pendingOTPs[email];
+      
+      const token = jwt.sign({ userId, role: 'customer' }, process.env.JWT_SECRET, { expiresIn: '24h' });
+      res.json({ token, user: { id: userId, email, role: 'customer' }, message: 'Account created' });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }

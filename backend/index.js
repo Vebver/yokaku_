@@ -28,6 +28,8 @@ app.get('/api/test-db', async (req, res) => {
 
 // Auth routes
 app.post('/api/auth/login', authController.login);
+app.post('/api/auth/signup', authController.signup);
+app.post('/api/auth/verifyOTP', authController.verifyOTP);
 
 // Protected routes example
 const authMiddleware = (req, res, next) => {
