@@ -1,28 +1,67 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const User = require('./models/User');
+const authController = require('./controllers/authController');
+const jwt = require('jsonwebtoken');
+const controller = require('./controllers/controller');
+
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:5173',
+  credentials: true
+}));
 app.use(express.json());
 
-// Routes
-app.get('/', (req, res) => {
-  res.json({ message: 'Welcome to the API' });
+// Test DB
+app.get('/api/test-db', async (req, res) => {
+  try {
+    const [rows] = await User.pool.execute('SELECT 1 as test');
+    res.json({ message: 'DB connected', test: rows[0].test });
+  } catch (error) {
+    res.status(500).json({ error: 'DB connection failed' });
+  }
 });
 
-// Example API route
-app.get('/api/items', (req, res) => {
-  res.json([
-    { id: 1, name: 'Item 1' },
-    { id: 2, name: 'Item 2' },
-    { id: 3, name: 'Item 3' }
-  ]);
+// Auth routes
+app.post('/api/auth/login', authController.login);
+
+// Protected routes example
+const authMiddleware = (req, res, next) => {
+  const token = req.header('Authorization')?.replace('Bearer ', '');
+  if (!token) return res.status(401).json({ error: 'No token' });
+  
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (error) {
+    res.status(401).json({ error: 'Invalid token' });
+  }
+};
+
+app.get('/api/protected', authMiddleware, (req, res) => {
+  res.json({ message: 'Protected data', user: req.user });
 });
 
-// Start server
-app.listen(PORT, () => {
+// Items routes (CRUD example)
+app.get('/api/items', controller.getAllItems);
+app.get('/api/items/:id', controller.getItemById);
+app.post('/api/items', authMiddleware, controller.createItem);
+app.put('/api/items/:id', authMiddleware, controller.updateItem);
+app.delete('/api/items/:id', authMiddleware, controller.deleteItem);
+
+app.listen(PORT, async () => {
   console.log(`Server running on http://localhost:${PORT}`);
+  // Test pool
+  try {
+    await User.pool.getConnection();
+    console.log('MySQL pool ready');
+  } catch (error) {
+    console.error('DB pool error:', error.message);
+  }
 });
 

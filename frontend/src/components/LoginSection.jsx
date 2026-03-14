@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import VerifyEmail from "./VerifyEmail";
 import "../Style/LoginModal.css";
+import axios from 'axios';
 
 function LoginSection({ onClose }) {
   const [view, setView] = useState("login"); // 'login', 'signup', 'verify'
@@ -10,6 +11,30 @@ function LoginSection({ onClose }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleLoginSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      const res = await axios.post('/api/auth/login', { email, password });
+      localStorage.setItem('token', res.data.token);
+      // Shared token for admin/public
+      // Check role from response
+        if (res.data.user.role === 'admin') {
+          window.location.href = '/admin/dashboard';
+        } else {
+          window.location.href = '/';
+        }
+      onClose();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Login failed');
+    }
+    setLoading(false);
+  };
 
   const handleSignUpSubmit = (e) => {
     e.preventDefault();
@@ -44,13 +69,13 @@ function LoginSection({ onClose }) {
             <>
               <h2>{view === "login" ? "LOGIN" : "SIGN UP"}</h2>
 
-              <form
-                onSubmit={
-                  view === "login"
-                    ? (e) => e.preventDefault()
-                    : handleSignUpSubmit
-                }
-              >
+                <form
+                  onSubmit={
+                    view === "login"
+                      ? handleLoginSubmit
+                      : handleSignUpSubmit
+                  }
+                >
                 {view === "signup" && (
                   <input
                     type="text"
@@ -158,13 +183,11 @@ function LoginSection({ onClose }) {
                   )
                 }
 
+                {error && <p className="password-warning">{error}</p>}
                 <button
                   type="submit"
                   className="submit-btn"
-                  disabled={
-                    password.length < 8 ||
-                    (view === "signup" && password !== confirmPassword)
-                  }
+                  disabled={loading || (password.length < 8 || (view === "signup" && password !== confirmPassword))}
                 >
                   {view === "login" ? "SUBMIT" : "CREATE ACCOUNT"}
                 </button>
