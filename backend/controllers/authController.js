@@ -26,9 +26,9 @@ const sendOTP = async (email, otp) => {
   await transporter.sendMail({
     from: process.env.SMTP_USER,
     to: email,
-    subject: 'Yokaku OTP Verification',
+    subject: 'Hangout OTP Verification',
     text: `Your OTP is ${otp}. Valid for 5 mins.`,
-    html: `<h2>Your Yokaku OTP</h2><p style="font-size: 24px; font-weight: bold;">${otp}</p><p>Valid for 5 minutes.</p>`
+    html: `<h2>Your Hangout OTP</h2><p style="font-size: 24px; font-weight: bold;">${otp}</p><p>Valid for 5 minutes.</p>`
   });
   console.log(`Real OTP ${otp} sent to ${email}`);
 };

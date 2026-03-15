@@ -15,10 +15,12 @@ import Footer from "./components/Footer";
 import LoginSection from "./components/LoginSection";
 import AdminNavbar from "./components/admin-page/AdminNavbar";
 import AdminDashboard from "./components/admin-page/AdminDashboard.jsx";
+import Reservation from "./components/Reservation";
 import "./Style/App.css";
 
 function App() {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [isReservationOpen, setIsReservationOpen] = useState(false);
 
   return (
     <Router>
@@ -30,7 +32,10 @@ function App() {
             path="/"
             element={
               <>
-                <HeroSection onLoginClick={() => setIsLoginOpen(true)} />
+                <HeroSection
+                  onLoginClick={() => setIsLoginOpen(true)}
+                  onReserveClick={() => setIsReservationOpen(true)} // Add this line
+                />
                 <div id="menu-section">
                   <FeaturedMenu onLoginClick={() => setIsLoginOpen(true)} />
                 </div>
@@ -52,11 +57,16 @@ function App() {
           */}
           <Route path="/login" element={<div />} />
           <Route path="/admin/*" element={<AdminDashboard />} />
-          </Routes>
+        </Routes>
 
         {/* MODAL LAYER: Only for public pages */}
         {isLoginOpen && !window.location.pathname.startsWith("/admin") && (
           <LoginSection onClose={() => setIsLoginOpen(false)} />
+        )}
+        
+        {/* Add this right next to your LoginSection modal logic */}
+        {isReservationOpen && (
+          <Reservation onClose={() => setIsReservationOpen(false)} />
         )}
       </div>
     </Router>

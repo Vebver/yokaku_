@@ -1,9 +1,6 @@
 import '../Style/HeroSection.css'
 
-function HeroSection({ onLoginClick}) {
-  const handleReserve = () => {
-    alert('Reservation functionality coming soon!')
-  }
+function HeroSection({ onReserveClick }) {
 
   return (
     <section className="hero position-relative">
@@ -18,12 +15,12 @@ function HeroSection({ onLoginClick}) {
             The perfect place to relax and enjoy great food with friends and family.
             We offer delicious meals, refreshing drinks and vibrant atmosphere.
           </p>
-          <button className="reserve-btn" onClick={onLoginClick}>RESERVE A TABLE</button>
+          <button className="reserve-btn" onClick={onReserveClick}>RESERVE A TABLE</button>
         </div>
       </div>
     </section>
   )
 }
 
-export default HeroSection
+export default HeroSection;
 
