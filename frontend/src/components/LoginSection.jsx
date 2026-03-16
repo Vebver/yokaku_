@@ -20,33 +20,51 @@ function LoginSection({ onClose }) {
     e.preventDefault();
     setLoading(true);
     setError('');
+
     try {
+      // Ensure you are sending email and password to your backend
       const res = await axios.post('/api/auth/login', { email, password });
+      
       localStorage.setItem('token', res.data.token);
-      // Shared token for admin/public
-      // Check role from response
-        if (res.data.user.role === 'admin') {
-          window.location.href = '/admin/dashboard';
-        } else {
-          window.location.href = '/';
-        }
+
+      if (res.data.user.role === 'admin') {
+        window.location.href = '/admin/dashboard';
+      } else {
+        window.location.href = '/customer';
+      }
       onClose();
     } catch (err) {
-      setError(err.response?.data?.error || 'Login failed');
+      // Improved error logging to help you debug
+      console.error("Login Error:", err.response?.data);
+      setError(err.response?.data?.error || 'Login failed. Please check your credentials.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleSignUpSubmit = async (e) => {
     e.preventDefault();
-    if (password.length >= 8 && password === confirmPassword) {
-      try {
-        await axios.post('/api/auth/signup', { firstName, lastName, email });
-        alert('OTP sent to ' + email);
-        setView("verify");
-      } catch (err) {
-        setError(err.response?.data?.error || 'Signup failed');
-      }
+    setError('');
+    
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await axios.post('/api/auth/signup', { firstName, lastName, email, password });
+      alert('OTP sent to ' + email);
+      setView("verify");
+    } catch (err) {
+      setError(err.response?.data?.error || 'Signup failed');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -54,7 +72,7 @@ function LoginSection({ onClose }) {
     try {
       const res = await axios.post('/api/auth/verifyOTP', { email, otp: code });
       localStorage.setItem('token', res.data.token);
-      window.location.href = '/';
+      window.location.href = '/customer';
       onClose();
     } catch (err) {
       alert(err.response?.data?.error || 'Verification failed');
@@ -68,55 +86,50 @@ function LoginSection({ onClose }) {
           &times;
         </button>
 
-        {/* 
-          IMPORTANT: By putting the 'key={view}' on this div, 
-          EVERY time the view changes, the entire content will 
-          trigger the slideUp/fadeIn animation. 
-        */}
         <div key={view} className="fade-in">
-{view === "verify" ? (
+          {view === "verify" ? (
             <VerifyEmail
               email={email}
               onVerify={handleVerifyOTP}
               onBack={() => setView("signup")}
               onResend={async () => {
                 try {
-                  await axios.post('/api/auth/signup', { firstName, lastName, email });
+                  await axios.post('/api/auth/signup', { firstName, lastName, email, password });
                   alert('OTP resent to ' + email);
                 } catch (err) {
                   setError('Resend failed');
                 }
               }}
-            /> 
+            />
           ) : (
             <>
               <h2>{view === "login" ? "LOGIN" : "SIGN UP"}</h2>
 
-                <form
-                  onSubmit={
-                    view === "login"
-                      ? handleLoginSubmit
-                      : handleSignUpSubmit
-                  }
-                >
-                <input
-                  type="text"
-                  placeholder="Last Name"
-                  className="login-input"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  required
-                />
+              <form onSubmit={view === "login" ? handleLoginSubmit : handleSignUpSubmit}>
+                
+                {/* FIELDS ONLY FOR SIGN UP */}
+                {view === "signup" && (
+                  <>
+                    <input
+                      type="text"
+                      placeholder="Last Name"
+                      className="login-input"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      required
+                    />
+                    <input
+                      type="text"
+                      placeholder="First Name"
+                      className="login-input"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      required
+                    />
+                  </>
+                )}
 
-                <input
-                  type="text"
-                  placeholder="First Name"
-                  className="login-input"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  required
-                /> 
-
+                {/* FIELDS FOR BOTH LOGIN AND SIGN UP */}
                 <input
                   type="email"
                   placeholder="Email"
@@ -145,7 +158,7 @@ function LoginSection({ onClose }) {
                       height="20"
                       viewBox="0 0 24 24"
                       fill="none"
-                      stroke="currentColor" /* This will use the white color from your CSS */
+                      stroke="currentColor"
                       strokeWidth="2"
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -153,85 +166,74 @@ function LoginSection({ onClose }) {
                     >
                       <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                       <circle cx="12" cy="12" r="3"></circle>
-
-                      {/* This line (the slash) appears only when password is HIDDEN */}
                       {!showPassword && <line x1="3" y1="3" x2="21" y2="21" />}
                     </svg>
                   </span>
                 </div>
 
-                {password.length > 0 && password.length < 8 && (
-                  <p className="password-warning">
-                    Password must be at least 8 characters.
-                  </p>
+                {/* CONFIRM PASSWORD ONLY FOR SIGN UP */}
+                {view === "signup" && (
+                  <>
+                    <div className="password-container">
+                      <input
+                        type={showConfirmPassword ? "text" : "password"}
+                        placeholder="Confirm Password"
+                        className="login-input"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        required
+                      />
+                      <span
+                        className="password-toggle-icon-confirm"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="20"
+                          height="20"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="eye-svg-confirm"
+                        >
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                          <circle cx="12" cy="12" r="3"></circle>
+                          {!showConfirmPassword && <line x1="3" y1="3" x2="21" y2="21" />}
+                        </svg>
+                      </span>
+                    </div>
+                  </>
                 )}
 
-                {
-                  /*Sign up*/ view === "signup" && (
-                    <>
-                      <div className="password-container">
-                        <input
-                          type={showConfirmPassword ? "text" : "password"}
-                          placeholder="Confirm Password"
-                          className="login-input"
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          required
-                        />
-                        <span
-                          className="password-toggle-icon-confirm"
-                          onClick={() =>
-                            setShowConfirmPassword(!showConfirmPassword)
-                          }
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="20"
-                            height="20"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className="eye-svg-confirm"
-                          >
-                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                            <circle cx="12" cy="12" r="3"></circle>
-                            {!showConfirmPassword && (
-                              <line x1="3" y1="3" x2="21" y2="21" />
-                            )}
-                          </svg>
-                        </span>
-                      </div>
-                      {confirmPassword && password !== confirmPassword && (
-                        <p className="password-warning">
-                          Passwords do not match.
-                        </p>
-                      )}
-                    </>
-                  )
-                }
-
+                {/* Validation messages */}
+                {password.length > 0 && password.length < 8 && (
+                  <p className="password-warning">Password must be at least 8 characters.</p>
+                )}
+                {view === "signup" && confirmPassword && password !== confirmPassword && (
+                  <p className="password-warning">Passwords do not match.</p>
+                )}
                 {error && <p className="password-warning">{error}</p>}
+
                 <button
                   type="submit"
                   className="submit-btn"
-                  disabled={loading || (password.length < 8 || (view === "signup" && password !== confirmPassword))}
+                  disabled={loading || (password.length < 8 && view === "signup")}
                 >
-                  {view === "login" ? "SUBMIT" : "CREATE ACCOUNT"}
+                  {loading ? "PROCESSING..." : (view === "login" ? "SUBMIT" : "CREATE ACCOUNT")}
                 </button>
 
                 <p className="signup-text">
-                  {view === "login"
-                    ? "Don't have an account? "
-                    : "Already have an account? "}
+                  {view === "login" ? "Don't have an account? " : "Already have an account? "}
                   <button
                     type="button"
                     className="link-btn"
-                    onClick={() =>
-                      setView(view === "login" ? "signup" : "login")
-                    }
+                    onClick={() => {
+                      setView(view === "login" ? "signup" : "login");
+                      setError(''); // Clear errors when switching views
+                    }}
                   >
                     {view === "login" ? "Sign up" : "Back to Sign In"}
                   </button>

@@ -4,8 +4,7 @@ const cors = require('cors');
 const User = require('./models/User');
 const authController = require('./controllers/authController');
 const jwt = require('jsonwebtoken');
-const controller = require('./controllers/controller');
-
+  
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -49,12 +48,6 @@ app.get('/api/protected', authMiddleware, (req, res) => {
   res.json({ message: 'Protected data', user: req.user });
 });
 
-// Items routes (CRUD example)
-app.get('/api/items', controller.getAllItems);
-app.get('/api/items/:id', controller.getItemById);
-app.post('/api/items', authMiddleware, controller.createItem);
-app.put('/api/items/:id', authMiddleware, controller.updateItem);
-app.delete('/api/items/:id', authMiddleware, controller.deleteItem);
 
 app.listen(PORT, async () => {
   console.log(`Server running on http://localhost:${PORT}`);

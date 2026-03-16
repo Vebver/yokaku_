@@ -13,12 +13,12 @@ const pool = mysql.createPool({
 
 class User {
 static async findByEmail(email) {
-    const [rows] = await pool.execute('SELECT * FROM users WHERE email = ? AND role = "admin"', [email]);
+    const [rows] = await pool.execute('SELECT * FROM users WHERE email = ?', [email]);
     return rows[0];
   }
 
-static async findById(id) {
-    const [rows] = await pool.execute('SELECT * FROM users WHERE id = ? AND role = "admin"', [id]);
+  static async findById(id) {
+    const [rows] = await pool.execute('SELECT * FROM users WHERE user_id = ?', [id]);
     return rows[0];
   }
 

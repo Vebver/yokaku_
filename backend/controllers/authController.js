@@ -9,15 +9,9 @@ const transporter = nodemailer.createTransport({
   port: process.env.SMTP_PORT || 587,
   secure: false,
   auth: {
-    user: process.env.SMTP_USER || 'test',
-    pass: process.env.SMTP_PASS || 'test'
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS
   }
-});
-
-// Rate limit OTP
-const otpLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 mins
-  max: 3
 });
 
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
@@ -30,7 +24,6 @@ const sendOTP = async (email, otp) => {
     text: `Your OTP is ${otp}. Valid for 5 mins.`,
     html: `<h2>Your Hangout OTP</h2><p style="font-size: 24px; font-weight: bold;">${otp}</p><p>Valid for 5 minutes.</p>`
   });
-  console.log(`Real OTP ${otp} sent to ${email}`);
 };
 
 const authController = {
@@ -39,33 +32,63 @@ const authController = {
       const { email, password } = req.body;
       const user = await User.findByEmail(email);
       
-      if (!user || !await bcrypt.compare(password, user.password_hash)) {
+      if (!user) {
         return res.status(401).json({ error: 'Invalid credentials' });
       }
 
-      const token = jwt.sign({ userId: user.id, role: user.role || 'customer' }, process.env.JWT_SECRET, { expiresIn: '24h' });
-res.json({ token, user: { id: user.id, email: user.email, firstName: user.first_name, lastName: user.last_name, role: user.role || 'customer' } });
+      // Compare the password typed with the hash in the DB
+      const isMatch = await bcrypt.compare(password, user.password_hash);
+      if (!isMatch) {
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+
+      const token = jwt.sign(
+        { userId: user.user_id, role: user.role || 'customer' }, 
+        process.env.JWT_SECRET, 
+        { expiresIn: '24h' }
+      );
+
+      res.json({ 
+        token, 
+        user: { 
+          id: user.user_id, 
+          email: user.email, 
+          firstName: user.first_name, 
+          lastName: user.last_name, 
+          role: user.role || 'customer' 
+        } 
+      });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
   },
-async signup(req, res) {
+
+  async signup(req, res) {
     try {
-      const { firstName, lastName, email } = req.body;
+      // 1. Capture the PASSWORD from the request body
+      const { firstName, lastName, email, password } = req.body;
+      
       const otp = generateOTP();
       
-      // Store OTP temporarily (use Redis or DB in production)
       req.app.locals.pendingOTPs = req.app.locals.pendingOTPs || {};
-      req.app.locals.pendingOTPs[email] = { firstName, lastName, otp, expires: Date.now() + 5*60*1000 };
+      
+      // 2. Store the actual password in temporary memory
+      req.app.locals.pendingOTPs[email] = { 
+        firstName, 
+        lastName, 
+        password, // <--- Storing your real password
+        otp, 
+        expires: Date.now() + 5*60*1000 
+      };
       
       await sendOTP(email, otp);
-      
       res.json({ message: 'OTP sent to email', email });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
   },
-async verifyOTP(req, res) {
+
+  async verifyOTP(req, res) {
     try {
       const { email, otp } = req.body;
       const pending = req.app.locals.pendingOTPs?.[email];
@@ -74,15 +97,22 @@ async verifyOTP(req, res) {
         return res.status(400).json({ error: 'Invalid or expired OTP' });
       }
 
-      // Create user
-      const password = 'default123'; // In production, collect password
-      const userId = await User.create(email, password, pending.firstName, pending.lastName);
+      // 3. Use the password we stored during the signup step
+      const userId = await User.create(
+        email, 
+        pending.password, // <--- No longer 'default123'
+        pending.firstName, 
+        pending.lastName
+      );
       
-      // Cleanup OTP
       delete req.app.locals.pendingOTPs[email];
       
       const token = jwt.sign({ userId, role: 'customer' }, process.env.JWT_SECRET, { expiresIn: '24h' });
-      res.json({ token, user: { id: userId, email, firstName: pending.firstName, lastName: pending.lastName, role: 'customer' }, message: 'Account created' });
+      res.json({ 
+        token, 
+        user: { id: userId, email, firstName: pending.firstName, lastName: pending.lastName, role: 'customer' }, 
+        message: 'Account created successfully' 
+      });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
@@ -90,4 +120,3 @@ async verifyOTP(req, res) {
 };
 
 module.exports = authController;
-

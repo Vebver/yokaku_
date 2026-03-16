@@ -16,16 +16,33 @@ import LoginSection from "./components/LoginSection";
 import AdminNavbar from "./components/admin-page/AdminNavbar";
 import AdminDashboard from "./components/admin-page/AdminDashboard.jsx";
 import Reservation from "./components/Reservation";
+import CustomerPage from "./components/customer-page/CustomerPage";
 import "./Style/App.css";
 
 function App() {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isReservationOpen, setIsReservationOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  React.useEffect(() => {
+    const token = localStorage.getItem('token');
+    setIsLoggedIn(!!token);
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    setIsLoggedIn(false);
+    window.location.href = '/';
+  };
 
   return (
     <Router>
       <div id="app">
-        <NavbarWrapper onLoginClick={() => setIsLoginOpen(true)} />
+        <NavbarWrapper
+          onLoginClick={() => setIsLoginOpen(true)}
+          isLoggedIn={isLoggedIn}
+          onLogout={handleLogout}
+        />
 
         <Routes>
           <Route
@@ -56,6 +73,7 @@ function App() {
             prevents errors if someone manually types /login 
           */}
           <Route path="/login" element={<div />} />
+          <Route path="/customer" element={<CustomerPage />} />
           <Route path="/admin/*" element={<AdminDashboard />} />
         </Routes>
 
@@ -73,10 +91,14 @@ function App() {
   );
 }
 
-const NavbarWrapper = ({ onLoginClick }) => {
+const NavbarWrapper = ({ onLoginClick, isLoggedIn, onLogout }) => {
   const location = useLocation();
   return location.pathname !== "/admin" ? (
-    <Navbar onLoginClick={onLoginClick} />
+    <Navbar
+      onLoginClick={onLoginClick}
+      isLoggedIn={isLoggedIn}
+      onLogout={onLogout}
+    />
   ) : (
     <AdminNavbar />
   );
