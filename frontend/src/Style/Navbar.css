@@ -19,8 +19,16 @@
   user-select: none;
 }
 
-.nav-menu ul {
+/* Auth Section General Container */
+.auth-section {
   display: flex;
+  align-items: center;
+  margin-left: 20px;
+}
+
+/* --- DESKTOP NAVIGATION LINKS --- */
+.nav-menu ul {
+  display: flex; /* Default for desktop */
   gap: 2rem;
   list-style: none;
   margin: 0;
@@ -40,7 +48,41 @@
   color: #FFD400;
 }
 
-/* --- Burger Menu UI --- */
+/* --- THE STYLED LOGIN BUTTON --- */
+.nav-login-btn {
+  background-color: #FFD400;
+  color: white;
+  border: 2px solid transparent;
+  padding: 8px 24px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(255, 77, 77, 0.3);
+}
+
+.nav-login-btn:hover {
+  background-color: transparent;
+  border-color: #FFD400;
+  color: white;
+  box-shadow: 0 2px 10px rgba(255, 77, 77, 0.2);
+  transform: translateY(-1px);
+}
+
+.nav-login-btn:active {
+  transform: translateY(1px);
+}
+
+/* --- BURGER MENU UI (General Styles) --- */
+.burger-container {
+  /* display will be handled by media queries and classes */
+  align-items: center;
+  justify-content: center;
+  position: relative; /* For dropdown positioning */
+}
+
 .burger-icon {
   width: 30px;
   height: 22px;
@@ -48,6 +90,7 @@
   flex-direction: column;
   justify-content: space-between;
   cursor: pointer;
+  z-index: 1001; /* Ensure burger icon is above dropdown when open */
 }
 
 .burger-icon div {
@@ -65,7 +108,7 @@
 
 .burger-dropdown {
   position: absolute;
-  top: 50px;
+  top: 50px; /* Adjust based on navbar height */
   right: 0;
   background-color: #1a1a1a;
   min-width: 180px;
@@ -73,6 +116,7 @@
   border-radius: 8px;
   box-shadow: 0 8px 16px rgba(0,0,0,0.5);
   overflow: hidden;
+  z-index: 999; /* Below burger icon */
 }
 
 .dropdown-item, .mobile-nav-links a {
@@ -96,29 +140,60 @@
   margin: 5px 0;
 }
 
-.login-highlight { color: #FFD400 !important; }
-.logout-text { color: #ff4d4d !important; }
+.login-highlight { color: #FFD400 !important; } /* Highlight for login link inside dropdown */
+.logout-text { color: #ff4d4d !important; } /* Highlight for logout link */
 
-/* --- RESPONSIVE LOGIC --- */
 
-/* On Desktop: Hide the nav items that are inside the burger */
-@media (min-width: 769px) {
-  .mobile-nav-links {
-    display: none;
-  }
+/* +++++++++++++++++++++++++++++++++++++++++++ */
+/*           RESPONSIVE LOGIC                */
+/* +++++++++++++++++++++++++++++++++++++++++++ */
+
+/* --- MOBILE-FIRST DEFAULTS (for screens up to 768px) --- */
+/* By default, on mobile, the burger is always visible, and desktop elements are hidden */
+.nav-menu {
+  display: none; /* Hide desktop nav links */
 }
 
-/* On Mobile: Hide the main bar nav items, show them inside the burger */
-@media (max-width: 768px) {
-  .nav-menu {
-    display: none; /* HOME, MENU, etc. disappear from the bar */
-  }
+.desktop-only {
+  display: none; /* Hide the styled login button */
+}
 
-  .mobile-nav-links {
-    display: block; /* HOME, MENU, etc. appear inside the burger */
-  }
+.burger-container {
+  display: flex; /* Always show burger on mobile */
+}
 
+.mobile-nav-links {
+  display: block; /* Show mobile nav links within the dropdown */
+}
+
+/* --- DESKTOP-SPECIFIC OVERRIDES (for screens 769px and wider) --- */
+@media (min-width: 769px) {
   .navbar {
-    padding: 1rem;
+    padding: 1rem 2rem; /* Restore desktop padding if changed for mobile */
+  }
+
+  /* Show desktop navigation links */
+  .nav-menu {
+    display: flex; 
+  }
+
+  /* Show the designed login button, but only if it has the 'desktop-only' class */
+  .desktop-only {
+    display: block; 
+  }
+
+  /* Hide the burger on desktop if it's in the 'mobile-only' state (i.e., logged out) */
+  .burger-container.mobile-only {
+    display: none; 
+  }
+
+  /* Show the burger on desktop if it's in the 'force-show' state (i.e., logged in) */
+  .burger-container.force-show {
+    display: flex; 
+  }
+
+  /* Hide the mobile navigation links within the burger dropdown (they are in the main nav) */
+  .mobile-nav-links {
+    display: none; 
   }
 }
