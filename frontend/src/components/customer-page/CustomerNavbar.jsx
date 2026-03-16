@@ -3,35 +3,34 @@ import { useNavigate } from "react-router-dom";
 import '../../Style/Navbar.css';
 
 function CustomerNavbar() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false); // Renamed for clarity
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const navigate = useNavigate();
 
-  const toggleMenu = () => {
-    setIsMenuOpen(!isMenuOpen);
-  };
+  // Define navItems so the map function works
+  const navItems = ['HOME', 'MENU', 'ABOUT', 'PROMOS', 'FEEDBACKS', 'CONTACT'];
+
+  const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
+  const closeMenu = () => setIsMenuOpen(false);
 
   const handleLogout = () => {
-    setIsMenuOpen(false);
+    closeMenu();
     localStorage.removeItem('token');
     navigate('/');
   };
 
   const handleProfile = () => {
-    setIsMenuOpen(false);
-    navigate('/profile');
+    closeMenu();
+    navigate('/profile'); // This matches the route in your App.js
   };
-
-  const closeMenu = () => setIsMenuOpen(false);
 
   return (
     <header className="navbar">
       <div className="logo">
-        <a href="#" onClick={closeMenu} style={{ textDecoration: 'none', color: 'inherit' }}>
+        <a href="/" onClick={closeMenu} style={{ textDecoration: 'none', color: 'inherit' }}>
           HANGOUT
         </a>
       </div>
 
-      {/* --- DESKTOP NAVIGATION (Hidden on mobile) --- */}
       <nav className="nav-menu-desktop">
         <ul>
           {navItems.map((item, index) => (
@@ -43,34 +42,31 @@ function CustomerNavbar() {
       </nav>
 
       <div className="auth-section">
-        {/* --- BURGER ICON --- */}
         <div className={`burger-icon ${isMenuOpen ? 'open' : ''}`} onClick={toggleMenu}>
           <div className="line1"></div>
           <div className="line2"></div>
           <div className="line3"></div>
         </div>
 
-        {/* --- BURGER DROPDOWN MENU --- */}
         {isMenuOpen && (
-          <div className="burger-dropdown">
-            <div className="user-info">
-               <img src="/customer-avatar.jpg" alt="User" className="avatar-small" />
-               <span>Customer</span>
+          <div className="burger-dropdown shadow-lg">
+            <div className="user-info p-3 d-flex align-items-center">
+               <img src="/customer-avatar.jpg" alt="User" className="rounded-circle me-2" style={{width: '40px', height: '40px', objectFit: 'cover'}} />
+               <span className="fw-bold">Customer</span>
             </div>
-            <hr />
+            <hr className="m-0" />
             
-            {/* Mobile Nav Links */}
-            <div className="mobile-nav-links">
+            <div className="mobile-nav-links d-md-none">
               {navItems.map((item, index) => (
-                <a key={index} href={`#${item.toLowerCase()}-section`} onClick={closeMenu}>
+                <a key={index} href={`#${item.toLowerCase()}-section`} onClick={closeMenu} className="dropdown-item">
                   {item}
                 </a>
               ))}
+              <hr className="m-0" />
             </div>
             
-            <hr />
-            <div className="dropdown-item" onClick={handleProfile}>Profile</div>
-            <div className="dropdown-item logout" onClick={handleLogout}>Logout</div>
+            <div className="dropdown-item p-3" onClick={handleProfile} style={{cursor: 'pointer'}}>Profile</div>
+            <div className="dropdown-item p-3 text-danger" onClick={handleLogout} style={{cursor: 'pointer'}}>Logout</div>
           </div>
         )}
       </div>

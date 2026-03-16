@@ -1,10 +1,13 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   BrowserRouter as Router,
   Routes,
   Route,
   useLocation,
+  Navigate, // 1. CRITICAL: Make sure this is here
 } from "react-router-dom";
+
+// Imports (Make sure these paths are correct for your project)
 import Navbar from "./components/Navbar";
 import HeroSection from "./components/HeroSection";
 import FeaturedMenu from "./components/FeaturedMenu";
@@ -17,6 +20,7 @@ import AdminNavbar from "./components/admin-page/AdminNavbar";
 import AdminDashboard from "./components/admin-page/AdminDashboard.jsx";
 import Reservation from "./components/Reservation";
 import CustomerPage from "./components/customer-page/CustomerPage";
+import CustomerProfile from "./components/customer-page/CustomerProfile";
 import "./Style/App.css";
 
 function App() {
@@ -24,7 +28,8 @@ function App() {
   const [isReservationOpen, setIsReservationOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  React.useEffect(() => {
+  // Check login status on mount
+  useEffect(() => {
     const token = localStorage.getItem('token');
     setIsLoggedIn(!!token);
   }, []);
@@ -38,6 +43,7 @@ function App() {
   return (
     <Router>
       <div id="app">
+        {/* Navbar changes based on Login state and Path */}
         <NavbarWrapper
           onLoginClick={() => setIsLoginOpen(true)}
           isLoggedIn={isLoggedIn}
@@ -45,44 +51,44 @@ function App() {
         />
 
         <Routes>
-          <Route
-            path="/"
-            element={
+          {/* Public Home Route */}
+          <Route path="/" element={
               <>
-                <HeroSection
-                  onLoginClick={() => setIsLoginOpen(true)}
-                  onReserveClick={() => setIsReservationOpen(true)} // Add this line
+                <HeroSection 
+                  onLoginClick={() => setIsLoginOpen(true)} 
+                  onReserveClick={() => setIsReservationOpen(true)} 
                 />
-                <div id="menu-section">
-                  <FeaturedMenu onLoginClick={() => setIsLoginOpen(true)} />
-                </div>
-                <div id="about-section">
-                  <AboutSection onLoginClick={() => setIsLoginOpen(true)} />
-                </div>
-                <div id="promos-section">
-                  <PromoSection />
-                </div>
+                <div id="menu-section"><FeaturedMenu onLoginClick={() => setIsLoginOpen(true)} /></div>
+                <div id="about-section"><AboutSection onLoginClick={() => setIsLoginOpen(true)} /></div>
+                <div id="promos-section"><PromoSection /></div>
                 <ReviewsSection />
-                {/* Footer moved inside the route content to keep it at the bottom */}
                 <Footer />
               </>
-            }
+          }/>
+
+          {/* PROTECTED ROUTES: Redirects to "/" if NOT logged in */}
+          <Route 
+            path="/customer" 
+            element={isLoggedIn ? <CustomerPage /> : <Navigate to="/" replace />} 
+          />
+          
+          <Route 
+            path="/profile" 
+            element={isLoggedIn ? <CustomerProfile /> : <Navigate to="/" replace />} 
           />
 
-          {/* Even though we use a modal, keeping this empty route 
-            prevents errors if someone manually types /login 
-          */}
-          <Route path="/login" element={<div />} />
-          <Route path="/customer" element={<CustomerPage />} />
+          {/* Admin Routes */}
           <Route path="/admin/*" element={<AdminDashboard />} />
+          
+          {/* Catch-all for /login path */}
+          <Route path="/login" element={<Navigate to="/" replace />} />
         </Routes>
 
-        {/* MODAL LAYER: Only for public pages */}
-        {isLoginOpen && !window.location.pathname.startsWith("/admin") && (
+        {/* MODAL LAYER */}
+        {isLoginOpen && (
           <LoginSection onClose={() => setIsLoginOpen(false)} />
         )}
         
-        {/* Add this right next to your LoginSection modal logic */}
         {isReservationOpen && (
           <Reservation onClose={() => setIsReservationOpen(false)} />
         )}
@@ -91,16 +97,25 @@ function App() {
   );
 }
 
+/**
+ * NavbarWrapper handles which Navbar to show.
+ * It must be a separate component so it can use 'useLocation'.
+ */
 const NavbarWrapper = ({ onLoginClick, isLoggedIn, onLogout }) => {
   const location = useLocation();
-  return location.pathname !== "/admin" ? (
+  
+  // If we are on an admin page, show AdminNavbar
+  if (location.pathname.startsWith("/admin")) {
+    return <AdminNavbar />;
+  }
+
+  // Otherwise show the standard Navbar
+  return (
     <Navbar
       onLoginClick={onLoginClick}
       isLoggedIn={isLoggedIn}
       onLogout={onLogout}
     />
-  ) : (
-    <AdminNavbar />
   );
 };
 
