@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import VerifyEmail from "./VerifyEmail";
 import "../Style/LoginModal.css";
-import axios from 'axios';
+import axios from "axios";
 
 function LoginSection({ onClose }) {
   const [view, setView] = useState("login"); // 'login', 'signup', 'verify'
@@ -14,29 +14,32 @@ function LoginSection({ onClose }) {
   const [confirmPassword, setConfirmPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
+    setError("");
 
     try {
-      // Ensure you are sending email and password to your backend
-      const res = await axios.post('/api/auth/login', { email, password });
-      
-      localStorage.setItem('token', res.data.token);
+      const res = await axios.post("/api/auth/login", { email, password });
 
-      if (res.data.user.role === 'admin') {
-        window.location.href = '/admin/dashboard';
+      localStorage.setItem("token", res.data.token);
+      localStorage.setItem("userRole", res.data.user.role); // Useful to save role too
+
+      if (res.data.user.role === "admin") {
+        window.location.href = "/admin/dashboard";
       } else {
-        window.location.href = '/customer';
+        // Option A: Stay on current page and refresh to update the Hero button
+        window.location.reload();
+
+        // Option B: If you really want them to go to a new page:
+        // window.location.href = '/customer';
       }
       onClose();
     } catch (err) {
-      // Improved error logging to help you debug
       console.error("Login Error:", err.response?.data);
-      setError(err.response?.data?.error || 'Login failed. Please check your credentials.');
+      setError(err.response?.data?.error || "Login failed.");
     } finally {
       setLoading(false);
     }
@@ -44,8 +47,8 @@ function LoginSection({ onClose }) {
 
   const handleSignUpSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    
+    setError("");
+
     if (password.length < 8) {
       setError("Password must be at least 8 characters.");
       return;
@@ -58,11 +61,16 @@ function LoginSection({ onClose }) {
 
     setLoading(true);
     try {
-      await axios.post('/api/auth/signup', { firstName, lastName, email, password });
-      alert('OTP sent to ' + email);
+      await axios.post("/api/auth/signup", {
+        firstName,
+        lastName,
+        email,
+        password,
+      });
+      alert("OTP sent to " + email);
       setView("verify");
     } catch (err) {
-      setError(err.response?.data?.error || 'Signup failed');
+      setError(err.response?.data?.error || "Signup failed");
     } finally {
       setLoading(false);
     }
@@ -70,12 +78,12 @@ function LoginSection({ onClose }) {
 
   const handleVerifyOTP = async (code) => {
     try {
-      const res = await axios.post('/api/auth/verifyOTP', { email, otp: code });
-      localStorage.setItem('token', res.data.token);
-      window.location.href = '/customer';
+      const res = await axios.post("/api/auth/verifyOTP", { email, otp: code });
+      localStorage.setItem("token", res.data.token);
+      window.location.href = "/customer";
       onClose();
     } catch (err) {
-      alert(err.response?.data?.error || 'Verification failed');
+      alert(err.response?.data?.error || "Verification failed");
     }
   };
 
@@ -94,10 +102,15 @@ function LoginSection({ onClose }) {
               onBack={() => setView("signup")}
               onResend={async () => {
                 try {
-                  await axios.post('/api/auth/signup', { firstName, lastName, email, password });
-                  alert('OTP resent to ' + email);
+                  await axios.post("/api/auth/signup", {
+                    firstName,
+                    lastName,
+                    email,
+                    password,
+                  });
+                  alert("OTP resent to " + email);
                 } catch (err) {
-                  setError('Resend failed');
+                  setError("Resend failed");
                 }
               }}
             />
@@ -105,8 +118,11 @@ function LoginSection({ onClose }) {
             <>
               <h2>{view === "login" ? "LOGIN" : "SIGN UP"}</h2>
 
-              <form onSubmit={view === "login" ? handleLoginSubmit : handleSignUpSubmit}>
-                
+              <form
+                onSubmit={
+                  view === "login" ? handleLoginSubmit : handleSignUpSubmit
+                }
+              >
                 {/* FIELDS ONLY FOR SIGN UP */}
                 {view === "signup" && (
                   <>
@@ -185,7 +201,9 @@ function LoginSection({ onClose }) {
                       />
                       <span
                         className="password-toggle-icon-confirm"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        onClick={() =>
+                          setShowConfirmPassword(!showConfirmPassword)
+                        }
                       >
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
@@ -201,7 +219,9 @@ function LoginSection({ onClose }) {
                         >
                           <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                           <circle cx="12" cy="12" r="3"></circle>
-                          {!showConfirmPassword && <line x1="3" y1="3" x2="21" y2="21" />}
+                          {!showConfirmPassword && (
+                            <line x1="3" y1="3" x2="21" y2="21" />
+                          )}
                         </svg>
                       </span>
                     </div>
@@ -210,29 +230,41 @@ function LoginSection({ onClose }) {
 
                 {/* Validation messages */}
                 {password.length > 0 && password.length < 8 && (
-                  <p className="password-warning">Password must be at least 8 characters.</p>
+                  <p className="password-warning">
+                    Password must be at least 8 characters.
+                  </p>
                 )}
-                {view === "signup" && confirmPassword && password !== confirmPassword && (
-                  <p className="password-warning">Passwords do not match.</p>
-                )}
+                {view === "signup" &&
+                  confirmPassword &&
+                  password !== confirmPassword && (
+                    <p className="password-warning">Passwords do not match.</p>
+                  )}
                 {error && <p className="password-warning">{error}</p>}
 
                 <button
                   type="submit"
                   className="submit-btn"
-                  disabled={loading || (password.length < 8 && view === "signup")}
+                  disabled={
+                    loading || (password.length < 8 && view === "signup")
+                  }
                 >
-                  {loading ? "PROCESSING..." : (view === "login" ? "SUBMIT" : "CREATE ACCOUNT")}
+                  {loading
+                    ? "PROCESSING..."
+                    : view === "login"
+                      ? "SUBMIT"
+                      : "CREATE ACCOUNT"}
                 </button>
 
                 <p className="signup-text">
-                  {view === "login" ? "Don't have an account? " : "Already have an account? "}
+                  {view === "login"
+                    ? "Don't have an account? "
+                    : "Already have an account? "}
                   <button
                     type="button"
                     className="link-btn"
                     onClick={() => {
                       setView(view === "login" ? "signup" : "login");
-                      setError(''); // Clear errors when switching views
+                      setError(""); // Clear errors when switching views
                     }}
                   >
                     {view === "login" ? "Sign up" : "Back to Sign In"}
