@@ -44,19 +44,19 @@ const authController = {
       }
 
       const token = jwt.sign({ userId: user.id, role: user.role || 'customer' }, process.env.JWT_SECRET, { expiresIn: '24h' });
-      res.json({ token, user: { id: user.id, email: user.email, role: user.role || 'customer' } });
+res.json({ token, user: { id: user.id, email: user.email, firstName: user.first_name, lastName: user.last_name, role: user.role || 'customer' } });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
   },
-  async signup(req, res) {
+async signup(req, res) {
     try {
-      const { name, email } = req.body;
+      const { firstName, lastName, email } = req.body;
       const otp = generateOTP();
       
       // Store OTP temporarily (use Redis or DB in production)
       req.app.locals.pendingOTPs = req.app.locals.pendingOTPs || {};
-      req.app.locals.pendingOTPs[email] = { otp, expires: Date.now() + 5*60*1000 };
+      req.app.locals.pendingOTPs[email] = { firstName, lastName, otp, expires: Date.now() + 5*60*1000 };
       
       await sendOTP(email, otp);
       
@@ -65,7 +65,7 @@ const authController = {
       res.status(500).json({ error: error.message });
     }
   },
-  async verifyOTP(req, res) {
+async verifyOTP(req, res) {
     try {
       const { email, otp } = req.body;
       const pending = req.app.locals.pendingOTPs?.[email];
@@ -76,13 +76,13 @@ const authController = {
 
       // Create user
       const password = 'default123'; // In production, collect password
-      const userId = await User.create(email, password);
+      const userId = await User.create(email, password, pending.firstName, pending.lastName);
       
       // Cleanup OTP
       delete req.app.locals.pendingOTPs[email];
       
       const token = jwt.sign({ userId, role: 'customer' }, process.env.JWT_SECRET, { expiresIn: '24h' });
-      res.json({ token, user: { id: userId, email, role: 'customer' }, message: 'Account created' });
+      res.json({ token, user: { id: userId, email, firstName: pending.firstName, lastName: pending.lastName, role: 'customer' }, message: 'Account created' });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }

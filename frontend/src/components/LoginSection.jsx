@@ -7,7 +7,8 @@ function LoginSection({ onClose }) {
   const [view, setView] = useState("login"); // 'login', 'signup', 'verify'
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -40,7 +41,7 @@ function LoginSection({ onClose }) {
     e.preventDefault();
     if (password.length >= 8 && password === confirmPassword) {
       try {
-        await axios.post('/api/auth/signup', { name, email });
+        await axios.post('/api/auth/signup', { firstName, lastName, email });
         alert('OTP sent to ' + email);
         setView("verify");
       } catch (err) {
@@ -80,13 +81,13 @@ function LoginSection({ onClose }) {
               onBack={() => setView("signup")}
               onResend={async () => {
                 try {
-                  await axios.post('/api/auth/signup', { name, email });
+                  await axios.post('/api/auth/signup', { firstName, lastName, email });
                   alert('OTP resent to ' + email);
                 } catch (err) {
                   setError('Resend failed');
                 }
               }}
-            />
+            /> 
           ) : (
             <>
               <h2>{view === "login" ? "LOGIN" : "SIGN UP"}</h2>
@@ -98,16 +99,23 @@ function LoginSection({ onClose }) {
                       : handleSignUpSubmit
                   }
                 >
-                {view === "signup" && (
-                  <input
-                    type="text"
-                    placeholder="Full Name"
-                    className="login-input"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                  />
-                )}
+                <input
+                  type="text"
+                  placeholder="Last Name"
+                  className="login-input"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  required
+                />
+
+                <input
+                  type="text"
+                  placeholder="First Name"
+                  className="login-input"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  required
+                /> 
 
                 <input
                   type="email"

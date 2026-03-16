@@ -12,21 +12,21 @@ const pool = mysql.createPool({
 });
 
 class User {
-  static async findByEmail(email) {
+static async findByEmail(email) {
     const [rows] = await pool.execute('SELECT * FROM users WHERE email = ? AND role = "admin"', [email]);
     return rows[0];
   }
 
-  static async findById(id) {
+static async findById(id) {
     const [rows] = await pool.execute('SELECT * FROM users WHERE id = ? AND role = "admin"', [id]);
     return rows[0];
   }
 
-  static async create(email, password) {
+static async create(email, password, firstName, lastName) {
     const hashedPassword = await bcrypt.hash(password, 12);
     const [result] = await pool.execute(
-      'INSERT INTO users (email, password_hash, role) VALUES (?, ?, "admin")',
-      [email, hashedPassword]
+'INSERT INTO users (first_name, last_name, email, password_hash, role) VALUES (?, ?, ?, ?, "customer")',
+      [firstName, lastName, email, hashedPassword]
     );
     return result.insertId;
   }
