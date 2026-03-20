@@ -16,7 +16,6 @@ import PromoSection from "./components/PromoSection";
 import ReviewsSection from "./components/ReviewsSection";
 import Footer from "./components/Footer";
 import LoginSection from "./components/LoginSection";
-import AdminNavbar from "./components/admin-page/AdminNavbar";
 import AdminDashboard from "./components/admin-page/AdminDashboard.jsx";
 import Reservation from "./components/Reservation";
 import CustomerPage from "./components/customer-page/CustomerPage";
@@ -100,17 +99,20 @@ function App() {
 
 /**
  * NavbarWrapper handles which Navbar to show.
- * It must be a separate component so it can use 'useLocation'.
+ * It hides the Navbar if the path starts with /admin.
  */
 const NavbarWrapper = ({ onLoginClick, isLoggedIn, onLogout }) => {
   const location = useLocation();
   
-  // If we are on an admin page, show AdminNavbar
-  if (location.pathname.startsWith("/admin")) {
-    return <AdminNavbar />;
+  // 1. Check if the current URL path starts with "/admin"
+  const isAdminPath = location.pathname.startsWith('/admin');
+
+  // 2. If it is an admin path, return null (renders nothing)
+  if (isAdminPath) {
+    return null;
   }
 
-  // Otherwise show the standard Navbar
+  // 3. Otherwise, show the standard Navbar
   return (
     <Navbar
       onLoginClick={onLoginClick}
@@ -121,3 +123,4 @@ const NavbarWrapper = ({ onLoginClick, isLoggedIn, onLogout }) => {
 };
 
 export default App;
+

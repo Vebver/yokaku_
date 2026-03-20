@@ -15,16 +15,6 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Test DB
-app.get('/api/test-db', async (req, res) => {
-  try {
-    const [rows] = await User.pool.execute('SELECT 1 as test');
-    res.json({ message: 'DB connected', test: rows[0].test });
-  } catch (error) {
-    res.status(500).json({ error: 'DB connection failed' });
-  }
-});
-
 // Auth routes
 app.post('/api/auth/login', authController.login);
 app.post('/api/auth/signup', authController.signup);
