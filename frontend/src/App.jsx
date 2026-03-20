@@ -26,7 +26,7 @@ import "./Style/App.css";
 function App() {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isReservationOpen, setIsReservationOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("token"));
 
   // Check login status on mount
   useEffect(() => {
@@ -55,6 +55,7 @@ function App() {
           <Route path="/" element={
               <>
                 <HeroSection 
+                  isLoggedIn={isLoggedIn}
                   onLoginClick={() => setIsLoginOpen(true)} 
                   onReserveClick={() => setIsReservationOpen(true)} 
                 />

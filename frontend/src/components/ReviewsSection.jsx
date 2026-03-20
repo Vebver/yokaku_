@@ -19,8 +19,20 @@ function ReviewsSection() {
     },
   ]
 
+  const handleFeedback = () => {
+    const token = localStorage.getItem("token");
+
+    if (token) {
+      // User is logged in, show the Reservation modal
+      onFeedbackClick();
+    } else {
+      // User is NOT logged in, show the Login modal
+      onLoginClick();
+    }
+  };
+
   return (
-    <section className="reviews">
+    <section className="reviews" id="feedbacks-section">
       <h2>REVIEWS</h2>
       <h3>WHAT OUR CUSTOMERS HAVE TO SAY...</h3>
       <div className="review-cards">

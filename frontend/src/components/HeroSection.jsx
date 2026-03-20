@@ -1,11 +1,10 @@
-import '../Style/HeroSection.css'
+import React from 'react';
+import "../Style/HeroSection.css";
 
-function HeroSection({ onReserveClick, onLoginClick }) {
+function HeroSection({ onLoginClick, onReserveClick, isLoggedIn }) {
   
-const handleReserveTable = () => {
-    const token = localStorage.getItem("token");
-
-    if (token) {
+  const handleReserveTable = () => {
+    if (isLoggedIn) {
       // User is logged in, show the Reservation modal
       onReserveClick();
     } else {
@@ -27,12 +26,14 @@ const handleReserveTable = () => {
             The perfect place to relax and enjoy great food with friends and family.
             We offer delicious meals, refreshing drinks and vibrant atmosphere.
           </p>
-          <button className="reserve-btn" onClick={handleReserveTable}>RESERVE A TABLE</button>
+          {/* Use the new handler here */}
+          <button className="reserve-btn" onClick={handleReserveTable}>
+            RESERVE A TABLE
+          </button>
         </div>
       </div>
     </section>
-  )
+  );
 }
 
 export default HeroSection;
-

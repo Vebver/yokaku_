@@ -480,6 +480,62 @@
     margin-top: 20px;
 }
 
+.res-success-view {
+    padding: 50px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center; /* Center content vertically */
+    text-align: center;
+    min-height: 350px; /* Ensures the modal doesn't shrink to nothing */
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.success-icon-circle {
+    width: 110px;
+    height: 110px;
+    background: rgba(255, 204, 0, 0.1); /* Very light gold circle */
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 30px;
+    border: 2px solid rgba(255, 204, 0, 0.2);
+    animation: scaleUp 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.res-success-view h2 {
+    color: #ffcc00;
+    font-weight: 900;
+    font-size: 26px;
+    margin-bottom: 15px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.res-success-view p {
+    color: #333;
+    font-size: 17px;
+    margin: 0;
+    font-weight: 500;
+}
+
+.res-success-view .small-notice {
+    color: #888;
+    font-size: 14px;
+    margin-top: 15px;
+    max-width: 320px;
+    line-height: 1.6;
+}
+
+/* Ensure the success animation is distinct */
+@keyframes scaleUp {
+    0% { transform: scale(0.5); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+
 
 /* Ensure the form stacks on small mobile screens */
 @media (max-width: 480px) {

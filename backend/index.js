@@ -4,7 +4,7 @@ const cors = require('cors');
 const User = require('./models/User');
 const authController = require('./controllers/authController');
 const jwt = require('jsonwebtoken');
-  
+const db = require('./config/db');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -29,6 +29,30 @@ app.get('/api/test-db', async (req, res) => {
 app.post('/api/auth/login', authController.login);
 app.post('/api/auth/signup', authController.signup);
 app.post('/api/auth/verifyOTP', authController.verifyOTP);
+
+// backend/routes/reservation.js
+app.post('/api/reserve', (req, res) => {
+    const { date, time, guests, email, firstName, lastName, phone, packageName, userId } = req.body;
+
+    // Convert "12:00 PM" to "12:00:00" for MySQL
+    const [timePart, period] = time.split(' '); 
+    let [hours, minutes] = timePart.split(':'); 
+    if (period === 'PM' && hours !== '12') hours = parseInt(hours) + 12;
+    else if (period === 'AM' && hours === '12') hours = '00';
+    const formattedTime = `${hours}:${minutes}:00`;
+
+    const sql = `INSERT INTO reservations 
+    (user_id, first_name, last_name, email, phone, reservation_date, reservation_time, num_guests, package_name, status) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`;
+
+    db.query(sql, [userId || null, firstName, lastName, email, phone, date, formattedTime, guests, packageName], (err, result) => {
+        if (err) {
+            console.error(err);
+            return res.status(500).json({ error: err.message });
+        }
+        res.status(200).send("Success");
+    });
+});
 
 // Protected routes example
 const authMiddleware = (req, res, next) => {
