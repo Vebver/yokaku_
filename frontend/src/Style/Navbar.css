@@ -19,13 +19,6 @@
   user-select: none;
 }
 
-/* Auth Section General Container */
-.auth-section {
-  display: flex;
-  align-items: center;
-  margin-left: 20px;
-}
-
 /* --- DESKTOP NAVIGATION LINKS --- */
 .nav-menu ul {
   display: flex; /* Default for desktop */
@@ -175,6 +168,34 @@
   display: block; /* Show mobile nav links within the dropdown */
 }
 
+.notification-container {
+  position: relative; /* Essential for the badge to sit on top */
+  cursor: pointer;
+  margin-right: 20px; /* Space between bell and burger icon */
+  display: flex;
+  align-items: center;
+}
+
+.notification-badge {
+  position: absolute;
+  top: -5px;
+  right: -8px;
+  background-color: red; /* Or any contrasting color */
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 50%;
+  border: 2px solid #fff; /* Optional: adds a ring around the badge */
+}
+
+.auth-section {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 15px;
+}
+
 /* --- DESKTOP-SPECIFIC OVERRIDES (for screens 769px and wider) --- */
 @media (min-width: 769px) {
   .navbar {
@@ -199,6 +220,10 @@
   /* Show the burger on desktop if it's in the 'force-show' state (i.e., logged in) */
   .burger-container.force-show {
     display: flex; 
+  }
+   .burger-dropdown {
+    min-width: 180px; /* Optional: Make it slightly narrower on desktop */
+    top: 55px;       /* Adjust distance from top if needed */
   }
 
   /* Hide the mobile navigation links within the burger dropdown (they are in the main nav) */

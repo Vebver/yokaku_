@@ -17,12 +17,12 @@ function CustomerPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem("token");
     if (token) {
       setIsLoggedIn(true);
     } else {
       // If not logged in, redirect to home or show login
-      navigate('/');
+      navigate("/");
     }
   }, [navigate]);
 
@@ -33,14 +33,18 @@ function CustomerPage() {
   return (
     <div id="app">
       <HeroSection
+        isLoggedIn={isLoggedIn}
         onLoginClick={() => setIsLoginOpen(true)}
         onReserveClick={() => setIsReservationOpen(true)}
       />
       <div id="menu-section">
+        isLoggedIn={isLoggedIn}
         <FeaturedMenu onLoginClick={() => setIsLoginOpen(true)} />
       </div>
       <div id="about-section">
-        <AboutSection onLoginClick={() => setIsLoginOpen(true)} />
+        <AboutSection
+        isLoggedIn={isLoggedIn}
+        onLoginClick={() => setIsLoginOpen(true)} />
       </div>
       <div id="promos-section">
         <PromoSection />
@@ -49,9 +53,7 @@ function CustomerPage() {
       <Footer />
 
       {/* MODAL LAYER */}
-      {isLoginOpen && (
-        <LoginSection onClose={() => setIsLoginOpen(false)} />
-      )}
+      {isLoginOpen && <LoginSection onClose={() => setIsLoginOpen(false)} />}
       {isReservationOpen && (
         <Reservation onClose={() => setIsReservationOpen(false)} />
       )}

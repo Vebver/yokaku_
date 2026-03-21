@@ -1,55 +1,92 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import "../../Style/Navbar.css";
 
 function CustomerNavbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [unreadCount] = useState(3);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const navItems = ["HOME", "MENU", "ABOUT", "PROMOS", "FEEDBACKS", "CONTACT"];
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
   const closeMenu = () => setIsMenuOpen(false);
 
+  // --- LOGOUT LOGIC ---
   const handleLogout = () => {
     closeMenu();
-    localStorage.clear();
-    window.location.href = "/";
+    localStorage.clear(); // Clears token so user is logged out
+    window.location.href = "/"; // Force refresh to landing page
   };
 
-  const handleProfile = () => {
+  // --- NAVIGATION LOGIC ---
+  const handleLogoClick = (e) => {
+    e.preventDefault();
     closeMenu();
-    navigate("/profile");
+    // If already on customer page, just scroll to top
+    if (location.pathname === "/customer") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } else {
+      navigate("/customer");
+    }
   };
 
-  // --- ADD THIS FUNCTION ---
-  const handleNotifications = () => {
+  const handleNavClick = (e, item) => {
+    e.preventDefault();
     closeMenu();
-    navigate("/notifications");
+
+    // 1. HOME logic: Just go to /customer top
+    if (item === "HOME") {
+      if (location.pathname === "/customer") {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } else {
+        navigate("/customer");
+      }
+      return;
+    }
+
+    // 2. SCROLL logic for other sections
+    const sectionId = `${item.toLowerCase()}-section`;
+
+    if (location.pathname === "/customer") {
+      // If already on /customer, scroll immediately
+      const element = document.getElementById(sectionId);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth" });
+      }
+    } else {
+      // If on /notifications or /profile, go home first, then scroll
+      navigate("/customer");
+      setTimeout(() => {
+        const element = document.getElementById(sectionId);
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth" });
+        }
+      }, 100); // Small delay to allow the page to load
+    }
   };
 
   return (
     <header className="navbar">
       <div className="logo">
-        <a
-          href="/"
-          onClick={(e) => {
-            e.preventDefault();
-            navigate("/");
-            closeMenu();
-          }}
-          style={{ textDecoration: "none", color: "inherit" }}
+        <div
+          onClick={handleLogoClick}
+          style={{ cursor: "pointer", fontWeight: "900" }}
         >
           HANGOUT
-        </a>
+        </div>
       </div>
 
-      <nav className="nav-menu-desktop">
+      <nav className="nav-menu">
         <ul>
           {navItems.map((item, index) => (
             <li key={index}>
-              <a href={`#${item.toLowerCase()}-section`}>{item}</a>
+              <a
+                href={`#${item.toLowerCase()}-section`}
+                onClick={(e) => handleNavClick(e, item)}
+              >
+                {item}
+              </a>
             </li>
           ))}
         </ul>
@@ -80,63 +117,60 @@ function CustomerNavbar() {
           <span className="notification-badge">3</span>
         </div>
 
-        {/* BURGER ICON */}
-        <div
-          className={`burger-icon ${isMenuOpen ? "open" : ""}`}
-          onClick={toggleMenu}
-        >
-          <div className="line1"></div>
-          <div className="line2"></div>
-          <div className="line3"></div>
-        </div>
-
-        {/* DROPDOWN MENU */}
-        {isMenuOpen && (
-          <div className="burger-dropdown shadow-lg">
-            <div className="user-info p-3 d-flex align-items-center">
-              <img
-                src="/customer-avatar.jpg"
-                alt="User"
-                className="rounded-circle me-2"
-                style={{ width: "40px", height: "40px", objectFit: "cover" }}
-              />
-              <span className="fw-bold" style={{ color: "#fff" }}>
-                Customer
-              </span>
-            </div>
-            <hr className="m-0" />
-
-            {/* 1. Notifications Link */}
-            <div
-              className="dropdown-item p-3"
-              onClick={() => {
-                navigate("/notifications");
-                closeMenu();
-              }}
-              style={{ cursor: "pointer", color: "white" }}
-            >
-              Notifications
-            </div>
-
-            {/* 2. Profile Link */}
-            <div
-              className="dropdown-item p-3"
-              onClick={handleProfile}
-              style={{ cursor: "pointer", color: "white" }}
-            >
-              Profile
-            </div>
-
-            {/* 3. Logout Link */}
-            <div
-              className="dropdown-item p-3 text-danger"
-              onClick={handleLogout}
-              style={{ cursor: "pointer" }}
-            >
-              Logout
-            </div>
+        {/* BURGER MENU */}
+        <div className="burger-container">
+          <div
+            className={`burger-icon ${isMenuOpen ? "open" : ""}`}
+            onClick={toggleMenu}
+          >
+            <div className="bar1"></div>
+            <div className="bar2"></div>
+            <div className="bar3"></div>
           </div>
-        )}
+
+          {/* DROPDOWN MENU */}
+          {isMenuOpen && (
+            <div className="burger-dropdown shadow-lg">
+              {/* --- ADD THIS WRAPPER CLASS --- */}
+              <div className="mobile-nav-links">
+                {navItems.map((item, index) => (
+                  <div
+                    key={index}
+                    className="dropdown-item"
+                    onClick={(e) => handleNavClick(e, item)}
+                  >
+                    {item}
+                  </div>
+                ))}
+                <div className="dropdown-divider"></div>
+              </div>
+              {/* --- END WRAPPER --- */}
+
+              {/* These remain visible on both Desktop and Mobile */}
+              <div
+                className="dropdown-item"
+                onClick={() => {
+                  navigate("/notifications");
+                  closeMenu();
+                }}
+              >
+                Notifications
+              </div>
+              <div
+                className="dropdown-item"
+                onClick={() => {
+                  navigate("/profile");
+                  closeMenu();
+                }}
+              >
+                Profile
+              </div>
+              <div className="dropdown-item logout-text" onClick={handleLogout}>
+                Logout
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );
