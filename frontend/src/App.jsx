@@ -21,6 +21,7 @@ import Reservation from "./components/Reservation";
 import CustomerPage from "./components/customer-page/CustomerPage";
 import CustomerProfile from "./components/customer-page/CustomerProfile";
 import "./Style/App.css";
+import Notifications from "./components/customer-page/Notifications";
 
 function App() {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
@@ -29,14 +30,14 @@ function App() {
 
   // Check login status on mount
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem("token");
     setIsLoggedIn(!!token);
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
+    localStorage.removeItem("token");
     setIsLoggedIn(false);
-    window.location.href = '/';
+    window.location.href = "/";
   };
 
   return (
@@ -51,46 +52,68 @@ function App() {
 
         <Routes>
           {/* Public Home Route */}
-          <Route path="/" element={
+          <Route
+            path="/"
+            element={
               <>
-                <HeroSection 
+                <HeroSection
                   isLoggedIn={isLoggedIn}
-                  onLoginClick={() => setIsLoginOpen(true)} 
-                  onReserveClick={() => setIsReservationOpen(true)} 
+                  onLoginClick={() => setIsLoginOpen(true)}
+                  onReserveClick={() => setIsReservationOpen(true)}
                 />
-                <div id="menu-section"><FeaturedMenu isLoggedIn={isLoggedIn}
-                  onLoginClick={() => setIsLoginOpen(true)}/></div>
-                <div id="about-section"><AboutSection isLoggedIn={isLoggedIn}
-                  onLoginClick={() => setIsLoginOpen(true)}/></div>
-                <div id="promos-section"><PromoSection /></div>
+                <div id="menu-section">
+                  <FeaturedMenu
+                    isLoggedIn={isLoggedIn}
+                    onLoginClick={() => setIsLoginOpen(true)}
+                  />
+                </div>
+                <div id="about-section">
+                  <AboutSection
+                    isLoggedIn={isLoggedIn}
+                    onLoginClick={() => setIsLoginOpen(true)}
+                  />
+                </div>
+                <div id="promos-section">
+                  <PromoSection />
+                </div>
                 <ReviewsSection />
                 <Footer />
               </>
-          }/>
+            }
+          />
 
           {/* PROTECTED ROUTES: Redirects to "/" if NOT logged in */}
-          <Route 
-            path="/customer" 
-            element={isLoggedIn ? <CustomerPage /> : <Navigate to="/" replace />} 
+          <Route
+            path="/customer"
+            element={
+              isLoggedIn ? <CustomerPage /> : <Navigate to="/" replace />
+            }
           />
-          
-          <Route 
-            path="/profile" 
-            element={isLoggedIn ? <CustomerProfile /> : <Navigate to="/" replace />} 
+
+          <Route
+            path="/profile"
+            element={
+              isLoggedIn ? <CustomerProfile /> : <Navigate to="/" replace />
+            }
+          />
+
+          <Route
+            path="/notifications"
+            element={
+              isLoggedIn ? <Notifications /> : <Navigate to="/" replace />
+            }
           />
 
           {/* Admin Routes */}
           <Route path="/admin/*" element={<AdminDashboard />} />
-          
+
           {/* Catch-all for /login path */}
           <Route path="/login" element={<Navigate to="/" replace />} />
         </Routes>
 
         {/* MODAL LAYER */}
-        {isLoginOpen && (
-          <LoginSection onClose={() => setIsLoginOpen(false)} />
-        )}
-        
+        {isLoginOpen && <LoginSection onClose={() => setIsLoginOpen(false)} />}
+
         {isReservationOpen && (
           <Reservation onClose={() => setIsReservationOpen(false)} />
         )}
@@ -105,9 +128,9 @@ function App() {
  */
 const NavbarWrapper = ({ onLoginClick, isLoggedIn, onLogout }) => {
   const location = useLocation();
-  
+
   // 1. Check if the current URL path starts with "/admin"
-  const isAdminPath = location.pathname.startsWith('/admin');
+  const isAdminPath = location.pathname.startsWith("/admin");
 
   // 2. If it is an admin path, return null (renders nothing)
   if (isAdminPath) {
@@ -125,4 +148,3 @@ const NavbarWrapper = ({ onLoginClick, isLoggedIn, onLogout }) => {
 };
 
 export default App;
-

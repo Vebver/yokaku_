@@ -108,15 +108,24 @@
 
 .burger-dropdown {
   position: absolute;
-  top: 50px; /* Adjust based on navbar height */
+  top: 60px;
   right: 0;
   background-color: #1a1a1a;
-  min-width: 180px;
-  border: 1px solid #333;
+  min-width: 200px;
   border-radius: 8px;
-  box-shadow: 0 8px 16px rgba(0,0,0,0.5);
-  overflow: hidden;
-  z-index: 999; /* Below burger icon */
+  border: 1px solid #333;
+  z-index: 2000;
+  /* ADD THESE TWO LINES BELOW */
+  height: auto !important; 
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* Ensure the text inside items is always visible */
+.dropdown-item {
+  color: white !important;
+  display: block !important;
+  width: 100%;
 }
 
 .dropdown-item, .mobile-nav-links a {
