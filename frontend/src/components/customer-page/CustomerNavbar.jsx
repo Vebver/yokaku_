@@ -13,10 +13,18 @@ function CustomerNavbar() {
   const closeMenu = () => setIsMenuOpen(false);
 
   const handleLogout = () => {
-    closeMenu();
-    localStorage.removeItem('token');
-    navigate('/');
-  };
+  // 1. Close any open UI elements
+  closeMenu();
+
+  // 2. Clear ALL localStorage data 
+  // This removes token, userId, and all reservation progress (res_step, etc.)
+  localStorage.clear(); 
+
+  // 3. Force the page to go to Home and REFRESH
+  // window.location.href is better than navigate() for Logouts 
+  // because it completely resets all React states to "Like New"
+  window.location.href = '/'; 
+};
 
   const handleProfile = () => {
     closeMenu();

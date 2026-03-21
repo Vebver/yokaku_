@@ -24,17 +24,36 @@ function LoginSection({ onClose }) {
     try {
       const res = await axios.post("/api/auth/login", { email, password });
 
-      localStorage.setItem("token", res.data.token);
-      localStorage.setItem("userRole", res.data.user.role); // Useful to save role too
+      console.log("User Data from Backend:", res.data.user);
 
+      // --- 1. CLEANUP PREVIOUS SESSION DATA ---
+      // Before logging in the new user, we wipe any old reservation progress
+      // that might be sitting in localStorage from a previous account.
+      const keysToClear = [
+        "res_step", 
+        "res_package", 
+        "res_guests", 
+        "res_personalInfo", 
+        "res_formData"
+      ];
+      keysToClear.forEach(key => localStorage.removeItem(key));
+      // ----------------------------------------
+
+      // --- 2. SAVE NEW USER AUTH DETAILS ---
+      localStorage.setItem("token", res.data.token);
+      localStorage.setItem("userRole", res.data.user.role); 
+
+      // Save the new user's ID
+      const idToStore = res.data.user.user_id || res.data.user.id;
+      localStorage.setItem("userId", idToStore); 
+
+      // --- 3. REDIRECT / RELOAD ---
       if (res.data.user.role === "admin") {
         window.location.href = "/admin/dashboard";
       } else {
-        // Option A: Stay on current page and refresh to update the Hero button
+        // Refresh ensures all components (like HeroSection) 
+        // restart with the new account's data
         window.location.reload();
-
-        // Option B: If you really want them to go to a new page:
-        // window.location.href = '/customer';
       }
       onClose();
     } catch (err) {
@@ -43,7 +62,7 @@ function LoginSection({ onClose }) {
     } finally {
       setLoading(false);
     }
-  };
+};
 
   const handleSignUpSubmit = async (e) => {
     e.preventDefault();

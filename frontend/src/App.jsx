@@ -58,8 +58,10 @@ function App() {
                   onLoginClick={() => setIsLoginOpen(true)} 
                   onReserveClick={() => setIsReservationOpen(true)} 
                 />
-                <div id="menu-section"><FeaturedMenu onLoginClick={() => setIsLoginOpen(true)} /></div>
-                <div id="about-section"><AboutSection onLoginClick={() => setIsLoginOpen(true)} /></div>
+                <div id="menu-section"><FeaturedMenu isLoggedIn={isLoggedIn}
+                  onLoginClick={() => setIsLoginOpen(true)}/></div>
+                <div id="about-section"><AboutSection isLoggedIn={isLoggedIn}
+                  onLoginClick={() => setIsLoginOpen(true)}/></div>
                 <div id="promos-section"><PromoSection /></div>
                 <ReviewsSection />
                 <Footer />
