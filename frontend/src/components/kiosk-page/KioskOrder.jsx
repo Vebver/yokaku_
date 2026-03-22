@@ -155,8 +155,7 @@ const KioskOrder = () => {
 
       <div className="bottom-bar">
         <div className="left-actions">
-          <button className="btn-assist">🔔 Assist Me</button>
-          <button className="btn-make-another" onClick={() => navigate('/kiosk')}>Make another order</button>
+          <button className="btn-assist" onClick={() => navigate('/kiosk')}>🔔 Assist Me</button>
         </div>
         <button className="btn-send-order" disabled={orderItems.length === 0} onClick={() => alert("Order Sent!")}>Send Order</button>
       </div>
