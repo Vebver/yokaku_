@@ -47,7 +47,7 @@ const CashierDineIn = () => {
 
   const handleCancel = () => {
     if(window.confirm("Are you sure you want to cancel?")) {
-      navigate('/cashier/selection');
+      navigate('/cashier-selection');
     }
   };
 

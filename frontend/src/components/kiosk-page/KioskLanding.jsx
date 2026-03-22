@@ -1,13 +1,13 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import "../../Style/CashierLanding.css";
+import "../../Style/KioskLanding.css";
 
-const CashierLanding = () => {
+const KioskLanding = () => {
   const navigate = useNavigate();
 
   const handleStart = () => {
     // Navigate to your menu or selection page
-    navigate('/cashier/selection'); 
+    navigate('/kiosk/order'); 
   };
 
   return (
@@ -29,4 +29,4 @@ const CashierLanding = () => {
   );
 };
 
-export default CashierLanding;
+export default KioskLanding;

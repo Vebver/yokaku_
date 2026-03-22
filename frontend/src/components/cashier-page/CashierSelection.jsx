@@ -15,7 +15,7 @@ const CashierSelection = () => {
 
   const handleSelection = (type) => {
     if (type === 'dine-in') {
-      navigate('/cashier/selection/dinein'); // Or your menu page
+      navigate('/cashier-selection/dinein'); // Or your menu page
     } else {
       navigate('/menu');
     }
