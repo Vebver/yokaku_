@@ -26,6 +26,7 @@ import CashierSelection from "./components/cashier-page/CashierSelection.jsx";
 import CashierDineIn from "./components/cashier-page/CashierDineIn.jsx";
 import KioskLanding from "./components/kiosk-page/KioskLanding.jsx";
 import KioskOrder from "./components/kiosk-page/KioskOrder.jsx";
+import KioskOrderActive from "./components/kiosk-page/KioskOrderActive.jsx";
 import "./Style/App.css";
 
 function App() {
@@ -104,6 +105,7 @@ function App() {
           <Route path="/cashier-selection/dinein" element={<CashierDineIn />} />
           <Route path="/kiosk" element={<KioskLanding />} />
           <Route path="/kiosk/order" element={<KioskOrder />} />
+          <Route path="/kiosk/order/active" element={<KioskOrderActive />} />
         </Routes>
 
         {/* MODALS */}

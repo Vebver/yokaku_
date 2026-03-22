@@ -76,6 +76,28 @@
     animation: slideUpFade 1.2s ease-out forwards;
 }
 
+/* Add to your CSS file */
+.order-layout-adjustment {
+    max-width: 1200px; /* Wider than the selection page to fit two panels */
+    width: 90%;
+}
+
+.order-panel-card {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 20px;
+    margin: 10px;
+    flex: 1;
+    cursor: default !important; /* Overriding the pointer cursor from the selection card */
+}
+
+.panels-container {
+    display: flex;
+    gap: 20px;
+    margin-top: 20px;
+}
+
 @keyframes slideUpFade {
     from {
         opacity: 0;
