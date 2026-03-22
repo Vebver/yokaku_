@@ -1,4 +1,4 @@
-/* The background dimming layer */
+/* --- LAYOUT & OVERLAY --- */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -9,81 +9,44 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 10001; /* Very high to cover everything */
+  z-index: 10001;
   backdrop-filter: blur(4px);
   animation: fadeIn 0.3s ease-out;
 }
 
-/* The actual white box */
 .modal-content {
   background: #1a1a1a;
   color: white;
-  padding: 40px;
+  padding: 40px 30px; /* Reduced side padding slightly for more internal space */
   border-radius: 15px;
-  width: 90%;
-  max-width: 400px;
+  width: 95%; /* Responsive width */
+  max-width: 420px; /* Slightly wider to accommodate 6 OTP boxes comfortably */
   position: relative;
   text-align: center;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
   border: 1px solid #333;
-  animation: slideUp 0.4s ease-out;
+  transition: all 0.3s ease-in-out; /* Smooth resizing when switching panels */
+  overflow: hidden;
 }
 
-/* --- FIX FOR PASSWORD FIELD --- */
-
-.password-container {
-  position: relative; /* This allows the icon to be positioned 'inside' */
-  width: 100%;
-  display: flex;
-  align-items: center;
-}
-
-.password-container input {
-  width: 100%;
-  padding-right: 45px; /* Important: makes space so text doesn't hide behind icon */
-}
-
-/* The Icon Styling */
-.password-toggle-icon {
-  position: absolute;
-  right: 12px;
-  color: #888;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  user-select: none;
-  z-index: 5;
-  transition: color 0.2s;
-}
-
-.password-toggle-icon:hover {
-  color: #ffcc00;
-}
-
-/* Prevents browser icons from overlapping your custom icon */
-input::-ms-reveal,
-input::-ms-clear {
-  display: none;
-}
-
-/* --- END FIX --- */
-
+/* --- TYPOGRAPHY & HEADERS --- */
 .modal-content h2 {
   margin-bottom: 25px;
   font-family: 'Arial Black', sans-serif;
   letter-spacing: 2px;
   color: #ffcc00;
+  text-transform: uppercase;
 }
 
+/* --- FORMS & INPUTS --- */
 .modal-content form {
   display: flex;
   flex-direction: column;
   gap: 15px;
 }
 
-.modal-content input {
+.login-input {
+  width: 100%;
   padding: 12px;
   border-radius: 5px;
   border: 1px solid #444;
@@ -91,13 +54,48 @@ input::-ms-clear {
   color: white;
   outline: none;
   font-size: 16px;
+  box-sizing: border-box; /* Crucial for responsiveness */
 }
 
-.modal-content input:focus {
+.login-input:focus {
   border-color: #ffcc00;
 }
 
-.modal-content .submit-btn {
+/* --- PASSWORD FIELD & ICON --- */
+.password-container {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.password-container input {
+  padding-right: 45px;
+}
+
+.password-toggle-icon, .password-toggle-icon-confirm {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  z-index: 10;
+}
+
+.eye-svg, .eye-svg-confirm {
+  color: #888;
+  transition: color 0.2s;
+}
+
+.password-toggle-icon:hover .eye-svg,
+.eye-svg.active, .password-toggle-icon-confirm:hover .eye-svg-confirm, .eye-svg-confirm.active{
+  color: #ffcc00;
+}
+
+/* --- SUBMIT BUTTON --- */
+.submit-btn {
   background: #ffcc00;
   color: black;
   border: none;
@@ -110,11 +108,115 @@ input::-ms-clear {
   margin-top: 10px;
 }
 
-.modal-content .submit-btn:hover {
+.submit-btn:hover:not(:disabled) {
   background: #e6b800;
   transform: translateY(-2px);
 }
 
+.submit-btn:disabled {
+  background: #555 !important;
+  color: #888;
+  cursor: not-allowed;
+}
+
+/* --- OTP / EMAIL VERIFICATION --- */
+.verify-desc {
+  color: #bbb;
+  font-size: 14px;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.user-email {
+  color: #ffcc00;
+  font-weight: bold;
+  word-break: break-all;
+}
+
+.otp-container {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px; /* Managed gap for 6 boxes */
+  margin: 10px 0 25px 0;
+  width: 100%;
+}
+
+.otp-input {
+  flex: 1; /* Makes boxes scale based on available width */
+  min-width: 35px;
+  max-width: 50px;
+  height: 55px;
+  background: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 8px;
+  color: white;
+  text-align: center;
+  font-size: 20px;
+  font-weight: bold;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.otp-input:focus {
+  border-color: #ffcc00;
+  box-shadow: 0 0 8px rgba(255, 204, 0, 0.3);
+}
+
+.verify-footer {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 14px;
+  color: #888;
+}
+
+/* --- TEXT LINKS & SWITCHERS --- */
+.signup-text, .verify-footer p {
+  font-size: 14px;
+  color: #888;
+}
+
+/* Common style for all "Link-style" buttons and anchors */
+.link-btn, .signup-text a, .resend-btn {
+  background: none;
+  border: none;
+  color: #ffcc00;
+  font-weight: bold;
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: 14px;
+  padding: 0;
+  transition: color 0.2s;
+  text-decoration: none;
+}
+
+.link-btn:hover, .signup-text a:hover, .resend-btn:hover {
+  color: #e6b800;
+}
+
+.back-link {
+  color: #888;
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.back-link:hover {
+  color: white;
+  text-decoration: underline;
+}
+
+/* --- ERRORS & WARNINGS --- */
+.password-warning {
+  color: #d9534f;
+  font-size: 12px;
+  margin-top: -10px;
+  margin-bottom: 5px;
+  text-align: left;
+  width: 100%;
+}
+
+/* --- UTILS --- */
 .close-btn {
   position: absolute;
   top: 15px;
@@ -124,32 +226,44 @@ input::-ms-clear {
   background: none;
   color: #888;
   cursor: pointer;
-}
-/* Ensure the icon is centered vertically */
-.password-toggle-icon {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  z-index: 10;
+  line-height: 1;
 }
 
-/* Style the SVG itself */
-.eye-svg {
-  color: #888; /* Default grey */
-  transition: color 0.2s;
+.close-btn:hover {
+  color: white;
 }
 
-.password-toggle-icon:hover .eye-svg {
-  color: #ffcc00; /* Turns Gold on hover */
+/* --- ANIMATIONS --- */
+.fade-in {
+  animation: slideUp 0.4s ease-out;
 }
 
-/* When the password is shown, we can keep the icon bright gold */
-.eye-svg.active {
-  color: #ffcc00;
+/* This hides the default "eye" icon that Microsoft Edge adds */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
 }
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+/* This hides the default icons in Chrome and Safari (if they appear) */
+input::-webkit-contacts-auto-fill-button,
+input::-webkit-credentials-auto-fill-button {
+  visibility: hidden;
+  display: none !important;
+  pointer-events: none;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { 
+    transform: translateY(20px); 
+    opacity: 0; 
+  }
+  to { 
+    transform: translateY(0); 
+    opacity: 1; 
+  }
+}

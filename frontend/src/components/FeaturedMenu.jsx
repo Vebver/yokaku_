@@ -1,6 +1,6 @@
 import '../Style/FeaturedMenu.css'
 
-function FeaturedMenu() {
+function FeaturedMenu({ onLoginClick }) {
   const menus = [
     { title: 'UNLIMITED WINGS & MORE', img: '/wings.jpg' },
     { title: 'PIZZA & PIZZA BURGERS', img: '/pizza.jpg' },
@@ -22,7 +22,7 @@ function FeaturedMenu() {
           </div>
         ))}
       </div>
-      <button className="all-menu-btn" onClick={handleAllMenu}>
+      <button className="all-menu-btn" onClick={onLoginClick}>
         ALL AVAILABLE MENU
       </button>
     </section>

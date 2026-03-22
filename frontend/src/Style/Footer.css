@@ -18,7 +18,12 @@ footer .footer-logo {
 
 footer .logo-circle {
   background-color: #FFD400;
-  color: black;
+  color: white;
+  text-shadow: 
+  -2px -2px 0 black,
+  2px -2px 0 black,
+  -2px 2px 0 black,
+  2px -2px 0 black;
   width: 90px;
   height: 90px;
   border-radius: 50%;

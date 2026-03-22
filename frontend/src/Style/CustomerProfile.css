@@ -1,0 +1,28 @@
+/* Customer Profile Page - LoginSection style copy */
+.card {
+  transition: transform 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+}
+
+.btn-warning {
+  background-color: #FFD400;
+  border-color: #FFD400;
+}
+
+.btn-warning:hover {
+  background-color: #e6bf00;
+  border-color: #e6bf00;
+}
+
+/* Label styling for the info grid */
+.text-muted {
+  font-size: 0.85rem;
+}
+
+/* Ensure the background of the page looks good */
+body {
+  background-color: #f8f9fa;
+}

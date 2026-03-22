@@ -1,0 +1,155 @@
+.notifications-page {
+    background-color: #e4e4e4; /* Matches navbar */
+    min-height: 90vh;
+    padding: 40px 20px;
+    color: white;
+}
+
+.notifications-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.notifications-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    border-bottom: 2px solid #ffcc00;
+    padding-bottom: 15px;
+}
+
+.notifications-header h1 {
+    font-family: 'Arial Black', sans-serif;
+    color: #ffcc00;
+    font-size: 28px;
+    margin: 0;
+    letter-spacing: 2px;
+}
+
+.mark-all-btn {
+    background: none;
+    border: 2px solid #ffcc00;
+    color: #ffcc00;
+    cursor: pointer;
+    font-weight: 700;
+    text-decoration: none;
+    padding: 10px 15px;
+    border-radius: 20px;
+}
+
+.mark-all-btn:hover {
+    background-color: #ffcc00;
+    color: #FFF;
+}
+
+.notifications-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px; /* Increased gap for shadow breathing room */
+    padding: 20px 10px;
+}
+
+.notification-item {
+    background: linear-gradient(145deg, #222222, #1a1a1a); /* Subtle slope effect */
+    border-radius: 15px;
+    padding: 20px;
+    display: flex;
+    gap: 15px;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    
+    /* THE 3D SHADOW BOX */
+    /* Layer 1: Dark outer shadow (bottom-right) */
+    /* Layer 2: Subtle light highlight (top-left) to simulate a bezel */
+    box-shadow: 8px 8px 16px #0a0a0a, 
+                -2px -2px 10px rgba(255, 255, 255, 0.05);
+    
+    border: 1px solid #2a2a2a;
+}
+
+/* Hover effect: Card "lifts" up and glow intensifies */
+.notification-item:hover {
+    transform: translateY(-5px) scale(1.01);
+    border-color: #ffcc00;
+    box-shadow: 12px 12px 20px #050505, 
+                -4px -4px 15px rgba(255, 204, 0, 0.1);
+}
+
+/* 3D Unread State */
+.notification-item.unread {
+    background: linear-gradient(145deg, #262626, #1e1e1e);
+    border-left: 6px solid #ffcc00;
+    /* Adding a gold "glow" to the unread cards */
+    box-shadow: 8px 8px 16px #0a0a0a, 
+                -2px -2px 10px rgba(255, 204, 0, 0.05);
+}
+
+/* The Gold Dot Glow */
+.notification-item.unread .status-dot {
+    background-color: #ffcc00;
+    box-shadow: 0 0 10px #ffcc00;
+}
+
+.notification-item.unread:hover {
+    box-shadow: 12px 12px 25px #050505, 
+                0px 0px 20px rgba(255, 204, 0, 0.2);
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: transparent;
+    margin-top: 5px;
+}
+
+.notification-content {
+    flex: 1;
+}
+
+.notification-top {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+/* Inner 3D Text effect */
+.notification-title {
+    font-weight: 800;
+    color: #ffcc00;
+    font-size: 16px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.notification-time {
+    font-size: 12px;
+    color: #777;
+    font-weight: 600;
+}
+
+.notification-message {
+    color: #bbbbbb;
+    font-size: 14px;
+    line-height: 1.6;
+    margin: 5px 0 0 0;
+}
+
+.no-notifications {
+    text-align: center;
+    padding: 50px;
+    color: #666;
+}
+
+@media (max-width: 600px) {
+    .notification-top {
+        flex-direction: column;
+        gap: 5px;
+    }
+    .notification-time {
+        text-align: left;
+    }
+}

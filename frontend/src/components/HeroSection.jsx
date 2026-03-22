@@ -1,9 +1,17 @@
-import '../Style/HeroSection.css'
+import React from 'react';
+import "../Style/HeroSection.css";
 
-function HeroSection() {
-  const handleReserve = () => {
-    alert('Reservation functionality coming soon!')
-  }
+function HeroSection({ onLoginClick, onReserveClick, isLoggedIn }) {
+  
+  const handleReserveTable = () => {
+    if (isLoggedIn) {
+      // User is logged in, show the Reservation modal
+      onReserveClick();
+    } else {
+      // User is NOT logged in, show the Login modal
+      onLoginClick();
+    }
+  };
 
   return (
     <section className="hero position-relative">
@@ -18,12 +26,14 @@ function HeroSection() {
             The perfect place to relax and enjoy great food with friends and family.
             We offer delicious meals, refreshing drinks and vibrant atmosphere.
           </p>
-          <button className="reserve-btn" onClick={handleReserve}>RESERVE A TABLE</button>
+          {/* Use the new handler here */}
+          <button className="reserve-btn" onClick={handleReserveTable}>
+            RESERVE A TABLE
+          </button>
         </div>
       </div>
     </section>
-  )
+  );
 }
 
-export default HeroSection
-
+export default HeroSection;

@@ -1,4 +1,4 @@
-/* Navbar Styles */
+/* --- Desktop / General Styles --- */
 .navbar {
   background-color: #000;
   color: #fff;
@@ -8,8 +8,8 @@
   padding: 1rem 2rem;
   position: sticky;
   top: 0;
-  z-index: 100;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
 }
 
 .navbar .logo {
@@ -17,105 +17,217 @@
   font-size: 1.5rem;
   letter-spacing: 2px;
   user-select: none;
-  cursor: pointer;
 }
 
-.navbar .nav-menu ul {
-  list-style: none;
-  display: flex;
+/* --- DESKTOP NAVIGATION LINKS --- */
+.nav-menu ul {
+  display: flex; /* Default for desktop */
   gap: 2rem;
+  list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.navbar .nav-menu ul li a {
+.nav-menu ul li a {
   color: white;
   text-transform: uppercase;
   font-weight: 600;
   font-size: 0.9rem;
-  transition: color 0.2s ease;
-  position: relative;
   text-decoration: none;
+  transition: color 0.2s ease;
 }
 
-.navbar .nav-menu ul li a:hover {
+.nav-menu ul li a:hover {
   color: #FFD400;
 }
 
-.navbar .nav-menu ul li a::after {
-  content: '';
-  position: absolute;
-  bottom: -4px;
-  left: 0;
-  width: 0;
-  height: 2px;
+/* --- THE STYLED LOGIN BUTTON --- */
+.nav-login-btn {
   background-color: #FFD400;
-  transition: width 0.3s ease;
+  color: black;
+  border: 2px solid transparent;
+  padding: 8px 24px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(255, 77, 77, 0.3);
 }
 
-.navbar .nav-menu ul li a:hover::after {
+.nav-login-btn:hover {
+  background-color: transparent;
+  border-color: #FFD400;
+  color: white;
+  box-shadow: 0 2px 10px rgba(255, 77, 77, 0.2);
+  transform: translateY(-1px);
+}
+
+.nav-login-btn:active {
+  transform: translateY(1px);
+}
+
+/* --- BURGER MENU UI (General Styles) --- */
+.burger-container {
+  /* display will be handled by media queries and classes */
+  align-items: center;
+  justify-content: center;
+  position: relative; /* For dropdown positioning */
+}
+
+.burger-icon {
+  width: 30px;
+  height: 22px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer;
+  z-index: 1001; /* Ensure burger icon is above dropdown when open */
+}
+
+.burger-icon div {
+  width: 100%;
+  height: 3px;
+  background-color: #FFD400; /* Yellow lines */
+  transition: 0.3s;
+  border-radius: 5px;
+}
+
+/* Burger Animation to X */
+.burger-icon.open .bar1 { transform: translateY(9.5px) rotate(45deg); }
+.burger-icon.open .bar2 { opacity: 0; }
+.burger-icon.open .bar3 { transform: translateY(-9.5px) rotate(-45deg); }
+
+.burger-dropdown {
+  position: absolute;
+  top: 60px;
+  right: 0;
+  background-color: #1a1a1a;
+  min-width: 200px;
+  border-radius: 8px;
+  border: 1px solid #333;
+  z-index: 2000;
+  /* ADD THESE TWO LINES BELOW */
+  height: auto !important; 
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* Ensure the text inside items is always visible */
+.dropdown-item {
+  color: white !important;
+  display: block !important;
   width: 100%;
 }
 
-.navbar .auth-buttons {
-  display: flex;
-  gap: 1rem;
-}
-
-.navbar .auth-buttons button {
-  border-radius: 9999px;
-  font-weight: 700;
-  padding: 0.4rem 1.2rem;
-  border: none;
+.dropdown-item, .mobile-nav-links a {
+  display: block;
+  padding: 12px 20px;
+  color: white;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 0.85rem;
-  text-transform: uppercase;
 }
 
-.navbar .login-btn {
-  background: transparent;
+.dropdown-item:hover, .mobile-nav-links a:hover {
+  background-color: #333;
   color: #FFD400;
-  border: 2px solid #FFD400;
 }
 
-.navbar .login-btn:hover {
-  background: #FFD400;
-  color: #000;
+.dropdown-divider {
+  height: 1px;
+  background-color: #333;
+  margin: 5px 0;
 }
 
-@media (max-width: 900px) {
+.login-highlight { color: #FFD400 !important; } /* Highlight for login link inside dropdown */
+.logout-text { color: #ff4d4d !important; } /* Highlight for logout link */
+
+
+/* +++++++++++++++++++++++++++++++++++++++++++ */
+/*           RESPONSIVE LOGIC                */
+/* +++++++++++++++++++++++++++++++++++++++++++ */
+
+/* --- MOBILE-FIRST DEFAULTS (for screens up to 768px) --- */
+/* By default, on mobile, the burger is always visible, and desktop elements are hidden */
+.nav-menu {
+  display: none; /* Hide desktop nav links */
+}
+
+.desktop-only {
+  display: none; /* Hide the styled login button */
+}
+
+.burger-container {
+  display: flex; /* Always show burger on mobile */
+}
+
+.mobile-nav-links {
+  display: block; /* Show mobile nav links within the dropdown */
+}
+
+.notification-container {
+  position: relative; /* Essential for the badge to sit on top */
+  cursor: pointer;
+  margin-right: 20px; /* Space between bell and burger icon */
+  display: flex;
+  align-items: center;
+}
+
+.notification-badge {
+  position: absolute;
+  top: -5px;
+  right: -8px;
+  background-color: red; /* Or any contrasting color */
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 50%;
+  border: 2px solid #fff; /* Optional: adds a ring around the badge */
+}
+
+.auth-section {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 15px;
+}
+
+/* --- DESKTOP-SPECIFIC OVERRIDES (for screens 769px and wider) --- */
+@media (min-width: 769px) {
   .navbar {
-    flex-wrap: wrap;
-    padding: 1rem;
+    padding: 1rem 2rem; /* Restore desktop padding if changed for mobile */
   }
 
-  .navbar .nav-menu {
-    display: none;
+  /* Show desktop navigation links */
+  .nav-menu {
+    display: flex; 
   }
 
-  .navbar .auth-buttons {
-    order: 3;
-    width: 100%;
-    justify-content: center;
-    margin-top: 1rem;
+  /* Show the designed login button, but only if it has the 'desktop-only' class */
+  .desktop-only {
+    display: block; 
   }
 
-  .navbar .logo {
-    width: 100%;
-    text-align: center;
-    margin-bottom: 0.5rem;
+  /* Hide the burger on desktop if it's in the 'mobile-only' state (i.e., logged out) */
+  .burger-container.mobile-only {
+    display: none; 
+  }
+
+  /* Show the burger on desktop if it's in the 'force-show' state (i.e., logged in) */
+  .burger-container.force-show {
+    display: flex; 
+  }
+   .burger-dropdown {
+    min-width: 180px; /* Optional: Make it slightly narrower on desktop */
+    top: 55px;       /* Adjust distance from top if needed */
+  }
+
+  /* Hide the mobile navigation links within the burger dropdown (they are in the main nav) */
+  .mobile-nav-links {
+    display: none; 
   }
 }
-
-@media (max-width: 600px) {
-  .navbar .auth-buttons {
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .navbar .auth-buttons button {
-    width: 100%;
-  }
-}
-
