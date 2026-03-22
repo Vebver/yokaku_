@@ -108,7 +108,6 @@ const KioskOrder = () => {
           </div>
 
           <div className="panel-footer-btns">
-            <button className="btn-outline-gold">Add a note</button>
             <button className="btn-filled-gold" onClick={handleAddToOrder}>Add to Order</button>
           </div>
         </div>
