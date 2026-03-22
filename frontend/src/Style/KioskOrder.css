@@ -138,6 +138,13 @@
     gap: 12px;
 }
 
+.qty-val {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #333;
+}
+
+
 .qty-picker button {
     width: 30px;
     height: 30px;
@@ -152,7 +159,7 @@
     align-items: center;
 }
 
-.qty-picker button.plus { background: #ffcc00; color: white; border: none; }
+.qty-picker button.plus { background: #ffcc00; color: white; border: none; transition: all 0.2s ease;}
 
 /* --- Right Panel Table --- */
 .table-header {
@@ -176,10 +183,17 @@
 .order-item {
     display: flex;
     justify-content: space-between;
-    font-weight: 600;
-    margin-bottom: 10px;
-    font-size: 1rem;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #f0f0f0;
 }
+
+.item-desc {
+    flex: 1;
+    font-weight: 600;
+    color: #444;
+}
+
 
 .item-actions {
     display: flex;
@@ -259,6 +273,79 @@
     border: none; 
     padding: 12px clamp(30px, 6vw, 80px);
     box-shadow: 0 4px 15px rgba(255,204,0,0.4); 
+}
+
+.total-wings-container {
+    padding: 15px 0;
+    border-top: 1px solid #ddd;
+    margin-top: 10px;
+}
+
+.total-wings-container p {
+    margin: 0;
+    font-weight: 800;
+    font-size: 1.1rem;
+    color: #333;
+    text-align: right;
+}
+
+.total-wings-container span {
+    color: #d4ac0d; /* Gold */
+    font-size: 1.3rem;
+    margin-left: 5px;
+}
+
+.total-wings-container span.limit-reached {
+    color: #ff4d4d; /* Red if at 24 */
+    text-decoration: underline;
+}
+
+/* Style for the disabled plus button */
+.qty-picker button.plus:disabled {
+    background-color: #e0e0e0; /* Light gray */
+    color: #999;
+    border-color: #ccc;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none; /* Remove any hover lift effects */
+    opacity: 0.6;
+}
+
+.receipt-qty-control {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end; /* Keeps it aligned to the right column */
+    gap: 12px; /* Space between number and minus button */
+    min-width: 60px;
+}
+
+.btn-minus-small {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 2px solid #d4ac0d; /* Gold border */
+    background: transparent;
+    color: #d4ac0d;
+    font-size: 18px;
+    font-weight: 900;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.2s ease;
+    padding-bottom: 2px; /* Visual center for the minus dash */
+}
+
+.btn-minus-small:hover {
+    background-color: #ffcc00;
+    color: black;
+    border-color: #ffcc00;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
 }
 
 /* --- Responsive Media Queries --- */
