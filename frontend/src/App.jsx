@@ -22,9 +22,9 @@ import CustomerPage from "./components/customer-page/CustomerPage";
 import CustomerProfile from "./components/customer-page/CustomerProfile";
 import CustomerNavbar from "./components/customer-page/CustomerNavbar.jsx";
 import Notifications from "./components/customer-page/Notifications";
-import KioskLanding from "./components/kiosk-page/KioskLanding.jsx";
-import KioskSelection from "./components/kiosk-page/KioskSelection.jsx";
-import KioskDineIn from "./components/kiosk-page/KioskDineIn.jsx";
+import CashierLanding from "./components/cashier-page/CashierLanding.jsx";
+import CashierSelection from "./components/cashier-page/CashierSelection.jsx";
+import CashierDineIn from "./components/cashier-page/CashierDineIn.jsx";
 import "./Style/App.css";
 
 function App() {
@@ -99,9 +99,9 @@ function App() {
 
           <Route path="/admin/*" element={<AdminDashboard />} />
           <Route path="/login" element={<Navigate to="/" replace />} />
-          <Route path="/kiosk" element={<KioskLanding />} />
-          <Route path="/kiosk/selection" element={<KioskSelection />} />
-          <Route path="/kiosk/selection/dinein" element={<KioskDineIn />} />
+          <Route path="/cashier" element={<CashierLanding />} />
+          <Route path="/cashier/selection" element={<CashierSelection />} />
+          <Route path="/cashier/selection/dinein" element={<CashierDineIn />} />
         </Routes>
 
         {/* MODALS */}
@@ -122,7 +122,7 @@ const NavbarWrapper = ({ onLoginClick, isLoggedIn, onLogout }) => {
   const location = useLocation();
 
   // 1. Hide for Admin
-  if (location.pathname.startsWith("/admin") || location.pathname.startsWith("/kiosk")) {
+  if (location.pathname.startsWith("/admin") || location.pathname.startsWith("/cashier")) {
     return null;
   }
 

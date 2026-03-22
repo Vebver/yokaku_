@@ -1,9 +1,9 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import '../../Style/KioskDineIn.css';
+import '../../Style/CashierDineIn.css';
 import FoodItemModal from './FoodItemModal'; // Import the modal
 
-const KioskDineIn = () => {
+const CashierDineIn = () => {
   const navigate = useNavigate();
   const scrollRef = useRef(null);
   
@@ -18,14 +18,14 @@ const KioskDineIn = () => {
   ];
 
   const menuItems = [
-    { id: 1, name: 'Classic Buffalo', price: 299 },
-    { id: 2, name: 'Honey Garlic', price: 320 },
-    { id: 3, name: 'Spicy BBQ', price: 310 },
-    { id: 4, name: 'Garlic Parmesan', price: 340 },
-    { id: 5, name: 'Teriyaki Wings', price: 299 },
-    { id: 6, name: 'Lemon Pepper', price: 310 },
-    { id: 7, name: 'Atomic Hot', price: 350 },
-    { id: 8, name: 'Soy Ginger', price: 320 },
+    { id: 1, name: 'Classic Buffalo'},
+    { id: 2, name: 'Honey Garlic'},
+    { id: 3, name: 'Spicy BBQ'},
+    { id: 4, name: 'Garlic Parmesan'},
+    { id: 5, name: 'Teriyaki Wings'},
+    { id: 6, name: 'Lemon Pepper'},
+    { id: 7, name: 'Atomic Hot'},
+    { id: 8, name: 'Soy Ginger'},
   ];
 
   // --- HANDLERS ---
@@ -47,7 +47,7 @@ const KioskDineIn = () => {
 
   const handleCancel = () => {
     if(window.confirm("Are you sure you want to cancel?")) {
-      navigate('/kiosk/selection');
+      navigate('/cashier/selection');
     }
   };
 
@@ -85,8 +85,6 @@ const KioskDineIn = () => {
           </div>
 
           <div className="scroll-arrow down" onClick={() => handleScroll('down')}>▼</div>
-
-          <button className="assist-btn">🔔 Assist Me</button>
         </aside>
 
         {/* 3. MAIN CONTENT AREA */}
@@ -103,7 +101,7 @@ const KioskDineIn = () => {
                 </div>
                 <div className="item-info">
                   <h4>{item.name}</h4>
-                  <p>₱{item.price.toFixed(2)}</p>
+                  {/*<p>₱{item.price.toFixed(2)}</p>*/}
                 </div>
               </div>
             ))}
@@ -134,4 +132,4 @@ const KioskDineIn = () => {
   );
 };
 
-export default KioskDineIn;
+export default CashierDineIn;

@@ -1,8 +1,8 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import '../../Style/KioskSelection.css';
+import '../../Style/CashierSelection.css';
 
-const KioskSelection = () => {
+const CashierSelection = () => {
   const navigate = useNavigate();
 
   // Dynamic greeting based on time of day
@@ -15,7 +15,7 @@ const KioskSelection = () => {
 
   const handleSelection = (type) => {
     if (type === 'dine-in') {
-      navigate('/kiosk/selection/dinein'); // Or your menu page
+      navigate('/cashier/selection/dinein'); // Or your menu page
     } else {
       navigate('/menu');
     }
@@ -72,4 +72,4 @@ const KioskSelection = () => {
   );
 };
 
-export default KioskSelection;
+export default CashierSelection;
