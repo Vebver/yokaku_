@@ -105,7 +105,7 @@ function App() {
           <Route path="/cashier-selection/dinein" element={<CashierDineIn />} />
           <Route path="/kiosk-selection" element={<KioskSelection />} />
           <Route path="/kiosk-selection/kiosk-menu" element={<KioskMenu />} />
-          <Route path="/kiosk-selection/kiosk-reservation" element={<KioskMenu />} />
+          <Route path="/kiosk-selection/kiosk-reservation" element={<KioskReservation />} />
         </Routes>
 
         {/* MODALS */}

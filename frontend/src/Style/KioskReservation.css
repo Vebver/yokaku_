@@ -1,0 +1,294 @@
+/* --- Background & Wrapper --- */
+.kiosk-res-wrapper {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: url('/hero.jpg') no-repeat center center; /* Ensure image path matches */
+    background-size: cover;
+    position: relative;
+    overflow: hidden;
+    font-family: 'Montserrat', sans-serif;
+}
+
+.kiosk-background-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(10px);
+    z-index: 1;
+}
+
+/* --- Back Button --- */
+.back-btn {
+    position: absolute;
+    top: 40px;
+    left: 40px;
+    z-index: 10;
+    background: transparent;
+    border: 2px solid #ffcc00;
+    color: #ffcc00;
+    padding: 10px 20px;
+    border-radius: 50px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.back-btn:hover {
+    background: #ffcc00;
+    color: #000;
+    box-shadow: 0 0 15px rgba(255, 204, 0, 0.4);
+}
+
+/* --- Content Layout --- */
+.kiosk-res-content {
+    position: relative;
+    z-index: 2;
+    text-align: center;
+    width: 100%;
+    max-width: 600px;
+    padding: 20px;
+}
+
+.logo-main { color: #ffcc00; font-size: 1.5rem; letter-spacing: 4px; margin-bottom: 0; }
+.logo-sub { color: #fff; font-size: 0.9rem; margin-top: -5px; opacity: 0.8; }
+
+.res-title {
+    color: #ffcc00;
+    font-size: 3.5rem;
+    font-weight: 900;
+    margin: 30px 0 10px 0;
+    text-transform: uppercase;
+}
+
+.res-subtitle {
+    color: #fff;
+    font-size: 1.2rem;
+    margin-bottom: 40px;
+    opacity: 0.9;
+}
+
+/* --- Main Card --- */
+.res-card {
+    background: #f8f9fa;
+    border-radius: 40px;
+    padding: 50px 40px;
+    box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* Container for the icon and the text label below it */
+.qr-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;    /* Centers horizontally */
+    justify-content: center; /* Centers vertically */
+    width: 100%;
+    cursor: pointer;
+}
+
+/* The Yellow Circle */
+.qr-scanner-glow {
+    width: 160px;  /* Maintain size */
+    height: 160px; /* Maintain size */
+    border-radius: 50%;
+    background: #fff;
+    border: 4px solid #ffcc00;
+    
+    /* --- THE ALIGNMENT FIX --- */
+    display: flex;
+    align-items: center;     /* Centers the SVG icon vertically */
+    justify-content: center;  /* Centers the SVG icon horizontally */
+    /* ------------------------- */
+
+    box-shadow: 0 0 20px rgba(255, 204, 0, 0.3);
+    animation: pulseGlow 2s infinite;
+    margin-bottom: 15px; /* Space between circle and label */
+}
+
+
+.qr-inner-circle {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Ensure the label is centered and bold */
+.qr-label {
+    font-weight: 800;
+    color: #1a1a1a;
+    font-size: 1.1rem;
+    text-transform: uppercase;
+    text-align: center;
+    margin: 0;
+}
+
+/* Divider */
+.or-divider {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    margin: 30px 0;
+    gap: 15px;
+}
+
+.or-divider .line { height: 2px; background: #ddd; flex: 1; }
+.or-divider span { font-weight: 900; color: #999; }
+
+/* Input & Button */
+.input-section { width: 100%; }
+
+.res-input {
+    width: 100%;
+    padding: 18px 25px;
+    border-radius: 15px;
+    border: 2px solid #ddd;
+    font-size: 1.1rem;
+    outline: none;
+    margin-bottom: 20px;
+    text-align: center;
+    transition: border-color 0.3s ease;
+}
+
+.res-input:focus {
+    border-color: #ffcc00;
+}
+
+.confirm-res-btn {
+    width: 100%;
+    padding: 20px;
+    border-radius: 15px;
+    border: none;
+    background: #ffcc00;
+    color: #000;
+    font-size: 1.2rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 0 10px 20px rgba(255, 204, 0, 0.2);
+    transition: all 0.3s ease;
+}
+
+.confirm-res-btn:hover:not(:disabled) {
+    background: #ffd633;
+    transform: translateY(-3px);
+    box-shadow: 0 15px 30px rgba(255, 204, 0, 0.4);
+}
+
+.confirm-res-btn:disabled {
+    background: #ddd;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* --- QR Scanner Layout --- */
+.qr-scanner-glow.clickable {
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.qr-scanner-glow.clickable:active {
+    transform: scale(0.95);
+}
+
+.scanner-container {
+    width: 100%;
+    max-width: 400px;
+    background: #000;
+    border-radius: 20px;
+    overflow: hidden;
+    position: relative;
+    border: 3px solid #ffcc00;
+}
+
+/* Specific styling for the html5-qrcode element */
+#reader {
+    width: 100%;
+    border: none !important;
+}
+
+#reader video {
+    border-radius: 15px;
+}
+
+/* Style for the button that appears in the scanner UI */
+#reader button {
+    background-color: #ffcc00 !important;
+    color: black !important;
+    border: none !important;
+    padding: 10px 20px !important;
+    border-radius: 5px !important;
+    font-weight: bold !important;
+    cursor: pointer !important;
+    margin: 10px 0 !important;
+}
+
+.close-scanner-btn {
+    width: 100%;
+    padding: 15px;
+    background: #ff4d4d;
+    color: white;
+    border: none;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    cursor: pointer;
+}
+
+/* Add these to your existing CSS file */
+
+#reader {
+    width: 100% !important;
+    background: #000;
+    border-radius: 20px;
+    border: none !important;
+}
+
+/* Force hide the library's internal UI elements (The bug from your photo) */
+#reader__dashboard, 
+#reader__status_span, 
+#reader video + div {
+    display: none !important;
+}
+
+#reader video {
+    width: 100% !important;
+    height: auto !important;
+    border-radius: 20px;
+    object-fit: cover;
+}
+
+.scanner-container {
+    width: 100%;
+    min-height: 250px;
+    background: #000;
+    border-radius: 25px;
+    border: 4px solid #ffcc00;
+    overflow: hidden;
+    position: relative;
+}
+
+/* --- Animations --- */
+@keyframes pulseGlow {
+    0% { box-shadow: 0 0 0px rgba(255, 204, 0, 0.4); }
+    50% { box-shadow: 0 0 30px rgba(255, 204, 0, 0.7); }
+    100% { box-shadow: 0 0 0px rgba(255, 204, 0, 0.4); }
+}
+
+.fade-in {
+    animation: fadeInUp 0.8s ease-out forwards;
+}
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
