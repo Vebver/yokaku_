@@ -1,0 +1,183 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@800;900&family=Dancing+Script:wght@700&display=swap');
+
+:root {
+    --gold: #ffcc00;
+    --dark-bg: #1a1a1a;
+    --card-gradient: linear-gradient(145deg, #ffffff, #e6e6e6);
+    --shadow-deep: 0 20px 40px rgba(0, 0, 0, 0.4);
+    --shadow-gold: 0 30px 60px rgba(255, 204, 0, 0.2);
+    --transition-smooth: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* --- Layout & Background --- */
+.kiosk-selection-wrapper {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: url('/hero.jpg') no-repeat center center;
+    background-size: cover;
+    position: relative;
+    overflow: hidden;
+}
+
+.kiosk-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(8px);
+    z-index: 1;
+}
+
+.selection-content {
+    position: relative;
+    z-index: 2;
+    text-align: center;
+    width: 100%;
+    max-width: 1000px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* --- Logo & Typography --- */
+.kiosk-logo-small {
+    margin-bottom: clamp(20px, 5vh, 40px);
+}
+
+.logo-main {
+    font-family: 'Montserrat', sans-serif;
+    color: var(--gold);
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 900;
+    letter-spacing: 6px;
+    margin: 0;
+    text-transform: uppercase;
+}
+
+.logo-sub {
+    font-family: 'Dancing Script', cursive;
+    color: #fff;
+    font-size: clamp(1.2rem, 3vw, 1.8rem);
+    margin-top: -5px;
+}
+
+.greeting-text {
+    font-family: 'Montserrat', sans-serif;
+    color: var(--gold);
+    font-size: clamp(2.2rem, 6vw, 4rem);
+    font-weight: 800;
+    margin-bottom: 10px;
+}
+
+.sub-greeting {
+    color: #fff;
+    font-size: clamp(1rem, 2.5vw, 1.5rem);
+    margin-bottom: clamp(30px, 6vh, 60px);
+    opacity: 0.9;
+}
+
+/* --- Selection Cards --- */
+.options-container {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    width: 100%;
+}
+
+.selection-card {
+    background: var(--card-gradient);
+    width: clamp(280px, 35vw, 360px);
+    height: clamp(350px, 45vh, 450px);
+    border-radius: 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 60px 20px;
+    cursor: pointer;
+    box-shadow: var(--shadow-deep);
+    transition: var(--transition-smooth);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.selection-card:hover {
+    transform: translateY(-15px) scale(1.03);
+    box-shadow: var(--shadow-gold);
+}
+
+.selection-card:active {
+    transform: scale(0.98);
+}
+
+.card-label {
+    font-family: 'Montserrat', sans-serif;
+    color: var(--dark-bg);
+    font-size: clamp(1.8rem, 3vw, 2.4rem);
+    font-weight: 900;
+    margin: 0;
+    letter-spacing: 1px;
+}
+
+.icon-circle {
+    width: clamp(120px, 15vw, 180px);
+    height: clamp(120px, 15vw, 180px);
+    background: var(--gold);
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 
+        inset 0 4px 10px rgba(0, 0, 0, 0.1), 
+        0 10px 20px rgba(255, 204, 0, 0.3);
+}
+
+.icon-circle svg {
+    width: 60%;
+    height: 60%;
+}
+
+/* --- Animations --- */
+.fade-in {
+    animation: fadeInScale 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes fadeInScale {
+    from { 
+        opacity: 0; 
+        transform: scale(0.95) translateY(20px); 
+    }
+    to { 
+        opacity: 1; 
+        transform: scale(1) translateY(0); 
+    }
+}
+
+/* --- Mobile & Tablet Scaling --- */
+@media (max-width: 900px) {
+    .options-container {
+        gap: 20px;
+    }
+}
+
+@media (max-width: 768px) {
+    .options-container {
+        flex-direction: column;
+        align-items: center;
+        gap: 30px;
+    }
+
+    .selection-card {
+        width: 80%;
+        max-width: 400px;
+        height: auto;
+        min-height: 320px;
+        padding: 40px 20px;
+    }
+
+    .icon-circle {
+        margin-top: 20px;
+    }
+}
