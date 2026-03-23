@@ -20,6 +20,9 @@ app.post('/api/auth/login', authController.login);
 app.post('/api/auth/signup', authController.signup);
 app.post('/api/auth/verifyOTP', authController.verifyOTP);
 
+app.post('/api/otp/send', authController.sendReservationOTP);
+app.post('/api/otp/verify', authController.verifyReservationOTP);
+
 // backend/routes/reservation.js
 app.post('/api/reserve', (req, res) => {
     // 1. Destructure incoming data

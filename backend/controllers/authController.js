@@ -116,6 +116,46 @@ const authController = {
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
+  },
+  
+async sendReservationOTP(req, res) {
+    try {
+      const { email } = req.body;
+      if (!email) return res.status(400).json({ error: "Email is required" });
+
+      const otp = generateOTP();
+      
+      // Store in memory (expires in 5 mins)
+      req.app.locals.pendingOTPs = req.app.locals.pendingOTPs || {};
+      req.app.locals.pendingOTPs[email] = { 
+        otp, 
+        expires: Date.now() + 5*60*1000 
+      };
+
+      await sendOTP(email, otp);
+      res.json({ message: 'OTP sent to email successfully' });
+    } catch (error) {
+      console.error("OTP Send Error:", error);
+      res.status(500).json({ error: 'Failed to send email' });
+    }
+  },
+
+  // ADD THIS METHOD (Specific for Reservation verification):
+  async verifyReservationOTP(req, res) {
+    try {
+      const { email, otp } = req.body;
+      const pending = req.app.locals.pendingOTPs?.[email];
+
+      if (!pending || pending.expires < Date.now() || pending.otp !== otp) {
+        return res.status(400).json({ error: 'Invalid or expired OTP' });
+      }
+
+      // Success! Clear the OTP so it can't be reused
+      delete req.app.locals.pendingOTPs[email];
+      res.json({ success: true, message: 'OTP verified' });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
   }
 };
 

@@ -27,11 +27,13 @@ import CashierDineIn from "./components/cashier-page/CashierDineIn.jsx";
 import KioskLanding from "./components/kiosk-page/KioskLanding.jsx";
 import KioskOrder from "./components/kiosk-page/KioskOrder.jsx";
 import KioskOrderActive from "./components/kiosk-page/KioskOrderActive.jsx";
+import ReservationSuccess from "./components/ReservationSuccess";
 import "./Style/App.css";
 
 function App() {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isReservationOpen, setIsReservationOpen] = useState(false);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("token"));
 
   useEffect(() => {
@@ -43,6 +45,12 @@ function App() {
     localStorage.removeItem("token");
     setIsLoggedIn(false);
     window.location.href = "/";
+  };
+
+  const handleReservationSuccess = () => {
+    console.log("Reservation Successful! Closing modal and showing success message.");
+    setIsReservationOpen(false); // 1. Close the big modal
+    setShowSuccessMessage(true); // 2. Open the "Wait for approval" message
   };
 
   return (
@@ -73,9 +81,15 @@ function App() {
                     onLoginClick={() => setIsLoginOpen(true)}
                     onReserveClick={() => setIsReservationOpen(true)}
                   />
-                  <div id="menu-section"><FeaturedMenu /></div>
-                  <div id="about-section"><AboutSection /></div>
-                  <div id="promos-section"><PromoSection /></div>
+                  <div id="menu-section">
+                    <FeaturedMenu />
+                  </div>
+                  <div id="about-section">
+                    <AboutSection />
+                  </div>
+                  <div id="promos-section">
+                    <PromoSection />
+                  </div>
                   <ReviewsSection />
                   <Footer />
                 </>
@@ -86,17 +100,23 @@ function App() {
           {/* PROTECTED ROUTES */}
           <Route
             path="/customer"
-            element={isLoggedIn ? <CustomerPage /> : <Navigate to="/" replace />}
+            element={
+              isLoggedIn ? <CustomerPage /> : <Navigate to="/" replace />
+            }
           />
 
           <Route
             path="/profile"
-            element={isLoggedIn ? <CustomerProfile /> : <Navigate to="/" replace />}
+            element={
+              isLoggedIn ? <CustomerProfile /> : <Navigate to="/" replace />
+            }
           />
 
           <Route
             path="/notifications"
-            element={isLoggedIn ? <Notifications /> : <Navigate to="/" replace />}
+            element={
+              isLoggedIn ? <Notifications /> : <Navigate to="/" replace />
+            }
           />
 
           <Route path="/admin/*" element={<AdminDashboard />} />
@@ -111,7 +131,13 @@ function App() {
         {/* MODALS */}
         {isLoginOpen && <LoginSection onClose={() => setIsLoginOpen(false)} />}
         {isReservationOpen && (
-          <Reservation onClose={() => setIsReservationOpen(false)} />
+          <Reservation
+            onClose={() => setIsReservationOpen(false)}
+            onSuccess={handleReservationSuccess}
+          />
+        )}
+        {showSuccessMessage && (
+          <ReservationSuccess onClose={() => setShowSuccessMessage(false)} />
         )}
       </div>
     </Router>
@@ -126,7 +152,11 @@ const NavbarWrapper = ({ onLoginClick, isLoggedIn, onLogout }) => {
   const location = useLocation();
 
   // 1. Hide for Admin
-  if (location.pathname.startsWith("/admin") || location.pathname.startsWith("/cashier-selection") || location.pathname.startsWith("/kiosk")) {
+  if (
+    location.pathname.startsWith("/admin") ||
+    location.pathname.startsWith("/cashier-selection") ||
+    location.pathname.startsWith("/kiosk")
+  ) {
     return null;
   }
 
