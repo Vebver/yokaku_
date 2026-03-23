@@ -25,57 +25,20 @@ app.post('/api/otp/verify', authController.verifyReservationOTP);
 
 // backend/routes/reservation.js
 app.post('/api/reserve', (req, res) => {
-    // 1. Destructure incoming data
+    // FORCE RESPONSE IMMEDIATELY FOR TESTING
+    console.log("📥 [TEST] Request received! Sending response back to React NOW.");
+    
+    // This will trigger the Alert in React instantly
+    res.status(200).json({ success: true, message: "TESTING" });
+
+    // NOW try the database stuff in the background
     let { date, time, guests, email, firstName, lastName, phone, packageName, userId } = req.body;
-
-    // --- CRUCIAL FIX for user_id ---
-    // Convert string "null", empty strings, or undefined into a real JavaScript null
-    // This ensures MySQL receives a valid NULL or a valid Number.
-    const finalUserId = (userId === "null" || userId === "" || !userId) ? null : userId;
-
-    // 2. Convert "12:00 PM" to "12:00:00" for MySQL TIME column
-    try {
-        const [timePart, period] = time.split(' '); 
-        let [hours, minutes] = timePart.split(':'); 
-        
-        let hoursInt = parseInt(hours);
-        if (period === 'PM' && hoursInt !== 12) {
-            hoursInt += 12;
-        } else if (period === 'AM' && hoursInt === 12) {
-            hoursInt = 0;
-        }
-        
-        // Ensure hours are padded with a zero if needed (e.g., "09:00:00")
-        const formattedHours = hoursInt.toString().padStart(2, '0');
-        const formattedTime = `${formattedHours}:${minutes}:00`;
-
-        // 3. SQL Query
-        const sql = `INSERT INTO reservations 
-        (user_id, first_name, last_name, email, phone, reservation_date, reservation_time, num_guests, package_name, status) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`;
-
-        // 4. Execute Query
-        db.query(
-            sql, 
-            [finalUserId, firstName, lastName, email, phone, date, formattedTime, guests, packageName], 
-            (err, result) => {
-                if (err) {
-                    console.error("❌ Database Error:", err.message);
-                    return res.status(500).json({ error: err.message });
-                }
-                
-                console.log("✅ Reservation Saved! ID:", result.insertId);
-                return res.status(200).json({ 
-                    success: true,
-                    message: "Reservation successfully saved",
-                    id: result.insertId
-                });
-            }
-        );
-    } catch (error) {
-        console.error("❌ Time Format Error:", error);
-        return res.status(400).json({ error: "Invalid time format provided." });
-    }
+    const sql = `INSERT INTO reservations (user_id, first_name, last_name, email, phone, reservation_date, reservation_time, num_guests, package_name, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`;
+    
+    User.pool.query(sql, [userId || null, firstName, lastName, email, phone, date, "12:00:00", guests, packageName], (err) => {
+        if (err) console.error("❌ DB Background Error:", err.message);
+        else console.log("✅ DB Background Success!");
+    });
 });
 
 // Protected routes example

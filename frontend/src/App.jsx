@@ -27,7 +27,6 @@ import CashierDineIn from "./components/cashier-page/CashierDineIn.jsx";
 import KioskLanding from "./components/kiosk-page/KioskLanding.jsx";
 import KioskOrder from "./components/kiosk-page/KioskOrder.jsx";
 import KioskOrderActive from "./components/kiosk-page/KioskOrderActive.jsx";
-import ReservationSuccess from "./components/ReservationSuccess";
 import "./Style/App.css";
 
 function App() {

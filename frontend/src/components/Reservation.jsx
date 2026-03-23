@@ -3,7 +3,7 @@ import axios from "axios";
 import "../Style/Reservation.css";
 
 const Reservation = ({ onClose }) => {
-  const [isSubmitted, setIsSubmitted] = useState(false);
+  // Removed isSubmitted since we are using an alert now
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -28,13 +28,12 @@ const Reservation = ({ onClose }) => {
 
   // --- 2. AUTO-SAVE LOGIC ---
   useEffect(() => {
-    if (isSubmitted) return;
     localStorage.setItem("res_step", step);
     localStorage.setItem("res_guests", guests);
     localStorage.setItem("res_personalInfo", JSON.stringify(personalInfo));
     localStorage.setItem("res_formData", JSON.stringify(formData));
     if (selectedPackage !== null) localStorage.setItem("res_package", selectedPackage);
-  }, [step, selectedPackage, guests, personalInfo, formData, isSubmitted]);
+  }, [step, selectedPackage, guests, personalInfo, formData]);
 
   // --- 3. TIME & VALIDATION LOGIC ---
   const hourOptions = formData.period === "AM" ? ["10", "11"] : ["12", "01", "02", "03", "04", "05", "06", "07", "08", "09", "10"];
@@ -73,34 +72,42 @@ const Reservation = ({ onClose }) => {
     }
   };
 
-  const handleFinalSubmit = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const reservationData = {
-        userId: localStorage.getItem("userId") || null,
-        firstName: personalInfo.firstName,
-        lastName: personalInfo.lastName,
-        email: personalInfo.email,
-        phone: personalInfo.contactNo,
-        date: formData.date,
-        time: `${formData.hour}:${formData.minute} ${formData.period}`,
-        guests: Number(guests),
-        packageName: `Package ${getPackageName(selectedPackage)}`,
-      };
+ const handleFinalSubmit = async () => {
+  // TEST ALERT 1
+  window.alert("DEBUG 1: React function started!"); 
 
-      const response = await axios.post("http://localhost:5000/api/reserve", reservationData);
+  setLoading(true);
+  try {
+    const reservationData = {
+      userId: localStorage.getItem("userId") || null,
+      firstName: personalInfo.firstName,
+      lastName: personalInfo.lastName,
+      email: personalInfo.email,
+      phone: personalInfo.contactNo,
+      date: formData.date,
+      time: `${formData.hour}:${formData.minute} ${formData.period}`,
+      guests: Number(guests),
+      packageName: `Package ${getPackageName(selectedPackage)}`,
+    };
 
-      if (response.status === 200 || response.status === 201) {
-        ["res_step", "res_package", "res_guests", "res_personalInfo", "res_formData"].forEach((k) => localStorage.removeItem(k));
-        setIsSubmitted(true);
-      }
-    } catch (err) {
-      setError(err.response?.data?.error || "Submission failed. Please try again.");
-    } finally {
-      setLoading(false);
+    console.log("Sending to:", "http://localhost:5000/api/reserve");
+    
+    const response = await axios.post("http://localhost:5000/api/reserve", reservationData);
+
+    // TEST ALERT 2
+    window.alert("DEBUG 2: Server answered! Status: " + response.status);
+
+    if (response.status === 200) {
+      window.alert("Wait for approval! Reservation submitted.");
+      ["res_step", "res_package", "res_guests", "res_personalInfo", "res_formData"].forEach(k => localStorage.removeItem(k));
+      onClose(); 
     }
-  };
+  } catch (err) {
+    window.alert("DEBUG ERROR: " + (err.response?.data?.error || err.message));
+  } finally {
+    setLoading(false);
+  }
+};
 
   // --- 5. NAVIGATION ---
   const handleNext = () => {
@@ -147,182 +154,162 @@ const Reservation = ({ onClose }) => {
     <div className="res-modal-overlay" onClick={onClose}>
       <div className="res-modal-content" onClick={(e) => e.stopPropagation()}>
         <button className="res-close-btn" onClick={onClose}>&times;</button>
+        
+        <div className="res-logo">
+          <h1 className="res-hangout">HANGOUT</h1>
+          <p className="res-restobar">Resto Bar</p>
+        </div>
+        <h2 className="res-title">RESERVE A TABLE</h2>
 
-        {isSubmitted ? (
-          <div className="res-success-view fade-in">
-            <div className="success-icon-circle" style={{ backgroundColor: '#ffcc00', border: 'none' }}>⌛</div>
-            <h2 style={{ color: '#ffcc00' }}>PENDING APPROVAL</h2>
-            <p>Your reservation request has been submitted!</p>
-            <div className="approval-notice" style={{ background: '#f8f9fa', padding: '15px', borderRadius: '8px', marginTop: '15px' }}>
-                <p style={{ margin: 0, fontSize: '14px', color: '#555' }}>
-                   Our team is currently reviewing your request. You will receive an email confirmation once your table is approved.
-                </p>
-            </div>
-            <p className="small-notice" style={{ marginTop: '15px' }}>You may now close this window.</p>
-            <button className="res-btn-continue" style={{ marginTop: "20px", width: '100%' }} onClick={onClose}>
-              UNDERSTOOD
-            </button>
+        <div className="res-progress-section">
+          <div className="res-progress-text">
+            <span>Step {step} of 7</span>
+            <span>{Math.round((step / 7) * 100)}% Complete</span>
           </div>
-        ) : (
-          <>
-            <div className="res-logo">
-              <h1 className="res-hangout">HANGOUT</h1>
-              <p className="res-restobar">Resto Bar</p>
+          <div className="res-progress-bar-bg">
+            <div className="res-progress-bar-fill" style={{ width: `${(step / 7) * 100}%` }}></div>
+          </div>
+        </div>
+
+        {error && <div className="res-error-text" style={{ color: "#d9534f", textAlign: "center", marginBottom: "10px" }}>{error}</div>}
+
+        {step === 1 && (
+          <div className="res-body fade-in">
+            <h3>CHOOSE A DATE</h3>
+            <div className="res-input-container">
+              <label>Reservation Date</label>
+              <input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} />
             </div>
-            <h2 className="res-title">RESERVE A TABLE</h2>
-
-            <div className="res-progress-section">
-              <div className="res-progress-text">
-                <span>Step {step} of 7</span>
-                <span>{Math.round((step / 7) * 100)}% Complete</span>
-              </div>
-              <div className="res-progress-bar-bg">
-                <div className="res-progress-bar-fill" style={{ width: `${(step / 7) * 100}%` }}></div>
-              </div>
-            </div>
-
-            {error && <div className="res-error-text" style={{ color: "#d9534f", textAlign: "center", marginBottom: "10px" }}>{error}</div>}
-
-            {step === 1 && (
-              <div className="res-body fade-in">
-                <h3>CHOOSE A DATE</h3>
-                <div className="res-input-container">
-                  <label>Reservation Date</label>
-                  <input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} />
-                </div>
-              </div>
-            )}
-
-            {step === 2 && (
-              <div className="res-body fade-in">
-                <h3>CHOOSE TIME SLOT</h3>
-                <div className="custom-time-picker">
-                   {/* ... Time picker content (Hour, Minute, Period) ... */}
-                   <div className="time-column">
-                    <label>Hour</label>
-                    <div className="scroll-box">
-                      {hourOptions.map((h) => (
-                        <div key={h} className={`time-item ${formData.hour === h ? "selected" : ""}`} onClick={() => setFormData({ ...formData, hour: h })}>{h}</div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="time-column">
-                    <label>Minute</label>
-                    <div className="scroll-box">
-                      {minuteOptions.map((m) => (
-                        <div key={m} className={`time-item ${formData.minute === m ? "selected" : ""}`} onClick={() => setFormData({ ...formData, minute: m })}>{m}</div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="time-column">
-                    <label>Period</label>
-                    <div className="scroll-box">
-                      {["AM", "PM"].map((p) => (
-                        <div key={p} className={`time-item ${formData.period === p ? "selected" : ""}`} onClick={() => setFormData({ ...formData, period: p })}>{p}</div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {step === 3 && (
-              <div className="res-body fade-in">
-                <h3>SELECT A PACKAGE</h3>
-                <div className="package-container">
-                  {[1, 2, 3, 4, 5].map((pkg) => (
-                    <div key={pkg} className={`package-box ${selectedPackage === pkg ? "active" : ""}`} onClick={() => setSelectedPackage(pkg)}></div>
-                  ))}
-                </div>
-                <button className="view-all-packages">View All Packages</button>
-              </div>
-            )}
-
-            {step === 4 && (
-              <div className="res-body fade-in">
-                <h3>NUMBER OF GUESTS</h3>
-                <div className="res-input-container">
-                  <label>Number of Guests (Max 50)</label>
-                  <input type="number" value={guests} onChange={(e) => setGuests(e.target.value)} />
-                </div>
-              </div>
-            )}
-
-            {step === 5 && (
-              <div className="res-body fade-in">
-                <h3 className="res-step-title-small">CONTACT INFORMATION</h3>
-                <div className="res-form-container">
-                  <div className="res-form-row">
-                    <div className="res-input-group">
-                      <label>First Name</label>
-                      <input type="text" value={personalInfo.firstName} onChange={(e) => setPersonalInfo({ ...personalInfo, firstName: e.target.value })} />
-                    </div>
-                    <div className="res-input-group">
-                      <label>Last Name</label>
-                      <input type="text" value={personalInfo.lastName} onChange={(e) => setPersonalInfo({ ...personalInfo, lastName: e.target.value })} />
-                    </div>
-                  </div>
-                  <div className="res-input-group full-width">
-                    <label>Email</label>
-                    <input type="email" value={personalInfo.email} onChange={(e) => setPersonalInfo({ ...personalInfo, email: e.target.value })} />
-                  </div>
-                  <div className="res-input-group full-width">
-                    <label>Contact No.</label>
-                    <input
-                      type="text"
-                      placeholder="09XXXXXXXXX"
-                      value={personalInfo.contactNo}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, "");
-                        if (val.length <= 11) setPersonalInfo({ ...personalInfo, contactNo: val });
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {step === 6 && (
-              <div className="res-body fade-in">
-                <h3>VERIFY EMAIL</h3>
-                <p>Enter code sent to {personalInfo.email}</p>
-                <div className="otp-container" style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
-                  {otp.map((data, index) => (
-                    <input
-                      key={index}
-                      type="text"
-                      maxLength="1"
-                      className="otp-box"
-                      value={data}
-                      ref={(el) => (otpRefs.current[index] = el)}
-                      onChange={(e) => handleOtpChange(e.target, index)}
-                      onKeyDown={(e) => e.key === "Backspace" && !otp[index] && index > 0 && otpRefs.current[index - 1].focus()}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {step === 7 && (
-              <div className="res-body fade-in">
-                <h3>CONFIRM DETAILS</h3>
-                <div className="res-summary-container">
-                  <div className="res-summary-row"><span>Date:</span> <strong>{formData.date}</strong></div>
-                  <div className="res-summary-row"><span>Time:</span> <strong>{formData.hour}:{formData.minute} {formData.period}</strong></div>
-                  <div className="res-summary-row"><span>Package:</span> <strong>Package {getPackageName(selectedPackage)}</strong></div>
-                  <div className="res-summary-row"><span>Guests:</span> <strong>{guests} pax</strong></div>
-                </div>
-              </div>
-            )}
-
-            <div className="res-footer">
-              <button className="res-btn-back" onClick={handleBack} disabled={loading}>Back</button>
-              <button className="res-btn-continue" onClick={handleNext} disabled={loading}>
-                {loading ? "..." : step === 7 ? "Submit" : "Continue"}
-              </button>
-            </div>
-          </>
+          </div>
         )}
+
+        {step === 2 && (
+          <div className="res-body fade-in">
+            <h3>CHOOSE TIME SLOT</h3>
+            <div className="custom-time-picker">
+              <div className="time-column">
+                <label>Hour</label>
+                <div className="scroll-box">
+                  {hourOptions.map((h) => (
+                    <div key={h} className={`time-item ${formData.hour === h ? "selected" : ""}`} onClick={() => setFormData({ ...formData, hour: h })}>{h}</div>
+                  ))}
+                </div>
+              </div>
+              <div className="time-column">
+                <label>Minute</label>
+                <div className="scroll-box">
+                  {minuteOptions.map((m) => (
+                    <div key={m} className={`time-item ${formData.minute === m ? "selected" : ""}`} onClick={() => setFormData({ ...formData, minute: m })}>{m}</div>
+                  ))}
+                </div>
+              </div>
+              <div className="time-column">
+                <label>Period</label>
+                <div className="scroll-box">
+                  {["AM", "PM"].map((p) => (
+                    <div key={p} className={`time-item ${formData.period === p ? "selected" : ""}`} onClick={() => setFormData({ ...formData, period: p })}>{p}</div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {step === 3 && (
+          <div className="res-body fade-in">
+            <h3>SELECT A PACKAGE</h3>
+            <div className="package-container">
+              {[1, 2, 3, 4, 5].map((pkg) => (
+                <div key={pkg} className={`package-box ${selectedPackage === pkg ? "active" : ""}`} onClick={() => setSelectedPackage(pkg)}></div>
+              ))}
+            </div>
+            <button className="view-all-packages">View All Packages</button>
+          </div>
+        )}
+
+        {step === 4 && (
+          <div className="res-body fade-in">
+            <h3>NUMBER OF GUESTS</h3>
+            <div className="res-input-container">
+              <label>Number of Guests (Max 50)</label>
+              <input type="number" value={guests} onChange={(e) => setGuests(e.target.value)} />
+            </div>
+          </div>
+        )}
+
+        {step === 5 && (
+          <div className="res-body fade-in">
+            <h3 className="res-step-title-small">CONTACT INFORMATION</h3>
+            <div className="res-form-container">
+              <div className="res-form-row">
+                <div className="res-input-group">
+                  <label>First Name</label>
+                  <input type="text" value={personalInfo.firstName} onChange={(e) => setPersonalInfo({ ...personalInfo, firstName: e.target.value })} />
+                </div>
+                <div className="res-input-group">
+                  <label>Last Name</label>
+                  <input type="text" value={personalInfo.lastName} onChange={(e) => setPersonalInfo({ ...personalInfo, lastName: e.target.value })} />
+                </div>
+              </div>
+              <div className="res-input-group full-width">
+                <label>Email</label>
+                <input type="email" value={personalInfo.email} onChange={(e) => setPersonalInfo({ ...personalInfo, email: e.target.value })} />
+              </div>
+              <div className="res-input-group full-width">
+                <label>Contact No.</label>
+                <input
+                  type="text"
+                  placeholder="09XXXXXXXXX"
+                  value={personalInfo.contactNo}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, "");
+                    if (val.length <= 11) setPersonalInfo({ ...personalInfo, contactNo: val });
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {step === 6 && (
+          <div className="res-body fade-in">
+            <h3>VERIFY EMAIL</h3>
+            <p>Enter code sent to {personalInfo.email}</p>
+            <div className="otp-container" style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
+              {otp.map((data, index) => (
+                <input
+                  key={index}
+                  type="text"
+                  maxLength="1"
+                  className="otp-box"
+                  value={data}
+                  ref={(el) => (otpRefs.current[index] = el)}
+                  onChange={(e) => handleOtpChange(e.target, index)}
+                  onKeyDown={(e) => e.key === "Backspace" && !otp[index] && index > 0 && otpRefs.current[index - 1].focus()}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {step === 7 && (
+          <div className="res-body fade-in">
+            <h3>CONFIRM DETAILS</h3>
+            <div className="res-summary-container">
+              <div className="res-summary-row"><span>Date:</span> <strong>{formData.date}</strong></div>
+              <div className="res-summary-row"><span>Time:</span> <strong>{formData.hour}:{formData.minute} {formData.period}</strong></div>
+              <div className="res-summary-row"><span>Package:</span> <strong>Package {getPackageName(selectedPackage)}</strong></div>
+              <div className="res-summary-row"><span>Guests:</span> <strong>{guests} pax</strong></div>
+            </div>
+          </div>
+        )}
+
+        <div className="res-footer">
+          <button className="res-btn-back" onClick={handleBack} disabled={loading}>Back</button>
+          <button className="res-btn-continue" onClick={handleNext} disabled={loading}>
+            {loading ? "..." : step === 7 ? "Submit" : "Continue"}
+          </button>
+        </div>
       </div>
     </div>
   );
