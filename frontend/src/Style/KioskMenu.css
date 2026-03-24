@@ -142,7 +142,19 @@
 }
 
 .cat-btn.active { border-color: var(--accent); background: rgba(255, 204, 0, 0.1); }
-.cat-icon-placeholder { width: 30px; height: 30px; background: #333; border-radius: 50%; flex-shrink: 0;}
+.cat-icon-placeholder {
+  width: 35px;
+  height: 35px;
+  background: #333; /* Default dark circle */
+  border-radius: 50%;
+  flex-shrink: 0;
+  
+  /* Centering the SVG inside */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
 
 .assist-btn {
   background: #000; border: 1.5px solid #fff; color: #fff;
@@ -271,10 +283,21 @@
   text-align: left;
 }
 
-.cat-btn.active {
-  border-color: var(--accent);
-  background: rgba(255, 204, 0, 0.1);
+/* When the category is selected (Active) */
+.cat-btn.active .cat-icon-placeholder {
+  background: var(--accent); /* Circle turns Gold */
+  box-shadow: 0 0 10px rgba(255, 204, 0, 0.4);
 }
+
+.cat-btn.active .cat-icon-placeholder svg {
+  stroke: #000000; /* Icon turns Black against the gold circle */
+}
+
+/* Hover effect for the icon */
+.cat-btn:hover .cat-icon-placeholder svg {
+  transform: scale(1.1);
+}
+
 
 .cat-icon-placeholder {
   width: 30px;
@@ -282,6 +305,15 @@
   background: #333;
   border-radius: 50%;
   flex-shrink: 0;
+}
+
+/* Styling the SVG inside the circle */
+.cat-icon-placeholder svg {
+  width: 20px;
+  height: 20px;
+  stroke: #ffffff; /* Default icon color */
+  fill: none;
+  transition: all 0.3s ease;
 }
 
 .scroll-arrow { display: flex; justify-content: center; padding: 0.5rem; opacity: 0.5; }

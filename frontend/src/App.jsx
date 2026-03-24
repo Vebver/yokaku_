@@ -22,8 +22,6 @@ import CustomerPage from "./components/customer-page/CustomerPage";
 import CustomerProfile from "./components/customer-page/CustomerProfile";
 import CustomerNavbar from "./components/customer-page/CustomerNavbar.jsx";
 import Notifications from "./components/customer-page/Notifications";
-import CashierSelection from "./components/cashier-page/CashierSelection.jsx";
-import CashierDineIn from "./components/cashier-page/CashierDineIn.jsx";
 import KioskSelection from "./components/kiosk-page/KioskSelection.jsx";
 import KioskMenu from "./components/kiosk-page/KioskMenu.jsx";
 import KioskReservation from "./components/kiosk-page/KioskReservation.jsx";
@@ -101,8 +99,6 @@ function App() {
 
           <Route path="/admin/*" element={<AdminDashboard />} />
           <Route path="/login" element={<Navigate to="/" replace />} />
-          <Route path="/cashier-selection" element={<CashierSelection />} />
-          <Route path="/cashier-selection/dinein" element={<CashierDineIn />} />
           <Route path="/kiosk-selection" element={<KioskSelection />} />
           <Route path="/kiosk-selection/kiosk-menu" element={<KioskMenu />} />
           <Route path="/kiosk-selection/kiosk-reservation" element={<KioskReservation />} />
