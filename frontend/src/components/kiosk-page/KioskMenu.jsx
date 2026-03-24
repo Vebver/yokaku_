@@ -1,54 +1,84 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { 
-  Flame, Wallet, Infinity as InfinityIcon, Pizza, Beef, Package,
-  Check, Bell, ChevronUp, ChevronDown, AlertCircle
+import {
+  Flame,
+  Wallet,
+  Infinity as InfinityIcon,
+  Pizza,
+  Beef,
+  Package,
+  Check,
+  Bell,
+  ChevronUp,
+  ChevronDown,
+  AlertCircle,
 } from "lucide-react";
 import "../../Style/KioskMenu.css";
 
 const categoryIcons = {
   "Best Seller": <Flame />,
   "Budget Meals": <Wallet />,
-  "Unlimited": <InfinityIcon />,
-  "Pizzas": <Pizza />,
-  "Burgers": <Beef />,
-  "Bundle": <Package />,
+  Unlimited: <InfinityIcon />,
+  Pizzas: <Pizza />,
+  Burgers: <Beef />,
+  Bundle: <Package />,
 };
 
 // --- 1. ORGANIZE YOUR DATA BY CATEGORY ---
 const menuData = {
+  "Best Seller": [{ id: "best-1", name: "Platter A", image: "/logo.png" }],
 
-  "Best Seller": [
-    { id: "best-1", name: "Platter A", image: "/logo.png" },
+  Bundle: [{ id: "spec-1", name: "Giant Nachos", image: "/logo.png" }],
+
+  "Budget Meals": [{ id: "bud-1", name: "Chicken Solo", image: "/logo.png" }],
+
+  Unlimited: [
+    {
+      id: "unli-1",
+      name: "Bbq Wings",
+      image: "/Menu/Chicken/BbqW - Edited.png",
+    },
+    {
+      id: "unli-2",
+      name: "Classic Wings",
+      image: "/Menu/Chicken/ClassicW - Edited.png",
+    },
+    {
+      id: "unli-3",
+      name: "Garlic Mayo",
+      image: "/Menu/Chicken/GarlicMayoW - Edited.png",
+    },
+    {
+      id: "unli-4",
+      name: "Hot & Spicy",
+      image: "/Menu/Chicken/Hot&SpicyW - Edited.png",
+    },
+    {
+      id: "unli-5",
+      name: "Sisig Wings",
+      image: "/Menu/Chicken/SisigW - Edited.png",
+    },
+    {
+      id: "unli-6",
+      name: "Sweet Chili",
+      image: "/Menu/Chicken/SweetChiliW - Edited.png",
+    },
+    {
+      id: "unli-7",
+      name: "Teriyaki Wings",
+      image: "/Menu/Chicken/TeriyakiW - Edited.png",
+    },
   ],
 
-  "Bundle": [
-    { id: "spec-1", name: "Giant Nachos", image: "/logo.png" },
-  ],
-
-  "Budget Meals": [
-    { id: "bud-1", name: "Chicken Solo", image: "/logo.png" },
-  ],
-
-  "Unlimited": [
-    { id: "unli-1", name: "Bbq Wings", image: "/Menu/Chicken/BbqW - Edited.png" },
-    { id: "unli-2", name: "Classic Wings", image: "/Menu/Chicken/ClassicW - Edited.png" },
-    { id: "unli-3", name: "Garlic Mayo", image: "/Menu/Chicken/GarlicMayoW - Edited.png" },
-    { id: "unli-4", name: "Hot & Spicy", image: "/Menu/Chicken/Hot&SpicyW - Edited.png" },
-    { id: "unli-5", name: "Sisig Wings", image: "/Menu/Chicken/SisigW - Edited.png" },
-    { id: "unli-6", name: "Sweet Chili", image: "/Menu/Chicken/SweetChiliW - Edited.png" },
-    { id: "unli-7", name: "Teriyaki Wings", image: "/Menu/Chicken/TeriyakiW - Edited.png" },
-  ],
-
-  "Pizzas": [
+  Pizzas: [
     { id: "piz-1", name: "Pepperoni", image: "/logo.png" }, // Replace with actual paths
     { id: "piz-2", name: "Hawaiian", image: "/logo.png" },
   ],
 
-  "Burgers": [
+  Burgers: [
     { id: "burg-1", name: "Cheese Burger", image: "/logo.png" },
     { id: "burg-2", name: "Bacon Burger", image: "/logo.png" },
-  ]
+  ],
 };
 
 const KioskMenu = () => {
@@ -63,7 +93,7 @@ const KioskMenu = () => {
   const currentItems = menuData[activeCategory] || [];
 
   const handleCardClick = (id) => {
-    setSelectedCard(prev => prev === id ? null : id);
+    setSelectedCard((prev) => (prev === id ? null : id));
   };
 
   const handleCategoryChange = (cat) => {
@@ -84,11 +114,20 @@ const KioskMenu = () => {
     <div className="kiosk-container">
       <nav className="step-indicator">
         {steps.map((step, index) => (
-          <div key={step.id} className={`step-item ${step.completed ? "completed" : "pending"}`}>
+          <div
+            key={step.id}
+            className={`step-item ${step.completed ? "completed" : "pending"}`}
+          >
             <div className="step-icon">
-              {step.completed ? <Check size={16} strokeWidth={4} /> : <span>{step.id}</span>}
+              {step.completed ? (
+                <Check size={16} strokeWidth={4} />
+              ) : (
+                <span>{step.id}</span>
+              )}
             </div>
-            <div className="step-text"><span className="step-label">{step.label}</span></div>
+            <div className="step-text">
+              <span className="step-label">{step.label}</span>
+            </div>
             {index !== steps.length - 1 && <div className="step-line" />}
           </div>
         ))}
@@ -102,7 +141,9 @@ const KioskMenu = () => {
           </div>
 
           <div className="category-list">
-            <div className="scroll-arrow top"><ChevronUp size={20} /></div>
+            <div className="scroll-arrow top">
+              <ChevronUp size={20} />
+            </div>
             <div className="cat-scroll-wrapper">
               {categories.map((cat) => (
                 <button
@@ -117,10 +158,15 @@ const KioskMenu = () => {
                 </button>
               ))}
             </div>
-            <div className="scroll-arrow bottom"><ChevronDown size={20} /></div>
+            <div className="scroll-arrow bottom">
+              <ChevronDown size={20} />
+            </div>
           </div>
 
-          <button className="assist-btn" onClick={() => navigate("/kiosk-selection")}>
+          <button
+            className="assist-btn"
+            onClick={() => navigate("/kiosk-selection")}
+          >
             <Bell size={18} fill="currentColor" />
             <span>Assist Me</span>
           </button>
@@ -138,8 +184,20 @@ const KioskMenu = () => {
                 <div className="card-image-container">
                   <img src={item.image} alt={item.name} className="food-img" />
                 </div>
+
                 <div className="card-info">
                   <h4 className="food-label">{item.name}</h4>
+
+                  {/* --- VIEW DETAILS (LABEL ONLY STYLE) --- */}
+                  <button
+                    className="view-details-link"
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevents the card from being selected
+                      alert(`Opening details for: ${item.name}`);
+                    }}
+                  >
+                    View Details
+                  </button>
                 </div>
 
                 {selectedCard === item.id && (
@@ -155,7 +213,9 @@ const KioskMenu = () => {
 
       <footer className="bottom-bar">
         <div className="action-btns">
-          <button className="btn-cancel" onClick={handleCancelClick}>Cancel</button>
+          <button className="btn-cancel" onClick={handleCancelClick}>
+            Cancel
+          </button>
           <button
             className="btn-view"
             disabled={selectedCard === null}
@@ -167,14 +227,29 @@ const KioskMenu = () => {
       </footer>
 
       {showCancelModal && (
-        <div className="modal-overlay" onClick={() => setShowCancelModal(false)}>
-          <div className="modal-card fade-in-scale" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-icon"><AlertCircle size={48} color="#ffcc00" /></div>
+        <div
+          className="modal-overlay"
+          onClick={() => setShowCancelModal(false)}
+        >
+          <div
+            className="modal-card fade-in-scale"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-icon">
+              <AlertCircle size={48} color="#ffcc00" />
+            </div>
             <h2>Discard Order?</h2>
             <p>Your current selections will be cleared.</p>
             <div className="modal-actions">
-              <button className="modal-btn-secondary" onClick={() => setShowCancelModal(false)}>No, Keep Ordering</button>
-              <button className="modal-btn-primary" onClick={confirmCancel}>Yes, Discard</button>
+              <button
+                className="modal-btn-secondary"
+                onClick={() => setShowCancelModal(false)}
+              >
+                No, Keep Ordering
+              </button>
+              <button className="modal-btn-primary" onClick={confirmCancel}>
+                Yes, Discard
+              </button>
             </div>
           </div>
         </div>
