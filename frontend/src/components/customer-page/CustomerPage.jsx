@@ -38,7 +38,7 @@ function CustomerPage() {
         onReserveClick={() => setIsReservationOpen(true)}
       />
       <div id="menu-section">
-        isLoggedIn={isLoggedIn}
+        {isLoggedIn}
         <FeaturedMenu onLoginClick={() => setIsLoginOpen(true)} />
       </div>
       <div id="about-section">
