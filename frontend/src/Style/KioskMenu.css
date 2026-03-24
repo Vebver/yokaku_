@@ -316,7 +316,7 @@
   transition: all 0.3s ease;
 }
 
-.scroll-arrow { display: flex; justify-content: center; padding: 0.5rem; opacity: 0.5; }
+.scroll-arrow { display: flex; justify-content: center; padding: 0.5rem; opacity: 0.5; color: white;}
 
 .assist-btn {
   margin-top: auto;
@@ -359,6 +359,7 @@
   display: flex;
   flex-direction: column;
 }
+
 .selected-check {
   position: absolute;
   top: 10px;
@@ -371,8 +372,9 @@
   justify-content: center;
   align-items: center;
   box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+  z-index: 2;
 }
-.food-card.selected { border-color: var(--accent); background: rgba(255, 204, 0, 0.05); }
+
 
 .card-image-placeholder { flex: 1; background: rgba(255,255,255,0.08); }
 .card-details { padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
@@ -407,8 +409,14 @@
   font-size: clamp(0.9rem, 2vw, 1.1rem);
 }
 
-.btn-cancel { background: white; border: 2px solid #aaa; color: #444; }
+.btn-cancel { background: white; border: 2px solid #aaa; color: #444; flex-grow: 0.2;}
 .btn-view { background: var(--accent); border: none; color: #000; flex-grow: 0.2; }
+
+.btn-view:disabled {
+  background-color: #555;
+  color: #888;
+  cursor: not-allowed;
+}
 
 /* --- MODERN CUSTOM MODAL --- */
 .modal-overlay {
@@ -526,7 +534,7 @@
 .food-img {
   width: 100%;
   height: 100%;
-  object-fit: contain; /* Ensures the logo/image is visible without cropping */
+  object-fit: contain;
   padding: 20px;
   transition: transform 0.3s ease;
 }
@@ -549,65 +557,30 @@
   text-transform: uppercase;
   letter-spacing: 1px;
 }
-
-/* Response adjustment for smaller kiosk screens */
-@media (max-width: 1200px) {
-  .card-image-container {
-    height: 140px;
-  }
-}
-
-@keyframes modalPop {
+@keyframes res-modalPop {
   from { opacity: 0; transform: scale(0.9); }
   to { opacity: 1; transform: scale(1); }
 }
 
-/* --- MEDIA QUERIES --- */
-
-/* Tablet & Mobile: Move Sidebar to Top */
+/* --- RESPONSIVE FIXES --- */
 @media (max-width: 1024px) {
-  .main-layout {
-    flex-direction: column;
-    padding: 1rem;
-  }
-
+  .main-layout { flex-direction: column; }
   .sidebar {
     width: 100%;
-    border-radius: var(--radius-md);
+    height: auto;
     padding: 1rem;
   }
-
-  .brand { display: none; } /* Hide logo in sidebar to save space */
-  
   .cat-scroll-wrapper {
     flex-direction: row;
     overflow-x: auto;
     padding-bottom: 0.5rem;
-    scrollbar-width: none;
+    height: 80px;
   }
-  
-  .cat-btn {
-    white-space: nowrap;
-    padding: 0.75rem 1.25rem;
-  }
-
-  .scroll-arrow { display: none; }
-  .assist-btn { display: none; } /* Move to bottom bar or float if needed */
+  .cat-btn { white-space: nowrap; }
+  .brand, .scroll-arrow, .assist-btn { display: none; }
 }
 
-/* Small Phone Adjustments */
 @media (max-width: 600px) {
-  .step-line { display: none; }
-  .bottom-bar {
-    padding: 1rem;
-    justify-content: center;
-    text-align: center;
-  }
-  .action-btns {
-    width: 100%;
-    justify-content: center;
-  }
-  .grid-container {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  }
+    .bottom-bar { height: auto; padding: 1rem; flex-direction: column; gap: 1rem; }
+    .action-btns { width: 100%; justify-content: center; }
 }

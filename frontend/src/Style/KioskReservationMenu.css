@@ -1,0 +1,407 @@
+:root {
+  --accent: #ffcc00;
+  --bg-dark: #0f0f0f;
+  --panel-bg: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --text-main: #ffffff;
+  --text-dim: #a0a0a0;
+  --radius-lg: 2rem;
+  --radius-md: 1.2rem;
+}
+
+/* 1. LOCK CONTAINER TO SCREEN HEIGHT */
+.res-kiosk-container {
+  width: 100vw;
+  height: 100vh;
+  background-color: var(--bg-dark);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* --- STEP INDICATOR --- */
+.res-step-indicator {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1.5rem 1rem;
+  background: #111;
+  gap: 1rem;
+  overflow-x: auto;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.res-step-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: white;
+}
+
+.res-step-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid #444;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+.res-completed .res-step-icon {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  color: #000;
+}
+
+.res-step-label {
+  font-weight: 600;
+  font-size: clamp(0.8rem, 2vw, 1rem);
+}
+
+.res-step-line {
+  width: clamp(20px, 5vw, 50px);
+  height: 2px;
+  background: #333;
+}
+
+/* --- MAIN LAYOUT --- */
+.res-main-layout {
+  flex: 1;
+  display: flex;
+  padding: 1rem;
+  gap: 1rem;
+  max-width: 1600px;
+  margin: 0 auto;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* --- SIDEBAR --- */
+.res-sidebar {
+  width: 280px;
+  background: var(--panel-bg);
+  backdrop-filter: blur(15px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem 1rem;
+  flex-shrink: 0;
+}
+
+.res-brand { text-align: center; margin-bottom: 1.5rem; }
+.res-logo-main { color: var(--accent); font-weight: 900; font-size: 1.5rem; margin: 0; }
+.res-logo-sub { margin: 0; font-size: 0.9rem; font-family: serif; font-style: italic; opacity: 0.8; color: white; text-align: center;}
+
+.res-cat-scroll-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  scrollbar-width: none;
+}
+
+.res-cat-scroll-wrapper::-webkit-scrollbar { display: none; }
+
+.res-cat-btn {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid transparent;
+  color: var(--text-main);
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.3s ease;
+}
+
+.res-cat-btn.res-active {
+  border-color: var(--accent);
+  background: rgba(255, 204, 0, 0.1);
+}
+
+.res-cat-icon-placeholder {
+  width: 35px;
+  height: 35px;
+  background: #333;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.res-cat-icon-placeholder svg {
+  width: 20px;
+  height: 20px;
+  stroke: #ffffff;
+  fill: none;
+  transition: all 0.3s ease;
+}
+
+.res-cat-btn.res-active .res-cat-icon-placeholder {
+  background: var(--accent);
+}
+
+.res-cat-btn.res-active .res-cat-icon-placeholder svg {
+  stroke: #000000;
+}
+
+.res-scroll-arrow { display: flex; justify-content: center; padding: 0.5rem; opacity: 0.5; color: white;}
+
+.res-assist-btn {
+  margin-top: auto;
+  background: #000;
+  border: 1.5px solid #fff;
+  color: #fff;
+  padding: 1rem;
+  border-radius: 3rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* --- CONTENT AREA --- */
+.res-content-area {
+  flex: 1;
+  background: var(--panel-bg);
+  backdrop-filter: blur(15px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  overflow-y: auto;
+}
+
+.res-content-area::-webkit-scrollbar { display: none; }
+
+.res-grid-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: 1.25rem;
+}
+
+/* --- FOOD CARD STYLING --- */
+.res-food-card {
+  background: #ffffff;
+  border-radius: 1.5rem;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s ease;
+  border: 4px solid transparent;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  position: relative;
+  aspect-ratio: 4/5;
+}
+
+.res-food-card.res-selected {
+  border-color: #ffcc00;
+  transform: translateY(-5px);
+  box-shadow: 0 8px 25px rgba(255, 204, 0, 0.3);
+}
+
+.res-selected-check {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background-color: #ffcc00;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+  z-index: 2;
+}
+
+.res-card-image-container {
+  width: 100%;
+  height: 180px;
+  background-color: #f0f0f0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+.res-food-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 20px;
+  transition: transform 0.3s ease;
+}
+
+.res-food-card:hover .res-food-img {
+  transform: scale(1.1);
+}
+
+.res-card-info {
+  padding: 1.2rem;
+  text-align: center;
+  background: #ffffff;
+  flex: 1;
+}
+
+.res-food-label {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #1a1a1a;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* --- BOTTOM BAR --- */
+.res-bottom-bar {
+  background: #d1d1d1;
+  height: 120px;
+  flex-shrink: 0;
+  border-radius: 2rem 2rem 0 0;
+  padding: 1.5rem 5%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.res-action-btns { display: flex; gap: 1rem; flex: 1; justify-content: flex-end;}
+
+.res-btn-cancel, .res-btn-view {
+  padding: 0.8rem 1.5rem;
+  border-radius: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: clamp(0.9rem, 2vw, 1.1rem);
+  transition: all 0.2s;
+}
+
+.res-btn-cancel { background: white; border: 2px solid #aaa; color: #444; flex-grow: 0.2;}
+.res-btn-view { background: var(--accent); border: none; color: #000; flex-grow: 0.2; }
+
+.res-btn-view:disabled {
+  background-color: #555;
+  color: #888;
+  cursor: not-allowed;
+}
+
+/* --- MODERN CUSTOM MODAL --- */
+.res-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.res-modal-card {
+  background: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 3rem 2rem;
+  border-radius: 2rem;
+  max-width: 450px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+}
+
+.res-modal-icon {
+  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: center;
+}
+
+.res-modal-card h2 {
+  color: #ffcc00;
+  font-weight: 800;
+  font-size: 1.8rem;
+  margin-bottom: 1rem;
+}
+
+.res-modal-card p {
+  color: #bbbbbb;
+  font-size: 1rem;
+  line-height: 1.5;
+  margin-bottom: 2.5rem;
+}
+
+.res-modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.res-modal-btn-primary {
+  background: #ffcc00;
+  border: none;
+  color: #000;
+  padding: 1.2rem;
+  border-radius: 3rem;
+  font-weight: 800;
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+
+.res-modal-btn-secondary {
+  background: transparent;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  padding: 1.2rem;
+  border-radius: 3rem;
+  font-weight: 700;
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+
+.res-fade-in-scale {
+  animation: res-modalPop 0.3s ease-out forwards;
+}
+
+@keyframes res-modalPop {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* --- RESPONSIVE FIXES --- */
+@media (max-width: 1024px) {
+  .res-main-layout { flex-direction: column; }
+  .res-sidebar {
+    width: 100%;
+    height: auto;
+    padding: 1rem;
+  }
+  .res-cat-scroll-wrapper {
+    flex-direction: row;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+    height: 80px;
+  }
+  .res-cat-btn { white-space: nowrap; }
+  .res-brand, .res-scroll-arrow, .res-assist-btn { display: none; }
+}
+
+@media (max-width: 600px) {
+    .res-bottom-bar { height: auto; padding: 1rem; flex-direction: column; gap: 1rem; }
+    .res-action-btns { width: 100%; justify-content: center; }
+}

@@ -25,6 +25,7 @@ import Notifications from "./components/customer-page/Notifications";
 import KioskSelection from "./components/kiosk-page/KioskSelection.jsx";
 import KioskMenu from "./components/kiosk-page/KioskMenu.jsx";
 import KioskReservation from "./components/kiosk-page/KioskReservation.jsx";
+import KioskReservationMenu from "./components/kiosk-page/KioskReservationMenu.jsx";
 import "./Style/App.css";
 
 function App() {
@@ -102,6 +103,7 @@ function App() {
           <Route path="/kiosk-selection" element={<KioskSelection />} />
           <Route path="/kiosk-selection/kiosk-menu" element={<KioskMenu />} />
           <Route path="/kiosk-selection/kiosk-reservation" element={<KioskReservation />} />
+          <Route path="/kiosk-selection/kiosk-reservation-menu" element={<KioskReservationMenu />} />
         </Routes>
 
         {/* MODALS */}

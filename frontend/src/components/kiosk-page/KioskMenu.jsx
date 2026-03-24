@@ -54,7 +54,7 @@ const menuData = {
 const KioskMenu = () => {
   const navigate = useNavigate();
   const [showCancelModal, setShowCancelModal] = useState(false);
-  const [activeCategory, setActiveCategory] = useState("Unlimited"); // Default to Unlimited
+  const [activeCategory, setActiveCategory] = useState("Best Seller"); // Default to Unlimited
   const [selectedCard, setSelectedCard] = useState(null);
 
   const categories = Object.keys(menuData);
@@ -159,7 +159,7 @@ const KioskMenu = () => {
           <button
             className="btn-view"
             disabled={selectedCard === null}
-            onClick={() => navigate("/kiosk/order")}
+            onClick={() => navigate("/kiosk-selection")}
           >
             View Order
           </button>

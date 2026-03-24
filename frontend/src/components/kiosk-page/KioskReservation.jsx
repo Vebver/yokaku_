@@ -61,6 +61,14 @@ const KioskReservation = () => {
     };
   }, []);
 
+  // Function to handle manual confirmation
+  const handleConfirmClick = () => {
+    if (resId.trim()) {
+      // Directs to the Reservation Menu page
+      navigate('/kiosk-selection/kiosk-reservation-menu');
+    }
+  };
+
   return (
     <div className="kiosk-res-wrapper">
       <div className="kiosk-background-overlay"></div>
@@ -114,7 +122,7 @@ const KioskReservation = () => {
               value={resId}
               onChange={(e) => setResId(e.target.value)}
             />
-            <button className="confirm-res-btn" disabled={!resId.trim()}>
+            <button className="confirm-res-btn" disabled={!resId.trim()} onClick={handleConfirmClick}>
               Confirm Reservation
             </button>
           </div>
