@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
-  Flame, Wallet, Infinity as InfinityIcon, Pizza, Beef, Star, 
-  Check, Bell, ChevronUp, ChevronDown, AlertCircle 
+  Flame, Wallet, Infinity as InfinityIcon, Pizza, Beef, Package,
+  Check, Bell, ChevronUp, ChevronDown, AlertCircle
 } from "lucide-react";
 import "../../Style/KioskMenu.css";
 
@@ -12,7 +12,7 @@ const categoryIcons = {
   "Unlimited": <InfinityIcon />,
   "Pizzas": <Pizza />,
   "Burgers": <Beef />,
-  "Hangout Specials": <Star />,
+  "Bundle": <Package />,
 };
 
 // --- 1. ORGANIZE YOUR DATA BY CATEGORY ---
@@ -22,7 +22,7 @@ const menuData = {
     { id: "best-1", name: "Platter A", image: "/logo.png" },
   ],
 
-  "Hangout Specials": [
+  "Bundle": [
     { id: "spec-1", name: "Giant Nachos", image: "/logo.png" },
   ],
 
