@@ -125,11 +125,29 @@ const menuData = {
     { id: "side-3", name: "Flavored Fries (Cheese, BBQ, Sweet & Sour)", image:"/logo.png"},
     { id: "side-5", name: "Nachos (SOLO)", image:"/logo.png"},
     { id: "side-7", name: "Nachos Overload", image:"/logo.png"},
-    { id: "side-8", name: "Fish & Fries", image:"/logo.png"}
+    { id: "side-8", name: "Fish & Fries", image:"/logo.png"},
+    { id: "side-9", name: "Plain Belgian Waffle", image:"/logo.png"},
+    { id: "side-10", name: "Chocolate Oreo Waffle", image:"/logo.png"},
+    { id: "side-11", name: "Caramel Oreo Waffle", image:"/logo.png"},
+    { id: "side-12", name: "Strawberry Waffle", image:"/logo.png"},
+    { id: "side-13", name: "Ham w/ Cheese Waffle", image:"/logo.png"},
+    { id: "side-14", name: "Bacon Cheese Burger Waffle", image:"/logo.png"}
   ],
 
   Beverages: [
     {id: "bev-1", name: "Hot Tea", image: "/logo.png"},
+    {id: "bev-2", name: "Brewed Coffee", image: "/logo.png"},
+    {id: "bev-3", name: "Espresso", image: "/logo.png"},
+    {id: "bev-4", name: "Americano (Hot/Iced)", image: "/logo.png"},
+    {id: "bev-5", name: "Hot Chocolate", image: "/logo.png"},
+    {id: "bev-6", name: "Cappucino (Hot/Iced)", image: "/logo.png"},
+    {id: "bev-7", name: "Cafe Latte (Hot/Iced)", image: "/logo.png"},
+    {id: "bev-8", name: "Spanish Latte (Hot/Iced)", image: "/logo.png"},
+    {id: "bev-9", name: "Cafe Mocha (Hot/Iced)", image: "/logo.png"},
+    {id: "bev-10", name: "Mineral Bottled Water", image: "/logo.png"},
+    {id: "bev-11", name: "Coke Sakto", image: "/logo.png"},
+    {id: "bev-12", name: "Soda in Can", image: "/logo.png"},
+    {id: "bev-13", name: "Coke 1.5 Liter", image: "/logo.png"},
   ]
 
 };

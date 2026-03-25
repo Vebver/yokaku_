@@ -178,17 +178,6 @@ const KioskReservationMenu = () => {
                 {/* Text Info Container */}
                 <div className="res-card-info">
                   <h4 className="res-food-label">{item.name}</h4>
-
-                  <button
-                    className="view-details-link"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      // Trigger your modal logic here
-                      console.log("Opening details for:", item.name);
-                    }}
-                  >
-                    View Details
-                  </button>
                 </div>
 
                 {/* Selection Checkmark */}
