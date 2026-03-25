@@ -1,0 +1,201 @@
+/* --- Active Session Layout (Main Wrapper) --- */
+.active-layout {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  padding: 25px;
+  gap: 25px;
+  background: #000; /* Deep black background */
+  box-sizing: border-box;
+}
+
+/* --- Panel Styling --- */
+.active-left-panel,
+.active-right-panel {
+  background: rgba(255, 255, 255, 0.03); /* Subtle glass effect */
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 35px;
+  padding: 35px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+.active-left-panel {
+  flex: 1;
+}
+.active-right-panel {
+  flex: 1.3;
+  gap: 20px;
+}
+
+/* --- Bill Card (Gold Highlight) --- */
+.bill-card {
+  background: #ffcc00;
+  color: black;
+  padding: 30px;
+  border-radius: 25px;
+  margin: 20px 0;
+  text-align: center;
+  box-shadow: 0 8px 20px rgba(255, 204, 0, 0.2);
+}
+
+.bill-card label {
+  font-weight: 800;
+  opacity: 0.6;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.bill-card h1 {
+  margin: 5px 0 0 0;
+  font-size: 3.5rem;
+  font-weight: 900;
+}
+
+/* --- Timer Container --- */
+.timer-container {
+  background: #0a0a0a;
+  padding: 40px;
+  border-radius: 35px;
+  text-align: center;
+  border: 1px solid #222;
+}
+
+.timer-container p {
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 700;
+  margin-bottom: 10px;
+  letter-spacing: 1px;
+}
+
+.digital-clock {
+  font-size: clamp(3.5rem, 8vw, 5.5rem); /* Responsive size */
+  font-weight: 900;
+  font-family: "Courier New", Courier, monospace; /* Prevents text shifting */
+  color: #ffcc00;
+  margin: 0;
+}
+
+/* --- Flavor Selection --- */
+.flavor-selection-card h3 {
+  font-size: 1.4rem;
+  font-weight: 800;
+  margin-bottom: 5px;
+}
+
+.flavor-grid-active {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 15px;
+}
+
+.flavor-pill {
+  background: #111;
+  border: 1px solid #333;
+  color: white;
+  padding: 18px;
+  border-radius: 15px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 700;
+  transition: 0.2s ease;
+}
+
+.flavor-pill.active {
+  background: #ffcc00;
+  color: black;
+  border-color: #ffcc00;
+  box-shadow: 0 5px 15px rgba(255, 204, 0, 0.2);
+}
+
+.flavor-pill:active {
+  transform: scale(0.96);
+}
+
+/* --- Action Buttons --- */
+.add-more-btn {
+  margin-top: auto;
+  background: white;
+  color: black;
+  border: none;
+  padding: 22px;
+  border-radius: 20px;
+  font-weight: 900;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: 0.2s;
+  box-shadow: 0 4px 15px rgba(255, 255, 255, 0.1);
+}
+
+.add-more-btn:active {
+  transform: scale(0.98);
+  background: #f0f0f0;
+}
+
+.confirm-flavor-btn {
+  width: 100%;
+  margin-top: 15px;
+  background: #ffcc00;
+  border: none;
+  padding: 18px;
+  border-radius: 15px;
+  font-weight: 800;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.confirm-flavor-btn:active {
+  transform: translateY(2px);
+  opacity: 0.9;
+}
+
+/* --- Order List Summary --- */
+.active-order-list {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 5px;
+  margin-bottom: 20px;
+}
+
+.active-item-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 1rem;
+  font-weight: 500;
+}
+.end-time-btn {
+  margin-top: 20px;
+  background: transparent;
+  color: #ffcc00;
+  border: 2px solid #ffcc00;
+  padding: 12px;
+  border-radius: 20px;
+  font-weight: bold;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.end-time-btn:hover {
+  background: #aa0101;
+  color: #ffcc00;
+}
+
+.flavor-pill.active {
+  background: #ffcc00;
+  color: black;
+  border-color: #ffcc00;
+}
+/* Scrollbar Styling for Receipt */
+.active-order-list::-webkit-scrollbar {
+  width: 4px;
+}
+.active-order-list::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 10px;
+}

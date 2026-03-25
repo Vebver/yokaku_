@@ -43,8 +43,9 @@ function CustomerPage() {
       </div>
       <div id="about-section">
         <AboutSection
-        isLoggedIn={isLoggedIn}
-        onLoginClick={() => setIsLoginOpen(true)} />
+          isLoggedIn={isLoggedIn}
+          onLoginClick={() => setIsLoginOpen(true)}
+        />
       </div>
       <div id="promos-section">
         <PromoSection />
