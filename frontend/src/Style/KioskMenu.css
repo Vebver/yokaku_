@@ -83,27 +83,43 @@
 /* --- SIDEBAR --- */
 .sidebar {
   width: 280px;
+  height: 100%; /* Must have a height for internal scrolling to work */
   background: var(--panel-bg);
   backdrop-filter: blur(15px);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   display: flex;
-  flex-direction: column;
+  flex-direction: column; /* Stack: Brand -> List -> Button */
   padding: 1.5rem 1rem;
-  flex-shrink: 0;
+  overflow: hidden; /* Keeps everything inside the rounded corners */
 }
 
 .brand { text-align: center; margin-bottom: 1.5rem; }
 .logo-main { color: var(--accent); font-weight: 900; font-size: 1.5rem; margin: 0; }
 .logo-sub { margin: 0; font-size: 0.9rem; font-family: serif; font-style: italic; opacity: 0.8; color: white; text-align: center;}
 
+/* 3. THE ACTUAL SCROLLABLE PART */
 .cat-scroll-wrapper {
-  flex: 1;
-  overflow-y: auto;
+  flex: 1; 
+  overflow-y: auto !important; /* Forces vertical scrolling */
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  scrollbar-width: none;
+  
+  /* Hides the ugly default scrollbar */
+  scrollbar-width: none; 
+  -ms-overflow-style: none;
+  
+  /* THE FIX: Space at the bottom so "Extra" isn't cut off */
+  padding-bottom: 40px; 
+}
+
+.category-list {
+  flex: 1; /* This tells the list to take up ALL available space */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* Prevents the container itself from scrolling */
+  min-height: 0; /* Important: Allow flex items to shrink below content size */
 }
 
 .cat-scroll-wrapper::-webkit-scrollbar { display: none; }
@@ -164,7 +180,7 @@
 .scroll-arrow { display: flex; justify-content: center; padding: 0.5rem; opacity: 0.5; color: white;}
 
 .assist-btn {
-  margin-top: auto;
+  margin-top: 10px;
   background: #000;
   border: 1.5px solid #fff;
   color: #fff;
@@ -176,6 +192,7 @@
   gap: 0.5rem;
   font-weight: 700;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 /* --- CONTENT AREA --- */
