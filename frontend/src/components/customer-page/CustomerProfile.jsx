@@ -1,31 +1,71 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import '../../Style/CustomerProfile.css';
 
-const CustomerProfile = ({ user }) => {
-  // Sample Data
-  const userData = user || {
-    firstName: "John",
-    lastName: "Doe",
-    email: "john.doe@example.com",
-    phone: "+63 912 345 6789",
-    customerId: "HG-2024-8891",
-    status: "Active Customer"
-  };
+const CustomerProfile = () => {
+  const [userData, setUserData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        setLoading(true);
+        
+        // 1. Get the token from localStorage (saved during login)
+        const token = localStorage.getItem('token'); 
+
+        if (!token) {
+          setError("Please log in to view your profile.");
+          setLoading(false);
+          return;
+        }
+
+        // 2. Send the request to /api/profile
+        // Note: We don't need ${userId} in the URL because the token identifies the user
+        const response = await axios.get(`http://localhost:5000/api/profile`, {
+          headers: {
+            Authorization: `Bearer ${token}` // 3. This is the key part!
+          }
+        });
+
+        setUserData(response.data);
+      } catch (err) {
+        setError(err.response?.data?.error || "Failed to load profile.");
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, []); // Runs once when the component mounts
+
+  if (loading) return <div className="text-center py-5">Loading profile...</div>;
+  
+  if (error) {
+    return (
+      <div className="container py-5 text-center">
+        <div className="alert alert-danger">{error}</div>
+        <a href="/login" className="btn btn-primary">Go to Login</a>
+      </div>
+    );
+  }
+
+  if (!userData) return <div className="text-center py-5">No user found.</div>;
 
   return (
     <div className="container py-5">
       <div className="row justify-content-center">
         <div className="col-md-8 col-lg-6">
-          
-          {/* Main Profile Card */}
           <div className="card shadow-lg border-0 rounded-4 overflow-hidden">
             
-            {/* Header Section (Black Background) */}
+            {/* Header Section */}
             <div className="bg-dark text-white text-center py-5">
               <div className="position-relative d-inline-block mb-3">
                 <img
-                  src="/customer-avatar.jpg"
+                  src={userData.profileImage || "/customer-avatar.jpg"} 
                   alt="Customer"
                   className="rounded-circle border border-4 border-warning shadow"
                   style={{ width: '130px', height: '130px', objectFit: 'cover' }}
@@ -60,19 +100,19 @@ const CustomerProfile = ({ user }) => {
                 <div className="col-sm-8 fw-bold">{userData.phone}</div>
               </div>
 
-              {/* Action Buttons */}
               <div className="d-grid gap-2">
                 <button className="btn btn-warning fw-bold py-2 rounded-3">
                   Edit Profile
                 </button>
-                <button className="btn btn-outline-dark fw-bold py-2 rounded-3">
-                  Account Settings
+                <button 
+                  className="btn btn-outline-danger fw-bold py-2 rounded-3"
+                  onClick={() => { localStorage.removeItem('token'); window.location.reload(); }}
+                >
+                  Logout
                 </button>
               </div>
             </div>
-
-          </div> {/* End Card */}
-
+          </div>
         </div>
       </div>
     </div>
