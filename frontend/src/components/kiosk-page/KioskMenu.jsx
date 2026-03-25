@@ -80,7 +80,21 @@ const menuData = {
   Pizzas: [
     { id: "piz-1", name: "Pepperoni", image: "/logo.png" },
     { id: "piz-2", name: "Hawaiian", image: "/logo.png" },
+    { id: "piz-3", name: "Vegetarian", image: "/logo.png" },
+    { id: "piz-4", name: "Bacon & Mushroom", image: "/logo.png" },
+    { id: "piz-5", name: "Ham & Cheese", image: "/logo.png" },
+    { id: "piz-6", name: "Overload", image: "/logo.png" },
+    { id: "piz-7", name: "Cheesy Spinach", image: "/logo.png" },
+    { id: "piz-8", name: "Mozarella (Pizza Burger)", image: "/logo.png" },
+    { id: "piz-9", name: "Hawaiian (Pizza Burger)", image: "/logo.png" },
+    { id: "piz-10", name: "Pepperoni (Pizza Burger)", image: "/logo.png" },
+    { id: "piz-11", name: "Bacon & Mushroom (Pizza Burger)", image: "/logo.png" },
+    { id: "piz-12", name: "Cheesy Spinach (Pizza Burger)", image: "/logo.png" },
+    { id: "piz-13", name: "Premium 2 in 1 (Pizza Burger)", image: "/logo.png" },
+    { id: "piz-14", name: "Premium 4 in 1 (Pizza Burger)", image: "/logo.png" }
   ],
+
+
 
   Burgers: [
     { id: "burg-1", name: "Regular Burgers (Single Patty, TLC, Mayo, Cheese Sauce, White Onion) ", image: "/logo.png" },
