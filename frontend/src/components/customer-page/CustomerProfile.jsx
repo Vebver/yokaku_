@@ -44,28 +44,33 @@ const CustomerProfile = () => {
     fetchProfile();
   }, []); // Runs once when the component mounts
 
- const handleUpdateProfile = async (updatedData) => {
+  // CustomerProfile.jsx
+
+  const handleUpdateProfile = async (updatedData) => {
     try {
       const token = localStorage.getItem("token");
-      
-      // IMPORTANT: Changed from .patch to .put to match your backend app.put
+
+      // 1. Send request
       const response = await axios.put(
         "http://localhost:5000/api/profile",
         updatedData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
 
-      // Successfully updated
-      setUserData(response.data.user || response.data);
+      // 2. Check what the server sent back
+      console.log("Server returned fresh data:", response.data);
+
+      // 3. Update state with the server's response
+      // This MUST contain firstName, lastName, etc.
+      setUserData(response.data);
+
+      // 4. Switch UI back to view mode
       setIsEditing(false);
+
       alert("Profile updated successfully!");
     } catch (err) {
-      console.error("Update Error:", err.response);
-      alert(err.response?.data?.error || "Failed to update profile.");
+      console.error("Update Error:", err);
+      alert("Update failed!");
     }
   };
 

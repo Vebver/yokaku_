@@ -11,8 +11,9 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors({ origin: "http://localhost:5173", credentials: true }));
-app.use(express.json());
+app.use(cors({ origin: "http://localhost:5173", credentials: true })); // Adjust the port if your React app runs on a different one
+app.use(express.json({ limit: '10mb' })); // To handle JSON bodies and allow larger payloads for profile images
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // Public Auth routes
 app.post("/api/auth/login", authController.login);

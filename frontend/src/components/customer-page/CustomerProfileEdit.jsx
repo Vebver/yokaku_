@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 
 const CustomerProfileEdit = ({ userData, onSave, onCancel }) => {
-  // Initialize form state with existing user data
   const [formData, setFormData] = useState({
     firstName: userData.firstName || '',
     lastName: userData.lastName || '',
@@ -15,9 +14,20 @@ const CustomerProfileEdit = ({ userData, onSave, onCancel }) => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData(prev => ({ ...prev, profileImage: reader.result }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSave(formData); // Parent function to handle the API update
+    onSave(formData); 
   };
 
   return (
@@ -26,7 +36,7 @@ const CustomerProfileEdit = ({ userData, onSave, onCancel }) => {
         <div className="col-md-8 col-lg-6">
           <form onSubmit={handleSubmit} className="card shadow-lg border-0 rounded-4 overflow-hidden">
             
-            {/* Header Section (Matching Original) */}
+            {/* Header Section */}
             <div className="bg-dark text-white text-center py-5 position-relative">
               <div className="position-relative d-inline-block mb-3">
                 <img
@@ -35,13 +45,29 @@ const CustomerProfileEdit = ({ userData, onSave, onCancel }) => {
                   className="rounded-circle border border-4 border-warning shadow"
                   style={{ width: '130px', height: '130px', objectFit: 'cover' }}
                 />
+                
+                {/* REFINED CAMERA ICON */}
                 <label 
                   htmlFor="imageUpload" 
-                  className="position-absolute bottom-0 end-0 bg-warning rounded-circle p-2 shadow-sm" 
-                  style={{ cursor: 'pointer', border: '2px solid #212529' }}
+                  className="position-absolute bottom-0 end-0 bg-warning rounded-circle d-flex align-items-center justify-content-center shadow" 
+                  style={{ 
+                    cursor: 'pointer', 
+                    border: '3px solid #212529', 
+                    width: '42px', 
+                    height: '42px',
+                    transition: 'transform 0.2s'
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+                  onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1.0)'}
                 >
-                  <i className="bi bi-camera-fill text-dark"></i>
-                  <input type="file" id="imageUpload" hidden />
+                  <i className="bi bi-camera-fill text-dark fs-5"></i>
+                  <input 
+                    type="file" 
+                    id="imageUpload" 
+                    hidden 
+                    accept="image/*"
+                    onChange={handleImageChange} 
+                  />
                 </label>
               </div>
               <h2 className="fw-bold mb-1">Edit Profile</h2>
@@ -58,47 +84,59 @@ const CustomerProfileEdit = ({ userData, onSave, onCancel }) => {
               
               {/* First Name */}
               <div className="mb-3">
-                <label className="form-label text-muted fw-semibold small">First Name</label>
+                <label className="form-label text-muted fw-semibold small d-flex align-items-center">
+                  <i className="bi bi-person-fill me-2 text-warning"></i> First Name
+                </label>
                 <input 
                   type="text" 
                   className="form-control border-0 bg-light fw-bold py-2 shadow-sm"
                   name="firstName"
                   value={formData.firstName}
                   onChange={handleChange}
+                  required
                 />
               </div>
 
               {/* Last Name */}
               <div className="mb-3">
-                <label className="form-label text-muted fw-semibold small">Last Name</label>
+                <label className="form-label text-muted fw-semibold small d-flex align-items-center">
+                  <i className="bi bi-person-badge-fill me-2 text-warning"></i> Last Name
+                </label>
                 <input 
                   type="text" 
                   className="form-control border-0 bg-light fw-bold py-2 shadow-sm"
                   name="lastName"
                   value={formData.lastName}
                   onChange={handleChange}
+                  required
                 />
               </div>
 
               {/* Email Address */}
               <div className="mb-3">
-                <label className="form-label text-muted fw-semibold small">Email Address</label>
+                <label className="form-label text-muted fw-semibold small d-flex align-items-center">
+                  <i className="bi bi-envelope-at-fill me-2 text-warning"></i> Email Address
+                </label>
                 <input 
                   type="email" 
                   className="form-control border-0 bg-light fw-bold py-2 shadow-sm border-start border-warning border-4"
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
+                  required
                 />
               </div>
 
               {/* Phone Number */}
               <div className="mb-4">
-                <label className="form-label text-muted fw-semibold small">Phone Number</label>
+                <label className="form-label text-muted fw-semibold small d-flex align-items-center">
+                  <i className="bi bi-telephone-fill me-2 text-warning"></i> Phone Number
+                </label>
                 <input 
                   type="tel" 
                   className="form-control border-0 bg-light fw-bold py-2 shadow-sm"
                   name="phone"
+                  placeholder="Enter phone number"
                   value={formData.phone}
                   onChange={handleChange}
                 />
@@ -106,15 +144,15 @@ const CustomerProfileEdit = ({ userData, onSave, onCancel }) => {
 
               {/* Action Buttons */}
               <div className="d-grid gap-2">
-                <button type="submit" className="btn btn-warning fw-bold py-2 rounded-3 shadow-sm">
-                  Save Changes
+                <button type="submit" className="btn btn-warning fw-bold py-2 rounded-3 shadow-sm d-flex align-items-center justify-content-center">
+                  <i className="bi bi-check-circle-fill me-2"></i> Save Changes
                 </button>
                 <button 
                   type="button" 
-                  className="btn btn-outline-secondary fw-bold py-2 rounded-3"
+                  className="btn btn-outline-secondary fw-bold py-2 rounded-3 d-flex align-items-center justify-content-center"
                   onClick={onCancel}
                 >
-                  Cancel
+                  <i className="bi bi-arrow-left-short fs-5 me-1"></i> Cancel
                 </button>
               </div>
             </div>
