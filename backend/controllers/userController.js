@@ -1,20 +1,20 @@
 // controllers/userController.js
-const User = require('../models/User');
+const User = require('../models/User'); // Import the class directly
 
 const userController = {
-  // Use this for your Customer Profile page
+  // 1. GET PROFILE
   async getProfile(req, res) {
     try {
-      // 1. req.user.userId comes from your Auth Middleware (from the JWT)
-      // This ensures a user can ONLY see their own profile
-      const user = await User.findById(req.user.userId); 
+      const userId = req.user.userId; // This is the '7' from your token
+      
+      // Use the static method you already had
+      const user = await User.findById(userId); 
       
       if (!user) {
         return res.status(404).json({ error: 'User not found' });
       }
 
-      // 2. Map Database names (first_name) to React names (firstName)
-      // This matches your React code: userData.firstName
+      // Map SQL column names to React property names
       res.json({
         firstName: user.first_name, 
         lastName: user.last_name,
@@ -23,16 +23,41 @@ const userController = {
         customerId: `HG-2024-${user.user_id}`, 
         status: "Active Customer"
       });
-
     } catch (error) {
       console.error("Profile Fetch Error:", error);
       res.status(500).json({ error: "Internal Server Error" });
     }
   },
 
-  // Use this if you need to update profile info later
+  // 2. UPDATE PROFILE
   async updateProfile(req, res) {
-     // logic for updating user info
+    try {
+      const { firstName, lastName, email, phone } = req.body;
+      const userId = req.user.userId;
+
+      // Call the new update method we added to the User class
+      const success = await User.update(userId, { firstName, lastName, email, phone });
+
+      if (!success) {
+        return res.status(404).json({ error: "Update failed or user not found" });
+      }
+
+      // Fetch the updated data to return to the frontend
+      const updatedUser = await User.findById(userId);
+
+      res.json({
+        firstName: updatedUser.first_name,
+        lastName: updatedUser.last_name,
+        email: updatedUser.email,
+        phone: updatedUser.phone,
+        customerId: `HG-2024-${updatedUser.user_id}`,
+        status: "Active Customer"
+      });
+
+    } catch (error) {
+      console.error("Update Error:", error);
+      res.status(500).json({ error: "Failed to update profile in database" });
+    }
   }
 };
 

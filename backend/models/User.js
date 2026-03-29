@@ -12,7 +12,7 @@ const pool = mysql.createPool({
 });
 
 class User {
-static async findByEmail(email) {
+  static async findByEmail(email) {
     const [rows] = await pool.execute('SELECT * FROM users WHERE email = ?', [email]);
     return rows[0];
   }
@@ -22,10 +22,19 @@ static async findByEmail(email) {
     return rows[0];
   }
 
-static async create(email, password, firstName, lastName) {
+  // --- ADD THIS NEW UPDATE METHOD ---
+  static async update(id, { firstName, lastName, email, phone }) {
+    const [result] = await pool.execute(
+      'UPDATE users SET first_name = ?, last_name = ?, email = ? WHERE user_id = ?',
+      [firstName, lastName, email, id]
+    );
+    return result.affectedRows > 0;
+  }
+
+  static async create(email, password, firstName, lastName) {
     const hashedPassword = await bcrypt.hash(password, 12);
     const [result] = await pool.execute(
-'INSERT INTO users (first_name, last_name, email, password_hash, role) VALUES (?, ?, ?, ?, "customer")',
+      'INSERT INTO users (first_name, last_name, email, password_hash, role) VALUES (?, ?, ?, ?, "customer")',
       [firstName, lastName, email, hashedPassword]
     );
     return result.insertId;
@@ -37,4 +46,3 @@ static async create(email, password, firstName, lastName) {
 }
 
 module.exports = User;
-

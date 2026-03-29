@@ -25,6 +25,7 @@ app.post("/api/otp/verify", authController.verifyReservationOTP);
 
 // Profile route (PROTECTED)
 app.get("/api/profile", protect, userController.getProfile);
+app.put("/api/profile", protect, userController.updateProfile);
 
 // Reservation routes
 app.get('/api/reservations', protect, getAllReservations);

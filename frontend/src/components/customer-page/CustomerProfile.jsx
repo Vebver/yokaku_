@@ -1,20 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import 'bootstrap/dist/css/bootstrap.min.css';
-import '../../Style/CustomerProfile.css';
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import "bootstrap/dist/css/bootstrap.min.css";
+import "../../Style/CustomerProfile.css";
+import CustomerProfileEdit from "./CustomerProfileEdit";
 
 const CustomerProfile = () => {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
       try {
         setLoading(true);
-        
+
         // 1. Get the token from localStorage (saved during login)
-        const token = localStorage.getItem('token'); 
+        const token = localStorage.getItem("token");
 
         if (!token) {
           setError("Please log in to view your profile.");
@@ -23,11 +25,11 @@ const CustomerProfile = () => {
         }
 
         // 2. Send the request to /api/profile
-        // Note: We don't need ${userId} in the URL because the token identifies the user
+
         const response = await axios.get(`http://localhost:5000/api/profile`, {
           headers: {
-            Authorization: `Bearer ${token}` // 3. This is the key part!
-          }
+            Authorization: `Bearer ${token}`, // 3. This is the key part!
+          },
         });
 
         setUserData(response.data);
@@ -42,14 +44,51 @@ const CustomerProfile = () => {
     fetchProfile();
   }, []); // Runs once when the component mounts
 
-  if (loading) return <div className="text-center py-5">Loading profile...</div>;
-  
+ const handleUpdateProfile = async (updatedData) => {
+    try {
+      const token = localStorage.getItem("token");
+      
+      // IMPORTANT: Changed from .patch to .put to match your backend app.put
+      const response = await axios.put(
+        "http://localhost:5000/api/profile",
+        updatedData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      // Successfully updated
+      setUserData(response.data.user || response.data);
+      setIsEditing(false);
+      alert("Profile updated successfully!");
+    } catch (err) {
+      console.error("Update Error:", err.response);
+      alert(err.response?.data?.error || "Failed to update profile.");
+    }
+  };
+
+  if (loading)
+    return <div className="text-center py-5">Loading profile...</div>;
+
   if (error) {
     return (
       <div className="container py-5 text-center">
         <div className="alert alert-danger">{error}</div>
-        <a href="/login" className="btn btn-primary">Go to Login</a>
+        <a href="/login" className="btn btn-primary">
+          Go to Login
+        </a>
       </div>
+    );
+  }
+  if (isEditing) {
+    return (
+      <CustomerProfileEdit
+        userData={userData}
+        onSave={handleUpdateProfile}
+        onCancel={() => setIsEditing(false)}
+      />
     );
   }
 
@@ -60,15 +99,18 @@ const CustomerProfile = () => {
       <div className="row justify-content-center">
         <div className="col-md-8 col-lg-6">
           <div className="card shadow-lg border-0 rounded-4 overflow-hidden">
-            
             {/* Header Section */}
             <div className="bg-dark text-white text-center py-5">
               <div className="position-relative d-inline-block mb-3">
                 <img
-                  src={userData.profileImage || "/customer-avatar.jpg"} 
+                  src={userData.profileImage || "/customer-avatar.jpg"}
                   alt="Customer"
                   className="rounded-circle border border-4 border-warning shadow"
-                  style={{ width: '130px', height: '130px', objectFit: 'cover' }}
+                  style={{
+                    width: "130px",
+                    height: "130px",
+                    objectFit: "cover",
+                  }}
                 />
               </div>
               <h2 className="fw-bold mb-1">
@@ -84,29 +126,43 @@ const CustomerProfile = () => {
               <h5 className="text-muted text-uppercase mb-4 small fw-bold border-bottom pb-2">
                 Personal Information
               </h5>
-              
+
               <div className="row mb-3">
-                <div className="col-sm-4 text-muted fw-semibold">Customer ID</div>
+                <div className="col-sm-4 text-muted fw-semibold">
+                  Customer ID
+                </div>
                 <div className="col-sm-8 fw-bold">{userData.customerId}</div>
               </div>
 
               <div className="row mb-3">
-                <div className="col-sm-4 text-muted fw-semibold">Email Address</div>
-                <div className="col-sm-8 fw-bold text-break">{userData.email}</div>
+                <div className="col-sm-4 text-muted fw-semibold">
+                  Email Address
+                </div>
+                <div className="col-sm-8 fw-bold text-break">
+                  {userData.email}
+                </div>
               </div>
 
               <div className="row mb-4">
-                <div className="col-sm-4 text-muted fw-semibold">Phone Number</div>
+                <div className="col-sm-4 text-muted fw-semibold">
+                  Phone Number
+                </div>
                 <div className="col-sm-8 fw-bold">{userData.phone}</div>
               </div>
 
               <div className="d-grid gap-2">
-                <button className="btn btn-warning fw-bold py-2 rounded-3">
+                <button
+                  className="btn btn-warning fw-bold py-2 rounded-3"
+                  onClick={() => setIsEditing(true)}
+                >
                   Edit Profile
                 </button>
-                <button 
+                <button
                   className="btn btn-outline-danger fw-bold py-2 rounded-3"
-                  onClick={() => { localStorage.removeItem('token'); window.location.reload(); }}
+                  onClick={() => {
+                    localStorage.removeItem("token");
+                    window.location.reload();
+                  }}
                 >
                   Logout
                 </button>
