@@ -1,0 +1,147 @@
+.order-summary-panel {
+    width: 320px;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.05); /* Glassmorphism */
+    backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 2rem;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+/* Header */
+.summary-header {
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.summary-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #ffcc00;
+    letter-spacing: 1px;
+}
+
+/* Scrollable Content Area */
+.summary-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+    scrollbar-width: none;
+}
+
+.summary-content::-webkit-scrollbar {
+    display: none;
+}
+
+/* Empty State */
+.empty-cart {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 20px;
+}
+
+.empty-cart p {
+    color: #fff;
+    margin: 15px 0 5px 0;
+    font-weight: 700;
+}
+
+.empty-cart span {
+    color: #666;
+    font-size: 0.85rem;
+}
+
+/* Item Cards */
+.cart-item-card {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 1rem;
+    padding: 12px 15px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-left: 4px solid #ffcc00;
+    animation: slideIn 0.3s ease-out;
+}
+
+.item-details {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.item-qty {
+    font-weight: 900;
+    color: #ffcc00;
+    font-size: 1rem;
+}
+
+.item-name-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.item-name {
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+}
+
+.item-category {
+    color: #666;
+    font-size: 0.75rem;
+}
+
+.remove-item-btn {
+    background: none;
+    border: none;
+    color: #ff4d4d;
+    cursor: pointer;
+    padding: 5px;
+    transition: transform 0.2s;
+}
+
+.remove-item-btn:hover {
+    transform: scale(1.2);
+}
+
+/* Footer Section */
+.summary-footer {
+    padding: 1.5rem;
+    background: rgba(0, 0, 0, 0.2);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.total-row {
+    display: flex;
+    justify-content: space-between;
+    color: #fff;
+    font-weight: 800;
+    font-size: 1rem;
+}
+
+.tap-hint {
+    color: #ffcc00;
+    font-size: 0.75rem;
+    margin-top: 10px;
+    text-align: center;
+    font-style: italic;
+    opacity: 0.8;
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+}

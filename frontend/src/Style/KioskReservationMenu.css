@@ -461,7 +461,14 @@
   letter-spacing: 1px;
 }
 
-
+.res-main-layout {
+  flex: 1;
+  display: flex;
+  padding: 1rem;
+  gap: 1rem;
+  width: 100%;
+  overflow: hidden; /* Vital for internal scrollbars to work */
+}
 
 /* Mobile Responsiveness */
 @media (max-width: 600px) {
