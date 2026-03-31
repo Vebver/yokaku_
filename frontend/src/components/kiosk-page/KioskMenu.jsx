@@ -132,6 +132,7 @@ const menuData = {
     { id: "side-12", name: "Strawberry Waffle", image:"/logo.png"},
     { id: "side-13", name: "Ham w/ Cheese Waffle", image:"/logo.png"},
     { id: "side-14", name: "Bacon Cheese Burger Waffle", image:"/logo.png"}
+    
   ],
 
   Beverages: [
