@@ -2,89 +2,57 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const User = require("./models/User");
-const authController = require("./controllers/authController");
-const userController = require("./controllers/userController"); // Ensure path is correct
-const { protect } = require("./middleware/authMiddleware"); // Import the bouncer
-const { getAllReservations } = require('./controllers/reservationController'); // Import the reservation controller
+const authRoutes = require("./routes/authRoutes");
+const otpRoutes = require("./routes/otpRoutes");
+const userController = require("./controllers/userController"); 
+const { protect } = require("./middleware/authMiddleware"); 
+const reservationRoutes = require("./routes/reservationRoutes"); 
+const productRoutes = require('./routes/productRoutes');
 
-const app = express();
 const PORT = process.env.PORT || 5000;
+const app = express();
 
-// Middleware
-app.use(cors({ origin: "http://localhost:5173", credentials: true })); // Adjust the port if your React app runs on a different one
-app.use(express.json({ limit: '10mb' })); // To handle JSON bodies and allow larger payloads for profile images
+// --- 1. MIDDLEWARE ---
+app.use(cors({ origin: "http://localhost:5173", credentials: true })); 
+app.use(express.json({ limit: '10mb' })); 
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
-// Public Auth routes
-app.post("/api/auth/login", authController.login);
-app.post("/api/auth/signup", authController.signup);
-app.post("/api/auth/verifyOTP", authController.verifyOTP);
+// --- 2. ROUTES ---
 
-// OTP routes
-app.post("/api/otp/send", authController.sendReservationOTP);
-app.post("/api/otp/verify", authController.verifyReservationOTP);
+// Public Auth routes (Login, Signup)
+app.use('/api', authRoutes);
 
-// Profile route (PROTECTED)
+// OTP routes (Send/Verify for Reservations)
+app.use("/api/otp", otpRoutes); 
+
+// Profile routes (PROTECTED)
 app.get("/api/profile", protect, userController.getProfile);
 app.put("/api/profile", protect, userController.updateProfile);
 
 // Reservation routes
-app.get('/api/reservations', protect, getAllReservations);
+app.use('/api/reserve', reservationRoutes);
 
-// Example of another protected route using the SAME imported middleware
+// Product routes
+app.use('/api/products', productRoutes);
+
+// Protected check route
 app.get("/api/protected", protect, (req, res) => {
   res.json({ message: "Protected data", user: req.user });
 });
-// backend/routes/reservation.js
-app.post("/api/reserve", (req, res) => {
-  // FORCE RESPONSE IMMEDIATELY FOR TESTING
-  console.log(
-    "📥 [TEST] Request received! Sending response back to React NOW.",
-  );
 
-  // This will trigger the Alert in React instantly
-  res.status(200).json({ success: true, message: "TESTING" });
-
-  // NOW try the database stuff in the background
-  let {
-    date,
-    time,
-    guests,
-    email,
-    firstName,
-    lastName,
-    phone,
-    packageName,
-    userId,
-  } = req.body;
-  const sql = `INSERT INTO reservations (user_id, first_name, last_name, email, phone, reservation_date, reservation_time, num_guests, package_name, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`;
-
-  User.pool.query(
-    sql,
-    [
-      userId || null,
-      firstName,
-      lastName,
-      email,
-      phone,
-      date,
-      "12:00:00",
-      guests,
-      packageName,
-    ],
-    (err) => {
-      if (err) console.error("❌ DB Background Error:", err.message);
-      else console.log("✅ DB Background Success!");
-    },
-  );
-});
-
+// --- 3. SERVER START & DB CHECK ---
 app.listen(PORT, async () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  
   try {
-    await User.pool.getConnection();
-    console.log("MySQL pool ready");
+    // 1. Get a connection
+    const connection = await User.pool.getConnection();
+    console.log("✅ MySQL connection pool is ready");
+
+    // 2. IMPORTANT: Release the connection back to the pool immediately!
+    connection.release(); 
+    
   } catch (error) {
-    console.error("DB pool error:", error.message);
+    console.error("❌ Database pool error:", error.message);
   }
 });

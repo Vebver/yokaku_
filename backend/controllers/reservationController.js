@@ -1,25 +1,17 @@
-// controllers/reservationController.js
-const User = require('../models/User'); 
+const Reservation = require('../models/Reservation');
 
-const getAllReservations = async (req, res) => {
-  try {
-    console.log("Fetching reservations for user:", req.user.userId);
+exports.createReservation = (req, res) => {
+  // 1. [TEST] Immediate Response to React
+  console.log("📥 [TEST] Request received! Sending response back to React NOW.");
+  res.status(200).json({ success: true, message: "Wait for approval! Reservation submitted." });
 
-    const sql = `SELECT * FROM reservations ORDER BY created_at DESC`;
-    
-    // In promise clients, we use await and destructure the [rows]
-    const [rows] = await User.pool.query(sql);
-    
-    console.log(`Found ${rows.length} reservations.`);
-    
-    // Send the rows back to React
-    res.json(rows);
-
-  } catch (error) {
-    // This will now catch SQL errors properly
-    console.error("SQL or Controller Error:", error.message);
-    res.status(500).json({ error: "Database query failed: " + error.message });
-  }
+  // 2. BACKGROUND WORK
+  // We do NOT use 'await' before the response so the user doesn't wait
+  Reservation.create(req.body)
+    .then(() => {
+      console.log("✅ DB Background Success!");
+    })
+    .catch((err) => {
+      console.error("❌ DB Background Error:", err.message);
+    });
 };
-
-module.exports = { getAllReservations };
