@@ -152,9 +152,7 @@ const Reservation = ({ onClose }) => {
 
   return (
     <div className="res-modal-overlay" onClick={onClose}>
-      <div className="res-modal-content" onClick={(e) => e.stopPropagation()}>
-        <button className="res-close-btn" onClick={onClose}>&times;</button>
-        
+      <div className="res-modal-content" onClick={(e) => e.stopPropagation()}>    
         <div className="res-logo">
           <h1 className="res-hangout">HANGOUT</h1>
           <p className="res-restobar">Resto Bar</p>
