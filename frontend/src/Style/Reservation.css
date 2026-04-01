@@ -1,46 +1,41 @@
-/* --- LAYOUT & OVERLAY --- */
+/* --- 1. LAYOUT & OVERLAY (KEEPING AS IS - DO NOT CHANGE) --- */
 .res-modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(5px);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 10002;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background-color: rgba(0, 0, 0, 0.85) !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  z-index: 9999999 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  backdrop-filter: blur(3px);
 }
 
 .res-modal-content {
-  background: white;
-  width: 90%;
-  max-width: 700px;
-  padding: 40px;
-  border-radius: 15px;
-  position: relative;
+  position: relative !important;
+  background-color: white !important;
+  color: black !important;
+  width: 95% !important;
+  max-width: 550px !important;
+  max-height: 90vh !important;
+  padding: 35px !important;
+  border-radius: 20px !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5) !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  z-index: 10000000 !important;
+  overflow-y: auto;
   text-align: center;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
 }
 
-.res-close-btn {
-  position: absolute;
-  top: 15px;
-  right: 20px;
-  background: none;
-  border: none;
-  font-size: 30px;
-  cursor: pointer;
-  color: #bbb;
-  transition: color 0.2s;
-}
-
-.res-close-btn:hover {
-  color: #333;
-}
-
-/* --- LOGO & TITLES --- */
+/* --- 2. LOGO & TITLES (DESIGN RESTORED) --- */
 .res-hangout {
   color: #ffcc00;
   font-weight: 900;
@@ -64,7 +59,7 @@
   font-size: 24px;
 }
 
-/* --- PROGRESS BAR --- */
+/* --- 3. PROGRESS BAR (DESIGN RESTORED) --- */
 .res-progress-text {
   display: flex;
   justify-content: space-between;
@@ -90,39 +85,13 @@
   transition: width 0.4s ease-in-out;
 }
 
-/* --- BODY & ICONS --- */
-.res-icon-circle {
-  width: 90px;
-  height: 90px;
-  background: #ffcc00;
-  border-radius: 50%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin: 0 auto 15px;
-  box-shadow: 0 4px 15px rgba(255, 204, 0, 0.3);
-}
-
-.res-body h3 {
-  font-weight: 800;
-  font-size: 22px;
-  margin-bottom: 5px;
-}
-
-.res-body p {
-  color: #666;
-  font-size: 14px;
-  margin-bottom: 20px;
-}
-
-/* --- INPUT CONTAINERS --- */
-.res-input-container {
+/* --- 4. INPUTS & FORMS (DESIGN RESTORED) --- */
+.res-input-group, .res-input-container {
   text-align: left;
-  max-width: 400px;
-  margin: 20px auto;
+  margin-bottom: 15px;
 }
 
-.res-input-container label {
+.res-input-group label, .res-input-container label {
   display: block;
   font-size: 13px;
   font-weight: bold;
@@ -130,7 +99,7 @@
   color: #444;
 }
 
-.res-input-container input {
+.res-input-group input, .res-input-container input {
   width: 100%;
   padding: 12px;
   border: 1px solid #ccc;
@@ -140,11 +109,16 @@
   transition: border-color 0.2s;
 }
 
-.res-input-container input:focus {
+.res-input-group input:focus {
   border-color: #ffcc00;
 }
 
-/* --- CUSTOM SCROLLABLE TIME PICKER --- */
+.res-form-row {
+  display: flex;
+  gap: 15px;
+}
+
+/* --- 5. TIME PICKER (DESIGN RESTORED) --- */
 .custom-time-picker {
   display: flex;
   justify-content: center;
@@ -154,50 +128,15 @@
   padding: 15px;
   border-radius: 12px;
   border: 1px solid #eee;
-  max-width: 380px;
-}
-
-.time-column {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex: 1;
-}
-
-.time-column label {
-  font-size: 11px;
-  text-transform: uppercase;
-  color: #aaa;
-  margin-bottom: 8px;
-  font-weight: 800;
 }
 
 .scroll-box {
   height: 160px;
-  width: 100%;
+  width: 80px;
   overflow-y: auto;
   border: 1px solid #e0e0e0;
   background: white;
   border-radius: 8px;
-  scroll-behavior: smooth;
-}
-
-/* Custom Scrollbar for Time Picker */
-.scroll-box::-webkit-scrollbar {
-  width: 5px;
-}
-
-.scroll-box::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.scroll-box::-webkit-scrollbar-thumb {
-  background: #ffcc00;
-  border-radius: 10px;
-}
-
-/* Firefox scrollbar */
-.scroll-box {
   scrollbar-width: thin;
   scrollbar-color: #ffcc00 transparent;
 }
@@ -210,20 +149,44 @@
   transition: all 0.2s;
   border-bottom: 1px solid #f8f8f8;
   text-align: center;
-  user-select: none;
-}
-
-.time-item:hover {
-  background: #fffdf0;
 }
 
 .time-item.selected {
-  background: #ffcc00; /* Gold background for selected */
+  background: #ffcc00;
   color: #000;
   font-weight: 800;
 }
 
-/* --- FOOTER & BUTTONS --- */
+/* --- 6. PACKAGE STYLES (DESIGN RESTORED) --- */
+.package-container {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin: 25px 0;
+}
+
+.package-box {
+  flex: 1;
+  min-width: 80px;
+  height: 100px;
+  border: 2px solid #ddd;
+  border-radius: 10px;
+  cursor: pointer;
+  background: white;
+  transition: all 0.2s ease-in-out;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+}
+
+.package-box.active {
+  border-color: #ffcc00;
+  background-color: #ffd400;
+  transform: translateY(-5px);
+}
+
+/* --- 7. FOOTER & BUTTONS (DESIGN RESTORED) --- */
 .res-footer {
   display: flex;
   gap: 15px;
@@ -232,334 +195,67 @@
 }
 
 .res-btn-back {
-  padding: 12px 60px;
+  padding: 12px 40px;
   border: 1px solid #ccc;
   background: white;
   cursor: pointer;
   border-radius: 8px;
   font-weight: 600;
   color: #444;
-  transition: background 0.2s;
-}
-
-.res-btn-back:hover {
-  background: #f9f9f9;
 }
 
 .res-btn-continue {
   padding: 12px 60px;
   background: #ffcc00;
   border: none;
-  font-weight: bold;
+  font-weight: 700;
   cursor: pointer;
   border-radius: 8px;
   color: #000;
-  transition: all 0.2s;
-}
-
-.res-btn-continue:hover:not(:disabled) {
-  background: #e6b800;
-  transform: translateY(-2px);
 }
 
 .res-btn-continue:disabled {
-  background-color: #eee;
-  color: #999;
+  background-color: #eeeeee !important;
+  color: #999999 !important;
   cursor: not-allowed;
 }
 
-/* --- UTILS & ANIMATIONS --- */
-.res-error-text {
-  color: #d9534f;
-  font-size: 12px;
-  margin-top: 5px;
-  font-weight: 600;
-}
-
-.fade-in {
-  animation: fadeIn 0.4s ease-in-out;
-}
-
-/* --- STEP 3 PACKAGE STYLES --- */
-.package-container {
-    display: flex;
-    justify-content: center;
-    gap: 12px;
-    margin: 25px 0;
-    overflow-x: auto;
-    padding: 10px 5px;
-}
-
-.package-box {
-    min-width: 100px;
-    height: 120px;
-    border: 2px solid #ddd;
-    border-radius: 10px;
-    cursor: pointer;
-    background: white;
-    transition: all 0.2s ease-in-out;
-}
-
-/* Yellow Border when selected (Matches your image) */
-.package-box.active {
-    border-color: #ffcc00;
-    box-shadow: 0 0 10px rgba(255, 204, 0, 0.2);
-    transform: translateY(-5px);
-}
-
-.view-all-packages {
-    width: 100%;
-    max-width: 450px;
-    background: white;
-    border: 1px solid #ccc;
-    padding: 10px;
-    border-radius: 5px;
-    font-weight: 600;
-    color: #444;
-    cursor: pointer;
-    margin-bottom: 20px;
-}
-
-.view-all-packages:hover {
-    background: #f9f9f9;
-}
-
-/* Styling for the disabled button to match your image */
-.res-btn-continue:disabled {
-  background-color: #eeeeee !important; /* Light gray background */
-  color: #999999 !important;           /* Muted gray text */
-  border: 1px solid #dddddd;           /* Subtle border */
-  cursor: not-allowed;                 /* Standard "disabled" cursor */
-  transform: none !important;          /* Remove any hover animations */
-  box-shadow: none !important;         /* Remove any shadows */
-}
-
-/* Ensure the text weight matches the image */
-.res-btn-continue {
-  font-weight: 700;
-  border-radius: 8px; /* Smooth rounded corners like the image */
-  transition: all 0.2s ease;
-}
-/* --- STEP 5: CONTACT INFORMATION FORM --- */
-.res-form-container {
-    width: 100%;
-    max-width: 500px;
-    margin: 0 auto;
-    text-align: left;
-}
-
-.res-form-row {
-    display: flex;
-    gap: 15px;
-    margin-bottom: 15px;
-}
-
-.res-input-group {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-}
-
-.res-input-group.full-width {
-    margin-bottom: 15px;
-}
-
-.res-input-group label {
-    display: block;
-    font-size: 13px;
-    font-weight: bold;
-    margin-bottom: 8px;
-    color: #444;
-}
-
-.res-input-group input {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    font-size: 15px;
-    outline: none;
-    transition: border-color 0.2s;
-}
-
-.res-input-group input:focus {
-    border-color: #ffcc00;
-}
-
-.res-step-title-small {
-    font-weight: 800;
-    font-size: 20px;
-    margin-top: 10px;
-}
-
-
-/* Step 6: OTP Boxes */
-.otp-container {
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-    margin: 20px 0;
-}
-
-.otp-box {
-    width: 45px;
-    height: 55px;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    text-align: center;
-    font-size: 24px;
-    font-weight: bold;
-    outline: none;
-    transition: all 0.2s;
-}
-
-.otp-box:focus {
-    border-color: #ffcc00;
-    box-shadow: 0 0 8px rgba(255, 204, 0, 0.3);
-}
-
-.res-resend-text {
-    font-size: 13px;
-    color: #888;
-}
-
-.res-gold-link {
-    color: #ffcc00;
-    font-weight: bold;
-    cursor: pointer;
-    text-decoration: underline;
-}
-
-/* --- STEP 7: CONFIRMATION SUMMARY / RECEIPT --- */
-.res-confirm-title {
-    font-weight: 800;
-    font-size: 22px;
-    margin-top: 10px;
-}
-
-.res-confirm-subtitle {
-    font-size: 13px;
-    color: #888;
-    margin-bottom: 25px;
-}
-
+/* --- 8. SUMMARY DETAILS (DESIGN RESTORED) --- */
 .res-summary-container {
-    width: 100%;
-    max-width: 450px;
-    margin: 0 auto;
-    text-align: left; /* Ensures container alignment is solid */
+  width: 100%;
+  max-width: 450px;
+  margin: 0 auto;
 }
 
 .res-summary-row {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 12px;
-    font-size: 14px;
-    color: #444;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: #444;
 }
 
 .res-summary-row span {
-    color: #888; /* Muted color for labels like "Date:", "Time:" */
+  color: #888;
 }
 
 .res-summary-row strong {
-    color: #222;
-    font-weight: 700;
-    text-align: right; /* Aligns values to the right */
+  color: #222;
+  font-weight: 700;
 }
 
-.res-summary-divider {
-    border: none;
-    border-top: 1px solid #eee;
-    margin: 15px 0;
-    width: 100%;
+/* --- 9. OTP (DESIGN RESTORED) --- */
+.otp-box {
+  width: 45px;
+  height: 55px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 24px;
+  font-weight: bold;
+  outline: none;
 }
 
-/* Adjusting footer spacing for the last step */
-.res-footer {
-    margin-top: 20px;
-}
-
-.res-success-view {
-    padding: 50px 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center; /* Center content vertically */
-    text-align: center;
-    min-height: 350px; /* Ensures the modal doesn't shrink to nothing */
-    width: 100%;
-    box-sizing: border-box;
-}
-
-.success-icon-circle {
-    width: 110px;
-    height: 110px;
-    background: rgba(255, 204, 0, 0.1); /* Very light gold circle */
-    border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-bottom: 30px;
-    border: 2px solid rgba(255, 204, 0, 0.2);
-    animation: scaleUp 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-.res-success-view h2 {
-    color: #ffcc00;
-    font-weight: 900;
-    font-size: 26px;
-    margin-bottom: 15px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-
-.res-success-view p {
-    color: #333;
-    font-size: 17px;
-    margin: 0;
-    font-weight: 500;
-}
-
-.res-success-view .small-notice {
-    color: #888;
-    font-size: 14px;
-    margin-top: 15px;
-    max-width: 320px;
-    line-height: 1.6;
-}
-
-/* Ensure the success animation is distinct */
-@keyframes scaleUp {
-    0% { transform: scale(0.5); opacity: 0; }
-    100% { transform: scale(1); opacity: 1; }
-}
-
-
-
-/* Ensure the form stacks on small mobile screens */
-@media (max-width: 480px) {
-    .res-form-row {
-        flex-direction: column;
-        gap: 15px;
-    }
-}
-
-
-/* Responsive fix for packages */
-@media (max-width: 600px) {
-    .package-container {
-        justify-content: flex-start;
-    }
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.otp-box:focus {
+  border-color: #ffcc00;
 }

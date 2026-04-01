@@ -46,7 +46,9 @@ function App() {
   };
 
   const handleReservationSuccess = () => {
-    console.log("Reservation Successful! Closing modal and showing success message.");
+    console.log(
+      "Reservation Successful! Closing modal and showing success message.",
+    );
     setIsReservationOpen(false); // 1. Close the big modal
     setShowSuccessMessage(true); // 2. Open the "Wait for approval" message
   };
@@ -70,28 +72,24 @@ function App() {
           <Route
             path="/"
             element={
-              isLoggedIn ? (
-                <Navigate to="/customer" replace />
-              ) : (
-                <>
-                  <HeroSection
-                    isLoggedIn={isLoggedIn}
-                    onLoginClick={() => setIsLoginOpen(true)}
-                    onReserveClick={() => setIsReservationOpen(true)}
-                  />
-                  <div id="menu-section">
-                    <FeaturedMenu />
-                  </div>
-                  <div id="about-section">
-                    <AboutSection />
-                  </div>
-                  <div id="promos-section">
-                    <PromoSection />
-                  </div>
-                  <ReviewsSection />
-                  <Footer />
-                </>
-              )
+              <>
+                <HeroSection
+                  isLoggedIn={isLoggedIn}
+                  onLoginClick={() => setIsLoginOpen(true)}
+                  onReserveClick={() => setIsReservationOpen(true)}
+                />
+                <div id="menu-section">
+                  <FeaturedMenu />
+                </div>
+                <div id="about-section">
+                  <AboutSection />
+                </div>
+                <div id="promos-section">
+                  <PromoSection />
+                </div>
+                <ReviewsSection />
+                <Footer />
+              </>
             }
           />
 
@@ -121,8 +119,14 @@ function App() {
           <Route path="/login" element={<Navigate to="/" replace />} />
           <Route path="/kiosk-selection" element={<KioskSelection />} />
           <Route path="/kiosk-selection/kiosk-menu" element={<KioskMenu />} />
-          <Route path="/kiosk-selection/kiosk-reservation" element={<KioskReservation />} />
-          <Route path="/kiosk-selection/kiosk-reservation-menu" element={<KioskReservationMenu />} />
+          <Route
+            path="/kiosk-selection/kiosk-reservation"
+            element={<KioskReservation />}
+          />
+          <Route
+            path="/kiosk-selection/kiosk-reservation-menu"
+            element={<KioskReservationMenu />}
+          />
         </Routes>
 
         {/* MODALS */}
@@ -149,7 +153,11 @@ const NavbarWrapper = ({ onLoginClick, isLoggedIn, onLogout }) => {
   const location = useLocation();
 
   // 1. Hide for Admin
-  if (location.pathname.startsWith("/admin") || location.pathname.startsWith("/cashier-selection") || location.pathname.startsWith("/kiosk-selection")) {
+  if (
+    location.pathname.startsWith("/admin") ||
+    location.pathname.startsWith("/cashier-selection") ||
+    location.pathname.startsWith("/kiosk-selection")
+  ) {
     return null;
   }
 
