@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   PlusSquare, Drumstick, CupSoda, Check, Bell, 
-  ChevronUp, ChevronDown, AlertCircle, Clock, Timer, Star 
+  ChevronUp, ChevronDown, AlertCircle, Clock, Timer, Star,
+  User, CheckCircle 
 } from "lucide-react";
 import "../../Style/KioskReservationMenu.css";
 import ReservationOrderModal from './ReservationOrderModal';
@@ -36,39 +37,43 @@ const menuData = {
 
 const KioskReservationMenu = () => {
   const navigate = useNavigate();
+  const reservationId = localStorage.getItem("resId") || "GUEST";
+  const TIMER_SESSION_KEY = `kiosk_timer_end_${reservationId}`;
+
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showTimeModal, setShowTimeModal] = useState(false); 
+  const [showOrderSuccessModal, setShowOrderSuccessModal] = useState(false);
   const [activeCategory, setActiveCategory] = useState("Chicken Wings"); 
   const [selectedCard, setSelectedCard] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [cart, setCart] = useState([]);
+  const [timeLeft, setTimeLeft] = useState(5400); 
+  const [isTimerRunning, setIsTimerRunning] = useState(false); 
 
-  // --- TIMER STATE LOGIC ---
-  const [timeLeft, setTimeLeft] = useState(5400); // 1:30:00 in seconds
-  const [isTimerRunning, setIsTimerRunning] = useState(false); // New state to control start
+  // Timer persistence logic
+  useEffect(() => {
+    const savedEndTime = localStorage.getItem(TIMER_SESSION_KEY);
+    if (savedEndTime) {
+      const remaining = Math.floor((parseInt(savedEndTime) - Date.now()) / 1000);
+      if (remaining > 0) { setTimeLeft(remaining); setIsTimerRunning(true); }
+    }
+  }, [TIMER_SESSION_KEY]);
 
   useEffect(() => {
     let timerInterval;
-
     if (isTimerRunning) {
       timerInterval = setInterval(() => {
-        setTimeLeft((prevTime) => {
-          if (prevTime <= 0) {
-            clearInterval(timerInterval);
-            return 0;
-          }
-          // Notify at exactly 30 minutes (1800 seconds)
-          if (prevTime === 1800) {
-            setShowTimeModal(true);
-          }
-          return prevTime - 1;
-        });
+        const savedEndTime = localStorage.getItem(TIMER_SESSION_KEY);
+        if (savedEndTime) {
+          const remaining = Math.floor((parseInt(savedEndTime) - Date.now()) / 1000);
+          if (remaining <= 0) { setTimeLeft(0); clearInterval(timerInterval); }
+          else { setTimeLeft(remaining); if (remaining === 1800) setShowTimeModal(true); }
+        }
       }, 1000);
     }
-
     return () => clearInterval(timerInterval);
-  }, [isTimerRunning]); // Only runs/reruns when isTimerRunning changes
+  }, [isTimerRunning, TIMER_SESSION_KEY]);
 
   const formatTime = (seconds) => {
     const h = Math.floor(seconds / 3600);
@@ -91,149 +96,129 @@ const KioskReservationMenu = () => {
     setSelectedCard(null); 
   };
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setSelectedCard(null);
-  };
-
   const addToOrder = (itemWithQty) => {
-    setCart((prevCart) => {
-      const isExisting = prevCart.find((i) => i.id === itemWithQty.id);
+    const currentTotalWings = cart.filter(i => i.id.startsWith("unli")).reduce((sum, i) => sum + i.quantity, 0);
+    if (itemWithQty.id.startsWith("unli") && currentTotalWings + itemWithQty.quantity > 24) {
+      alert("Maximum 24 wings allowed.");
+      return;
+    }
+
+    setCart((prev) => {
+      const isExisting = prev.find((i) => i.id === itemWithQty.id);
       if (isExisting) {
-        return prevCart.map((item) =>
-          item.id === itemWithQty.id
-            ? { ...item, quantity: item.quantity + itemWithQty.quantity }
-            : item
-        );
+        return prev.map((i) => i.id === itemWithQty.id ? { ...i, quantity: i.quantity + itemWithQty.quantity } : i);
       }
-      return [...prevCart, itemWithQty];
+      return [...prev, itemWithQty];
     });
     setSelectedCard(null);
   };
 
-  const removeFromCart = (itemId) => {
-    setCart((prevCart) => prevCart.filter((item) => item.id !== itemId));
-  };
-
-  // --- HANDLER FOR SEND REQUEST ---
   const handleSendRequest = () => {
     if (cart.length > 0) {
-      // Start the timer
+      if (!localStorage.getItem(TIMER_SESSION_KEY)) {
+        const endTime = Date.now() + 5400 * 1000;
+        localStorage.setItem(TIMER_SESSION_KEY, endTime.toString());
+      }
       setIsTimerRunning(true);
-      // Optional: Logic to send order to backend here
-      console.log("Request sent to kitchen, timer started.");
+      setCart([]);
+      setShowOrderSuccessModal(true);
     }
   };
 
-  const handleCancelClick = () => setShowCancelModal(true);
-  const confirmCancel = () => navigate("/kiosk-selection");
+  // --- ADDED FUNCTIONALITY: CONFIRM CANCEL ---
+  const confirmCancel = () => {
+    localStorage.removeItem("resId"); 
+    localStorage.removeItem(TIMER_SESSION_KEY); 
+    setCart([]);
+    setShowCancelModal(false);
+    navigate("/kiosk-selection");
+  };
 
   return (
     <div className="res-kiosk-container">
+      {/* HEADER */}
       <div className="kiosk-timer-wrapper">
+        <div className="header-id-section">
+            <User size={20} color="#ffcc00" />
+            <div className="id-details">
+                <span className="id-label">RESERVATION ID</span>
+                <span className="id-value">{reservationId}</span>
+            </div>
+        </div>
         <div className="timer-box">
           <Clock size={20} color="#ffcc00" />
           <span className="timer-text">{formatTime(timeLeft)}</span>
-          <span className="timer-label">
-            {isTimerRunning ? "TIME REMAINING" : "TIMER READY"}
-          </span>
+          <span className="timer-label">{isTimerRunning ? "TIME REMAINING" : "TIMER READY"}</span>
         </div>
+        <div className="header-right-spacer"></div>
       </div>
 
       <div className="res-main-layout">
         <aside className="res-sidebar">
-          <div className="res-brand">
-            <h1 className="res-logo-main">HANGOUT</h1>
-            <p className="res-logo-sub">Resto Bar</p>
-          </div>
+          <div className="res-brand"><h1>HANGOUT</h1><p>Resto Bar</p></div>
           <div className="res-category-list">
-            <div className="res-scroll-arrow res-top"><ChevronUp size={20} /></div>
             <div className="res-cat-scroll-wrapper">
               {categories.map((cat) => (
-                <button
-                  key={cat}
-                  className={`res-cat-btn ${activeCategory === cat ? "res-active" : ""}`}
-                  onClick={() => handleCategoryChange(cat)}
-                >
+                <button key={cat} className={`res-cat-btn ${activeCategory === cat ? "res-active" : ""}`} onClick={() => handleCategoryChange(cat)}>
                   <div className="res-cat-icon-placeholder">{categoryIcons[cat] || <Star size={20} />}</div>
                   <span>{cat}</span>
                 </button>
               ))}
             </div>
-            <div className="res-scroll-arrow res-bottom"><ChevronDown size={20} /></div>
           </div>
-          <button className="res-assist-btn" onClick={() => navigate("/kiosk-selection")}>
-            <Bell size={18} fill="currentColor" />
-            <span>Assist Me</span>
-          </button>
+          <button className="res-assist-btn" onClick={() => navigate("/kiosk-selection")}><Bell size={18} /><span>Assist Me</span></button>
         </aside>
 
         <main className="res-content-area">
           <div className="res-grid-container">
             {currentItems.map((item) => (
-              <div
-                key={item.id}
-                className={`res-food-card ${selectedCard === item.id ? "res-selected" : ""}`}
-                onClick={() => handleCardClick(item)}
-              >
+              <div key={item.id} className={`res-food-card ${selectedCard === item.id ? "res-selected" : ""}`} onClick={() => handleCardClick(item)}>
                 <div className="res-card-image-container"><img src={item.image} alt={item.name} className="res-food-img" /></div>
                 <div className="res-card-info"><h4 className="res-food-label">{item.name}</h4></div>
-                {selectedCard === item.id && (
-                  <div className="res-selected-check"><Check size={18} color="white" strokeWidth={4} /></div>
-                )}
+                {selectedCard === item.id && (<div className="res-selected-check"><Check size={18} color="white" strokeWidth={4} /></div>)}
               </div>
             ))}
           </div>
         </main>
 
-        <OrderSummary cart={cart} onRemoveItem={removeFromCart} />
+        <OrderSummary cart={cart} onRemoveItem={(id) => setCart(cart.filter(i => i.id !== id))} />
       </div>
 
-      <footer className="res-bottom-bar">
+      {/* FOOTER */}
+      <footer className="res-bottom-bar" style={{ zIndex: 100 }}>
+        <button className="res-btn-view-all" onClick={() => navigate('/kiosk-selection/kiosk-menu')}>View All Menu</button>
         <div className="res-action-btns">
-          <button className="res-btn-cancel" onClick={handleCancelClick}>Cancel</button>
-          
-          {/* UPDATED BUTTON: Label and Logic changed */}
-          <button 
-            className="res-btn-view" 
-            disabled={cart.length === 0 || isTimerRunning} 
-            onClick={handleSendRequest}
-          >
-            {isTimerRunning ? "Request Sent" : "Send Request"}
+          <button className="res-btn-cancel" onClick={() => setShowCancelModal(true)}>Cancel</button>
+          <button className="res-btn-view" onClick={handleSendRequest}>
+            {isTimerRunning ? "Send Request Again" : "Send Request"}
           </button>
         </div>
       </footer>
 
-      <ReservationOrderModal 
-        isOpen={isModalOpen} 
-        onClose={handleCloseModal} 
-        item={selectedItem} 
-        onAdd={addToOrder} 
-      />
-
-      {showTimeModal && (
-        <div className="res-modal-overlay">
-          <div className="res-modal-card res-fade-in-scale">
-            <div className="res-modal-icon"><Timer size={48} color="#ffcc00" /></div>
-            <h2>Time Reminder</h2>
-            <p>You have <strong>30 minutes</strong> left to finish your meal. Enjoy!</p>
-            <div className="res-modal-actions">
-              <button className="res-modal-btn-primary" onClick={() => setShowTimeModal(false)}>OK</button>
+      {/* MODALS */}
+      <ReservationOrderModal isOpen={isModalOpen} onClose={() => {setIsModalOpen(false); setSelectedCard(null);}} item={selectedItem} onAdd={addToOrder} />
+      
+      {/* ADDED: CANCEL MODAL */}
+      {showCancelModal && (
+        <div className="res-modal-overlay" style={{ display: 'flex', position: 'fixed', zIndex: 999999, top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center' }}>
+          <div className="res-modal-card" style={{ backgroundColor: '#1a1a1a', padding: '40px', borderRadius: '30px', border: '1px solid #333' }}>
+            <AlertCircle size={48} color="#ffcc00" style={{ marginBottom: '10px' }} />
+            <h2 style={{ color: '#ffcc00' }}>Discard Order?</h2>
+            <p style={{ color: 'white', margin: '10px 0' }}>Your current selections will be cleared.</p>
+            <div className="res-modal-actions" style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '20px' }}>
+              <button className="res-modal-btn-secondary" onClick={() => setShowCancelModal(false)}>No</button>
+              <button className="res-modal-btn-primary" onClick={confirmCancel}>Yes, Discard</button>
             </div>
           </div>
         </div>
       )}
 
-      {showCancelModal && (
-        <div className="res-modal-overlay" onClick={() => setShowCancelModal(false)}>
-          <div className="res-modal-card res-fade-in-scale" onClick={(e) => e.stopPropagation()}>
-            <div className="res-modal-icon"><AlertCircle size={48} color="#ffcc00" /></div>
-            <h2>Discard Order?</h2>
-            <p>Your current selections will be cleared.</p>
-            <div className="res-modal-actions">
-              <button className="res-modal-btn-secondary" onClick={() => setShowCancelModal(false)}>No, Keep Ordering</button>
-              <button className="res-modal-btn-primary" onClick={confirmCancel}>Yes, Discard</button>
-            </div>
+      {showOrderSuccessModal && (
+        <div className="res-modal-overlay" style={{ display: 'flex', position: 'fixed', zIndex: 999999, top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center' }}>
+          <div className="res-modal-card" style={{ backgroundColor: '#1a1a1a', textAlign: 'center', padding: '40px', borderRadius: '30px' }}>
+            <CheckCircle size={60} color="#ffcc00" style={{ marginBottom: '20px' }} />
+            <h2 style={{ color: '#ffcc00' }}>Order Sent!</h2>
+            <button className="res-modal-btn-primary" onClick={() => setShowOrderSuccessModal(false)}>OK</button>
           </div>
         </div>
       )}

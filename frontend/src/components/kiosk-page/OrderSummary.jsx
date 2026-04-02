@@ -48,7 +48,7 @@ const OrderSummary = ({ cart, onRemoveItem }) => {
                 <span>Total Items</span>
                 <span>{cart.reduce((acc, item) => acc + item.quantity, 0)}</span>
             </div>
-            <p className="tap-hint">Tap "View Order" below to finalize</p>
+            <p className="tap-hint">Tap "SEND REQUEST" below to Process your Order</p>
         </div>
       )}
     </aside>

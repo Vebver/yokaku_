@@ -1,18 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { QrCode, ArrowLeft, X } from 'lucide-react';
-import { Html5Qrcode } from 'html5-qrcode'; // Changed this line
+import { Html5Qrcode } from 'html5-qrcode';
 import '../../Style/KioskReservation.css';
 
 const KioskReservation = () => {
   const navigate = useNavigate();
   const [resId, setResId] = useState("");
   const [isScanning, setIsScanning] = useState(false);
-  const scannerRef = useRef(null); // Used to store the scanner instance
+  const scannerRef = useRef(null);
 
   const startScanner = async () => {
     setIsScanning(true);
-    // Give React time to render the #reader div
     setTimeout(async () => {
       try {
         const html5QrCode = new Html5Qrcode("reader");
@@ -20,17 +19,19 @@ const KioskReservation = () => {
 
         const config = { fps: 10, qrbox: { width: 250, height: 250 } };
 
-        // Start the camera (environment means back camera)
         await html5QrCode.start(
           { facingMode: "environment" }, 
           config,
           (decodedText) => {
+            // --- UPDATED: QR SCAN SUCCESS ---
             setResId(decodedText);
-            stopScanner(); // Stop on success
-            alert("QR Code Detected: " + decodedText);
+            localStorage.setItem("resId", decodedText); // Save ID to memory
+            stopScanner();
+            // Automatically navigate to menu after successful scan
+            navigate('/kiosk-selection/kiosk-reservation-menu');
           },
           (errorMessage) => {
-            // Constant searching... ignore errors
+            // Scanning...
           }
         );
       } catch (err) {
@@ -44,7 +45,7 @@ const KioskReservation = () => {
     if (scannerRef.current && scannerRef.current.isScanning) {
       try {
         await scannerRef.current.stop();
-        scannerRef.current.clear(); // Clean up the DOM
+        scannerRef.current.clear();
       } catch (err) {
         console.error("Failed to stop scanner", err);
       }
@@ -52,7 +53,6 @@ const KioskReservation = () => {
     setIsScanning(false);
   };
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (scannerRef.current && scannerRef.current.isScanning) {
@@ -61,10 +61,10 @@ const KioskReservation = () => {
     };
   }, []);
 
-  // Function to handle manual confirmation
+  // --- UPDATED: MANUAL CONFIRMATION ---
   const handleConfirmClick = () => {
     if (resId.trim()) {
-      // Directs to the Reservation Menu page
+      localStorage.setItem("resId", resId); // Save manually entered ID to memory
       navigate('/kiosk-selection/kiosk-reservation-menu');
     }
   };
@@ -122,7 +122,11 @@ const KioskReservation = () => {
               value={resId}
               onChange={(e) => setResId(e.target.value)}
             />
-            <button className="confirm-res-btn" disabled={!resId.trim()} onClick={handleConfirmClick}>
+            <button 
+              className="confirm-res-btn" 
+              disabled={!resId.trim()} 
+              onClick={handleConfirmClick}
+            >
               Confirm Reservation
             </button>
           </div>
