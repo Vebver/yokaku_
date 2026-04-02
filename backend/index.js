@@ -8,6 +8,8 @@ const userController = require("./controllers/userController");
 const { protect } = require("./middleware/authMiddleware"); 
 const reservationRoutes = require("./routes/reservationRoutes"); 
 const productRoutes = require('./routes/productRoutes');
+const categoryRoutes = require('./routes/categoryRoutes');
+const inventoryRoutes = require('./routes/inventoryRoutes');
 
 const PORT = process.env.PORT || 5000;
 const app = express();
@@ -30,10 +32,16 @@ app.get("/api/profile", protect, userController.getProfile);
 app.put("/api/profile", protect, userController.updateProfile);
 
 // Reservation routes
-app.use('/api/reserve', reservationRoutes);
+app.use('/api/reservations', reservationRoutes);
 
 // Product routes
 app.use('/api/products', productRoutes);
+
+// Category routes
+app.use('/api/categories', categoryRoutes);
+
+// Inventory routes
+app.use('/api/inventory', inventoryRoutes);   
 
 // Protected check route
 app.get("/api/protected", protect, (req, res) => {

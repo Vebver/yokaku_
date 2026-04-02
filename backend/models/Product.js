@@ -1,21 +1,40 @@
-const pool = require('../config/db'); 
+const db = require('../config/db'); 
 
 const Product = {
   getAll: async () => {
-    const [rows] = await pool.query("SELECT * FROM inventory");
+   const sql = `
+      SELECT 
+        menu_items.*, 
+        categories.name AS category_name 
+      FROM menu_items 
+      LEFT JOIN categories ON menu_items.category_id = categories.category_id
+    `;
+    const [rows] = await db.query(sql);
     return rows;
   },
 
   create: async (data) => {
-    const { item_name, quantity, unit, reorder_level, last_updated } = data;
-    const query = `INSERT INTO inventory (item_name, quantity, unit, reorder_level, last_updated) VALUES (?, ?, ?, ?, ?)`;
-    const [result] = await pool.query(query, [item_name, quantity, unit, reorder_level, last_updated]);
-    return { inventory_id: result.insertId, ...data };
+     const sql = `
+      INSERT INTO menu_items 
+      (name, description, price, category_id, image_url, is_available) 
+      VALUES (?, ?, ?, ?, ?, ?)
+    `;
+    const values = [
+      data.name, 
+      data.description, 
+      data.price, 
+      data.category_id, 
+      data.image_url, 
+      data.is_available
+    ];
+    const [result] = await db.query(sql, values);
+    return { item_id: result.insertId, ...data };
   },
 
-  delete: async (inventory_id) => {
-    const [result] = await pool.query("DELETE FROM inventory WHERE inventory_id = ?", [inventory_id]);
-    return result;
+  delete: async (id) => {
+   const sql = 'DELETE FROM menu_items WHERE item_id = ?';
+    await db.query(sql, [id]);
+    return true;
   },
 };
 
