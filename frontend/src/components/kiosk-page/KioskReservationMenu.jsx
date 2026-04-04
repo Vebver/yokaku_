@@ -25,90 +25,16 @@ const categoryIcons = {
   Drinks: <CupSoda />,
 };
 
-const menuData = {
-  "Chicken Wings": [
-    {
-      id: "unli-1",
-      name: "Bbq Wings",
-      image: "/Menu/Chicken/BbqW - Edited.png",
-      description: "Sweet and tangy BBQ glaze on crispy wings.",
-    },
-    {
-      id: "unli-2",
-      name: "Classic Wings",
-      image: "/Menu/Chicken/ClassicW - Edited.png",
-      description: "Our signature original crispy fried wings.",
-    },
-    {
-      id: "unli-3",
-      name: "Garlic Mayo",
-      image: "/Menu/Chicken/GarlicMayoW - Edited.png",
-      description: "Crispy wings tossed in creamy garlic mayo sauce.",
-    },
-    {
-      id: "unli-4",
-      name: "Hot & Spicy",
-      image: "/Menu/Chicken/Hot&SpicyW - Edited.png",
-      description: "Wings with a spicy kick for those who love heat.",
-    },
-    {
-      id: "unli-5",
-      name: "Sisig Wings",
-      image: "/Menu/Chicken/SisigW - Edited.png",
-      description: "Unique Filipino sisig-flavored crispy wings.",
-    },
-    {
-      id: "unli-6",
-      name: "Sweet Chili",
-      image: "/Menu/Chicken/SweetChiliW - Edited.png",
-      description: "Glazed in a perfect balance of sweet and spicy.",
-    },
-    {
-      id: "unli-7",
-      name: "Teriyaki Wings",
-      image: "/Menu/Chicken/TeriyakiW - Edited.png",
-      description: "Savory and sweet Japanese-style teriyaki glaze.",
-    },
-  ],
-  Extra: [
-    {
-      id: "ex-1",
-      name: "Rice",
-      image: "/logo.png",
-      description: "Extra serving of steamed white rice.",
-    },
-    {
-      id: "ex-2",
-      name: "Fries",
-      image: "/logo.png",
-      description: "A side of crispy golden potato fries.",
-    },
-  ],
-  Drinks: [
-    {
-      id: "dr-1",
-      name: "Coke",
-      image: "/logo.png",
-      description: "Ice-cold 330ml soda.",
-    },
-    {
-      id: "dr-2",
-      name: "Sprite",
-      image: "/logo.png",
-      description: "Refreshing lemon-lime soda.",
-    },
-  ],
-};
-
 const KioskReservationMenu = () => {
   const navigate = useNavigate();
   const reservationId = localStorage.getItem("resId") || "GUEST";
   const TIMER_SESSION_KEY = `kiosk_timer_end_${reservationId}`;
-
+  const [menuData, setMenuData] = useState({}); // Initialize as empty object
+  const [loading, setLoading] = useState(true); // Add a loading state
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showTimeModal, setShowTimeModal] = useState(false);
   const [showOrderSuccessModal, setShowOrderSuccessModal] = useState(false);
-  const [activeCategory, setActiveCategory] = useState("Chicken Wings");
+  const [activeCategory, setActiveCategory] = useState("");
   const [selectedCard, setSelectedCard] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
@@ -130,6 +56,7 @@ const KioskReservationMenu = () => {
     }
   }, [TIMER_SESSION_KEY]);
 
+  // Timer countdown logic
   useEffect(() => {
     let timerInterval;
     if (isTimerRunning) {
@@ -152,6 +79,58 @@ const KioskReservationMenu = () => {
     return () => clearInterval(timerInterval);
   }, [isTimerRunning, TIMER_SESSION_KEY]);
 
+  // Fetch menu data on component mount
+  useEffect(() => {
+    const fetchMenu = async () => {
+      try {
+        const response = await fetch("http://localhost:5000/api/products");
+        const data = await response.json();
+
+        const groupedMenu = data.reduce((acc, item) => {
+          // 1. Use category_name instead of category
+          const category = item.category_name || "Uncategorized";
+
+          if (!acc[category]) {
+            acc[category] = [];
+          }
+
+          // 2. Safely handle the image field (using image_url)
+          const rawImage = item.image_url || "";
+          let finalImage = "/logo.png"; // Fallback
+
+          if (rawImage && typeof rawImage === "string") {
+            finalImage = rawImage.startsWith("http")
+              ? rawImage
+              : `/Menu/Images/${rawImage}`;
+          }
+
+          acc[category].push({
+            id: item.item_id, // 3. Use item_id instead of id
+            name: item.name,
+            image: finalImage,
+            description: item.description,
+            category: category, // Keep category reference for the wings limit check
+          });
+          return acc;
+        }, {});
+
+        setMenuData(groupedMenu);
+
+        const categoriesList = Object.keys(groupedMenu);
+        if (categoriesList.length > 0) {
+          setActiveCategory(categoriesList[0]);
+        }
+
+        setLoading(false);
+      } catch (error) {
+        console.error("Error fetching menu:", error);
+        setLoading(false);
+      }
+    };
+
+    fetchMenu();
+  }, []);
+
   const formatTime = (seconds) => {
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
@@ -173,12 +152,15 @@ const KioskReservationMenu = () => {
     setSelectedCard(null);
   };
 
+  // --- ADDED FUNCTIONALITY: ENFORCE WINGS LIMIT ---
   const addToOrder = (itemWithQty) => {
+    // Check category instead of ID prefix
     const currentTotalWings = cart
-      .filter((i) => i.id.startsWith("unli"))
+      .filter((i) => i.category === "Chicken Wings")
       .reduce((sum, i) => sum + i.quantity, 0);
+
     if (
-      itemWithQty.id.startsWith("unli") &&
+      itemWithQty.category === "Chicken Wings" &&
       currentTotalWings + itemWithQty.quantity > 24
     ) {
       alert("Maximum 24 wings allowed.");
@@ -220,6 +202,14 @@ const KioskReservationMenu = () => {
     navigate("/kiosk-selection");
   };
 
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <span className="loading-text">Loading Menu...</span>
+      </div>
+    );
+  }
+
   return (
     <div className="res-kiosk-container">
       {/* HEADER */}
@@ -256,7 +246,9 @@ const KioskReservationMenu = () => {
                   onClick={() => handleCategoryChange(cat)}
                 >
                   <div className="res-cat-icon-placeholder">
-                    {categoryIcons[cat] || <Star size={20} />}
+                    {categoryIcons[cat] || categoryIcons[cat.trim()] || (
+                      <Star size={20} />
+                    )}
                   </div>
                   <span>{cat}</span>
                 </button>

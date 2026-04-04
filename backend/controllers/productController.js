@@ -12,7 +12,27 @@ const productController = {
 
   createProduct: async (req, res) => {
     try {
-      const newProduct = await Product.create(req.body);
+      // 1. Get text fields from req.body
+      const { name, description, price, category_id, is_available } = req.body;
+
+      // 2. Construct the Image URL from req.file (provided by Multer)
+      // This creates a string like: http://localhost:5000/uploads/171234567.png
+      const image_url = req.file 
+        ? `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}` 
+        : null;
+
+      // 3. Assemble the data for the Model
+      const productData = {
+        name,
+        description,
+        price,
+        category_id,
+        is_available,
+        image_url
+      };
+
+      // 4. Send to the Model
+      const newProduct = await Product.create(productData);
       res.status(201).json(newProduct);
     } catch (error) {
       res.status(400).json({ error: error.message });
@@ -29,5 +49,4 @@ const productController = {
   }
 };
 
-// MUST BE THIS:
 module.exports = productController;
