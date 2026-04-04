@@ -21,8 +21,10 @@
 .text-muted {
   font-size: 0.85rem;
 }
-
-/* Ensure the background of the page looks good */
-body {
+/* In CustomerProfile.css or your global CSS */
+html, body {
+  height: auto;
+  min-height: 100%;
+  overflow-y: auto; /* Allows vertical scrolling */
   background-color: #f8f9fa;
 }
