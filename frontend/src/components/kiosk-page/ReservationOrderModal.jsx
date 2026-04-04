@@ -4,7 +4,7 @@ import "../../Style/ReservationOrderModal.css";
 
 const ReservationOrderModal = ({ isOpen, onClose, item, onAdd }) => {
   const [quantity, setQuantity] = useState(1);
-
+  if(!isOpen) return null; // Don't render anything if not open
   // Reset quantity when modal opens for a new item
   useEffect(() => {
     if (isOpen) setQuantity(1);
