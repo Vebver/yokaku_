@@ -17,12 +17,13 @@ const app = express();
 // --- 1. MIDDLEWARE ---
 app.use(cors({ origin: "http://localhost:5173", credentials: true })); 
 app.use(express.json({ limit: '10mb' })); 
+app.use(express.json());
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // --- 2. ROUTES ---
 
 // Public Auth routes (Login, Signup)
-app.use('/api', authRoutes);
+app.use('/api/auth', authRoutes);
 
 // OTP routes (Send/Verify for Reservations)
 app.use("/api/otp", otpRoutes); 

@@ -49,7 +49,7 @@ const Reservation = ({ onClose }) => {
     setLoading(true);
     setError("");
     try {
-      await axios.post("http://localhost:5000/api/otp/send", { email: personalInfo.email });
+      await axios.post("/api/auth/otp/send", { email: personalInfo.email });
       setStep(6);
     } catch (err) {
       setError(err.response?.data?.message || "Error sending code. Please try again.");
@@ -63,7 +63,7 @@ const Reservation = ({ onClose }) => {
     setError("");
     try {
       const code = otp.join("");
-      await axios.post("http://localhost:5000/api/otp/verify", { email: personalInfo.email, otp: code });
+      await axios.post("/api/auth/otp/verify", { email: personalInfo.email, otp: code });
       setStep(7);
     } catch (err) {
       setError("Invalid code. Please try again.");
@@ -90,9 +90,9 @@ const Reservation = ({ onClose }) => {
       packageName: `Package ${getPackageName(selectedPackage)}`,
     };
 
-    console.log("Sending to:", "http://localhost:5000/api/reserve");
+    console.log("Sending to:", "/api/reservations");
     
-    const response = await axios.post("http://localhost:5000/api/reserve", reservationData);
+    const response = await axios.post("/api/reservations", reservationData);
 
     // TEST ALERT 2
     window.alert("DEBUG 2: Server answered! Status: " + response.status);
