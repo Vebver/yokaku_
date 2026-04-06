@@ -10,7 +10,8 @@ import LoginSection from "../LoginSection";
 import Reservation from "../Reservation";
 import "../../Style/App.css";
 
-function CustomerPage() {
+// 1. Add 'onSuccess' to the props here
+function CustomerPage({ onReserveClick, onSuccess }) { 
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isReservationOpen, setIsReservationOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -35,10 +36,10 @@ function CustomerPage() {
       <HeroSection
         isLoggedIn={isLoggedIn}
         onLoginClick={() => setIsLoginOpen(true)}
-        onReserveClick={() => setIsReservationOpen(true)}
+        onReserveClick={onReserveClick}
       />
       <div id="menu-section">
-        {isLoggedIn}
+        {/* Fixed boolean rendering */}
         <FeaturedMenu onLoginClick={() => setIsLoginOpen(true)} />
       </div>
       <div id="about-section">
@@ -56,7 +57,10 @@ function CustomerPage() {
       {/* MODAL LAYER */}
       {isLoginOpen && <LoginSection onClose={() => setIsLoginOpen(false)} />}
       {isReservationOpen && (
-        <Reservation onClose={() => setIsReservationOpen(false)} />
+        <Reservation 
+          onClose={() => setIsReservationOpen(false)} 
+          onSuccess={onSuccess} // 2. Pass onSuccess to the Reservation component here
+        />
       )}
     </div>
   );

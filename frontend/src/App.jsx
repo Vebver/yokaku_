@@ -46,11 +46,13 @@ function App() {
   };
 
   const handleReservationSuccess = () => {
-    console.log(
-      "Reservation Successful! Closing modal and showing success message.",
-    );
-    setIsReservationOpen(false); // 1. Close the big modal
-    setShowSuccessMessage(true); // 2. Open the "Wait for approval" message
+    // 1. Close the first modal
+    setIsReservationOpen(false);
+
+    // 2. Wait for the DOM to clean up the first modal before injecting the new one
+    setTimeout(() => {
+      setShowSuccessMessage(true);
+    }, 200);
   };
 
   return (
@@ -64,40 +66,47 @@ function App() {
         />
 
         <Routes>
-          {/* 
-            FIXED HOME ROUTE: 
-            If logged in, go to /customer. 
-            If not, show guest landing page.
-          */}
           <Route
             path="/"
             element={
-              <>
-                <HeroSection
-                  isLoggedIn={isLoggedIn}
-                  onLoginClick={() => setIsLoginOpen(true)}
-                  onReserveClick={() => setIsReservationOpen(true)}
-                />
-                <div id="menu-section">
-                  <FeaturedMenu />
-                </div>
-                <div id="about-section">
-                  <AboutSection />
-                </div>
-                <div id="promos-section">
-                  <PromoSection />
-                </div>
-                <ReviewsSection />
-                <Footer />
-              </>
+              isLoggedIn ? (
+                <Navigate to="/customer" replace />
+              ) : (
+                <>
+                  <HeroSection
+                    isLoggedIn={isLoggedIn}
+                    onLoginClick={() => setIsLoginOpen(true)}
+                    onReserveClick={() => setIsReservationOpen(true)}
+                  />
+                  <div id="menu-section">
+                    <FeaturedMenu />
+                  </div>
+                  <div id="about-section">
+                    <AboutSection />
+                  </div>
+                  <div id="promos-section">
+                    <PromoSection />
+                  </div>
+                  <ReviewsSection />
+                  <Footer />
+                </>
+              )
             }
           />
 
           {/* PROTECTED ROUTES */}
+          {/* Inside App.jsx Routes */}
           <Route
             path="/customer"
             element={
-              isLoggedIn ? <CustomerPage /> : <Navigate to="/" replace />
+              isLoggedIn ? (
+                <CustomerPage
+                  onReserveClick={() => setIsReservationOpen(true)}
+                  onSuccess={handleReservationSuccess} // <--- Make sure this is added in App.jsx
+                />
+              ) : (
+                <Navigate to="/" replace />
+              )
             }
           />
 
@@ -131,12 +140,16 @@ function App() {
 
         {/* MODALS */}
         {isLoginOpen && <LoginSection onClose={() => setIsLoginOpen(false)} />}
+
         {isReservationOpen && (
           <Reservation
             onClose={() => setIsReservationOpen(false)}
-            onSuccess={handleReservationSuccess}
+            onSuccess={handleReservationSuccess} // Triggers the transition
+            testProp="I AM WORKING"
           />
         )}
+
+        {/* SUCCESS MESSAGE MODAL */}
         {showSuccessMessage && (
           <ReservationSuccess onClose={() => setShowSuccessMessage(false)} />
         )}
@@ -146,13 +159,44 @@ function App() {
 }
 
 /**
- * FIXED NAVBAR WRAPPER:
- * Correctly switches between Guest Navbar and Customer Navbar
+ * SUCCESS MESSAGE COMPONENT
+ * Styled using your existing Reservation.css classes
  */
+const ReservationSuccess = ({ onClose }) => {
+  return (
+    /* Add 'display: flex' here to be 100% sure it shows */
+    <div
+      className="res-modal-overlay"
+      style={{ display: "flex", zIndex: 9999999 }}
+    >
+      <div
+        className="res-modal-content"
+        onClick={(e) => e.stopPropagation()}
+        style={{ textAlign: "center" }}
+      >
+        <div
+          style={{ fontSize: "60px", color: "#ffcc00", marginBottom: "20px" }}
+        >
+          ✔
+        </div>
+        <h2 className="res-title">SUBMITTED SUCCESSFULLY</h2>
+        <p style={{ color: "#333", margin: "20px 0", fontSize: "16px" }}>
+          Your reservation request has been received. <br />
+          <strong>
+            Please wait for an email regarding your reservation status.
+          </strong>
+        </p>
+        <button className="res-btn-continue" onClick={onClose}>
+          OKAY
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const NavbarWrapper = ({ onLoginClick, isLoggedIn, onLogout }) => {
   const location = useLocation();
 
-  // 1. Hide for Admin
   if (
     location.pathname.startsWith("/admin") ||
     location.pathname.startsWith("/cashier-selection") ||
@@ -161,12 +205,10 @@ const NavbarWrapper = ({ onLoginClick, isLoggedIn, onLogout }) => {
     return null;
   }
 
-  // 2. If Logged In, show CustomerNavbar (with the bell)
   if (isLoggedIn) {
     return <CustomerNavbar onLogout={onLogout} />;
   }
 
-  // 3. Otherwise, show standard Navbar
   return (
     <Navbar
       onLoginClick={onLoginClick}
