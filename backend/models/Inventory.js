@@ -28,14 +28,14 @@ const Inventory = {
             data.reorder_level
         ];
 
-        const [result] = await db.query(sql, values);
+        const [result] = await db.execute(sql, values);
         return { inventory_id: result.insertId, ...data };
     },
 
     // DELETE ITEM
     delete: async (id) => {
         const sql = 'DELETE FROM inventory WHERE inventory_id = ?';
-        await db.query(sql, [id]);
+        await db.execute(sql, [id]);
         return true;
     }
 };

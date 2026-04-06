@@ -1,0 +1,51 @@
+/* Sidebar Default (Desktop) */
+.sidebar-wrapper {
+  width: 260px;
+  min-height: 100vh;
+  background: #1a1a1a;
+  transition: all 0.3s ease;
+  z-index: 1050;
+  position: sticky;
+  top: 0;
+}
+
+/* Sidebar on Mobile (< 768px) */
+@media (max-width: 767.98px) {
+  .sidebar-wrapper {
+    position: fixed;
+    left: 0;
+    top: 0;
+    /* Hide it by moving it left 100% of its width */
+    transform: translateX(-100%); 
+  }
+
+  /* When the 'sidebar-open' class is added via React state */
+  .sidebar-wrapper.sidebar-open {
+    transform: translateX(0);
+  }
+
+  /* Overlay behind the sidebar on mobile */
+  .sidebar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 1040;
+  }
+}
+
+/* Nav Link Styling */
+.nav-link {
+  display: block;
+  padding: 12px 25px;
+  color: #adb5bd;
+  text-decoration: none;
+  transition: 0.2s;
+}
+
+.nav-link:hover, .nav-link.active {
+  background: rgba(255,255,255,0.05);
+  color: #fff;
+}

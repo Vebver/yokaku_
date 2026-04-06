@@ -8,12 +8,12 @@ const Category = {
   
   create: async (data) => {
     const sql = 'INSERT INTO categories (name, description) VALUES (?, ?)';
-    const [result] = await db.query(sql, [data.name, data.description]);
+    const [result] = await db.execute(sql, [data.name, data.description]);
     return { category_id: result.insertId, ...data };
   },
 
   delete: async (id) => {
-    await db.query('DELETE FROM categories WHERE category_id = ?', [id]);
+    await db.execute('DELETE FROM categories WHERE category_id = ?', [id]);
     return true;
   }
 };

@@ -11,6 +11,7 @@ const reservationRoutes = require("./routes/reservationRoutes");
 const productRoutes = require("./routes/productRoutes");
 const categoryRoutes = require("./routes/categoryRoutes");
 const inventoryRoutes = require("./routes/inventoryRoutes");
+const adminRoutes = require('./routes/adminRoutes');
 
 
 const PORT = process.env.PORT || 5000;
@@ -49,7 +50,8 @@ app.use("/api/inventory", inventoryRoutes);
 // Static folder for uploaded images
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-
+// Admin routes
+app.use('/api/admin', adminRoutes);
 
 // Protected check route
 app.get("/api/protected", protect, (req, res) => {

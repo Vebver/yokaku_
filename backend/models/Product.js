@@ -27,13 +27,13 @@ const Product = {
       data.image_url, 
       data.is_available
     ];
-    const [result] = await db.query(sql, values);
+    const [result] = await db.execute(sql, values);
     return { item_id: result.insertId, ...data };
   },
 
   delete: async (id) => {
    const sql = 'DELETE FROM menu_items WHERE item_id = ?';
-    await db.query(sql, [id]);
+    await db.execute(sql, [id]);
     return true;
   },
 };
