@@ -1,14 +1,21 @@
 /* --- Desktop / General Styles --- */
 .navbar {
-  background-color: #000;
+  background-color: black;
   color: #fff;
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 1rem 2rem;
-  position: sticky;
+  
+  /* --- UPDATED PROPERTIES --- */
+  position: fixed;      /* Forces it to stay relative to the screen */
   top: 0;
-  z-index: 1000;
+  left: 0;
+  width: 100%;          /* Ensures it spans the full width */
+  z-index: 9999;        /* Set very high to stay above all content and modals */
+  box-sizing: border-box; /* Ensures padding doesn't push the navbar off-screen */
+  /* -------------------------- */
+  
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
 }
 

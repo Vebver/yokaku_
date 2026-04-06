@@ -21,7 +21,7 @@ function Navbar({ onLoginClick, isLoggedIn, onLogout, onProfile }) {
     const sectionId = `#${item.toLowerCase()}-section`;
     return location.pathname === '/' ? sectionId : `/${sectionId}`;
   };
-
+  
   return (
     <header className="navbar">
       <div className="logo">HANGOUT</div>
