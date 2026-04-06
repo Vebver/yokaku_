@@ -26,7 +26,7 @@ const CustomerProfile = () => {
 
         // 2. Send the request to /api/profile
 
-        const response = await axios.get(`http://localhost:5000/api/profile`, {
+        const response = await axios.get(`api/profile`, {
           headers: {
             Authorization: `Bearer ${token}`, // 3. This is the key part!
           },
@@ -52,7 +52,7 @@ const CustomerProfile = () => {
 
       // 1. Send request
       const response = await axios.put(
-        "http://localhost:5000/api/profile",
+        "api/profile",
         updatedData,
         { headers: { Authorization: `Bearer ${token}` } },
       );
