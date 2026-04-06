@@ -8,6 +8,15 @@ const reservationController = {
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
+  },
+  createReservation: async (req, res) => {
+    try {
+      const newReservation = await Reservation.create(req.body);
+      res.status(201).json(newReservation);
+    } catch (error) {
+      console.error("Controller Error:", error);
+      res.status(500).json({ error: error.message });
+    }
   }
 };
 

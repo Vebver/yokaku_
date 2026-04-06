@@ -97,7 +97,7 @@ function LoginSection({ onClose }) {
 
   const handleVerifyOTP = async (code) => {
     try {
-      const res = await axios.post("/api/auth/verifyOTP", { email, otp: code });
+      const res = await axios.post("/api/auth/verify-otp", { email, otp: code });
       localStorage.setItem("token", res.data.token);
       window.location.href = "/customer";
       onClose();
@@ -149,16 +149,16 @@ function LoginSection({ onClose }) {
                       type="text"
                       placeholder="Last Name"
                       className="login-input"
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
                       required
                     />
                     <input
                       type="text"
                       placeholder="First Name"
                       className="login-input"
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
                       required
                     />
                   </>
