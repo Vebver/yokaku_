@@ -147,7 +147,7 @@ function LoginSection({ onClose }) {
                   <>
                     <input
                       type="text"
-                      placeholder="Last Name"
+                      placeholder="First Name"
                       className="login-input"
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
@@ -155,7 +155,7 @@ function LoginSection({ onClose }) {
                     />
                     <input
                       type="text"
-                      placeholder="First Name"
+                      placeholder="Last Name"
                       className="login-input"
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
