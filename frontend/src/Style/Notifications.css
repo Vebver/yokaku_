@@ -1,10 +1,12 @@
 .notifications-page {
-    background-color: #e4e4e4; /* Matches navbar */
-    min-height: 90vh;
-    padding: 40px 20px;
-    color: white;
+    background-color: #e4e4e4; 
+    min-height: 100vh;
+    /* ADD THIS: Prevents Navbar from covering the title */
+    padding-top: 100px !important; 
+    padding-left: 20px;
+    padding-right: 20px;
+    color: #333; /* Ensure default text isn't white */
 }
-
 .notifications-container {
     max-width: 800px;
     margin: 0 auto;
@@ -140,7 +142,7 @@
 
 .no-notifications {
     text-align: center;
-    padding: 50px;
+    padding: 100px 0;
     color: #666;
 }
 

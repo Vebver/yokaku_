@@ -1,95 +1,94 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import axios from "axios";
 import "../../Style/Notifications.css";
 
 const Notifications = () => {
-  // Mock data for notifications
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      title: "Reservation Confirmed",
-      message:
-        "Your reservation for March 20, 2026 at 12:00 PM has been confirmed. See you there!",
-      time: "2026-03-18 09:30 AM",
-      isRead: false,
-      type: "success",
-    },
-    {
-      id: 2,
-      title: "New Promo Available",
-      message:
-        "Check out our new 'Weekend Wings' promo! Get 20% off on all bucket orders.",
-      time: "2026-03-17 02:15 PM",
-      isRead: false,
-      type: "promo",
-    },
-    {
-      id: 3,
-      title: "Table Update",
-      message: "We have assigned Table #12 to your upcoming reservation.",
-      time: "2026-03-16 11:00 AM",
-      isRead: true,
-      type: "info",
-    },
-    {
-      id: 4,
-      title: "Account Security",
-      message: "Your password was successfully changed.",
-      time: "2026-03-10 08:00 PM",
-      isRead: true,
-      type: "alert",
-    },
-  ]);
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const markAsRead = (id) => {
-    setNotifications(
-      notifications.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
-    );
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  const fetchNotifications = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await axios.get("http://localhost:5000/api/notifications", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setNotifications(res.data);
+    } catch (err) {
+      console.error("Error fetching notifications", err);
+    } finally {
+      setLoading(false); // Always set loading to false
+    }
   };
 
-  const markAllAsRead = () => {
-    setNotifications(notifications.map((n) => ({ ...n, isRead: true })));
+  // Mark single as read
+  const markAsRead = async (id) => {
+    try {
+      const token = localStorage.getItem("token");
+      await axios.put(`http://localhost:5000/api/notifications/${id}/read`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setNotifications(notifications.map(n => 
+        n.notification_id === id ? { ...n, is_read: 1 } : n
+      ));
+    } catch (err) { console.error(err); }
+  };
+
+  // Mark all as read
+  const markAllAsRead = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      await axios.put("http://localhost:5000/api/notifications/read-all", {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setNotifications(notifications.map(n => ({ ...n, is_read: 1 })));
+    } catch (err) { console.error(err); }
   };
 
   return (
     <div className="notifications-page">
-      <div className="notifications-container fade-in">
+      <div className="notifications-container">
+        
+        {/* --- HEADER SECTION: Always rendered, never inside an IF statement --- */}
         <div className="notifications-header">
-          <h1>NOTIFICATIONS</h1>
-          {notifications.some((n) => !n.isRead) && (
+          <h1 className="notif-title-text">NOTIFICATIONS</h1>
+          {!loading && notifications.some(n => !n.is_read) && (
             <button className="mark-all-btn" onClick={markAllAsRead}>
               Mark all as read
             </button>
           )}
         </div>
 
+        {/* --- LIST SECTION --- */}
         <div className="notifications-list">
-          {notifications.length > 0 ? (
-            notifications.map((notification) => (
+          {loading ? (
+            <div className="no-notifications"><p>Loading notifications...</p></div>
+          ) : notifications.length > 0 ? (
+            notifications.map((n) => (
               <div
-                key={notification.id}
-                className={`notification-item ${notification.isRead ? "read" : "unread"}`}
-                onClick={() => markAsRead(notification.id)}
+                key={n.notification_id}
+                className={`notification-item ${n.is_read ? "read" : "unread"}`}
+                onClick={() => !n.is_read && markAsRead(n.notification_id)}
               >
-                {/* New wrapper for the 3D dot area */}
                 <div className="notification-icon-area">
                   <div className="status-dot"></div>
                 </div>
-
                 <div className="notification-content">
                   <div className="notification-top">
-                    <span className="notification-title">
-                      {notification.title}
-                    </span>
+                    <span className="notification-title">{n.title || "UPDATE"}</span>
                     <span className="notification-time">
-                      {notification.time}
+                        {new Date(n.created_at).toLocaleDateString()}
                     </span>
                   </div>
-                  <p className="notification-message">{notification.message}</p>
+                  <p className="notification-message">{n.message}</p>
                 </div>
               </div>
             ))
           ) : (
-            <div className="no-notifications fade-in">
+            <div className="no-notifications">
               <p>You have no notifications yet.</p>
             </div>
           )}
