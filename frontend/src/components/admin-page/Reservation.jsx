@@ -27,7 +27,6 @@ const Reservations = () => {
       setLoading(false);
     }
   };
-
   // --- PAGINATION LOGIC ---
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -44,12 +43,18 @@ const Reservations = () => {
     if (!window.confirm("Approve this reservation?")) return;
     try {
       const token = localStorage.getItem("token");
-      await axios.put(`/api/reservations/${id}/status`, { status: "Confirmed" }, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await axios.put(
+        `/api/reservations/${id}/status`,
+        { status: "Confirmed" },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
 
       setInquiries((prev) =>
-        prev.map((item) => (item.reservation_id === id ? { ...item, status: "Confirmed" } : item))
+        prev.map((item) =>
+          item.reservation_id === id ? { ...item, status: "Confirmed" } : item,
+        ),
       );
     } catch (err) {
       alert("Error approving reservation");
@@ -61,13 +66,19 @@ const Reservations = () => {
     if (!window.confirm("Mark this guest as Seated at a table?")) return;
     try {
       const token = localStorage.getItem("token");
-      await axios.put(`/api/reservations/${id}/status`, { status: "Seated" }, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await axios.put(
+        `/api/reservations/${id}/status`,
+        { status: "Seated" },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
 
       // Update local state so the UI changes to "Seated"
       setInquiries((prev) =>
-        prev.map((item) => (item.reservation_id === id ? { ...item, status: "Seated" } : item))
+        prev.map((item) =>
+          item.reservation_id === id ? { ...item, status: "Seated" } : item,
+        ),
       );
     } catch (err) {
       alert("Error marking as seated");
@@ -87,14 +98,33 @@ const Reservations = () => {
       alert("Error deleting");
     }
   };
-
+  // --- STATUS BADGE STYLES ---
   const getStatusStyle = (status) => {
     switch (status?.toLowerCase()) {
-      case "pending": return "bg-warning text-dark";
-      case "confirmed": return "bg-success text-white";
-      case "seated": return "bg-info text-white"; // Added Seated Style
-      case "urgent": return "bg-danger text-white";
-      default: return "bg-secondary text-white";
+      case "pending":
+        return "bg-warning text-dark";
+      case "confirmed":
+        return "bg-success text-white";
+      case "seated":
+        return "bg-info text-white"; // Added Seated Style
+      case "urgent":
+        return "bg-danger text-white";
+      default:
+        return "bg-secondary text-white";
+    }
+  };
+
+  // --- PAYMENT STATUS BADGE STYLES ---
+  const getPaymentStatusStyle = (status) => {
+    switch (status?.toLowerCase()) {
+      case "verified":
+        return "bg-success-subtle text-success border border-success";
+      case "pending":
+        return "bg-warning-subtle text-warning border border-warning";
+      case "rejected":
+        return "bg-danger-subtle text-danger border border-danger";
+      default:
+        return "bg-light text-muted border"; // For reservations with no payment yet
     }
   };
 
@@ -106,9 +136,13 @@ const Reservations = () => {
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-2">
         <div>
           <h2 className="fw-bold mb-0 text-dark fs-3 fs-md-2">Reservations</h2>
-          <p className="text-muted small mb-0">Manage guest seating and inquiries.</p>
+          <p className="text-muted small mb-0">
+            Manage guest seating and inquiries.
+          </p>
         </div>
-        <div className="text-muted small">Total: <span className="fw-bold">{inquiries.length}</span></div>
+        <div className="text-muted small">
+          Total: <span className="fw-bold">{inquiries.length}</span>
+        </div>
       </div>
 
       <div className="d-none d-md-block card border-0 shadow-sm overflow-hidden">
@@ -120,6 +154,7 @@ const Reservations = () => {
                 <th className="py-3">Package</th>
                 <th className="py-3">Date & Time</th>
                 <th className="py-3 text-center">Guests</th>
+                <th className="py-3">Downpayment</th>
                 <th className="py-3">Status</th>
                 <th className="text-end pe-4 py-3">Actions</th>
               </tr>
@@ -128,17 +163,38 @@ const Reservations = () => {
               {currentItems.map((item) => (
                 <tr key={item.reservation_id} className="border-bottom">
                   <td className="ps-4">
-                    <div className="fw-bold text-dark">{item.first_name} {item.last_name}</div>
+                    <div className="fw-bold text-dark">
+                      {item.first_name} {item.last_name}
+                    </div>
                     <div className="text-muted small">{item.email}</div>
                   </td>
-                  <td><span className="badge bg-light text-dark border">{item.package_name}</span></td>
                   <td>
-                    <div className="fw-bold">{new Date(item.reservation_date).toLocaleDateString()}</div>
-                    <div className="text-muted small">{item.reservation_time}</div>
+                    <span className="badge bg-light text-dark border">
+                      {item.package_name}
+                    </span>
+                  </td>
+                  <td>
+                    <div className="fw-bold">
+                      {new Date(item.reservation_date).toLocaleDateString()}
+                    </div>
+                    <div className="text-muted small">
+                      {item.reservation_time}
+                    </div>
                   </td>
                   <td className="text-center">{item.num_guests}</td>
                   <td>
-                    <span className={`badge rounded-pill ${getStatusStyle(item.status)}`}>
+                    <span
+                      className={`badge rounded-pill ${getPaymentStatusStyle(item.payment_status)}`}
+                    >
+                      {item.payment_status
+                        ? item.payment_status.toUpperCase()
+                        : "NO PAYMENT"}
+                    </span>
+                  </td>
+                  <td>
+                    <span
+                      className={`badge rounded-pill ${getStatusStyle(item.status)}`}
+                    >
                       {item.status}
                     </span>
                   </td>
@@ -146,20 +202,29 @@ const Reservations = () => {
                     <div className="btn-group">
                       {/* Only show Approve for Pending */}
                       {item.status === "Pending" && (
-                        <button className="btn btn-sm btn-outline-success" onClick={() => handleApprove(item.reservation_id)}>
+                        <button
+                          className="btn btn-sm btn-outline-success"
+                          onClick={() => handleApprove(item.reservation_id)}
+                        >
                           Approve
                         </button>
                       )}
-                      
+
                       {/* Only show Mark as Seated for Confirmed */}
                       {item.status === "Confirmed" && (
-                        <button className="btn btn-sm btn-outline-info" onClick={() => handleSeated(item.reservation_id)}>
+                        <button
+                          className="btn btn-sm btn-outline-info"
+                          onClick={() => handleSeated(item.reservation_id)}
+                        >
                           Seat Guest
                         </button>
                       )}
 
-                      <button className="btn btn-sm btn-outline-danger" onClick={() => handleDelete(item.reservation_id)}>
-                        Delete
+                      <button
+                        className="btn btn-sm btn-outline-danger"
+                        onClick={() => handleDelete(item.reservation_id)}
+                      >
+                        Reject
                       </button>
                     </div>
                   </td>
@@ -175,15 +240,35 @@ const Reservations = () => {
         <nav className="d-flex justify-content-center mt-4">
           <ul className="pagination shadow-sm">
             <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
-              <button className="page-link" onClick={() => paginate(currentPage - 1)}>&laquo;</button>
+              <button
+                className="page-link"
+                onClick={() => paginate(currentPage - 1)}
+              >
+                &laquo;
+              </button>
             </li>
             {[...Array(totalPages)].map((_, index) => (
-              <li key={index + 1} className={`page-item ${currentPage === index + 1 ? "active" : ""}`}>
-                <button className="page-link" onClick={() => paginate(index + 1)}>{index + 1}</button>
+              <li
+                key={index + 1}
+                className={`page-item ${currentPage === index + 1 ? "active" : ""}`}
+              >
+                <button
+                  className="page-link"
+                  onClick={() => paginate(index + 1)}
+                >
+                  {index + 1}
+                </button>
               </li>
             ))}
-            <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
-              <button className="page-link" onClick={() => paginate(currentPage + 1)}>&raquo;</button>
+            <li
+              className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}
+            >
+              <button
+                className="page-link"
+                onClick={() => paginate(currentPage + 1)}
+              >
+                &raquo;
+              </button>
             </li>
           </ul>
         </nav>

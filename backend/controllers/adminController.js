@@ -14,7 +14,7 @@ const adminController = {
             const [queueResult] = await db.execute("SELECT COUNT(*) as kitchenQueue FROM kiosk_orders WHERE kitchen_status = 'Pending'");
             
             // Query 4: Total Revenue (Sum of Downpayments collected)
-            const [revenueResult] = await db.execute("SELECT SUM(downpayment) as revenue FROM reservations WHERE payment_status = 'Paid'");
+            const [revenueResult] = await db.execute("SELECT SUM(amount) as revenue FROM payments WHERE payment_status = 'verified'");
 
             // Send response back to React Dashboard
             res.json({
@@ -34,16 +34,18 @@ const adminController = {
         try {
             // Groups the total downpayment money by month name
             const [rows] = await db.execute(`
-                SELECT MONTHNAME(created_at) as labels, SUM(downpayment) as data 
-                FROM reservations
-                WHERE payment_status = 'Paid'
-                GROUP BY MONTH(created_at) 
-                ORDER BY MONTH(created_at) ASC
+                SELECT 
+                    MONTHNAME(paid_at) as labels, 
+                    SUM(amount) as data 
+                FROM payments
+                WHERE payment_status = 'verified'
+                GROUP BY MONTH(paid_at), MONTHNAME(paid_at)
+                ORDER BY MONTH(paid_at) ASC
                 LIMIT 6
             `);
             
             const labels = rows.map(r => r.labels);
-            const data = rows.map(r => r.data);
+            const data = rows.map(r => parseFloat(r.data) || 0);
             
             res.json({ labels, data });
         } catch (error) {

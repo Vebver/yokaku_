@@ -1,11 +1,18 @@
 const db = require('../config/db');
-const { update } = require('./User');
 
 const Reservation = {
-  getAll: async () => {
-    const [rows] = await db.query('SELECT * FROM reservations ORDER BY created_at DESC');
+ getAll: async () => {
+    const sql = `
+      SELECT 
+        r.*, 
+        p.payment_status 
+      FROM reservations r
+      LEFT JOIN payments p ON r.reservation_id = p.reservation_id
+      ORDER BY r.created_at DESC
+    `;
+    const [rows] = await db.execute(sql);
     return rows;
-  },
+},
   
   // ADD THIS METHOD:
   create: async (reservationData) => {
