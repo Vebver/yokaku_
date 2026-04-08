@@ -15,6 +15,11 @@ import {
 import "../../Style/KioskReservationMenu.css";
 import ReservationOrderModal from "./ReservationOrderModal";
 import OrderSummary from "./OrderSummary";
+import { io } from "socket.io-client";
+
+
+// Initialize socket (Replace with your server URL)
+const socket = io("http://localhost:5001");
 
 const categoryIcons = {
   "Chicken Wings": <Drumstick />,
@@ -79,7 +84,7 @@ const KioskReservationMenu = () => {
   useEffect(() => {
     const fetchMenu = async () => {
       try {
-        const response = await fetch("http://localhost:5000/api/products");
+        const response = await fetch("http://localhost:5001/api/products");
         const data = await response.json();
         const groupedMenu = data.reduce((acc, item) => {
           const category = item.category_name || "Uncategorized";
@@ -146,6 +151,23 @@ const KioskReservationMenu = () => {
 
   const handleSendRequest = () => {
     if (cart.length > 0) {
+      // 3. Prepare the data to send to the kitchen
+      const orderData = {
+        id: `ORDER-${Date.now()}`, // Unique ID
+        table: reservationId,       // Table number/ID
+        items: cart.map(item => ({
+          name: item.name,
+          qty: item.quantity
+        })),
+        instructions: "None",       // You can add a field for this later
+        status: 'pending',
+        timestamp: new Date().toISOString()
+      };
+
+      // 4. Emit the event to the server
+      socket.emit("send_order", orderData);
+
+      // --- Keep your existing logic below ---
       if (!localStorage.getItem(TIMER_SESSION_KEY)) {
         localStorage.setItem(TIMER_SESSION_KEY, (Date.now() + 5400 * 1000).toString());
       }
