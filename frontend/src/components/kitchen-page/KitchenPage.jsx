@@ -1,11 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, CheckCircle2, PlayCircle, Timer, Filter, ChevronRight } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
-import '../../Style/KitchenPage.css';
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  MessageSquare,
+  CheckCircle2,
+  PlayCircle,
+  Timer,
+  Filter,
+  ChevronRight,
+} from "lucide-react";
+import { useLocation } from "react-router-dom";
+import "../../Style/KitchenPage.css";
+// ... existing imports
+import { io } from "socket.io-client";
 
-const INITIAL_ORDERS = [
-];
+const socket = io("http://localhost:5001");
+
+const INITIAL_ORDERS = [];
 
 const StatusBadge = ({ status }) => {
   // Mapping statuses to the CSS classes defined in your CSS file
@@ -17,29 +27,29 @@ const OrderCard = ({ order, onUpdateStatus }) => {
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
-  const calculateTime = () => {
-    // Ensure we are working with a valid Date object (handles ISO strings or Date objects)
-    const startTime = new Date(order.timestamp).getTime();
-    const now = Date.now();
-    
-    // Calculate difference in minutes, ensuring it's never below 0
-    const minutesElapsed = Math.floor((now - startTime) / 60000);
-    setElapsed(Math.max(0, minutesElapsed));
-  };
+    const calculateTime = () => {
+      // Ensure we are working with a valid Date object (handles ISO strings or Date objects)
+      const startTime = new Date(order.timestamp).getTime();
+      const now = Date.now();
 
-  // Run immediately on mount
-  calculateTime();
+      // Calculate difference in minutes, ensuring it's never below 0
+      const minutesElapsed = Math.floor((now - startTime) / 60000);
+      setElapsed(Math.max(0, minutesElapsed));
+    };
 
-  // Update every 10 seconds to keep the "Xm ago" display accurate
-  const timer = setInterval(calculateTime, 10000);
+    // Run immediately on mount
+    calculateTime();
 
-  // Cleanup interval on unmount or when timestamp changes
-  return () => clearInterval(timer);
-}, [order.timestamp]);
+    // Update every 10 seconds to keep the "Xm ago" display accurate
+    const timer = setInterval(calculateTime, 10000);
+
+    // Cleanup interval on unmount or when timestamp changes
+    return () => clearInterval(timer);
+  }, [order.timestamp]);
 
   const getTimerClass = () => {
     if (elapsed > 15) return "time-elapsed critical"; // Add red color in CSS for critical
-    if (elapsed > 10) return "time-elapsed warning";  // Add orange color in CSS for warning
+    if (elapsed > 10) return "time-elapsed warning"; // Add orange color in CSS for warning
     return "time-elapsed";
   };
 
@@ -81,25 +91,25 @@ const OrderCard = ({ order, onUpdateStatus }) => {
       </div>
 
       <div className="card-footer">
-        {order.status === 'pending' && (
-          <button 
-            onClick={() => onUpdateStatus(order.id, 'preparing')}
+        {order.status === "pending" && (
+          <button
+            onClick={() => onUpdateStatus(order.id, "preparing")}
             className="action-btn btn-start"
           >
             <PlayCircle size={18} /> Start Preparing
           </button>
         )}
-        {order.status === 'preparing' && (
-          <button 
-            onClick={() => onUpdateStatus(order.id, 'ready')}
+        {order.status === "preparing" && (
+          <button
+            onClick={() => onUpdateStatus(order.id, "ready")}
             className="action-btn btn-ready"
           >
             <CheckCircle2 size={18} /> Mark as Ready
           </button>
         )}
-        {order.status === 'ready' && (
-          <button 
-            onClick={() => onUpdateStatus(order.id, 'served')}
+        {order.status === "ready" && (
+          <button
+            onClick={() => onUpdateStatus(order.id, "served")}
             className="action-btn btn-clear"
           >
             Clear Order
@@ -112,34 +122,50 @@ const OrderCard = ({ order, onUpdateStatus }) => {
 
 const KitchenPage = () => {
   const [orders, setOrders] = useState(INITIAL_ORDERS);
-  const [filter, setFilter] = useState('all');
+  const [filter, setFilter] = useState("all");
   const location = useLocation();
-  
+
   useEffect(() => {
+    // 3. Listen for real-time orders
+    socket.on("new_order", (incomingOrder) => {
+      setOrders(prevOrders => {
+        // Prevent duplicate orders
+        const exists = prevOrders.find(o => o.id === incomingOrder.id);
+        if (exists) return prevOrders;
+        return [incomingOrder, ...prevOrders]; // Add new order to top
+      });
+    });
+
+    // 2. Keep existing location state logic for manual navigation fallback
     if (location.state?.newOrder) {
       const newOrder = location.state.newOrder;
-      
-      // Prevent duplicate additions if the component re-renders
-      setOrders(prevOrders => {
-        const exists = prevOrders.find(o => o.id === newOrder.id);
+      setOrders((prevOrders) => {
+        const exists = prevOrders.find((o) => o.id === newOrder.id);
         if (exists) return prevOrders;
-        return [newOrder, ...prevOrders]; // Add new order to the TOP
+        return [newOrder, ...prevOrders];
       });
-
-      // Clear the state so refreshing doesn't add the same order again
       window.history.replaceState({}, document.title);
     }
+
+    // Cleanup listener on unmount
+    return () => {
+      socket.off("new_order");
+    };
   }, [location.state]);
 
   const updateStatus = (id, newStatus) => {
-    if (newStatus === 'served') {
-      setOrders(orders.filter(o => o.id !== id));
+    if (newStatus === "served") {
+      setOrders(orders.filter((o) => o.id !== id));
     } else {
-      setOrders(orders.map(o => o.id === id ? { ...o, status: newStatus } : o));
+      setOrders(
+        orders.map((o) => (o.id === id ? { ...o, status: newStatus } : o)),
+      );
     }
   };
 
-  const filteredOrders = orders.filter(o => filter === 'all' || o.status === filter);
+  const filteredOrders = orders.filter(
+    (o) => filter === "all" || o.status === filter,
+  );
 
   return (
     <div className="kitchen-wrapper">
@@ -152,11 +178,11 @@ const KitchenPage = () => {
 
         <div className="filter-group">
           <Filter size={16} className="filter-icon" />
-          {['all', 'pending', 'preparing', 'ready'].map((f) => (
+          {["all", "pending", "preparing", "ready"].map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`filter-btn ${filter === f ? 'active' : ''}`}
+              className={`filter-btn ${filter === f ? "active" : ""}`}
             >
               {f}
             </button>
@@ -167,11 +193,11 @@ const KitchenPage = () => {
       <main className="container">
         {filteredOrders.length > 0 ? (
           <motion.div layout className="order-grid">
-            <AnimatePresence mode='popLayout'>
+            <AnimatePresence mode="popLayout">
               {filteredOrders.map((order) => (
-                <OrderCard 
-                  key={order.id} 
-                  order={order} 
+                <OrderCard
+                  key={order.id}
+                  order={order}
                   onUpdateStatus={updateStatus}
                 />
               ))}
