@@ -4,7 +4,9 @@ const productController = require('../controllers/productController');
 const upload = require('../middleware/upload'); // Import multer setup
 
 router.get('/', productController.getProducts); 
+router.get('/featured', productController.getFeaturedProducts);
 router.post('/', upload.single('image'), productController.createProduct); // Use multer middleware for file upload
+router.put('/:id/feature', productController.toggleFeature);
 router.delete('/:id', productController.deleteProduct);
 
 module.exports = router;

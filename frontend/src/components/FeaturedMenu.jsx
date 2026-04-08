@@ -1,33 +1,51 @@
-import '../Style/FeaturedMenu.css'
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import '../Style/FeaturedMenu.css';
 
 function FeaturedMenu({ onLoginClick }) {
-  const menus = [
-    { title: 'UNLIMITED WINGS & MORE', img: '/wings.jpg' },
-    { title: 'PIZZA & PIZZA BURGERS', img: '/pizza.jpg' },
-    { title: 'RAMEN SETS', img: '/ramen.jpg' },
-  ]
+  const [featuredItems, setFeaturedItems] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleAllMenu = () => {
-    alert('Show all menu functionality coming soon!')
-  }
+  useEffect(() => {
+    const fetchFeatured = async () => {
+      try {
+        // Updated API endpoint
+        const res = await axios.get("/api/products/featured");
+        setFeaturedItems(res.data);
+        setLoading(false);
+      } catch (err) {
+        console.error("Error loading featured items:", err);
+        setLoading(false);
+      }
+    };
+    fetchFeatured();
+  }, []);
+
+  if (loading) return <div className="p-5 text-center" style={{color: 'white'}}>Loading Specials...</div>;
 
   return (
     <section className="featured-menu" id="menu-section">
-      <h2>FEATURED MENU</h2>
+      <h2>FEATURED ITEMS</h2>
       <div className="menu-items">
-        {menus.map((menu, index) => (
-          <div key={index} className="menu-card">
-            <img src={menu.img} alt={menu.title} />
-            <span>{menu.title}</span>
+        {featuredItems.map((item) => (
+          <div key={item.item_id} className="menu-card">
+            {/* Display the item image and name */}
+            <img 
+              src={item.image_url.startsWith('http') ? item.image_url : `/${item.image_url}`} 
+              alt={item.name} 
+            />
+            <span>{item.name}</span>
+            {/* Optional: Add price since it's a specific item now */}
+            <small style={{color: '#ffcc00', fontWeight: 'bold'}}>₱{item.price}</small>
           </div>
         ))}
       </div>
+      
       <button className="all-menu-btn" onClick={onLoginClick}>
-        ALL AVAILABLE MENU
+        VIEW FULL MENU
       </button>
     </section>
-  )
+  );
 }
 
-export default FeaturedMenu
-
+export default FeaturedMenu;

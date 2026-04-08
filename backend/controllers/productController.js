@@ -1,4 +1,4 @@
-const Product = require('../models/Product');
+const Product = require("../models/Product");
 
 const productController = {
   getProducts: async (req, res) => {
@@ -9,34 +9,66 @@ const productController = {
       res.status(500).json({ error: error.message });
     }
   },
+  getFeaturedProducts: async (req, res) => {
+    try {
+      // Call the Model logic
+      const items = await Product.getFeatured();
+
+      // Send the data to the frontend
+      res.status(200).json(items);
+    } catch (error) {
+      console.error("Controller Error:", error);
+      res.status(500).json({ error: "Failed to fetch featured items" });
+    }
+  },
+
+  toggleFeature: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { is_featured } = req.body;
+
+      // Call the Model method
+      await Product.updateFeatureStatus(id, is_featured);
+
+      res.json({ message: "Featured status updated successfully" });
+    } catch (error) {
+      console.error("Toggle Feature Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
 
   createProduct: async (req, res) => {
-    try {
-      // 1. Get text fields from req.body
-      const { name, description, price, category_id, is_available } = req.body;
+     try {
+    // 1. Get strings from req.body (Multer populates this)
+    const { name, description, price, category_id, is_available, is_featured } = req.body;
 
-      // 2. Construct the Image URL from req.file (provided by Multer)
-      // This creates a string like: http://localhost:5000/uploads/171234567.png
-      const image_url = req.file 
-        ? `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}` 
-        : null;
+    // 2. Convert to proper types for MySQL
+    const clean_price = parseFloat(price) || 0.00;
+    const clean_category = parseInt(category_id);
+    
+    // IMPORTANT: FormData "0" or "1" must be converted to numbers
+    const clean_available = parseInt(is_available) === 1 ? 1 : 0;
+    const clean_featured = parseInt(is_featured) === 1 ? 1 : 0;
 
-      // 3. Assemble the data for the Model
-      const productData = {
-        name,
-        description,
-        price,
-        category_id,
-        is_available,
-        image_url
-      };
+    // 3. Get image URL
+    const image_url = req.file ? `http://localhost:5000/uploads/${req.file.filename}` : null;
 
-      // 4. Send to the Model
-      const newProduct = await Product.create(productData);
-      res.status(201).json(newProduct);
-    } catch (error) {
-      res.status(400).json({ error: error.message });
-    }
+    // 4. Call Model
+    const newId = await Product.create({
+      name,
+      description,
+      price: clean_price,
+      category_id: clean_category,
+      image_url,
+      is_available: clean_available,
+      is_featured: clean_featured
+    });
+
+    res.status(201).json({ success: true, id: newId });
+  } catch (error) {
+    console.error("ADD PRODUCT ERROR:", error.message);
+    res.status(400).json({ error: error.message }); // This sends the SQL error back to React
+  }
   },
 
   deleteProduct: async (req, res) => {
@@ -46,7 +78,7 @@ const productController = {
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
-  }
+  },
 };
 
 module.exports = productController;

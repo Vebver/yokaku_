@@ -1,3 +1,4 @@
+const { get } = require('node:http');
 const Category = require('../models/Category');
 
 const categoryController = {
@@ -9,7 +10,7 @@ const categoryController = {
       res.status(500).json({ error: error.message });
     }
   },
-
+  
   createCategory: async (req, res) => {
     try {
       const newCategory = await Category.create(req.body);

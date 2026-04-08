@@ -1,8 +1,8 @@
-const db = require('../config/db'); 
+const db = require("../config/db");
 
 const Product = {
   getAll: async () => {
-   const sql = `
+    const sql = `
       SELECT 
         menu_items.*, 
         categories.name AS category_name 
@@ -13,30 +13,46 @@ const Product = {
     return rows;
   },
 
+  getFeatured: async () => {
+    // Selects featured items and joins with category name if needed
+    const sql = `
+      SELECT * FROM menu_items 
+      WHERE is_featured = TRUE AND is_available = 1
+      LIMIT 3
+    `;
+    const [rows] = await db.execute(sql);
+    return rows;
+  },
+
   create: async (data) => {
-     const sql = `
+    const sql = `
       INSERT INTO menu_items 
-      (name, description, price, category_id, image_url, is_available) 
-      VALUES (?, ?, ?, ?, ?, ?)
+      (category_id, description, price,name , image_url, is_available, is_featured) 
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `;
     const values = [
-      data.name, 
-      data.description, 
-      data.price, 
-      data.category_id, 
-      data.image_url, 
-      data.is_available
+      data.category_id,
+      data.name,
+      data.description,
+      data.price,
+      data.image_url,
+      data.is_available,
+      data.is_featured,
     ];
     const [result] = await db.execute(sql, values);
     return { item_id: result.insertId, ...data };
   },
 
   delete: async (id) => {
-   const sql = 'DELETE FROM menu_items WHERE item_id = ?';
+    const sql = "DELETE FROM menu_items WHERE item_id = ?";
     await db.execute(sql, [id]);
     return true;
   },
+  updateFeatureStatus: async (id, is_featured) => {
+    const query = "UPDATE menu_items SET is_featured = ? WHERE item_id = ?";
+    const [result] = await db.execute(query, [is_featured, id]);
+    return result;
+  },
 };
 
-// MUST BE THIS:
 module.exports = Product;
