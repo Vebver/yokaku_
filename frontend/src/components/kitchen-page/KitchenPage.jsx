@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, forwardRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   MessageSquare,
@@ -6,55 +6,47 @@ import {
   PlayCircle,
   Timer,
   Filter,
-  ChevronRight,
 } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import "../../Style/KitchenPage.css";
-// ... existing imports
 import { io } from "socket.io-client";
 
+// Initialize socket connection to the new port 5001
 const socket = io("http://localhost:5001");
 
 const INITIAL_ORDERS = [];
 
 const StatusBadge = ({ status }) => {
-  // Mapping statuses to the CSS classes defined in your CSS file
   const badgeClass = `badge badge-${status}`;
   return <span className={badgeClass}>{status}</span>;
 };
 
-const OrderCard = ({ order, onUpdateStatus }) => {
+// Wrapped in forwardRef to fix the "Function components cannot be given refs" error
+const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
     const calculateTime = () => {
-      // Ensure we are working with a valid Date object (handles ISO strings or Date objects)
       const startTime = new Date(order.timestamp).getTime();
       const now = Date.now();
-
-      // Calculate difference in minutes, ensuring it's never below 0
       const minutesElapsed = Math.floor((now - startTime) / 60000);
       setElapsed(Math.max(0, minutesElapsed));
     };
 
-    // Run immediately on mount
     calculateTime();
-
-    // Update every 10 seconds to keep the "Xm ago" display accurate
     const timer = setInterval(calculateTime, 10000);
-
-    // Cleanup interval on unmount or when timestamp changes
     return () => clearInterval(timer);
   }, [order.timestamp]);
 
   const getTimerClass = () => {
-    if (elapsed > 15) return "time-elapsed critical"; // Add red color in CSS for critical
-    if (elapsed > 10) return "time-elapsed warning"; // Add orange color in CSS for warning
+    if (elapsed > 15) return "time-elapsed critical";
+    if (elapsed > 10) return "time-elapsed warning";
     return "time-elapsed";
   };
 
   return (
     <motion.div
+      ref={ref} // Attach the forwarded ref here
       layout
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -118,7 +110,7 @@ const OrderCard = ({ order, onUpdateStatus }) => {
       </div>
     </motion.div>
   );
-};
+});
 
 const KitchenPage = () => {
   const [orders, setOrders] = useState(INITIAL_ORDERS);
@@ -126,17 +118,16 @@ const KitchenPage = () => {
   const location = useLocation();
 
   useEffect(() => {
-    // 3. Listen for real-time orders
+    // Listen for real-time orders from the backend
     socket.on("new_order", (incomingOrder) => {
       setOrders(prevOrders => {
-        // Prevent duplicate orders
         const exists = prevOrders.find(o => o.id === incomingOrder.id);
         if (exists) return prevOrders;
-        return [incomingOrder, ...prevOrders]; // Add new order to top
+        return [incomingOrder, ...prevOrders];
       });
     });
 
-    // 2. Keep existing location state logic for manual navigation fallback
+    // Handle manual navigation state if provided
     if (location.state?.newOrder) {
       const newOrder = location.state.newOrder;
       setOrders((prevOrders) => {
@@ -147,7 +138,6 @@ const KitchenPage = () => {
       window.history.replaceState({}, document.title);
     }
 
-    // Cleanup listener on unmount
     return () => {
       socket.off("new_order");
     };
