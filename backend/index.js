@@ -14,6 +14,7 @@ const inventoryRoutes = require("./routes/inventoryRoutes");
 const adminRoutes = require('./routes/adminRoutes');
 const billingRoutes = require('./routes/billingRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const reviewRoutes = require('./routes/reviewRoutes');
 
 
 const PORT = process.env.PORT || 5000;
@@ -60,6 +61,10 @@ app.use('/api/billing', billingRoutes);
 
 // Notification routes
 app.use('/api/notifications', notificationRoutes);
+
+// Review routes
+app.use('/api/reviews', reviewRoutes);
+
 
 // Protected check route
 app.get("/api/protected", protect, (req, res) => {

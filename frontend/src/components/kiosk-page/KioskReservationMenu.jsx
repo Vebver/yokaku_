@@ -220,10 +220,9 @@ const KioskReservationMenu = () => {
 
       {/* FOOTER */}
       <footer className="res-bottom-bar" style={{ zIndex: 100 }}>
-        <button className="res-btn-view-all" onClick={() => navigate("/kiosk-selection/kiosk-menu")}>View All Menu</button>
+        <button className="res-btn-view-all" onClick={() => navigate("/kiosk-selection")}>Back</button>
         <div className="res-action-btns">
           <button className="res-btn-cancel" onClick={() => setShowCancelModal(true)}>Cancel Order</button>
-          <button className="res-btn-cancel" style={{ borderColor: "#ff4444", color: "#ff4444" }} onClick={() => setShowEndModal(true)}>End Session</button>
           <button className="res-btn-view" onClick={handleSendRequest}>{isTimerRunning ? "Send Request Again" : "Send Request"}</button>
         </div>
       </footer>
@@ -235,6 +234,7 @@ const KioskReservationMenu = () => {
           onClose={() => { setIsModalOpen(false); setSelectedCard(null); }} 
           item={selectedItem} 
           onAdd={addToOrder} 
+          timeLeft={timeLeft}
         />
       )}
 

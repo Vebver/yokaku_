@@ -55,7 +55,7 @@ function CustomerNavbar() {
   };
 
   const handleNavClick = (e, item) => {
-    e.preventDefault();
+    if(e) e.preventDefault();
     closeMenu();
 
     // 1. HOME logic: Just go to /customer top
@@ -116,6 +116,27 @@ function CustomerNavbar() {
       </nav>
 
       <div className="auth-section">
+        {/*FEEDBACK ICON*/}
+          <div 
+          className="feedback-trigger-container" 
+          title="Give Feedback"
+          onClick={() => handleNavClick(null, "FEEDBACKS")}
+        >
+          <svg 
+            width="22" 
+            height="22" 
+            viewBox="0 0 24 24" 
+            fill="none" 
+            stroke="#ffcc00" 
+            strokeWidth="2.5" 
+            strokeLinecap="round" 
+            strokeLinejoin="round"
+          >
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+        </div>
+
+
         {/* NOTIFICATION BELL */}
         <div
           className="notification-container"

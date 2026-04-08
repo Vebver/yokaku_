@@ -175,6 +175,25 @@
     box-shadow: 0 10px 20px rgba(255, 204, 0, 0.3);
 }
 
+.modal-timer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #1a1a1a;
+    padding: 8px 15px;
+    border-radius: 10px;
+    margin-bottom: 15px;
+    width: fit-content;
+    border: 1px solid #333;
+}
+
+.modal-timer span {
+    color: #ffcc00;
+    font-weight: 800;
+    font-size: 0.85rem;
+    letter-spacing: 1px;
+}
+
 /* Responsive adjustments for smaller tablets */
 @media (max-height: 800px) {
     .item-preview-card { width: 180px; height: 180px; }

@@ -1,25 +1,32 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  PlusSquare,
+  Drumstick,
+  CupSoda,
+  Check,
+  Bell,
+  AlertCircle,
+  Star,
+  ShoppingBag,
+  CheckCircle,
+  ChevronUp,
+  ChevronDown,
   Flame,
   Wallet,
   Infinity as InfinityIcon,
   Pizza,
   Beef,
   Package,
-  Check,
-  Bell,
-  ChevronUp,
-  ChevronDown,
-  AlertCircle,
-  PlusSquare,
-  Star,
-  CupSoda,
   Utensils,
   Soup,
-  Salad
+  Salad,
+  Clock,
+  User,
 } from "lucide-react";
-import "../../Style/KioskMenu.css";
+import "../../Style/KioskReservationMenu.css";
+import ReservationOrderModal from "./ReservationOrderModal";
+import OrderSummary from "./OrderSummary";
 
 const categoryIcons = {
   "Best Seller": <Flame />,
@@ -30,252 +37,355 @@ const categoryIcons = {
   Bundle: <Package />,
   Extra: <PlusSquare />,
   "Rice Bowl Combo": <Soup />,
-  Beverages: <CupSoda/>,
-  "Side Dish": <Utensils/>,
-  Pasta: <Salad/>
-};
-
-const menuData = {
-  "Best Seller": [
-    { id: "best-1", name: "Platter A", image: "/logo.png" }
-  ],
-
-  Bundle: [
-    { id: "spec-1", name: "Family Bundle A", image: "/logo.png" },
-    { id: "spec-2", name: "Family Bundle B", image: "/logo.png" },
-    { id: "spec-3", name: "Family Bundle C", image: "/logo.png" },
-    { id: "spec-4", name: "Family Bundle D", image: "/logo.png" },
-    { id: "spec-5", name: "Hangout Bundle (8 Inches burger, 6pcs Chicken wings, Iced tea)", image: "/logo.png" },
-    { id: "spec-6", name: "Hangout Bundle A (8 Inches burger, 9pcs Chicken wings, 1 Bundle Fries, 1 Pitcher of Juice)", image: "/logo.png" },
-    { id: "spec-7", name: "Hangout Bundle B (8 Inches burger, 15pcs Chicken wings, 1 Bundle Fries, 1 Pitcher of Juice)", image: "/logo.png" },
-    { id: "spec-8", name: "Barkada Meal (4 Mini burgers, 1 Bundle Fries, 1 Bundle Nachos)", image: "/logo.png"},
-    { id: "spec-9", name: "Barkada Bundle (6 Mini burgers, 1 Bundle Fries, 1 Bundle Nachos, Iced Tea)", image:"/logo.png"},
-    { id: "spec-10", name: "Burger Bundle (6 Mini burgers)", image: "/logo.png"},
-    { id: "spec-11", name: "Fries Bundle", image:"/logo.png"},
-    { id: "spec-12", name: "Nachos Bundle", image:"/logo.png"},
-  ],
-
-  "Budget Meals": [
-    { id: "bud-1", name: "1PC Chicken Wing w/ Rice", image: "/logo.png" },
-    { id: "bud-2", name: "2PCS Chicken Wings w/ Rice", image: "/logo.png"},
-    { id: "bud-3", name: "Crispy Pork Sisig w/ Rice", image: "/logo.png"},
-    { id: "bud-4", name: "Crispy Chicken Sisig w/ Rice", image: "/logo.png"}
-  ],
-
-  Unlimited: [
-    { id: "unli-1", name: "Unli Rice, 6pcs Chicken Wings & 1 Drink", image: "/logo.png" },
-    { id: "unli-2", name: "Unli Wings Rice & Juice", image: "/logo.png" },
-    { id: "unli-3", name: "Unli All-in Chicken Wings, Pasta, Fries, Nachos & Juice", image: "/logo.png" },
-  ],
-
-  "Rice Bowl Combo": [
-    { id: "bowl-1", name: "Tapa Bacon w/ EGG", image:"/logo.png"},
-    { id: "bowl-2", name: "Ham Bacon w/ EGG", image:"/logo.png"},
-    { id: "bowl-3", name: "Spam Bacon w/ EGG", image:"/logo.png"},
-    { id: "bowl-4", name: "Tocino Tapa w/ EGG", image:"/logo.png"},
-    { id: "bowl-5", name: "Bacon Tocino w/ EGG", image:"/logo.png"},
-    { id: "bowl-6", name: "Tocino Spam w/ EGG", image:"/logo.png"},
-  ],
-
-  Pizzas: [
-    { id: "piz-1", name: "Pepperoni", image: "/logo.png" },
-    { id: "piz-2", name: "Hawaiian", image: "/logo.png" },
-    { id: "piz-3", name: "Vegetarian", image: "/logo.png" },
-    { id: "piz-4", name: "Bacon & Mushroom", image: "/logo.png" },
-    { id: "piz-5", name: "Ham & Cheese", image: "/logo.png" },
-    { id: "piz-6", name: "Overload", image: "/logo.png" },
-    { id: "piz-7", name: "Cheesy Spinach", image: "/logo.png" },
-    { id: "piz-8", name: "Mozarella (Pizza Burger)", image: "/logo.png" },
-    { id: "piz-9", name: "Hawaiian (Pizza Burger)", image: "/logo.png" },
-    { id: "piz-10", name: "Pepperoni (Pizza Burger)", image: "/logo.png" },
-    { id: "piz-11", name: "Bacon & Mushroom (Pizza Burger)", image: "/logo.png" },
-    { id: "piz-12", name: "Cheesy Spinach (Pizza Burger)", image: "/logo.png" },
-    { id: "piz-13", name: "Premium 2 in 1 (Pizza Burger)", image: "/logo.png" },
-    { id: "piz-14", name: "Premium 4 in 1 (Pizza Burger)", image: "/logo.png" }
-  ],
-
-
-
-  Burgers: [
-    { id: "burg-1", name: "Regular Burgers (Single Patty, TLC, Mayo, Cheese Sauce, White Onion) ", image: "/logo.png" },
-    { id: "burg-2", name: "Cheese Burger (Single Patty, TLC, Mayo, Cheese Sauce, Square Cheese, White Onion)", image: "/logo.png" },
-    { id: "burg-3", name: "Double Patty (Double Patties, TLC, Mayo, Cheese Sauce, White Onion)", image: "/logo.png"},
-    { id: "burg-4", name: "Special Burger (Double Patties, TLC, Ham, Bacon, Mayo, Cheese Sauce, White Onion)"},
-    { id: "burg-5", name: "Monster Burger (4 Patties, TLC, Ham, Mayo, Cheese Sauce, White Onion)"},
-    { id: "burg-6", name: "Tower Burger (5 Patties, TLC, Mayo, Cheese Sauce)"},
-    { id: "burg-7", name: "8 Inches Giant Burger (Patties, TLC, Mayo, Cheese Sauce)"}
-
-  ],
-
-  Pasta: [
-    { id: "pasta-1", name: "Creamy Spaghetti", image: "/logo.png"},
-    { id: "pasta-2", name: "Spaghetti Bolognese", image: "/logo.png"},
-    { id: "pasta-3", name: "Creamy Carbonara", image: "/logo.png"},
-    { id: "pasta-4", name: "Chicken Pesto", image: "/logo.png"},
-    { id: "pasta-5", name: "Lasagna Roll", image: "/logo.png"}
-  ],
-
-  Extra: [
-    { id: "ex-1", name: "Rice", image:"/logo.png"},
-  ],
-  
-  "Side Dish": [
-    {id: "side-1", name: "Plain Fries (SOLO)", image: "/logo.png"},
-    { id: "side-2", name: "Plain Fries (SOLO)", image:"/logo.png"},
-    { id: "side-3", name: "Flavored Fries (Cheese, BBQ, Sweet & Sour)", image:"/logo.png"},
-    { id: "side-5", name: "Nachos (SOLO)", image:"/logo.png"},
-    { id: "side-7", name: "Nachos Overload", image:"/logo.png"},
-    { id: "side-8", name: "Fish & Fries", image:"/logo.png"},
-    { id: "side-9", name: "Plain Belgian Waffle", image:"/logo.png"},
-    { id: "side-10", name: "Chocolate Oreo Waffle", image:"/logo.png"},
-    { id: "side-11", name: "Caramel Oreo Waffle", image:"/logo.png"},
-    { id: "side-12", name: "Strawberry Waffle", image:"/logo.png"},
-    { id: "side-13", name: "Ham w/ Cheese Waffle", image:"/logo.png"},
-    { id: "side-14", name: "Bacon Cheese Burger Waffle", image:"/logo.png"}
-    
-  ],
-
-  Beverages: [
-    {id: "bev-1", name: "Hot Tea", image: "/logo.png"},
-    {id: "bev-2", name: "Brewed Coffee", image: "/logo.png"},
-    {id: "bev-3", name: "Espresso", image: "/logo.png"},
-    {id: "bev-4", name: "Americano (Hot/Iced)", image: "/logo.png"},
-    {id: "bev-5", name: "Hot Chocolate", image: "/logo.png"},
-    {id: "bev-6", name: "Cappucino (Hot/Iced)", image: "/logo.png"},
-    {id: "bev-7", name: "Cafe Latte (Hot/Iced)", image: "/logo.png"},
-    {id: "bev-8", name: "Spanish Latte (Hot/Iced)", image: "/logo.png"},
-    {id: "bev-9", name: "Cafe Mocha (Hot/Iced)", image: "/logo.png"},
-    {id: "bev-10", name: "Mineral Bottled Water", image: "/logo.png"},
-    {id: "bev-11", name: "Coke Sakto", image: "/logo.png"},
-    {id: "bev-12", name: "Soda in Can", image: "/logo.png"},
-    {id: "bev-13", name: "Coke 1.5 Liter", image: "/logo.png"},
-  ]
-
+  Beverages: <CupSoda />,
+  "Side Dish": <Utensils />,
+  Pasta: <Salad />,
+  "Chicken Wings": <Drumstick />,
 };
 
 const KioskMenu = () => {
   const navigate = useNavigate();
-  const [showCancelModal, setShowCancelModal] = useState(false);
-  const [activeCategory, setActiveCategory] = useState("Best Seller"); 
+  const TIMER_KEY = "kiosk_walkin_timer_end";
+
+  // --- STATE ---
+  const [menuData, setMenuData] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [activeCategory, setActiveCategory] = useState("");
   const [selectedCard, setSelectedCard] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [cart, setCart] = useState([]);
 
-  const categories = Object.keys(menuData);
-  const currentItems = menuData[activeCategory] || [];
+  // Timer States
+  const [timeLeft, setTimeLeft] = useState(5400); // 1:30:00
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
 
-  const handleCardClick = (id) => {
-    setSelectedCard((prev) => (prev === id ? null : id));
+  // Modal States
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showEndModal, setShowEndModal] = useState(false);
+  const [showOrderSuccessModal, setShowOrderSuccessModal] = useState(false);
+
+  // --- 1. TIMER PERSISTENCE ---
+  useEffect(() => {
+    const savedEndTime = localStorage.getItem(TIMER_KEY);
+    if (savedEndTime) {
+      const remaining = Math.floor(
+        (parseInt(savedEndTime) - Date.now()) / 1000,
+      );
+      if (remaining > 0) {
+        setTimeLeft(remaining);
+        setIsTimerRunning(true);
+      } else {
+        handleEndSession();
+      }
+    }
+  }, []);
+
+  // --- 2. TIMER TICK ---
+  useEffect(() => {
+    let timerInterval;
+    if (isTimerRunning) {
+      timerInterval = setInterval(() => {
+        const savedEndTime = localStorage.getItem(TIMER_KEY);
+        if (savedEndTime) {
+          const remaining = Math.floor(
+            (parseInt(savedEndTime) - Date.now()) / 1000,
+          );
+          if (remaining <= 0) {
+            handleEndSession();
+            clearInterval(timerInterval);
+          } else {
+            setTimeLeft(remaining);
+          }
+        }
+      }, 1000);
+    }
+    return () => clearInterval(timerInterval);
+  }, [isTimerRunning]);
+
+  // --- 3. FETCH MENU ---
+  useEffect(() => {
+    const fetchMenu = async () => {
+      try {
+        const response = await fetch("http://localhost:5000/api/products");
+        const data = await response.json();
+        const grouped = data.reduce((acc, item) => {
+          const cat = item.category_name || "General";
+          if (!acc[cat]) acc[cat] = [];
+          acc[cat].push({
+            id: item.item_id,
+            name: item.name,
+            image: item.image_url?.startsWith("http")
+              ? item.image_url
+              : `/Menu/Images/${item.image_url}`,
+            description: item.description,
+            price: item.price,
+            category: cat,
+          });
+          return acc;
+        }, {});
+        setMenuData(grouped);
+        const keys = Object.keys(grouped);
+        if (keys.length > 0) setActiveCategory(keys[0]);
+        setLoading(false);
+      } catch (e) {
+        console.error(e);
+        setLoading(false);
+      }
+    };
+    fetchMenu();
+  }, []);
+
+  // --- 4. ADD TO ORDER ---
+  const addToOrder = (itemWithQty) => {
+    setCart((prev) => {
+      const exists = prev.find((i) => i.id === itemWithQty.id);
+      if (exists) {
+        return prev.map((i) =>
+          i.id === itemWithQty.id
+            ? { ...i, quantity: i.quantity + itemWithQty.quantity }
+            : i,
+        );
+      }
+      return [...prev, itemWithQty];
+    });
   };
 
-  const handleCategoryChange = (cat) => {
-    setActiveCategory(cat);
-    setSelectedCard(null); 
+  const handlePlaceOrder = () => {
+    if (cart.length > 0) {
+      if (!localStorage.getItem(TIMER_KEY)) {
+        const endTimee = Date.now() + 5400 * 1000;
+        localStorage.setItem(TIMER_KEY, endTimee.toString());
+        setIsTimerRunning(true);
+      }
+
+      setCart([]);
+      setShowOrderSuccessModal(true);
+    }
   };
 
-  const handleCancelClick = () => setShowCancelModal(true);
-  const confirmCancel = () => navigate("/kiosk-selection");
+  const handleEndSession = () => {
+    localStorage.removeItem(TIMER_KEY);
+    setCart([]);
+    setIsTimerRunning(false);
+    setShowEndModal(false);
+    navigate("/kiosk-selection");
+  };
 
-  const steps = [
-    { id: 1, label: "View Menu", completed: true },
-    { id: 2, label: "Select Order", completed: true },
-    { id: 3, label: "View Order", completed: false },
-  ];
+  const formatTime = (seconds) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  };
+
+  if (loading) return <div className="loading-container">Loading...</div>;
 
   return (
-    <div className="kiosk-container">
-      <nav className="step-indicator">
-        {steps.map((step, index) => (
-          <div key={step.id} className={`step-item ${step.completed ? "completed" : "pending"}`}>
-            <div className="step-icon">
-              {step.completed ? <Check size={16} strokeWidth={4} /> : <span>{step.id}</span>}
-            </div>
-            <div className="step-text"><span className="step-label">{step.label}</span></div>
-            {index !== steps.length - 1 && <div className="step-line" />}
+    <div className="res-kiosk-container">
+      {/* 1. HEADER (Timer & ID) */}
+      <div className="kiosk-timer-wrapper">
+        <div className="header-id-section">
+          <ShoppingBag size={20} color="#ffcc00" />
+          <div className="id-details">
+            <span className="id-label">MODE</span>
+            <span className="id-value">WALK-IN GUEST</span>
           </div>
-        ))}
-      </nav>
+        </div>
 
-      <div className="main-layout">
-        <aside className="sidebar">
-          <div className="brand">
-            <h1 className="logo-main">HANGOUT</h1>
-            <p className="logo-sub">Resto Bar</p>
+        <div className="timer-box">
+          <Clock size={20} color="#ffcc00" />
+          <span className="timer-text">{formatTime(timeLeft)}</span>
+          {isTimerRunning && (
+            <button
+              className="finish-session-header-btn"
+              onClick={() => setShowEndModal(true)}
+              style={{
+                background: "none",
+                border: "1px solid #ffcc00",
+                color: "#ffcc00",
+                padding: "2px 10px",
+                borderRadius: "5px",
+                marginLeft: "12px",
+                fontSize: "0.75rem",
+                fontWeight: "bold",
+                cursor: "pointer",
+              }}
+            >
+              FINISH
+            </button>
+          )}
+        </div>
+        <div className="header-right-spacer"></div>
+      </div>
+
+      <div className="res-main-layout">
+        {/* 2. SIDEBAR */}
+        <aside className="res-sidebar">
+          <div className="res-brand">
+            <h1>HANGOUT</h1>
+            <p>Resto Bar</p>
           </div>
-
-          <div className="category-list">
-            <div className="scroll-arrow top"><ChevronUp size={20} /></div>
-            <div className="cat-scroll-wrapper">
-              {categories.map((cat) => (
+          <div className="res-category-list">
+            <div className="res-cat-scroll-wrapper">
+              {Object.keys(menuData).map((cat) => (
                 <button
                   key={cat}
-                  className={`cat-btn ${activeCategory === cat ? "active" : ""}`}
-                  onClick={() => handleCategoryChange(cat)}
+                  className={`res-cat-btn ${activeCategory === cat ? "res-active" : ""}`}
+                  onClick={() => setActiveCategory(cat)}
                 >
-                  <div className="cat-icon-placeholder">
+                  <div className="res-cat-icon-placeholder">
                     {categoryIcons[cat] || <Star size={20} />}
                   </div>
                   <span>{cat}</span>
                 </button>
               ))}
             </div>
-            <div className="scroll-arrow bottom"><ChevronDown size={20} /></div>
           </div>
-
-          <button className="assist-btn" onClick={() => navigate("/kiosk-selection")}>
-            <Bell size={18} fill="currentColor" />
+          <button
+            className="res-assist-btn"
+            onClick={() => navigate("/kiosk-selection")}
+          >
+            <Bell size={18} />
             <span>Assist Me</span>
           </button>
         </aside>
 
-        <main className="content-area">
-          <div className="grid-container">
-            {currentItems.map((item) => (
+        {/* 3. GRID */}
+        <main className="res-content-area">
+          <div className="res-grid-container">
+            {(menuData[activeCategory] || []).map((item) => (
               <div
                 key={item.id}
-                className={`food-card ${selectedCard === item.id ? "selected" : ""}`}
-                onClick={() => handleCardClick(item.id)}
+                className={`res-food-card ${selectedCard === item.id ? "res-selected" : ""}`}
+                onClick={() => {
+                  setSelectedItem(item);
+                  setIsModalOpen(true);
+                  setSelectedCard(item.id);
+                }}
               >
-                <div className="card-image-container">
-                  <img src={item.image} alt={item.name} className="food-img" />
+                <div className="res-card-image-container">
+                  <img
+                    src={item.image}
+                    alt={item.name}
+                    className="res-food-img"
+                  />
                 </div>
-
-                <div className="card-info">
-                  <h4 className="food-label">{item.name}</h4>
+                <div className="res-card-info">
+                  <h4 className="res-food-label">{item.name}</h4>
+                  <p style={{ color: "#ffcc00", fontWeight: "bold" }}>
+                    ₱{item.price}
+                  </p>
                 </div>
-
-                {selectedCard === item.id && (
-                  <div className="selected-check">
-                    <Check size={18} color="white" strokeWidth={4} />
-                  </div>
-                )}
               </div>
             ))}
           </div>
         </main>
+
+        {/* 4. SUMMARY */}
+        <OrderSummary
+          cart={cart}
+          onRemoveItem={(id) => setCart(cart.filter((i) => i.id !== id))}
+        />
       </div>
 
-      <footer className="bottom-bar">
-        <div className="action-btns">
-          <button className="btn-cancel" onClick={handleCancelClick}>Cancel</button>
+      {/* 5. FOOTER */}
+      <footer className="res-bottom-bar">
+        {" "}
+        <button
+          className="res-btn-view-all"
+          onClick={() => navigate("/kiosk-selection")}
+        >
+          Back
+        </button>
+        <div className="res-action-btns">
           <button
-            className="btn-view"
-            disabled={selectedCard === null}
-            onClick={() => navigate("/kiosk/order")}
+            className="res-btn-cancel"
+            onClick={() => setShowCancelModal(true)}
           >
-            View Order
+            Clear Tray
+          </button>
+          <button
+            className="res-btn-view"
+            disabled={cart.length === 0}
+            onClick={handlePlaceOrder}
+          >
+            Place Order
           </button>
         </div>
       </footer>
 
-      {showCancelModal && (
-        <div className="modal-overlay" onClick={() => setShowCancelModal(false)}>
-          <div className="modal-card fade-in-scale" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-icon"><AlertCircle size={48} color="#ffcc00" /></div>
-            <h2>Discard Order?</h2>
-            <p>Your current selections will be cleared.</p>
-            <div className="modal-actions">
-              <button className="modal-btn-secondary" onClick={() => setShowCancelModal(false)}>No, Keep Ordering</button>
-              <button className="modal-btn-primary" onClick={confirmCancel}>Yes, Discard</button>
+      {/* MODAL COMPONENTS */}
+      <ReservationOrderModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedCard(null);
+        }}
+        item={selectedItem}
+        onAdd={addToOrder}
+      />
+
+      {/* End Session Confirmation */}
+      {showEndModal && (
+        <div
+          className="res-modal-overlay"
+          onClick={() => setShowEndModal(false)}
+        >
+          <div
+            className="res-modal-card res-fade-in-scale"
+            onClick={(e) => e.stopPropagation()}
+            style={{ textAlign: "center" }}
+          >
+            <CheckCircle
+              size={48}
+              color="#ffcc00"
+              style={{ margin: "0 auto 10px" }}
+            />
+            <h2 style={{ color: "#ffcc00" }}>Finish Eating?</h2>
+            <p style={{ color: "white" }}>
+              This will clear your timer and close the session.
+            </p>
+            <div className="res-modal-actions">
+              <button
+                className="res-modal-btn-secondary"
+                onClick={() => setShowEndModal(false)}
+              >
+                Stay
+              </button>
+              <button
+                className="res-modal-btn-primary"
+                onClick={handleEndSession}
+              >
+                Yes, I'm Done
+              </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {showOrderSuccessModal && (
+        <div
+          className="res-modal-overlay"
+          onClick={() => setShowOrderSuccessModal(false)}
+        >
+          <div
+            className="res-modal-card res-fade-in-scale"
+            style={{ textAlign: "center" }}
+          >
+            <CheckCircle
+              size={60}
+              color="#ffcc00"
+              style={{ margin: "0 auto 20px" }}
+            />
+            <h2 style={{ color: "#ffcc00" }}>Order Sent!</h2>
+            <button
+              className="res-modal-btn-primary"
+              onClick={() => setShowOrderSuccessModal(false)}
+            >
+              OK
+            </button>
           </div>
         </div>
       )}
