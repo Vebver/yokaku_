@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, use } from "react";
 import axios from "axios";
 import "../Style/Reservation.css";
 
@@ -7,6 +7,7 @@ const Reservation = ({ onClose, onSuccess, testProp }) => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [packages, setPackages] = useState([]);
 
   // --- 1. PERSISTENCE LOGIC ---
   const [step, setStep] = useState(
@@ -16,24 +17,51 @@ const Reservation = ({ onClose, onSuccess, testProp }) => {
     const saved = localStorage.getItem("res_package");
     return saved !== "null" && saved !== null ? Number(saved) : null;
   });
+  // Guests is a simple number input, so we can store it as a string and convert on submit
   const [guests, setGuests] = useState(
     () => localStorage.getItem("res_guests") || "",
   );
+  // Personal info includes firstName, lastName, email, contactNo
   const [personalInfo, setPersonalInfo] = useState(() => {
     const saved = localStorage.getItem("res_personalInfo");
     return saved
       ? JSON.parse(saved)
       : { firstName: "", lastName: "", email: "", contactNo: "" };
   });
+  // Form data includes date, hour, minute, period
   const [formData, setFormData] = useState(() => {
     const saved = localStorage.getItem("res_formData");
     return saved
       ? JSON.parse(saved)
       : { date: "", hour: "10", minute: "00", period: "AM" };
   });
+  // Payment info includes method, reference, amount (fixed at 500 for downpayment)
+  const [paymentInfo, setPaymentInfo] = useState(() => {
+    const saved = localStorage.getItem("res_paymentInfo");
+    return saved
+      ? JSON.parse(saved)
+      : { method: "GCash", reference: "", amount: 500 }; // Fixed 500 downpayment
+  });
 
   const [otp, setOtp] = useState(new Array(6).fill(""));
   const otpRefs = useRef([]);
+
+  useEffect(() => {
+    const fetchPackages = async () => {
+      try {
+        const res = await axios.get("/api/products"); // Fetch all products
+        const filtered = res.data.filter(
+          (item) =>
+            item.category_name === "Packages" || item.category === "Packages",
+        );
+        setPackages(filtered);
+      } catch (err) {
+        console.error("Error fetching packages:", err);
+      }
+    };
+
+    fetchPackages();
+  }, []);
 
   // --- 2. AUTO-SAVE LOGIC ---
   useEffect(() => {
@@ -41,6 +69,7 @@ const Reservation = ({ onClose, onSuccess, testProp }) => {
     localStorage.setItem("res_guests", guests);
     localStorage.setItem("res_personalInfo", JSON.stringify(personalInfo));
     localStorage.setItem("res_formData", JSON.stringify(formData));
+    localStorage.setItem("res_paymentInfo", JSON.stringify(paymentInfo));
     if (selectedPackage !== null)
       localStorage.setItem("res_package", selectedPackage);
   }, [step, selectedPackage, guests, personalInfo, formData]);
@@ -62,6 +91,7 @@ const Reservation = ({ onClose, onSuccess, testProp }) => {
     personalInfo.email.trim() !== "" &&
     isPhoneValid;
   const isStep6Valid = otp.join("").length === 6;
+  const isStep7Valid = paymentInfo.reference.trim().length > 6;
   const getPackageName = (id) => (id ? String.fromCharCode(64 + id) : "");
 
   // --- 4. OTP & SUBMISSION HANDLERS ---
@@ -110,6 +140,9 @@ const Reservation = ({ onClose, onSuccess, testProp }) => {
         time: `${formData.hour}:${formData.minute} ${formData.period}`,
         guests: Number(guests),
         packageName: `Package ${getPackageName(selectedPackage)}`,
+        paymentMethod: paymentInfo.method,
+        paymentReference: paymentInfo.reference,
+        paymentAmount: paymentInfo.amount,
       };
 
       console.log("Sending to:", "/api/reservations");
@@ -126,8 +159,8 @@ const Reservation = ({ onClose, onSuccess, testProp }) => {
           "res_formData",
         ].forEach((k) => localStorage.removeItem(k));
 
-        if (typeof onSuccess === 'function') {
-          onSuccess(); 
+        if (typeof onSuccess === "function") {
+          onSuccess();
         } else {
           console.error("Prop 'onSuccess' was not passed to Reservation.jsx");
           onClose(); // Fallback so the user isn't stuck
@@ -145,30 +178,24 @@ const Reservation = ({ onClose, onSuccess, testProp }) => {
   // --- 5. NAVIGATION ---
   const handleNext = () => {
     setError("");
-    if (step === 1) {
-      if (formData.date) setStep(2);
-      else setError("Please select a date.");
-    } else if (step === 2) setStep(3);
-    else if (step === 3) {
-      if (selectedPackage) setStep(4);
-      else setError("Please select a package.");
-    } else if (step === 4) {
-      if (guests > 0 && guests <= 50) setStep(5);
-      else setError("Guests must be between 1 and 50.");
-    } else if (step === 5) {
-      if (!isStep5Valid) {
-        if (!isPhoneValid)
-          setError("Phone number must be 11 digits (09XXXXXXXXX).");
-        else setError("Please fill in all fields correctly.");
-      } else {
-        handleSendOTP();
-      }
-    } else if (step === 6) {
-      if (isStep6Valid) handleVerifyOTP();
-      else setError("Please enter the 6-digit code.");
-    } else if (step === 7) {
-      handleFinalSubmit();
-    }
+    if (step === 1)
+      formData.date ? setStep(2) : setError("Please select a date.");
+    else if (step === 2) setStep(3);
+    else if (step === 3)
+      selectedPackage ? setStep(4) : setError("Please select a package.");
+    else if (step === 4)
+      guests > 0 && guests <= 50 ? setStep(5) : setError("Guests 1-50.");
+    else if (step === 5)
+      isStep5Valid
+        ? handleSendOTP()
+        : setError("Please check contact details.");
+    else if (step === 6)
+      isStep6Valid ? handleVerifyOTP() : setError("Enter 6-digit code.");
+    else if (step === 7)
+      isStep7Valid
+        ? setStep(8)
+        : setError("Please enter a valid reference number.");
+    else if (step === 8) handleFinalSubmit();
   };
 
   const handleBack = () => {
@@ -192,20 +219,18 @@ const Reservation = ({ onClose, onSuccess, testProp }) => {
           <p className="res-restobar">Resto Bar</p>
         </div>
         <h2 className="res-title">RESERVE A TABLE</h2>
-
         <div className="res-progress-section">
           <div className="res-progress-text">
-            <span>Step {step} of 7</span>
-            <span>{Math.round((step / 7) * 100)}% Complete</span>
+            <span>Step {step} of 8</span>
+            <span>{Math.round((step / 8) * 100)}% Complete</span>
           </div>
           <div className="res-progress-bar-bg">
             <div
               className="res-progress-bar-fill"
-              style={{ width: `${(step / 7) * 100}%` }}
+              style={{ width: `${(step / 8) * 100}%` }}
             ></div>
           </div>
         </div>
-
         {error && (
           <div
             className="res-error-text"
@@ -218,7 +243,7 @@ const Reservation = ({ onClose, onSuccess, testProp }) => {
             {error}
           </div>
         )}
-
+        {/*STEP 1: CHOOSE A DATE*/}
         {step === 1 && (
           <div className="res-body fade-in">
             <h3>CHOOSE A DATE</h3>
@@ -234,7 +259,7 @@ const Reservation = ({ onClose, onSuccess, testProp }) => {
             </div>
           </div>
         )}
-
+        {/*STEP 2: CHOOSE TIME SLOT*/}
         {step === 2 && (
           <div className="res-body fade-in">
             <h3>CHOOSE TIME SLOT</h3>
@@ -284,23 +309,51 @@ const Reservation = ({ onClose, onSuccess, testProp }) => {
             </div>
           </div>
         )}
+        {/*STEP 3: SELECT PACKAGE*/}
 
         {step === 3 && (
           <div className="res-body fade-in">
-            <h3>SELECT A PACKAGE</h3>
+            <h2 className="res-title">SELECT A PACKAGE</h2>
             <div className="package-container">
-              {[1, 2, 3, 4, 5].map((pkg) => (
+              {packages.map((pkg) => (
                 <div
-                  key={pkg}
-                  className={`package-box ${selectedPackage === pkg ? "active" : ""}`}
-                  onClick={() => setSelectedPackage(pkg)}
-                ></div>
+                  key={pkg.item_id}
+                  className={`package-box ${selectedPackage === pkg.item_id ? "active" : ""}`}
+                  onClick={() => setSelectedPackage(pkg.item_id)}
+                >
+                  {/* 1. Image Container (Top) */}
+                  <div className="pkg-img-container">
+                    <img
+                      src={pkg.image_url || "/logo.png"}
+                      alt={pkg.name}
+                      className="pkg-img-display"
+                    />
+                  </div>
+
+                  {/* 2. Details (Below) */}
+                  <div className="pkg-details">
+                    <span className="pkg-name-text">{pkg.name}</span>
+                    <span className="pkg-price-text">
+                      ₱{pkg.price ? Number(pkg.price).toFixed(2) : "0.00"}
+                    </span>
+                  </div>
+                </div>
               ))}
             </div>
-            <button className="view-all-packages">View All Packages</button>
+
+            {/* Optional: Selected Item Description shown below the grid */}
+            {selectedPackage && (
+              <div className="pkg-selection-hint">
+                <p>
+                  {
+                    packages.find((p) => p.item_id === selectedPackage)
+                      ?.description
+                  }
+                </p>
+              </div>
+            )}
           </div>
         )}
-
         {step === 4 && (
           <div className="res-body fade-in">
             <h3>NUMBER OF GUESTS</h3>
@@ -319,7 +372,6 @@ const Reservation = ({ onClose, onSuccess, testProp }) => {
             </div>
           </div>
         )}
-
         {step === 5 && (
           <div className="res-body fade-in">
             <h3 className="res-step-title-small">CONTACT INFORMATION</h3>
@@ -378,7 +430,6 @@ const Reservation = ({ onClose, onSuccess, testProp }) => {
             </div>
           </div>
         )}
-
         {step === 6 && (
           <div className="res-body fade-in">
             <h3>VERIFY EMAIL</h3>
@@ -407,8 +458,75 @@ const Reservation = ({ onClose, onSuccess, testProp }) => {
             </div>
           </div>
         )}
-
         {step === 7 && (
+          <div className="res-body fade-in">
+            <h3 className="res-step-title-small">DOWNPAYMENT</h3>
+            <p
+              style={{
+                fontSize: "0.85rem",
+                color: "#666",
+                marginBottom: "15px",
+              }}
+            >
+              To secure your slot, a <b>₱500.00</b> downpayment is required.
+            </p>
+
+            <div
+              className="payment-merchant-box"
+              style={{
+                background: "#f9f9f9",
+                padding: "10px",
+                borderRadius: "8px",
+                marginBottom: "15px",
+                border: "1px dashed #ccc",
+              }}
+            >
+              <p style={{ margin: 0, fontSize: "0.9rem" }}>
+                <b>GCash / Maya:</b> 0912 345 6789
+              </p>
+              <p style={{ margin: 0, fontSize: "0.9rem" }}>
+                <b>Account Name:</b> Hangout Resto Bar
+              </p>
+            </div>
+
+            <div className="res-form-container">
+              <div className="res-input-group full-width">
+                <label>Payment Method</label>
+                <select
+                  className="res-select"
+                  value={paymentInfo.method}
+                  onChange={(e) =>
+                    setPaymentInfo({ ...paymentInfo, method: e.target.value })
+                  }
+                >
+                  <option value="GCash">GCash</option>
+                  <option value="Maya">Maya</option>
+                  <option value="Bank Transfer">Bank Transfer</option>
+                </select>
+              </div>
+              <div
+                className="res-input-group full-width"
+                style={{ marginTop: "15px" }}
+              >
+                <label>Reference Number</label>
+                <input
+                  type="text"
+                  placeholder="Enter 13-digit Ref #"
+                  value={paymentInfo.reference}
+                  onChange={(e) =>
+                    setPaymentInfo({
+                      ...paymentInfo,
+                      reference: e.target.value,
+                    })
+                  }
+                />
+              </div>
+            </div>
+          </div>
+        )}
+        {/* This step is a final review before submission. The "Continue" button
+        will trigger the actual submission to the backend. */}
+        {step === 8 && (
           <div className="res-body fade-in">
             <h3>CONFIRM DETAILS</h3>
             <div className="res-summary-container">
@@ -428,10 +546,26 @@ const Reservation = ({ onClose, onSuccess, testProp }) => {
               <div className="res-summary-row">
                 <span>Guests:</span> <strong>{guests} pax</strong>
               </div>
+              <div
+                className="res-summary-row"
+                style={{
+                  borderTop: "1px solid #eee",
+                  marginTop: "10px",
+                  paddingTop: "10px",
+                }}
+              >
+                <span>Downpayment:</span>{" "}
+                <strong>₱{paymentInfo.amount}.00</strong>
+              </div>
+              <div className="res-summary-row">
+                <span>Method:</span> <strong>{paymentInfo.method}</strong>
+              </div>
+              <div className="res-summary-row">
+                <span>Reference:</span> <strong>{paymentInfo.reference}</strong>
+              </div>
             </div>
           </div>
         )}
-
         <div className="res-footer">
           <button
             className="res-btn-back"

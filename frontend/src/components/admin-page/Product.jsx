@@ -196,7 +196,7 @@ function Product() {
                     </span>
                   </td>
                   <td className="fw-bold text-success">
-                    ${item.price ? Number(item.price).toFixed(2) : "0.00"}
+                     ₱{item.price ? Number(item.price).toFixed(2) : "0.00"}
                   </td>
                   {/* Featured toggle button */}
                   <td>
@@ -302,7 +302,7 @@ function Product() {
                   </div>
                   <div className="col-md-6 mb-3">
                     <label className="form-label small fw-bold">
-                      Price ($)
+                      Price (₱)
                     </label>
                     <input
                       type="number"

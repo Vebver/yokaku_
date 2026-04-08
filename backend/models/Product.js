@@ -27,7 +27,7 @@ const Product = {
   create: async (data) => {
     const sql = `
       INSERT INTO menu_items 
-      (category_id, description, price,name , image_url, is_available, is_featured) 
+      (category_id, name, description, price, image_url, is_available, is_featured) 
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `;
     const values = [
