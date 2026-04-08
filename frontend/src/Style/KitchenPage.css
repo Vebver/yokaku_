@@ -115,6 +115,7 @@ body {
   overflow: hidden;
   transition: transform 0.2s, box-shadow 0.2s;
   animation: slideIn 0.4s ease-out;
+  color: black;
 }
 
 .order-card:hover {
