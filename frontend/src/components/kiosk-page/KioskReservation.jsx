@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { QrCode, ArrowLeft, X } from 'lucide-react';
+import { QrCode, ArrowLeft, X, Loader2, AlertCircle } from 'lucide-react'; // Added icons for feedback
 import { Html5Qrcode } from 'html5-qrcode';
 import '../../Style/KioskReservation.css';
 
@@ -8,9 +8,36 @@ const KioskReservation = () => {
   const navigate = useNavigate();
   const [resId, setResId] = useState("");
   const [isScanning, setIsScanning] = useState(false);
+  const [loading, setLoading] = useState(false); // New state for API check
+  const [error, setError] = useState(""); // New state for error messages
   const scannerRef = useRef(null);
 
+  // --- NEW: FUNCTION TO VALIDATE ID WITH DATABASE ---
+  const validateAndProceed = async (id) => {
+    setLoading(true);
+    setError("");
+    try {
+      // Adjust URL/Port to match your backend index.js
+      const response = await fetch(`http://localhost:5000/api/reservations/${id}`);
+      const data = await response.json();
+
+      if (response.ok) {
+        localStorage.setItem("resId", id); // Save valid ID to memory
+        navigate('/kiosk-selection/kiosk-reservation-menu');
+      } else {
+        setError(data.message || "Reservation not found. Please check your ID.");
+        if (isScanning) stopScanner();
+      }
+    } catch (err) {
+      setError("Server connection failed. Please try again later.");
+      if (isScanning) stopScanner();
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const startScanner = async () => {
+    setError("");
     setIsScanning(true);
     setTimeout(async () => {
       try {
@@ -23,20 +50,15 @@ const KioskReservation = () => {
           { facingMode: "environment" }, 
           config,
           (decodedText) => {
-            // --- UPDATED: QR SCAN SUCCESS ---
-            setResId(decodedText);
-            localStorage.setItem("resId", decodedText); // Save ID to memory
             stopScanner();
-            // Automatically navigate to menu after successful scan
-            navigate('/kiosk-selection/kiosk-reservation-menu');
+            validateAndProceed(decodedText); // Validate scan result
           },
-          (errorMessage) => {
-            // Scanning...
-          }
+          (errorMessage) => { /* Scanning... */ }
         );
       } catch (err) {
         console.error("Unable to start scanner", err);
         setIsScanning(false);
+        setError("Could not access camera.");
       }
     }, 100);
   };
@@ -61,11 +83,9 @@ const KioskReservation = () => {
     };
   }, []);
 
-  // --- UPDATED: MANUAL CONFIRMATION ---
   const handleConfirmClick = () => {
     if (resId.trim()) {
-      localStorage.setItem("resId", resId); // Save manually entered ID to memory
-      navigate('/kiosk-selection/kiosk-reservation-menu');
+      validateAndProceed(resId.trim()); // Validate manual input
     }
   };
 
@@ -90,14 +110,26 @@ const KioskReservation = () => {
         </div>
 
         <div className="res-card fade-in">
+          {/* Error Message Display */}
+          {error && (
+            <div className="res-error-msg" style={{ color: '#ff4d4d', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '15px', justifyContent: 'center', background: 'rgba(255,0,0,0.1)', padding: '10px', borderRadius: '10px' }}>
+              <AlertCircle size={18} />
+              <span>{error}</span>
+            </div>
+          )}
+
           {!isScanning ? (
-            <div className="qr-section" onClick={startScanner}>
-              <div className="qr-scanner-glow clickable">
+            <div className="qr-section" onClick={loading ? null : startScanner}>
+              <div className={`qr-scanner-glow ${loading ? 'loading' : 'clickable'}`}>
                 <div className="qr-inner-circle">
-                  <QrCode size={80} color="#ffcc00" strokeWidth={1.5} />
+                  {loading ? (
+                    <Loader2 className="animate-spin" size={60} color="#ffcc00" />
+                  ) : (
+                    <QrCode size={80} color="#ffcc00" strokeWidth={1.5} />
+                  )}
                 </div>
               </div>
-              <p className="qr-label">Tap to Scan QR Code</p>
+              <p className="qr-label">{loading ? "Verifying..." : "Tap to Scan QR Code"}</p>
             </div>
           ) : (
             <div className="scanner-container">
@@ -121,13 +153,14 @@ const KioskReservation = () => {
               placeholder="Enter Reservation ID" 
               value={resId}
               onChange={(e) => setResId(e.target.value)}
+              disabled={loading}
             />
             <button 
               className="confirm-res-btn" 
-              disabled={!resId.trim()} 
+              disabled={!resId.trim() || loading} 
               onClick={handleConfirmClick}
             >
-              Confirm Reservation
+              {loading ? "Verifying..." : "Confirm Reservation"}
             </button>
           </div>
         </div>
