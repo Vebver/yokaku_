@@ -11,8 +11,8 @@ import { useLocation } from "react-router-dom";
 import "../../Style/KitchenPage.css";
 import { io } from "socket.io-client";
 
-// Initialize socket connection to the new port 5001
-const socket = io("http://localhost:5001");
+// Initialize socket connection to the new port 5000
+const socket = io("http://localhost:5000");
 
 const INITIAL_ORDERS = [];
 

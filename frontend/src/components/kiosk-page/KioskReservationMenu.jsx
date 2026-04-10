@@ -19,7 +19,7 @@ import { io } from "socket.io-client";
 
 
 // Initialize socket (Replace with your server URL)
-const socket = io("http://localhost:5001");
+const socket = io("http://localhost:5000");
 
 const categoryIcons = {
   "Chicken Wings": <Drumstick />,
@@ -84,7 +84,7 @@ const KioskReservationMenu = () => {
   useEffect(() => {
     const fetchMenu = async () => {
       try {
-        const response = await fetch("http://localhost:5001/api/products");
+        const response = await fetch("http://localhost:5000/api/products");
         const data = await response.json();
         const groupedMenu = data.reduce((acc, item) => {
           const category = item.category_name || "Uncategorized";
