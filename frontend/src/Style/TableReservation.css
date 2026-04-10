@@ -1,0 +1,295 @@
+/* Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:ital,wght@0,700;1,700&display=swap');
+
+:root {
+    --bg-color: #fcfcfc;
+    --primary-gold: #d4a017;
+    --primary-gold-light: #fef9e7;
+    --primary-gold-dark: #b48608;
+    --text-main: #1a2b48;
+    --text-muted: #94a3b8;
+    --status-available: #22c55e;
+    --status-reserved: #f87171;
+    --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.04);
+}
+
+body {
+    margin: 0;
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    -webkit-font-smoothing: antialiased;
+}
+
+/* 1. Responsive Container */
+.reservation-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 40px 16px; /* Reduced padding for mobile */
+    text-align: center;
+}
+
+@media (min-width: 768px) {
+    .reservation-container {
+        padding: 60px 40px;
+    }
+}
+
+/* 2. Responsive Header */
+.header-icon {
+    width: 48px;
+    height: 48px;
+    background-color: #fdf5e6;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary-gold);
+    margin-bottom: 20px;
+}
+
+.title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.8rem; /* Smaller for mobile */
+    margin: 0 0 12px 0;
+    line-height: 1.2;
+}
+
+@media (min-width: 768px) {
+    .title {
+        font-size: 2.5rem; /* Original size for desktop */
+    }
+}
+
+.subtitle {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin-bottom: 32px;
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* 3. Responsive Grid */
+.table-grid {
+    display: grid;
+    /* Default: 1 column for small mobile */
+    grid-template-columns: 1fr; 
+    gap: 16px;
+}
+
+/* Tablet: 2 columns */
+@media (min-width: 480px) {
+    .table-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
+    }
+}
+
+/* Small Desktop: 3 columns */
+@media (min-width: 768px) {
+    .table-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 24px;
+    }
+}
+
+/* Large Desktop: 4 columns (Exactly like your image) */
+@media (min-width: 1024px) {
+    .table-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+/* 4. Card Adjustments */
+.card {
+    background: white;
+    border-radius: 20px;
+    padding: 24px 16px; /* Slightly tighter padding for smaller screens */
+    border: 2px solid transparent;
+    box-shadow: var(--card-shadow);
+    position: relative;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    user-select: none; /* Prevents text selection on double tap mobile */
+    box-shadow: 0 15px 30px -5px rgba(0, 0, 0, 0.08);
+}
+
+@media (min-width: 768px) {
+    .card {
+        padding: 32px 20px;
+    }
+}
+
+.card:hover:not(.reserved){
+    transform: translateY(-4px);
+    box-shadow: 0 15px 30px -5px rgba(0, 0, 0, 0.08);
+}
+
+
+.status-dot {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.dot-available { background-color: var(--status-available); }
+.dot-reserved { background-color: var(--status-reserved); }
+
+.icon-box {
+    width: 56px;
+    height: 56px;
+    background-color: #f8fafc;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #cbd5e1;
+    margin-bottom: 16px;
+    transition: all 0.2s ease;
+}
+
+.table-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0 0 4px 0;
+}
+
+.seat-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin-bottom: 20px;
+}
+
+.status-badge {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    padding: 6px 16px;
+    border-radius: 20px;
+}
+
+/* Card States */
+.card.reserved {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.card.reserved .status-badge {
+    background-color: #fef2f2;
+    color: var(--status-reserved);
+}
+
+.card.available .status-badge {
+    background-color: #f0fdf4;
+    color: var(--status-available);
+}
+
+/* SELECTED STATE */
+.card.selected {
+    background-color: var(--primary-gold-light);
+    border-color: var(--primary-gold);
+    box-shadow: 0 10px 20px -5px rgba(212, 160, 23, 0.2);
+}
+
+.card.selected .icon-box{
+    background-color: #fef08a;
+    color: var(--primary-gold-dark);
+}
+
+.card.selected .table-name{
+    color: var(--primary-gold-dark);
+}
+
+.card.selected .status-badge{
+    background-color: #fef08a;
+    color: var(--primary-gold-dark);
+}
+
+/* 5. Footer & Buttons */
+.footer {
+    margin-top: 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    background: none;
+}
+
+@media (min-width: 768px) {
+    .footer {
+        margin-top: 60px;
+    }
+}
+
+.btn-continue {
+    width: 100%; /* Full width on mobile */
+    max-width: 320px; /* Cap width for desktop */
+    padding: 16px 20px;
+    border-radius: 30px;
+    font-weight: 600;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 1rem;
+}
+
+@media (min-width: 768px) {
+    .btn-continue {
+        width: auto;
+        padding: 14px 40px;
+    }
+}
+
+.btn-continue.disabled {
+    background-color: #f1dec1;
+    color: white;
+    cursor: not-allowed;
+}
+
+.btn-continue.active {
+    background-color: var(--primary-gold);
+    color: white;
+    box-shadow: 0 10px 20px -5px rgba(212, 160, 23, 0.4);
+}
+
+.btn-continue.active:hover {
+    background-color: var(--primary-gold-dark);
+}
+
+.summary-text {
+    color: var(--text-muted);
+    font-size: 15px;
+    line-height: 1.4;
+    padding: 0 20px;
+}
+
+.table-res-close {
+  position: absolute;
+  top: 20px;
+  left: 30px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #333;
+  transition: transform 0.2s;
+}
+
+.table-res-close:hover {
+  transform: scale(1.1);
+  color: #ffcc00;
+}
