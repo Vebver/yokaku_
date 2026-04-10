@@ -1,0 +1,257 @@
+/* --- Design System & Variables --- */
+:root {
+  --bg-main: #f8fafc;
+  --bg-card: #ffffff;
+  --text-main: #000000; /* Pure Black */
+  --text-muted: #475569;
+  
+  /* Status Colors */
+  --status-pending-bg: #fef3c7;
+  --status-pending-text: #92400e;
+  --status-preparing-bg: #dbeafe;
+  --status-preparing-text: #1e40af;
+  --status-ready-bg: #d1fae5;
+  --status-ready-text: #065f46;
+  --instruction-bg: #fff1f2;
+  --instruction-text: #9f1239;
+  
+  /* Accents */
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --border-color: #e2e8f0;
+  --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: var(--bg-main);
+  line-height: 1.5;
+}
+
+/* --- Layout --- */
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+/* --- Sticky Header --- */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border-color);
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #000000;
+}
+
+.live-indicator {
+  width: 8px;
+  height: 8px;
+  background: #10b981;
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+/* --- Filters --- */
+.filter-group {
+  display: flex;
+  gap: 8px;
+}
+
+.filter-btn {
+  padding: 6px 16px;
+  border-radius: 20px;
+  border: 1px solid var(--border-color);
+  background: white;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #000000;
+}
+
+.filter-btn.active {
+  background: #000000;
+  color: white;
+  border-color: #000000;
+}
+
+/* --- Grid System --- */
+.order-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+/* --- Order Card --- */
+.order-card {
+  background: var(--bg-card);
+  border-radius: 16px;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+  animation: slideIn 0.4s ease-out;
+}
+
+.order-card:hover {
+  box-shadow: var(--shadow-lg);
+}
+
+/* Card Header */
+.card-header {
+  padding: 1rem;
+  background: #fcfcfd;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.table-number {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #000000;
+}
+
+.time-elapsed {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Status Badges */
+.badge {
+  padding: 4px 12px;
+  border-radius: 99px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.badge-pending { background: var(--status-pending-bg); color: var(--status-pending-text); }
+.badge-preparing { background: var(--status-preparing-bg); color: var(--status-preparing-text); }
+.badge-ready { background: var(--status-ready-bg); color: var(--status-ready-text); }
+
+/* Card Content */
+.card-body {
+  padding: 1.25rem;
+  flex-grow: 1;
+}
+
+/* STRICTLY SCOPED FOR KITCHEN ONLY: These classes target only elements within the kitchen-wrapper. 
+   This prevents the Kiosk Order Summary (which shares similar class names) from turning black. */
+
+.kitchen-wrapper .item-list {
+  color: #000000 !important;
+  list-style: none;
+}
+
+.kitchen-wrapper .item-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+  font-weight: 700; 
+  color: #000000 !important;
+}
+
+.kitchen-wrapper .item-name {
+  color: #000000 !important;
+}
+
+.kitchen-wrapper .qty {
+  background: #f1f5f9;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  color: #000000 !important;
+  font-weight: 900;
+}
+
+/* Special Instructions */
+.instructions {
+  margin-top: 1rem;
+  padding: 10px;
+  background: var(--instruction-bg);
+  color: var(--instruction-text);
+  border-radius: 8px;
+  font-size: 0.813rem;
+  font-style: italic;
+  border-left: 3px solid #fb7185;
+}
+
+/* Action Button */
+.card-footer {
+  padding: 1rem;
+  background: #f8fafc;
+}
+
+.action-btn {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-start { background: var(--primary); color: white; }
+.btn-start:hover { background: var(--primary-hover); }
+
+.btn-ready { background: #059669; color: white; }
+.btn-ready:hover { background: #047857; }
+
+.btn-clear { background: #64748b; color: white; }
+
+/* --- Animations --- */
+@keyframes pulse {
+  0% { transform: scale(0.95); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.7; }
+  100% { transform: scale(0.95); opacity: 1; }
+}
+
+/* --- Responsive Adjustments --- */
+@media (max-width: 640px) {
+  .header {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+  
+  .container {
+    padding: 1rem;
+  }
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(-30px); scale: 0.9; }
+  to { opacity: 1; transform: translateY(0); scale: 1; }
+}

@@ -2,6 +2,9 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const http = require("http"); // Added for Socket.io
+const { Server } = require("socket.io"); // Added for Socket.io
+
 const User = require("./models/User");
 const authRoutes = require("./routes/authRoutes");
 const otpRoutes = require("./routes/otpRoutes");
@@ -16,9 +19,37 @@ const billingRoutes = require('./routes/billingRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
 
-
 const PORT = process.env.PORT || 5000;
 const app = express();
+
+// Create HTTP server to wrap the express app
+const server = http.createServer(app);
+
+// Initialize Socket.io
+const io = new Server(server, {
+  cors: {
+    origin: "http://localhost:5173",
+    methods: ["GET", "POST"],
+    credentials: true
+  }
+});
+
+// --- SOCKET.IO LOGIC ---
+io.on("connection", (socket) => {
+  console.log(`📡 New client connected: ${socket.id}`);
+
+  // Listen for order from KioskReservationMenu.jsx
+  socket.on("send_order", (orderData) => {
+    console.log("📦 Order received from kiosk:", orderData.id);
+    
+    // Broadcast order to KitchenPage.jsx
+    io.emit("new_order", orderData);
+  });
+
+  socket.on("disconnect", () => {
+    console.log(`🔌 Client disconnected: ${socket.id}`);
+  });
+});
 
 // --- 1. MIDDLEWARE ---
 app.use(cors({ origin: "http://localhost:5173", credentials: true })); 
@@ -72,7 +103,8 @@ app.get("/api/protected", protect, (req, res) => {
 });
 
 // --- 3. SERVER START & DB CHECK ---
-app.listen(PORT, async () => {
+// Changed from app.listen to server.listen to support WebSockets
+server.listen(PORT, async () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 
   try {

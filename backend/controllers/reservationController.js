@@ -80,6 +80,36 @@ const reservationController = {
       console.error("Delete Error:", error);
       res.status(500).json({ error: error.message });
     }
+  },
+
+  // --- NEW: CHECK IF RESERVATION ID EXISTS (For Kiosk Scanner) ---
+  checkReservationId: async (req, res) => {
+    try {
+      const { id } = req.params; // This is the reservation_id from the scanner/input
+      
+      const [rows] = await db.execute(
+        'SELECT * FROM reservations WHERE reservation_id = ?',
+        [id]
+      );
+
+      if (rows.length > 0) {
+        // ID Found
+        res.json({ 
+          success: true, 
+          message: "Reservation found", 
+          reservation: rows[0] 
+        });
+      } else {
+        // ID Not Found
+        res.status(404).json({ 
+          success: false, 
+          message: "Invalid Reservation ID. Not found in our records." 
+        });
+      }
+    } catch (error) {
+      console.error("Check ID Error:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
   }
 };
 

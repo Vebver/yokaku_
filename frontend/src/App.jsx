@@ -26,6 +26,7 @@ import KioskSelection from "./components/kiosk-page/KioskSelection.jsx";
 import KioskMenu from "./components/kiosk-page/KioskMenu.jsx";
 import KioskReservation from "./components/kiosk-page/KioskReservation.jsx";
 import KioskReservationMenu from "./components/kiosk-page/KioskReservationMenu.jsx";
+import KitchenPage from "./components/kitchen-page/KitchenPage.jsx";
 import "./Style/App.css";
 
 function App() {
@@ -128,6 +129,7 @@ function App() {
           <Route path="/login" element={<Navigate to="/" replace />} />
           <Route path="/kiosk-selection" element={<KioskSelection />} />
           <Route path="/kiosk-selection/kiosk-menu" element={<KioskMenu />} />
+          <Route path="/kitchen-page" element={<KitchenPage/>} />
           <Route
             path="/kiosk-selection/kiosk-reservation"
             element={<KioskReservation />}
@@ -200,7 +202,8 @@ const NavbarWrapper = ({ onLoginClick, isLoggedIn, onLogout }) => {
   if (
     location.pathname.startsWith("/admin") ||
     location.pathname.startsWith("/cashier-selection") ||
-    location.pathname.startsWith("/kiosk-selection")
+    location.pathname.startsWith("/kiosk-selection") ||
+    location.pathname.startsWith("/kitchen-page")
   ) {
     return null;
   }
