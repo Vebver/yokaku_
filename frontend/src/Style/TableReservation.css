@@ -609,6 +609,35 @@
 .chair-top-side-2 { top: -28px; left: 45%; }
 .chair-top-side-3 { top: -28px; left: 75%; }
 
+/* --- DROPDOWN STYLE --- */
+.res-input-dropdown {
+    width: 100%;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1.5px solid #f2f2f2;
+    background: #fafafa;
+    font-size: 14px;
+    color: #555;
+    outline: none;
+    cursor: pointer;
+    appearance: none; /* Removes default arrow to match clean design */
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+}
+
+.res-input-dropdown:disabled {
+    background-color: #eee;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.btn-disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background-color: #ccc !important;
+}
+
 .fade-in {
   animation: fadeIn 0.3s ease;
 }
