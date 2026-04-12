@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import axios from "axios";
 import {
   UtensilsCrossed,
   ArrowRight,
@@ -13,41 +14,39 @@ import {
 import "../Style/TableReservation.css";
 
 const TABLES_DATA = [
-  // COLUMN 1 (LEFT)
-  { id: "T1", seats: 5, status: "available", top: "23%", left: "15%", type: "rect-v", layout: "right-side" },
-  { id: "T2", seats: 2, status: "available", top: "50%", left: "25%", type: "square-sm", layout: "sides" },
-  { id: "T3", seats: 4, status: "occupied", top: "65%", left: "25%", type: "square", layout: "sides" },
-  { id: "T4", seats: 4, status: "available", top: "82%", left: "25%", type: "square", layout: "sides" },
-
-  // COLUMN 2 (CENTER)
-  { id: "T5", seats: 4, status: "available", top: "38%", left: "50%", type: "square", layout: "sides" },
-  { id: "T6", seats: 4, status: "available", top: "58%", left: "50%", type: "square", layout: "sides" },
-
-  // COLUMN 3 (RIGHT)
-  { id: "T7", seats: 4, status: "available", top: "17%", left: "77%", type: "square", layout: "top-bottom" },
-  { id: "T8", seats: 4, status: "reserved", top: "45%", left: "77%", type: "square", layout: "top-bottom" },
-  { id: "T9", seats: 4, status: "available", top: "72%", left: "77%", type: "square", layout: "top-bottom" },
-  { id: "T10", seats: 3, status: "available", top: "92%", left: "65%", type: "rect-h", layout: "top-side" },
+  { id: 1,label : "T1", seats: 5, status: "available", top: "23%", left: "15%", type: "rect-v", layout: "right-side" },
+  { id: 2, label: "T2", seats: 2, status: "available", top: "50%", left: "25%", type: "square-sm", layout: "sides" },
+  { id: 3, label: "T3", seats: 4, status: "occupied", top: "65%", left: "25%", type: "square", layout: "sides" },
+  { id: 4, label: "T4", seats: 4, status: "available", top: "82%", left: "25%", type: "square", layout: "sides" },
+  { id: 5, label: "T5", seats: 4, status: "available", top: "38%", left: "50%", type: "square", layout: "sides" },
+  { id: 6, label: "T6", seats: 4, status: "available", top: "58%", left: "50%", type: "square", layout: "sides" },
+  { id: 7, label: "T7", seats: 4, status: "available", top: "17%", left: "77%", type: "square", layout: "top-bottom" },
+  { id: 8, label: "T8", seats: 4, status: "reserved", top: "45%", left: "77%", type: "square", layout: "top-bottom" },
+  { id: 9, label: "T9", seats: 4, status: "available", top: "72%", left: "77%", type: "square", layout: "top-bottom" },
+  { id: 10, label: "T10", seats: 3, status: "available", top: "92%", left: "65%", type: "rect-h", layout: "top-side" },
 ];
 
 export default function TableReservation({ onClose, onSuccess }) {
   const [selectedId, setSelectedId] = useState(null);
   const [linkedIds, setLinkedIds] = useState([]);
   const [isLinkMode, setIsLinkMode] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  // Form States
-  const [guestName, setGuestName] = useState("");
+  // --- UPDATED NAME STATES ---
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  
   const [resDate, setResDate] = useState("");
   const [resTime, setResTime] = useState("");
   const [guestCount, setGuestCount] = useState(1);
 
-  // Address States
   const [municipalities, setMunicipalities] = useState([]);
   const [barangays, setBarangays] = useState([]);
   const [selectedMunicipality, setSelectedMunicipality] = useState("");
   const [selectedBarangay, setSelectedBarangay] = useState("");
 
-  // 1. Fetch Municipalities via Backend Proxy to avoid JSON errors
+  // 1. Fetch Municipalities
   useEffect(() => {
     fetch("http://localhost:5000/api/address/municipalities")
       .then((res) => res.json())
@@ -58,7 +57,7 @@ export default function TableReservation({ onClose, onSuccess }) {
       .catch((err) => console.error("Error fetching municipalities:", err));
   }, []);
 
-  // 2. Fetch Barangays via Backend Proxy
+  // 2. Fetch Barangays
   useEffect(() => {
     if (selectedMunicipality) {
       fetch(`http://localhost:5000/api/address/barangays/${selectedMunicipality}`)
@@ -73,6 +72,42 @@ export default function TableReservation({ onClose, onSuccess }) {
       setSelectedBarangay("");
     }
   }, [selectedMunicipality]);
+
+  // --- BACKEND SUBMISSION LOGIC ---
+  const handleConfirmReservation = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const reservationData = {
+        userId: localStorage.getItem("userId") || null,
+        firstName: firstName,
+        lastName: lastName,
+        email: "walkin@hangout.com", // Default for floor plan walk-ins
+        phone: "00000000000",
+        date: resDate,
+        time: resTime,
+        guests: guestCount,
+        packageName: "Table Reservation",
+        brgyCode: selectedBarangay, // Composite link
+        tableIds: [selectedId, ...linkedIds], // Composite link
+        status: "Pending",
+      };
+
+      const response = await axios.post(
+        "http://localhost:5000/api/reservations/table",
+        reservationData
+      );
+
+      if (response.status === 200 || response.status === 201) {
+        onSuccess(); 
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to save reservation.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const todayStr = useMemo(() => {
     const now = new Date();
@@ -92,18 +127,19 @@ export default function TableReservation({ onClose, onSuccess }) {
     return primaryTable.seats + linkedSeats;
   }, [primaryTable, linkedIds]);
 
-  // Validation Logic: Button remains disabled if fields are empty
+  // --- UPDATED VALIDATION ---
   const isFormInvalid = useMemo(() => {
     return (
-      !guestName.trim() ||
+      !firstName.trim() ||
+      !lastName.trim() ||
       !resDate ||
       !resTime ||
       !guestCount ||
-      guestCount <= 0 ||
       !selectedMunicipality ||
-      !selectedBarangay
+      !selectedBarangay ||
+      loading
     );
-  }, [guestName, resDate, resTime, guestCount, selectedMunicipality, selectedBarangay]);
+  }, [firstName, lastName, resDate, resTime, guestCount, selectedMunicipality, selectedBarangay, loading]);
 
   const handleTableClick = (table) => {
     if (isLinkMode) {
@@ -133,14 +169,14 @@ export default function TableReservation({ onClose, onSuccess }) {
   };
 
   return (
-    <div className="floor-plan-wrapper">
-      <div className="floor-plan-main">
+    <div className="floor-plan-wrapper" onClick={onClose}>
+      <div className="floor-plan-main" onClick={(e) => e.stopPropagation()}>
         <header className="floor-header">
           <div className="floor-logo-bar">
             <div className="floor-icon-circle"><UtensilsCrossed size={20} color="white" /></div>
             <div className="floor-header-text">
               <h1 className="floor-title">Floor Plan</h1>
-              <p className="floor-subtitle">Select a table to reserve your spot</p>
+              <p className="floor-subtitle">Select a table to reserve</p>
             </div>
           </div>
           <button className="floor-back-btn" onClick={onClose}>Back</button>
@@ -148,7 +184,6 @@ export default function TableReservation({ onClose, onSuccess }) {
 
         <div className="map-scroll-area">
           <div className="map-container">
-            {isLinkMode && <div className="link-tooltip fade-in">Click available tables to link them</div>}
             <div className="tables-area">
               {TABLES_DATA.map((table) => {
                 const isSelected = selectedId === table.id;
@@ -179,16 +214,12 @@ export default function TableReservation({ onClose, onSuccess }) {
           <div className="legend-item"><span className="dot available"></span> Available</div>
           <div className="legend-item"><span className="dot selected"></span> Selected</div>
           <div className="legend-item"><span className="dot linked"></span> Linked</div>
-          <div className="legend-item"><span className="dot reserved"></span> Reserved</div>
-          <div className="legend-item"><span className="dot occupied"></span> Occupied</div>
         </div>
       </div>
 
-      <aside className="floor-sidebar">
+      <aside className="floor-sidebar" onClick={(e) => e.stopPropagation()}>
         {!primaryTable ? (
-          <div className="empty-sidebar">
-            <p>Select an available table to make a reservation</p>
-          </div>
+          <div className="empty-sidebar"><p>Select a table to start</p></div>
         ) : (
           <div className="res-panel fade-in">
             <button className="panel-close" onClick={() => { setSelectedId(null); setIsLinkMode(false); }}>
@@ -197,72 +228,63 @@ export default function TableReservation({ onClose, onSuccess }) {
             <h2 className="panel-title">
               Reserve {primaryTable.id} {linkedIds.length > 0 && `+ ${linkedIds.join(" + ")}`}
             </h2>
-            <div className="panel-meta">
-              <span><Users size={14} /> {totalSeats} seats</span>
-              <span>{primaryTable.type.includes("rect") ? "Rect Table" : "Square Table"}</span>
-              {primaryTable.status !== "available" && (
-                <span className="status-warning">Already {primaryTable.status}</span>
-              )}
+
+            {error && <div className="error-message" style={{ color: "red", fontSize: "0.8rem" }}>{error}</div>}
+
+            <div className="res-form">
+              <button className={`btn-link-mode ${isLinkMode ? "active" : ""}`} onClick={() => setIsLinkMode(!isLinkMode)}>
+                {isLinkMode ? <><X size={16} /> Done linking</> : <><LinkIcon size={16} /> Link tables</>}
+              </button>
+
+              {/* --- NEW NAME INPUTS --- */}
+              <div className="input-row">
+                <div className="input-group">
+                  <label>FIRST NAME</label>
+                  <input type="text" placeholder="John" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+                </div>
+                <div className="input-group">
+                  <label>LAST NAME</label>
+                  <input type="text" placeholder="Doe" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+                </div>
+              </div>
+
+              <div className="input-row">
+                <div className="input-group">
+                  <label><MapPin size={12} /> MUNICIPALITY</label>
+                  <select className="res-input" value={selectedMunicipality} onChange={(e) => setSelectedMunicipality(e.target.value)}>
+                    <option value="">Select City</option>
+                    {municipalities.map((m) => <option key={m.code} value={m.code}>{m.name}</option>)}
+                  </select>
+                </div>
+                <div className="input-group">
+                  <label><MapPin size={12} /> BARANGAY</label>
+                  <select className="res-input" value={selectedBarangay} onChange={(e) => setSelectedBarangay(e.target.value)} disabled={!selectedMunicipality}>
+                    <option value="">Select Brgy</option>
+                    {barangays.map((b) => <option key={b.code} value={b.code}>{b.name}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="input-row">
+                <div className="input-group">
+                  <label><Calendar size={12} /> DATE</label>
+                  <input type="date" value={resDate} min={todayStr} onChange={(e) => setResDate(e.target.value)} />
+                </div>
+                <div className="input-group">
+                  <label><Clock size={12} /> TIME</label>
+                  <input type="time" value={resTime} onChange={(e) => setResTime(e.target.value)} />
+                </div>
+              </div>
+
+              <div className="input-group">
+                <label>GUESTS (MAX {totalSeats})</label>
+                <input type="number" min="1" max={totalSeats} value={guestCount} onChange={(e) => setGuestCount(Number(e.target.value))} />
+              </div>
+
+              <button className={`btn-confirm ${isFormInvalid ? "btn-disabled" : ""}`} onClick={handleConfirmReservation} disabled={isFormInvalid}>
+                {loading ? "Processing..." : "Confirm Reservation"}
+              </button>
             </div>
-
-            {primaryTable.status === "available" ? (
-              <div className="res-form">
-                <button className={`btn-link-mode ${isLinkMode ? "active" : ""}`} onClick={() => setIsLinkMode(!isLinkMode)}>
-                  {isLinkMode ? <><X size={16} /> Done linking</> : <><LinkIcon size={16} /> Link tables</>}
-                </button>
-
-                <div className="input-group">
-                  <label>GUEST NAME</label>
-                  <input type="text" placeholder="John Doe" value={guestName} onChange={(e) => setGuestName(e.target.value)} />
-                </div>
-
-                <div className="input-row">
-                  <div className="input-group">
-                    <label><MapPin size={12} /> MUNICIPALITY</label>
-                    <select className="res-input" style={{ color: "#333", appearance: "auto" }} value={selectedMunicipality} onChange={(e) => setSelectedMunicipality(e.target.value)}>
-                      <option value="">Select City</option>
-                      {municipalities.map((m) => <option key={m.code} value={m.code}>{m.name}</option>)}
-                    </select>
-                  </div>
-                  <div className="input-group">
-                    <label><MapPin size={12} /> BARANGAY</label>
-                    <select className="res-input" style={{ color: "#333", appearance: "auto" }} value={selectedBarangay} onChange={(e) => setSelectedBarangay(e.target.value)} disabled={!selectedMunicipality}>
-                      <option value="">Select Brgy</option>
-                      {barangays.map((b) => <option key={b.code} value={b.code}>{b.name}</option>)}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="input-row">
-                  <div className="input-group">
-                    <label><Calendar size={12} /> DATE</label>
-                    <input type="date" value={resDate} min={todayStr} onChange={(e) => setResDate(e.target.value)} />
-                  </div>
-                  <div className="input-group">
-                    <label><Clock size={12} /> TIME</label>
-                    <input type="time" value={resTime} onChange={(e) => setResTime(e.target.value)} />
-                  </div>
-                </div>
-
-                <div className="input-group">
-                  <label>GUESTS (MAX {totalSeats})</label>
-                  <input type="number" min="1" max={totalSeats} value={guestCount} onChange={(e) => setGuestCount(Number(e.target.value))} />
-                </div>
-
-                <button className={`btn-confirm ${isFormInvalid ? "btn-disabled" : ""}`} onClick={onSuccess} disabled={isFormInvalid}>
-                  Confirm Reservation
-                </button>
-              </div>
-            ) : (
-              <div className="reserved-notice fade-in">
-                <Info size={32} color="#f4a261" />
-                <p>
-                  {primaryTable.status === "occupied"
-                    ? "This table is already occupied. Please select another table."
-                    : "This table is already reserved. Please select another table."}
-                </p>
-              </div>
-            )}
           </div>
         )}
       </aside>

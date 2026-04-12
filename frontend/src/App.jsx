@@ -17,7 +17,7 @@ import ReviewsSection from "./components/ReviewsSection";
 import Footer from "./components/Footer";
 import LoginSection from "./components/LoginSection";
 import AdminDashboard from "./components/admin-page/AdminDashboard.jsx";
-import Reservation from "./components/Reservation";
+// import Reservation from "./components/Reservation";
 import CustomerPage from "./components/customer-page/CustomerPage";
 import CustomerProfile from "./components/customer-page/CustomerProfile";
 import CustomerNavbar from "./components/customer-page/CustomerNavbar.jsx";

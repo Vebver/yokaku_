@@ -11,7 +11,17 @@
   --text-light: #666666; 
 }
 
+* {
+  box-sizing: border-box;
+}
 .floor-plan-wrapper {
+
+   position: fixed;   /* Fix it to the screen */
+  top: 0;
+  left: 0;
+  width: 100vw;      /* Full width */
+  height: 100vh;     /* Full height */
+  z-index: 9999;     /* Ensure it is above everything else */
   display: flex;
   flex-direction: row; /* Desktop default */
   background-color: var(--bg-soft);
@@ -20,6 +30,8 @@
   gap: 30px;
   font-family: "Inter", sans-serif;
   justify-content: center;
+  overflow-y: auto;
+  align-items: flex-start;
 }
 
 /* --- RESPONSIVE COLLAPSE LOGIC --- */
@@ -28,7 +40,9 @@
     flex-direction: column; /* Stack vertically */
     padding: 20px;
     gap: 20px;
-    height: auto;
+    height: 100vh;
+    align-items: center;
+    overflow-y: auto;
   }
 
   .floor-plan-main {
@@ -37,16 +51,22 @@
     /* Enables horizontal scroll for the map so tables don't get too small */
     overflow-x: auto;
     padding-bottom: 10px;
+    height: auto;
+    flex-shrink: 0; /* Prevent shrinking to fit height, let it grow based on content */
   }
 
   .map-container {
-    min-width: 850px; /* Keep map scale usable on mobile */
+    min-width: unset; /* Keep map scale usable on mobile */
+    width: 100%;
+    aspect-ratio: auto; /* Let height adjust based on width for mobile */
+    height: 400px; /* Set a fixed height for mobile to prevent it from being too short */
   }
 
   .floor-sidebar {
     width: 100% !important;
     min-width: 100% !important;
     max-width: 100% !important;
+    flex-shrink: 0;
   }
 
   .res-panel,
@@ -357,8 +377,8 @@
 /* --- SIDEBAR PANEL --- */
 .floor-sidebar {
   flex: 1;
-  min-width: 340px;
-  max-width: 380px;
+  min-width: 400px;
+  max-width: 450px;
 }
 
 .empty-sidebar {
@@ -381,7 +401,7 @@
   padding: 25px;
   position: relative;
   box-shadow: 0 15px 40px rgba(0, 0, 0, 0.06);
-  margin-top: 75px;
+  margin-top: 0;
 }
 
 .panel-close {
@@ -461,15 +481,25 @@
   gap: 4px;
 }
 
+.input-group input, 
+.res-input, 
+.res-input-dropdown {
+  width: 100% !important; 
+  max-width: 100%;
+}
+
 .input-group {
   display: flex;
   flex-direction: column;
   gap: 5px;
+  min-width: 0;
 }
 .input-group label {
-  font-size: 10px;
-  font-weight: 800;
-  color: #bbb;
+  font-size: 11px;
+  font-weight: 700;
+  color: #bbbbbb;
+  margin-bottom: 8px;
+  text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 .input-group input {
@@ -484,7 +514,8 @@
 .input-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: 15px;
+  width: 100%;
 }
 
 .btn-confirm {

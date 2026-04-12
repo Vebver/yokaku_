@@ -2,7 +2,8 @@ const Reservation = require('../models/Reservation');
 const db = require('../config/db');
 
 const reservationController = {
-  // 1. GET ALL RESERVATIONS (For the Admin Table)
+  // 1. GET ALL RESERVATIONS
+  // The Model.getAll() now handles the complex JOINs for Address and Tables
   getReservations: async (req, res) => {
     try {
         const data = await Reservation.getAll();
@@ -14,6 +15,7 @@ const reservationController = {
   },
 
   // 2. CREATE NEW RESERVATION
+  // Expects req.body to include: brgyCode, tableIds (array), etc.
   createReservation: async (req, res) => {
     try {
       const newReservation = await Reservation.create(req.body);
@@ -24,16 +26,15 @@ const reservationController = {
     }
   },
 
-  // 3. UPDATE STATUS & SEND NOTIFICATION (This is the important one)
+  // 3. UPDATE STATUS & NOTIFICATIONS
   updateStatus: async (req, res) => {
     try {
       const { id } = req.params;
       const { status } = req.body;
 
-      // A. Update the status in the reservations table
       await Reservation.updateStatus(id, status);
 
-      // B. Fetch reservation details to get the user_id for the notification
+      // Fetch composite details (this now includes assigned_tables and full_address)
       const resDetails = await Reservation.findById(id);
 
       if (resDetails && resDetails.user_id) {
@@ -43,18 +44,21 @@ const reservationController = {
 
           const formattedDate = new Date(resDetails.reservation_date).toLocaleDateString();
 
-          // C. Define the notification message based on the status sent from React
           if (status === "Confirmed") {
               title = "Reservation Confirmed! ✅";
-              message = `Your reservation for ${formattedDate} has been approved. See you at Hangout Resto Bar!`;
+              // We can now include the specific tables in the notification message
+              message = `Your reservation for ${formattedDate} at Table ${resDetails.assigned_tables} has been approved.`;
               type = "success";
           } else if (status === "Seated") {
               title = "Table Ready! 🍽️";
-              message = "Welcome! You have been seated. Enjoy your meal!";
+              message = `Welcome! Please proceed to Table ${resDetails.assigned_tables}. Enjoy your meal!`;
               type = "info";
+          } else if (status === "Cancelled") {
+              title = "Reservation Cancelled ❌";
+              message = `Your reservation for ${formattedDate} has been cancelled.`;
+              type = "error";
           }
 
-          // D. Insert the notification into the database
           if (title !== "") {
               await db.execute(
                   'INSERT INTO notifications (user_id, title, message, type, is_read) VALUES (?, ?, ?, ?, ?)',
@@ -82,25 +86,22 @@ const reservationController = {
     }
   },
 
-  // --- NEW: CHECK IF RESERVATION ID EXISTS (For Kiosk Scanner) ---
+  // 5. KIOSK SCANNER (Modified for Composite Data)
   checkReservationId: async (req, res) => {
     try {
-      const { id } = req.params; // This is the reservation_id from the scanner/input
-      
-      const [rows] = await db.execute(
-        'SELECT * FROM reservations WHERE reservation_id = ?',
-        [id]
-      );
+      const { id } = req.params; 
+      console.log("Checking Reservation ID:", id);
+      // We use findById from the Model because it includes the JOINs 
+      // for the Barangay name and the Table numbers.
+      const reservation = await Reservation.findById(id);
 
-      if (rows.length > 0) {
-        // ID Found
+      if (reservation) {
         res.json({ 
           success: true, 
           message: "Reservation found", 
-          reservation: rows[0] 
+          reservation: reservation 
         });
       } else {
-        // ID Not Found
         res.status(404).json({ 
           success: false, 
           message: "Invalid Reservation ID. Not found in our records." 
