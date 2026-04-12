@@ -18,6 +18,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const billingRoutes = require('./routes/billingRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
+const addressRoutes = require('./routes/addressRoutes');
 
 const PORT = process.env.PORT || 5000;
 const app = express();
@@ -68,6 +69,9 @@ app.use("/api/otp", otpRoutes);
 // Profile routes (PROTECTED)
 app.get("/api/profile", protect, userController.getProfile);
 app.put("/api/profile", protect, userController.updateProfile);
+
+// Address routes
+app.use('/api/address', addressRoutes);
 
 // Reservation routes
 app.use("/api/reservations", reservationRoutes);

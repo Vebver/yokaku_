@@ -27,11 +27,13 @@ import KioskMenu from "./components/kiosk-page/KioskMenu.jsx";
 import KioskReservation from "./components/kiosk-page/KioskReservation.jsx";
 import KioskReservationMenu from "./components/kiosk-page/KioskReservationMenu.jsx";
 import KitchenPage from "./components/kitchen-page/KitchenPage.jsx";
+import TableReservation from "./components/TableReservation.jsx";
+
 import "./Style/App.css";
 
 function App() {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
-  const [isReservationOpen, setIsReservationOpen] = useState(false);
+  // Removed isReservationOpen as we are moving to a Route-based page
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("token"));
 
@@ -47,13 +49,8 @@ function App() {
   };
 
   const handleReservationSuccess = () => {
-    // 1. Close the first modal
-    setIsReservationOpen(false);
-
-    // 2. Wait for the DOM to clean up the first modal before injecting the new one
-    setTimeout(() => {
-      setShowSuccessMessage(true);
-    }, 200);
+    // Show success message and ensure we are back on a main page
+    setShowSuccessMessage(true);
   };
 
   return (
@@ -77,7 +74,8 @@ function App() {
                   <HeroSection
                     isLoggedIn={isLoggedIn}
                     onLoginClick={() => setIsLoginOpen(true)}
-                    onReserveClick={() => setIsReservationOpen(true)}
+                    // Redirect to the new path
+                    onReserveClick={() => (window.location.href = "/tablereservation")}
                   />
                   <div id="menu-section">
                     <FeaturedMenu />
@@ -95,15 +93,26 @@ function App() {
             }
           />
 
+          {/* NEW TABLE RESERVATION ROUTE */}
+          <Route 
+            path="/tablereservation" 
+            element={
+              <TableReservation 
+                onClose={() => (window.location.href = isLoggedIn ? "/customer" : "/")} 
+                onSuccess={handleReservationSuccess} 
+                testProp="I AM WORKING"
+              />
+            } 
+          />
+
           {/* PROTECTED ROUTES */}
-          {/* Inside App.jsx Routes */}
           <Route
             path="/customer"
             element={
               isLoggedIn ? (
                 <CustomerPage
-                  onReserveClick={() => setIsReservationOpen(true)}
-                  onSuccess={handleReservationSuccess} // <--- Make sure this is added in App.jsx
+                  onReserveClick={() => (window.location.href = "/tablereservation")}
+                  onSuccess={handleReservationSuccess} 
                 />
               ) : (
                 <Navigate to="/" replace />
@@ -143,30 +152,22 @@ function App() {
         {/* MODALS */}
         {isLoginOpen && <LoginSection onClose={() => setIsLoginOpen(false)} />}
 
-        {isReservationOpen && (
-          <Reservation
-            onClose={() => setIsReservationOpen(false)}
-            onSuccess={handleReservationSuccess} // Triggers the transition
-            testProp="I AM WORKING"
-          />
-        )}
-
         {/* SUCCESS MESSAGE MODAL */}
         {showSuccessMessage && (
-          <ReservationSuccess onClose={() => setShowSuccessMessage(false)} />
+          <ReservationSuccess 
+            onClose={() => {
+              setShowSuccessMessage(false);
+              window.location.href = isLoggedIn ? "/customer" : "/";
+            }} 
+          />
         )}
       </div>
     </Router>
   );
 }
 
-/**
- * SUCCESS MESSAGE COMPONENT
- * Styled using your existing Reservation.css classes
- */
 const ReservationSuccess = ({ onClose }) => {
   return (
-    /* Add 'display: flex' here to be 100% sure it shows */
     <div
       className="res-modal-overlay"
       style={{ display: "flex", zIndex: 9999999 }}
@@ -203,7 +204,8 @@ const NavbarWrapper = ({ onLoginClick, isLoggedIn, onLogout }) => {
     location.pathname.startsWith("/admin") ||
     location.pathname.startsWith("/cashier-selection") ||
     location.pathname.startsWith("/kiosk-selection") ||
-    location.pathname.startsWith("/kitchen-page")
+    location.pathname.startsWith("/kitchen-page") ||
+    location.pathname === "/tablereservation" // Hide navbar for reservation page
   ) {
     return null;
   }

@@ -10,7 +10,7 @@ function FeaturedMenu({ onLoginClick }) {
     const fetchFeatured = async () => {
       try {
         // Updated API endpoint
-        const res = await axios.get("/api/products/featured");
+        const res = await axios.get("http://localhost:5000/api/products/featured");
         setFeaturedItems(res.data);
         setLoading(false);
       } catch (err) {
