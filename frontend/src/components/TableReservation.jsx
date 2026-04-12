@@ -14,12 +14,17 @@ import {
 import "../Style/TableReservation.css";
 
 const TABLES_DATA = [
+  // COLUMN 1 (LEFT)
   { id: "T1", seats: 5, status: "available", top: "23%", left: "15%", type: "rect-v", layout: "right-side" },
   { id: "T2", seats: 2, status: "available", top: "50%", left: "25%", type: "square-sm", layout: "sides" },
   { id: "T3", seats: 4, status: "occupied", top: "65%", left: "25%", type: "square", layout: "sides" },
   { id: "T4", seats: 4, status: "available", top: "82%", left: "25%", type: "square", layout: "sides" },
+
+  // COLUMN 2 (CENTER)
   { id: "T5", seats: 4, status: "available", top: "38%", left: "50%", type: "square", layout: "sides" },
   { id: "T6", seats: 4, status: "available", top: "58%", left: "50%", type: "square", layout: "sides" },
+
+  // COLUMN 3 (RIGHT)
   { id: "T7", seats: 4, status: "available", top: "17%", left: "77%", type: "square", layout: "top-bottom" },
   { id: "T8", seats: 4, status: "reserved", top: "45%", left: "77%", type: "square", layout: "top-bottom" },
   { id: "T9", seats: 4, status: "available", top: "72%", left: "77%", type: "square", layout: "top-bottom" },
@@ -36,8 +41,13 @@ export default function TableReservation({ onClose, onSuccess }) {
   const [lastName, setLastName] = useState("");
   const [isEditing, setIsEditing] = useState(false); 
   const [resDate, setResDate] = useState("");
-  const [resTime, setResTime] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [guestCount, setGuestCount] = useState(1);
+  
+  // Allergy States
+  const [allergy, setAllergy] = useState("No Allergy");
+  const [otherAllergy, setOtherAllergy] = useState("");
 
   // Address States
   const [municipalities, setMunicipalities] = useState([]);
@@ -45,22 +55,49 @@ export default function TableReservation({ onClose, onSuccess }) {
   const [selectedMunicipality, setSelectedMunicipality] = useState("");
   const [selectedBarangay, setSelectedBarangay] = useState("");
 
-  // --- AUTO-FILL USER LOGIC (FIXED) ---
+  const timeToMinutes = (timeStr) => {
+    if (!timeStr) return 0;
+    const [time, period] = timeStr.split(" ");
+    let [h, m] = time.split(":").map(Number);
+    if (period === "PM" && h !== 12) h += 12;
+    if (period === "AM" && h === 12) h = 0;
+    return h * 60 + m;
+  };
+
+  const timeOptions = useMemo(() => {
+    const options = [];
+    const periods = ["AM", "PM"];
+    const intervals = ["00", "15", "30", "45"];
+    periods.forEach((period) => {
+      const startHour = period === "AM" ? 10 : 1;
+      const endHour = period === "AM" ? 11 : 10;
+      if (period === "PM") intervals.forEach(m => options.push(`12:${m} PM`));
+      for (let h = startHour; h <= endHour; h++) {
+        intervals.forEach((m) => {
+          if (period === "PM" && h === 10 && m !== "00") return; 
+          if (period === "AM" && h === 12) return; 
+          options.push(`${h.toString().padStart(2, '0')}:${m} ${period}`);
+        });
+      }
+    });
+    return options;
+  }, []);
+
+  const filteredEndTimeOptions = useMemo(() => {
+    if (!startTime) return timeOptions;
+    const startMins = timeToMinutes(startTime);
+    return timeOptions.filter(t => timeToMinutes(t) >= startMins + 60);
+  }, [startTime, timeOptions]);
+
   useEffect(() => {
-    // Look for the specific keys we just saved in LoginSection
     const savedFirstName = localStorage.getItem("firstName");
     const savedLastName = localStorage.getItem("lastName");
-    
     if (savedFirstName || savedLastName) {
-      console.log("Logged in user found:", savedFirstName, savedLastName);
       setFirstName(savedFirstName || "");
       setLastName(savedLastName || "");
-    } else {
-      console.log("No name data found in storage. Ensure you log out and log back in once.");
     }
   }, []);
 
-  // Fetch Municipalities
   useEffect(() => {
     fetch("http://localhost:5000/api/address/municipalities")
       .then((res) => res.json())
@@ -71,7 +108,6 @@ export default function TableReservation({ onClose, onSuccess }) {
       .catch((err) => console.error("Error fetching municipalities:", err));
   }, []);
 
-  // Fetch Barangays
   useEffect(() => {
     if (selectedMunicipality) {
       fetch(`http://localhost:5000/api/address/barangays/${selectedMunicipality}`)
@@ -90,7 +126,7 @@ export default function TableReservation({ onClose, onSuccess }) {
   const todayStr = useMemo(() => {
     const now = new Date();
     const offset = now.getTimezoneOffset() * 60000;
-    return new Date(now - offset).toISOString().split("T")[0];
+    return (new Date(now - offset)).toISOString().split("T")[0];
   }, []);
 
   const primaryTable = useMemo(() => TABLES_DATA.find((t) => t.id === selectedId), [selectedId]);
@@ -102,11 +138,20 @@ export default function TableReservation({ onClose, onSuccess }) {
   }, [primaryTable, linkedIds]);
 
   const isFormInvalid = useMemo(() => {
+    const startMin = timeToMinutes(startTime);
+    const endMin = timeToMinutes(endTime);
+    const hasOneHourDiff = (endMin - startMin) >= 60;
+    
+    // Check if 'Other' is selected but text field is empty
+    const isOtherAllergyEmpty = allergy === "Other" && !otherAllergy.trim();
+
     return (
-      !firstName.trim() || !lastName.trim() || !resDate || !resTime || 
-      !guestCount || guestCount <= 0 || !selectedMunicipality || !selectedBarangay
+      !firstName.trim() || !lastName.trim() || !resDate || 
+      !startTime || !endTime || !hasOneHourDiff ||
+      !guestCount || guestCount <= 0 || !selectedMunicipality || !selectedBarangay ||
+      isOtherAllergyEmpty
     );
-  }, [firstName, lastName, resDate, resTime, guestCount, selectedMunicipality, selectedBarangay]);
+  }, [firstName, lastName, resDate, startTime, endTime, guestCount, selectedMunicipality, selectedBarangay, allergy, otherAllergy]);
 
   const handleTableClick = (table) => {
     if (isLinkMode) {
@@ -178,11 +223,38 @@ export default function TableReservation({ onClose, onSuccess }) {
         ) : (
           <div className="res-panel fade-in">
             <button className="panel-close" onClick={() => { setSelectedId(null); setIsLinkMode(false); }}><X size={18} /></button>
-            <h2 className="panel-title">Reserve {primaryTable.id} {linkedIds.length > 0 && `+ ${linkedIds.join(" + ")}`}</h2>
+            
+            <h2 className="panel-title" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center' }}>
+              Reserve {primaryTable.id} 
+              {linkedIds.length > 0 && linkedIds.map(id => {
+                 const uncombinables = ['T1', 'T10'];
+                 const isPrimaryRestricted = uncombinables.includes(primaryTable.id);
+                 const isLinkedRestricted = uncombinables.includes(id);
+                 
+                 return (
+                   <React.Fragment key={id}>
+                     <span> + {id}</span>
+                     {(isPrimaryRestricted || isLinkedRestricted) && (
+                       <span style={{ fontSize: '10px', color: '#e63946', marginLeft: '4px', fontWeight: '600' }}>
+                         ({isPrimaryRestricted ? primaryTable.id : id} cannot be combined to {isPrimaryRestricted ? id : primaryTable.id})
+                       </span>
+                     )}
+                   </React.Fragment>
+                 );
+              })}
+              {(primaryTable.id === 'T1' || primaryTable.id === 'T10') && linkedIds.length === 0 && (
+                <span style={{ fontSize: '13px', color: 'red', fontWeight: '500', marginLeft: '5px', fontStyle: 'italic' }}>
+                  (This table cannot be combined)
+                </span>
+              )}
+            </h2>
+
             <div className="panel-meta">
               <span><Users size={14} /> {totalSeats} seats</span>
               <span>{primaryTable.type.includes("rect") ? "Rect Table" : "Square Table"}</span>
-              {primaryTable.status !== "available" && <span className="status-warning">Already {primaryTable.status}</span>}
+              {primaryTable.status !== 'available' && (
+                  <span className="status-warning">Already {primaryTable.status}</span>
+               )}
             </div>
 
             {primaryTable.status === "available" ? (
@@ -191,35 +263,16 @@ export default function TableReservation({ onClose, onSuccess }) {
                   {isLinkMode ? <><X size={16} /> Done linking</> : <><LinkIcon size={16} /> Link tables</>}
                 </button>
 
-                {/* FIRST NAME with PENCIL ICON */}
                 <div className="input-group">
                     <div className="label-with-icon">
                         <label>FIRST NAME</label>
-                        <Pencil 
-                            size={16} 
-                            className={`edit-toggle-icon ${isEditing ? 'active' : ''}`} 
-                            onClick={() => setIsEditing(!isEditing)} 
-                        />
+                        <Pencil size={16} className={`edit-toggle-icon ${isEditing ? 'active' : ''}`} onClick={() => setIsEditing(!isEditing)} />
                     </div>
-                    <input 
-                        type="text" 
-                        placeholder="First Name" 
-                        value={firstName} 
-                        onChange={(e) => setFirstName(e.target.value)} 
-                        disabled={!isEditing} 
-                    />
+                    <input type="text" placeholder="First Name" value={firstName} onChange={(e) => setFirstName(e.target.value)} disabled={!isEditing} />
                 </div>
-
-                {/* LAST NAME */}
                 <div className="input-group">
                     <label>LAST NAME</label>
-                    <input 
-                        type="text" 
-                        placeholder="Last Name" 
-                        value={lastName} 
-                        onChange={(e) => setLastName(e.target.value)} 
-                        disabled={!isEditing} 
-                    />
+                    <input type="text" placeholder="Last Name" value={lastName} onChange={(e) => setLastName(e.target.value)} disabled={!isEditing} />
                 </div>
 
                 <div className="input-row">
@@ -239,21 +292,68 @@ export default function TableReservation({ onClose, onSuccess }) {
                   </div>
                 </div>
 
-                <div className="input-row">
-                  <div className="input-group">
+                <div className="input-group">
                     <label><Calendar size={12} /> DATE</label>
                     <input type="date" value={resDate} min={todayStr} onChange={(e) => setResDate(e.target.value)} />
+                </div>
+
+                <div className="input-row">
+                  <div className="input-group">
+                    <label><Clock size={12} /> TIME START</label>
+                    <select className="res-input-dropdown" value={startTime} onChange={(e) => { setStartTime(e.target.value); setEndTime(""); }}>
+                      <option value="">--:-- --</option>
+                      {timeOptions.map((t) => <option key={`start-${t}`} value={t}>{t}</option>)}
+                    </select>
                   </div>
                   <div className="input-group">
-                    <label><Clock size={12} /> TIME</label>
-                    <input type="time" value={resTime} onChange={(e) => setResTime(e.target.value)} />
+                    <label><Clock size={12} /> TIME END</label>
+                    <select className="res-input-dropdown" value={endTime} onChange={(e) => setEndTime(e.target.value)} disabled={!startTime}>
+                      <option value="">--:-- --</option>
+                      {filteredEndTimeOptions.map((t) => <option key={`end-${t}`} value={t}>{t}</option>)}
+                    </select>
                   </div>
+                </div>
+                
+                {/* UPDATED ALLERGY SECTION WITH "OTHER" INPUT */}
+                <div className="input-group">
+                  <label>ALLERGY</label>
+                  <select 
+                    className="res-input-dropdown" 
+                    value={allergy} 
+                    onChange={(e) => {
+                        setAllergy(e.target.value);
+                        if(e.target.value !== "Other") setOtherAllergy(""); // Clear text if not 'Other'
+                    }}
+                  >
+                    <option value="No Allergy">No Allergy</option>
+                    <option value="Peanuts">Peanuts</option>
+                    <option value="Seafood">Seafood</option>
+                    <option value="Dairy">Dairy</option>
+                    <option value="Eggs">Eggs</option>
+                    <option value="Wheat/Gluten">Wheat/Gluten</option>
+                    <option value="Soy">Soy</option>
+                    <option value="Tree Nuts">Tree Nuts</option>
+                    <option value="Other">Other</option>
+                  </select>
+
+                  {/* CONDITIONAL TEXT INPUT FOR OTHER ALLERGY */}
+                  {allergy === "Other" && (
+                    <input 
+                      type="text" 
+                      className="res-input fade-in" 
+                      style={{ marginTop: '10px' }}
+                      placeholder="Please specify your allergy" 
+                      value={otherAllergy} 
+                      onChange={(e) => setOtherAllergy(e.target.value)} 
+                    />
+                  )}
                 </div>
 
                 <div className="input-group">
                   <label>GUESTS (MAX {totalSeats})</label>
                   <input type="number" min="1" max={totalSeats} value={guestCount} onChange={(e) => setGuestCount(Number(e.target.value))} />
                 </div>
+
 
                 <button className={`btn-confirm ${isFormInvalid ? "btn-disabled" : ""}`} onClick={onSuccess} disabled={isFormInvalid}>
                   Confirm Reservation
