@@ -166,36 +166,23 @@ function App() {
   );
 }
 
-const ReservationSuccess = ({ onClose }) => {
-  return (
-    <div
-      className="res-modal-overlay"
-      style={{ display: "flex", zIndex: 9999999 }}
-    >
-      <div
-        className="res-modal-content"
-        onClick={(e) => e.stopPropagation()}
-        style={{ textAlign: "center" }}
+const ReservationSuccess = ({ onClose }) => (
+  <div className="res-modal-overlay">
+    <div className="res-modal-content" style={{ textAlign: 'center', padding: '40px' }}>
+      <div style={{ fontSize: '50px' }}>✅</div>
+      <h2 style={{ color: '#ffcc00', fontWeight: '900' }}>RESERVATION CONFIRMED!</h2>
+      {/* CHANGE THIS LINE BELOW */}
+      <p>Your reservation has been automatically approved. Check your notifications for details.</p> 
+      <button 
+        className="res-btn-continue" 
+        onClick={onClose}
+        style={{ marginTop: '20px', width: '100%' }}
       >
-        <div
-          style={{ fontSize: "60px", color: "#ffcc00", marginBottom: "20px" }}
-        >
-          ✔
-        </div>
-        <h2 className="res-title">SUBMITTED SUCCESSFULLY</h2>
-        <p style={{ color: "#333", margin: "20px 0", fontSize: "16px" }}>
-          Your reservation request has been received. <br />
-          <strong>
-            Please wait for an email regarding your reservation status.
-          </strong>
-        </p>
-        <button className="res-btn-continue" onClick={onClose}>
-          OKAY
-        </button>
-      </div>
+        Great, thank you!
+      </button>
     </div>
-  );
-};
+  </div>
+);
 
 const NavbarWrapper = ({ onLoginClick, isLoggedIn, onLogout }) => {
   const location = useLocation();

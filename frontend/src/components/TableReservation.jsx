@@ -14,16 +14,106 @@ import {
 import "../Style/TableReservation.css";
 
 const TABLES_DATA = [
-  { id: 1,label : "T1", seats: 5, status: "available", top: "23%", left: "15%", type: "rect-v", layout: "right-side" },
-  { id: 2, label: "T2", seats: 2, status: "available", top: "50%", left: "25%", type: "square-sm", layout: "sides" },
-  { id: 3, label: "T3", seats: 4, status: "occupied", top: "65%", left: "25%", type: "square", layout: "sides" },
-  { id: 4, label: "T4", seats: 4, status: "available", top: "82%", left: "25%", type: "square", layout: "sides" },
-  { id: 5, label: "T5", seats: 4, status: "available", top: "38%", left: "50%", type: "square", layout: "sides" },
-  { id: 6, label: "T6", seats: 4, status: "available", top: "58%", left: "50%", type: "square", layout: "sides" },
-  { id: 7, label: "T7", seats: 4, status: "available", top: "17%", left: "77%", type: "square", layout: "top-bottom" },
-  { id: 8, label: "T8", seats: 4, status: "reserved", top: "45%", left: "77%", type: "square", layout: "top-bottom" },
-  { id: 9, label: "T9", seats: 4, status: "available", top: "72%", left: "77%", type: "square", layout: "top-bottom" },
-  { id: 10, label: "T10", seats: 3, status: "available", top: "92%", left: "65%", type: "rect-h", layout: "top-side" },
+  {
+    id: 1,
+    label: "T1",
+    seats: 5,
+    status: "available",
+    top: "23%",
+    left: "15%",
+    type: "rect-v",
+    layout: "right-side",
+  },
+  {
+    id: 2,
+    label: "T2",
+    seats: 2,
+    status: "available",
+    top: "50%",
+    left: "25%",
+    type: "square-sm",
+    layout: "sides",
+  },
+  {
+    id: 3,
+    label: "T3",
+    seats: 4,
+    status: "occupied",
+    top: "65%",
+    left: "25%",
+    type: "square",
+    layout: "sides",
+  },
+  {
+    id: 4,
+    label: "T4",
+    seats: 4,
+    status: "available",
+    top: "82%",
+    left: "25%",
+    type: "square",
+    layout: "sides",
+  },
+  {
+    id: 5,
+    label: "T5",
+    seats: 4,
+    status: "available",
+    top: "38%",
+    left: "50%",
+    type: "square",
+    layout: "sides",
+  },
+  {
+    id: 6,
+    label: "T6",
+    seats: 4,
+    status: "available",
+    top: "58%",
+    left: "50%",
+    type: "square",
+    layout: "sides",
+  },
+  {
+    id: 7,
+    label: "T7",
+    seats: 4,
+    status: "available",
+    top: "17%",
+    left: "77%",
+    type: "square",
+    layout: "top-bottom",
+  },
+  {
+    id: 8,
+    label: "T8",
+    seats: 4,
+    status: "reserved",
+    top: "45%",
+    left: "77%",
+    type: "square",
+    layout: "top-bottom",
+  },
+  {
+    id: 9,
+    label: "T9",
+    seats: 4,
+    status: "available",
+    top: "72%",
+    left: "77%",
+    type: "square",
+    layout: "top-bottom",
+  },
+  {
+    id: 10,
+    label: "T10",
+    seats: 3,
+    status: "available",
+    top: "92%",
+    left: "65%",
+    type: "rect-h",
+    layout: "top-side",
+  },
 ];
 
 export default function TableReservation({ onClose, onSuccess }) {
@@ -36,7 +126,8 @@ export default function TableReservation({ onClose, onSuccess }) {
   // --- UPDATED NAME STATES ---
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [resDate, setResDate] = useState("");
   const [resTime, setResTime] = useState("");
   const [guestCount, setGuestCount] = useState(1);
@@ -60,7 +151,9 @@ export default function TableReservation({ onClose, onSuccess }) {
   // 2. Fetch Barangays
   useEffect(() => {
     if (selectedMunicipality) {
-      fetch(`http://localhost:5000/api/address/barangays/${selectedMunicipality}`)
+      fetch(
+        `http://localhost:5000/api/address/barangays/${selectedMunicipality}`,
+      )
         .then((res) => res.json())
         .then((data) => {
           const list = Array.isArray(data) ? data : data.data || [];
@@ -83,8 +176,8 @@ export default function TableReservation({ onClose, onSuccess }) {
         userId: localStorage.getItem("userId") || null,
         firstName: firstName,
         lastName: lastName,
-        email: "walkin@hangout.com", // Default for floor plan walk-ins
-        phone: "00000000000",
+        email: email,
+        phone: phone,
         date: resDate,
         time: resTime,
         guests: guestCount,
@@ -96,11 +189,11 @@ export default function TableReservation({ onClose, onSuccess }) {
 
       const response = await axios.post(
         "http://localhost:5000/api/reservations/table",
-        reservationData
+        reservationData,
       );
 
       if (response.status === 200 || response.status === 201) {
-        onSuccess(); 
+        onSuccess();
       }
     } catch (err) {
       setError(err.response?.data?.message || "Failed to save reservation.");
@@ -117,13 +210,14 @@ export default function TableReservation({ onClose, onSuccess }) {
 
   const primaryTable = useMemo(
     () => TABLES_DATA.find((t) => t.id === selectedId),
-    [selectedId]
+    [selectedId],
   );
 
   const totalSeats = useMemo(() => {
     if (!primaryTable) return 0;
-    const linkedSeats = TABLES_DATA.filter((t) => linkedIds.includes(t.id))
-      .reduce((sum, t) => sum + t.seats, 0);
+    const linkedSeats = TABLES_DATA.filter((t) =>
+      linkedIds.includes(t.id),
+    ).reduce((sum, t) => sum + t.seats, 0);
     return primaryTable.seats + linkedSeats;
   }, [primaryTable, linkedIds]);
 
@@ -133,13 +227,24 @@ export default function TableReservation({ onClose, onSuccess }) {
       !firstName.trim() ||
       !lastName.trim() ||
       !resDate ||
+      !email.trim() ||
+      !phone.trim() ||
       !resTime ||
       !guestCount ||
       !selectedMunicipality ||
       !selectedBarangay ||
       loading
     );
-  }, [firstName, lastName, resDate, resTime, guestCount, selectedMunicipality, selectedBarangay, loading]);
+  }, [
+    firstName,
+    lastName,
+    resDate,
+    resTime,
+    guestCount,
+    selectedMunicipality,
+    selectedBarangay,
+    loading,
+  ]);
 
   const handleTableClick = (table) => {
     if (isLinkMode) {
@@ -151,7 +256,9 @@ export default function TableReservation({ onClose, onSuccess }) {
       }
       if (table.status !== "available") return;
       setLinkedIds((prev) =>
-        prev.includes(table.id) ? prev.filter((id) => id !== table.id) : [...prev, table.id]
+        prev.includes(table.id)
+          ? prev.filter((id) => id !== table.id)
+          : [...prev, table.id],
       );
     } else {
       if (selectedId === table.id) setSelectedId(null);
@@ -163,7 +270,9 @@ export default function TableReservation({ onClose, onSuccess }) {
   const renderChairs = (table) => {
     const chairs = [];
     for (let i = 0; i < table.seats; i++) {
-      chairs.push(<div key={i} className={`chair chair-${table.layout}-${i + 1}`} />);
+      chairs.push(
+        <div key={i} className={`chair chair-${table.layout}-${i + 1}`} />,
+      );
     }
     return chairs;
   };
@@ -173,13 +282,17 @@ export default function TableReservation({ onClose, onSuccess }) {
       <div className="floor-plan-main" onClick={(e) => e.stopPropagation()}>
         <header className="floor-header">
           <div className="floor-logo-bar">
-            <div className="floor-icon-circle"><UtensilsCrossed size={20} color="white" /></div>
+            <div className="floor-icon-circle">
+              <UtensilsCrossed size={20} color="white" />
+            </div>
             <div className="floor-header-text">
               <h1 className="floor-title">Floor Plan</h1>
               <p className="floor-subtitle">Select a table to reserve</p>
             </div>
           </div>
-          <button className="floor-back-btn" onClick={onClose}>Back</button>
+          <button className="floor-back-btn" onClick={onClose}>
+            Back
+          </button>
         </header>
 
         <div className="map-scroll-area">
@@ -211,77 +324,187 @@ export default function TableReservation({ onClose, onSuccess }) {
         </div>
 
         <div className="floor-legend">
-          <div className="legend-item"><span className="dot available"></span> Available</div>
-          <div className="legend-item"><span className="dot selected"></span> Selected</div>
-          <div className="legend-item"><span className="dot linked"></span> Linked</div>
+          <div className="legend-item">
+            <span className="dot available"></span> Available
+          </div>
+          <div className="legend-item">
+            <span className="dot selected"></span> Selected
+          </div>
+          <div className="legend-item">
+            <span className="dot linked"></span> Linked
+          </div>
         </div>
       </div>
 
       <aside className="floor-sidebar" onClick={(e) => e.stopPropagation()}>
         {!primaryTable ? (
-          <div className="empty-sidebar"><p>Select a table to start</p></div>
+          <div className="empty-sidebar">
+            <p>Select a table to start</p>
+          </div>
         ) : (
           <div className="res-panel fade-in">
-            <button className="panel-close" onClick={() => { setSelectedId(null); setIsLinkMode(false); }}>
+            <button
+              className="panel-close"
+              onClick={() => {
+                setSelectedId(null);
+                setIsLinkMode(false);
+              }}
+            >
               <X size={18} />
             </button>
             <h2 className="panel-title">
-              Reserve {primaryTable.id} {linkedIds.length > 0 && `+ ${linkedIds.join(" + ")}`}
+              Reserve {primaryTable.id}{" "}
+              {linkedIds.length > 0 && `+ ${linkedIds.join(" + ")}`}
             </h2>
 
-            {error && <div className="error-message" style={{ color: "red", fontSize: "0.8rem" }}>{error}</div>}
+            {error && (
+              <div
+                className="error-message"
+                style={{ color: "red", fontSize: "0.8rem" }}
+              >
+                {error}
+              </div>
+            )}
 
             <div className="res-form">
-              <button className={`btn-link-mode ${isLinkMode ? "active" : ""}`} onClick={() => setIsLinkMode(!isLinkMode)}>
-                {isLinkMode ? <><X size={16} /> Done linking</> : <><LinkIcon size={16} /> Link tables</>}
+              <button
+                className={`btn-link-mode ${isLinkMode ? "active" : ""}`}
+                onClick={() => setIsLinkMode(!isLinkMode)}
+              >
+                {isLinkMode ? (
+                  <>
+                    <X size={16} /> Done linking
+                  </>
+                ) : (
+                  <>
+                    <LinkIcon size={16} /> Link tables
+                  </>
+                )}
               </button>
 
               {/* --- NEW NAME INPUTS --- */}
               <div className="input-row">
                 <div className="input-group">
                   <label>FIRST NAME</label>
-                  <input type="text" placeholder="John" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+                  <input
+                    type="text"
+                    placeholder="John"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                  />
                 </div>
                 <div className="input-group">
                   <label>LAST NAME</label>
-                  <input type="text" placeholder="Doe" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+                  <input
+                    type="text"
+                    placeholder="Doe"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                  />
                 </div>
+              </div>
+              <div className="input-group">
+                <label>EMAIL ADDRESS</label>
+                <input
+                  type="email"
+                  placeholder="example@mail.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+
+              <div className="input-group">
+                <label>CONTACT NUMBER</label>
+                <input
+                  type="text"
+                  placeholder="09123456789"
+                  value={phone}
+                  onChange={(e) => {
+                    // Only allow numbers and limit to 11 digits
+                    const val = e.target.value.replace(/\D/g, "");
+                    if (val.length <= 11) setPhone(val);
+                  }}
+                />
               </div>
 
               <div className="input-row">
                 <div className="input-group">
-                  <label><MapPin size={12} /> MUNICIPALITY</label>
-                  <select className="res-input" value={selectedMunicipality} onChange={(e) => setSelectedMunicipality(e.target.value)}>
+                  <label>
+                    <MapPin size={12} /> MUNICIPALITY
+                  </label>
+                  <select
+                    className="res-input"
+                    value={selectedMunicipality}
+                    onChange={(e) => setSelectedMunicipality(e.target.value)}
+                  >
                     <option value="">Select City</option>
-                    {municipalities.map((m) => <option key={m.code} value={m.code}>{m.name}</option>)}
+                    {municipalities.map((m) => (
+                      <option key={m.code} value={m.code}>
+                        {m.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div className="input-group">
-                  <label><MapPin size={12} /> BARANGAY</label>
-                  <select className="res-input" value={selectedBarangay} onChange={(e) => setSelectedBarangay(e.target.value)} disabled={!selectedMunicipality}>
+                  <label>
+                    <MapPin size={12} /> BARANGAY
+                  </label>
+                  <select
+                    className="res-input"
+                    value={selectedBarangay}
+                    onChange={(e) => setSelectedBarangay(e.target.value)}
+                    disabled={!selectedMunicipality}
+                  >
                     <option value="">Select Brgy</option>
-                    {barangays.map((b) => <option key={b.code} value={b.code}>{b.name}</option>)}
+                    {barangays.map((b) => (
+                      <option key={b.code} value={b.code}>
+                        {b.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
 
               <div className="input-row">
                 <div className="input-group">
-                  <label><Calendar size={12} /> DATE</label>
-                  <input type="date" value={resDate} min={todayStr} onChange={(e) => setResDate(e.target.value)} />
+                  <label>
+                    <Calendar size={12} /> DATE
+                  </label>
+                  <input
+                    type="date"
+                    value={resDate}
+                    min={todayStr}
+                    onChange={(e) => setResDate(e.target.value)}
+                  />
                 </div>
                 <div className="input-group">
-                  <label><Clock size={12} /> TIME</label>
-                  <input type="time" value={resTime} onChange={(e) => setResTime(e.target.value)} />
+                  <label>
+                    <Clock size={12} /> TIME
+                  </label>
+                  <input
+                    type="time"
+                    value={resTime}
+                    onChange={(e) => setResTime(e.target.value)}
+                  />
                 </div>
               </div>
 
               <div className="input-group">
                 <label>GUESTS (MAX {totalSeats})</label>
-                <input type="number" min="1" max={totalSeats} value={guestCount} onChange={(e) => setGuestCount(Number(e.target.value))} />
+                <input
+                  type="number"
+                  min="1"
+                  max={totalSeats}
+                  value={guestCount}
+                  onChange={(e) => setGuestCount(Number(e.target.value))}
+                />
               </div>
 
-              <button className={`btn-confirm ${isFormInvalid ? "btn-disabled" : ""}`} onClick={handleConfirmReservation} disabled={isFormInvalid}>
+              <button
+                className={`btn-confirm ${isFormInvalid ? "btn-disabled" : ""}`}
+                onClick={handleConfirmReservation}
+                disabled={isFormInvalid}
+              >
                 {loading ? "Processing..." : "Confirm Reservation"}
               </button>
             </div>

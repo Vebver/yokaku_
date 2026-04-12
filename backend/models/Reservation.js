@@ -45,7 +45,7 @@ const Reservation = {
   create: async (reservationData) => {
     const { 
       userId, firstName, lastName, email, phone, date, time, 
-      guests, packageName, brgyCode, tableIds // tableIds should be an array (e.g., [1, 2])
+      guests, packageName,status, brgyCode, tableIds // tableIds should be an array (e.g., [1, 2])
     } = reservationData;
 
     // Use a connection from the pool to ensure both inserts happen together (Transaction)
@@ -57,11 +57,10 @@ const Reservation = {
       // Step A: Insert the core reservation info (includes the composite address link)
       const resQuery = `
         INSERT INTO reservations 
-        (user_id, first_name, last_name, email, phone, reservation_date, reservation_time, num_guests, package_name, brgy_code) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `;
+        (user_id, first_name, last_name, email, phone, reservation_date, reservation_time, num_guests, package_name, status ,brgy_code) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
       const [resResult] = await conn.execute(resQuery, [
-        userId, firstName, lastName, email, phone, date, time, guests, packageName, brgyCode
+        userId, firstName, lastName, email, phone, date, time, guests, packageName,status, brgyCode
       ]);
 
       const newReservationId = resResult.insertId;
