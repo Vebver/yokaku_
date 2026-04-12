@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   UtensilsCrossed,
   ArrowRight,
@@ -10,6 +10,7 @@ import {
   Info,
   MapPin,
   Pencil,
+  Upload, // Added for the upload button
 } from "lucide-react";
 import "../Style/TableReservation.css";
 
@@ -48,6 +49,10 @@ export default function TableReservation({ onClose, onSuccess }) {
   // Allergy States
   const [allergy, setAllergy] = useState("No Allergy");
   const [otherAllergy, setOtherAllergy] = useState("");
+
+  // Receipt States
+  const [receipt, setReceipt] = useState(null);
+  const fileInputRef = useRef(null);
 
   // Address States
   const [municipalities, setMunicipalities] = useState([]);
@@ -141,17 +146,15 @@ export default function TableReservation({ onClose, onSuccess }) {
     const startMin = timeToMinutes(startTime);
     const endMin = timeToMinutes(endTime);
     const hasOneHourDiff = (endMin - startMin) >= 60;
-    
-    // Check if 'Other' is selected but text field is empty
     const isOtherAllergyEmpty = allergy === "Other" && !otherAllergy.trim();
 
     return (
       !firstName.trim() || !lastName.trim() || !resDate || 
       !startTime || !endTime || !hasOneHourDiff ||
       !guestCount || guestCount <= 0 || !selectedMunicipality || !selectedBarangay ||
-      isOtherAllergyEmpty
+      isOtherAllergyEmpty || !receipt // Added receipt check
     );
-  }, [firstName, lastName, resDate, startTime, endTime, guestCount, selectedMunicipality, selectedBarangay, allergy, otherAllergy]);
+  }, [firstName, lastName, resDate, startTime, endTime, guestCount, selectedMunicipality, selectedBarangay, allergy, otherAllergy, receipt]);
 
   const handleTableClick = (table) => {
     if (isLinkMode) {
@@ -243,7 +246,7 @@ export default function TableReservation({ onClose, onSuccess }) {
                  );
               })}
               {(primaryTable.id === 'T1' || primaryTable.id === 'T10') && linkedIds.length === 0 && (
-                <span style={{ fontSize: '13px', color: 'red', fontWeight: '500', marginLeft: '5px', fontStyle: 'italic' }}>
+                <span style={{ fontSize: '11px', color: '#999', fontWeight: '500', marginLeft: '5px', fontStyle: 'italic' }}>
                   (This table cannot be combined)
                 </span>
               )}
@@ -313,40 +316,23 @@ export default function TableReservation({ onClose, onSuccess }) {
                     </select>
                   </div>
                 </div>
-                
-                {/* UPDATED ALLERGY SECTION WITH "OTHER" INPUT */}
-                <div className="input-group">
-                  <label>ALLERGY</label>
-                  <select 
-                    className="res-input-dropdown" 
-                    value={allergy} 
-                    onChange={(e) => {
-                        setAllergy(e.target.value);
-                        if(e.target.value !== "Other") setOtherAllergy(""); // Clear text if not 'Other'
-                    }}
-                  >
-                    <option value="No Allergy">No Allergy</option>
-                    <option value="Peanuts">Peanuts</option>
-                    <option value="Seafood">Seafood</option>
-                    <option value="Dairy">Dairy</option>
-                    <option value="Eggs">Eggs</option>
-                    <option value="Wheat/Gluten">Wheat/Gluten</option>
-                    <option value="Soy">Soy</option>
-                    <option value="Tree Nuts">Tree Nuts</option>
-                    <option value="Other">Other</option>
-                  </select>
 
-                  {/* CONDITIONAL TEXT INPUT FOR OTHER ALLERGY */}
-                  {allergy === "Other" && (
-                    <input 
-                      type="text" 
-                      className="res-input fade-in" 
-                      style={{ marginTop: '10px' }}
-                      placeholder="Please specify your allergy" 
-                      value={otherAllergy} 
-                      onChange={(e) => setOtherAllergy(e.target.value)} 
-                    />
-                  )}
+                <div className="input-group">
+                    <label>ALLERGY</label>
+                    <select className="res-input-dropdown" value={allergy} onChange={(e) => { setAllergy(e.target.value); if(e.target.value !== "Other") setOtherAllergy(""); }}>
+                        <option value="No Allergy">No Allergy</option>
+                        <option value="Peanuts">Peanuts</option>
+                        <option value="Seafood">Seafood</option>
+                        <option value="Dairy">Dairy</option>
+                        <option value="Eggs">Eggs</option>
+                        <option value="Wheat/Gluten">Wheat/Gluten</option>
+                        <option value="Soy">Soy</option>
+                        <option value="Tree Nuts">Tree Nuts</option>
+                        <option value="Other">Other</option>
+                    </select>
+                    {allergy === "Other" && (
+                        <input type="text" className="res-input fade-in" style={{ marginTop: '10px' }} placeholder="Please specify your allergy" value={otherAllergy} onChange={(e) => setOtherAllergy(e.target.value)} />
+                    )}
                 </div>
 
                 <div className="input-group">
@@ -354,6 +340,25 @@ export default function TableReservation({ onClose, onSuccess }) {
                   <input type="number" min="1" max={totalSeats} value={guestCount} onChange={(e) => setGuestCount(Number(e.target.value))} />
                 </div>
 
+                {/* NEW RECEIPT UPLOAD SECTION */}
+                <div className="input-group">
+                  <label>Upload your Receipt we're accepting (Gcash/Maya)</label>
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    style={{ display: "none" }} 
+                    accept="image/*,.pdf"
+                    onChange={(e) => setReceipt(e.target.files[0])}
+                  />
+                  <button 
+                    type="button"
+                    className="btn-link-mode" 
+                    style={{ width: "100%", marginTop: "5px" }}
+                    onClick={() => fileInputRef.current.click()}
+                  >
+                    <Upload size={16} /> {receipt ? receipt.name : "Upload"}
+                  </button>
+                </div>
 
                 <button className={`btn-confirm ${isFormInvalid ? "btn-disabled" : ""}`} onClick={onSuccess} disabled={isFormInvalid}>
                   Confirm Reservation
