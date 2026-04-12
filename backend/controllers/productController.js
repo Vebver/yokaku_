@@ -51,7 +51,7 @@ const productController = {
     const clean_featured = parseInt(is_featured) === 1 ? 1 : 0;
 
     // 3. Get image URL
-    const image_url = req.file ? `http://localhost:5000/uploads/${req.file.filename}` : null;
+    const image_url = req.file ? `/uploads/${req.file.filename}` : null;
 
     // 4. Call Model
     const newId = await Product.create({
