@@ -40,6 +40,7 @@ function LoginSection({ onClose }) {
       // --- 2. SAVE NEW USER AUTH DETAILS ---
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("userRole", res.data.user.role);
+      localStorage.setItem("email", res.data.user.email);
 
       // Save the new user's ID
       const idToStore = res.data.user.user_id || res.data.user.id;
@@ -160,7 +161,7 @@ function LoginSection({ onClose }) {
                   <>
                     <input
                       type="text"
-                      placeholder="Last Name"
+                      placeholder="First Name"
                       className="login-input"
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
@@ -168,7 +169,7 @@ function LoginSection({ onClose }) {
                     />
                     <input
                       type="text"
-                      placeholder="First Name"
+                      placeholder="Last Name"
                       className="login-input"
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}

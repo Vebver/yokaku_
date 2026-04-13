@@ -1,30 +1,42 @@
-const axios = require('axios');
+const db = require("../config/db");
 
 const addressController = {
-    // Get Municipalities for Bulacan (Standard Code: 031400000)
-    getMunicipalities: async (req, res) => {
-        try {
-            // Using the highly stable GitLab mirror with the correct Bulacan code
-            const response = await axios.get("https://psgc.gitlab.io/api/provinces/031400000/cities-municipalities.json");
-            res.json(response.data);
-        } catch (error) {
-            console.error("Municipality Fetch Error:", error.message);
-            res.status(500).json({ error: "Failed to fetch municipalities. API might be down." });
-        }
-    },
-
-    // Get Barangays based on City/Municipality Code
-    getBarangays: async (req, res) => {
-        try {
-            const { code } = req.params;
-            // Using the mirror for Barangays as well
-            const response = await axios.get(`https://psgc.gitlab.io/api/cities-municipalities/${code}/barangays.json`);
-            res.json(response.data);
-        } catch (error) {
-            console.error("Barangay Fetch Error:", error.message);
-            res.status(500).json({ error: "Failed to fetch barangays. API might be down." });
-        }
+  getMunicipalities: async (req, res) => {
+    try {
+      const [rows] = await db.execute(
+        "SELECT muni_code AS code, muni_name AS name FROM municipalities ORDER BY name ASC"
+      );
+      res.json(rows);
+    } catch (error) {
+      console.error("Local Municipality Fetch Error:", error.message);
+      res.status(500).json({ error: "Database error" });
     }
+  },
+
+  getBarangays: async (req, res) => {
+    try {
+        // This now works because it matches the name in the router
+        const { municipalityCode } = req.params; 
+
+        if (!municipalityCode || municipalityCode === "undefined") {
+            return res.json([]);
+        }
+
+        const [rows] = await db.execute(
+            `SELECT brgy_code AS code, brgy_name AS name 
+             FROM barangays 
+             WHERE TRIM(muni_code) = TRIM(?) 
+             ORDER BY name ASC`,
+            [municipalityCode]
+        );
+
+        console.log(`Backend received: ${municipalityCode} | Found: ${rows.length} barangays`);
+        res.json(rows);
+    } catch (error) {
+        console.error("Barangay Error:", error.message);
+        res.status(500).json({ error: error.message });
+    }
+}
 };
 
 module.exports = addressController;

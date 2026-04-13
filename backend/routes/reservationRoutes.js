@@ -1,14 +1,21 @@
 const express = require('express');
 const router = express.Router();
 const reservationController = require('../controllers/reservationController');
+const upload = require('../middleware/upload'); 
 
-// 1. Specific routes first
+// 1. GET routes
 router.get('/', reservationController.getReservations);
-router.post('/table', reservationController.createReservation); // Move this UP
+router.get('/check-availability', reservationController.checkAvailability);
 
-// 2. Generic ID routes last
-router.get("/:id", reservationController.checkReservationId); // This catches anything after /
-router.post('/', reservationController.createReservation);
+// --- ADD THESE TWO NEW ROUTES ---
+router.get('/user-active/:userId', reservationController.checkUserActive);
+router.get('/table-statuses', reservationController.getTableStatuses);
+
+// 2. POST routes
+router.post('/table', upload.single('receipt'), reservationController.createReservation);
+
+// 3. Generic /:id routes (KEEP THESE LAST)
+router.get("/:id", reservationController.checkReservationId); 
 router.put('/:id/status', reservationController.updateStatus);
 router.delete('/:id', reservationController.deleteReservation);
 

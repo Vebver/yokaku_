@@ -100,7 +100,7 @@ const authController = {
       // 3. Use the password we stored during the signup step
       const userId = await User.create(
         email, 
-        pending.password, // <--- No longer 'default123'
+        pending.password, 
         pending.firstName, 
         pending.lastName
       );

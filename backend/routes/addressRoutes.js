@@ -6,6 +6,6 @@ const addressController = require('../controllers/addressController');
 router.get('/municipalities', addressController.getMunicipalities);
 
 // Route to get Barangays
-router.get('/barangays/:code', addressController.getBarangays);
+router.get('/barangays/:municipalityCode', addressController.getBarangays);
 
 module.exports = router;
