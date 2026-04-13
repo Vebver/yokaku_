@@ -34,9 +34,8 @@ export default function TableReservation({ onClose, onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // --- NEW LOGIC STATES ---
   const [hasActiveReservation, setHasActiveReservation] = useState(false);
-  const [dbOccupiedTables, setDbOccupiedTables] = useState({}); // { tableId: status }
+  const [dbOccupiedTables, setDbOccupiedTables] = useState({}); 
 
   // --- FORM STATES (ALL PRESERVED) ---
   const [firstName, setFirstName] = useState("");
@@ -58,7 +57,18 @@ export default function TableReservation({ onClose, onSuccess }) {
   const [selectedMunicipality, setSelectedMunicipality] = useState("");
   const [selectedBarangay, setSelectedBarangay] = useState("");
 
-  // 1. Check if user already has a reservation
+  // --- 1. FUNCTION TO RENDER CHAIRS (Fixes the crash) ---
+  const renderChairs = (table) => {
+    const chairs = [];
+    for (let i = 0; i < table.seats; i++) {
+      chairs.push(
+        <div key={i} className={`chair chair-${table.layout}-${i + 1}`} />
+      );
+    }
+    return chairs;
+  };
+
+  // 2. Check user reservation
   useEffect(() => {
     const checkUser = async () => {
       const userId = localStorage.getItem("userId");
@@ -72,7 +82,7 @@ export default function TableReservation({ onClose, onSuccess }) {
     checkUser();
   }, []);
 
-  // 2. Fetch live statuses for Red/Orange updates
+  // 3. Fetch live status for color updates
   useEffect(() => {
     const fetchLiveStatus = async () => {
       if (resDate && startTime && endTime) {
@@ -81,7 +91,7 @@ export default function TableReservation({ onClose, onSuccess }) {
             params: { date: resDate, startTime, endTime }
           });
           setDbOccupiedTables(res.data);
-        } catch (err) { console.error(err); }
+        } catch (err) { console.error("Fetch Error:", err); }
       }
     };
     fetchLiveStatus();
@@ -122,7 +132,7 @@ export default function TableReservation({ onClose, onSuccess }) {
     return timeOptions.filter((t) => timeToMinutes(t) >= startMins + 60);
   }, [startTime, timeOptions]);
 
-  // Pre-fill data
+  // Pre-fill user data
   useEffect(() => {
     setFirstName(localStorage.getItem("firstName") || "");
     setLastName(localStorage.getItem("lastName") || "");
@@ -169,7 +179,7 @@ export default function TableReservation({ onClose, onSuccess }) {
       data.append("status", "Pending");
 
       const response = await axios.post("http://localhost:5000/api/reservations/table", data, {
-        headers: { "Content-Type": "multipart/form-data" },
+          headers: { "Content-Type": "multipart/form-data" },
       });
       if (response.status === 200 || response.status === 201) onSuccess();
     } catch (err) {
@@ -178,7 +188,7 @@ export default function TableReservation({ onClose, onSuccess }) {
   };
 
   const handleTableClick = (table) => {
-    if (dbOccupiedTables[table.id]) return; // Block Red tables
+    if (dbOccupiedTables[table.id]) return; 
     if (isLinkMode) {
       if (table.id === selectedId) { setSelectedId(null); setLinkedIds([]); setIsLinkMode(false); return; }
       setLinkedIds((p) => p.includes(table.id) ? p.filter((id) => id !== table.id) : [...p, table.id]);
@@ -226,10 +236,12 @@ export default function TableReservation({ onClose, onSuccess }) {
           <div className="map-container">
             <div className="tables-area">
               {TABLES_DATA.map((table) => {
-                const isOccupiedInDb = dbOccupiedTables[table.id];
+                const dbStatus = dbOccupiedTables[table.id];
                 let statusClass = "available"; // GREEN
-                if (isOccupiedInDb) statusClass = "occupied"; // RED
-                else if (selectedId === table.id) statusClass = "selected"; // ORANGE
+
+                if (dbStatus === "Confirmed") statusClass = "occupied"; // RED
+                else if (dbStatus === "Pending") statusClass = "reserved"; // ORANGE (DB Pending)
+                else if (selectedId === table.id) statusClass = "selected"; // ORANGE (Current Selection)
                 else if (linkedIds.includes(table.id)) statusClass = "linked"; // BLUE
 
                 return (
@@ -237,11 +249,12 @@ export default function TableReservation({ onClose, onSuccess }) {
                     key={table.id}
                     className={`floor-table ${table.type} ${statusClass}`}
                     style={{ top: table.top, left: table.left }}
-                    onClick={() => handleTableClick(table)}
+                    onClick={() => {
+                      if (dbStatus) return;
+                      handleTableClick(table);
+                    }}
                   >
-                    {Array.from({ length: table.seats }).map((_, i) => (
-                      <div key={i} className={`chair chair-${table.layout}-${i + 1}`} />
-                    ))}
+                    {renderChairs(table)}
                     <div className="table-inner">
                       <span className="table-id-label">{table.id}</span>
                       <span className="table-p-label">{table.seats}p</span>
@@ -264,15 +277,15 @@ export default function TableReservation({ onClose, onSuccess }) {
       <aside className="floor-sidebar" onClick={(e) => e.stopPropagation()}>
         {hasActiveReservation ? (
           <div className="reserved-notice fade-in">
-             <Info size={32} color="#e74c3c" />
-             <p>You already have an active reservation. You cannot book again.</p>
+            <Info size={32} color="#e74c3c" />
+            <p>You already have an active reservation. You cannot book again.</p>
           </div>
         ) : !primaryTable ? (
           <div className="empty-sidebar"><p>Select a table to reserve</p></div>
         ) : (
           <div className="res-panel fade-in">
             <button className="panel-close" onClick={() => { setSelectedId(null); setIsLinkMode(false); }}><X size={18} /></button>
-            <h2 className="panel-title">Reserve {primaryTable.id} {linkedIds.map(id => ` + ${id}`)}</h2>
+            <h2 className="panel-title">Reserve {primaryTable.id} {linkedIds.map((id) => ` + ${id}`)}</h2>
 
             <div className="res-form">
               <button className={`btn-link-mode ${isLinkMode ? "active" : ""}`} onClick={() => setIsLinkMode(!isLinkMode)}>
@@ -293,28 +306,25 @@ export default function TableReservation({ onClose, onSuccess }) {
               </div>
               <div className="input-group">
                 <label>CONTACT NUMBER</label>
-                <input type="text" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0,11))} />
+                <input type="text" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 11))} />
               </div>
 
               <div className="input-row">
-                <div className="input-group">
-                  <label>MUNICIPALITY</label>
+                <div className="input-group"><label>MUNICIPALITY</label>
                   <select value={selectedMunicipality} onChange={(e) => setSelectedMunicipality(e.target.value)}>
                     <option value="">Select City</option>
-                    {municipalities.map(m => <option key={m.code} value={m.code}>{m.name}</option>)}
+                    {municipalities.map((m) => <option key={m.code} value={m.code}>{m.name}</option>)}
                   </select>
                 </div>
-                <div className="input-group">
-                  <label>BARANGAY</label>
+                <div className="input-group"><label>BARANGAY</label>
                   <select value={selectedBarangay} onChange={(e) => setSelectedBarangay(e.target.value)} disabled={!selectedMunicipality}>
                     <option value="">Select Brgy</option>
-                    {barangays.map(b => <option key={b.code} value={b.code}>{b.name}</option>)}
+                    {barangays.map((b) => <option key={b.code} value={b.code}>{b.name}</option>)}
                   </select>
                 </div>
               </div>
 
-              <div className="input-group">
-                <label>DATE</label>
+              <div className="input-group"><label>DATE</label>
                 <input type="date" value={resDate} min={todayStr} onChange={(e) => setResDate(e.target.value)} />
               </div>
 
@@ -322,19 +332,18 @@ export default function TableReservation({ onClose, onSuccess }) {
                 <div className="input-group"><label>START</label>
                   <select value={startTime} onChange={(e) => setStartTime(e.target.value)}>
                     <option value="">--:--</option>
-                    {timeOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                    {timeOptions.map((t) => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
                 <div className="input-group"><label>END</label>
                   <select value={endTime} onChange={(e) => setEndTime(e.target.value)} disabled={!startTime}>
                     <option value="">--:--</option>
-                    {filteredEndTimeOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                    {filteredEndTimeOptions.map((t) => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
               </div>
 
-              <div className="input-group">
-                <label>GUESTS (MAX {totalSeats})</label>
+              <div className="input-group"><label>GUESTS (MAX {totalSeats})</label>
                 <input type="number" min="1" max={totalSeats} value={guestCount} onChange={(e) => setGuestCount(Number(e.target.value))} />
               </div>
 
@@ -346,19 +355,18 @@ export default function TableReservation({ onClose, onSuccess }) {
                   <option value="Seafood">Seafood</option>
                   <option value="Other">Other</option>
                 </select>
-                {allergy === "Other" && <input type="text" placeholder="Specify allergy" value={otherAllergy} onChange={(e) => setOtherAllergy(e.target.value)} style={{marginTop: '5px'}} />}
+                {allergy === "Other" && <input type="text" placeholder="Specify allergy" value={otherAllergy} onChange={(e) => setOtherAllergy(e.target.value)} style={{ marginTop: "5px" }} />}
               </div>
 
               <div className="input-group">
                 <label>PROOF OF PAYMENT</label>
                 <input type="file" ref={fileInputRef} hidden onChange={(e) => setReceipt(e.target.files[0])} />
-                <button type="button" className="btn-link-mode" style={{width: '100%'}} onClick={() => fileInputRef.current.click()}>
+                <button type="button" className="btn-link-mode" style={{ width: "100%" }} onClick={() => fileInputRef.current.click()}>
                   {receipt ? receipt.name : "Upload Image"}
                 </button>
               </div>
 
-              {error && <p style={{color: 'red', fontSize: '12px'}}>{error}</p>}
-
+              {error && <p style={{ color: "red", fontSize: "12px" }}>{error}</p>}
               <button className={`btn-confirm ${isFormInvalid ? "btn-disabled" : ""}`} onClick={handleConfirmReservation} disabled={isFormInvalid || loading}>
                 {loading ? "Processing..." : "Confirm Reservation"}
               </button>

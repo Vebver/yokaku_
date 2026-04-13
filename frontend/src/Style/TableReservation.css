@@ -695,6 +695,38 @@
     transform: scale(1.1);
 }
 
+/* GREEN: Available */
+.floor-table.available .table-inner {
+  background-color: #2ecc71 !important;
+  color: white;
+}
+
+/* ORANGE: Pending Reservation (Waiting for Admin) */
+.floor-table.reserved .table-inner {
+  background-color: #f39c12 !important;
+  color: white;
+  cursor: not-allowed;
+}
+
+/* RED: Confirmed / Occupied */
+.floor-table.occupied .table-inner {
+  background-color: #e74c3c !important;
+  color: white;
+  cursor: not-allowed;
+}
+
+/* BLUE: Linked Tables */
+.floor-table.linked .table-inner {
+  background-color: #3498db !important;
+  color: white;
+}
+
+/* ORANGE: Your currently selected table */
+.floor-table.selected .table-inner {
+  background-color: #e67e22 !important;
+  border: 2px solid white;
+}
+
 /* Style for disabled inputs to look 'read-only' */
 input:disabled {
     background-color: #f5f5f5 !important;
