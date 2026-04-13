@@ -27,31 +27,41 @@ function LoginSection({ onClose }) {
       console.log("User Data from Backend:", res.data.user);
 
       // --- 1. CLEANUP PREVIOUS SESSION DATA ---
-      // Before logging in the new user, we wipe any old reservation progress
-      // that might be sitting in localStorage from a previous account.
       const keysToClear = [
-        "res_step", 
-        "res_package", 
-        "res_guests", 
-        "res_personalInfo", 
-        "res_formData"
+        "res_step",
+        "res_package",
+        "res_guests",
+        "res_personalInfo",
+        "res_formData",
       ];
-      keysToClear.forEach(key => localStorage.removeItem(key));
+      keysToClear.forEach((key) => localStorage.removeItem(key));
       // ----------------------------------------
 
       // --- 2. SAVE NEW USER AUTH DETAILS ---
       localStorage.setItem("token", res.data.token);
-      localStorage.setItem("userRole", res.data.user.role); 
+      localStorage.setItem("userRole", res.data.user.role);
 
       // Save the new user's ID
       const idToStore = res.data.user.user_id || res.data.user.id;
-      localStorage.setItem("userId", idToStore); 
+      localStorage.setItem("userId", idToStore);
+
+      // --- ADDED: SAVE USER NAMES FOR AUTO-FILL ---
+      // We check for both first_name (database style) and firstName (javascript style)
+      const fName = res.data.user.first_name || res.data.user.firstName;
+      const lName = res.data.user.last_name || res.data.user.lastName;
+
+      localStorage.setItem("firstName", fName);
+      localStorage.setItem("lastName", lName);
+
+      // Save the entire user object for easy retrieval in other components
+      localStorage.setItem("user", JSON.stringify(res.data.user));
+      // --------------------------------------------
 
       // --- 3. REDIRECT / RELOAD ---
       if (res.data.user.role === "admin") {
         window.location.href = "/admin/dashboard";
       } else {
-        // Refresh ensures all components (like HeroSection) 
+        // Refresh ensures all components (like HeroSection)
         // restart with the new account's data
         window.location.reload();
       }
@@ -62,7 +72,7 @@ function LoginSection({ onClose }) {
     } finally {
       setLoading(false);
     }
-};
+  };
 
   const handleSignUpSubmit = async (e) => {
     e.preventDefault();
@@ -97,7 +107,10 @@ function LoginSection({ onClose }) {
 
   const handleVerifyOTP = async (code) => {
     try {
-      const res = await axios.post("/api/auth/verify-otp", { email, otp: code });
+      const res = await axios.post("/api/auth/verify-otp", {
+        email,
+        otp: code,
+      });
       localStorage.setItem("token", res.data.token);
       window.location.href = "/customer";
       onClose();
