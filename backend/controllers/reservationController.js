@@ -27,8 +27,8 @@ const reservationController = {
          FROM reservations r
          JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
          WHERE r.reservation_date = ? 
-         AND r.status IN ('Pending', 'Confirmed')
-         AND r.reservation_time < ? AND r.end_time > ?`,
+         AND r.status IN ('Pending', 'Confirmed', 'Seated')
+         AND r.reservation_time <= ? AND r.end_time > ?`,
         [date, endTime, startTime]
       );
 
@@ -42,37 +42,31 @@ const reservationController = {
 
   // --- 3. UPDATED: Create Reservation (Fixes 500) ---
   createReservation: async (req, res) => {
-  // Check your Backend terminal for these logs!
-  console.log("Body:", req.body); 
-  console.log("File:", req.file);
-
+  // Check your Backend terminal for these logs
   try {
-    const {
-      date, startTime, endTime, tableIds, userId,
-      firstName, lastName, email, phone, guests, allergy, brgyCode,
-    } = req.body;
+      const {
+        date, startTime, endTime, tableIds, userId,
+        firstName, lastName, email, phone, guests, allergy, brgyCode,
+      } = req.body;
 
-    // 1. Parse tableIds
-    const requestedTables = typeof tableIds === "string" ? JSON.parse(tableIds) : tableIds;
+      const requestedTables = typeof tableIds === "string" ? JSON.parse(tableIds) : tableIds;
 
-    // 2. CONFLICT CHECK
-    // Note: Using 'r.reservation_id' instead of 'r.id'
-    const [conflicts] = await db.execute(
-      `SELECT rt.table_id FROM reservations r
-       JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
-       WHERE r.reservation_date = ? 
-       AND r.status IN ('Pending', 'Confirmed')
-       AND rt.table_id IN (${requestedTables.map(() => "?").join(",")})
-       AND r.reservation_time < ? AND r.end_time > ?`,
-      [date, ...requestedTables, endTime, startTime]
-    );
+      // Check conflicts just in case
+      const [conflicts] = await db.execute(
+        `SELECT rt.table_id FROM reservations r
+         JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
+         WHERE r.reservation_date = ? 
+         AND r.status IN ('Pending', 'Confirmed', 'Seated')
+         AND rt.table_id IN (${requestedTables.map(() => "?").join(",")})
+         AND r.reservation_time < ? AND r.end_time > ?`,
+        [date, ...requestedTables, endTime, startTime]
+      );
 
-    if (conflicts.length > 0) {
-      return res.status(400).json({ message: "Table already occupied for this time." });
-    }
+      if (conflicts.length > 0) {
+            return res.status(400).json({ message: "Table already occupied for this time." });
+      }
 
     // 3. INSERT RESERVATION
-    // Ensure columns names match your DB exactly (snake_case)
     const [result] = await db.execute(
       `INSERT INTO reservations 
           (user_id, first_name, last_name, email, phone, reservation_date, reservation_time, end_time, num_guests, allergy, brgy_code, status, receipt_path) 
@@ -89,7 +83,7 @@ const reservationController = {
         guests,
         allergy,
         brgyCode,
-        "Pending",
+        "Confirmed",
         req.file ? req.file.filename : null
       ]
     );
@@ -103,6 +97,17 @@ const reservationController = {
         [newReservationId, tid]
       );
     }
+
+    if (userId && userId !== "null") {
+        const formattedDate = new Date(date).toLocaleDateString();
+        const tableInfo = requestedTables.length > 0 ? `at Table ${requestedTables.join(", ")}` : "";
+        
+        await db.execute(
+          "INSERT INTO notifications (user_id, title, message, type, is_read) VALUES (?, ?, ?, ?, ?)",
+          [userId, "Reservation Confirmed! ✅", `Your reservation for ${formattedDate} ${tableInfo} has been approved.`, "success", 0]
+        );
+        console.log(`Notification sent to User ID: ${userId}`);
+      }
 
     res.status(201).json({ id: newReservationId, message: "Success!" });
 

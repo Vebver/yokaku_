@@ -15,16 +15,96 @@ import {
 import "../Style/TableReservation.css";
 
 const TABLES_DATA = [
-  { id: 1, label: "T1", seats: 5, top: "23%", left: "15%", type: "rect-v", layout: "right-side" },
-  { id: 2, label: "T2", seats: 2, top: "50%", left: "25%", type: "square-sm", layout: "sides" },
-  { id: 3, label: "T3", seats: 4, top: "65%", left: "25%", type: "square", layout: "sides" },
-  { id: 4, label: "T4", seats: 4, top: "82%", left: "25%", type: "square", layout: "sides" },
-  { id: 5, label: "T5", seats: 4, top: "38%", left: "50%", type: "square", layout: "sides" },
-  { id: 6, label: "T6", seats: 4, top: "58%", left: "50%", type: "square", layout: "sides" },
-  { id: 7, label: "T7", seats: 4, top: "17%", left: "77%", type: "square", layout: "top-bottom" },
-  { id: 8, label: "T8", seats: 4, top: "45%", left: "77%", type: "square", layout: "top-bottom" },
-  { id: 9, label: "T9", seats: 4, top: "72%", left: "77%", type: "square", layout: "top-bottom" },
-  { id: 10, label: "T10", seats: 3, top: "92%", left: "65%", type: "rect-h", layout: "top-side" },
+  {
+    id: 1,
+    label: "T1",
+    seats: 5,
+    top: "23%",
+    left: "15%",
+    type: "rect-v",
+    layout: "right-side",
+  },
+  {
+    id: 2,
+    label: "T2",
+    seats: 2,
+    top: "50%",
+    left: "25%",
+    type: "square-sm",
+    layout: "sides",
+  },
+  {
+    id: 3,
+    label: "T3",
+    seats: 4,
+    top: "65%",
+    left: "25%",
+    type: "square",
+    layout: "sides",
+  },
+  {
+    id: 4,
+    label: "T4",
+    seats: 4,
+    top: "82%",
+    left: "25%",
+    type: "square",
+    layout: "sides",
+  },
+  {
+    id: 5,
+    label: "T5",
+    seats: 4,
+    top: "38%",
+    left: "50%",
+    type: "square",
+    layout: "sides",
+  },
+  {
+    id: 6,
+    label: "T6",
+    seats: 4,
+    top: "58%",
+    left: "50%",
+    type: "square",
+    layout: "sides",
+  },
+  {
+    id: 7,
+    label: "T7",
+    seats: 4,
+    top: "17%",
+    left: "77%",
+    type: "square",
+    layout: "top-bottom",
+  },
+  {
+    id: 8,
+    label: "T8",
+    seats: 4,
+    top: "45%",
+    left: "77%",
+    type: "square",
+    layout: "top-bottom",
+  },
+  {
+    id: 9,
+    label: "T9",
+    seats: 4,
+    top: "72%",
+    left: "77%",
+    type: "square",
+    layout: "top-bottom",
+  },
+  {
+    id: 10,
+    label: "T10",
+    seats: 3,
+    top: "92%",
+    left: "65%",
+    type: "rect-h",
+    layout: "top-side",
+  },
 ];
 
 export default function TableReservation({ onClose, onSuccess }) {
@@ -35,7 +115,7 @@ export default function TableReservation({ onClose, onSuccess }) {
   const [error, setError] = useState("");
 
   const [hasActiveReservation, setHasActiveReservation] = useState(false);
-  const [dbOccupiedTables, setDbOccupiedTables] = useState({}); 
+  const [dbOccupiedTables, setDbOccupiedTables] = useState({});
 
   // --- FORM STATES (ALL PRESERVED) ---
   const [firstName, setFirstName] = useState("");
@@ -62,7 +142,7 @@ export default function TableReservation({ onClose, onSuccess }) {
     const chairs = [];
     for (let i = 0; i < table.seats; i++) {
       chairs.push(
-        <div key={i} className={`chair chair-${table.layout}-${i + 1}`} />
+        <div key={i} className={`chair chair-${table.layout}-${i + 1}`} />,
       );
     }
     return chairs;
@@ -74,9 +154,13 @@ export default function TableReservation({ onClose, onSuccess }) {
       const userId = localStorage.getItem("userId");
       if (userId) {
         try {
-          const res = await axios.get(`http://localhost:5000/api/reservations/user-active/${userId}`);
+          const res = await axios.get(
+            `http://localhost:5000/api/reservations/user-active/${userId}`,
+          );
           setHasActiveReservation(res.data.hasActive);
-        } catch (err) { console.error(err); }
+        } catch (err) {
+          console.error(err);
+        }
       }
     };
     checkUser();
@@ -87,11 +171,16 @@ export default function TableReservation({ onClose, onSuccess }) {
     const fetchLiveStatus = async () => {
       if (resDate && startTime && endTime) {
         try {
-          const res = await axios.get(`http://localhost:5000/api/reservations/table-statuses`, {
-            params: { date: resDate, startTime, endTime }
-          });
+          const res = await axios.get(
+            `http://localhost:5000/api/reservations/table-statuses`,
+            {
+              params: { date: resDate, startTime, endTime },
+            },
+          );
           setDbOccupiedTables(res.data);
-        } catch (err) { console.error("Fetch Error:", err); }
+        } catch (err) {
+          console.error("Fetch Error:", err);
+        }
       }
     };
     fetchLiveStatus();
@@ -144,13 +233,17 @@ export default function TableReservation({ onClose, onSuccess }) {
   useEffect(() => {
     fetch("http://localhost:5000/api/address/municipalities")
       .then((res) => res.json())
-      .then((data) => setMunicipalities(Array.isArray(data) ? data : data.data || []))
+      .then((data) =>
+        setMunicipalities(Array.isArray(data) ? data : data.data || []),
+      )
       .catch((err) => console.error(err));
   }, []);
 
   useEffect(() => {
     if (selectedMunicipality && selectedMunicipality !== "undefined") {
-      fetch(`http://localhost:5000/api/address/barangays/${selectedMunicipality}`)
+      fetch(
+        `http://localhost:5000/api/address/barangays/${selectedMunicipality}`,
+      )
         .then((res) => res.json())
         .then((data) => setBarangays(Array.isArray(data) ? data : []))
         .catch((err) => console.error(err));
@@ -176,22 +269,37 @@ export default function TableReservation({ onClose, onSuccess }) {
       data.append("tableIds", JSON.stringify([selectedId, ...linkedIds]));
       data.append("allergy", allergy === "Other" ? otherAllergy : allergy);
       data.append("receipt", receipt);
-      data.append("status", "Pending");
+      data.append("status", "Confirmed");
 
-      const response = await axios.post("http://localhost:5000/api/reservations/table", data, {
+      const response = await axios.post(
+        "http://localhost:5000/api/reservations/table",
+        data,
+        {
           headers: { "Content-Type": "multipart/form-data" },
-      });
+        },
+      );
       if (response.status === 200 || response.status === 201) onSuccess();
     } catch (err) {
       setError(err.response?.data?.message || "Booking failed.");
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleTableClick = (table) => {
-    if (dbOccupiedTables[table.id]) return; 
+    if (dbOccupiedTables[table.id]) return;
     if (isLinkMode) {
-      if (table.id === selectedId) { setSelectedId(null); setLinkedIds([]); setIsLinkMode(false); return; }
-      setLinkedIds((p) => p.includes(table.id) ? p.filter((id) => id !== table.id) : [...p, table.id]);
+      if (table.id === selectedId) {
+        setSelectedId(null);
+        setLinkedIds([]);
+        setIsLinkMode(false);
+        return;
+      }
+      setLinkedIds((p) =>
+        p.includes(table.id)
+          ? p.filter((id) => id !== table.id)
+          : [...p, table.id],
+      );
     } else {
       setSelectedId(selectedId === table.id ? null : table.id);
       setLinkedIds([]);
@@ -204,32 +312,60 @@ export default function TableReservation({ onClose, onSuccess }) {
     return new Date(now - offset).toISOString().split("T")[0];
   }, []);
 
-  const primaryTable = useMemo(() => TABLES_DATA.find((t) => t.id === selectedId), [selectedId]);
+  const primaryTable = useMemo(
+    () => TABLES_DATA.find((t) => t.id === selectedId),
+    [selectedId],
+  );
   const totalSeats = useMemo(() => {
     if (!primaryTable) return 0;
-    const linkedSeats = TABLES_DATA.filter((t) => linkedIds.includes(t.id)).reduce((s, t) => s + t.seats, 0);
+    const linkedSeats = TABLES_DATA.filter((t) =>
+      linkedIds.includes(t.id),
+    ).reduce((s, t) => s + t.seats, 0);
     return primaryTable.seats + linkedSeats;
   }, [primaryTable, linkedIds]);
 
   const isFormInvalid = useMemo(() => {
     return (
-      !firstName || !lastName || !resDate || !startTime || !endTime ||
-      !selectedBarangay || !receipt || !email || !phone || hasActiveReservation
+      !firstName ||
+      !lastName ||
+      !resDate ||
+      !startTime ||
+      !endTime ||
+      !selectedBarangay ||
+      !receipt ||
+      !email ||
+      !phone ||
+      hasActiveReservation
     );
-  }, [firstName, lastName, resDate, startTime, endTime, selectedBarangay, receipt, email, phone, hasActiveReservation]);
+  }, [
+    firstName,
+    lastName,
+    resDate,
+    startTime,
+    endTime,
+    selectedBarangay,
+    receipt,
+    email,
+    phone,
+    hasActiveReservation,
+  ]);
 
   return (
     <div className="floor-plan-wrapper" onClick={onClose}>
       <div className="floor-plan-main" onClick={(e) => e.stopPropagation()}>
         <header className="floor-header">
           <div className="floor-logo-bar">
-            <div className="floor-icon-circle"><UtensilsCrossed size={20} color="white" /></div>
+            <div className="floor-icon-circle">
+              <UtensilsCrossed size={20} color="white" />
+            </div>
             <div className="floor-header-text">
               <h1 className="floor-title">Floor Plan</h1>
               <p className="floor-subtitle">Select a table to reserve</p>
             </div>
           </div>
-          <button className="floor-back-btn" onClick={onClose}>Back</button>
+          <button className="floor-back-btn" onClick={onClose}>
+            Back
+          </button>
         </header>
 
         <div className="map-scroll-area">
@@ -239,9 +375,12 @@ export default function TableReservation({ onClose, onSuccess }) {
                 const dbStatus = dbOccupiedTables[table.id];
                 let statusClass = "available"; // GREEN
 
-                if (dbStatus === "Confirmed") statusClass = "occupied"; // RED
-                else if (dbStatus === "Pending") statusClass = "reserved"; // ORANGE (DB Pending)
-                else if (selectedId === table.id) statusClass = "selected"; // ORANGE (Current Selection)
+                if (dbStatus === "Confirmed" || dbStatus === "Seated")
+                  statusClass = "occupied"; // RED
+                else if (dbStatus === "Pending")
+                  statusClass = "reserved"; // ORANGE (DB Pending)
+                else if (selectedId === table.id)
+                  statusClass = "selected"; // ORANGE (Current Selection)
                 else if (linkedIds.includes(table.id)) statusClass = "linked"; // BLUE
 
                 return (
@@ -250,7 +389,12 @@ export default function TableReservation({ onClose, onSuccess }) {
                     className={`floor-table ${table.type} ${statusClass}`}
                     style={{ top: table.top, left: table.left }}
                     onClick={() => {
-                      if (dbStatus) return;
+                      if (
+                        dbStatus === "Confirmed" ||
+                        dbStatus === "Seated" ||
+                        dbStatus === "Pending"
+                      )
+                        return;
                       handleTableClick(table);
                     }}
                   >
@@ -267,10 +411,18 @@ export default function TableReservation({ onClose, onSuccess }) {
         </div>
 
         <div className="floor-legend">
-          <div className="legend-item"><span className="dot available"></span> Green: Available</div>
-          <div className="legend-item"><span className="dot selected"></span> Orange: Selected</div>
-          <div className="legend-item"><span className="dot linked"></span> Blue: Linked</div>
-          <div className="legend-item"><span className="dot occupied"></span> Red: Occupied</div>
+          <div className="legend-item">
+            <span className="dot available"></span> Green: Available
+          </div>
+          <div className="legend-item">
+            <span className="dot selected"></span> Orange: Selected
+          </div>
+          <div className="legend-item">
+            <span className="dot linked"></span> Blue: Linked
+          </div>
+          <div className="legend-item">
+            <span className="dot occupied"></span> Red: Occupied
+          </div>
         </div>
       </div>
 
@@ -278,96 +430,211 @@ export default function TableReservation({ onClose, onSuccess }) {
         {hasActiveReservation ? (
           <div className="reserved-notice fade-in">
             <Info size={32} color="#e74c3c" />
-            <p>You already have an active reservation. You cannot book again.</p>
+            <p>
+              You already have an active reservation. You cannot book again.
+            </p>
           </div>
         ) : !primaryTable ? (
-          <div className="empty-sidebar"><p>Select a table to reserve</p></div>
+          <div className="empty-sidebar">
+            <p>Select a table to reserve</p>
+          </div>
         ) : (
           <div className="res-panel fade-in">
-            <button className="panel-close" onClick={() => { setSelectedId(null); setIsLinkMode(false); }}><X size={18} /></button>
-            <h2 className="panel-title">Reserve {primaryTable.id} {linkedIds.map((id) => ` + ${id}`)}</h2>
+            <button
+              className="panel-close"
+              onClick={() => {
+                setSelectedId(null);
+                setIsLinkMode(false);
+              }}
+            >
+              <X size={18} />
+            </button>
+            <h2 className="panel-title">
+              Reserve {primaryTable.id} {linkedIds.map((id) => ` + ${id}`)}
+            </h2>
 
             <div className="res-form">
-              <button className={`btn-link-mode ${isLinkMode ? "active" : ""}`} onClick={() => setIsLinkMode(!isLinkMode)}>
+              <button
+                className={`btn-link-mode ${isLinkMode ? "active" : ""}`}
+                onClick={() => setIsLinkMode(!isLinkMode)}
+              >
                 {isLinkMode ? "Done Linking" : "Link Tables"}
               </button>
 
               <div className="input-group">
-                <label>FIRST NAME <Pencil size={14} onClick={() => setIsEditing(!isEditing)} /></label>
-                <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} disabled={!isEditing} />
+                <label>
+                  FIRST NAME{" "}
+                  <Pencil size={14} onClick={() => setIsEditing(!isEditing)} />
+                </label>
+                <input
+                  type="text"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  disabled={!isEditing}
+                />
               </div>
               <div className="input-group">
                 <label>LAST NAME</label>
-                <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} disabled={!isEditing} />
+                <input
+                  type="text"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  disabled={!isEditing}
+                />
               </div>
               <div className="input-group">
                 <label>EMAIL ADDRESS</label>
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled={!isEditing} />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={!isEditing}
+                />
               </div>
               <div className="input-group">
                 <label>CONTACT NUMBER</label>
-                <input type="text" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 11))} />
+                <input
+                  type="text"
+                  value={phone}
+                  onChange={(e) =>
+                    setPhone(e.target.value.replace(/\D/g, "").slice(0, 11))
+                  }
+                />
               </div>
 
               <div className="input-row">
-                <div className="input-group"><label>MUNICIPALITY</label>
-                  <select value={selectedMunicipality} onChange={(e) => setSelectedMunicipality(e.target.value)}>
+                <div className="input-group">
+                  <label>MUNICIPALITY</label>
+                  <select
+                    value={selectedMunicipality}
+                    onChange={(e) => setSelectedMunicipality(e.target.value)}
+                  >
                     <option value="">Select City</option>
-                    {municipalities.map((m) => <option key={m.code} value={m.code}>{m.name}</option>)}
+                    {municipalities.map((m) => (
+                      <option key={m.code} value={m.code}>
+                        {m.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
-                <div className="input-group"><label>BARANGAY</label>
-                  <select value={selectedBarangay} onChange={(e) => setSelectedBarangay(e.target.value)} disabled={!selectedMunicipality}>
+                <div className="input-group">
+                  <label>BARANGAY</label>
+                  <select
+                    value={selectedBarangay}
+                    onChange={(e) => setSelectedBarangay(e.target.value)}
+                    disabled={!selectedMunicipality}
+                  >
                     <option value="">Select Brgy</option>
-                    {barangays.map((b) => <option key={b.code} value={b.code}>{b.name}</option>)}
+                    {barangays.map((b) => (
+                      <option key={b.code} value={b.code}>
+                        {b.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
 
-              <div className="input-group"><label>DATE</label>
-                <input type="date" value={resDate} min={todayStr} onChange={(e) => setResDate(e.target.value)} />
+              <div className="input-group">
+                <label>DATE</label>
+                <input
+                  type="date"
+                  value={resDate}
+                  min={todayStr}
+                  onChange={(e) => setResDate(e.target.value)}
+                />
               </div>
 
               <div className="input-row">
-                <div className="input-group"><label>START</label>
-                  <select value={startTime} onChange={(e) => setStartTime(e.target.value)}>
+                <div className="input-group">
+                  <label>START</label>
+                  <select
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                  >
                     <option value="">--:--</option>
-                    {timeOptions.map((t) => <option key={t} value={t}>{t}</option>)}
+                    {timeOptions.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
                   </select>
                 </div>
-                <div className="input-group"><label>END</label>
-                  <select value={endTime} onChange={(e) => setEndTime(e.target.value)} disabled={!startTime}>
+                <div className="input-group">
+                  <label>END</label>
+                  <select
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    disabled={!startTime}
+                  >
                     <option value="">--:--</option>
-                    {filteredEndTimeOptions.map((t) => <option key={t} value={t}>{t}</option>)}
+                    {filteredEndTimeOptions.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
 
-              <div className="input-group"><label>GUESTS (MAX {totalSeats})</label>
-                <input type="number" min="1" max={totalSeats} value={guestCount} onChange={(e) => setGuestCount(Number(e.target.value))} />
+              <div className="input-group">
+                <label>GUESTS (MAX {totalSeats})</label>
+                <input
+                  type="number"
+                  min="1"
+                  max={totalSeats}
+                  value={guestCount}
+                  onChange={(e) => setGuestCount(Number(e.target.value))}
+                />
               </div>
 
               <div className="input-group">
                 <label>ALLERGY</label>
-                <select value={allergy} onChange={(e) => setAllergy(e.target.value)}>
+                <select
+                  value={allergy}
+                  onChange={(e) => setAllergy(e.target.value)}
+                >
                   <option value="No Allergy">No Allergy</option>
                   <option value="Peanuts">Peanuts</option>
                   <option value="Seafood">Seafood</option>
                   <option value="Other">Other</option>
                 </select>
-                {allergy === "Other" && <input type="text" placeholder="Specify allergy" value={otherAllergy} onChange={(e) => setOtherAllergy(e.target.value)} style={{ marginTop: "5px" }} />}
+                {allergy === "Other" && (
+                  <input
+                    type="text"
+                    placeholder="Specify allergy"
+                    value={otherAllergy}
+                    onChange={(e) => setOtherAllergy(e.target.value)}
+                    style={{ marginTop: "5px" }}
+                  />
+                )}
               </div>
 
               <div className="input-group">
                 <label>PROOF OF PAYMENT</label>
-                <input type="file" ref={fileInputRef} hidden onChange={(e) => setReceipt(e.target.files[0])} />
-                <button type="button" className="btn-link-mode" style={{ width: "100%" }} onClick={() => fileInputRef.current.click()}>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  hidden
+                  onChange={(e) => setReceipt(e.target.files[0])}
+                />
+                <button
+                  type="button"
+                  className="btn-link-mode"
+                  style={{ width: "100%" }}
+                  onClick={() => fileInputRef.current.click()}
+                >
                   {receipt ? receipt.name : "Upload Image"}
                 </button>
               </div>
 
-              {error && <p style={{ color: "red", fontSize: "12px" }}>{error}</p>}
-              <button className={`btn-confirm ${isFormInvalid ? "btn-disabled" : ""}`} onClick={handleConfirmReservation} disabled={isFormInvalid || loading}>
+              {error && (
+                <p style={{ color: "red", fontSize: "12px" }}>{error}</p>
+              )}
+              <button
+                className={`btn-confirm ${isFormInvalid ? "btn-disabled" : ""}`}
+                onClick={handleConfirmReservation}
+                disabled={isFormInvalid || loading}
+              >
                 {loading ? "Processing..." : "Confirm Reservation"}
               </button>
             </div>
