@@ -1,220 +1,104 @@
-/* AdminDashboard POS-style Styles */
-.admin-container {
+/* --- Variables --- */
+:root {
+  --sidebar-width: 260px;
+  --sidebar-collapsed-width: 80px;
+  --bg-body: #f4f7f6;
+  --primary: #10b981; 
+  --dark-sidebar: #111827;
+  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* --- Layout --- */
+.admin-layout {
   display: flex;
   min-height: 100vh;
-  background-color: #f8fafc;
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-}
-.main-wrapper {
-  flex-grow: 1;
-  min-width: 0; /* Critical for charts to stay within container */
-  display: flex;
-  flex-direction: column;
+  background-color: var(--bg-body);
+  font-family: 'Inter', 'Segoe UI', sans-serif;
 }
 
+/* --- Sidebar --- */
 .admin-sidebar {
-  width: 250px; /* Default width */
-  background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
-  color: white;
-  position: sticky; /* Keeps it on screen but stays in the flex flow */
-  top: 0;
   height: 100vh;
-  overflow-y: auto;
-  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
-  z-index: 1000;
-  flex-shrink: 0; /* Prevents the sidebar from getting squashed */
-  transition: width 0.3s ease; /* Smooth transition when collapsing */
-}
-.admin-sidebar.expand {
-  width: 250px;
-}
-.admin-sidebar.collapsed {
-  width: 80px;
-}
-
-.sidebar-header {
-  padding: 1.5rem 1rem;
+  position: sticky;
+  top: 0;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 70px;
-}
-.sidebar-nav {
-  padding: 1rem 0;
-  flex-grow: 1;
-}
-
-.sidebar-item {
-  display: flex;
-  align-items: center;
-  padding: 1rem 1.5rem;
-  color: #d1d5db;
-  text-decoration: none;
-  transition: all 0.2s;
-  font-weight: 500;
-  border-radius: 8px;
-  margin-bottom: 0.3rem;
-  border: none;
-  background: transparent;
-  width: 100%;
-  white-space: nowrap;
-}
-
-.sidebar-item:hover,
-.sidebar-item.active {
-  background-color: #10b981;
-  color: white;
-}
-
-.sidebar-item svg {
-  width: 20px;
-  height: 20px;
-  margin-right: 1rem;
-}
-
-.sidebar-item i {
-  font-size: 1.2rem;
-  min-width: 35px; /* Ensures icons line up when collapsed */
-  display: flex;
-  justify-content: center;
-}
-
-.admin-main {
-  padding: 2rem;
-  flex: 1;
-  min-width: 0%;
-}
-
-.admin-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.hamburger {
-  display: none;
   flex-direction: column;
-  cursor: pointer;
-}
-
-.hamburger span {
-  width: 25px;
-  height: 3px;
-  background: #1f2937;
-  margin: 3px 0;
-  transition: 0.3s;
-}
-
-.section-content {
-  background: white;
-  border-radius: 12px;
-  padding: 2rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-}
-
-.section-title {
-  font-size: 1.8rem;
-  font-weight: 700;
-  color: #111827;
-  margin-bottom: 1.5rem;
-}
-
-.table-container {
-  overflow-x: auto;
-}
-
-.admin-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-bottom: 1rem;
-}
-
-.admin-table th,
-.admin-table td {
-  padding: 1rem;
-  text-align: left;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.admin-table th {
-  background-color: #f9fafb;
-  font-weight: 600;
-  color: #374151;
-}
-
-.admin-table tr:hover {
-  background-color: #f9fafb;
-}
-
-.btn {
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.2s;
-  text-decoration: none;
-  display: inline-block;
-}
-
-.btn-primary {
-  background-color: #10b981;
+  background: var(--dark-sidebar);
   color: white;
+  transition: var(--transition);
+  z-index: 1050;
+  flex-shrink: 0;
 }
 
-.btn-primary:hover {
-  background-color: #059669;
-}
+.admin-sidebar.expanded { width: var(--sidebar-width); }
+.admin-sidebar.collapsed { width: var(--sidebar-collapsed-width); }
 
-.btn-danger {
-  background-color: #ef4444;
-  color: white;
-}
-
-.btn-danger:hover {
-  background-color: #dc2626;
-}
-
-.card {
-  background: white;
-  border-radius: 12px;
-  padding: 1.5rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  margin-bottom: 1rem;
-}
-
-.sales-chart {
-  height: 300px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 12px;
+.nav-link {
+  color: #9ca3af;
+  border-radius: 8px;
+  margin: 4px 12px;
+  padding: 12px 16px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: 1.2rem;
+  transition: var(--transition);
+  white-space: nowrap;
+  border: none;
+  font-weight: 500;
 }
 
-@media (max-width: 768px) {
+.nav-link:hover, .nav-link.active {
+  background-color: var(--primary) !important;
+  color: white !important;
+}
+
+/* --- Main Content Area --- */
+.main-container {
+  flex-grow: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+main {
+  padding: 2rem;
+  animation: fadeIn 0.4s ease-in;
+}
+
+/* --- THE 4 BIG BOXES (NO MOVEMENT) --- */
+.card {
+  border: none;
+  border-radius: 1.25rem;
+  /* Removed all transitions and transforms from here */
+}
+
+/* Ensure no hover effect exists globally for cards */
+.card:hover {
+  transform: none !important;
+  transition: none !important;
+}
+
+.display-5 {
+  font-size: 2.5rem;
+  font-weight: 800;
+}
+
+/* Subtle backgrounds for icons */
+.bg-primary-subtle { background-color: #e0f2fe; }
+.bg-success-subtle { background-color: #dcfce7; }
+.bg-warning-subtle { background-color: #fef3c7; }
+.bg-danger-subtle { background-color: #fee2e2; }
+
+/* --- Animations --- */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 767px) {
   .admin-sidebar {
-   position: fixed;
-   left : 0;
-   transform: translateX(-100%);
-   width: 250px !important;
+    position: fixed;
+    left: 0;
+    transform: translateX(-100%);
   }
-
-  .admin-sidebar.open {
-    transform: translateX(0);
-  }
-
-  .admin-main {
-    margin-left: 0;
-    padding: 1rem;
-  }
-
-  .hamburger {
-    display: flex;
-  }
+  .admin-sidebar.expanded { transform: translateX(0); }
 }
