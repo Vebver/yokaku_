@@ -17,6 +17,7 @@ import { Bar } from "react-chartjs-2";
 import Billing from "./Billing";
 import Inventory from "./Inventory";
 import Product from "./Product";
+import Reports from "./Reports";
 import Profile from "./Profile";
 import Reservation from "./Reservation";
 import Categories from "./Categories";
@@ -52,18 +53,30 @@ const navItems = [
   { id: "inventory", label: "Inventory", icon: Icons.Products },
   { id: "recipe", label: "Recipes", icon: Icons.Recipe },
   { id: "products", label: "Menu Items", icon: Icons.Products }, // Renamed to Menu Items
+  { id: "report", label: "Report", icon: Icons.Sales },
   { id: "reservations", label: "Reservations", icon: Icons.Reservations },
   { id: "billing", label: "Billing", icon: Icons.Billing },
   { id: "profile", label: "Profile", icon: Icons.Profile },
 ];
 
-const StatCard = ({ title, value, color }) => (
-  <div className="col-12 col-sm-6 col-xl-3">
-    <div
-      className={`card border-0 shadow-sm p-3 border-start border-${color} border-4`}
-    >
-      <small className="text-muted text-uppercase fw-bold">{title}</small>
-      <h3 className={`fw-bold mb-0 text-${color}`}>{value}</h3>
+const StatCard = ({ title, value, color, icon }) => (
+  <div className="col-12 col-md-6 col-xl-3">
+    {/* Removed 'transition-all' and 'hover-lift' classes */}
+    <div className="card border-0 shadow-sm h-100 rounded-4 bg-white">
+      <div className="card-body p-4 p-xxl-5 text-center">
+        <div
+          className={`mx-auto mb-4 d-flex align-items-center justify-content-center rounded-circle bg-${color}-subtle text-${color}`}
+          style={{ width: "80px", height: "80px" }}
+        >
+          <i className={`bi ${icon}`} style={{ fontSize: "2.5rem" }}></i>
+        </div>
+
+        <p className="text-muted fw-bold text-uppercase mb-2" style={{ letterSpacing: "1px", fontSize: "0.9rem" }}>
+          {title}
+        </p>
+
+        <h1 className="display-5 fw-bold mb-0 text-dark">{value}</h1>
+      </div>
     </div>
   </div>
 );
@@ -142,68 +155,40 @@ function AdminDashboard() {
   );
 
   const DashboardOverview = () => (
-    <div className="container-fluid fade-in">
-      <h2 className="mb-4 fw-bold">Dashboard Overview</h2>
+    <div className="container-fluid fade-in py-3">
+      <div className="mb-5">
+        <h1 className="fw-bold text-dark">Welcome Back, Admin</h1>
+        <p className="text-muted fs-5">
+          Here is what's happening at Hangout today.
+        </p>
+      </div>
 
-      {/* Updated Cards for "Unli" Restaurant Logic */}
-      <div className="row g-3 mb-4">
+      {/* The 4 Big Boxes */}
+      <div className="row g-4 mb-5">
         <StatCard
           title="Total Bookings"
           value={stats.totalBookings}
           color="primary"
+          icon="bi-calendar-check-fill"
         />
         <StatCard
           title="Active Tables"
           value={stats.activeTables}
           color="success"
+          icon="bi-door-open-fill"
         />
         <StatCard
           title="Kitchen Queue"
           value={stats.kitchenQueue}
           color="warning"
+          icon="bi-egg-fried"
         />
         <StatCard
           title="Total Revenue"
           value={`₱${stats.revenue.toLocaleString()}`}
           color="danger"
+          icon="bi-wallet-fill"
         />
-      </div>
-
-      <div className="row g-4">
-        <div className="col-12">
-          <div className="card border-0 shadow-sm p-4 h-100">
-            <div className="d-flex justify-content-between align-items-center mb-4">
-              <h5 className="fw-bold m-0">
-                Monthly Booking Revenue (Downpayments)
-              </h5>
-              <button
-                className="btn btn-sm btn-outline-primary"
-                onClick={fetchDashboardData}
-              >
-                <i className="bi bi-arrow-clockwise"></i> Refresh
-              </button>
-            </div>
-            <div style={{ height: "400px" }}>
-              {loading ? (
-                <div className="h-100 d-flex align-items-center justify-content-center">
-                  <div
-                    className="spinner-border text-primary"
-                    role="status"
-                  ></div>
-                </div>
-              ) : (
-                <Bar
-                  data={barChartConfig}
-                  options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: { y: { beginAtZero: true } },
-                  }}
-                />
-              )}
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
@@ -216,6 +201,7 @@ function AdminDashboard() {
       recipe: <RecipeManager />, 
       products: <Product />,
       categories: <Categories />,
+      report: <Reports />,
       profile: <Profile />,
       reservations: <Reservation />,
     };
@@ -315,21 +301,6 @@ function AdminDashboard() {
           onClick={() => setSidebarOpen(false)}
         ></div>
       )}
-
-      <style>{`
-        .admin-layout { display: flex; min-height: 100vh; background-color: #f4f7f6; }
-        .admin-sidebar { height: 100vh; position: sticky; top: 0; display: flex; flex-direction: column; transition: width 0.3s ease; z-index: 1050; flex-shrink: 0; }
-        .admin-sidebar.expanded { width: 260px; }
-        .admin-sidebar.collapsed { width: 80px; }
-        .main-container { flex-grow: 1; min-width: 0; display: flex; flex-direction: column; }
-        .fade-in { animation: fadeIn 0.4s ease-in; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        @media (max-width: 767px) {
-          .admin-sidebar { position: fixed; left: 0; transform: translateX(-100%); }
-          .admin-sidebar.expanded { transform: translateX(0); width: 260px; }
-          .mobile-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1040; }
-        }
-      `}</style>
     </div>
   );
 }
