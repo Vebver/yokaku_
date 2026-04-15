@@ -79,7 +79,6 @@ function App() {
                   <HeroSection
                     isLoggedIn={isLoggedIn}
                     onLoginClick={() => setIsLoginOpen(true)}
-                    // Intercept with Terms
                     onReserveClick={() => setShowTerms(true)}
                   />
                   <div id="menu-section"><FeaturedMenu /></div>
@@ -107,7 +106,7 @@ function App() {
             element={
               isLoggedIn ? (
                 <CustomerPage
-                  onReserveClick={() => setShowTerms(true)} // Intercept with Terms
+                  onReserveClick={() => setShowTerms(true)}
                   onSuccess={handleReservationSuccess} 
                 />
               ) : (
@@ -119,7 +118,6 @@ function App() {
           <Route path="/profile" element={isLoggedIn ? <CustomerProfile /> : <Navigate to="/" replace />} />
           <Route path="/notifications" element={isLoggedIn ? <Notifications /> : <Navigate to="/" replace />} />
           <Route path="/admin/*" element={<AdminDashboard />} />
-          <Route path="/login" element={<Navigate to="/" replace />} />
           <Route path="/kiosk-selection" element={<KioskSelection />} />
           <Route path="/kiosk-selection/kiosk-menu" element={<KioskMenu />} />
           <Route path="/kitchen-page" element={<KitchenPage/>} />
@@ -127,9 +125,9 @@ function App() {
           <Route path="/kiosk-selection/kiosk-reservation-menu" element={<KioskReservationMenu />} />
         </Routes>
 
+        {/* Modals and Overlays */}
         {isLoginOpen && <LoginSection onClose={() => setIsLoginOpen(false)} />}
 
-        {/* TERMS AND CONDITIONS MODAL */}
         <TermsModal 
           isOpen={showTerms} 
           onClose={() => setShowTerms(false)} 
@@ -140,6 +138,8 @@ function App() {
           <ReservationSuccess 
             onClose={() => {
               setShowSuccessMessage(false);
+              // Instead of window.location, it's better to use useNavigate() 
+              // but keeping your logic:
               window.location.href = isLoggedIn ? "/customer" : "/";
             }} 
           />
@@ -161,20 +161,26 @@ const ReservationSuccess = ({ onClose }) => {
         </p>
         <button className="res-btn-continue" onClick={onClose}>OKAY</button>
       </div>
-    </div>
-  </div>
-);
+    </div>  
+  )};
 
 const NavbarWrapper = ({ onLoginClick, isLoggedIn, onLogout }) => {
   const location = useLocation();
-  if (
+  
+  if (  
     location.pathname.startsWith("/admin") ||
     location.pathname.startsWith("/cashier-selection") ||
     location.pathname.startsWith("/kiosk-selection") ||
     location.pathname.startsWith("/kitchen-page") ||
     location.pathname === "/tablereservation"
-  ) { return null; }
-  if (isLoggedIn) { return <CustomerNavbar onLogout={onLogout} />; }
+  ) { 
+    return null; 
+  }
+
+  if (isLoggedIn) { 
+    return <CustomerNavbar onLogout={onLogout} />; 
+  }
+
   return <Navbar onLoginClick={onLoginClick} isLoggedIn={isLoggedIn} onLogout={onLogout} />;
 };
 
