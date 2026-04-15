@@ -353,20 +353,18 @@
 
 /* --- MODERN CUSTOM MODAL --- */
 .res-modal-overlay {
-  position: fixed !important; /* Changed from absolute to fixed */
+  position: fixed !important;
   top: 0;
   left: 0;
-  right: 0;
-  bottom: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.85); /* Slightly darker for better focus */
-  backdrop-filter: blur(10px);
+  background: rgba(0, 0, 0, 0.9);
+  /* BACKDROP BLUR SOMETIMES BREAKS KIOSK TOUCH - REMOVED */
   display: flex;
   justify-content: center;
   align-items: center;
-  /* Set a massive z-index to stay above the grey bottom bar */
-  z-index: 999999 !important; 
+  z-index: 200000 !important; 
+  pointer-events: auto;
 }
 
 .res-modal-card {
@@ -486,6 +484,9 @@
   align-items: center;
   border-bottom: 1px solid #333;
   position: relative;
+  /* INCREASED Z-INDEX TO ENSURE IT'S NEVER BLOCKED */
+  z-index: 99999; 
+  pointer-events: auto;
 }
 
 .timer-box {
@@ -500,6 +501,9 @@
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
+  /* BUTTON INSIDE THIS BOX NEEDS TO BE CLICKABLE */
+  z-index: 100000;
+  pointer-events: auto !important; 
 }
 
 .timer-text {
@@ -559,6 +563,25 @@
   gap: 1rem;
   width: 100%;
   overflow: hidden; /* Vital for internal scrollbars to work */
+}
+
+.finish-session-header-btn {
+  background-color: #ffcc00;
+  color: #000;
+  border: none;
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-weight: 900;
+  cursor: pointer;
+  position: relative;
+  z-index: 100001;
+  pointer-events: auto !important;
+  transition: all 0.2s ease;
+} 
+
+.finish-session-header-btn:active {
+  transform: scale(0.9);
+  background-color: #e6b800;
 }
 
 /* Mobile Responsiveness */
