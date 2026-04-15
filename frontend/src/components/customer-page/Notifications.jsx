@@ -20,11 +20,10 @@ const Notifications = () => {
     } catch (err) {
       console.error("Error fetching notifications", err);
     } finally {
-      setLoading(false); // Always set loading to false
+      setLoading(false);
     }
   };
 
-  // Mark single as read
   const markAsRead = async (id) => {
     try {
       const token = localStorage.getItem("token");
@@ -37,7 +36,6 @@ const Notifications = () => {
     } catch (err) { console.error(err); }
   };
 
-  // Mark all as read
   const markAllAsRead = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -52,7 +50,6 @@ const Notifications = () => {
     <div className="notifications-page">
       <div className="notifications-container">
         
-        {/* --- HEADER SECTION: Always rendered, never inside an IF statement --- */}
         <div className="notifications-header">
           <h1 className="notif-title-text">NOTIFICATIONS</h1>
           {!loading && notifications.some(n => !n.is_read) && (
@@ -62,7 +59,6 @@ const Notifications = () => {
           )}
         </div>
 
-        {/* --- LIST SECTION --- */}
         <div className="notifications-list">
           {loading ? (
             <div className="no-notifications"><p>Loading notifications...</p></div>
@@ -78,7 +74,15 @@ const Notifications = () => {
                 </div>
                 <div className="notification-content">
                   <div className="notification-top">
-                    <span className="notification-title">{n.title || "UPDATE"}</span>
+                    <div className="notification-title-group">
+                        <span className="notification-title">{n.title || "UPDATE"}</span>
+                        
+                        {n.reservation_id && (
+                            <span className="notif-res-id-badge">
+                                {n.reservation_id}
+                            </span>
+                        )}
+                    </div>
                     <span className="notification-time">
                         {new Date(n.created_at).toLocaleDateString()}
                     </span>
