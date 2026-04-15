@@ -53,7 +53,7 @@ export default function TableReservation({ onClose, onSuccess }) {
   const [receipt, setReceipt] = useState(null);
   const fileInputRef = useRef(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-
+  const [selectedItems, setSelectedItems] = useState([]);
   const [municipalities, setMunicipalities] = useState([]);
   const [barangays, setBarangays] = useState([]);
   const [selectedMunicipality, setSelectedMunicipality] = useState("");
@@ -178,6 +178,7 @@ export default function TableReservation({ onClose, onSuccess }) {
       data.append("allergy", allergy === "Other" ? otherAllergy : allergy);
       data.append("receipt", receipt);
       data.append("status", "Confirmed");
+      data.append("selectedItems", JSON.stringify(selectedItems.map((item) => ({ id: item.id, name: item.name, price: item.price, quantity: item.quantity }))));
 
       const response = await axios.post("http://localhost:5000/api/reservations/table", data, {
         headers: { "Content-Type": "multipart/form-data" },
@@ -419,7 +420,9 @@ export default function TableReservation({ onClose, onSuccess }) {
         )}
       </aside>
 
-      <MenuModal isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+      <MenuModal isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)}
+      onSelectedItemsChange={(items) => setSelectedItems(items)}
+      initialSelectedItems={selectedItems} />
     </div>
   );
 }

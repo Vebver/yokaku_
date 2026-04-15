@@ -180,15 +180,97 @@
     transform: scale(1.02);
 }
 
+/* --- Footer Container --- */
 .menu-modal-footer {
-    padding: 20px;
-    text-align: center;
-    color: #999;
-    font-size: 13px;
-    border-top: 1px solid #f0f0f0;
-    flex-shrink: 0;
+    padding: 25px 40px;
+    background: #ffffff;
+    border-top: 1px solid #f2f2f2;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
 }
 
+/* Original Disclaimer Text */
+.menu-modal-footer > p {
+    margin: 0;
+    color: #999;
+    font-size: 13px;
+    text-align: center;
+    font-style: italic;
+}
+
+/* The horizontal bar containing Total and Button */
+.tray-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #fdfdfd;
+    padding: 15px 25px;
+    border-radius: 20px;
+    border: 1px solid #eee;
+}
+
+.total-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.total-info span {
+    font-size: 16px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.total-info strong {
+    font-size: 28px;
+    color: var(--text-dark);
+    font-family: 'Playfair Display', serif;
+}
+
+/* --- THE NEW CONFIRM BUTTON DESIGN --- */
+.confirm-menu-btn {
+    background: linear-gradient(135deg, #f38d31 0%, #e67e22 100%);
+    color: white;
+    border: none;
+    padding: 16px 40px;
+    border-radius: 16px;
+    font-weight: 800;
+    font-size: 16px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+    box-shadow: 0 10px 20px rgba(243, 141, 49, 0.3);
+}
+
+.confirm-menu-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 15px 30px rgba(243, 141, 49, 0.4);
+    filter: brightness(1.1);
+}
+
+.confirm-menu-btn:active {
+    transform: translateY(-1px);
+}
+
+.confirm-menu-btn:disabled {
+    background: #ccc;
+    box-shadow: none;
+    cursor: not-allowed;
+}
+
+/* Badge inside the button */
+.btn-count-badge {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 2px 10px;
+    border-radius: 8px;
+    font-size: 14px;
+}
 /* --- Responsive Adjustments --- */
 @media (max-width: 700px) {
     .menu-grid {

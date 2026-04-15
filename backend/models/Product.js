@@ -13,16 +13,20 @@ const Product = {
     return rows;
   },
 
-  getFeatured: async () => {
-    // Selects featured items and joins with category name if needed
-    const sql = `
-      SELECT * FROM menu_items 
-      WHERE is_featured = TRUE AND is_available = 1
-      LIMIT 3
-    `;
-    const [rows] = await db.execute(sql);
-    return rows;
-  },
+ getFeatured: async () => {
+  const sql = `
+    SELECT 
+      item_id AS id,
+      name, 
+      description, 
+      price, 
+      image_url 
+    FROM menu_items 
+    WHERE is_featured = 1 AND is_available = 1
+  `;
+  const [rows] = await db.execute(sql);
+  return rows;
+},
 
   create: async (data) => {
     const sql = `

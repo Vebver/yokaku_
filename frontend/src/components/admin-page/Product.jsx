@@ -46,16 +46,19 @@ function Product() {
     }
   };
 
- const handleInputChange = (e) => {
-  const { name, value } = e.target;
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
 
-  // Convert these specific fields to Integers immediately
-  const finalValue = (name === "is_featured" || name === "is_available" || name === "category_id") 
-    ? parseInt(value) 
-    : value;
+    // Convert these specific fields to Integers immediately
+    const finalValue =
+      name === "is_featured" ||
+      name === "is_available" ||
+      name === "category_id"
+        ? parseInt(value)
+        : value;
 
-  setNewItem({ ...newItem, [name]: finalValue });
-};
+    setNewItem({ ...newItem, [name]: finalValue });
+  };
 
   const handleFileChange = (e) => {
     setNewItem({ ...newItem, image: e.target.files[0] });
@@ -167,13 +170,22 @@ function Product() {
                     <div className="d-flex align-items-center">
                       {item.image_url && (
                         <img
-                          src={item.image_url}
-                          alt=""
+                          // Change this:
+                          src={
+                            item.image_url
+                              ? `http://localhost:5000${item.image_url}`
+                              : "https://via.placeholder.com/45"
+                          }
+                          alt={item.name}
                           className="rounded me-3"
                           style={{
                             width: "45px",
                             height: "45px",
                             objectFit: "cover",
+                          }}
+                          // Error handling if image doesn't exist on server
+                          onError={(e) => {
+                            e.target.src = "https://via.placeholder.com/45";
                           }}
                         />
                       )}
@@ -196,7 +208,7 @@ function Product() {
                     </span>
                   </td>
                   <td className="fw-bold text-success">
-                     ₱{item.price ? Number(item.price).toFixed(2) : "0.00"}
+                    ₱{item.price ? Number(item.price).toFixed(2) : "0.00"}
                   </td>
                   {/* Featured toggle button */}
                   <td>

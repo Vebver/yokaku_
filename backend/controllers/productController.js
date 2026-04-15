@@ -21,7 +21,8 @@ const productController = {
       res.status(500).json({ error: "Failed to fetch featured items" });
     }
   },
-
+  
+  //
   toggleFeature: async (req, res) => {
     try {
       const { id } = req.params;
