@@ -17,7 +17,6 @@ import ReservationOrderModal from "./ReservationOrderModal";
 import OrderSummary from "./OrderSummary";
 import { io } from "socket.io-client";
 
-
 // Initialize socket (Replace with your server URL)
 const socket = io("http://localhost:5000");
 
@@ -43,8 +42,49 @@ const KioskReservationMenu = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [cart, setCart] = useState([]);
-  const [timeLeft, setTimeLeft] = useState(5400);
+  
+  // Dynamic timer states
+  const [timeLeft, setTimeLeft] = useState(0); // Initialize at 0
+  const [sessionDuration, setSessionDuration] = useState(5400); // Default 1.5h fallback
   const [isTimerRunning, setIsTimerRunning] = useState(false);
+
+  // --- HELPER: CALCULATE SECONDS BETWEEN TWO TIMES ---
+  const calculateDurationSeconds = (start, end) => {
+    const parseTime = (timeStr) => {
+      const [time, period] = timeStr.split(" ");
+      let [h, m] = time.split(":").map(Number);
+      if (period === "PM" && h !== 12) h += 12;
+      if (period === "AM" && h === 12) h = 0;
+      return h * 60 + m;
+    };
+    const diffInMinutes = parseTime(end) - parseTime(start);
+    return diffInMinutes > 0 ? diffInMinutes * 60 : 5400; // Return diff or fallback
+  };
+
+  // --- NEW: FETCH RESERVATION DETAILS FOR TIMER ---
+  useEffect(() => {
+    const fetchReservation = async () => {
+      try {
+        const response = await fetch(`http://localhost:5000/api/reservations/${reservationId}`);
+        const data = await response.json();
+        
+        if (data.success && data.reservation) {
+          const res = data.reservation;
+          // time_start and time_end should match your DB column names
+          const duration = calculateDurationSeconds(res.time_start, res.time_end);
+          setSessionDuration(duration);
+          
+          // Only update timeLeft if no session has started yet
+          if (!localStorage.getItem(TIMER_SESSION_KEY)) {
+            setTimeLeft(duration);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching reservation duration:", err);
+      }
+    };
+    if (reservationId !== "GUEST") fetchReservation();
+  }, [reservationId, TIMER_SESSION_KEY]);
 
   // Timer logic
   useEffect(() => {
@@ -151,25 +191,23 @@ const KioskReservationMenu = () => {
 
   const handleSendRequest = () => {
     if (cart.length > 0) {
-      // 3. Prepare the data to send to the kitchen
       const orderData = {
-        id: `ORDER-${Date.now()}`, // Unique ID
-        table: reservationId,       // Table number/ID
+        id: `ORDER-${Date.now()}`,
+        table: reservationId,
         items: cart.map(item => ({
           name: item.name,
           qty: item.quantity
         })),
-        instructions: "None",       // You can add a field for this later
+        instructions: "None",
         status: 'pending',
         timestamp: new Date().toISOString()
       };
 
-      // 4. Emit the event to the server
       socket.emit("send_order", orderData);
 
-      // --- Keep your existing logic below ---
       if (!localStorage.getItem(TIMER_SESSION_KEY)) {
-        localStorage.setItem(TIMER_SESSION_KEY, (Date.now() + 5400 * 1000).toString());
+        // Use the sessionDuration calculated from the DB start/end times
+        localStorage.setItem(TIMER_SESSION_KEY, (Date.now() + sessionDuration * 1000).toString());
       }
       setIsTimerRunning(true);
       setCart([]);
