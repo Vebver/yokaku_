@@ -32,3 +32,10 @@ body {
   overflow-y: auto; /* Allows vertical scrolling */
   background-color: #f8f9fa;
 }
+
+/* Media query for screens smaller than 1000px */
+@media (max-width: 1000px) {
+  .card {
+    margin-top: 90px;
+  }
+}
