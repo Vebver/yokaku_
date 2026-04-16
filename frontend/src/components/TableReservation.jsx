@@ -506,6 +506,18 @@ export default function TableReservation({ onClose, onSuccess }) {
               </button>
 
               <div className="input-group">
+                <label>
+                  <Calendar size={12} /> DATE
+                </label>
+                <input
+                  type="date"
+                  value={resDate}
+                  min={todayStr}
+                  onChange={(e) => setResDate(e.target.value)}
+                />
+              </div>
+
+              <div className="input-group">
                 <div className="label-with-icon">
                   <label>FIRST NAME</label>
                   <Pencil
@@ -591,18 +603,6 @@ export default function TableReservation({ onClose, onSuccess }) {
                 </div>
               </div>
 
-              <div className="input-group">
-                <label>
-                  <Calendar size={12} /> DATE
-                </label>
-                <input
-                  type="date"
-                  value={resDate}
-                  min={todayStr}
-                  onChange={(e) => setResDate(e.target.value)}
-                />
-              </div>
-
               <div className="input-row">
                 <div className="input-group">
                   <label>
@@ -664,7 +664,7 @@ export default function TableReservation({ onClose, onSuccess }) {
                   <input
                     type="text"
                     className="res-input fade-in"
-                    style={{ marginTop: "10px" }}
+                    style={{ marginTop: "10px", borderColor: "#f38d31"}}
                     placeholder="Specify allergy"
                     value={otherAllergy}
                     onChange={(e) => setOtherAllergy(e.target.value)}
