@@ -14,9 +14,9 @@
 * {
   box-sizing: border-box;
 }
-.floor-plan-wrapper {
 
-   position: fixed;   /* Fix it to the screen */
+.floor-plan-wrapper {
+  position: fixed;   /* Fix it to the screen */
   top: 0;
   left: 0;
   width: 100vw;      /* Full width */
@@ -25,45 +25,44 @@
   display: flex;
   flex-direction: row; /* Desktop default */
   background-color: var(--bg-soft);
-  min-height: 100vh;
   padding: 40px;
   gap: 30px;
   font-family: "Inter", sans-serif;
   justify-content: center;
-  overflow-y: auto;
+  overflow-y: auto; /* Allow scrolling on the whole page */
   align-items: flex-start;
 }
 
-/* --- RESPONSIVE COLLAPSE LOGIC --- */
+/* --- UPDATED RESPONSIVE SECTION --- */
 @media (max-width: 1100px) {
   .floor-plan-wrapper {
     flex-direction: column; /* Stack vertically */
     padding: 20px;
     gap: 20px;
-    height: 100vh;
-    align-items: center;
-    overflow-y: auto;
+    height: auto;           /* Allow wrapper to grow taller than the screen */
+    min-height: 100vh;
+    align-items: center;    /* Keeps content centered horizontally */
   }
 
   .floor-plan-main {
     width: 100%;
     max-width: 100%;
-    overflow-x: auto;
+    overflow-x: auto;       /* Enable horizontal swipe for the map */
     padding-bottom: 10px;
     height: auto;
-    flex-shrink: 0; /* Prevent shrinking to fit height, let it grow based on content */
+    flex-shrink: 0; 
   }
 
   .map-container {
-    min-width: unset; /* Keep map scale usable on mobile */
+    min-width: 850px;       /* Keep map usable, forcing horizontal scroll */
     width: 100%;
-    aspect-ratio: auto; /* Let height adjust based on width for mobile */
-    height: 400px; /* Set a fixed height for mobile to prevent it from being too short */
+    aspect-ratio: 16 / 10;
+    height: auto;           /* Height is now determined by aspect-ratio */
   }
 
   .floor-sidebar {
     width: 100% !important;
-    min-width: 100% !important;
+    min-width: 0 !important; /* Allow sidebar to shrink on small phones */
     max-width: 100% !important;
     flex-shrink: 0;
   }
@@ -73,6 +72,8 @@
     margin-top: 20px !important;
   }
 }
+
+/* --- ALL SECTIONS BELOW REMAIN UNCHANGED --- */
 
 /* --- MAIN SECTION --- */
 .floor-plan-main {
@@ -695,37 +696,12 @@
     transform: scale(1.1);
 }
 
-/* GREEN: Available */
-.floor-table.available .table-inner {
-  background-color: #2ecc71 !important;
-  color: white;
-}
-
-/* ORANGE: Pending Reservation (Waiting for Admin) */
-.floor-table.reserved .table-inner {
-  background-color: #f39c12 !important;
-  color: white;
-  cursor: not-allowed;
-}
-
-/* RED: Confirmed / Occupied */
-.floor-table.occupied .table-inner {
-  background-color: #e74c3c !important;
-  color: white;
-  cursor: not-allowed;
-}
-
-/* BLUE: Linked Tables */
-.floor-table.linked .table-inner {
-  background-color: #3498db !important;
-  color: white;
-}
-
-/* ORANGE: Your currently selected table */
-.floor-table.selected .table-inner {
-  background-color: #e67e22 !important;
-  border: 2px solid white;
-}
+/* Status Colors (Original Logic Preserved) */
+.floor-table.available .table-inner { background-color: #2ecc71 !important; color: white; }
+.floor-table.reserved .table-inner { background-color: #f39c12 !important; color: white; cursor: not-allowed; }
+.floor-table.occupied .table-inner { background-color: #e74c3c !important; color: white; cursor: not-allowed; }
+.floor-table.linked .table-inner { background-color: #3498db !important; color: white; }
+.floor-table.selected .table-inner { background-color: #e67e22 !important; border: 2px solid white; }
 
 /* Style for disabled inputs to look 'read-only' */
 input:disabled {

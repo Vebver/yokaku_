@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import "../Style/TableReservation.css";
 import MenuModal from "./MenuModal";
+import ReservationSummary from "./ReservationSummary";
 
 const TABLES_DATA = [
   {
@@ -131,16 +132,14 @@ export default function TableReservation({ onClose, onSuccess }) {
 
   const [allergy, setAllergy] = useState("No Allergy");
   const [otherAllergy, setOtherAllergy] = useState("");
-  const [receipt, setReceipt] = useState(null);
-  const fileInputRef = useRef(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isSummaryOpen, setIsSummaryOpen] = useState(false);
   const [selectedItems, setSelectedItems] = useState([]);
   const [municipalities, setMunicipalities] = useState([]);
   const [barangays, setBarangays] = useState([]);
   const [selectedMunicipality, setSelectedMunicipality] = useState("");
   const [selectedBarangay, setSelectedBarangay] = useState("");
 
-  // Helper to render chairs
   const renderChairs = (table) => {
     const chairs = [];
     for (let i = 0; i < table.seats; i++) {
@@ -151,7 +150,6 @@ export default function TableReservation({ onClose, onSuccess }) {
     return chairs;
   };
 
-  // Check user active reservation
   useEffect(() => {
     const checkUser = async () => {
       const userId = localStorage.getItem("userId");
@@ -169,7 +167,6 @@ export default function TableReservation({ onClose, onSuccess }) {
     checkUser();
   }, []);
 
-  // Fetch live table status
   useEffect(() => {
     const fetchLiveStatus = async () => {
       if (resDate && startTime && endTime) {
@@ -189,7 +186,6 @@ export default function TableReservation({ onClose, onSuccess }) {
     fetchLiveStatus();
   }, [resDate, startTime, endTime]);
 
-  // Address Logic
   useEffect(() => {
     fetch("http://localhost:5000/api/address/municipalities")
       .then((res) => res.json())
@@ -210,7 +206,6 @@ export default function TableReservation({ onClose, onSuccess }) {
     }
   }, [selectedMunicipality]);
 
-  // Pre-fill user data
   useEffect(() => {
     setFirstName(localStorage.getItem("firstName") || "");
     setLastName(localStorage.getItem("lastName") || "");
@@ -219,7 +214,6 @@ export default function TableReservation({ onClose, onSuccess }) {
     if (!localStorage.getItem("firstName")) setIsEditing(true);
   }, []);
 
-  // Time Logic
   const timeToMinutes = (timeStr) => {
     if (!timeStr) return 0;
     const [time, period] = timeStr.split(" ");
@@ -254,8 +248,7 @@ export default function TableReservation({ onClose, onSuccess }) {
     return timeOptions.filter((t) => timeToMinutes(t) >= startMins + 60);
   }, [startTime, timeOptions]);
 
-  const handleConfirmReservation = async () => {
-    if (loading || hasActiveReservation) return;
+  const handleConfirmReservation = async (receiptFile) => {
     setLoading(true);
     setError("");
     try {
@@ -272,22 +265,12 @@ export default function TableReservation({ onClose, onSuccess }) {
       data.append("brgyCode", selectedBarangay);
       data.append("tableIds", JSON.stringify([selectedId, ...linkedIds]));
       data.append("allergy", allergy === "Other" ? otherAllergy : allergy);
-      data.append("receipt", receipt);
+      data.append("receipt", receiptFile);
       data.append("status", "Confirmed");
       data.append("totalAmount", orderSummary.totalOrderPrice);
       data.append("downpayment", orderSummary.downpayment);
       data.append("balance", orderSummary.balance);
-      data.append(
-        "selectedItems",
-        JSON.stringify(
-          selectedItems.map((item) => ({
-            id: item.id,
-            name: item.name,
-            price: item.price,
-            quantity: item.quantity,
-          })),
-        ),
-      );
+      data.append("selectedItems", JSON.stringify(selectedItems));
 
       const response = await axios.post(
         "http://localhost:5000/api/reservations/table",
@@ -297,8 +280,8 @@ export default function TableReservation({ onClose, onSuccess }) {
         },
       );
       if (response.status === 200 || response.status === 201) {
-        const newId = response.data.id;
-        onSuccess(newId);
+        setIsSummaryOpen(false);
+        onSuccess(response.data.id);
       }
     } catch (err) {
       setError(err.response?.data?.message || "Booking failed.");
@@ -331,8 +314,8 @@ export default function TableReservation({ onClose, onSuccess }) {
       (sum, item) => sum + item.price * item.quantity,
       0,
     );
-    const downpayment = totalOrderPrice * 0.2; // 20% Downpayment
-    const balance = totalOrderPrice - downpayment; // 80% Balance
+    const downpayment = totalOrderPrice * 0.2;
+    const balance = totalOrderPrice - downpayment;
     return { totalOrderPrice, downpayment, balance };
   }, [selectedItems]);
 
@@ -341,10 +324,10 @@ export default function TableReservation({ onClose, onSuccess }) {
     const endMin = timeToMinutes(endTime);
     const hasOneHourDiff = endMin - startMin >= 60;
     const isOtherAllergyEmpty = allergy === "Other" && !otherAllergy.trim();
-
     return (
       !firstName.trim() ||
       !lastName.trim() ||
+      !email.trim() ||
       !resDate ||
       !startTime ||
       !endTime ||
@@ -354,11 +337,12 @@ export default function TableReservation({ onClose, onSuccess }) {
       !selectedMunicipality ||
       !selectedBarangay ||
       isOtherAllergyEmpty ||
-      !receipt
+      selectedItems.length === 0
     );
   }, [
     firstName,
     lastName,
+    email,
     resDate,
     startTime,
     endTime,
@@ -367,7 +351,7 @@ export default function TableReservation({ onClose, onSuccess }) {
     selectedBarangay,
     allergy,
     otherAllergy,
-    receipt,
+    selectedItems,
   ]);
 
   const handleTableClick = (table) => {
@@ -390,8 +374,48 @@ export default function TableReservation({ onClose, onSuccess }) {
     }
   };
 
+  const fullReservationData = useMemo(() => {
+    const muniName =
+      municipalities.find((m) => m.code === selectedMunicipality)?.name || "";
+    const brgyName =
+      barangays.find((b) => b.code === selectedBarangay)?.name || "";
+    return {
+      firstName,
+      lastName,
+      email,
+      phone,
+      municipality: muniName,
+      barangay: brgyName,
+      guestCount,
+      resDate,
+      startTime,
+      endTime,
+      tableLabel: primaryTable?.label,
+      linkedTables: linkedIds,
+      allergy: allergy === "Other" ? otherAllergy : allergy,
+      packages: selectedItems,
+    };
+  }, [
+    firstName,
+    lastName,
+    email,
+    phone,
+    selectedMunicipality,
+    selectedBarangay,
+    guestCount,
+    resDate,
+    startTime,
+    endTime,
+    primaryTable,
+    linkedIds,
+    municipalities,
+    barangays,
+    allergy,
+    otherAllergy,
+    selectedItems,
+  ]);
+
   return (
-    /* REMOVED: onClick={onClose} from the line below to prevent closing on background click */
     <div className="floor-plan-wrapper">
       <div className="floor-plan-main" onClick={(e) => e.stopPropagation()}>
         <header className="floor-header">
@@ -404,7 +428,6 @@ export default function TableReservation({ onClose, onSuccess }) {
               <p className="floor-subtitle">Select a table to reserve</p>
             </div>
           </div>
-          {/* Back button remains as the only way to trigger onClose */}
           <button className="floor-back-btn" onClick={onClose}>
             Back
           </button>
@@ -436,7 +459,7 @@ export default function TableReservation({ onClose, onSuccess }) {
                   >
                     {renderChairs(table)}
                     <div className="table-inner">
-                      <span className="table-id-label">{table.id}</span>
+                      <span className="table-id-label">{table.label}</span>
                       <span className="table-p-label">{table.seats}p</span>
                     </div>
                   </div>
@@ -489,9 +512,19 @@ export default function TableReservation({ onClose, onSuccess }) {
               <X size={18} />
             </button>
             <h2 className="panel-title">
-              Reserve {primaryTable.id} {linkedIds.map((id) => ` + ${id}`)}
-              {(primaryTable.id === 1 || primaryTable.id === 10 || linkedIds.includes(1) || linkedIds.includes(10)) && (
-                <span style={{ fontSize: '10px', color: '#e63946', marginLeft: '5px', fontWeight: '600' }}>
+              Reserve {primaryTable.label} {linkedIds.map((id) => ` + T${id}`)}
+              {(primaryTable.id === 1 ||
+                primaryTable.id === 10 ||
+                linkedIds.includes(1) ||
+                linkedIds.includes(10)) && (
+                <span
+                  style={{
+                    fontSize: "10px",
+                    color: "#e63946",
+                    marginLeft: "5px",
+                    fontWeight: "600",
+                  }}
+                >
                   (T1/T10 cannot be combined)
                 </span>
               )}
@@ -516,7 +549,7 @@ export default function TableReservation({ onClose, onSuccess }) {
                   onChange={(e) => setResDate(e.target.value)}
                 />
               </div>
-
+              
               <div className="input-group">
                 <div className="label-with-icon">
                   <label>FIRST NAME</label>
@@ -603,10 +636,11 @@ export default function TableReservation({ onClose, onSuccess }) {
                 </div>
               </div>
 
+              
               <div className="input-row">
                 <div className="input-group">
                   <label>
-                    <Clock size={12} /> TIME START
+                    <Clock size={12} /> START
                   </label>
                   <select
                     className="res-input-dropdown"
@@ -626,7 +660,7 @@ export default function TableReservation({ onClose, onSuccess }) {
                 </div>
                 <div className="input-group">
                   <label>
-                    <Clock size={12} /> TIME END
+                    <Clock size={12} /> END
                   </label>
                   <select
                     className="res-input-dropdown"
@@ -675,83 +709,13 @@ export default function TableReservation({ onClose, onSuccess }) {
                   <input
                     type="text"
                     className="res-input fade-in"
-                    style={{ marginTop: "10px", borderColor: "#f38d31"}}
+                    style={{ marginTop: "10px", borderColor: "#f38d31" }}
                     placeholder="Specify allergy"
                     value={otherAllergy}
                     onChange={(e) => setOtherAllergy(e.target.value)}
                   />
                 )}
               </div>
-
-              {selectedItems.length > 0 && (
-                <div
-                  className="order-payment-summary"
-                  style={{
-                    background: "#f9f9f9",
-                    padding: "15px",
-                    borderRadius: "12px",
-                    marginBottom: "20px",
-                    border: "1px solid #eee",
-                  }}
-                >
-                  <h4
-                    style={{
-                      fontSize: "14px",
-                      fontWeight: "bold",
-                      marginBottom: "10px",
-                      color: "#333",
-                    }}
-                  >
-                    PAYMENT BREAKDOWN
-                  </h4>
-
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      marginBottom: "5px",
-                      fontSize: "13px",
-                    }}
-                  >
-                    <span style={{ flex: 1 }}>Total Order:</span>
-                    <span style={{ fontWeight: "bold" }}>
-                      ₱{orderSummary.totalOrderPrice.toFixed(2)}
-                    </span>
-                  </div>
-
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      marginBottom: "5px",
-                      fontSize: "13px",
-                      color: "#e67e22",
-                    }}
-                  >
-                    <span style={{ flex: 1 }}>Downpayment (20%):</span>
-                    <span style={{ fontWeight: "bold" }}>
-                      ₱{orderSummary.downpayment.toFixed(2)}
-                    </span>
-                  </div>
-
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      marginTop: "10px",
-                      paddingTop: "10px",
-                      borderTop: "1px dashed #ccc",
-                    }}
-                  >
-                    <span style={{ flex: 1, fontWeight: "bold" }}>
-                      Remaining Balance:
-                    </span>
-                    <span style={{ fontWeight: "bold", color: "#27ae60" }}>
-                      ₱{orderSummary.balance.toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-              )}
 
               <div className="input-group">
                 <label>PACKAGES WE'RE OFFERING</label>
@@ -768,36 +732,21 @@ export default function TableReservation({ onClose, onSuccess }) {
                 </button>
               </div>
 
-              <div className="input-group">
-                <label>
-                  Upload Receipt (
-                  {`Pay ₱${orderSummary.downpayment.toFixed(2)} via Gcash`})
-                </label>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  style={{ display: "none" }}
-                  accept="image/*,.pdf"
-                  onChange={(e) => setReceipt(e.target.files[0])}
-                />
-                <button
-                  type="button"
-                  className="btn-link-mode"
-                  style={{ width: "100%", marginTop: "5px" }}
-                  onClick={() => fileInputRef.current.click()}
+              {error && (
+                <p
+                  className="error-message"
+                  style={{ color: "red", fontSize: "11px" }}
                 >
-                  <Upload size={16} /> {receipt ? receipt.name : "Select File"}
-                </button>
-              </div>
-
-              {error && <p className="error-message">{error}</p>}
+                  {error}
+                </p>
+              )}
 
               <button
                 className={`btn-confirm ${isFormInvalid ? "btn-disabled" : ""}`}
-                onClick={handleConfirmReservation}
+                onClick={() => setIsSummaryOpen(true)}
                 disabled={isFormInvalid || loading}
               >
-                {loading ? "Processing..." : "Confirm Reservation"}
+                {loading ? "Processing..." : "Payment Method"}
               </button>
             </div>
           </div>
@@ -809,6 +758,15 @@ export default function TableReservation({ onClose, onSuccess }) {
         onClose={() => setIsMenuOpen(false)}
         onSelectedItemsChange={(items) => setSelectedItems(items)}
         initialSelectedItems={selectedItems}
+      />
+
+      <ReservationSummary
+        isOpen={isSummaryOpen}
+        onClose={() => setIsSummaryOpen(false)}
+        orderSummary={orderSummary}
+        reservationData={fullReservationData}
+        onConfirm={handleConfirmReservation}
+        loading={loading}
       />
     </div>
   );
