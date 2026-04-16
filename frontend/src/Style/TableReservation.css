@@ -16,64 +16,71 @@
 }
 
 .floor-plan-wrapper {
-  position: fixed;   /* Fix it to the screen */
+  position: fixed;   
   top: 0;
   left: 0;
-  width: 100vw;      /* Full width */
-  height: 100vh;     /* Full height */
-  z-index: 9999;     /* Ensure it is above everything else */
+  width: 100vw;      
+  height: 100vh;     
+  z-index: 9999;     
   display: flex;
-  flex-direction: row; /* Desktop default */
+  flex-direction: row; 
   background-color: var(--bg-soft);
   padding: 40px;
   gap: 30px;
   font-family: "Inter", sans-serif;
   justify-content: center;
-  overflow-y: auto; /* Allow scrolling on the whole page */
+  /* Ensure scrolling works correctly */
+  overflow-y: auto; 
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
   align-items: flex-start;
 }
 
 /* --- UPDATED RESPONSIVE SECTION --- */
 @media (max-width: 1100px) {
   .floor-plan-wrapper {
-    flex-direction: column; /* Stack vertically */
-    padding: 20px;
-    gap: 20px;
-    height: auto;           /* Allow wrapper to grow taller than the screen */
-    min-height: 100vh;
-    align-items: center;    /* Keeps content centered horizontally */
+    flex-direction: column; 
+    padding: 10px; 
+    gap: 0px;
+    height: 100%; /* Switch to height 100% for better mobile compatibility */
+    display: block; /* Allows natural vertical flow */
+    overflow-y: auto;
   }
 
   .floor-plan-main {
     width: 100%;
     max-width: 100%;
-    overflow-x: auto;       /* Enable horizontal swipe for the map */
-    padding-bottom: 10px;
-    height: auto;
+    overflow-x: auto;       
+    padding-bottom: 15px;
     flex-shrink: 0; 
   }
 
   .map-container {
-    min-width: 850px;       /* Keep map usable, forcing horizontal scroll */
+    min-width: 850px;       
     width: 100%;
     aspect-ratio: 16 / 10;
-    height: auto;           /* Height is now determined by aspect-ratio */
   }
 
   .floor-sidebar {
     width: 100% !important;
-    min-width: 0 !important; /* Allow sidebar to shrink on small phones */
     max-width: 100% !important;
-    flex-shrink: 0;
+    min-width: 0 !important;
+    display: block;
+    /* Added significant padding so the Payment button is visible above browser bars */
+    padding-bottom: 120px !important; 
+    margin-top: 10px;
   }
 
-  .res-panel,
-  .empty-sidebar {
-    margin-top: 20px !important;
+  .res-panel {
+    margin-bottom: 20px !important;
+    height: auto !important;
+    padding-bottom: 30px !important;
+  }
+  
+  .btn-confirm {
+    margin-bottom: 20px; /* Extra space below the button */
   }
 }
-
-/* --- ALL SECTIONS BELOW REMAIN UNCHANGED --- */
 
 /* --- MAIN SECTION --- */
 .floor-plan-main {
@@ -487,7 +494,7 @@
   display: flex;
   flex-direction: column;
   gap: 5px;
-  width: 100%; /* Ensures full width like Guests field */
+  width: 100%; 
 }
 
 .input-group label {
@@ -505,21 +512,20 @@
   background: #fafafa;
   font-size: 14px;
   outline: none;
-  width: 100%; /* Ensures internal elements fill the group */
+  width: 100%; 
   box-sizing: border-box;
 }
 
 .input-row {
   display: grid;
-  grid-template-columns: 1fr 1fr; /* Two columns for Name fields */
+  grid-template-columns: 1fr 1fr; 
   gap: 10px;
   width: 100%;
 }
 
-/* --- Responsive Stacking for Name/Address fields --- */
 @media (max-width: 450px) {
   .input-row {
-    grid-template-columns: 1fr; /* Stacks names to be full width like Guests */
+    grid-template-columns: 1fr; 
   }
 }
 
@@ -716,6 +722,32 @@ input:disabled {
     cursor: not-allowed !important;
     opacity: 0.7;
 }
+
+/* --- FIX FOR NUMBER INPUT ARROWS --- */
+
+/* Force the arrows to show in Chrome, Safari, Edge, and Opera */
+.input-group input[type="number"]::-webkit-inner-spin-button,
+.input-group input[type="number"]::-webkit-outer-spin-button {
+  opacity: 1 !important;
+  display: block !important;
+  appearance: auto !important;
+  -webkit-appearance: auto !important;
+  margin-left: 5px; /* Adds a little space between the number and arrows */
+  cursor: pointer;
+}
+
+/* Force the arrows to show in Firefox */
+.input-group input[type="number"] {
+  -moz-appearance: number-input !important;
+  appearance: number-input !important;
+}
+
+/* Ensure padding doesn't cut off the arrows on smaller screens */
+.input-group input[type="number"] {
+  padding-right: 5px !important; /* Reduces right padding slightly to make room for arrows */
+}
+
+/* --- END OF FIX --- */
 
 @keyframes fadeIn {
   from {

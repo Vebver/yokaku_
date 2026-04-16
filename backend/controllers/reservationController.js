@@ -1,3 +1,4 @@
+const db = require("../config/db");
 const Reservation = require("../models/Reservation");
 
 const reservationController = {
@@ -120,6 +121,39 @@ const reservationController = {
       else res.status(404).json({ success: false, message: "Not found" });
     } catch (error) {
       res.status(500).json({ error: error.message });
+    }
+  },
+
+  getSpecificTableSchedule: async (req, res) => {
+    try {
+      const { table_id, date } = req.query;
+
+      if (!table_id || !date) {
+        return res.status(400).json({ error: "Table ID and Date are required" });
+      }
+      
+      // 1. Changed tableIds to table_id (to fix your 404/Unknown column error)
+      // 2. Removed firstName and lastName from SELECT
+      // 3. Used reservation_time (from your error log) and aliased it as startTime for the frontend
+      const query = `
+        SELECT reservation_time AS startTime, end_time AS endTime, status 
+        FROM reservations 
+        WHERE (table_id = ? OR JSON_CONTAINS(table_id, ?)) 
+        AND date = ? 
+        AND status IN ('Pending', 'Confirmed', 'Seated')
+      `;
+      
+      // We pass the tableId twice: once for a regular column, once for a JSON array column
+      const [rows] = await db.execute(query, [
+        tableId, 
+        JSON.stringify(Number(tableId)), 
+        date
+      ]);
+      
+      res.json(rows);
+    } catch (error) {
+      console.error("Error fetching table schedule:", error);
+      res.status(500).json({ error: "Internal Server Error" });
     }
   },
 };

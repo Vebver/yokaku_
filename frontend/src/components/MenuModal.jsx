@@ -114,12 +114,12 @@ const MenuModal = ({
                       src={
                         item.image_url
                           ? `http://localhost:5000${item.image_url}`
-                          : "https://via.placeholder.com/150"
+                          : "https://placehold.co/300"
                       }
                       alt={item.name}
                       className="food-img"
                       onError={(e) => {
-                        e.target.src = "https://via.placeholder.com/150";
+                        e.target.src = "https://placehold.co/300";
                       }}
                     />
                     <span className="food-price-tag">
