@@ -645,6 +645,17 @@ export default function TableReservation({ onClose, onSuccess }) {
               </div>
 
               <div className="input-group">
+                <label>GUESTS (MAX {totalSeats})</label>
+                <input
+                  type="number"
+                  min="1"
+                  max={totalSeats}
+                  value={guestCount}
+                  onChange={(e) => setGuestCount(Number(e.target.value))}
+                />
+              </div>
+
+              <div className="input-group">
                 <label>ALLERGY</label>
                 <select
                   className="res-input-dropdown"
@@ -670,17 +681,6 @@ export default function TableReservation({ onClose, onSuccess }) {
                     onChange={(e) => setOtherAllergy(e.target.value)}
                   />
                 )}
-              </div>
-
-              <div className="input-group">
-                <label>GUESTS (MAX {totalSeats})</label>
-                <input
-                  type="number"
-                  min="1"
-                  max={totalSeats}
-                  value={guestCount}
-                  onChange={(e) => setGuestCount(Number(e.target.value))}
-                />
               </div>
 
               {selectedItems.length > 0 && (
