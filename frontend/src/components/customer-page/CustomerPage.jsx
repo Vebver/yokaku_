@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { CheckCircle } from "lucide-react"; // Success icon
+import { CheckCircle } from "lucide-react";
 import HeroSection from "../HeroSection";
 import FeaturedMenu from "../FeaturedMenu";
 import AboutSection from "../AboutSection";
@@ -11,10 +11,11 @@ import LoginSection from "../LoginSection";
 import TableReservation from "../TableReservation"; 
 import "../../Style/App.css";
 
-function CustomerPage({ onSuccess }) { 
+// Receive props passed from App.jsx
+function CustomerPage({ onSuccess, onReserveClick, isLoggedIn: parentIsLoggedIn, onLoginClick }) { 
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isReservationOpen, setIsReservationOpen] = useState(false);
-  const [showSuccessOverlay, setShowSuccessOverlay] = useState(false); // NEW STATE
+  const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const navigate = useNavigate();
 
@@ -27,74 +28,41 @@ function CustomerPage({ onSuccess }) {
     }
   }, [navigate]);
 
-  // Handle successful reservation
   const handleReservationSuccess = () => {
-    setIsReservationOpen(false); // 1. Close the Table Modal
-    setShowSuccessOverlay(true);  // 2. Show the "Waiting for Approval" Message
-    
-    if (onSuccess) {
-      onSuccess(); 
-    }
+    setIsReservationOpen(false);
+    setShowSuccessOverlay(true);
+    if (onSuccess) onSuccess(); 
   };
 
-  if (!isLoggedIn) {
-    return <div>Loading...</div>;
-  }
+  if (!isLoggedIn) return <div>Loading...</div>;
 
   return (
     <div id="app" style={{ position: "relative" }}>
       <HeroSection
-        isLoggedIn={isLoggedIn}
-        onLoginClick={() => setIsLoginOpen(true)}
-        onReserveClick={() => setIsReservationOpen(true)} 
+        /* Use props from App.jsx to ensure the URL changes */
+        isLoggedIn={parentIsLoggedIn || isLoggedIn}
+        onLoginClick={onLoginClick || (() => setIsLoginOpen(true))}
+        onReserveClick={onReserveClick} 
       />
       
-      <div id="menu-section">
-        <FeaturedMenu onLoginClick={() => setIsLoginOpen(true)} />
-      </div>
-
-      <div id="about-section">
-        <AboutSection
-          isLoggedIn={isLoggedIn}
-          onLoginClick={() => setIsLoginOpen(true)}
-        />
-      </div>
-
-      <div id="promos-section">
-        <PromoSection />
-      </div>
-
+      <div id="menu-section"><FeaturedMenu onLoginClick={onLoginClick || (() => setIsLoginOpen(true))} /></div>
+      <div id="about-section"><AboutSection isLoggedIn={isLoggedIn} onLoginClick={onLoginClick || (() => setIsLoginOpen(true))} /></div>
+      <div id="promos-section"><PromoSection /></div>
       <ReviewsSection />
       <Footer />
 
-      {/* --- PENDING APPROVAL OVERLAY --- */}
       {showSuccessOverlay && (
         <div className="res-success-overlay">
           <div className="res-success-card fade-in">
             <CheckCircle size={60} color="#52b788" />
             <h2>Reservation Submitted!</h2>
             <p>Your request has been sent successfully.</p>
-            <p className="res-status-text"><strong>Status:</strong> Waiting for Admin Approval</p>
-            <p className="res-info-small">You will receive a notification once your table is confirmed.</p>
-            <button 
-              className="res-success-close" 
-              onClick={() => setShowSuccessOverlay(false)}
-            >
-              Back to Home
-            </button>
+            <button className="res-success-close" onClick={() => setShowSuccessOverlay(false)}>Back to Home</button>
           </div>
         </div>
       )}
 
-      {/* MODAL LAYER */}
       {isLoginOpen && <LoginSection onClose={() => setIsLoginOpen(false)} />}
-      
-      {isReservationOpen && (
-        <TableReservation 
-          onClose={() => setIsReservationOpen(false)} 
-          onSuccess={handleReservationSuccess} 
-        />
-      )}
     </div>
   );
 }

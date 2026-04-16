@@ -35,7 +35,7 @@ import "./Style/App.css";
 function App() {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
-  const [showTerms, setShowTerms] = useState(false); // New state for T&C
+  const [showTerms, setShowTerms] = useState(false); 
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("token"));
 
   useEffect(() => {
@@ -53,7 +53,6 @@ function App() {
     setShowSuccessMessage(true);
   };
 
-  // Logic: When terms are accepted, go to the reservation page
   const handleAcceptTerms = () => {
     setShowTerms(false);
     window.location.href = "/tablereservation";
@@ -79,10 +78,10 @@ function App() {
                   <HeroSection
                     isLoggedIn={isLoggedIn}
                     onLoginClick={() => setIsLoginOpen(true)}
-                    onReserveClick={() => setShowTerms(true)}
+                    onReserveClick={() => (window.location.href = "/tablereservation")}
                   />
-                  <div id="menu-section"><FeaturedMenu /></div>
-                  <div id="about-section"><AboutSection /></div>
+                  <div id="menu-section"><FeaturedMenu onLoginClick={() => setIsLoginOpen(true)} /></div>
+                  <div id="about-section"><AboutSection isLoggedIn={isLoggedIn} onLoginClick={() => setIsLoginOpen(true)} /></div>
                   <div id="promos-section"><PromoSection /></div>
                   <ReviewsSection />
                   <Footer />
@@ -106,7 +105,9 @@ function App() {
             element={
               isLoggedIn ? (
                 <CustomerPage
-                  onReserveClick={() => setShowTerms(true)}
+                  isLoggedIn={isLoggedIn} // Pass login state
+                  onLoginClick={() => setIsLoginOpen(true)} // Pass login trigger
+                  onReserveClick={() => (window.location.href = "/tablereservation")} // Pass redirect logic
                   onSuccess={handleReservationSuccess} 
                 />
               ) : (
@@ -115,6 +116,7 @@ function App() {
             }
           />
 
+          {/* ... (Keep all other routes exactly the same) */}
           <Route path="/profile" element={isLoggedIn ? <CustomerProfile /> : <Navigate to="/" replace />} />
           <Route path="/notifications" element={isLoggedIn ? <Notifications /> : <Navigate to="/" replace />} />
           <Route path="/admin/*" element={<AdminDashboard />} />
@@ -125,7 +127,6 @@ function App() {
           <Route path="/kiosk-selection/kiosk-reservation-menu" element={<KioskReservationMenu />} />
         </Routes>
 
-        {/* Modals and Overlays */}
         {isLoginOpen && <LoginSection onClose={() => setIsLoginOpen(false)} />}
 
         <TermsModal 
@@ -138,8 +139,6 @@ function App() {
           <ReservationSuccess 
             onClose={() => {
               setShowSuccessMessage(false);
-              // Instead of window.location, it's better to use useNavigate() 
-              // but keeping your logic:
               window.location.href = isLoggedIn ? "/customer" : "/";
             }} 
           />

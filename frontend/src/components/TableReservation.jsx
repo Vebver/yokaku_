@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from "react";
 import axios from "axios";
 import {
   UtensilsCrossed,
+  ArrowRight,
   X,
   Calendar,
   Clock,
@@ -390,7 +391,8 @@ export default function TableReservation({ onClose, onSuccess }) {
   };
 
   return (
-    <div className="floor-plan-wrapper" onClick={onClose}>
+    /* REMOVED: onClick={onClose} from the line below to prevent closing on background click */
+    <div className="floor-plan-wrapper">
       <div className="floor-plan-main" onClick={(e) => e.stopPropagation()}>
         <header className="floor-header">
           <div className="floor-logo-bar">
@@ -402,6 +404,7 @@ export default function TableReservation({ onClose, onSuccess }) {
               <p className="floor-subtitle">Select a table to reserve</p>
             </div>
           </div>
+          {/* Back button remains as the only way to trigger onClose */}
           <button className="floor-back-btn" onClick={onClose}>
             Back
           </button>
@@ -487,6 +490,11 @@ export default function TableReservation({ onClose, onSuccess }) {
             </button>
             <h2 className="panel-title">
               Reserve {primaryTable.id} {linkedIds.map((id) => ` + ${id}`)}
+              {(primaryTable.id === 1 || primaryTable.id === 10 || linkedIds.includes(1) || linkedIds.includes(10)) && (
+                <span style={{ fontSize: '10px', color: '#e63946', marginLeft: '5px', fontWeight: '600' }}>
+                  (T1/T10 cannot be combined)
+                </span>
+              )}
             </h2>
 
             <div className="res-form">
@@ -700,7 +708,7 @@ export default function TableReservation({ onClose, onSuccess }) {
                   <div
                     style={{
                       display: "flex",
-                      justifyBetween: "space-between",
+                      justifyContent: "space-between",
                       marginBottom: "5px",
                       fontSize: "13px",
                     }}
@@ -714,7 +722,7 @@ export default function TableReservation({ onClose, onSuccess }) {
                   <div
                     style={{
                       display: "flex",
-                      justifyBetween: "space-between",
+                      justifyContent: "space-between",
                       marginBottom: "5px",
                       fontSize: "13px",
                       color: "#e67e22",
@@ -729,7 +737,7 @@ export default function TableReservation({ onClose, onSuccess }) {
                   <div
                     style={{
                       display: "flex",
-                      justifyBetween: "space-between",
+                      justifyContent: "space-between",
                       marginTop: "10px",
                       paddingTop: "10px",
                       borderTop: "1px dashed #ccc",

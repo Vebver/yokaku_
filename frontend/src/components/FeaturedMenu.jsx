@@ -41,11 +41,11 @@ function FeaturedMenu({ onLoginClick }) {
               src={
                 item.image_url
                   ? `http://localhost:5000${item.image_url}`
-                  : "https://via.placeholder.com/300"
+                  : "https://placehold.co/300"
               }
               alt={item.name}
               onError={(e) => {
-                e.target.src = "https://via.placeholder.com/300";
+                e.target.src = "https://placehold.co/300";
               }}
             />
             <span>{item.name}</span>
