@@ -1,6 +1,15 @@
 const db = require("../config/db");
 const Reservation = require("../models/Reservation");
 
+const formatTimeTo24h = (timeStr) => {
+  if (!timeStr) return null;
+  const [time, modifier] = timeStr.split(" ");
+  let [hours, minutes] = time.split(":");
+  if (hours === "12") hours = "00";
+  if (modifier === "PM") hours = parseInt(hours, 10) + 12;
+  return `${String(hours).padStart(2, "0")}:${minutes}:00`;
+};
+
 const reservationController = {
   checkUserActive: async (req, res) => {
     try {
@@ -55,35 +64,63 @@ const reservationController = {
   createReservation: async (req, res) => {
     try {
       const body = req.body;
+
+      // 1. Parse Table IDs
       const requestedTables =
         typeof body.tableIds === "string"
           ? JSON.parse(body.tableIds)
           : body.tableIds;
 
-      // 1. Check Conflicts
+      // 2. CRITICAL FIX: Format times for MySQL
+      const dbStart = formatTimeTo24h(body.startTime);
+      const dbEnd = formatTimeTo24h(body.endTime);
+
+      // 3. Check Conflicts using the 24h formatted times
       const conflicts = await Reservation.checkTableConflicts(
         body.date,
         requestedTables,
-        body.startTime,
-        body.endTime,
+        dbStart, // Using 24h
+        dbEnd, // Using 24h
       );
+
       if (conflicts.length > 0) {
-        return res
-          .status(400)
-          .json({ message: "Table already occupied for this time." });
+        // Return 400 if a conflict is found
+        return res.status(400).json({
+          message:
+            "One or more tables are already booked for this specific time slot.",
+        });
       }
 
-      // 2. Execute Create in Model
-      const newId = await Reservation.create({
-        ...body,
-        tableIds: requestedTables,
-        receiptPath: req.file ? req.file.filename : null,
-      });
+      // 4. Create the Reservation
+      // We pass the formatted 24h times to the model so the DB saves them correctly
+      const newId = await Reservation.create({ ...body });
 
-      res.status(201).json({ id: newId, message: "Success!" });
+      // --- UPDATED NOTIFICATION LOGIC ---
+      if (body.userId && body.userId !== "null") {
+        const title = "Reservation Confirmed! ✅";
+        const message = `Your reservation ${newId} has been confirmed. Check your profile for details.`;
+
+        const notifQuery = `
+          INSERT INTO notifications 
+          (user_id, reservation_id, title, message, type, is_read) 
+          VALUES (?, ?, ?, ?, ?, ?)`;
+
+        await db.execute(notifQuery, [
+          body.userId,
+          newId, // <--- Save the ID to the new column
+          title,
+          message,
+          "success",
+          0,
+        ]);
+      }
+
+      return res.status(201).json({ id: newId, message: "Success!" });
     } catch (error) {
       console.error("CRITICAL BACKEND ERROR:", error.message);
-      res.status(500).json({ error: error.message });
+      if (!res.headersSent) {
+        return res.status(500).json({ error: error.message });
+      }
     }
   },
 
@@ -126,34 +163,29 @@ const reservationController = {
 
   getSpecificTableSchedule: async (req, res) => {
     try {
-      const { table_id, date } = req.query;
+      const { tableId, date } = req.query;
 
-      if (!table_id || !date) {
-        return res.status(400).json({ error: "Table ID and Date are required" });
+      // Safety check: if params are missing, don't crash, just return empty
+      if (!tableId || !date) {
+        return res.json([]);
       }
-      
-      // 1. Changed tableIds to table_id (to fix your 404/Unknown column error)
-      // 2. Removed firstName and lastName from SELECT
-      // 3. Used reservation_time (from your error log) and aliased it as startTime for the frontend
-      const query = `
-        SELECT reservation_time AS startTime, end_time AS endTime, status 
-        FROM reservations 
-        WHERE (table_id = ? OR JSON_CONTAINS(table_id, ?)) 
-        AND date = ? 
-        AND status IN ('Pending', 'Confirmed', 'Seated')
-      `;
-      
-      // We pass the tableId twice: once for a regular column, once for a JSON array column
-      const [rows] = await db.execute(query, [
-        tableId, 
-        JSON.stringify(Number(tableId)), 
-        date
-      ]);
-      
+
+      // Ensure tableId is a number (if frontend sends "T1", this cleans it)
+      const cleanId = String(tableId).replace(/\D/g, "");
+
+      const [rows] = await db.execute(
+        `SELECT r.reservation_time AS startTime, r.end_time AS endTime, r.status
+         FROM reservations r
+         JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
+         WHERE rt.table_id = ? AND r.reservation_date = ? 
+         AND r.status IN ('Pending', 'Confirmed', 'Seated')`,
+        [cleanId, date],
+      );
+
       res.json(rows);
     } catch (error) {
-      console.error("Error fetching table schedule:", error);
-      res.status(500).json({ error: "Internal Server Error" });
+      console.error("Schedule Query Error:", error.message);
+      res.status(400).json({ error: error.message }); // This was the 400
     }
   },
 };

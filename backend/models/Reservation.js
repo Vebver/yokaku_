@@ -57,78 +57,82 @@ const Reservation = {
   },
 
   // --- CREATE RESERVATION + AUTOMATIC BILLING ---
-create: async (data) => {
+
+  create: async (data) => {
     const conn = await db.getConnection();
     try {
       await conn.beginTransaction();
 
       const customId = generateRandomId();
 
-      // 1. Core Reservation Insert (15 Fields Total)
+      // 1. Core Reservation Insert (15 Columns)
       const resQuery = `
-        INSERT INTO reservations 
-        (reservation_id, user_id, first_name, last_name, email, phone, 
-         reservation_date, reservation_time, end_time, num_guests, 
-         package_name, status, receipt_path, brgy_code, allergy) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      INSERT INTO reservations 
+      (reservation_id, user_id, first_name, last_name, email, phone, 
+       reservation_date, reservation_time, end_time, num_guests, 
+       package_name, status, receipt_path, brgy_code, allergy) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
-      await conn.execute(resQuery, [
-        customId,
-        data.userId || null,
-        data.firstName,
-        data.lastName,
-        data.email,
-        data.phone,
-        data.date,
-        data.startTime,
-        data.endTime,
-        data.guests,
-        data.packageName || 'None',
-        "Pending",
-        data.receiptPath,
-        data.brgyCode,
-        data.allergy
-      ]);
+      // CRITICAL FIX: Ensure NO variable is undefined. Use || null for everything.
+      const resValues = [
+        customId || null,
+        data.userId && data.userId !== "null" ? data.userId : null,
+        data.firstName || null,
+        data.lastName || null,
+        data.email || null,
+        data.phone || null,
+        data.date || null,
+        data.startTime || null,
+        data.endTime || null,
+        data.guests || 0,
+        data.packageName || "Table Reservation",
+        data.status || "Confirmed",
+        data.receiptPath || null,
+        data.brgyCode || null,
+        data.allergy || "None",
+      ];
 
-      // 2. Link Tables (reservation_tables)
+      await conn.execute(resQuery, resValues);
+
+      // 2. Link Tables
+      let tableIdsArray = [];
       if (data.tableIds) {
-        const tableIdsArray = typeof data.tableIds === 'string' ? JSON.parse(data.tableIds) : data.tableIds;
-        const tableLinkQuery = "INSERT INTO reservation_tables (reservation_id, table_id) VALUES (?, ?)";
+        tableIdsArray =
+          typeof data.tableIds === "string"
+            ? JSON.parse(data.tableIds)
+            : data.tableIds;
+      }
+
+      if (tableIdsArray.length > 0) {
+        const tableLinkQuery =
+          "INSERT INTO reservation_tables (reservation_id, table_id) VALUES (?, ?)";
         for (const tid of tableIdsArray) {
-          await conn.execute(tableLinkQuery, [customId, tid]);
+          const cleanTid = String(tid).replace(/\D/g, "");
+          if (cleanTid) {
+            await conn.execute(tableLinkQuery, [customId, parseInt(cleanTid)]);
+          }
         }
       }
 
-      // 3. Create Payment entry
-      const paymentQuery = "INSERT INTO payments (reservation_id, amount, payment_status) VALUES (?, ?, ?)";
-      await conn.execute(paymentQuery, [customId, data.downpayment || 500, 'pending']);
-
-      // 4. Create Notification
-      if (data.userId && data.userId !== "null") {
-        const notifSql = `
-            INSERT INTO notifications (user_id, reservation_id, title, message, type, is_read) 
-            VALUES (?, ?, ?, ?, ?, 0)`;
-        await conn.execute(notifSql, [
-            data.userId, 
-            customId, 
-            "Booking Received! ⏳", 
-            `Your reservation ${customId} is awaiting verification.`, 
-            "info"
-        ]);
-      }
+      // 3. Create Payment
+      const paymentQuery =
+        "INSERT INTO payments (reservation_id, amount, payment_status) VALUES (?, ?, ?)";
+      await conn.execute(paymentQuery, [
+        customId,
+        data.downpayment || 500,
+        "pending",
+      ]);
 
       await conn.commit();
       return customId;
     } catch (err) {
       await conn.rollback();
-      // THIS LOG WILL SHOW IN YOUR BACKEND TERMINAL
-      console.error("CRITICAL SQL ERROR:", err.message); 
+      console.error("DATABASE INSERT ERROR:", err.message);
       throw err;
     } finally {
       conn.release();
     }
   },
-
 
   getAll: async () => {
     const sql = `
