@@ -19,6 +19,7 @@ const billingRoutes = require('./routes/billingRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
 const addressRoutes = require('./routes/addressRoutes');
+const orderRoutes = require('./routes/orderRoutes');
 
 const PORT = process.env.PORT || 5000;
 const app = express();
@@ -99,6 +100,9 @@ app.use('/api/notifications', notificationRoutes);
 
 // Review routes
 app.use('/api/reviews', reviewRoutes);
+
+// Order routes
+app.use('/api/inventory', orderRoutes);
 
 
 // Protected check route

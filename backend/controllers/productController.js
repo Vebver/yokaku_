@@ -1,3 +1,4 @@
+const { get } = require("node:http");
 const Product = require("../models/Product");
 
 const productController = {
@@ -21,7 +22,7 @@ const productController = {
       res.status(500).json({ error: "Failed to fetch featured items" });
     }
   },
-  
+
   //
   toggleFeature: async (req, res) => {
     try {
@@ -39,37 +40,44 @@ const productController = {
   },
 
   createProduct: async (req, res) => {
-     try {
-    // 1. Get strings from req.body (Multer populates this)
-    const { name, description, price, category_id, is_available, is_featured } = req.body;
+    try {
+      // 1. Get strings from req.body (Multer populates this)
+      const {
+        name,
+        description,
+        price,
+        category_id,
+        is_available,
+        is_featured,
+      } = req.body;
 
-    // 2. Convert to proper types for MySQL
-    const clean_price = parseFloat(price) || 0.00;
-    const clean_category = parseInt(category_id);
-    
-    // IMPORTANT: FormData "0" or "1" must be converted to numbers
-    const clean_available = parseInt(is_available) === 1 ? 1 : 0;
-    const clean_featured = parseInt(is_featured) === 1 ? 1 : 0;
+      // 2. Convert to proper types for MySQL
+      const clean_price = parseFloat(price) || 0.0;
+      const clean_category = parseInt(category_id);
 
-    // 3. Get image URL
-    const image_url = req.file ? `/uploads/${req.file.filename}` : null;
+      // IMPORTANT: FormData "0" or "1" must be converted to numbers
+      const clean_available = parseInt(is_available) === 1 ? 1 : 0;
+      const clean_featured = parseInt(is_featured) === 1 ? 1 : 0;
 
-    // 4. Call Model
-    const newId = await Product.create({
-      name,
-      description,
-      price: clean_price,
-      category_id: clean_category,
-      image_url,
-      is_available: clean_available,
-      is_featured: clean_featured
-    });
+      // 3. Get image URL
+      const image_url = req.file ? `/uploads/${req.file.filename}` : null;
 
-    res.status(201).json({ success: true, id: newId });
-  } catch (error) {
-    console.error("ADD PRODUCT ERROR:", error.message);
-    res.status(400).json({ error: error.message }); // This sends the SQL error back to React
-  }
+      // 4. Call Model
+      const newId = await Product.create({
+        name,
+        description,
+        price: clean_price,
+        category_id: clean_category,
+        image_url,
+        is_available: clean_available,
+        is_featured: clean_featured,
+      });
+
+      res.status(201).json({ success: true, id: newId });
+    } catch (error) {
+      console.error("ADD PRODUCT ERROR:", error.message);
+      res.status(400).json({ error: error.message }); // This sends the SQL error back to React
+    }
   },
 
   deleteProduct: async (req, res) => {
@@ -80,6 +88,37 @@ const productController = {
       res.status(500).json({ error: error.message });
     }
   },
+  getIngredients: async (req, res) => {
+    try {
+      const ingredients = await Product.getIngredients(req.params.id);
+      res.json(ingredients);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+  addIngredient: async (req, res) => {
+    try {
+      const { inventory_id, quantity_required } = req.body;
+      // Call Model
+      await Product.addIngredient({
+        item_id: req.params.id,
+        inventory_id,
+        quantity_required,
+      });
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+  removeIngredient: async (req, res) => {
+    try {
+      // Call Model
+      const success = await Product.removeIngredient(req.params.recipeId);
+      res.json({ success });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  }
 };
 
 module.exports = productController;

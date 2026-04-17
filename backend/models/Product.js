@@ -13,8 +13,8 @@ const Product = {
     return rows;
   },
 
- getFeatured: async () => {
-  const sql = `
+  getFeatured: async () => {
+    const sql = `
     SELECT 
       item_id AS id,
       name, 
@@ -24,9 +24,9 @@ const Product = {
     FROM menu_items 
     WHERE is_featured = 1 AND is_available = 1
   `;
-  const [rows] = await db.execute(sql);
-  return rows;
-},
+    const [rows] = await db.execute(sql);
+    return rows;
+  },
 
   create: async (data) => {
     const sql = `
@@ -56,6 +56,33 @@ const Product = {
     const query = "UPDATE menu_items SET is_featured = ? WHERE item_id = ?";
     const [result] = await db.execute(query, [is_featured, id]);
     return result;
+  },
+  getIngredients: async (itemId) => {
+    const sql = `
+      SELECT r.*, i.item_name, i.unit 
+      FROM menu_item_ingredients r 
+      JOIN inventory i ON r.inventory_id = i.inventory_id 
+      WHERE r.item_id = ?`;
+    const [rows] = await db.execute(sql, [itemId]);
+    return rows;
+  },
+  addIngredient: async (data) => {
+    const { item_id, inventory_id, quantity_required } = data;
+    const sql = `
+      INSERT INTO menu_item_ingredients 
+      (item_id, inventory_id, quantity_required) 
+      VALUES (?, ?, ?)`;
+    const [result] = await db.execute(sql, [
+      item_id,
+      inventory_id,
+      quantity_required,
+    ]);
+    return result.insertId;
+  },
+  removeIngredient: async (recipeId) => {
+    const sql = "DELETE FROM menu_item_ingredients WHERE recipe_id = ?";
+    const [result] = await db.execute(sql, [recipeId]);
+    return result.affectedRows > 0;
   },
 };
 

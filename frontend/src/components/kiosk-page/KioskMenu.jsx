@@ -158,15 +158,42 @@ const KioskMenu = () => {
     });
   };
 
-  const handlePlaceOrder = () => {
+ const handlePlaceOrder = async () => {
     if (cart.length > 0) {
-      if (!localStorage.getItem(TIMER_KEY)) {
-        const endTime = Date.now() + 5400 * 1000;
-        localStorage.setItem(TIMER_KEY, endTime.toString());
-        setIsTimerRunning(true);
+      try {
+        // 1. Send the order to the backend
+        const response = await fetch("http://localhost:5000/api/orders/place", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            reservation_id: "WALKIN", // Or your dynamic ID
+            items: cart.map(item => ({
+              item_id: item.id,
+              quantity: item.quantity
+            }))
+          })
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          // 2. Start timer if it's the first order
+          if (!localStorage.getItem(TIMER_KEY)) {
+            const endTime = Date.now() + 5400 * 1000;
+            localStorage.setItem(TIMER_KEY, endTime.toString());
+            setIsTimerRunning(true);
+          }
+          
+          // 3. Clear UI and show success
+          setCart([]);
+          setShowOrderSuccessModal(true);
+        } else {
+          alert("Error: " + result.error); // e.g., "Out of stock!"
+        }
+      } catch (error) {
+        console.error("Order failed:", error);
+        alert("Server error. Please try again.");
       }
-      setCart([]);
-      setShowOrderSuccessModal(true);
     }
   };
 

@@ -21,12 +21,23 @@ import Profile from "./Profile";
 import Reservation from "./Reservation";
 import Categories from "./Categories";
 import "../../Style/AdminDashboard.css";
+import RecipeManager from "./RecipeManager";
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, Title, Tooltip, Legend);
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+);
 
 const Icons = {
   Dashboard: () => <i className="bi bi-speedometer2 me-2"></i>,
   Inventory: () => <i className="bi bi-boxes me-2"></i>,
+  Recipe: () => <i className="bi bi-journal-bookmark me-2"></i>,
   Categories: () => <i className="bi bi-tags me-2"></i>,
   Products: () => <i className="bi bi-box-seam me-2"></i>,
   Sales: () => <i className="bi bi-graph-up-arrow me-2"></i>,
@@ -39,6 +50,7 @@ const navItems = [
   { id: "dashboard", label: "Dashboard", icon: Icons.Dashboard },
   { id: "categories", label: "Categories", icon: Icons.Products },
   { id: "inventory", label: "Inventory", icon: Icons.Products },
+  { id: "recipe", label: "Recipes", icon: Icons.Recipe },
   { id: "products", label: "Menu Items", icon: Icons.Products }, // Renamed to Menu Items
   { id: "reservations", label: "Reservations", icon: Icons.Reservations },
   { id: "billing", label: "Billing", icon: Icons.Billing },
@@ -47,7 +59,9 @@ const navItems = [
 
 const StatCard = ({ title, value, color }) => (
   <div className="col-12 col-sm-6 col-xl-3">
-    <div className={`card border-0 shadow-sm p-3 border-start border-${color} border-4`}>
+    <div
+      className={`card border-0 shadow-sm p-3 border-start border-${color} border-4`}
+    >
       <small className="text-muted text-uppercase fw-bold">{title}</small>
       <h3 className={`fw-bold mb-0 text-${color}`}>{value}</h3>
     </div>
@@ -61,14 +75,17 @@ function AdminDashboard() {
   const [loading, setLoading] = useState(true);
 
   // Updated state keys to match your Restaurant Database logic
-  const [stats, setStats] = useState({ 
-    totalBookings: 0, 
-    activeTables: 0, 
-    kitchenQueue: 0, 
-    revenue: 0 
+  const [stats, setStats] = useState({
+    totalBookings: 0,
+    activeTables: 0,
+    kitchenQueue: 0,
+    revenue: 0,
   });
-  
-  const [revenueChartData, setRevenueChartData] = useState({ labels: [], data: [] });
+
+  const [revenueChartData, setRevenueChartData] = useState({
+    labels: [],
+    data: [],
+  });
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -86,7 +103,7 @@ function AdminDashboard() {
       setLoading(true);
       const statsRes = await axios.get("/api/admin/stats");
       const chartRes = await axios.get("/api/admin/revenue-chart");
-      
+
       setStats(statsRes.data);
       setRevenueChartData({
         labels: chartRes.data.labels || [],
@@ -106,44 +123,83 @@ function AdminDashboard() {
     window.location.href = "/";
   };
 
-  const barChartConfig = useMemo(() => ({
-    labels: revenueChartData.labels.length > 0 ? revenueChartData.labels : ["No Data"],
-    datasets: [{
-      label: "Downpayment Revenue ($)",
-      data: revenueChartData.data.length > 0 ? revenueChartData.data : [0],
-      backgroundColor: "rgba(16, 185, 129, 0.7)", // Changed to Green (POS style)
-      borderRadius: 5,
-    }],
-  }), [revenueChartData]);
+  const barChartConfig = useMemo(
+    () => ({
+      labels:
+        revenueChartData.labels.length > 0
+          ? revenueChartData.labels
+          : ["No Data"],
+      datasets: [
+        {
+          label: "Downpayment Revenue ($)",
+          data: revenueChartData.data.length > 0 ? revenueChartData.data : [0],
+          backgroundColor: "rgba(16, 185, 129, 0.7)", // Changed to Green (POS style)
+          borderRadius: 5,
+        },
+      ],
+    }),
+    [revenueChartData],
+  );
 
   const DashboardOverview = () => (
     <div className="container-fluid fade-in">
       <h2 className="mb-4 fw-bold">Dashboard Overview</h2>
-      
+
       {/* Updated Cards for "Unli" Restaurant Logic */}
       <div className="row g-3 mb-4">
-        <StatCard title="Total Bookings" value={stats.totalBookings} color="primary" />
-        <StatCard title="Active Tables" value={stats.activeTables} color="success" />
-        <StatCard title="Kitchen Queue" value={stats.kitchenQueue} color="warning" />
-        <StatCard title="Total Revenue" value={`₱${stats.revenue.toLocaleString()}`} color="danger" />
+        <StatCard
+          title="Total Bookings"
+          value={stats.totalBookings}
+          color="primary"
+        />
+        <StatCard
+          title="Active Tables"
+          value={stats.activeTables}
+          color="success"
+        />
+        <StatCard
+          title="Kitchen Queue"
+          value={stats.kitchenQueue}
+          color="warning"
+        />
+        <StatCard
+          title="Total Revenue"
+          value={`₱${stats.revenue.toLocaleString()}`}
+          color="danger"
+        />
       </div>
 
       <div className="row g-4">
         <div className="col-12">
           <div className="card border-0 shadow-sm p-4 h-100">
             <div className="d-flex justify-content-between align-items-center mb-4">
-              <h5 className="fw-bold m-0">Monthly Booking Revenue (Downpayments)</h5>
-              <button className="btn btn-sm btn-outline-primary" onClick={fetchDashboardData}>
+              <h5 className="fw-bold m-0">
+                Monthly Booking Revenue (Downpayments)
+              </h5>
+              <button
+                className="btn btn-sm btn-outline-primary"
+                onClick={fetchDashboardData}
+              >
                 <i className="bi bi-arrow-clockwise"></i> Refresh
               </button>
             </div>
             <div style={{ height: "400px" }}>
               {loading ? (
                 <div className="h-100 d-flex align-items-center justify-content-center">
-                  <div className="spinner-border text-primary" role="status"></div>
+                  <div
+                    className="spinner-border text-primary"
+                    role="status"
+                  ></div>
                 </div>
               ) : (
-                <Bar data={barChartConfig} options={{ responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }} />
+                <Bar
+                  data={barChartConfig}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true } },
+                  }}
+                />
               )}
             </div>
           </div>
@@ -157,6 +213,7 @@ function AdminDashboard() {
       dashboard: <DashboardOverview />,
       billing: <Billing />,
       inventory: <Inventory />,
+      recipe: <RecipeManager />, 
       products: <Product />,
       categories: <Categories />,
       profile: <Profile />,
@@ -168,9 +225,17 @@ function AdminDashboard() {
   if (!isAuthenticated && !loading) {
     return (
       <div className="vh-100 d-flex align-items-center justify-content-center bg-light">
-        <div className="card border-0 shadow p-5 text-center" style={{ maxWidth: "400px" }}>
+        <div
+          className="card border-0 shadow p-5 text-center"
+          style={{ maxWidth: "400px" }}
+        >
           <h2 className="fw-bold mb-3 text-dark">Admin Access Required</h2>
-          <button className="btn btn-success btn-lg w-100" onClick={() => (window.location.href = "/")}>Go to Login</button>
+          <button
+            className="btn btn-success btn-lg w-100"
+            onClick={() => (window.location.href = "/")}
+          >
+            Go to Login
+          </button>
         </div>
       </div>
     );
@@ -179,13 +244,23 @@ function AdminDashboard() {
   return (
     <div className="admin-layout">
       {/* 1. SIDEBAR */}
-      <aside className={`admin-sidebar bg-dark text-white ${sidebarOpen ? "expanded" : "collapsed"}`}>
+      <aside
+        className={`admin-sidebar bg-dark text-white ${sidebarOpen ? "expanded" : "collapsed"}`}
+      >
         <div className="d-flex align-items-center justify-content-between mb-4 mt-2 px-3">
           {sidebarOpen && <h4 className="fw-bold mb-0">Hangout</h4>}
-          <button className="btn btn-dark btn-sm d-none d-md-block ms-auto" onClick={() => setSidebarOpen(!sidebarOpen)}>
-            <i className={`bi ${sidebarOpen ? "bi-chevron-left" : "bi-list"} fs-5`}></i>
+          <button
+            className="btn btn-dark btn-sm d-none d-md-block ms-auto"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+          >
+            <i
+              className={`bi ${sidebarOpen ? "bi-chevron-left" : "bi-list"} fs-5`}
+            ></i>
           </button>
-          <button className="btn btn-dark btn-sm d-md-none ms-auto" onClick={() => setSidebarOpen(false)}>
+          <button
+            className="btn btn-dark btn-sm d-md-none ms-auto"
+            onClick={() => setSidebarOpen(false)}
+          >
             <i className="bi bi-x-lg fs-5"></i>
           </button>
         </div>
@@ -199,7 +274,9 @@ function AdminDashboard() {
                 if (window.innerWidth < 768) setSidebarOpen(false);
               }}
               className={`nav-link text-start border-0 rounded py-3 px-3 d-flex align-items-center transition-all ${
-                activeSection === item.id ? "bg-success text-white" : "text-secondary bg-transparent"
+                activeSection === item.id
+                  ? "bg-success text-white"
+                  : "text-secondary bg-transparent"
               }`}
             >
               <item.icon />
@@ -208,7 +285,10 @@ function AdminDashboard() {
           ))}
         </nav>
 
-        <button className="btn btn-outline-danger btn-sm mt-auto mb-3 mx-3" onClick={handleLogout}>
+        <button
+          className="btn btn-outline-danger btn-sm mt-auto mb-3 mx-3"
+          onClick={handleLogout}
+        >
           <i className="bi bi-box-arrow-left"></i>
           {sidebarOpen && <span className="ms-2">Logout</span>}
         </button>
@@ -217,19 +297,23 @@ function AdminDashboard() {
       {/* 2. MAIN CONTENT AREA */}
       <div className="main-container">
         <header className="d-md-none bg-white border-bottom p-3 d-flex align-items-center sticky-top">
-          <button className="btn btn-outline-dark me-3" onClick={() => setSidebarOpen(true)}>
+          <button
+            className="btn btn-outline-dark me-3"
+            onClick={() => setSidebarOpen(true)}
+          >
             <i className="bi bi-list fs-4"></i>
           </button>
           <h5 className="mb-0 fw-bold">Hangout Admin</h5>
         </header>
 
-        <main className="p-3 p-md-4">
-          {renderSection()}
-        </main>
+        <main className="p-3 p-md-4">{renderSection()}</main>
       </div>
 
       {sidebarOpen && (
-        <div className="mobile-overlay d-md-none" onClick={() => setSidebarOpen(false)}></div>
+        <div
+          className="mobile-overlay d-md-none"
+          onClick={() => setSidebarOpen(false)}
+        ></div>
       )}
 
       <style>{`
