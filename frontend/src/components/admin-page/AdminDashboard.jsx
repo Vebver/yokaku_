@@ -49,10 +49,10 @@ const Icons = {
 
 const navItems = [
   { id: "dashboard", label: "Dashboard", icon: Icons.Dashboard },
-  { id: "categories", label: "Categories", icon: Icons.Products },
-  { id: "inventory", label: "Inventory", icon: Icons.Products },
+  { id: "categories", label: "Categories", icon: Icons.Categories },
+  { id: "inventory", label: "Inventory", icon: Icons.Inventory },
   { id: "recipe", label: "Recipes", icon: Icons.Recipe },
-  { id: "products", label: "Menu Items", icon: Icons.Products }, // Renamed to Menu Items
+  { id: "products", label: "Menu Items", icon: Icons.Products },
   { id: "report", label: "Report", icon: Icons.Sales },
   { id: "reservations", label: "Reservations", icon: Icons.Reservations },
   { id: "billing", label: "Billing", icon: Icons.Billing },
@@ -61,7 +61,6 @@ const navItems = [
 
 const StatCard = ({ title, value, color, icon }) => (
   <div className="col-12 col-md-6 col-xl-3">
-    {/* Removed 'transition-all' and 'hover-lift' classes */}
     <div className="card border-0 shadow-sm h-100 rounded-4 bg-white">
       <div className="card-body p-4 p-xxl-5 text-center">
         <div
@@ -71,7 +70,10 @@ const StatCard = ({ title, value, color, icon }) => (
           <i className={`bi ${icon}`} style={{ fontSize: "2.5rem" }}></i>
         </div>
 
-        <p className="text-muted fw-bold text-uppercase mb-2" style={{ letterSpacing: "1px", fontSize: "0.9rem" }}>
+        <p
+          className="text-muted fw-bold text-uppercase mb-2"
+          style={{ letterSpacing: "1px", fontSize: "0.9rem" }}
+        >
           {title}
         </p>
 
@@ -87,7 +89,6 @@ function AdminDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [loading, setLoading] = useState(true);
 
-  // Updated state keys to match your Restaurant Database logic
   const [stats, setStats] = useState({
     totalBookings: 0,
     activeTables: 0,
@@ -144,9 +145,9 @@ function AdminDashboard() {
           : ["No Data"],
       datasets: [
         {
-          label: "Downpayment Revenue ($)",
+          label: "Downpayment Revenue (₱)",
           data: revenueChartData.data.length > 0 ? revenueChartData.data : [0],
-          backgroundColor: "rgba(16, 185, 129, 0.7)", // Changed to Green (POS style)
+          backgroundColor: "rgba(16, 185, 129, 0.7)",
           borderRadius: 5,
         },
       ],
@@ -163,7 +164,6 @@ function AdminDashboard() {
         </p>
       </div>
 
-      {/* The 4 Big Boxes */}
       <div className="row g-4 mb-5">
         <StatCard
           title="Total Bookings"
@@ -190,6 +190,36 @@ function AdminDashboard() {
           icon="bi-wallet-fill"
         />
       </div>
+
+      <div className="row">
+        <div className="col-12">
+          <div className="card border-0 shadow-sm rounded-4 bg-white p-4">
+            <div className="d-flex justify-content-between align-items-center mb-4">
+              <h5 className="fw-bold mb-0">
+                Monthly Booking Revenue (Downpayments)
+              </h5>
+              <button
+                className="btn btn-sm btn-outline-primary rounded-pill px-3"
+                onClick={fetchDashboardData}
+              >
+                <i className="bi bi-arrow-clockwise me-1"></i> Refresh
+              </button>
+            </div>
+            <div style={{ height: "400px", width: "100%" }}>
+              <Bar
+                data={barChartConfig}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  scales: {
+                    y: { beginAtZero: true },
+                  },
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 
@@ -198,7 +228,7 @@ function AdminDashboard() {
       dashboard: <DashboardOverview />,
       billing: <Billing />,
       inventory: <Inventory />,
-      recipe: <RecipeManager />, 
+      recipe: <RecipeManager />,
       products: <Product />,
       categories: <Categories />,
       report: <Reports />,
@@ -233,7 +263,7 @@ function AdminDashboard() {
       <aside
         className={`admin-sidebar bg-dark text-white ${sidebarOpen ? "expanded" : "collapsed"}`}
       >
-        <div className="d-flex align-items-center justify-content-between mb-4 mt-2 px-3">
+        <div className="sidebar-header d-flex align-items-center justify-content-between px-3">
           {sidebarOpen && <h4 className="fw-bold mb-0">Hangout</h4>}
           <button
             className="btn btn-dark btn-sm d-none d-md-block ms-auto"
@@ -251,33 +281,39 @@ function AdminDashboard() {
           </button>
         </div>
 
-        <nav className="nav flex-column gap-2 flex-grow-1 px-2">
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => {
-                setActiveSection(item.id);
-                if (window.innerWidth < 768) setSidebarOpen(false);
-              }}
-              className={`nav-link text-start border-0 rounded py-3 px-3 d-flex align-items-center transition-all ${
-                activeSection === item.id
-                  ? "bg-success text-white"
-                  : "text-secondary bg-transparent"
-              }`}
-            >
-              <item.icon />
-              {sidebarOpen && <span className="ms-2">{item.label}</span>}
-            </button>
-          ))}
-        </nav>
+        {/* Scrollable middle container for nav items */}
+        <div className="sidebar-nav-container">
+          <nav className="nav flex-column gap-2 px-2">
+            {navItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => {
+                  setActiveSection(item.id);
+                  if (window.innerWidth < 768) setSidebarOpen(false);
+                }}
+                className={`nav-link text-start border-0 rounded py-3 px-3 d-flex align-items-center transition-all ${
+                  activeSection === item.id
+                    ? "bg-success text-white active"
+                    : "text-secondary bg-transparent"
+                }`}
+              >
+                <item.icon />
+                {sidebarOpen && <span className="ms-2">{item.label}</span>}
+              </button>
+            ))}
+          </nav>
+        </div>
 
-        <button
-          className="btn btn-outline-danger btn-sm mt-auto mb-3 mx-3"
-          onClick={handleLogout}
-        >
-          <i className="bi bi-box-arrow-left"></i>
-          {sidebarOpen && <span className="ms-2">Logout</span>}
-        </button>
+        {/* Pinned footer area for Logout */}
+        <div className="sidebar-footer px-3 pb-4">
+          <button
+            className="btn btn-outline-danger btn-sm w-100 py-2 d-flex align-items-center justify-content-center"
+            onClick={handleLogout}
+          >
+            <i className="bi bi-box-arrow-left"></i>
+            {sidebarOpen && <span className="ms-2">Logout</span>}
+          </button>
+        </div>
       </aside>
 
       {/* 2. MAIN CONTENT AREA */}
