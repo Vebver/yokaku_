@@ -16,6 +16,7 @@ import {
 import "../Style/TableReservation.css";
 import MenuModal from "./MenuModal";
 import ReservationSummary from "./ReservationSummary";
+import TermsModal from "./TermsModal";
 
 const TABLES_DATA = [
   {
@@ -116,6 +117,7 @@ export default function TableReservation({ onClose, onSuccess }) {
   const [isLinkMode, setIsLinkMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [isTermsOpen, setIsTermsOpen] = useState(false);
 
   const [hasActiveReservation, setHasActiveReservation] = useState(false);
   const [dbOccupiedTables, setDbOccupiedTables] = useState({});
@@ -130,7 +132,7 @@ export default function TableReservation({ onClose, onSuccess }) {
   const [resDate, setResDate] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
-  const [guestCount, setGuestCount] = useState(1);
+  const [guestCount, setGuestCount] = useState("");
 
   const [allergy, setAllergy] = useState("No Allergy");
   const [otherAllergy, setOtherAllergy] = useState("");
@@ -244,6 +246,11 @@ export default function TableReservation({ onClose, onSuccess }) {
     if (period === "PM" && h !== 12) h += 12;
     if (period === "AM" && h === 12) h = 0;
     return h * 60 + m;
+  };
+
+  const handleAcceptTerms = () => {
+    setIsTermsOpen(false);
+    setIsSummaryOpen(true);
   };
 
   const timeOptions = useMemo(() => {
@@ -782,11 +789,26 @@ export default function TableReservation({ onClose, onSuccess }) {
               <div className="input-group">
                 <label>GUESTS (MAX {totalSeats})</label>
                 <input
-                  type="number"
-                  min="1"
-                  max={totalSeats}
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="1"
                   value={guestCount}
-                  onChange={(e) => setGuestCount(Number(e.target.value))}
+                  onKeyDown={(e) => {
+                    if (["e", "E", "+", "-", "."].includes(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, "");
+                    if (val === "") {
+                      setGuestCount("");
+                      return;
+                    }
+                    let num = parseInt(val, 10);
+                    if (num > totalSeats) num = totalSeats;
+                    if (num < 1 && val !== "") num = 1;
+                    setGuestCount(num);
+                  }}
                 />
               </div>
 
@@ -844,7 +866,7 @@ export default function TableReservation({ onClose, onSuccess }) {
 
               <button
                 className={`btn-confirm ${isFormInvalid ? "btn-disabled" : ""}`}
-                onClick={() => setIsSummaryOpen(true)}
+                onClick={() => setIsTermsOpen(true)}
                 disabled={isFormInvalid || loading}
               >
                 {loading ? "Processing..." : "Confirm Reservation"}
@@ -853,6 +875,13 @@ export default function TableReservation({ onClose, onSuccess }) {
           </div>
         )}
       </aside>
+
+      {/* 5. Add the TermsModal component here */}
+      <TermsModal
+        isOpen={isTermsOpen}
+        onClose={() => setIsTermsOpen(false)}
+        onAccept={handleAcceptTerms}
+      />
 
       <MenuModal
         isOpen={isMenuOpen}
