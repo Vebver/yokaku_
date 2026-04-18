@@ -29,6 +29,7 @@ import KioskReservationMenu from "./components/kiosk-page/KioskReservationMenu.j
 import KitchenPage from "./components/kitchen-page/KitchenPage.jsx";
 import TableReservation from "./components/TableReservation.jsx";
 import TermsModal from "./components/TermsModal";
+import ResetPasswordPage from "./components/ResetPasswordPage";
 
 import "./Style/App.css";
 
@@ -159,6 +160,7 @@ function AppContent() {
         <Route path="/kiosk-selection" element={<KioskSelection />} />
         <Route path="/kiosk-selection/kiosk-menu" element={<KioskMenu />} />
         <Route path="/kitchen-page" element={<KitchenPage />} />
+        <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
         <Route
           path="/kiosk-selection/kiosk-reservation"
           element={<KioskReservation />}
@@ -199,7 +201,7 @@ const ReservationSuccess = ({ onClose }) => {
         <p>Your reservation request has been received.</p>
 
         <div className="res-status-text">
-          Status: <strong>Auto-Confirmed</strong>
+          Status: <strong>Confirmed</strong>
         </div>
 
         <p className="res-info-small">
@@ -223,7 +225,8 @@ const NavbarWrapper = ({ onLoginClick, isLoggedIn, onLogout }) => {
     location.pathname.startsWith("/cashier-selection") ||
     location.pathname.startsWith("/kiosk-selection") ||
     location.pathname.startsWith("/kitchen-page") ||
-    location.pathname === "/tablereservation"
+    location.pathname.startsWith("/tablereservation") ||
+    location.pathname.startsWith("/reset-password")
   ) {
     return null;
   }

@@ -1,6 +1,6 @@
-
 const pool = require("../config/db"); // Your MySQL pool
 const bcrypt = require("bcryptjs");
+
 class User {
   static async findByEmail(email) {
     const [rows] = await pool.query("SELECT * FROM users WHERE email = ?", [
@@ -15,35 +15,53 @@ class User {
     ]);
     return rows[0];
   }
-// models/User.js
-static async update(id, data) {
-  try {
-    const values = [
-      data.firstName || '',
-      data.lastName || '',
-      data.email || '',
-      data.phone || null,
-      data.profileImage || null,
-      id
-    ];
 
-    const query = `
+  static async update(id, data) {
+    try {
+      // Fetch current user data first to avoid overwriting with NULLs
+      const currentUser = await this.findById(id);
+      if (!currentUser) return false;
+
+      // Use provided data OR keep existing database values
+      const values = [
+        data.firstName !== undefined ? data.firstName : currentUser.first_name,
+        data.lastName !== undefined ? data.lastName : currentUser.last_name,
+        data.email !== undefined ? data.email : currentUser.email,
+        data.phone !== undefined ? data.phone : currentUser.phone,
+        data.profileImage !== undefined
+          ? data.profileImage
+          : currentUser.profile_image,
+        data.password_hash !== undefined
+          ? data.password_hash
+          : currentUser.password_hash,
+        data.reset_password_token !== undefined
+          ? data.reset_password_token
+          : currentUser.reset_password_token,
+        data.reset_password_expires !== undefined
+          ? data.reset_password_expires
+          : currentUser.reset_password_expires,
+        id,
+      ];
+
+      const query = `
       UPDATE users 
       SET first_name = ?, 
           last_name = ?, 
           email = ?, 
           phone = ?, 
-          profile_image = ? 
+          profile_image = ?,
+          password_hash = ?,
+          reset_password_token = ?,
+          reset_password_expires = ?
       WHERE user_id = ?`;
 
-    const [result] = await pool.execute(query, values);
-    return result.affectedRows > 0;
-  } catch (sqlError) {
-    // THIS WILL TELL YOU THE EXACT COLUMN NAME ERROR IN THE TERMINAL
-    console.error("MYSQL ERROR:", sqlError.message); 
-    throw sqlError;
+      const [result] = await pool.execute(query, values);
+      return result.affectedRows > 0;
+    } catch (sqlError) {
+      console.error("MYSQL ERROR:", sqlError.message);
+      throw sqlError;
+    }
   }
-}
 
   static async create(email, password, firstName, lastName) {
     const hashedPassword = await bcrypt.hash(password, 12);
@@ -56,6 +74,15 @@ static async update(id, data) {
 
   static get pool() {
     return pool;
+  }
+
+  static async findByResetToken(token) {
+    // Corrected 'db' to 'pool' to match your connection
+    const [rows] = await pool.query(
+      "SELECT * FROM users WHERE reset_password_token = ?",
+      [token],
+    );
+    return rows[0];
   }
 }
 

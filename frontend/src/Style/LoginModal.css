@@ -16,7 +16,7 @@
 
 .modal-content {
   background: #ffffff; /* CHANGED TO WHITE */
-  color: #333;        /* DARK TEXT FOR WHITE BG */
+  color: #333; /* DARK TEXT FOR WHITE BG */
   padding: 40px 30px;
   border-radius: 15px;
   width: 95%;
@@ -32,7 +32,7 @@
 /* --- TYPOGRAPHY & HEADERS --- */
 .modal-content h2 {
   margin-bottom: 25px;
-  font-family: 'Arial Black', sans-serif;
+  font-family: "Arial Black", sans-serif;
   letter-spacing: 2px;
   color: #ffcc00; /* Keep the gold accent */
   text-transform: uppercase;
@@ -50,8 +50,8 @@
   padding: 12px;
   border-radius: 8px;
   border: 1px solid #ddd; /* Light border for visibility on white */
-  background: #fdfdfd;    /* Very light gray background */
-  color: #333;           /* Dark text */
+  background: #fdfdfd; /* Very light gray background */
+  color: #333; /* Dark text */
   outline: none;
   font-size: 16px;
   box-sizing: border-box;
@@ -74,7 +74,8 @@
   padding-right: 45px;
 }
 
-.password-toggle-icon, .password-toggle-icon-confirm {
+.password-toggle-icon,
+.password-toggle-icon-confirm {
   position: absolute;
   right: 12px;
   top: 50%;
@@ -85,13 +86,16 @@
   z-index: 10;
 }
 
-.eye-svg, .eye-svg-confirm {
+.eye-svg,
+.eye-svg-confirm {
   color: #aaa; /* Gray icons */
   transition: color 0.2s;
 }
 
 .password-toggle-icon:hover .eye-svg,
-.eye-svg.active, .password-toggle-icon-confirm:hover .eye-svg-confirm, .eye-svg-confirm.active{
+.eye-svg.active,
+.password-toggle-icon-confirm:hover .eye-svg-confirm,
+.eye-svg-confirm.active {
   color: #ffcc00;
 }
 
@@ -105,7 +109,9 @@
   font-weight: bold;
   font-size: 16px;
   cursor: pointer;
-  transition: transform 0.2s, background 0.2s;
+  transition:
+    transform 0.2s,
+    background 0.2s;
   margin-top: 10px;
 }
 
@@ -174,12 +180,15 @@
 }
 
 /* --- TEXT LINKS & SWITCHERS --- */
-.signup-text, .verify-footer p {
+.signup-text,
+.verify-footer p {
   font-size: 14px;
   color: #666;
 }
 
-.link-btn, .signup-text a, .resend-btn {
+.link-btn,
+.signup-text a,
+.resend-btn {
   background: none;
   border: none;
   color: #d4ac0d; /* Darker gold */
@@ -191,7 +200,9 @@
   text-decoration: none;
 }
 
-.link-btn:hover, .signup-text a:hover, .resend-btn:hover {
+.link-btn:hover,
+.signup-text a:hover,
+.resend-btn:hover {
   color: #000;
   text-decoration: underline;
 }
@@ -232,4 +243,32 @@
 
 .close-btn:hover {
   color: #333;
+}
+
+/* Container to push the link to the right */
+.forgot-password-container {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  margin-top: 10px; /* Adjust this to move it closer to the password field */
+  margin-bottom: 5px;
+}
+
+/* Styling the button to look like a yellow underlined link */
+.forgot-password-link {
+  background: none;
+  border: none;
+  color: #ffcc00; /* Yellow color */
+  text-decoration: underline;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0;
+  font-weight: 500;
+  transition: color 0.2s ease;
+  font-weight: bold;
+}
+
+.forgot-password-link:hover {
+  color: #e6bf00; /* Slightly darker yellow on hover */
+  text-decoration: none; /* Optional: remove underline on hover */
 }

@@ -4,71 +4,61 @@ import "../Style/LoginModal.css";
 import axios from "axios";
 
 function LoginSection({ onClose }) {
-  const [view, setView] = useState("login"); // 'login', 'signup', 'verify'
+  const [view, setView] = useState("login"); // 'login', 'signup', 'verify', 'forgot', 'reset'
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false); // Added for confirm field
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Reuse the SVG to avoid repetition
+  const EyeIcon = ({ visible, toggle }) => (
+    <span className="password-toggle-icon" onClick={toggle}>
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="eye-svg"
+      >
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+        <circle cx="12" cy="12" r="3"></circle>
+        {!visible && <line x1="3" y1="3" x2="21" y2="21" />}
+      </svg>
+    </span>
+  );
 
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
-
     try {
       const res = await axios.post("/api/auth/login", { email, password });
-
-      console.log("User Data from Backend:", res.data.user);
-
-      // --- 1. CLEANUP PREVIOUS SESSION DATA ---
-      const keysToClear = [
-        "res_step",
-        "res_package",
-        "res_guests",
-        "res_personalInfo",
-        "res_formData",
-      ];
-      keysToClear.forEach((key) => localStorage.removeItem(key));
-      // ----------------------------------------
-
-      // --- 2. SAVE NEW USER AUTH DETAILS ---
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("userRole", res.data.user.role);
       localStorage.setItem("email", res.data.user.email);
-
-      // Save the new user's ID
-      const idToStore = res.data.user.user_id || res.data.user.id;
-      localStorage.setItem("userId", idToStore);
-
-      // --- ADDED: SAVE USER NAMES FOR AUTO-FILL ---
-      // We check for both first_name (database style) and firstName (javascript style)
-      const fName = res.data.user.first_name || res.data.user.firstName;
-      const lName = res.data.user.last_name || res.data.user.lastName;
-
-      localStorage.setItem("firstName", fName);
-      localStorage.setItem("lastName", lName);
-
-      // Save the entire user object for easy retrieval in other components
-      localStorage.setItem("user", JSON.stringify(res.data.user));
-      // --------------------------------------------
-
-      // --- 3. REDIRECT / RELOAD ---
+      localStorage.setItem("firstName", res.data.user.firstName);
+      localStorage.setItem("lastName", res.data.user.lastName);
       if (res.data.user.role === "admin") {
         window.location.href = "/admin/dashboard";
       } else {
-        // Refresh ensures all components (like HeroSection)
-        // restart with the new account's data
         window.location.reload();
       }
       onClose();
     } catch (err) {
-      console.error("Login Error:", err.response?.data);
       setError(err.response?.data?.error || "Login failed.");
     } finally {
       setLoading(false);
@@ -77,13 +67,11 @@ function LoginSection({ onClose }) {
 
   const handleSignUpSubmit = async (e) => {
     e.preventDefault();
-    setError("");
-
+    if (error === "Email already in use") return;
     if (password.length < 8) {
       setError("Password must be at least 8 characters.");
       return;
     }
-
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
       return;
@@ -100,7 +88,26 @@ function LoginSection({ onClose }) {
       alert("OTP sent to " + email);
       setView("verify");
     } catch (err) {
-      setError(err.response?.data?.error || "Signup failed");
+      if (err.response?.status === 429) {
+        setError("Too many OTP requests, please try again later.");
+      } else {
+        setError(err.response?.data?.error || "Signup failed");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPasswordSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    try {
+      await axios.post("/api/auth/forgot-password", { email });
+      alert("Reset link sent to your email!");
+      setView("login");
+    } catch (err) {
+      setError(err.response?.data?.error || "User not found.");
     } finally {
       setLoading(false);
     }
@@ -116,7 +123,7 @@ function LoginSection({ onClose }) {
       window.location.href = "/customer";
       onClose();
     } catch (err) {
-      alert(err.response?.data?.error || "Verification failed");
+      alert("Verification failed");
     }
   };
 
@@ -133,52 +140,12 @@ function LoginSection({ onClose }) {
               email={email}
               onVerify={handleVerifyOTP}
               onBack={() => setView("signup")}
-              onResend={async () => {
-                try {
-                  await axios.post("/api/auth/signup", {
-                    firstName,
-                    lastName,
-                    email,
-                    password,
-                  });
-                  alert("OTP resent to " + email);
-                } catch (err) {
-                  setError("Resend failed");
-                }
-              }}
+              onResend={() => {}}
             />
-          ) : (
+          ) : view === "forgot" ? (
             <>
-              <h2>{view === "login" ? "LOGIN" : "SIGN UP"}</h2>
-
-              <form
-                onSubmit={
-                  view === "login" ? handleLoginSubmit : handleSignUpSubmit
-                }
-              >
-                {/* FIELDS ONLY FOR SIGN UP */}
-                {view === "signup" && (
-                  <>
-                    <input
-                      type="text"
-                      placeholder="First Name"
-                      className="login-input"
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                      required
-                    />
-                    <input
-                      type="text"
-                      placeholder="Last Name"
-                      className="login-input"
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                      required
-                    />
-                  </>
-                )}
-
-                {/* FIELDS FOR BOTH LOGIN AND SIGN UP */}
+              <h2>FORGOT PASSWORD</h2>
+              <form onSubmit={handleForgotPasswordSubmit}>
                 <input
                   type="email"
                   placeholder="Email"
@@ -187,7 +154,65 @@ function LoginSection({ onClose }) {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                 />
+                {error && <p className="password-warning">{error}</p>}
+                <button type="submit" className="submit-btn" disabled={loading}>
+                  {loading ? "SENDING..." : "SEND RESET LINK"}
+                </button>
+                <button
+                  type="button"
+                  className="link-btn"
+                  onClick={() => setView("login")}
+                >
+                  Back to Login
+                </button>
+              </form>
+            </>
+          ) : (
+            <>
+              <h2>{view === "login" ? "LOGIN" : "SIGN UP"}</h2>
+              <form
+                onSubmit={
+                  view === "login" ? handleLoginSubmit : handleSignUpSubmit
+                }
+              >
+                {view === "signup" && (
+                  <>
+                    <input
+                      type="text"
+                      placeholder="First Name"
+                      className="login-input"
+                      value={firstName}
+                      onChange={(e) =>
+                        setFirstName(e.target.value.replace(/[^a-zA-Z\s]/g, ""))
+                      }
+                      required
+                    />
+                    <input
+                      type="text"
+                      placeholder="Last Name"
+                      className="login-input"
+                      value={lastName}
+                      onChange={(e) =>
+                        setLastName(e.target.value.replace(/[^a-zA-Z\s]/g, ""))
+                      }
+                      required
+                    />
+                  </>
+                )}
 
+                <input
+                  type="email"
+                  placeholder="Email"
+                  className="login-input"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setError("");
+                  }}
+                  required
+                />
+
+                {/* PASSWORD FIELD */}
                 <div className="password-container">
                   <input
                     type={showPassword ? "text" : "password"}
@@ -197,89 +222,50 @@ function LoginSection({ onClose }) {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                   />
-                  <span
-                    className="password-toggle-icon"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="eye-svg"
-                    >
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                      <circle cx="12" cy="12" r="3"></circle>
-                      {!showPassword && <line x1="3" y1="3" x2="21" y2="21" />}
-                    </svg>
-                  </span>
+                  <EyeIcon
+                    visible={showPassword}
+                    toggle={() => setShowPassword(!showPassword)}
+                  />
                 </div>
 
-                {/* CONFIRM PASSWORD ONLY FOR SIGN UP */}
-                {view === "signup" && (
-                  <>
-                    <div className="password-container">
-                      <input
-                        type={showConfirmPassword ? "text" : "password"}
-                        placeholder="Confirm Password"
-                        className="login-input"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        required
-                      />
-                      <span
-                        className="password-toggle-icon-confirm"
-                        onClick={() =>
-                          setShowConfirmPassword(!showConfirmPassword)
-                        }
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="20"
-                          height="20"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="eye-svg-confirm"
-                        >
-                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                          <circle cx="12" cy="12" r="3"></circle>
-                          {!showConfirmPassword && (
-                            <line x1="3" y1="3" x2="21" y2="21" />
-                          )}
-                        </svg>
-                      </span>
-                    </div>
-                  </>
+                {view === "login" && (
+                  <div className="forgot-password-container">
+                    <button
+                      type="button"
+                      className="forgot-password-link"
+                      onClick={() => setView("forgot")}
+                    >
+                      Forgot Password?
+                    </button>
+                  </div>
                 )}
 
-                {/* Validation messages */}
-                {password.length > 0 && password.length < 8 && (
-                  <p className="password-warning">
-                    Password must be at least 8 characters.
-                  </p>
+                {/* CONFIRM PASSWORD FIELD (Restored the Eye Icon here) */}
+                {view === "signup" && (
+                  <div className="password-container">
+                    <input
+                      type={showConfirmPassword ? "text" : "password"}
+                      placeholder="Confirm Password"
+                      className="login-input"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                    />
+                    <EyeIcon
+                      visible={showConfirmPassword}
+                      toggle={() =>
+                        setShowConfirmPassword(!showConfirmPassword)
+                      }
+                    />
+                  </div>
                 )}
-                {view === "signup" &&
-                  confirmPassword &&
-                  password !== confirmPassword && (
-                    <p className="password-warning">Passwords do not match.</p>
-                  )}
+
                 {error && <p className="password-warning">{error}</p>}
 
                 <button
                   type="submit"
                   className="submit-btn"
-                  disabled={
-                    loading || (password.length < 8 && view === "signup")
-                  }
+                  disabled={loading || error === "Email already in use"}
                 >
                   {loading
                     ? "PROCESSING..."
@@ -297,7 +283,7 @@ function LoginSection({ onClose }) {
                     className="link-btn"
                     onClick={() => {
                       setView(view === "login" ? "signup" : "login");
-                      setError(""); // Clear errors when switching views
+                      setError("");
                     }}
                   >
                     {view === "login" ? "Sign up" : "Back to Sign In"}
