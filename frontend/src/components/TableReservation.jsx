@@ -490,8 +490,7 @@ export default function TableReservation({ onClose, onSuccess }) {
               {TABLES_DATA.map((table) => {
                 const dbStatus = dbOccupiedTables[table.id];
                 let statusClass = "available";
-                if (dbStatus === "Confirmed" || dbStatus === "Seated")
-                  statusClass = "occupied";
+                if (dbStatus === "Confirmed" || dbStatus === "Seated");
                 else if (dbStatus === "Pending") statusClass = "reserved";
                 else if (selectedId === table.id) statusClass = "selected";
                 else if (linkedIds.includes(table.id)) statusClass = "linked";
@@ -527,9 +526,6 @@ export default function TableReservation({ onClose, onSuccess }) {
           </div>
           <div className="legend-item">
             <span className="dot reserved"></span> Reserved
-          </div>
-          <div className="legend-item">
-            <span className="dot occupied"></span> Occupied
           </div>
         </div>
       </div>
