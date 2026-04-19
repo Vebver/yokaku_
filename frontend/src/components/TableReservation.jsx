@@ -340,6 +340,12 @@ export default function TableReservation({ onClose, onSuccess }) {
     setLoading(true);
     setError("");
     try {
+      const productNames = selectedItems
+        .map((item) => `${item.name} (x${item.quantity})`)
+        .join(", ");
+      const storedUserId = localStorage.getItem("userId");
+      console.log("Current User ID in LocalStorage:", storedUserId);
+
       const data = new FormData();
       data.append("userId", localStorage.getItem("userId") || "");
       data.append("firstName", firstName);
@@ -355,6 +361,7 @@ export default function TableReservation({ onClose, onSuccess }) {
       data.append("allergy", allergy === "Other" ? otherAllergy : allergy);
       data.append("receipt", receiptFile);
       data.append("status", "Confirmed");
+      data.append("packageName", productNames);
       data.append("totalAmount", orderSummary.totalOrderPrice);
       data.append("downpayment", orderSummary.downpayment);
       data.append("balance", orderSummary.balance);

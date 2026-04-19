@@ -53,7 +53,7 @@ function Categories() {
         name: "",
         description: "",
       });
-      
+
       if (closeBtnRef.current) closeBtnRef.current.click();
       alert("Category created successfully!");
     } catch (err) {
@@ -63,7 +63,11 @@ function Categories() {
 
   // --- DELETE FROM DATABASE ---
   const deleteCategory = async (id) => {
-    if (window.confirm("Delete this category? This might affect products linked to it.")) {
+    if (
+      window.confirm(
+        "Delete this category? This might affect products linked to it.",
+      )
+    ) {
       try {
         await axios.delete(`http://localhost:5000/api/categories/${id}`);
         setCategories(categories.filter((c) => c.id !== id));
@@ -86,8 +90,8 @@ function Categories() {
           </div>
           <button
             className="btn btn-dark px-4 shadow-sm"
-            data-bs-toggle="modal"
-            data-bs-target="#addCategoryModal"
+            data-bs-toggle="offcanvas"
+            data-bs-target="#addCategoryDrawer"
           >
             <i className="bi bi-folder-plus me-2"></i>Add New Category
           </button>
@@ -138,68 +142,70 @@ function Categories() {
       </div>
 
       {/* --- ADD CATEGORY MODAL --- */}
+      {/* --- ADD CATEGORY SIDE DRAWER --- */}
       <div
-        className="modal fade"
-        id="addCategoryModal"
+        className="offcanvas offcanvas-end border-0 shadow" // Slides from right
         tabIndex="-1"
-        aria-hidden="true"
+        id="addCategoryDrawer"
+        aria-labelledby="addCategoryDrawerLabel"
+        style={{ width: "400px" }} // Categories usually need less width than inventory
       >
-        <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content border-0 shadow">
-            <div className="modal-header border-bottom-0 pt-4 px-4">
-              <h5 className="modal-title fw-bold">Create Category</h5>
+        <div className="offcanvas-header border-bottom pt-4 px-4">
+          <h5 className="offcanvas-title fw-bold" id="addCategoryDrawerLabel">
+            Create Category
+          </h5>
+          <button
+            type="button"
+            className="btn-close"
+            data-bs-dismiss="offcanvas" // Correct dismiss attribute
+            ref={closeBtnRef}
+            aria-label="Close"
+          ></button>
+        </div>
+
+        <div className="offcanvas-body px-4">
+          <form onSubmit={handleAddCategory}>
+            <div className="mb-3">
+              <label className="form-label small fw-bold">Category Name</label>
+              <input
+                type="text"
+                name="name"
+                placeholder="e.g. Main Course, Seafood, Drinks"
+                className="form-control"
+                value={newCategory.name}
+                onChange={handleInputChange}
+                required
+              />
+            </div>
+
+            <div className="mb-4">
+              <label className="form-label small fw-bold">
+                Description (Optional)
+              </label>
+              <textarea
+                name="description"
+                className="form-control"
+                rows="5" // Made slightly taller for the drawer layout
+                value={newCategory.description}
+                onChange={handleInputChange}
+                placeholder="Describe what items belong in this category..."
+              ></textarea>
+            </div>
+
+            {/* Action Buttons inside the drawer body */}
+            <div className="d-grid gap-2">
+              <button type="submit" className="btn btn-dark py-2">
+                Save Category
+              </button>
               <button
                 type="button"
-                className="btn-close"
-                data-bs-dismiss="modal"
-                ref={closeBtnRef}
-                aria-label="Close"
-              ></button>
+                className="btn btn-light py-2"
+                data-bs-dismiss="offcanvas"
+              >
+                Cancel
+              </button>
             </div>
-            <form onSubmit={handleAddCategory}>
-              <div className="modal-body px-4">
-                <div className="mb-3">
-                  <label className="form-label small fw-bold">
-                    Category Name
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    placeholder="e.g. Main Course, Seafood, Drinks"
-                    className="form-control"
-                    value={newCategory.name}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-
-                <div className="mb-3">
-                  <label className="form-label small fw-bold">
-                    Description (Optional)
-                  </label>
-                  <textarea
-                    name="description"
-                    className="form-control"
-                    rows="3"
-                    value={newCategory.description}
-                    onChange={handleInputChange}
-                  ></textarea>
-                </div>
-              </div>
-              <div className="modal-footer border-top-0 pb-4 px-4">
-                <button
-                  type="button"
-                  className="btn btn-light"
-                  data-bs-dismiss="modal"
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-dark px-4">
-                  Save Category
-                </button>
-              </div>
-            </form>
-          </div>
+          </form>
         </div>
       </div>
     </div>

@@ -141,8 +141,8 @@ function Product() {
         </div>
         <button
           className="btn btn-primary px-4 shadow-sm"
-          data-bs-toggle="modal"
-          data-bs-target="#addMenuModal"
+          data-bs-toggle="offcanvas"
+          data-bs-target="#addMenuDrawer"
         >
           <i className="bi bi-plus-lg me-2"></i>Add New Dish
         </button>
@@ -252,138 +252,154 @@ function Product() {
         </div>
       </div>
 
-      {/* --- ADD MENU ITEM MODAL --- */}
+      {/* --- ADD MENU ITEM SIDE DRAWER --- */}
       <div
-        className="modal fade"
-        id="addMenuModal"
+        className="offcanvas offcanvas-end border-0 shadow"
         tabIndex="-1"
-        aria-hidden="true"
+        id="addMenuDrawer"
+        aria-labelledby="addMenuDrawerLabel"
+        style={{ width: "500px" }} // Added width to fit the row of Category/Price
       >
-        <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content border-0 shadow">
-            <div className="modal-header border-bottom-0 pt-4 px-4">
-              <h5 className="modal-title fw-bold">Add Menu Item</h5>
+        <div className="offcanvas-header border-bottom pt-4 px-4">
+          <h5 className="offcanvas-title fw-bold" id="addMenuDrawerLabel">
+            Add Menu Item
+          </h5>
+          <button
+            type="button"
+            className="btn-close"
+            data-bs-dismiss="offcanvas" // Updated
+            ref={closeBtnRef}
+          ></button>
+        </div>
+
+        <div className="offcanvas-body px-4">
+          <form onSubmit={handleAddMenuItem}>
+            {/* Dish Name */}
+            <div className="mb-3">
+              <label className="form-label small fw-bold">Dish Name</label>
+              <input
+                type="text"
+                name="name"
+                className="form-control"
+                value={newItem.name}
+                onChange={handleInputChange}
+                placeholder="e.g. Grilled Salmon"
+                required
+              />
+            </div>
+
+            {/* Description */}
+            <div className="mb-3">
+              <label className="form-label small fw-bold">Description</label>
+              <textarea
+                name="description"
+                className="form-control"
+                rows="3"
+                value={newItem.description}
+                onChange={handleInputChange}
+                placeholder="Describe the ingredients and taste..."
+              ></textarea>
+            </div>
+
+            {/* Category and Price in one row */}
+            <div className="row">
+              <div className="col-md-6 mb-3">
+                <label className="form-label small fw-bold">Category</label>
+                <select
+                  name="category_id"
+                  className="form-select"
+                  value={newItem.category_id}
+                  onChange={handleInputChange}
+                  required
+                >
+                  {categories.map((cat) => (
+                    <option key={cat.category_id} value={cat.category_id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="col-md-6 mb-3">
+                <label className="form-label small fw-bold">Price (₱)</label>
+                <input
+                  type="number"
+                  name="price"
+                  step="0.01"
+                  min="0" // Prevent negative
+                  className="form-control"
+                  value={newItem.price}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+            </div>
+
+            {/* File Upload */}
+            <div className="mb-3">
+              <label className="form-label small fw-bold">
+                Upload Dish Image
+              </label>
+              <div className="input-group">
+                <input
+                  type="file"
+                  className="form-control"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  required
+                />
+              </div>
+              <small className="text-muted">
+                Best size: 800x600px (JPG/PNG)
+              </small>
+            </div>
+
+            <hr className="my-4 text-muted" />
+
+            {/* Toggles / Dropdowns for Status */}
+            <div className="mb-3">
+              <label className="form-label small fw-bold">
+                Feature on Landing Page?
+              </label>
+              <select
+                name="is_featured"
+                className="form-select border-warning" // Highlight featured option
+                value={newItem.is_featured}
+                onChange={handleInputChange}
+              >
+                <option value={0}>No (Standard Item)</option>
+                <option value={1}>Yes (Featured Item)</option>
+              </select>
+            </div>
+
+            <div className="mb-4">
+              <label className="form-label small fw-bold">
+                Initial Availability
+              </label>
+              <select
+                name="is_available"
+                className="form-select"
+                value={newItem.is_available}
+                onChange={handleInputChange}
+              >
+                <option value={1}>Available Now</option>
+                <option value={0}>Out of Stock / Coming Soon</option>
+              </select>
+            </div>
+
+            {/* Actions */}
+            <div className="d-grid gap-2 mb-4">
+              <button type="submit" className="btn btn-primary py-2 fw-bold">
+                Add to Menu
+              </button>
               <button
                 type="button"
-                className="btn-close"
-                data-bs-dismiss="modal"
-                ref={closeBtnRef}
-              ></button>
+                className="btn btn-light py-2"
+                data-bs-dismiss="offcanvas"
+              >
+                Cancel
+              </button>
             </div>
-            <form onSubmit={handleAddMenuItem}>
-              <div className="modal-body px-4">
-                <div className="mb-3">
-                  <label className="form-label small fw-bold">Dish Name</label>
-                  <input
-                    type="text"
-                    name="name"
-                    className="form-control"
-                    value={newItem.name}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-                <div className="mb-3">
-                  <label className="form-label small fw-bold">
-                    Description
-                  </label>
-                  <textarea
-                    name="description"
-                    className="form-control"
-                    rows="2"
-                    value={newItem.description}
-                    onChange={handleInputChange}
-                  ></textarea>
-                </div>
-                <div className="row">
-                  <div className="col-md-6 mb-3">
-                    <label className="form-label small fw-bold">Category</label>
-                    <select
-                      name="category_id"
-                      className="form-select"
-                      value={newItem.category_id}
-                      onChange={handleInputChange}
-                      required
-                    >
-                      {categories.map((cat) => (
-                        <option key={cat.category_id} value={cat.category_id}>
-                          {cat.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="col-md-6 mb-3">
-                    <label className="form-label small fw-bold">
-                      Price (₱)
-                    </label>
-                    <input
-                      type="number"
-                      name="price"
-                      step="0.01"
-                      className="form-control"
-                      value={newItem.price}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="mb-3">
-                  <label className="form-label small fw-bold">
-                    Upload Dish Image
-                  </label>
-                  <input
-                    type="file"
-                    className="form-control"
-                    accept="image/*"
-                    onChange={handleFileChange}
-                    required
-                  />
-                </div>
-                {/* New fields for Featured and Availability */}
-                <div className="mb-3">
-                  <label className="form-label small fw-bold">
-                    Feature on Landing Page?
-                  </label>
-                  <select
-                    name="is_featured"
-                    className="form-select"
-                    value={newItem.is_featured}
-                    onChange={handleInputChange}
-                  >
-                    <option value={0}>No (Standard Item)</option>
-                    <option value={1}>Yes (Featured Item)</option>
-                  </select>
-                </div>
-                {/* Availability toggle */}
-                <div className="mb-3">
-                  <label className="form-label small fw-bold">
-                    Availability
-                  </label>
-                  <select
-                    name="is_available"
-                    className="form-select"
-                    value={newItem.is_available}
-                    onChange={handleInputChange}
-                  >
-                    <option value={1}>Available</option>
-                    <option value={0}>Out of Stock / Hide</option>
-                  </select>
-                </div>
-              </div>
-              <div className="modal-footer border-top-0 pb-4 px-4">
-                <button
-                  type="button"
-                  className="btn btn-light"
-                  data-bs-dismiss="modal"
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary px-4">
-                  Add to Menu
-                </button>
-              </div>
-            </form>
-          </div>
+          </form>
         </div>
       </div>
     </div>

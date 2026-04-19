@@ -190,36 +190,6 @@ function AdminDashboard() {
           icon="bi-wallet-fill"
         />
       </div>
-
-      <div className="row">
-        <div className="col-12">
-          <div className="card border-0 shadow-sm rounded-4 bg-white p-4">
-            <div className="d-flex justify-content-between align-items-center mb-4">
-              <h5 className="fw-bold mb-0">
-                Monthly Booking Revenue (Downpayments)
-              </h5>
-              <button
-                className="btn btn-sm btn-outline-primary rounded-pill px-3"
-                onClick={fetchDashboardData}
-              >
-                <i className="bi bi-arrow-clockwise me-1"></i> Refresh
-              </button>
-            </div>
-            <div style={{ height: "400px", width: "100%" }}>
-              <Bar
-                data={barChartConfig}
-                options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  scales: {
-                    y: { beginAtZero: true },
-                  },
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 
