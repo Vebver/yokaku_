@@ -27,6 +27,7 @@ const ReservationSummary = ({
   loading,
 }) => {
   const [receipt, setReceipt] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState(null); // State for Gcash/Maya selection
   const fileInputRef = useRef(null);
 
   // Auto-manage body scroll and reset file on close
@@ -36,6 +37,7 @@ const ReservationSummary = ({
     } else {
       document.body.style.overflow = "unset";
       setReceipt(null);
+      setPaymentMethod(null); // Reset selection
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
     return () => {
@@ -177,6 +179,7 @@ const ReservationSummary = ({
                 Payment Breakdown
               </h3>
             </div>
+
             <div className="payment-row">
               <span>Total Bill</span>
               <span>₱{orderSummary?.totalOrderPrice?.toFixed(2)}</span>
@@ -190,31 +193,93 @@ const ReservationSummary = ({
               <span>₱{orderSummary?.balance?.toFixed(2)}</span>
             </div>
 
-            {/* PAYMENT INSTRUCTIONS */}
-            <div
+            {/* MODERN PAYMENT SELECTION CARDS */}
+            <label
               style={{
-                backgroundColor: "#e8f5e9",
-                padding: "12px",
-                borderRadius: "8px",
-                border: "1px solid #c8e6c9",
-                marginTop: "15px",
-                fontSize: "14px",
+                fontSize: "12px",
+                fontWeight: "bold",
+                color: "#888",
+                display: "block",
+                marginTop: "20px",
+                marginBottom: "10px",
+                textTransform: "uppercase",
               }}
             >
-              <p style={{ margin: 0, fontWeight: "600", color: "#2e7d32" }}>
-                Send <span style={{ color: "red" }}>Gcash</span> Payment to:
-              </p>
-              <div style={{ color: "#2e7d32", marginTop: "4px" }}>
-                <strong>09060052831</strong> — Carl Lorenz Leabres
-              </div>
-              <br></br>
-              <p style={{ margin: 0, fontWeight: "600", color: "#2e7d32" }}>
-                Send <span style={{ color: "red" }}>Maya</span> Payment to:
-              </p>
-              <div style={{ color: "#2e7d32", marginTop: "4px" }}>
-                <strong>09060052831</strong> — Carl Lorenz Leabres
-              </div>
+              Select Payment Method
+            </label>
+            <div style={{ display: "flex", gap: "12px", marginBottom: "15px" }}>
+              {["Gcash", "Maya"].map((method) => (
+                <div
+                  key={method}
+                  onClick={() => setPaymentMethod(method)}
+                  style={{
+                    flex: 1,
+                    padding: "15px",
+                    borderRadius: "12px",
+                    border:
+                      paymentMethod === method
+                        ? "2px solid #f38d31"
+                        : "2px solid #eee",
+                    backgroundColor:
+                      paymentMethod === method ? "#fffcf9" : "#fff",
+                    cursor: "pointer",
+                    textAlign: "center",
+                    transition: "all 0.2s ease",
+                    position: "relative",
+                    boxShadow:
+                      paymentMethod === method
+                        ? "0 4px 12px rgba(243, 141, 49, 0.1)"
+                        : "none",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontWeight: "700",
+                      color: paymentMethod === method ? "#f38d31" : "#555",
+                      fontSize: "15px",
+                    }}
+                  >
+                    {method}
+                  </span>
+                  {paymentMethod === method && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "-8px",
+                        right: "-8px",
+                      }}
+                    >
+                      <CheckCircle2 size={18} color="#f38d31" fill="white" />
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
+
+            {/* CONDITIONAL PAYMENT INSTRUCTIONS */}
+            {paymentMethod && (
+              <div
+                className="fade-in"
+                style={{
+                  backgroundColor: "#e8f5e9",
+                  padding: "15px",
+                  borderRadius: "10px",
+                  border: "1px solid #c8e6c9",
+                  fontSize: "14px",
+                }}
+              >
+                <p style={{ margin: 0, fontWeight: "600", color: "#2e7d32" }}>
+                  Send <span style={{ color: "red" }}>{paymentMethod}</span>{" "}
+                  Payment to:
+                </p>
+                <div style={{ color: "#2e7d32", marginTop: "6px" }}>
+                  <strong style={{ fontSize: "16px" }}>09060052831</strong>
+                  <div style={{ fontSize: "13px", opacity: 0.8 }}>
+                    Account Name: Carl Lorenz Leabres
+                  </div>
+                </div>
+              </div>
+            )}
           </section>
 
           {/* Section 5: Receipt Upload */}
@@ -271,7 +336,7 @@ const ReservationSummary = ({
         <footer className="summary-footer">
           <button
             className="confirm-btn"
-            disabled={!receipt || loading}
+            disabled={!receipt || !paymentMethod || loading} // Also disable if no method selected
             onClick={() => onConfirm(receipt)}
           >
             {loading ? "Processing..." : "Submit Reservation"}

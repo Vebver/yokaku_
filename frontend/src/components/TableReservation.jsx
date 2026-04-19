@@ -241,11 +241,31 @@ export default function TableReservation({ onClose, onSuccess }) {
 
   const timeToMinutes = (timeStr) => {
     if (!timeStr) return 0;
-    const [time, period] = timeStr.split(" ");
-    let [h, m] = time.split(":").map(Number);
-    if (period === "PM" && h !== 12) h += 12;
-    if (period === "AM" && h === 12) h = 0;
-    return h * 60 + m;
+    const is12Hour = timeStr.includes("AM") || timeStr.includes("PM");
+    if (is12Hour) {
+      const [time, period] = timeStr.split(" ");
+      let [h, m] = time.split(":").map(Number);
+      if (period === "PM" && h !== 12) h += 12;
+      if (period === "AM" && h === 12) h = 0;
+      return h * 60 + m;
+    } else {
+      const parts = timeStr.split(":");
+      const h = Number(parts[0]);
+      const m = Number(parts[1]);
+      return h * 60 + m;
+    }
+  };
+
+  const formatTimeForDisplay = (timeStr) => {
+    if (!timeStr) return "";
+    if (timeStr.includes("AM") || timeStr.includes("PM")) {
+      return timeStr.replace(/:00\s/, " ");
+    }
+    let [h, m] = timeStr.split(":");
+    let hours = parseInt(h, 10);
+    const suffix = hours >= 12 ? "PM" : "AM";
+    hours = hours % 12 || 12;
+    return `${hours}:${m} ${suffix}`;
   };
 
   const handleAcceptTerms = () => {
@@ -272,9 +292,25 @@ export default function TableReservation({ onClose, onSuccess }) {
     return options;
   }, []);
 
+  const todayStr = useMemo(() => {
+    const now = new Date();
+    const offset = now.getTimezoneOffset() * 60000;
+    return new Date(now - offset).toISOString().split("T")[0];
+  }, []);
+
   const availableStartTimeOptions = useMemo(() => {
-    if (!tableSchedule.length) return timeOptions;
-    return timeOptions.filter((timeStr) => {
+    let options = timeOptions;
+
+    // --- NEW: Filter choices to be at least 15 minutes ahead of current time ---
+    if (resDate === todayStr) {
+      const now = new Date();
+      const currentMins = now.getHours() * 60 + now.getMinutes();
+      const threshold = currentMins + 15;
+      options = options.filter((t) => timeToMinutes(t) >= threshold);
+    }
+
+    if (!tableSchedule.length) return options;
+    return options.filter((timeStr) => {
       const timeMin = timeToMinutes(timeStr);
       return !tableSchedule.some((res) => {
         const startMin = timeToMinutes(res.startTime);
@@ -282,13 +318,23 @@ export default function TableReservation({ onClose, onSuccess }) {
         return timeMin >= startMin && timeMin < endMin;
       });
     });
-  }, [timeOptions, tableSchedule]);
+  }, [timeOptions, tableSchedule, resDate, todayStr]);
 
   const filteredEndTimeOptions = useMemo(() => {
     if (!startTime) return timeOptions;
     const startMins = timeToMinutes(startTime);
-    return timeOptions.filter((t) => timeToMinutes(t) >= startMins + 60);
-  }, [startTime, timeOptions]);
+    let options = timeOptions.filter((t) => timeToMinutes(t) >= startMins + 60);
+
+    // --- Ensure End time options also respect the current time if today ---
+    if (resDate === todayStr) {
+      const now = new Date();
+      const currentMins = now.getHours() * 60 + now.getMinutes();
+      const threshold = currentMins + 15;
+      options = options.filter((t) => timeToMinutes(t) >= threshold);
+    }
+
+    return options;
+  }, [startTime, timeOptions, resDate, todayStr]);
 
   const handleConfirmReservation = async (receiptFile) => {
     setLoading(true);
@@ -331,12 +377,6 @@ export default function TableReservation({ onClose, onSuccess }) {
       setLoading(false);
     }
   };
-
-  const todayStr = useMemo(() => {
-    const now = new Date();
-    const offset = now.getTimezoneOffset() * 60000;
-    return new Date(now - offset).toISOString().split("T")[0];
-  }, []);
 
   const primaryTable = useMemo(
     () => TABLES_DATA.find((t) => t.id === selectedId),
@@ -409,7 +449,6 @@ export default function TableReservation({ onClose, onSuccess }) {
     if (dbOccupiedTables[table.id]) return;
 
     if (isLinkMode) {
-      // Functional restriction removed - T1 and T10 can now be linked
       if (table.id === selectedId) {
         setSelectedId(null);
         setLinkedIds([]);
@@ -564,7 +603,6 @@ export default function TableReservation({ onClose, onSuccess }) {
             </button>
             <h2 className="panel-title">
               Reserve {primaryTable.label} {linkedIds.map((id) => ` + T${id}`)}
-              {/* Reminder Label remains as requested */}
               {(primaryTable.id === 1 ||
                 primaryTable.id === 10 ||
                 linkedIds.includes(1) ||
@@ -605,40 +643,61 @@ export default function TableReservation({ onClose, onSuccess }) {
                 <Clock size={14} /> Occupied Slots for{" "}
                 {resDate || "selected date"}
               </h4>
-              {tableSchedule.length > 0 ? (
-                <div className="schedule-list">
-                  {tableSchedule.map((res, index) => (
-                    <div
-                      key={index}
-                      style={{
-                        fontSize: "12px",
-                        padding: "8px",
-                        background: "#fff",
-                        borderLeft: "3px solid #f38d31",
-                        marginBottom: "4px",
-                        boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-                      }}
-                    >
-                      {/* Removed Customer Name - Only displaying the Time Range */}
-                      <div style={{ fontWeight: "600", color: "#333" }}>
-                        <Clock size={10} style={{ marginRight: "4px" }} />
-                        {res.startTime} - {res.endTime}
+
+              <div className="schedule-list">
+                {tableSchedule.length > 0 ? (
+                  tableSchedule
+                    .filter((res) => {
+                      if (resDate === todayStr) {
+                        const now = new Date();
+                        const currentMins =
+                          now.getHours() * 60 + now.getMinutes();
+                        return timeToMinutes(res.endTime) > currentMins;
+                      }
+                      return true;
+                    })
+                    .map((res, index) => (
+                      <div
+                        key={index}
+                        style={{
+                          fontSize: "12px",
+                          padding: "8px",
+                          background: "#fff",
+                          borderLeft: "3px solid #f38d31",
+                          marginBottom: "4px",
+                          boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                        }}
+                      >
+                        <div style={{ fontWeight: "600", color: "#333" }}>
+                          <Clock size={10} style={{ marginRight: "4px" }} />
+                          {formatTimeForDisplay(res.startTime)} -{" "}
+                          {formatTimeForDisplay(res.endTime)}
+                        </div>
+                        <div style={{ fontSize: "10px", color: "#888" }}>
+                          Status: {res.status}
+                        </div>
                       </div>
-                      <div style={{ fontSize: "10px", color: "#888" }}>
-                        Status: {res.status}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p style={{ fontSize: "11px", color: "#2a9d8f" }}>
-                  No reservations. All slots are available.
-                </p>
-              )}
+                    ))
+                ) : (
+                  <p style={{ fontSize: "11px", color: "#2a9d8f" }}>
+                    No reservations. All slots are available.
+                  </p>
+                )}
+                {resDate === todayStr &&
+                  tableSchedule.length > 0 &&
+                  tableSchedule.filter(
+                    (r) =>
+                      timeToMinutes(r.endTime) >
+                      new Date().getHours() * 60 + new Date().getMinutes(),
+                  ).length === 0 && (
+                    <p style={{ fontSize: "11px", color: "#2a9d8f" }}>
+                      No remaining reservations for today.
+                    </p>
+                  )}
+              </div>
             </div>
 
             <div className="res-form">
-              {/* Functional restriction removed - Button now shows for all tables */}
               <button
                 className={`btn-link-mode ${isLinkMode ? "active" : ""}`}
                 onClick={() => setIsLinkMode(!isLinkMode)}
@@ -876,7 +935,6 @@ export default function TableReservation({ onClose, onSuccess }) {
         )}
       </aside>
 
-      {/* 5. Add the TermsModal component here */}
       <TermsModal
         isOpen={isTermsOpen}
         onClose={() => setIsTermsOpen(false)}
