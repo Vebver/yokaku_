@@ -48,6 +48,7 @@ function LoginSection({ onClose }) {
     try {
       const res = await axios.post("/api/auth/login", { email, password });
       localStorage.setItem("token", res.data.token);
+      localStorage.setItem("userId", res.data.user.id);
       localStorage.setItem("userRole", res.data.user.role);
       localStorage.setItem("email", res.data.user.email);
       localStorage.setItem("firstName", res.data.user.firstName);
@@ -120,6 +121,11 @@ function LoginSection({ onClose }) {
         otp: code,
       });
       localStorage.setItem("token", res.data.token);
+      localStorage.setItem("userId", res.data.user.id);
+      localStorage.setItem("userRole", res.data.user.role);
+      localStorage.setItem("email", res.data.user.email);
+      localStorage.setItem("firstName", res.data.user.firstName);
+      localStorage.setItem("lastName", res.data.user.lastName);
       window.location.href = "/customer";
       onClose();
     } catch (err) {
