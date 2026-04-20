@@ -1,6 +1,71 @@
 const db = require("../config/db");
 
 const Product = {
+  create: async (data) => {
+    const sql = `
+      INSERT INTO menu_items 
+      (category_id, name, description, price, image_url, is_available, is_featured) 
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `;
+    const values = [
+      data.category_id,
+      data.name,
+      data.description,
+      data.price,
+      data.image_url,
+      data.is_available,
+      data.is_featured,
+    ];
+    const [result] = await db.execute(sql, values);
+    return { item_id: result.insertId, ...data };
+  },
+
+  delete: async (id) => {
+    const sql = "DELETE FROM menu_items WHERE item_id = ?";
+    await db.execute(sql, [id]);
+    return true;
+  },
+  update: async (id, data) => {
+    let sql;
+    let values;
+
+    if (data.image_url) {
+      // If a new image was uploaded
+      sql = `
+        UPDATE menu_items 
+        SET category_id=?, name=?, description=?, price=?, image_url=?, is_available=?, is_featured=? 
+        WHERE item_id=?`;
+      values = [
+        data.category_id,
+        data.name,
+        data.description,
+        data.price,
+        data.image_url,
+        data.is_available,
+        data.is_featured,
+        id,
+      ];
+    } else {
+      // If no new image was uploaded (omit image_url from query)
+      sql = `
+        UPDATE menu_items 
+        SET category_id=?, name=?, description=?, price=?, is_available=?, is_featured=? 
+        WHERE item_id=?`;
+      values = [
+        data.category_id,
+        data.name,
+        data.description,
+        data.price,
+        data.is_available,
+        data.is_featured,
+        id,
+      ];
+    }
+
+    // Now sql and values are accessible here
+    const [result] = await db.execute(sql, values);
+    return result;
+  },
   getAll: async () => {
     const sql = `
       SELECT 
@@ -28,30 +93,6 @@ const Product = {
     return rows;
   },
 
-  create: async (data) => {
-    const sql = `
-      INSERT INTO menu_items 
-      (category_id, name, description, price, image_url, is_available, is_featured) 
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `;
-    const values = [
-      data.category_id,
-      data.name,
-      data.description,
-      data.price,
-      data.image_url,
-      data.is_available,
-      data.is_featured,
-    ];
-    const [result] = await db.execute(sql, values);
-    return { item_id: result.insertId, ...data };
-  },
-
-  delete: async (id) => {
-    const sql = "DELETE FROM menu_items WHERE item_id = ?";
-    await db.execute(sql, [id]);
-    return true;
-  },
   updateFeatureStatus: async (id, is_featured) => {
     const query = "UPDATE menu_items SET is_featured = ? WHERE item_id = ?";
     const [result] = await db.execute(query, [is_featured, id]);

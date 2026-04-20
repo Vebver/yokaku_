@@ -9,6 +9,7 @@ router.get('/:id/ingredients', productController.getIngredients);
 router.post('/:id/ingredients', productController.addIngredient)
 router.post('/', upload.single('image'), productController.createProduct); // Use multer middleware for file upload
 router.put('/:id/feature', productController.toggleFeature);
+router.put('/:id', upload.single('image'), productController.updateProduct);
 router.delete('/:id', productController.deleteProduct);
 router.delete('/ingredients/:recipeId', productController.removeIngredient);
 

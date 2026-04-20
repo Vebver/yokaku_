@@ -88,6 +88,38 @@ const productController = {
       res.status(500).json({ error: error.message });
     }
   },
+   updateProduct: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { name, description, price, category_id, is_available, is_featured } = req.body;
+
+      // Clean/Convert data types
+      const data = {
+        name,
+        description,
+        price: parseFloat(price) || 0.0,
+        category_id: parseInt(category_id),
+        is_available: parseInt(is_available),
+        is_featured: parseInt(is_featured)
+      };
+
+      // If a new image was uploaded via multer, add it to the data
+      if (req.file) {
+        data.image_url = `/uploads/${req.file.filename}`;
+      }
+
+      const result = await Product.update(id, data);
+
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ error: "Product not found" });
+      }
+
+      res.json({ success: true, message: "Product updated successfully" });
+    } catch (error) {
+      console.error("UPDATE PRODUCT ERROR:", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  },
   getIngredients: async (req, res) => {
     try {
       const ingredients = await Product.getIngredients(req.params.id);
