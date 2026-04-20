@@ -12,6 +12,7 @@ import {
 import Navbar from "./components/Navbar";
 import HeroSection from "./components/HeroSection";
 import FeaturedMenu from "./components/FeaturedMenu";
+import FullMenu from "./components/FullMenu";
 import AboutSection from "./components/AboutSection";
 import PromoSection from "./components/PromoSection";
 import ReviewsSection from "./components/ReviewsSection";
@@ -169,6 +170,7 @@ function AppContent() {
           path="/kiosk-selection/kiosk-reservation-menu"
           element={<KioskReservationMenu />}
         />
+         <Route path="/menu" element={<FullMenu />} />
       </Routes>
 
       {isLoginOpen && <LoginSection onClose={() => setIsLoginOpen(false)} />}

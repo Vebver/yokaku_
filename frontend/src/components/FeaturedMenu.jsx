@@ -1,63 +1,57 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import Slider from "react-slick";
+import { useNavigate } from "react-router-dom"; // Import useNavigate
+import "slick-carousel/slick/slick.css";
+import "slick-carousel/slick/slick-theme.css";
 import "../Style/FeaturedMenu.css";
 
-function FeaturedMenu({ onLoginClick }) {
+function FeaturedMenu() {
   const [featuredItems, setFeaturedItems] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate(); // Initialize navigation
 
   useEffect(() => {
     const fetchFeatured = async () => {
       try {
-        // Updated API endpoint
-        const res = await axios.get(
-          "http://localhost:5000/api/products/featured",
-        );
+        const res = await axios.get("http://localhost:5000/api/products/featured");
         setFeaturedItems(res.data);
-        setLoading(false);
       } catch (err) {
-        console.error("Error loading featured items:", err);
-        setLoading(false);
+        console.error(err);
       }
     };
     fetchFeatured();
   }, []);
 
-  if (loading)
-    return (
-      <div className="p-5 text-center" style={{ color: "white" }}>
-        Loading Specials...
-      </div>
-    );
+  const settings = {
+    dots: true,
+    infinite: true,
+    speed: 500,
+    slidesToShow: 3,
+    slidesToScroll: 1,
+    autoplay: true,
+    responsive: [{ breakpoint: 768, settings: { slidesToShow: 1 } }]
+  };
 
   return (
-    <section className="featured-menu" id="menu-section">
+    <section className="featured-menu">
       <h2>FEATURED ITEMS</h2>
-      <div className="menu-items">
-        {featuredItems.map((item) => (
-          <div key={item.item_id || item.id} className="menu-card">
-            {/* Display the item image and name */}
-            <img
-              src={
-                item.image_url
-                  ? `http://localhost:5000${item.image_url}`
-                  : "https://placehold.co/300"
-              }
-              alt={item.name}
-              onError={(e) => {
-                e.target.src = "https://placehold.co/300";
-              }}
-            />
-            <span>{item.name}</span>
-            {/* Optional: Add price since it's a specific item now */}
-            <small style={{ color: "#ffcc00", fontWeight: "bold" }}>
-              ₱{item.price}
-            </small>
-          </div>
-        ))}
+      
+      <div className="carousel-container">
+        <Slider {...settings}>
+          {featuredItems.map((item) => (
+            <div key={item.id} className="menu-card-wrapper">
+              <div className="menu-card">
+                <img src={`http://localhost:5000${item.image_url}`} alt={item.name} />
+                <span>{item.name}</span>
+                <small>₱{item.price}</small>
+              </div>
+            </div>
+          ))}
+        </Slider>
       </div>
 
-      <button className="all-menu-btn" onClick={onLoginClick}>
+      {/* This button now takes the user to the Full Menu component */}
+      <button className="all-menu-btn" onClick={() => navigate("/menu")}>
         VIEW FULL MENU
       </button>
     </section>
