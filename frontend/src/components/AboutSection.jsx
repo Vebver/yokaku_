@@ -35,7 +35,6 @@ function AboutSection({onLoginClick}) {
               Today, Hangout Restobar continues to provide a fun and comfortable atmosphere
               where every visit feels like a great hangout.
             </p>
-            <button className="read-more-btn" onClick={ onLoginClick }>Explore Menu</button>
           </div>
         </div>
       </div>

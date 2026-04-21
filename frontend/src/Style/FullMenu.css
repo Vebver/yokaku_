@@ -7,30 +7,25 @@
   text-align: center;
 }
 
-.back-button-container {
+.menu-back-button {
   display: flex;
-  justify-content: flex-end; /* This pushes the button to the RIGHT */
-  width: 100%;
-  max-width: 1200px; /* Matches your grid width */
-  margin: 0 auto 20px auto; /* Centers the container, adds space below */
-}
-/* Back Button */
-.back-btn {
-  background: transparent;
-  color: #ffcc00;
-  border: 1.5px solid #ffcc00;
-  padding: 10px 20px;
-  border-radius: 30px;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  color: #ffe7e7; /* Matches your text color */
   cursor: pointer;
   font-weight: 600;
-  font-size: 0.9rem;
-  transition: all 0.3s ease;
+  font-size: 16px;
+  padding: 10px 0;
+  margin-bottom: 10px;
+  transition: all 0.2s ease;
+  width: fit-content;
 }
 
-.back-btn:hover {
-  background-color: #ffcc00;
-  color: #000;
-  transform: translateX(-5px);
+.menu-back-button:hover {
+  color: #ffcc00; /* Changes to your orange accent on hover */
+  transform: translateX(-5px); /* Subtle movement to the left */
 }
 
 /* Header */

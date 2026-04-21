@@ -7,6 +7,7 @@ exports.getReviews = async (req, res) => {
             SELECT r.*, u.first_name, u.last_name 
             FROM reviews r 
             JOIN users u ON r.user_id = u.user_id 
+            WHERE r.rating >= 4
             ORDER BY r.created_at DESC
         `);
         res.json(rows);

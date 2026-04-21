@@ -103,11 +103,13 @@ function AdminDashboard() {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (token) {
+    const role = localStorage.getItem("userRole");
+    if (token && role === "admin") {
       axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
       setIsAuthenticated(true);
       fetchDashboardData();
     } else {
+      setIsAuthenticated(false);
       setLoading(false);
     }
   }, []);
@@ -132,6 +134,8 @@ function AdminDashboard() {
 
   const handleLogout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("userRole");
+    localStorage.removeItem("role");
     delete axios.defaults.headers.common["Authorization"];
     setIsAuthenticated(false);
     window.location.href = "/";
@@ -208,24 +212,23 @@ function AdminDashboard() {
     return sections[activeSection] || null;
   };
 
-  if (!isAuthenticated && !loading) {
-    return (
-      <div className="vh-100 d-flex align-items-center justify-content-center bg-light">
-        <div
-          className="card border-0 shadow p-5 text-center"
-          style={{ maxWidth: "400px" }}
+ if (!isAuthenticated && !loading) {
+  return (
+    <div className="vh-100 d-flex align-items-center justify-content-center bg-light">
+      <div className="card border-0 shadow p-5 text-center" style={{ maxWidth: "400px" }}>
+        <i className="bi bi-shield-lock-fill text-danger" style={{ fontSize: "3rem" }}></i>
+        <h2 className="fw-bold mb-3 text-dark">Access Denied</h2>
+        <p className="text-muted mb-4">You do not have the required permissions to view the Admin Dashboard.</p>
+        <button
+          className="btn btn-dark btn-lg w-100"
+          onClick={() => (window.location.href = "/")}
         >
-          <h2 className="fw-bold mb-3 text-dark">Admin Access Required</h2>
-          <button
-            className="btn btn-success btn-lg w-100"
-            onClick={() => (window.location.href = "/")}
-          >
-            Go to Login
-          </button>
-        </div>
+          Return to Home
+        </button>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   return (
     <div className="admin-layout">

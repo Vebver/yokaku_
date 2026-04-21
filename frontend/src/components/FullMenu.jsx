@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom"; // Import useNavigate
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft } from "lucide-react"; // Import the icon
 import "../Style/FullMenu.css";
 
 function FullMenu() {
-  const navigate = useNavigate(); // Initialize useNavigate
+  const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -15,11 +16,9 @@ function FullMenu() {
     const fetchAllItems = async () => {
       try {
         const res = await axios.get("http://localhost:5000/api/products");
-
         setItems(res.data);
         setFilteredItems(res.data);
 
-        // Get unique Category Names from the data
         const uniqueNames = [
           ...new Set(res.data.map((item) => item.category_name)),
         ].filter(Boolean);
@@ -28,9 +27,7 @@ function FullMenu() {
 
         if (uniqueNames.length > 0) {
           const firstCat = uniqueNames[0];
-          setActiveCategory(firstCat); // Highlight the first category button
-
-          // Only show items belonging to that first category
+          setActiveCategory(firstCat);
           const initialFiltered = res.data.filter(
             (item) => item.category_name === firstCat,
           );
@@ -59,7 +56,12 @@ function FullMenu() {
 
   return (
     <section className="full-menu-page">
-        
+      {/* BACK BUTTON */}
+      <button className="menu-back-button" onClick={() => navigate(-1)}>
+        <ArrowLeft size={20} />
+        <span>Back</span>
+      </button>
+
       <h1>OUR MENU</h1>
 
       <div className="category-bar">
@@ -73,6 +75,7 @@ function FullMenu() {
           </button>
         ))}
       </div>
+      
       <div className="menu-grid-compact">
         {filteredItems.map((item) => (
           <div key={item.item_id || item.id} className="small-menu-card">

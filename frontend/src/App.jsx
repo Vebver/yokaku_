@@ -50,6 +50,7 @@ function AppContent() {
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("token"));
+  const [userRole, setUserRole] = useState(localStorage.getItem("role"));
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -58,7 +59,9 @@ function AppContent() {
 
   const handleLogout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("role");
     setIsLoggedIn(false);
+    setUserRole(null);
     navigate("/");
   };
 
@@ -94,7 +97,11 @@ function AppContent() {
           path="/"
           element={
             isLoggedIn ? (
-              <Navigate to="/customer" replace />
+              userRole === "admin" ? (
+                <Navigate to="/admin" replace />
+              ) : (
+                <Navigate to="/customer" replace />
+              )
             ) : (
               <>
                 <HeroSection
@@ -135,12 +142,17 @@ function AppContent() {
           path="/customer"
           element={
             isLoggedIn ? (
-              <CustomerPage
-                isLoggedIn={isLoggedIn}
-                onLoginClick={() => setIsLoginOpen(true)}
-                onReserveClick={() => navigate("/tablereservation")}
-                onSuccess={handleReservationSuccess}
-              />
+              userRole === "admin" ? (
+                // If an admin tries to go to /customer, send them back to admin
+                <Navigate to="/admin" replace />
+              ) : (
+                <CustomerPage
+                  isLoggedIn={isLoggedIn}
+                  onLoginClick={() => setIsLoginOpen(true)}
+                  onReserveClick={() => navigate("/tablereservation")}
+                  onSuccess={handleReservationSuccess}
+                />
+              )
             ) : (
               <Navigate to="/" replace />
             )
@@ -154,8 +166,24 @@ function AppContent() {
           }
         />
         <Route
+          path="/profile"
+          element={
+            isLoggedIn && userRole !== "admin" ? (
+              <CustomerProfile />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+        <Route
           path="/notifications"
-          element={isLoggedIn ? <Notifications /> : <Navigate to="/" replace />}
+          element={
+            isLoggedIn && userRole !== "admin" ? (
+              <Notifications />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
         />
         <Route path="/admin/*" element={<AdminDashboard />} />
         <Route path="/kiosk-selection" element={<KioskSelection />} />
@@ -170,7 +198,22 @@ function AppContent() {
           path="/kiosk-selection/kiosk-reservation-menu"
           element={<KioskReservationMenu />}
         />
-         <Route path="/menu" element={<FullMenu />} />
+        <Route path="/menu" element={<FullMenu />} />
+
+        <Route
+          path="*"
+          element={
+            isLoggedIn ? (
+              userRole === "admin" ? (
+                <Navigate to="/admin" replace />
+              ) : (
+                <Navigate to="/customer" replace />
+              )
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
       </Routes>
 
       {isLoginOpen && <LoginSection onClose={() => setIsLoginOpen(false)} />}

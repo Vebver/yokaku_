@@ -12,6 +12,7 @@ import {
   Upload,
   Layers,
   User,
+  Baby,
 } from "lucide-react";
 import "../Style/TableReservation.css";
 import MenuModal from "./MenuModal";
@@ -143,6 +144,7 @@ export default function TableReservation({ onClose, onSuccess }) {
   const [barangays, setBarangays] = useState([]);
   const [selectedMunicipality, setSelectedMunicipality] = useState("");
   const [selectedBarangay, setSelectedBarangay] = useState("");
+  const [highChair, setHighChair] = useState("No");
 
   const renderChairs = (table) => {
     const chairs = [];
@@ -768,7 +770,7 @@ export default function TableReservation({ onClose, onSuccess }) {
                   </select>
                 </div>
               </div>
-
+              {/* FIRST NAME */}
               <div className="input-group">
                 <div className="label-with-icon">
                   <label>FIRST NAME</label>
@@ -785,6 +787,7 @@ export default function TableReservation({ onClose, onSuccess }) {
                   disabled={!isEditing}
                 />
               </div>
+              {/* LAST NAME */}
               <div className="input-group">
                 <label>LAST NAME</label>
                 <input
@@ -794,6 +797,7 @@ export default function TableReservation({ onClose, onSuccess }) {
                   disabled={!isEditing}
                 />
               </div>
+              {/* EMAIL ADDRESS */}
               <div className="input-group">
                 <label>EMAIL ADDRESS</label>
                 <input
@@ -803,6 +807,7 @@ export default function TableReservation({ onClose, onSuccess }) {
                   disabled={!isEditing}
                 />
               </div>
+              {/* CONTACT NUMBER */}
               <div className="input-group">
                 <label>CONTACT NUMBER</label>
                 <input
@@ -813,7 +818,7 @@ export default function TableReservation({ onClose, onSuccess }) {
                   }
                 />
               </div>
-
+              {/* LOCATION SELECTION */}
               <div className="input-row">
                 <div className="input-group">
                   <label>
@@ -851,7 +856,7 @@ export default function TableReservation({ onClose, onSuccess }) {
                   </select>
                 </div>
               </div>
-
+              {/* GUEST COUNT */}
               <div className="input-group">
                 <label>GUESTS (MAX {totalSeats})</label>
                 <input
@@ -876,6 +881,61 @@ export default function TableReservation({ onClose, onSuccess }) {
                     setGuestCount(num);
                   }}
                 />
+              </div>
+              {/* HIGH CHAIR SECTION */}
+              <div className="input-group">
+                <label>
+                  <Baby size={12} /> HIGH CHAIR NEEDED?
+                </label>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "20px",
+                    marginTop: "8px",
+                    padding: "5px 0",
+                  }}
+                >
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      fontSize: "13px",
+                      cursor: "pointer",
+                      color: "#555",
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="highChair"
+                      value="Yes"
+                      checked={highChair === "Yes"}
+                      onChange={(e) => setHighChair(e.target.value)}
+                      style={{ accentColor: "#f38d31" }} // Matches your orange theme
+                    />
+                    Yes
+                  </label>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      fontSize: "13px",
+                      cursor: "pointer",
+                      color: "#555",
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="highChair"
+                      value="No"
+                      checked={highChair === "No"}
+                      onChange={(e) => setHighChair(e.target.value)}
+                      style={{ accentColor: "#f38d31" }}
+                    />
+                    No
+                  </label>
+                </div>
               </div>
 
               <div className="input-group">

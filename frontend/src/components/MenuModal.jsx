@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
 import {
   X,
@@ -7,6 +7,8 @@ import {
   Minus,
   ShoppingBasket,
   Loader2,
+  Trash2,
+  Baby,
 } from "lucide-react";
 import "../Style/MenuModal.css";
 
@@ -16,46 +18,89 @@ const MenuModal = ({
   onSelectedItemsChange,
   initialSelectedItems = [],
 }) => {
-  const [FoodItems, setFoodItems] = useState([]); // Database data
-  const [tray, setTray] = useState({}); // Selection state
+  // States from your snippet
+  const [items, setItems] = useState([]);
+  const [filteredItems, setFilteredItems] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [activeCategory, setActiveCategory] = useState("");
   const [loading, setLoading] = useState(true);
+  
+  // Tray state for selection logic
+  const [tray, setTray] = useState({});
 
-  // 1. Fetch Food from Database
+  // Integrated useEffect
   useEffect(() => {
-    if (isOpen) {
-      const fetchMenu = async () => {
-        try {
-          setLoading(true);
-          const res = await axios.get("http://localhost:5000/api/products"); // Your API endpoint
-          setFoodItems(res.data);
-
-          // Sync tray with what was previously selected in the parent
-          const initialTray = {};
-          initialSelectedItems.forEach((item) => {
-            initialTray[item.id] = item;
-          });
-          setTray(initialTray);
-        } catch (err) {
-          console.error("Failed to fetch menu:", err);
-        } finally {
-          setLoading(false);
-        }
-      };
-      fetchMenu();
-      document.body.style.overflow = "hidden";
-    } else {
+    if (!isOpen) {
       document.body.style.overflow = "unset";
+      return;
     }
+
+    const fetchAllItems = async () => {
+      try {
+        setLoading(true);
+        const res = await axios.get("http://localhost:5000/api/products");
+
+        setItems(res.data);
+        
+        // Get unique Category Names from the data
+        const uniqueNames = [
+          ...new Set(res.data.map((item) => item.category_name)),
+        ].filter(Boolean);
+
+        // Set categories state (Specific categories + "All")
+        setCategories([...uniqueNames, "All"]);
+
+        // Logic to determine initial view
+        if (uniqueNames.length > 0) {
+          const firstCat = uniqueNames[0];
+          setActiveCategory(firstCat); 
+
+          // Only show items belonging to that first category initially
+          const initialFiltered = res.data.filter(
+            (item) => item.category_name === firstCat
+          );
+          setFilteredItems(initialFiltered);
+        } else {
+          setFilteredItems(res.data);
+          setActiveCategory("All");
+        }
+
+        // --- SYNC TRAY LOGIC ---
+        // Keeps track of what was already selected in the main reservation form
+        const initialTray = {};
+        initialSelectedItems.forEach((item) => {
+          initialTray[item.id] = item;
+        });
+        setTray(initialTray);
+
+        setLoading(false);
+      } catch (err) {
+        console.error("Error loading menu:", err);
+        setLoading(false);
+      }
+    };
+
+    fetchAllItems();
+    document.body.style.overflow = "hidden";
   }, [isOpen, initialSelectedItems]);
 
-  // 2. Logic to add/remove from Tray
+  // Handler for clicking category buttons
+  const handleCategoryClick = (cat) => {
+    setActiveCategory(cat);
+    if (cat === "All") {
+      setFilteredItems(items);
+    } else {
+      setFilteredItems(items.filter((item) => item.category_name === cat));
+    }
+  };
+
   const addToTray = (item) => {
     const itemId = item.id || item.item_id;
     setTray((prev) => ({
       ...prev,
       [itemId]: {
         id: itemId,
-        name: item.name || item.itemName, // Adjust based on your DB column names
+        name: item.name || item.itemName,
         price: item.price || item.itemPrice,
         quantity: (prev[itemId]?.quantity || 0) + 1,
       },
@@ -74,12 +119,12 @@ const MenuModal = ({
     });
   };
 
-  const totalPrice = useMemo(() => {
-    return Object.values(tray).reduce(
-      (sum, item) => sum + item.price * item.quantity,
-      0,
-    );
-  }, [tray]);
+  const clearTray = () => setTray({});
+
+  const totalPrice = Object.values(tray).reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0
+  );
 
   if (!isOpen) return null;
 
@@ -98,15 +143,29 @@ const MenuModal = ({
           </button>
         </header>
 
+        {/* Categories from DB */}
+        <div className="category-container">
+          {categories.map((cat) => (
+            <button
+              key={cat}
+              className={`category-pill ${activeCategory === cat ? "active" : ""}`}
+              onClick={() => handleCategoryClick(cat)}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+
         <div className="menu-grid">
           {loading ? (
             <div className="menu-loading">
-              <Loader2 className="spin" /> <p>Loading Menu...</p>
+              <Loader2 className="spin" size={40} />
+              <p>Loading Menu...</p>
             </div>
           ) : (
-            FoodItems.map((item) => {
+            filteredItems.map((item) => {
               const itemId = item.id || item.item_id;
-              const quantity = tray[item.id]?.quantity || 0;
+              const quantity = tray[itemId]?.quantity || 0;
               return (
                 <div key={itemId} className="food-card">
                   <div className="food-image-wrapper">
@@ -134,7 +193,7 @@ const MenuModal = ({
 
                     {quantity > 0 ? (
                       <div className="quantity-controls">
-                        <button onClick={() => removeFromTray(item.id)}>
+                        <button onClick={() => removeFromTray(itemId)}>
                           <Minus size={16} />
                         </button>
                         <span>{quantity}</span>
@@ -158,8 +217,16 @@ const MenuModal = ({
         </div>
 
         <footer className="menu-modal-footer">
-          {/* This is the original design element */}
-          <p>Prices are subject to change without prior notice.</p>
+          <div className="footer-top-row">
+            <p className="price-notice">
+              Prices are subject to change without prior notice.
+            </p>
+            {Object.keys(tray).length > 0 && (
+              <button className="clear-selection-btn" onClick={clearTray}>
+                <Trash2 size={14} /> Clear Selection
+              </button>
+            )}
+          </div>
 
           <div className="tray-summary">
             <div className="total-info">
@@ -168,18 +235,24 @@ const MenuModal = ({
                 Total: <strong>₱{totalPrice}</strong>
               </span>
             </div>
-            <button
-              className="confirm-menu-btn"
-              disabled={Object.values(tray).length === 0}
-              onClick={() => {
-                if (typeof onSelectedItemsChange === "function") {
-                  onSelectedItemsChange(Object.values(tray));
-                }
-                onClose();
-              }}
-            >
-              Confirm Selection ({Object.values(tray).length})
-            </button>
+
+            <div className="footer-action-buttons">
+              <button className="menu-cancel-btn" onClick={onClose}>
+                Cancel
+              </button>
+              <button
+                className="confirm-menu-btn"
+                disabled={Object.values(tray).length === 0}
+                onClick={() => {
+                  if (typeof onSelectedItemsChange === "function") {
+                    onSelectedItemsChange(Object.values(tray));
+                  }
+                  onClose();
+                }}
+              >
+                Confirm ({Object.values(tray).length})
+              </button>
+            </div>
           </div>
         </footer>
       </div>

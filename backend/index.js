@@ -9,7 +9,7 @@ const User = require("./models/User");
 const authRoutes = require("./routes/authRoutes");
 const otpRoutes = require("./routes/otpRoutes");
 const userController = require("./controllers/userController");
-const { protect } = require("./middleware/authMiddleware");
+const { protect, adminOnly } = require("./middleware/authMiddleware");
 const reservationRoutes = require("./routes/reservationRoutes");
 const productRoutes = require("./routes/productRoutes");
 const categoryRoutes = require("./routes/categoryRoutes");
@@ -84,16 +84,16 @@ app.use("/api/products", productRoutes);
 app.use("/api/categories", categoryRoutes);
 
 // Inventory routes
-app.use("/api/inventory", inventoryRoutes);
+app.use('/api/inventory', protect, adminOnly, inventoryRoutes);
 
 // Static folder for uploaded images
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Admin routes
-app.use('/api/admin', adminRoutes);
+app.use('/api/admin', protect, adminOnly, adminRoutes);
 
 // Billing routes
-app.use('/api/billing', billingRoutes);
+app.use('/api/billing', protect, adminOnly, billingRoutes)
 
 // Notification routes
 app.use('/api/notifications', notificationRoutes);
