@@ -11,6 +11,7 @@ const formatTimeTo24h = (timeStr) => {
 };
 
 const reservationController = {
+  // Check if a user has an active/pending booking
   checkUserActive: async (req, res) => {
     try {
       const hasActive = await Reservation.checkActiveByUserId(
@@ -21,6 +22,8 @@ const reservationController = {
       res.status(500).json({ error: error.message });
     }
   },
+
+  // Check specific slot availability for a table
   checkAvailability: async (req, res) => {
     try {
       const { date, tableId } = req.query;
@@ -29,7 +32,6 @@ const reservationController = {
           .status(400)
           .json({ error: "Date and Table ID are required" });
       }
-
       const bookedSlots = await Reservation.getSlotsByTableAndDate(
         date,
         tableId,
@@ -41,6 +43,36 @@ const reservationController = {
     }
   },
 
+  // Get food items linked to a specific reservation (Used in Billing)
+  getReservationItems: async (req, res) => {
+    try {
+      const { id } = req.params; // This is the '?' in your SQL
+
+      // Calling the model function that uses the JOIN we fixed
+      const items = await Reservation.getItemsByReservationId(id);
+
+      // Send the items back to the React frontend
+      res.json(items);
+    } catch (error) {
+      console.error("Error fetching reservation items:", error);
+      res.status(500).json({ error: "Internal Server Error" });
+    }
+  },
+
+  // Get the full schedule for a specific table on a specific date
+  getSpecificTableSchedule: async (req, res) => {
+    try {
+      const { tableId, date } = req.query;
+      if (!tableId || !date) return res.json([]);
+
+      const rows = await Reservation.getSpecificTableSchedule(tableId, date);
+      res.json(rows);
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
+  },
+
+  // Get which tables are occupied at a specific date/time
   getTableStatuses: async (req, res) => {
     try {
       const { date, startTime, endTime } = req.query;
@@ -60,60 +92,56 @@ const reservationController = {
       res.status(500).json({ error: error.message });
     }
   },
-
+ // Create a new reservation
   createReservation: async (req, res) => {
     try {
       const body = req.body;
 
-      // 1. Parse Table IDs
+      // 1. Parse Table IDs if sent as stringified JSON
       const requestedTables =
         typeof body.tableIds === "string"
           ? JSON.parse(body.tableIds)
           : body.tableIds;
 
-      // 2. CRITICAL FIX: Format times for MySQL
+      // 2. Parse Selected Items (THIS WAS THE MISSING PART)
+      const items = typeof body.selectedItems === "string"
+        ? JSON.parse(body.selectedItems)
+        : (body.selectedItems || []);
+
+      // 3. Format times for DB compatibility
       const dbStart = formatTimeTo24h(body.startTime);
       const dbEnd = formatTimeTo24h(body.endTime);
 
-      // 3. Check Conflicts using the 24h formatted times
+      // 4. Check for double-booking conflicts
       const conflicts = await Reservation.checkTableConflicts(
         body.date,
         requestedTables,
-        dbStart, // Using 24h
-        dbEnd, // Using 24h
+        dbStart,
+        dbEnd,
       );
-
       if (conflicts.length > 0) {
-        // Return 400 if a conflict is found
         return res.status(400).json({
           message:
             "One or more tables are already booked for this specific time slot.",
         });
       }
 
-      // 4. Create the Reservation
-      // We pass the formatted 24h times to the model so the DB saves them correctly
-      const newId = await Reservation.create({ ...body });
+      // 5. Combine body data with the filename from Multer
+      const reservationData = {
+        ...body,
+        firstName: body.firstName,
+        lastName: body.lastName,
+        date: body.date,
+        guests: body.guests,
+        startTime: dbStart,
+        endTime: dbEnd,
+        tableIds: requestedTables,
+        selectedItems: items, // Now 'items' is defined!
+        receiptPath: req.file ? req.file.filename : null,
+      };
 
-      // --- UPDATED NOTIFICATION LOGIC ---
-      if (body.userId && body.userId !== "null") {
-        const title = "Reservation Confirmed! ✅";
-        const message = `Your reservation ${newId} has been confirmed. Check your profile for details.`;
-
-        const notifQuery = `
-          INSERT INTO notifications 
-          (user_id, reservation_id, title, message, type, is_read) 
-          VALUES (?, ?, ?, ?, ?, ?)`;
-
-        await db.execute(notifQuery, [
-          body.userId,
-          newId, // <--- Save the ID to the new column
-          title,
-          message,
-          "success",
-          0,
-        ]);
-      }
+      // 6. Pass the NEW object to the model
+      const newId = await Reservation.create(reservationData);
 
       return res.status(201).json({ id: newId, message: "Success!" });
     } catch (error) {
@@ -123,7 +151,7 @@ const reservationController = {
       }
     }
   },
-
+  // Get all reservations (Admin Dashboard view)
   getReservations: async (req, res) => {
     try {
       const data = await Reservation.getAll();
@@ -133,6 +161,7 @@ const reservationController = {
     }
   },
 
+  // Update reservation status (Confirmed, Seated, Cancelled, etc.)
   updateStatus: async (req, res) => {
     try {
       await Reservation.updateStatus(req.params.id, req.body.status);
@@ -142,6 +171,7 @@ const reservationController = {
     }
   },
 
+  // Delete a reservation record
   deleteReservation: async (req, res) => {
     try {
       await Reservation.delete(req.params.id);
@@ -151,6 +181,7 @@ const reservationController = {
     }
   },
 
+  // Get full details of a specific reservation (Used for receipt validation)
   checkReservationId: async (req, res) => {
     try {
       const reservation = await Reservation.findById(req.params.id);
@@ -158,34 +189,6 @@ const reservationController = {
       else res.status(404).json({ success: false, message: "Not found" });
     } catch (error) {
       res.status(500).json({ error: error.message });
-    }
-  },
-
-  getSpecificTableSchedule: async (req, res) => {
-    try {
-      const { tableId, date } = req.query;
-
-      // Safety check: if params are missing, don't crash, just return empty
-      if (!tableId || !date) {
-        return res.json([]);
-      }
-
-      // Ensure tableId is a number (if frontend sends "T1", this cleans it)
-      const cleanId = String(tableId).replace(/\D/g, "");
-
-      const [rows] = await db.execute(
-        `SELECT r.reservation_time AS startTime, r.end_time AS endTime, r.status
-         FROM reservations r
-         JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
-         WHERE rt.table_id = ? AND r.reservation_date = ? 
-         AND r.status IN ('Pending', 'Confirmed', 'Seated')`,
-        [cleanId, date],
-      );
-
-      res.json(rows);
-    } catch (error) {
-      console.error("Schedule Query Error:", error.message);
-      res.status(400).json({ error: error.message }); // This was the 400
     }
   },
 };

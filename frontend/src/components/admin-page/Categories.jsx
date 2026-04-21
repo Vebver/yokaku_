@@ -141,11 +141,10 @@ function Categories() {
         </div>
       </div>
 
-      {/* --- ADD CATEGORY MODAL --- */}
       {/* --- ADD CATEGORY SIDE DRAWER --- */}
       <div
         className="offcanvas offcanvas-end border-0 shadow" // Slides from right
-        tabIndex="-1"
+        tabIndex="-1" 
         id="addCategoryDrawer"
         aria-labelledby="addCategoryDrawerLabel"
         style={{ width: "400px" }} // Categories usually need less width than inventory

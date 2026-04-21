@@ -7,7 +7,8 @@ const Billing = {
         p.*, 
         r.first_name, 
         r.last_name, 
-        r.reservation_date 
+        r.reservation_date, 
+        REPLACE(r.receipt_path, 'uploads/', '') AS receipt_path 
       FROM payments p
       JOIN reservations r ON p.reservation_id = r.reservation_id
       ORDER BY p.paid_at DESC

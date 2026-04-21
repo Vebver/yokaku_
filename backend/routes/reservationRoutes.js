@@ -5,6 +5,7 @@ const upload = require('../middleware/upload');
 
 // 1. GET routes
 router.get('/', reservationController.getReservations);
+router.get('/:id/items', reservationController.getReservationItems);
 router.get('/check-availability', reservationController.checkAvailability);
 router.get("/table-schedule", reservationController.getSpecificTableSchedule);
 

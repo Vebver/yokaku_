@@ -106,18 +106,6 @@ const CustomerProfile = () => {
           <div className="card shadow-lg border-0 rounded-4 overflow-hidden">
             {/* Header Section */}
             <div className="bg-dark text-white text-center py-5">
-              <div className="position-relative d-inline-block mb-3">
-                <img
-                  src={userData.profileImage || "/customer-avatar.jpg"}
-                  alt="Customer"
-                  className="rounded-circle border border-4 border-warning shadow"
-                  style={{
-                    width: "130px",
-                    height: "130px",
-                    objectFit: "cover",
-                  }}
-                />
-              </div>
               <h2 className="fw-bold mb-1">
                 {userData.firstName} {userData.lastName}
               </h2>
@@ -131,13 +119,6 @@ const CustomerProfile = () => {
               <h5 className="text-muted text-uppercase mb-4 small fw-bold border-bottom pb-2">
                 Personal Information
               </h5>
-
-              <div className="row mb-3">
-                <div className="col-sm-4 text-muted fw-semibold">
-                  Customer ID
-                </div>
-                <div className="col-sm-8 fw-bold">{userData.customerId}</div>
-              </div>
 
               <div className="row mb-3">
                 <div className="col-sm-4 text-muted fw-semibold">

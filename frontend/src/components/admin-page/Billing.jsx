@@ -1,12 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { Eye, X, Search, Image as ImageIcon, ReceiptText, User, Calendar } from 'lucide-react';
+import React, { useState, useEffect, useRef } from "react";
+import axios from "axios";
+import { User, Loader2, Receipt, CreditCard, AlertCircle } from "lucide-react";
 
 const Billing = () => {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedImage, setSelectedImage] = useState(null);
-  const [selectedOrder, setSelectedOrder] = useState(null); // State for the Side Drawer
+  const [selectedPayment, setSelectedPayment] = useState(null);
+  const [orderItems, setOrderItems] = useState([]);
+  const [loadingItems, setLoadingItems] = useState(false);
+
+  const closeBtnRef = useRef(null);
 
   useEffect(() => {
     fetchPayments();
@@ -14,7 +17,7 @@ const Billing = () => {
 
   const fetchPayments = async () => {
     try {
-      const res = await axios.get('/api/billing');
+      const res = await axios.get("/api/billing");
       setPayments(res.data);
       setLoading(false);
     } catch (err) {
@@ -23,211 +26,312 @@ const Billing = () => {
     }
   };
 
-  const handleStatusChange = async (id, newStatus) => {
-    if (!window.confirm(`Mark this payment as ${newStatus}?`)) return;
+  const handleReviewClick = async (p) => {
+    setSelectedPayment(p);
+    setOrderItems([]);
+    setLoadingItems(true);
     try {
-      await axios.put(`/api/billing/${id}/status`, { status: newStatus });
-      setPayments(payments.map(p => p.payment_id === id ? { ...p, payment_status: newStatus } : p));
-      // Close drawer if open
-      setSelectedOrder(null);
+      // This calls the model function we updated with the UNION SQL
+      const res = await axios.get(
+        `/api/reservations/${p.reservation_id}/items`,
+      );
+      setOrderItems(res.data);
     } catch (err) {
-      alert("Failed to update status");
+      console.error(err);
+    } finally {
+      setLoadingItems(false);
     }
   };
 
-  if (loading) return <div className="p-5 text-center">Loading Payments...</div>;
+  const handleStatusChange = async (id, newStatus) => {
+    if (!window.confirm(`Mark as ${newStatus}?`)) return;
+    try {
+      await axios.put(`/api/billing/${id}/status`, { status: newStatus });
+      fetchPayments();
+      if (closeBtnRef.current) closeBtnRef.current.click();
+    } catch (err) {
+      alert("Failed to update");
+    }
+  };
+
+  // Helper calculation for Total Bill
+  const calculateTotal = () => {
+    return orderItems.reduce(
+      (sum, item) => sum + item.quantity * item.price,
+      0,
+    );
+  };
+
+  if (loading)
+    return (
+      <div className="d-flex justify-content-center align-items-center vh-100">
+        <Loader2 className="spinner-border text-primary" />
+      </div>
+    );
 
   return (
-    <div className="container-fluid fade-in">
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <div>
-          <h2 className="fw-bold mb-0">Billing & Downpayments</h2>
-          <p className="text-muted small">Verify customer receipts and order accuracy</p>
+    <div className="container-fluid p-4">
+      <div className="fade-in">
+        <div className="d-flex justify-content-between align-items-center mb-4">
+          <div>
+            <h2 className="fw-bold mb-0">Billing & Payments</h2>
+            <p className="text-muted">
+              Verify customer receipts and manage balances
+            </p>
+          </div>
+          <button
+            className="btn btn-dark px-4 shadow-sm"
+            onClick={fetchPayments}
+          >
+            Refresh Data
+          </button>
         </div>
-        <button className="btn btn-dark btn-sm px-3" onClick={fetchPayments}>
-          Refresh List
-        </button>
-      </div>
 
-      <div className="card border-0 shadow-sm">
-        <div className="table-responsive">
-          <table className="table table-hover align-middle mb-0">
-            <thead className="table-light text-muted small text-uppercase">
-              <tr>
-                <th className="ps-4">Receipt</th>
-                <th>Customer</th>
-                <th>Total Amount</th>
-                <th>Status</th>
-                <th className="text-end pe-4">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {payments.map((p) => {
-                const imgUrl = p.receipt_path ? `http://localhost:5000/uploads/${p.receipt_path}` : null;
-
-                return (
+        <div className="card border-0 shadow-sm">
+          <div className="table-responsive">
+            <table className="table table-hover align-middle mb-0">
+              <thead className="table-light text-muted small text-uppercase">
+                <tr>
+                  <th className="ps-4">Receipt</th>
+                  <th>Customer & ID</th>
+                  <th>Paid (Downpayment)</th>
+                  <th>Status</th>
+                  <th className="text-end pe-4">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {payments.map((p) => (
                   <tr key={p.payment_id}>
                     <td className="ps-4">
-                      {imgUrl ? (
-                        <div 
-                          className="rounded border overflow-hidden bg-light shadow-sm" 
-                          style={{ width: '50px', height: '50px', cursor: 'pointer' }}
-                          onClick={() => setSelectedImage(imgUrl)}
-                        >
-                          <img src={imgUrl} alt="Proof" className="w-100 h-100 object-fit-cover" />
-                        </div>
-                      ) : (
-                        <div className="text-muted small italic"><ImageIcon size={16}/> No file</div>
-                      )}
+                      <img
+                        src={`http://localhost:5000/uploads/${p.receipt_path}`}
+                        alt="Receipt"
+                        style={{
+                          width: "50px",
+                          height: "50px",
+                          objectFit: "cover",
+                          borderRadius: "8px",
+                          border: "1px solid #eee",
+                        }}
+                      />
                     </td>
-
                     <td>
-                      <div className="fw-bold">{p.first_name} {p.last_name}</div>
-                      <button 
-                        className="btn btn-link btn-sm p-0 text-decoration-none"
-                        data-bs-toggle="offcanvas"
-                        data-bs-target="#orderDetailsDrawer"
-                        onClick={() => setSelectedOrder(p)}
-                      >
-                        View Order Details #{p.reservation_id}
-                      </button>
+                      <div className="fw-bold text-dark">
+                        {p.first_name} {p.last_name}
+                      </div>
+                      <div className="text-muted smallest">
+                        ID: {p.reservation_id}
+                      </div>
                     </td>
-                    
-                    <td className="fw-bold text-success">₱{parseFloat(p.amount).toFixed(2)}</td>
-                    
                     <td>
-                      <span className={`badge rounded-pill ${
-                        p.payment_status === 'verified' ? 'bg-success' : 
-                        p.payment_status === 'rejected' ? 'bg-danger' : 'bg-warning text-dark'
-                      }`}>
-                        {p.payment_status?.toUpperCase()}
+                      <span className="fw-bold text-success">
+                        ₱{parseFloat(p.amount).toLocaleString()}
                       </span>
                     </td>
-
-                    <td className="text-end pe-4">
-                      <button 
-                        className="btn btn-sm btn-outline-dark"
-                        data-bs-toggle="offcanvas"
-                        data-bs-target="#orderDetailsDrawer"
-                        onClick={() => setSelectedOrder(p)}
+                    <td>
+                      <span
+                        className={`badge ${p.payment_status === "verified" ? "bg-success-subtle text-success" : "bg-warning-subtle text-warning"} border px-2 py-1`}
                       >
-                        Review
+                        {p.payment_status.toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="text-end pe-4">
+                      <button
+                        className="btn btn-sm btn-outline-dark px-3"
+                        data-bs-toggle="offcanvas"
+                        data-bs-target="#billingDrawer"
+                        onClick={() => handleReviewClick(p)}
+                      >
+                        Review Order
                       </button>
                     </td>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
-      {/* --- ORDER DETAILS SIDE DRAWER --- */}
-      <div className="offcanvas offcanvas-end" tabIndex="-1" id="orderDetailsDrawer" style={{ width: '450px' }}>
-        <div className="offcanvas-header border-bottom">
-          <h5 className="offcanvas-title fw-bold">Order Summary</h5>
-          <button type="button" className="btn-close" data-bs-dismiss="offcanvas"></button>
+      {/* OFFCANVAS DRAWER */}
+      <div
+        className="offcanvas offcanvas-end border-0 shadow"
+        tabIndex="-1"
+        id="billingDrawer"
+        style={{ width: "500px" }}
+      >
+        <div className="offcanvas-header border-bottom py-3 px-4">
+          <h5 className="offcanvas-title fw-bold">Payment Verification</h5>
+          <button
+            type="button"
+            className="btn-close"
+            data-bs-dismiss="offcanvas"
+            ref={closeBtnRef}
+          ></button>
         </div>
-        <div className="offcanvas-body">
-          {selectedOrder && (
+
+        <div className="offcanvas-body px-4 bg-light-subtle">
+          {selectedPayment && (
             <>
-              {/* Customer Info */}
-              <div className="mb-4 p-3 bg-light rounded">
-                <div className="d-flex align-items-center mb-2">
-                    <User size={18} className="me-2 text-primary" />
-                    <span className="fw-bold">{selectedOrder.first_name} {selectedOrder.last_name}</span>
+              {/* Customer Box */}
+              <div className="card border-0 shadow-sm mb-4">
+                <div className="card-body">
+                  <label className="small fw-bold text-muted text-uppercase mb-2 d-block">
+                    Customer
+                  </label>
+                  <div className="d-flex align-items-center">
+                    <div className="bg-primary-subtle text-primary p-2 rounded-circle me-3">
+                      <User size={20} />
+                    </div>
+                    <div>
+                      <div className="fw-bold fs-5">
+                        {selectedPayment.first_name} {selectedPayment.last_name}
+                      </div>
+                      <div className="small text-muted">
+                        Reservation ID: {selectedPayment.reservation_id}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="small text-muted mb-1">Reservation ID: #{selectedOrder.reservation_id}</div>
-                <div className="small text-muted">Status: <span className="text-uppercase fw-bold">{selectedOrder.payment_status}</span></div>
               </div>
 
-              {/* Items List */}
-              <h6 className="fw-bold mb-3 d-flex align-items-center">
-                <ReceiptText size={18} className="me-2" /> Ordered Items
-              </h6>
-              <div className="list-group list-group-flush mb-4">
-                {/* 
-                    NOTE: This assumes your API returns an array of items 
-                    called 'items' inside the payment object.
-                    If it doesn't, you may need a separate useEffect to fetch items by reservation_id.
-                */}
-                {selectedOrder.items ? selectedOrder.items.map((item, idx) => (
-                  <div key={idx} className="list-group-item px-0 d-flex justify-content-between align-items-center">
-                    <div>
-                      <div className="fw-bold small">{item.name}</div>
-                      <small className="text-muted">Qty: {item.quantity} x ₱{parseFloat(item.price).toFixed(2)}</small>
+              {/* Order Summary Box */}
+              <div className="card border-0 shadow-sm mb-4">
+                <div className="card-body">
+                  <label className="small fw-bold text-muted text-uppercase mb-3 d-block">
+                    Order Details
+                  </label>
+                  {loadingItems ? (
+                    <div className="text-center py-3">
+                      <Loader2 className="spinner-border spinner-border-sm" />
                     </div>
-                    <div className="fw-bold">₱{(item.quantity * item.price).toFixed(2)}</div>
+                  ) : (
+                    <>
+                      {orderItems.map((item, idx) => (
+                        <div
+                          key={idx}
+                          className="d-flex justify-content-between mb-2 small"
+                        >
+                          <span>
+                            {item.name}
+                            {/* Only show the extra xQty if the name doesn't already have '(x' in it */}
+                            {!item.name.includes("(x") && (
+                              <span className="text-muted">
+                                {" "}
+                                x{item.quantity}
+                              </span>
+                            )}
+                          </span>
+                          <span className="fw-bold text-dark">
+                            ₱
+                            {(item.quantity * item.price).toLocaleString(
+                              undefined,
+                              { minimumFractionDigits: 2 },
+                            )}
+                          </span>
+                        </div>
+                      ))}
+                      <hr className="my-3" />
+                      <div className="d-flex justify-content-between align-items-center">
+                        <span className="fw-bold">
+                          Total Bill (Actual Price):
+                        </span>
+                        <span className="fs-4 fw-bold text-primary">
+                          ₱
+                          {calculateTotal().toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                          })}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Payment Summary Box */}
+              <div className="card border-0 shadow-sm mb-4">
+                <div className="card-body">
+                  <label className="small fw-bold text-muted text-uppercase mb-3 d-block">
+                    Payment Calculation
+                  </label>
+                  <div className="d-flex justify-content-between mb-2">
+                    <span className="text-muted">Downpayment Paid:</span>
+                    <span className="fw-bold text-success">
+                      - ₱
+                      {parseFloat(selectedPayment.amount).toLocaleString(
+                        undefined,
+                        { minimumFractionDigits: 2 },
+                      )}
+                    </span>
                   </div>
-                )) : (
-                    <div className="text-muted small py-3 border-bottom mb-3">Item details not available.</div>
+                  <div className="d-flex justify-content-between border-top pt-2">
+                    <span className="fw-bold">Remaining Balance:</span>
+                    <span className="fw-bold text-danger">
+                      ₱
+                      {(
+                        calculateTotal() - parseFloat(selectedPayment.amount)
+                      ).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Receipt Image */}
+              <div className="mb-4">
+                <label className="small fw-bold text-muted text-uppercase mb-2 d-block">
+                  Uploaded Receipt Proof
+                </label>
+                <a
+                  href={`http://localhost:5000/uploads/${selectedPayment.receipt_path}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <img
+                    src={`http://localhost:5000/uploads/${selectedPayment.receipt_path}`}
+                    alt="Receipt"
+                    className="w-100 rounded shadow-sm border"
+                  />
+                </a>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="d-grid gap-2 mb-5">
+                {selectedPayment.payment_status === "pending" ? (
+                  <>
+                    <button
+                      className="btn btn-success py-2 fw-bold"
+                      onClick={() =>
+                        handleStatusChange(
+                          selectedPayment.payment_id,
+                          "verified",
+                        )
+                      }
+                    >
+                      Verify & Approve Payment
+                    </button>
+                    <button
+                      className="btn btn-outline-danger py-2"
+                      onClick={() =>
+                        handleStatusChange(
+                          selectedPayment.payment_id,
+                          "rejected",
+                        )
+                      }
+                    >
+                      Reject Receipt
+                    </button>
+                  </>
+                ) : (
+                  <div className="alert alert-info text-center fw-bold border-0 shadow-sm">
+                    This order is already{" "}
+                    {selectedPayment.payment_status.toUpperCase()}
+                  </div>
                 )}
               </div>
-
-              {/* Total Calculation */}
-              <div className="border-top pt-3">
-                <div className="d-flex justify-content-between mb-2">
-                  <span>Subtotal</span>
-                  <span>₱{parseFloat(selectedOrder.amount).toFixed(2)}</span>
-                </div>
-                <div className="d-flex justify-content-between mb-4 fw-bold fs-5 text-success">
-                  <span>Total Paid/Due</span>
-                  <span>₱{parseFloat(selectedOrder.amount).toFixed(2)}</span>
-                </div>
-              </div>
-
-              {/* Proof of Payment Thumbnail */}
-              {selectedOrder.receipt_path && (
-                <div className="mb-4">
-                    <label className="form-label small fw-bold">Proof of Payment:</label>
-                    <img 
-                        src={`http://localhost:5000/uploads/${selectedOrder.receipt_path}`} 
-                        className="w-100 rounded border shadow-sm cursor-pointer"
-                        alt="Receipt"
-                        onClick={() => setSelectedImage(`http://localhost:5000/uploads/${selectedOrder.receipt_path}`)}
-                    />
-                </div>
-              )}
-
-              {/* Verification Actions */}
-              {selectedOrder.payment_status === 'pending' && (
-                <div className="d-grid gap-2">
-                  <button 
-                    className="btn btn-success" 
-                    onClick={() => handleStatusChange(selectedOrder.payment_id, 'verified')}
-                    data-bs-dismiss="offcanvas"
-                  >
-                    Verify & Confirm Order
-                  </button>
-                  <button 
-                    className="btn btn-outline-danger" 
-                    onClick={() => handleStatusChange(selectedOrder.payment_id, 'rejected')}
-                    data-bs-dismiss="offcanvas"
-                  >
-                    Reject Payment
-                  </button>
-                </div>
-              )}
             </>
           )}
         </div>
       </div>
-
-      {/* --- LIGHTBOX (IMAGE PREVIEW) --- */}
-      {selectedImage && (
-        <div 
-          className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" 
-          style={{ zIndex: 10000, background: 'rgba(0,0,0,0.9)' }}
-          onClick={() => setSelectedImage(null)}
-        >
-          <div className="position-relative bg-white p-2 rounded" onClick={e => e.stopPropagation()}>
-            <button className="btn btn-dark btn-sm position-absolute top-0 end-0 m-2 rounded-circle" onClick={() => setSelectedImage(null)}>
-              <X size={18} />
-            </button>
-            <img src={selectedImage} alt="Full Receipt" style={{ maxHeight: '90vh', maxWidth: '95vw' }} />
-          </div>
-        </div>
-      )}
     </div>
   );
 };

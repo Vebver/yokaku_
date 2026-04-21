@@ -5,24 +5,12 @@ const CustomerProfileEdit = ({ userData, onSave, onCancel }) => {
     firstName: userData.firstName || '',
     lastName: userData.lastName || '',
     email: userData.email || '',
-    phone: userData.phone || '',
-    profileImage: userData.profileImage || ''
+    phone: userData.phone || ''
   });
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData(prev => ({ ...prev, profileImage: reader.result }));
-      };
-      reader.readAsDataURL(file);
-    }
   };
 
   const handleSubmit = (e) => {
@@ -39,36 +27,7 @@ const CustomerProfileEdit = ({ userData, onSave, onCancel }) => {
             {/* Header Section */}
             <div className="bg-dark text-white text-center py-5 position-relative">
               <div className="position-relative d-inline-block mb-3">
-                <img
-                  src={formData.profileImage || "/customer-avatar.jpg"} 
-                  alt="Customer"
-                  className="rounded-circle border border-4 border-warning shadow"
-                  style={{ width: '130px', height: '130px', objectFit: 'cover' }}
-                />
-                
-                {/* REFINED CAMERA ICON */}
-                <label 
-                  htmlFor="imageUpload" 
-                  className="position-absolute bottom-0 end-0 bg-warning rounded-circle d-flex align-items-center justify-content-center shadow" 
-                  style={{ 
-                    cursor: 'pointer', 
-                    border: '3px solid #212529', 
-                    width: '42px', 
-                    height: '42px',
-                    transition: 'transform 0.2s'
-                  }}
-                  onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-                  onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1.0)'}
-                >
-                  <i className="bi bi-camera-fill text-dark fs-5"></i>
-                  <input 
-                    type="file" 
-                    id="imageUpload" 
-                    hidden 
-                    accept="image/*"
-                    onChange={handleImageChange} 
-                  />
-                </label>
+
               </div>
               <h2 className="fw-bold mb-1">Edit Profile</h2>
               <p className="text-warning mb-0 small text-uppercase fw-bold">
