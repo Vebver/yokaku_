@@ -1,107 +1,128 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const User = require('./models/User');
-const authController = require('./controllers/authController');
-const jwt = require('jsonwebtoken');
-const db = require('./config/db');
-const app = express();
+require("dotenv").config();
+const express = require("express");
+const cors = require("cors");
+const path = require("path");
+const http = require("http"); // Added for Socket.io
+const { Server } = require("socket.io"); // Added for Socket.io
+
+const User = require("./models/User");
+const authRoutes = require("./routes/authRoutes");
+const otpRoutes = require("./routes/otpRoutes");
+const userController = require("./controllers/userController");
+const { protect, adminOnly } = require("./middleware/authMiddleware");
+const reservationRoutes = require("./routes/reservationRoutes");
+const productRoutes = require("./routes/productRoutes");
+const categoryRoutes = require("./routes/categoryRoutes");
+const inventoryRoutes = require("./routes/inventoryRoutes");
+const adminRoutes = require('./routes/adminRoutes');
+const billingRoutes = require('./routes/billingRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const reviewRoutes = require('./routes/reviewRoutes');
+const addressRoutes = require('./routes/addressRoutes');
+const orderRoutes = require('./routes/orderRoutes');
+
 const PORT = process.env.PORT || 5000;
+const app = express();
 
-// Middleware
-app.use(cors({
-  origin: 'http://localhost:5173',
-  credentials: true
-}));
+// Create HTTP server to wrap the express app
+const server = http.createServer(app);
+
+// Initialize Socket.io
+const io = new Server(server, {
+  cors: {
+    origin: "http://localhost:5173",
+    methods: ["GET", "POST"],
+    credentials: true
+  }
+});
+
+// --- SOCKET.IO LOGIC ---
+io.on("connection", (socket) => {
+  console.log(`📡 New client connected: ${socket.id}`);
+
+  // Listen for order from KioskReservationMenu.jsx
+  socket.on("send_order", (orderData) => {
+    console.log("📦 Order received from kiosk:", orderData.id);
+    
+    // Broadcast order to KitchenPage.jsx
+    io.emit("new_order", orderData);
+  });
+
+  socket.on("disconnect", () => {
+    console.log(`🔌 Client disconnected: ${socket.id}`);
+  });
+});
+
+// --- 1. MIDDLEWARE ---
+app.use(cors({ origin: "http://localhost:5173", credentials: true })); 
+app.use(express.json({ limit: '10mb' })); 
 app.use(express.json());
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
-// Auth routes
-app.post('/api/auth/login', authController.login);
-app.post('/api/auth/signup', authController.signup);
-app.post('/api/auth/verifyOTP', authController.verifyOTP);
+// --- 2. ROUTES ---
 
-// backend/routes/reservation.js
-app.post('/api/reserve', (req, res) => {
-    // 1. Destructure incoming data
-    let { date, time, guests, email, firstName, lastName, phone, packageName, userId } = req.body;
+// Public Auth routes (Login, Signup)
+app.use('/api/auth', authRoutes);
 
-    // --- CRUCIAL FIX for user_id ---
-    // Convert string "null", empty strings, or undefined into a real JavaScript null
-    // This ensures MySQL receives a valid NULL or a valid Number.
-    const finalUserId = (userId === "null" || userId === "" || !userId) ? null : userId;
+// OTP routes (Send/Verify for Reservations)
+app.use("/api/otp", otpRoutes);
 
-    // 2. Convert "12:00 PM" to "12:00:00" for MySQL TIME column
-    try {
-        const [timePart, period] = time.split(' '); 
-        let [hours, minutes] = timePart.split(':'); 
-        
-        let hoursInt = parseInt(hours);
-        if (period === 'PM' && hoursInt !== 12) {
-            hoursInt += 12;
-        } else if (period === 'AM' && hoursInt === 12) {
-            hoursInt = 0;
-        }
-        
-        // Ensure hours are padded with a zero if needed (e.g., "09:00:00")
-        const formattedHours = hoursInt.toString().padStart(2, '0');
-        const formattedTime = `${formattedHours}:${minutes}:00`;
+// Profile routes (PROTECTED)
+app.get("/api/profile", protect, userController.getProfile);
+app.put("/api/profile", protect, userController.updateProfile);
 
-        // 3. SQL Query
-        const sql = `INSERT INTO reservations 
-        (user_id, first_name, last_name, email, phone, reservation_date, reservation_time, num_guests, package_name, status) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`;
+// Address routes
+app.use('/api/address', addressRoutes);
 
-        // 4. Execute Query
-        db.query(
-            sql, 
-            [finalUserId, firstName, lastName, email, phone, date, formattedTime, guests, packageName], 
-            (err, result) => {
-                if (err) {
-                    console.error("❌ Database Error:", err.message);
-                    return res.status(500).json({ error: err.message });
-                }
-                
-                console.log("✅ Reservation Saved! ID:", result.insertId);
-                return res.status(200).json({ 
-                    success: true,
-                    message: "Reservation successfully saved",
-                    id: result.insertId
-                });
-            }
-        );
-    } catch (error) {
-        console.error("❌ Time Format Error:", error);
-        return res.status(400).json({ error: "Invalid time format provided." });
-    }
+// Reservation routes
+app.use("/api/reservations", reservationRoutes);
+
+// Product routes
+app.use("/api/products", productRoutes);
+
+// Category routes
+app.use("/api/categories", categoryRoutes);
+
+// Inventory routes
+app.use('/api/inventory', protect, adminOnly, inventoryRoutes);
+
+// Static folder for uploaded images
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Admin routes
+app.use('/api/admin', protect, adminOnly, adminRoutes);
+
+// Billing routes
+app.use('/api/billing', protect, adminOnly, billingRoutes)
+
+// Notification routes
+app.use('/api/notifications', notificationRoutes);
+
+// Review routes
+app.use('/api/reviews', reviewRoutes);
+
+// Order routes
+app.use('/api/inventory', orderRoutes);
+
+
+// Protected check route
+app.get("/api/protected", protect, (req, res) => {
+  res.json({ message: "Protected data", user: req.user });
 });
 
-// Protected routes example
-const authMiddleware = (req, res, next) => {
-  const token = req.header('Authorization')?.replace('Bearer ', '');
-  if (!token) return res.status(401).json({ error: 'No token' });
-  
+// --- 3. SERVER START & DB CHECK ---
+// Changed from app.listen to server.listen to support WebSockets
+server.listen(PORT, async () => {
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
+
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
-    next();
+    // 1. Get a connection
+    const connection = await User.pool.getConnection();
+    console.log("✅ MySQL connection pool is ready");
+
+    // 2. IMPORTANT: Release the connection back to the pool immediately!
+    connection.release();
   } catch (error) {
-    res.status(401).json({ error: 'Invalid token' });
-  }
-};
-
-app.get('/api/protected', authMiddleware, (req, res) => {
-  res.json({ message: 'Protected data', user: req.user });
-});
-
-
-app.listen(PORT, async () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-  // Test pool
-  try {
-    await User.pool.getConnection();
-    console.log('MySQL pool ready');
-  } catch (error) {
-    console.error('DB pool error:', error.message);
+    console.error("❌ Database pool error:", error.message);
   }
 });
-

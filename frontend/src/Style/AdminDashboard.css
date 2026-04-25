@@ -1,182 +1,172 @@
-/* AdminDashboard POS-style Styles */
-.admin-container {
-  display: flex;
-  min-height: 100vh;
-  background-color: #f8fafc;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+/* --- Variables --- */
+:root {
+  --sidebar-width: 260px;
+  --sidebar-collapsed-width: 80px;
+  --bg-body: #f4f7f6;
+  --primary: #10b981;
+  --dark-sidebar: #111827;
+  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* --- Layout --- */
+.admin-layout {
+  display: flex;
+  height: 100vh; /* Changed from min-height to height to prevent page-level scroll */
+  width: 100vw;
+  overflow: hidden; /* Prevents the whole page from scrolling */
+  background-color: var(--bg-body);
+  font-family: "Inter", "Segoe UI", sans-serif;
+}
+
+/* --- Sidebar --- */
 .admin-sidebar {
-  width: 250px;
-  background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
-  color: white;
-  position: fixed;
   height: 100vh;
-  overflow-y: auto;
-  box-shadow: 2px 0 10px rgba(0,0,0,0.1);
-  z-index: 1000;
-}
-
-.sidebar-nav {
-  padding: 1rem 0;
-}
-
-.sidebar-item {
   display: flex;
-  align-items: center;
-  padding: 1rem 1.5rem;
-  color: #d1d5db;
-  text-decoration: none;
-  transition: all 0.2s;
-  font-weight: 500;
-}
-
-.sidebar-item:hover,
-.sidebar-item.active {
-  background-color: #10b981;
+  flex-direction: column; /* Stacks Header, Nav, and Footer */
+  background: var(--dark-sidebar);
   color: white;
+  transition: var(--transition);
+  z-index: 1050;
+  flex-shrink: 0;
 }
 
-.sidebar-item svg {
-  width: 20px;
-  height: 20px;
-  margin-right: 1rem;
-}
-
-.admin-main {
-  margin-left: 250px;
-  padding: 2rem;
-  flex: 1;
-}
-
-.admin-header {
+.sidebar-header {
+  height: 70px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid #e5e7eb;
+  padding: 0 20px;
+  flex-shrink: 0; /* Header stays at the top */
 }
 
-.hamburger {
-  display: none;
-  flex-direction: column;
-  cursor: pointer;
+/* --- THE FIX: Independent Scroll for Nav Items --- */
+.sidebar-nav-container {
+  flex-grow: 1; /* Takes up all available middle space */
+  overflow-y: auto; /* Adds scroll if items too long */
+  overflow-x: hidden;
+  padding-top: 10px;
 }
 
-.hamburger span {
-  width: 25px;
-  height: 3px;
-  background: #1f2937;
-  margin: 3px 0;
-  transition: 0.3s;
+/* Custom Scrollbar for Sidebar */
+.sidebar-nav-container::-webkit-scrollbar {
+  width: 4px;
+}
+.sidebar-nav-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
 }
 
-.section-content {
-  background: white;
-  border-radius: 12px;
-  padding: 2rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0,0, 0.1);
+.sidebar-footer {
+  flex-shrink: 0; /* Keeps logout button at the very bottom */
+  padding: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.section-title {
-  font-size: 1.8rem;
-  font-weight: 700;
-  color: #111827;
-  margin-bottom: 1.5rem;
+.admin-sidebar.expanded {
+  width: var(--sidebar-width);
+}
+.admin-sidebar.collapsed {
+  width: var(--sidebar-collapsed-width);
 }
 
-.table-container {
-  overflow-x: auto;
-}
-
-.admin-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-bottom: 1rem;
-}
-
-.admin-table th,
-.admin-table td {
-  padding: 1rem;
-  text-align: left;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.admin-table th {
-  background-color: #f9fafb;
-  font-weight: 600;
-  color: #374151;
-}
-
-.admin-table tr:hover {
-  background-color: #f9fafb;
-}
-
-.btn {
-  padding: 0.5rem 1rem;
+.nav-link {
+  color: #9ca3af !important;
+  border-radius: 8px;
+  margin: 4px 12px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  transition: var(--transition);
+  white-space: nowrap;
   border: none;
-  border-radius: 6px;
-  cursor: pointer;
   font-weight: 500;
-  transition: all 0.2s;
-  text-decoration: none;
-  display: inline-block;
+  background: transparent;
 }
 
-.btn-primary {
-  background-color: #10b981;
-  color: white;
+.nav-link:hover,
+.nav-link.active {
+  background-color: var(--primary) !important;
+  color: white !important;
 }
 
-.btn-primary:hover {
-  background-color: #059669;
+.nav-link.active {
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
 }
 
-.btn-danger {
-  background-color: #ef4444;
-  color: white;
-}
-
-.btn-danger:hover {
-  background-color: #dc2626;
-}
-
-.card {
-  background: white;
-  border-radius: 12px;
-  padding: 1.5rem;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-  margin-bottom: 1rem;
-}
-
-.sales-chart {
-  height: 300px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 12px;
+/* --- Main Content Area --- */
+.main-container {
+  flex-grow: 1;
+  min-width: 0;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: 1.2rem;
+  flex-direction: column;
+  height: 100vh;
+  overflow-y: auto; /* Main dashboard content scrolls here */
 }
 
-@media (max-width: 768px) {
-  .admin-sidebar {
-    transform: translateX(-100%);
-    transition: transform 0.3s;
+main {
+  padding: 2rem;
+  animation: fadeIn 0.4s ease-in;
+}
+
+/* --- THE 4 BIG BOXES (NO MOVEMENT) --- */
+.card {
+  border: none;
+  border-radius: 1.25rem;
+}
+
+.card:hover {
+  transform: none !important;
+  transition: none !important;
+}
+
+.display-5 {
+  font-size: 2.5rem;
+  font-weight: 800;
+}
+
+/* --- Logout Button Refinement --- */
+.btn-outline-danger {
+  border-color: #ef4444 !important;
+  color: #ef4444 !important;
+}
+
+.btn-outline-danger:hover {
+  background-color: #ef4444 !important;
+  color: white !important;
+}
+
+/* Subtle backgrounds for icons */
+.bg-primary-subtle {
+  background-color: #e0f2fe;
+}
+.bg-success-subtle {
+  background-color: #dcfce7;
+}
+.bg-warning-subtle {
+  background-color: #fef3c7;
+}
+.bg-danger-subtle {
+  background-color: #fee2e2;
+}
+
+/* --- Animations --- */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
   }
-  
-  .admin-sidebar.open {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 767px) {
+  .admin-sidebar {
+    position: fixed;
+    left: 0;
+    transform: translateX(-100%);
+  }
+  .admin-sidebar.expanded {
     transform: translateX(0);
   }
-  
-  .admin-main {
-    margin-left: 0;
-  }
-  
-  .hamburger {
-    display: flex;
-  }
 }
-

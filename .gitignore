@@ -4,3 +4,7 @@ backend/node_modules
 dist
 .vite
 .env
+
+# Add this line:
+backend/uploads/*
+!backend/uploads/.gitkeep

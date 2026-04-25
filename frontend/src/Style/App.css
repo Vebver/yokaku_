@@ -5,14 +5,14 @@
   padding: 0;
 }
 
-html{
+html {
   scroll-behavior: smooth !important;
   scroll-padding-top: 50px;
 }
 
 body {
   margin: 0;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   background-color: #fff;
   color: #222;
   line-height: 1.5;
@@ -36,4 +36,109 @@ img {
 button {
   font-family: inherit;
 }
+.res-success-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.8); /* Dim background */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000; /* Above everything */
+}
 
+.res-success-card {
+  background: white;
+  padding: 40px;
+  border-radius: 24px;
+  text-align: center;
+  max-width: 450px;
+  width: 90%;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+}
+
+.res-success-card h2 {
+  font-family: "Playfair Display", serif;
+  font-size: 24px;
+  margin: 20px 0 10px;
+  color: #1a1a1a;
+}
+
+.res-success-card p {
+  color: #666;
+  font-size: 15px;
+  margin-bottom: 5px;
+}
+
+.res-status-text {
+  background: #fff8e1;
+  color: #f38d31;
+  padding: 8px;
+  border-radius: 8px;
+  display: inline-block;
+  margin: 15px 0;
+}
+
+.res-info-small {
+  font-size: 13px !important;
+  font-style: italic;
+  margin-bottom: 25px !important;
+}
+
+.res-success-close {
+  background: #f38d31;
+  color: white;
+  border: none;
+  padding: 12px 30px;
+  border-radius: 25px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.res-success-close:hover {
+  transform: scale(1.05);
+  background: #e67e22;
+}
+
+.fade-in {
+  animation: fadeIn 0.4s ease-out;
+}
+
+/* App.css */
+.res-modal-overlay {
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: rgba(0, 0, 0, 0.85) !important; /* Slightly darker */
+  display: flex !important;
+  justify-content: center;
+  align-items: center;
+  z-index: 999999 !important; /* Extremely high */
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.res-modal-content {
+  background: white;
+  padding: 40px;
+  border-radius: 20px;
+  z-index: 1000000 !important;
+  position: relative;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

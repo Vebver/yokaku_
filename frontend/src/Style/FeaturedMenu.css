@@ -20,7 +20,7 @@
 }
 
 .featured-menu .menu-card {
-  background-color: #ffd400;
+  background-color: #fff;
   border-radius: 15px;
   width: 220px;
   padding: 1rem;
@@ -31,6 +31,7 @@
   flex-direction: column;
   align-items: center;
   gap: 1rem;
+  border: 1px solid #ffcc00;
 }
 
 .featured-menu .menu-card:hover {
@@ -61,7 +62,9 @@
   cursor: pointer;
   font-weight: 600;
   background: transparent;
-  transition: background 0.3s, color 0.3s;
+  transition:
+    background 0.3s,
+    color 0.3s;
   cursor: pointer;
   transition: all 0.3s;
 }
@@ -72,4 +75,99 @@
   transform: translateY(-3px);
   box-shadow: 0 5px 15px rgba(255, 204, 0, 0.3);
 }
+.featured-menu .carousel-container {
+  width: 95%;
+  max-width: 1200px;
+  margin: 0 auto 50px auto; /* Increased bottom margin to make room for dots */
+  padding: 0 40px; 
+  position: relative;
+  /* Removed overflow: hidden; so dots can be seen */
+  display: block;
+  overflow:visible;
+}
+.featured-menu .slick-dots {
+  bottom: -35px;
+}
+.featured-menu .slick-dots li button:before {
+  font-size: 12px;
+  color: #ffcc00 !important; /* Your gold color */
+  opacity: 0.4;
+}
+.featured-menu .slick-dots li.slick-active button:before {
+  opacity: 1;
+  color: #ffcc00 !important;
+}
+.featured-menu .slick-prev,
+.featured-menu .slick-next {
+  width: 50px;
+  height: 50px;
+  z-index: 2; /* Make sure they stay on top */
+  transition: all 0.3s ease;
+}
+.featured-menu .slick-prev:before,
+.featured-menu .slick-next:before {
+  font-family: "slick";
+  font-size: 40px; /* Size of the arrow */
+  line-height: 1;
+  opacity: 1;
+  color: #ffcc00; /* Use your theme's gold color */
+  transition: color 0.3s;
+}
+.featured-menu .slick-prev {
+  left: -10px; /* Adjust this to move it left/right */
+}
 
+.featured-menu .slick-next {
+  right: -10px; /* Adjust this to move it left/right */
+}
+
+/* 5. Hover Effect */
+.featured-menu .slick-prev:hover:before,
+.featured-menu .slick-next:hover:before {
+  color: #000; /* Changes to black on hover to match your buttons */
+}
+
+/* Fix for alignment: ensure the track is centered */
+.featured-menu .slick-track {
+  display: flex !important;
+  align-items: center;
+}
+.carousel-container {
+  width: 95%;
+  max-width: 1200px;
+  margin: 0 auto 30px auto;
+  margin: 0 auto 30px auto; /* Centers the container itself */
+  display: block;
+}
+
+.carousel-container .slick-track {
+  display: flex !important;
+  justify-content: center;
+  align-items: center;
+}
+/* Adds padding so the cards don't touch each other */
+.menu-card-wrapper {
+  padding: 10px;
+}
+
+.menu-card {
+  margin: 0 auto; /* Centers the card within its designated slide area */
+  background-color: #1a1a1a;
+  padding: 20px;
+  border-radius: 15px;
+  text-align: center;
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  width: 100%; /* Occupies the slide width fully */
+  box-sizing: border-box;
+}
+
+.menu-card img {
+  width: 100%;
+  height: 250px;
+  max-width: 100%;
+  object-fit: cover;
+  border-radius: 5px;
+  margin-bottom: 10px;
+}

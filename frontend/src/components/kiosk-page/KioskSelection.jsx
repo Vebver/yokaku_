@@ -1,8 +1,8 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import '../../Style/CashierSelection.css';
+import '../../Style/KioskSelection.css';
 
-const CashierSelection = () => {
+const KioskSelection = () => {
   const navigate = useNavigate();
 
   // Dynamic greeting based on time of day
@@ -14,10 +14,12 @@ const CashierSelection = () => {
   };
 
   const handleSelection = (type) => {
-    if (type === 'dine-in') {
-      navigate('/cashier-selection/dinein'); // Or your menu page
-    } else {
-      navigate('/menu');
+    if (type === 'menu') {
+      // Directs to the ordering/menu page
+      navigate('/kiosk-selection/kiosk-menu'); 
+    } else if (type === 'reservation') {
+      // Directs to the table reservation flow
+      navigate('/kiosk-selection/kiosk-reservation'); 
     }
   };
 
@@ -35,41 +37,43 @@ const CashierSelection = () => {
         {/* Greeting Section */}
         <div className="greeting-container">
           <h2 className="greeting-text">{getGreeting()}</h2>
-          <p className="sub-greeting">Where would you like to eat?</p>
+          <p className="sub-greeting">What would you like to do today?</p>
         </div>
 
         {/* Options Grid */}
         <div className="options-container">
-          {/* Dine In Card */}
-          <div className="selection-card" onClick={() => handleSelection('dine-in')}>
-            <h3 className="card-label">DINE IN</h3>
+          
+          {/* View Menu Card */}
+          <div className="selection-card" onClick={() => handleSelection('menu')}>
+            <h3 className="card-label">VIEW MENU</h3>
             <div className="icon-circle">
               <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5">
                 <circle cx="12" cy="12" r="9" />
-                <path d="M8 12h8" />
-                <path d="M12 8v8" />
-                {/* Simplified Plate/Utensil Shape */}
                 <circle cx="12" cy="12" r="5" stroke="white" fill="rgba(255,255,255,0.1)" />
                 <path d="M6 7v10M18 7v10" strokeLinecap="round" />
               </svg>
             </div>
           </div>
 
-          {/* Take Out Card */}
-          <div className="selection-card" onClick={() => handleSelection('take-out')}>
-            <h3 className="card-label">TAKE OUT</h3>
+          {/* Reservation Card */}
+          <div className="selection-card" onClick={() => handleSelection('reservation')}>
+            <h3 className="card-label">RESERVATION</h3>
             <div className="icon-circle">
-              <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5">
-                <path d="M6 8h12l1 12H5L6 8z" />
-                <path d="M9 8V5a3 3 0 0 1 6 0v3" />
-                <rect x="9" y="12" width="6" height="4" rx="1" fill="rgba(255,255,255,0.1)" />
+              {/* New Reservation/Calendar Icon */}
+              <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+                <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01" strokeWidth="2" />
               </svg>
             </div>
           </div>
+
         </div>
       </div>
     </div>
   );
 };
 
-export default CashierSelection;
+export default KioskSelection;

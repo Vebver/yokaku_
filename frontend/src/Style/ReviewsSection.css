@@ -1,4 +1,3 @@
-/* Reviews Section Styles */
 .reviews {
   padding: 3rem 2rem 4rem;
   text-align: center;
@@ -9,78 +8,362 @@
   font-weight: 900;
   font-size: 1.7rem;
   margin-bottom: 0.2rem;
+  color: #000;
 }
 
 .reviews h3 {
   font-weight: 700;
   font-size: 1.3rem;
   margin-bottom: 2rem;
-  color: #FFD400;
-  text-shadow: 2px 2px 3px #a68300;
+  color: #ffd400;
+  text-shadow: 2px 2px 3px rgba(166, 131, 0, 0.3);
 }
 
-.reviews .review-cards {
-  display: flex;
-  justify-content: center;
-  gap: 1.8rem;
-  flex-wrap: wrap;
+/* Unique wrapper for the Slider to avoid clashing with Featured Menu */
+.reviews-slick-container {
+  width: 30%;
+  max-width: 1100px; /* Wider to allow for 2 cards side-by-side on desktop */
+  margin: 0 auto;
+  padding: 20px 0 50px 0;
 }
 
-.reviews .review-card {
+/* Scoped card styles */
+.reviews-slick-container .review-slide-wrapper {
+  padding: 15px;
+  outline: none;
+}
+
+.reviews-slick-container .review-card {
   background-color: white;
   border-radius: 15px;
-  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
-  width: 280px;
-  padding: 1.6rem;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+  padding: 2.5rem 1.5rem;
   text-align: center;
-  min-height: 270px;
-  position: relative;
-  cursor: default;
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  border: 1px solid #f0f0f0;
+  min-height: 120px; /* Keeps cards uniform in height */
+  transition: transform 0.3s ease;
 }
 
-.reviews .avatar {
+.reviews-slick-container .review-avatar {
   width: 60px;
   height: 60px;
-  background-color: #bbb;
+  background-color: #ffcc00;
+  color: black;
   border-radius: 50%;
-  margin: 0 auto 1rem;
-}
-
-.reviews .stars {
-  margin-bottom: 15px;
-}
-
-.reviews .star {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
   font-size: 1.2rem;
-  margin: 0 3px;
-  color: #ccc;
-}
-
-.reviews .star.filled {
-  color: #FFD400;
-}
-
-.reviews .review-text {
-  font-weight: 400;
-  font-size: 0.9rem;
-  color: #555;
-  min-height: 90px;
   margin-bottom: 1rem;
 }
 
-.reviews .review-author {
-  font-weight: 700;
-  font-size: 0.9rem;
-  color: #222;
-  border-top: 1.5px solid #eee;
-  padding-top: 0.6rem;
-  letter-spacing: 0.04em;
+.reviews-slick-container .star.filled {
+  color: #ffcc00;
 }
 
-@media (max-width: 900px) {
-  .reviews .review-cards {
-    flex-direction: column;
-    align-items: center;
+.reviews-slick-container .review-text {
+  font-style: italic;
+  font-size: 1rem;
+  color: #555;
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+}
+
+.reviews-slick-container .review-author {
+  font-weight: 700;
+  color: #222;
+  border-top: 1px solid #eee;
+  padding-top: 10px;
+  width: 100%;
+}
+
+/* Write Review UI */
+.write-review-btn {
+  background-color: #ffcc00;
+  color: black;
+  border: none;
+  padding: 12px 35px;
+  font-weight: 900;
+  border-radius: 50px;
+  cursor: pointer;
+  margin-bottom: 30px;
+  transition: 0.3s;
+}
+
+.review-input-container {
+  background: #222;
+  padding: 25px;
+  border-radius: 15px;
+  max-width: 600px;
+  margin: 0 auto 40px auto;
+  border: 1px solid #ffcc00;
+}
+
+.star-rating-input {
+  font-size: 30px;
+  margin-bottom: 15px;
+}
+.star-clickable {
+  cursor: pointer;
+  color: #444;
+}
+.star-clickable.filled {
+  color: #ffcc00;
+}
+
+.review-input-container textarea {
+  width: 100%;
+  height: 100px;
+  background: #111;
+  color: white;
+  border: 1px solid #333;
+  padding: 15px;
+  border-radius: 10px;
+  margin-bottom: 15px;
+  font-family: inherit;
+}
+
+.form-actions {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+}
+
+.rev-submit-btn {
+  background: #ffcc00;
+  color: black;
+  border: none;
+  font-weight: 800;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.rev-cancel-btn {
+  background: transparent;
+  color: white;
+  border: 1px solid #555;
+  font-weight: 800;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* FIX SLICK DOTS COLOR - Only for Reviews */
+.reviews-slick-container .slick-dots li button:before {
+  color: #ffcc00 !important;
+}
+
+.reviews-slick-container .slick-dots li.slick-active button:before {
+  color: #ffcc00 !important;
+}
+
+/* FIX SLICK ARROWS - Only for Reviews */
+.reviews-slick-container .slick-prev:before,
+.reviews-slick-container .slick-next:before {
+  color: #ffcc00;
+}
+.reviews {
+  padding: 3rem 2rem 4rem;
+  text-align: center;
+  background-color: white;
+}
+
+.reviews h2 {
+  font-weight: 900;
+  font-size: 1.7rem;
+  margin-bottom: 0.2rem;
+  color: #000;
+}
+
+.reviews h3 {
+  font-weight: 700;
+  font-size: 1.3rem;
+  margin-bottom: 2rem;
+  color: #ffd400;
+  text-shadow: 2px 2px 3px rgba(166, 131, 0, 0.3);
+}
+
+/* Unique wrapper for the Slider to avoid clashing with Featured Menu */
+.reviews-slick-container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 20px 0 40px 0;
+}
+
+/* Scoped card styles */
+.reviews-slick-container .review-slide-wrapper {
+  padding: 15px;
+  outline: none;
+}
+
+.reviews-slick-container .review-card {
+  background-color: white;
+  border-radius: 15px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+  padding: 2rem;
+  text-align: center;
+  margin: 0 auto;
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  border: 1px solid #eee;
+}
+
+.reviews-slick-container .review-avatar {
+  width: 60px;
+  height: 60px;
+  background-color: #ffcc00;
+  color: black;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1.2rem;
+  margin-bottom: 1rem;
+}
+
+.reviews-slick-container .star.filled {
+  color: #ffcc00;
+}
+
+.reviews-slick-container .review-text {
+  font-style: italic;
+  font-size: 1rem;
+  color: #555;
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+}
+
+.reviews-slick-container .review-author {
+  font-weight: 700;
+  color: #222;
+  border-top: 1px solid #eee;
+  padding-top: 10px;
+  width: 100%;
+}
+
+/* Write Review UI */
+.write-review-btn {
+  background-color: #ffcc00;
+  color: black;
+  border: none;
+  padding: 12px 35px;
+  font-weight: 900;
+  border-radius: 50px;
+  cursor: pointer;
+  margin-bottom: 30px;
+  transition: 0.3s;
+}
+
+.review-input-container {
+  background: #222;
+  padding: 25px;
+  border-radius: 15px;
+  max-width: 600px;
+  margin: 0 auto 40px auto;
+  border: 1px solid #ffcc00;
+}
+
+.star-rating-input {
+  font-size: 30px;
+  margin-bottom: 15px;
+}
+.star-clickable {
+  cursor: pointer;
+  color: #444;
+}
+.star-clickable.filled {
+  color: #ffcc00;
+}
+
+.review-input-container textarea {
+  width: 100%;
+  height: 100px;
+  background: #111;
+  color: white;
+  border: 1px solid #333;
+  padding: 15px;
+  border-radius: 10px;
+  margin-bottom: 15px;
+  font-family: inherit;
+}
+
+.form-actions {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+}
+
+.rev-submit-btn {
+  background: #ffcc00;
+  color: black;
+  border: none;
+  font-weight: 800;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.rev-cancel-btn {
+  background: transparent;
+  color: white;
+  border: 1px solid #555;
+  font-weight: 800;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* FIX SLICK DOTS COLOR - Only for Reviews */
+.reviews-slick-container .slick-dots li button:before {
+  color: #ffcc00 !important;
+}
+
+.reviews-slick-container .slick-dots li.slick-active button:before {
+  color: #ffcc00 !important;
+}
+
+/* FIX SLICK ARROWS - Only for Reviews */
+.reviews-slick-container .slick-prev:before,
+.reviews-slick-container .slick-next:before {
+  color: #ffcc00;
+}
+@media (max-width: 768px) {
+  .reviews-slick-container {
+    max-width: 400px; /* Keep mobile view narrow and clean */
+  }
+
+  .reviews h2 {
+    font-size: 1.5rem;
+  }
+
+  .reviews h3 {
+    font-size: 1.1rem;
+  }
+
+  .reviews-slick-container .review-card {
+    padding: 1.5rem;
+    min-height: 280px;
+  }
+
+  .reviews-slick-container .review-text {
+    font-size: 0.9rem;
   }
 }
 
+/* --- SLICK ARROW POSITIONING --- */
+.reviews-slick-container .slick-prev {
+  left: -35px;
+}
+.reviews-slick-container .slick-next {
+  right: -35px;
+}
+
+/* Fix for slick dots spacing */
+.reviews-slick-container .slick-dots {
+  bottom: -10px;
+}

@@ -5,10 +5,9 @@ function HeroSection({ onLoginClick, onReserveClick, isLoggedIn }) {
   
   const handleReserveTable = () => {
     if (isLoggedIn) {
-      // User is logged in, show the Reservation modal
+      // This will now correctly trigger window.location.href = "/tablereservation" from App.jsx
       onReserveClick();
     } else {
-      // User is NOT logged in, show the Login modal
       onLoginClick();
     }
   };
@@ -26,7 +25,6 @@ function HeroSection({ onLoginClick, onReserveClick, isLoggedIn }) {
             The perfect place to relax and enjoy great food with friends and family.
             We offer delicious meals, refreshing drinks and vibrant atmosphere.
           </p>
-          {/* Use the new handler here */}
           <button className="reserve-btn" onClick={handleReserveTable}>
             RESERVE A TABLE
           </button>

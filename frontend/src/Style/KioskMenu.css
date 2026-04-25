@@ -1,0 +1,478 @@
+:root {
+  --accent: #ffcc00;
+  --bg-dark: #0f0f0f;
+  --panel-bg: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --text-main: #ffffff;
+  --text-dim: #a0a0a0;
+  --radius-lg: 2rem;
+  --radius-md: 1.2rem;
+}
+
+/* 1. LOCK CONTAINER TO SCREEN HEIGHT */
+.kiosk-container {
+  width: 100vw;
+  height: 100vh;
+  background-color: var(--bg-dark);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* --- STEP INDICATOR --- */
+.step-indicator {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1.5rem 1rem;
+  background: #111;
+  gap: 1rem;
+  overflow-x: auto;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.step-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: white;
+}
+
+.step-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid #444;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+.completed .step-icon {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  color: #000;
+}
+
+.step-label {
+  font-weight: 600;
+  font-size: clamp(0.8rem, 2vw, 1rem);
+}
+
+.step-line {
+  width: clamp(20px, 5vw, 50px);
+  height: 2px;
+  background: #333;
+}
+
+/* --- MAIN LAYOUT --- */
+.main-layout {
+  flex: 1;
+  display: flex;
+  padding: 1rem;
+  gap: 1rem;
+  max-width: 1600px;
+  margin: 0 auto;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* --- SIDEBAR --- */
+.sidebar {
+  width: 280px;
+  height: 100%; /* Must have a height for internal scrolling to work */
+  background: var(--panel-bg);
+  backdrop-filter: blur(15px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column; /* Stack: Brand -> List -> Button */
+  padding: 1.5rem 1rem;
+  overflow: hidden; /* Keeps everything inside the rounded corners */
+}
+
+.brand { text-align: center; margin-bottom: 1.5rem; }
+.logo-main { color: var(--accent); font-weight: 900; font-size: 1.5rem; margin: 0; }
+.logo-sub { margin: 0; font-size: 0.9rem; font-family: serif; font-style: italic; opacity: 0.8; color: white; text-align: center;}
+
+/* 3. THE ACTUAL SCROLLABLE PART */
+.cat-scroll-wrapper {
+  flex: 1; 
+  overflow-y: auto !important; /* Forces vertical scrolling */
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  
+  /* Hides the ugly default scrollbar */
+  scrollbar-width: none; 
+  -ms-overflow-style: none;
+  
+  /* THE FIX: Space at the bottom so "Extra" isn't cut off */
+  padding-bottom: 40px; 
+}
+
+.category-list {
+  flex: 1; /* This tells the list to take up ALL available space */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* Prevents the container itself from scrolling */
+  min-height: 0; /* Important: Allow flex items to shrink below content size */
+}
+
+.cat-scroll-wrapper::-webkit-scrollbar { display: none; }
+
+.cat-btn {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid transparent;
+  color: var(--text-main);
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.3s ease;
+}
+
+.cat-btn.active {
+  border-color: var(--accent);
+  background: rgba(255, 204, 0, 0.1);
+}
+
+.cat-icon-placeholder {
+  width: 35px;
+  height: 35px;
+  background: #333;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.cat-icon-placeholder svg {
+  width: 20px;
+  height: 20px;
+  stroke: #ffffff;
+  fill: none;
+  transition: all 0.3s ease;
+}
+
+.cat-btn.active .cat-icon-placeholder {
+  background: var(--accent);
+}
+
+.cat-btn.active .cat-icon-placeholder svg {
+  stroke: #000000;
+}
+
+.cat-btn:hover .cat-icon-placeholder svg {
+  transform: scale(1.1);
+}
+
+.scroll-arrow { display: flex; justify-content: center; padding: 0.5rem; opacity: 0.5; color: white;}
+
+.assist-btn {
+  margin-top: 10px;
+  background: #000;
+  border: 1.5px solid #fff;
+  color: #fff;
+  padding: 1rem;
+  border-radius: 3rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* --- CONTENT AREA --- */
+.content-area {
+  flex: 1;
+  background: var(--panel-bg);
+  backdrop-filter: blur(15px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  overflow-y: auto;
+}
+
+.content-area::-webkit-scrollbar { display: none; }
+
+.grid-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: 1.25rem;
+}
+
+/* --- FOOD CARD STYLING --- */
+.food-card {
+  background: #ffffff;
+  border-radius: 1.5rem;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  border: 2px solid transparent;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  position: relative;
+}
+
+.food-card.selected {
+  border-color: #ffcc00;
+  transform: translateY(-5px);
+  box-shadow: 0 8px 25px rgba(255, 204, 0, 0.3);
+}
+
+.selected-check {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background-color: #ffcc00;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+  z-index: 2;
+}
+
+.card-image-container {
+  width: 100%;
+  height: 180px;
+  background-color: #f0f0f0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+.food-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 20px;
+  transition: transform 0.3s ease;
+}
+
+.food-card:hover .food-img {
+  transform: scale(1.1);
+}
+
+.card-info {
+  padding: 1.2rem;
+  text-align: center;
+  background: #ffffff;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.food-label {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #1a1a1a;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  line-height: 1.3;
+}
+
+/* --- BOTTOM BAR --- */
+.bottom-bar {
+  background: #d1d1d1;
+  height: 120px;
+  flex-shrink: 0;
+  border-radius: 2rem 2rem 0 0;
+  padding: 0 5%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.action-btns { display: flex; gap: 1rem; flex: 1; justify-content: flex-end;}
+
+.btn-cancel, .btn-view {
+  padding: 0.8rem 1.5rem;
+  border-radius: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: clamp(0.9rem, 2vw, 1.1rem);
+  transition: all 0.2s;
+}
+
+.btn-cancel { background: white; border: 2px solid #aaa; color: #444; flex-grow: 0.2;}
+.btn-view { background: var(--accent); border: none; color: #000; flex-grow: 0.2; }
+
+.btn-view:disabled {
+  background-color: #555;
+  color: #888;
+  cursor: not-allowed;
+}
+
+/* --- MODERN CUSTOM MODAL --- */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.modal-card {
+  background: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 3rem 2rem;
+  border-radius: 2rem;
+  max-width: 450px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+}
+
+.modal-icon {
+  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: center;
+}
+
+.modal-card h2 {
+  color: #ffcc00;
+  font-weight: 800;
+  font-size: 1.8rem;
+  margin-bottom: 1rem;
+}
+
+.modal-card p {
+  color: #bbbbbb;
+  font-size: 1rem;
+  line-height: 1.5;
+  margin-bottom: 2.5rem;
+}
+
+.modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.modal-btn-primary {
+  background: #ffcc00;
+  border: none;
+  color: #000;
+  padding: 1.2rem;
+  border-radius: 3rem;
+  font-weight: 800;
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+
+.modal-btn-secondary {
+  background: transparent;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  padding: 1.2rem;
+  border-radius: 3rem;
+  font-weight: 700;
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+
+.fade-in-scale {
+  animation: modalPop 0.3s ease-out forwards;
+}
+
+/* --- VIEW DETAILS (LABEL-ONLY STYLE) --- */
+.view-details-link {
+  align-self: flex-end;
+  margin-top: 15px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  outline: none;
+  color: gray;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.view-details-link::after {
+  content: '';
+  position: absolute;
+  width: 0;
+  height: 2px;
+  bottom: -2px;
+  left: 0;
+  background-color: gray;
+  transition: width 0.3s ease;
+}
+
+.view-details-link:hover {
+  color: #000;
+}
+
+.view-details-link:hover::after {
+  width: 100%;
+  background-color: #000;
+}
+
+@keyframes modalPop {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* --- RESPONSIVE FIXES --- */
+@media (max-width: 1024px) {
+  .main-layout { flex-direction: column; }
+  .sidebar {
+    width: 100%;
+    height: auto;
+    padding: 1rem;
+  }
+  .cat-scroll-wrapper {
+    flex-direction: row;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+    height: 80px;
+  }
+  .cat-btn { white-space: nowrap; }
+  .brand, .scroll-arrow, .assist-btn { display: none; }
+}
+
+@media (max-width: 600px) {
+  .card-info {
+    padding: 1rem;
+  }
+  .food-label {
+    font-size: 0.95rem;
+  }
+  .view-details-link {
+    font-size: 0.7rem;
+  }
+  .bottom-bar { height: auto; padding: 1rem; flex-direction: column; gap: 1rem; }
+  .action-btns { width: 100%; justify-content: center; }
+}

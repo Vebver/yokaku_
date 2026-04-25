@@ -5,7 +5,7 @@
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.85);
+  background: rgba(0, 0, 0, 0.5); /* Lightened overlay for white theme */
   display: flex;
   justify-content: center;
   align-items: center;
@@ -15,26 +15,26 @@
 }
 
 .modal-content {
-  background: #1a1a1a;
-  color: white;
-  padding: 40px 30px; /* Reduced side padding slightly for more internal space */
+  background: #ffffff; /* CHANGED TO WHITE */
+  color: #333; /* DARK TEXT FOR WHITE BG */
+  padding: 40px 30px;
   border-radius: 15px;
-  width: 95%; /* Responsive width */
-  max-width: 420px; /* Slightly wider to accommodate 6 OTP boxes comfortably */
+  width: 95%;
+  max-width: 420px;
   position: relative;
   text-align: center;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
-  border: 1px solid #333;
-  transition: all 0.3s ease-in-out; /* Smooth resizing when switching panels */
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15); /* Softer shadow */
+  border: 1px solid #eee; /* Lighter border */
+  transition: all 0.3s ease-in-out;
   overflow: hidden;
 }
 
 /* --- TYPOGRAPHY & HEADERS --- */
 .modal-content h2 {
   margin-bottom: 25px;
-  font-family: 'Arial Black', sans-serif;
+  font-family: "Arial Black", sans-serif;
   letter-spacing: 2px;
-  color: #ffcc00;
+  color: #ffcc00; /* Keep the gold accent */
   text-transform: uppercase;
 }
 
@@ -48,17 +48,18 @@
 .login-input {
   width: 100%;
   padding: 12px;
-  border-radius: 5px;
-  border: 1px solid #444;
-  background: #2a2a2a;
-  color: white;
+  border-radius: 8px;
+  border: 1px solid #ddd; /* Light border for visibility on white */
+  background: #fdfdfd; /* Very light gray background */
+  color: #333; /* Dark text */
   outline: none;
   font-size: 16px;
-  box-sizing: border-box; /* Crucial for responsiveness */
+  box-sizing: border-box;
 }
 
 .login-input:focus {
   border-color: #ffcc00;
+  background: #fff;
 }
 
 /* --- PASSWORD FIELD & ICON --- */
@@ -73,7 +74,8 @@
   padding-right: 45px;
 }
 
-.password-toggle-icon, .password-toggle-icon-confirm {
+.password-toggle-icon,
+.password-toggle-icon-confirm {
   position: absolute;
   right: 12px;
   top: 50%;
@@ -84,51 +86,57 @@
   z-index: 10;
 }
 
-.eye-svg, .eye-svg-confirm {
-  color: #888;
+.eye-svg,
+.eye-svg-confirm {
+  color: #aaa; /* Gray icons */
   transition: color 0.2s;
 }
 
 .password-toggle-icon:hover .eye-svg,
-.eye-svg.active, .password-toggle-icon-confirm:hover .eye-svg-confirm, .eye-svg-confirm.active{
+.eye-svg.active,
+.password-toggle-icon-confirm:hover .eye-svg-confirm,
+.eye-svg-confirm.active {
   color: #ffcc00;
 }
 
 /* --- SUBMIT BUTTON --- */
 .submit-btn {
-  background: #ffcc00;
-  color: black;
+  background: #000;
+  color: #ffcc00;
   border: none;
   padding: 14px;
-  border-radius: 5px;
+  border-radius: 8px;
   font-weight: bold;
   font-size: 16px;
   cursor: pointer;
-  transition: transform 0.2s, background 0.2s;
+  transition:
+    transform 0.2s,
+    background 0.2s;
   margin-top: 10px;
 }
 
 .submit-btn:hover:not(:disabled) {
   background: #e6b800;
+  color: #000;
   transform: translateY(-2px);
 }
 
 .submit-btn:disabled {
-  background: #555 !important;
-  color: #888;
+  background: #e0e0e0 !important; /* Muted gray for disabled */
+  color: #999;
   cursor: not-allowed;
 }
 
 /* --- OTP / EMAIL VERIFICATION --- */
 .verify-desc {
-  color: #bbb;
+  color: #555; /* Darker gray for white bg */
   font-size: 14px;
   margin-bottom: 20px;
   line-height: 1.5;
 }
 
 .user-email {
-  color: #ffcc00;
+  color: #d4ac0d; /* Slightly darker gold for readability on white */
   font-weight: bold;
   word-break: break-all;
 }
@@ -136,20 +144,20 @@
 .otp-container {
   display: flex;
   justify-content: space-between;
-  gap: 8px; /* Managed gap for 6 boxes */
+  gap: 8px;
   margin: 10px 0 25px 0;
   width: 100%;
 }
 
 .otp-input {
-  flex: 1; /* Makes boxes scale based on available width */
+  flex: 1;
   min-width: 35px;
   max-width: 50px;
   height: 55px;
-  background: #2a2a2a;
-  border: 1px solid #444;
+  background: #f9f9f9; /* Light background */
+  border: 1px solid #ddd;
   border-radius: 8px;
-  color: white;
+  color: #333;
   text-align: center;
   font-size: 20px;
   font-weight: bold;
@@ -159,7 +167,7 @@
 
 .otp-input:focus {
   border-color: #ffcc00;
-  box-shadow: 0 0 8px rgba(255, 204, 0, 0.3);
+  box-shadow: 0 0 8px rgba(255, 204, 0, 0.2);
 }
 
 .verify-footer {
@@ -168,41 +176,45 @@
   flex-direction: column;
   gap: 12px;
   font-size: 14px;
-  color: #888;
+  color: #666;
 }
 
 /* --- TEXT LINKS & SWITCHERS --- */
-.signup-text, .verify-footer p {
+.signup-text,
+.verify-footer p {
   font-size: 14px;
-  color: #888;
+  color: #666;
 }
 
-/* Common style for all "Link-style" buttons and anchors */
-.link-btn, .signup-text a, .resend-btn {
+.link-btn,
+.signup-text a,
+.resend-btn {
   background: none;
   border: none;
-  color: #ffcc00;
+  color: #d4ac0d; /* Darker gold */
   font-weight: bold;
   cursor: pointer;
-  text-decoration: underline;
   font-size: 14px;
   padding: 0;
   transition: color 0.2s;
   text-decoration: none;
 }
 
-.link-btn:hover, .signup-text a:hover, .resend-btn:hover {
-  color: #e6b800;
+.link-btn:hover,
+.signup-text a:hover,
+.resend-btn:hover {
+  color: #000;
+  text-decoration: underline;
 }
 
 .back-link {
-  color: #888;
+  color: #999;
   text-decoration: none;
   font-size: 13px;
 }
 
 .back-link:hover {
-  color: white;
+  color: #333;
   text-decoration: underline;
 }
 
@@ -224,46 +236,39 @@
   font-size: 28px;
   border: none;
   background: none;
-  color: #888;
+  color: #ccc;
   cursor: pointer;
   line-height: 1;
 }
 
 .close-btn:hover {
-  color: white;
+  color: #333;
 }
 
-/* --- ANIMATIONS --- */
-.fade-in {
-  animation: slideUp 0.4s ease-out;
+/* Container to push the link to the right */
+.forgot-password-container {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  margin-top: 10px; /* Adjust this to move it closer to the password field */
+  margin-bottom: 5px;
 }
 
-/* This hides the default "eye" icon that Microsoft Edge adds */
-input::-ms-reveal,
-input::-ms-clear {
-  display: none;
+/* Styling the button to look like a yellow underlined link */
+.forgot-password-link {
+  background: none;
+  border: none;
+  color: #ffcc00; /* Yellow color */
+  text-decoration: underline;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0;
+  font-weight: 500;
+  transition: color 0.2s ease;
+  font-weight: bold;
 }
 
-/* This hides the default icons in Chrome and Safari (if they appear) */
-input::-webkit-contacts-auto-fill-button,
-input::-webkit-credentials-auto-fill-button {
-  visibility: hidden;
-  display: none !important;
-  pointer-events: none;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes slideUp {
-  from { 
-    transform: translateY(20px); 
-    opacity: 0; 
-  }
-  to { 
-    transform: translateY(0); 
-    opacity: 1; 
-  }
+.forgot-password-link:hover {
+  color: #e6bf00; /* Slightly darker yellow on hover */
+  text-decoration: none; /* Optional: remove underline on hover */
 }

@@ -1,6 +1,9 @@
 /* Customer Profile Page - LoginSection style copy */
+
 .card {
   transition: transform 0.3s ease;
+  margin-top: 100px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1); /* Optional: makes card look better */
 }
 
 .card:hover {
@@ -8,8 +11,8 @@
 }
 
 .btn-warning {
-  background-color: #FFD400;
-  border-color: #FFD400;
+  background-color: #ffd400;
+  border-color: #ffd400;
 }
 
 .btn-warning:hover {
@@ -21,8 +24,18 @@
 .text-muted {
   font-size: 0.85rem;
 }
-
-/* Ensure the background of the page looks good */
+/* In CustomerProfile.css or your global CSS */
+html,
 body {
+  height: auto;
+  min-height: 100%;
+  overflow-y: auto; /* Allows vertical scrolling */
   background-color: #f8f9fa;
+}
+
+/* Media query for screens smaller than 1000px */
+@media (max-width: 1000px) {
+  .card {
+    margin-top: 90px;
+  }
 }

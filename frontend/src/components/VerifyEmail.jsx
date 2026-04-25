@@ -6,6 +6,27 @@ function VerifyEmail({ email, onVerify, onResend, onBack }) {
   const [otp, setOtp] = useState(new Array(6).fill(""));
   const inputRefs = useRef([]);
 
+  // Timer states
+  const [timeLeft, setTimeLeft] = useState(60);
+  const [showResend, setShowResend] = useState(false);
+
+  // Countdown Logic
+  useEffect(() => {
+    if (timeLeft > 0) {
+      const timerId = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
+      return () => clearTimeout(timerId);
+    } else {
+      setShowResend(true);
+    }
+  }, [timeLeft]);
+
+  // Format time from seconds to M:SS
+  const formatTime = (seconds) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds < 10 ? "0" : ""}${remainingSeconds}`;
+  };
+
   // Handle typing in a box
   const handleChange = (element, index) => {
     if (isNaN(element.value)) return false;
@@ -33,11 +54,14 @@ function VerifyEmail({ email, onVerify, onResend, onBack }) {
     onVerify(finalCode);
   };
 
-  // Inside VerifyEmail.jsx, ensure the top-level return looks like this:
+  const handleResendClick = () => {
+    setTimeLeft(60);
+    setShowResend(false);
+    onResend();
+  };
+
   return (
     <div className="verify-wrapper">
-      {" "}
-      {/* A simple wrapper instead of a new modal-content */}
       <h2 className="verify-title">VERIFY EMAIL</h2>
       <p className="verify-desc">
         We sent a 6-digit code to <br />
@@ -68,10 +92,21 @@ function VerifyEmail({ email, onVerify, onResend, onBack }) {
         </button>
 
         <div className="verify-footer">
-          <p>Didn't receive the code?</p>
-          <button type="button" className="resend-btn" onClick={onResend}>
-            Resend Code
-          </button>
+          {showResend ? (
+            <>
+              <p>Didn't receive the code?</p>
+              <button
+                type="button"
+                className="resend-btn"
+                onClick={handleResendClick}
+              >
+                Resend Code
+              </button>
+            </>
+          ) : (
+            <p className="timer-text">Resend code in {formatTime(timeLeft)}</p>
+          )}
+
           <button type="button" className="link-btn" onClick={onBack}>
             Back to Sign Up
           </button>

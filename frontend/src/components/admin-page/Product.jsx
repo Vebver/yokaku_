@@ -1,190 +1,311 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from "react";
+import axios from "axios";
+import { Star, Trash2, Edit3, Search, ChevronLeft, ChevronRight } from "lucide-react";
 
 function Product() {
-  // 1. State for Product List (Initial Mock Data)
-  const [products, setProducts] = useState([
-    { id: 1, name: 'Margherita Pizza', category: 'Pizza', price: 12.99, stock: 50 },
-    { id: 2, name: 'Ramen Bowl', category: 'Noodles', price: 14.50, stock: 30 },
-    { id: 3, name: 'Chicken Wings', category: 'Appetizers', price: 8.99, stock: 75 },
-  ]);
+  const [menuItems, setMenuItems] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  
+  // New States
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(8);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editId, setEditId] = useState(null);
 
-  // 2. State for Form Inputs
-  const [newProduct, setNewProduct] = useState({
-    name: '',
-    category: 'Pizza', // Default category
-    price: '',
-    stock: ''
+  const [newItem, setNewItem] = useState({
+    name: "",
+    description: "",
+    price: "",
+    category_id: "",
+    image: null,
+    is_available: 1,
+    is_featured: 0,
   });
 
-  // 3. Handle Input Changes
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setNewProduct({ ...newProduct, [name]: value });
-  };
+  const closeBtnRef = useRef(null);
+  const offcanvasRef = useRef(null);
 
-  // 4. Add Product Logic
-  const handleAddProduct = (e) => {
-    e.preventDefault();
-    if (!newProduct.name || !newProduct.price) return alert("Please fill in required fields");
+  useEffect(() => {
+    fetchData();
+  }, []);
 
-    const productToAdd = {
-      id: products.length + 1,
-      ...newProduct,
-      price: parseFloat(newProduct.price),
-      stock: parseInt(newProduct.stock) || 0
-    };
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const catRes = await axios.get("http://localhost:5000/api/categories");
+      setCategories(catRes.data);
 
-    setProducts([...products, productToAdd]);
-    
-    // Reset form and close modal (using Bootstrap data attributes)
-    setNewProduct({ name: '', category: 'Pizza', price: '', stock: '' });
-    
-    // Close modal manually if not using data-bs-dismiss
-    const modalElement = document.getElementById('addProductModal');
-    const modal = window.bootstrap.Modal.getInstance(modalElement);
-    if(modal) modal.hide();
-  };
+      const menuRes = await axios.get("http://localhost:5000/api/products");
+      setMenuItems(menuRes.data);
 
-  // 5. Delete Product
-  const deleteProduct = (id) => {
-    if (window.confirm("Delete this product?")) {
-      setProducts(products.filter(p => p.id !== id));
+      if (catRes.data.length > 0 && !isEditing) {
+        setNewItem((prev) => ({ ...prev, category_id: catRes.data[0].category_id }));
+      }
+    } catch (err) {
+      console.error("Error fetching data:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
+  // --- SEARCH & PAGINATION LOGIC ---
+  const filteredItems = menuItems.filter(item => 
+    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.category_name?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredItems.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    const finalValue = ["is_featured", "is_available", "category_id"].includes(name)
+        ? parseInt(value)
+        : value;
+    setNewItem({ ...newItem, [name]: finalValue });
+  };
+
+  const handleFileChange = (e) => {
+    setNewItem({ ...newItem, image: e.target.files[0] });
+  };
+
+  // --- EDIT MODE LOGIC ---
+  const openEditDrawer = (item) => {
+    setIsEditing(true);
+    setEditId(item.item_id);
+    setNewItem({
+      name: item.name,
+      description: item.description,
+      price: item.price,
+      category_id: item.category_id,
+      image: null, // Don't reset the image unless a new one is picked
+      is_available: item.is_available,
+      is_featured: item.is_featured,
+    });
+    // The button click triggers Bootstrap Offcanvas
+  };
+
+  const resetForm = () => {
+    setIsEditing(false);
+    setEditId(null);
+    setNewItem({
+      name: "",
+      description: "",
+      price: "",
+      category_id: categories[0]?.category_id || "",
+      image: null,
+      is_available: 1,
+      is_featured: 0,
+    });
+  };
+
+  const handleAddOrUpdateMenuItem = async (e) => {
+    e.preventDefault();
+    const formData = new FormData();
+    Object.keys(newItem).forEach(key => {
+        if (newItem[key] !== null) formData.append(key, newItem[key]);
+    });
+
+    try {
+      if (isEditing) {
+        await axios.put(`http://localhost:5000/api/products/${editId}`, formData);
+        alert("Item updated successfully!");
+      } else {
+        await axios.post("http://localhost:5000/api/products", formData);
+        alert("Item added successfully!");
+      }
+      fetchData();
+      resetForm();
+      if (closeBtnRef.current) closeBtnRef.current.click();
+    } catch (err) {
+      alert("Error saving menu item.");
+    }
+  };
+
+  const deleteMenuItem = async (id) => {
+    if (window.confirm("Remove this item?")) {
+      try {
+        await axios.delete(`http://localhost:5000/api/products/${id}`);
+        setMenuItems(menuItems.filter((item) => item.item_id !== id));
+      } catch (err) {
+        alert("Error deleting item.");
+      }
+    }
+  };
+
+  const toggleFeature = async (id, currentStatus) => {
+    try {
+      const newStatus = currentStatus === 1 ? 0 : 1;
+      await axios.put(`http://localhost:5000/api/products/${id}/feature`, { is_featured: newStatus });
+      setMenuItems(menuItems.map((item) => item.item_id === id ? { ...item, is_featured: newStatus } : item));
+    } catch (err) { alert("Error updating status"); }
+  };
+
+  if (loading) return <div className="p-5 text-center">Loading Menu...</div>;
+
   return (
-    <div className="container-fluid fade-in">
-      {/* Header Section */}
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <div>
+    <div className="container-fluid p-4">
+      {/* --- HEADER & SEARCH --- */}
+      <div className="row mb-4 align-items-center">
+        <div className="col-md-4">
           <h2 className="fw-bold mb-0">Menu Management</h2>
-          <p className="text-muted">Add or edit edible products and inventory</p>
+          <p className="text-muted mb-0">Manage digital menu items</p>
         </div>
-        <button 
-          className="btn btn-primary px-4 shadow-sm" 
-          data-bs-toggle="modal" 
-          data-bs-target="#addProductModal"
-        >
-          <i className="bi bi-plus-lg me-2"></i>Add New Item
-        </button>
+        <div className="col-md-4">
+          <div className="input-group bg-white shadow-sm rounded">
+            <span className="input-group-text bg-transparent border-0"><Search size={18} /></span>
+            <input 
+                type="text" 
+                className="form-control border-0" 
+                placeholder="Search dishes or categories..." 
+                value={searchTerm}
+                onChange={(e) => {setSearchTerm(e.target.value); setCurrentPage(1);}}
+            />
+          </div>
+        </div>
+        <div className="col-md-4 text-end">
+          <button className="btn btn-primary px-4 shadow-sm" data-bs-toggle="offcanvas" data-bs-target="#addMenuDrawer" onClick={resetForm}>
+            <i className="bi bi-plus-lg me-2"></i>Add New Dish
+          </button>
+        </div>
       </div>
 
-      {/* Table Card */}
+      {/* --- TABLE --- */}
       <div className="card border-0 shadow-sm">
         <div className="table-responsive">
           <table className="table table-hover align-middle mb-0">
             <thead className="table-light text-muted">
               <tr>
-                <th className="ps-4">ID</th>
-                <th>Item Name</th>
+                <th className="ps-4">Dish</th>
                 <th>Category</th>
                 <th>Price</th>
-                <th>Stock Status</th>
+                <th>Featured</th>
+                <th>Status</th>
                 <th className="text-end pe-4">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {products.map((product) => (
-                <tr key={product.id}>
-                  <td className="ps-4 text-muted">#{product.id}</td>
+              {currentItems.map((item) => (
+                <tr key={item.item_id}>
+                  <td className="ps-4">
+                    <div className="d-flex align-items-center">
+                        <img
+                          src={item.image_url ? `http://localhost:5000${item.image_url}` : "https://via.placeholder.com/45"}
+                          alt={item.name}
+                          className="rounded me-3"
+                          style={{ width: "45px", height: "45px", objectFit: "cover" }}
+                          onError={(e) => e.target.src = "https://via.placeholder.com/45"}
+                        />
+                      <div>
+                        <div className="fw-bold">{item.name}</div>
+                        <small className="text-muted">{item.description?.substring(0, 30)}...</small>
+                      </div>
+                    </div>
+                  </td>
+                  <td><span className="badge bg-light text-dark border">{item.category_name}</span></td>
+                  <td className="fw-bold text-success">₱{Number(item.price).toFixed(2)}</td>
                   <td>
-                    <div className="fw-bold">{product.name}</div>
+                    <button className="btn btn-link p-0" onClick={() => toggleFeature(item.item_id, item.is_featured)}>
+                      {item.is_featured ? <Star fill="#ffcc00" color="#ffcc00" size={20} /> : <Star color="#ccc" size={20} />}
+                    </button>
                   </td>
                   <td>
-                    <span className="badge bg-light text-dark border">{product.category}</span>
-                  </td>
-                  <td className="fw-bold text-success">${product.price.toFixed(2)}</td>
-                  <td>
-                    {product.stock > 10 ? (
-                      <span className="text-success"><i className="bi bi-check-circle-fill me-1"></i> {product.stock} in stock</span>
-                    ) : (
-                      <span className="text-danger fw-bold"><i className="bi bi-exclamation-triangle-fill me-1"></i> Only {product.stock} left</span>
-                    )}
+                    <span className={`badge ${item.is_available ? "bg-success-subtle text-success" : "bg-danger-subtle text-danger"}`}>
+                      {item.is_available ? "Available" : "Sold Out"}
+                    </span>
                   </td>
                   <td className="text-end pe-4">
-                    <button className="btn btn-sm btn-outline-primary me-2"><i className="bi bi-pencil"></i> Edit</button>
-                    <button className="btn btn-sm btn-outline-danger" onClick={() => deleteProduct(product.id)}><i className="bi bi-trash"></i> Delete</button>
+                    <button className="btn btn-sm btn-outline-primary me-2" onClick={() => openEditDrawer(item)} data-bs-toggle="offcanvas" data-bs-target="#addMenuDrawer">
+                      <Edit3 size={16} />
+                    </button>
+                    <button className="btn btn-sm btn-outline-danger" onClick={() => deleteMenuItem(item.item_id)}>
+                      <Trash2 size={16} />
+                    </button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+
+        {/* --- PAGINATION --- */}
+        <div className="card-footer bg-white border-0 d-flex justify-content-between align-items-center py-3">
+          <small className="text-muted">Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredItems.length)} of {filteredItems.length} entries</small>
+          <nav>
+            <ul className="pagination pagination-sm mb-0">
+              <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+                <button className="page-link" onClick={() => setCurrentPage(currentPage - 1)}><ChevronLeft size={16}/></button>
+              </li>
+              {[...Array(totalPages)].map((_, i) => (
+                <li key={i} className={`page-item ${currentPage === i + 1 ? 'active' : ''}`}>
+                  <button className="page-link" onClick={() => setCurrentPage(i + 1)}>{i + 1}</button>
+                </li>
+              ))}
+              <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
+                <button className="page-link" onClick={() => setCurrentPage(currentPage + 1)}><ChevronRight size={16}/></button>
+              </li>
+            </ul>
+          </nav>
+        </div>
       </div>
 
-      {/* --- ADD PRODUCT MODAL --- */}
-      <div className="modal fade" id="addProductModal" tabIndex="-1" aria-hidden="true">
-        <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content border-0 shadow">
-            <div className="modal-header border-bottom-0 pt-4 px-4">
-              <h5 className="modal-title fw-bold">Add New Edible Product</h5>
-              <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      {/* --- DRAWER (Used for both Add and Edit) --- */}
+      <div className="offcanvas offcanvas-end" tabIndex="-1" id="addMenuDrawer" style={{ width: "500px" }}>
+        <div className="offcanvas-header border-bottom">
+          <h5 className="fw-bold">{isEditing ? "Edit Menu Item" : "Add Menu Item"}</h5>
+          <button type="button" className="btn-close" data-bs-dismiss="offcanvas" ref={closeBtnRef} onClick={resetForm}></button>
+        </div>
+        <div className="offcanvas-body">
+          <form onSubmit={handleAddOrUpdateMenuItem}>
+            <div className="mb-3">
+              <label className="form-label small fw-bold">Dish Name</label>
+              <input type="text" name="name" className="form-control" value={newItem.name} onChange={handleInputChange} required />
             </div>
-            <form onSubmit={handleAddProduct}>
-              <div className="modal-body px-4">
-                <div className="mb-3">
-                  <label className="form-label small fw-bold">Product Name</label>
-                  <input 
-                    type="text" 
-                    name="name"
-                    className="form-control" 
-                    placeholder="e.g. Pepperoni Pizza"
-                    value={newProduct.name}
-                    onChange={handleInputChange}
-                    required 
-                  />
-                </div>
-                
-                <div className="row">
-                  <div className="col-md-6 mb-3">
-                    <label className="form-label small fw-bold">Category</label>
-                    <select 
-                      name="category"
-                      className="form-select" 
-                      value={newProduct.category}
-                      onChange={handleInputChange}
-                    >
-                      <option value="Pizza">Pizza</option>
-                      <option value="Noodles">Noodles</option>
-                      <option value="Appetizers">Appetizers</option>
-                      <option value="Desserts">Desserts</option>
-                      <option value="Beverages">Beverages</option>
-                    </select>
-                  </div>
-                  <div className="col-md-6 mb-3">
-                    <label className="form-label small fw-bold">Price ($)</label>
-                    <input 
-                      type="number" 
-                      name="price"
-                      step="0.01" 
-                      className="form-control" 
-                      placeholder="0.00"
-                      value={newProduct.price}
-                      onChange={handleInputChange}
-                      required 
-                    />
-                  </div>
-                </div>
-
-                <div className="mb-3">
-                  <label className="form-label small fw-bold">Initial Stock Level</label>
-                  <input 
-                    type="number" 
-                    name="stock"
-                    className="form-control" 
-                    placeholder="e.g. 50"
-                    value={newProduct.stock}
-                    onChange={handleInputChange}
-                    required 
-                  />
-                </div>
+            <div className="mb-3">
+              <label className="form-label small fw-bold">Description</label>
+              <textarea name="description" className="form-control" rows="3" value={newItem.description} onChange={handleInputChange}></textarea>
+            </div>
+            <div className="row">
+              <div className="col-md-6 mb-3">
+                <label className="form-label small fw-bold">Category</label>
+                <select name="category_id" className="form-select" value={newItem.category_id} onChange={handleInputChange} required>
+                  {categories.map((cat) => (
+                    <option key={cat.category_id} value={cat.category_id}>{cat.name}</option>
+                  ))}
+                </select>
               </div>
-              <div className="modal-footer border-top-0 pb-4 px-4">
-                <button type="button" className="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                <button type="submit" className="btn btn-primary px-4">Add to Menu</button>
+              <div className="col-md-6 mb-3">
+                <label className="form-label small fw-bold">Price (₱)</label>
+                <input type="number" name="price" step="0.01" className="form-control" value={newItem.price} onChange={handleInputChange} required />
               </div>
-            </form>
-          </div>
+            </div>
+            <div className="mb-3">
+              <label className="form-label small fw-bold">Dish Image {isEditing && "(Leave empty to keep current)"}</label>
+              <input type="file" className="form-control" accept="image/*" onChange={handleFileChange} required={!isEditing} />
+            </div>
+            <div className="mb-3">
+              <label className="form-label small fw-bold">Featured?</label>
+              <select name="is_featured" className="form-select" value={newItem.is_featured} onChange={handleInputChange}>
+                <option value={0}>No</option>
+                <option value={1}>Yes</option>
+              </select>
+            </div>
+            <div className="mb-4">
+              <label className="form-label small fw-bold">Availability</label>
+              <select name="is_available" className="form-select" value={newItem.is_available} onChange={handleInputChange}>
+                <option value={1}>Available</option>
+                <option value={0}>Sold Out</option>
+              </select>
+            </div>
+            <div className="d-grid gap-2">
+              <button type="submit" className="btn btn-primary py-2 fw-bold">{isEditing ? "Save Changes" : "Add to Menu"}</button>
+              <button type="button" className="btn btn-light py-2" data-bs-dismiss="offcanvas" onClick={resetForm}>Cancel</button>
+            </div>
+          </form>
         </div>
       </div>
     </div>

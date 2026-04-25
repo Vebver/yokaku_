@@ -1,11 +1,34 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, use } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import axios from "axios";
 import "../../Style/Navbar.css";
 
 function CustomerNavbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [hasUnread, setHasUnread] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    const checkNotifications = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) return; // No token, user not logged in
+
+        const res = await axios.get("http://localhost:5000/api/notifications", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const unread = res.data.some((n) => !n.is_read);
+        setHasUnread(unread);
+      } catch (error) {
+        console.error("Error checking notifications:", error);
+      }
+    };
+
+    checkNotifications();
+    const interval = setInterval(checkNotifications, 30000); // Check every 30 seconds
+    return () => clearInterval(interval);
+  }, [location.pathname]); // Re-run when route changes to update notification status
 
   const navItems = ["HOME", "MENU", "ABOUT", "PROMOS", "FEEDBACKS", "CONTACT"];
 
@@ -32,7 +55,7 @@ function CustomerNavbar() {
   };
 
   const handleNavClick = (e, item) => {
-    e.preventDefault();
+    if(e) e.preventDefault();
     closeMenu();
 
     // 1. HOME logic: Just go to /customer top
@@ -114,7 +137,8 @@ function CustomerNavbar() {
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
             <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
           </svg>
-          <span className="notification-badge">3</span>
+          {/* RED DOT */}
+          {hasUnread && <span className="notification-dot"></span>}
         </div>
 
         {/* BURGER MENU */}
@@ -144,8 +168,6 @@ function CustomerNavbar() {
                 ))}
                 <div className="dropdown-divider"></div>
               </div>
-              {/* --- END WRAPPER --- */}
-
               {/* These remain visible on both Desktop and Mobile */}
               <div
                 className="dropdown-item"
