@@ -1,5 +1,6 @@
 const db = require("../config/db");
 const Notification = require("./Notification");
+const TableStatus = require('./TableStatus');
 
 const generateRandomId = () => {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -117,10 +118,15 @@ create: async (data) => {
       if (typeof tableIdsArray === "string") tableIdsArray = JSON.parse(tableIdsArray);
       
       if (tableIdsArray.length > 0) {
-        const tableLinkQuery = "INSERT INTO reservation_tables (reservation_id, table_id) VALUES (?, ?)";
+        const tableLinkQuery = "INSERT INTO reservation_tables (reservation_id, table_id, customer_name, check_in_time, status) VALUES (?, ?, ?, ?, 'confirmed')";
         for (const tid of tableIdsArray) {
           const cleanTid = parseInt(String(tid).replace(/\D/g, ""));
-          await conn.execute(tableLinkQuery, [customId, cleanTid || 0]);
+          await conn.execute(tableLinkQuery, [
+            customId, 
+            cleanTid || 0,
+            `${data.firstName} ${data.lastName}`.trim() || null,
+            new Date() // Current timestamp for check_in_time
+          ]);
         }
       }
 
@@ -179,10 +185,13 @@ create: async (data) => {
   },
 
   updateStatus: async (id, status) => {
+    // First update the reservation status
     await db.execute(
       "UPDATE reservations SET status = ? WHERE reservation_id = ?",
       [status, id],
     );
+    // Then update the table status based on the new reservation status
+    await TableStatus.updateTableStatusByReservation(id, status);
   },
 
   delete: async (id) => {

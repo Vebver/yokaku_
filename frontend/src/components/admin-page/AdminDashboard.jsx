@@ -24,6 +24,7 @@ import Categories from "./Categories";
 import "../../Style/AdminDashboard.css";
 import RecipeManager from "./RecipeManager";
 import AccountManagement from "./AccountManagement";
+import TableStatus from "./TableStatus";
 
 ChartJS.register(
   CategoryScale,
@@ -60,6 +61,7 @@ const navItems = [
   { id: "billing", label: "Billing", icon: Icons.Billing },
   { id: "profile", label: "Profile", icon: Icons.Profile },
   { id: "account", label: "Account", icon: Icons.Account },
+  { id: "table-status", label: "Table Status", icon: Icons.Dashboard },
 ];
 
 const StatCard = ({ title, value, color, icon }) => (
@@ -212,6 +214,7 @@ function AdminDashboard() {
       profile: <Profile />,
       reservations: <Reservation />,
       account: <AccountManagement />,
+      "table-status": <TableStatus />,
     };
     return sections[activeSection] || null;
   };
