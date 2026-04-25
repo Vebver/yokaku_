@@ -23,6 +23,7 @@ import Reservation from "./Reservation";
 import Categories from "./Categories";
 import "../../Style/AdminDashboard.css";
 import RecipeManager from "./RecipeManager";
+import AccountManagement from "./AccountManagement";
 
 ChartJS.register(
   CategoryScale,
@@ -45,6 +46,7 @@ const Icons = {
   Billing: () => <i className="bi bi-receipt me-2"></i>,
   Profile: () => <i className="bi bi-person-circle me-2"></i>,
   Reservations: () => <i className="bi bi-calendar-check me-2"></i>,
+  Account: () => <i className="bi bi-people me-2"></i>,
 };
 
 const navItems = [
@@ -57,6 +59,7 @@ const navItems = [
   { id: "reservations", label: "Reservations", icon: Icons.Reservations },
   { id: "billing", label: "Billing", icon: Icons.Billing },
   { id: "profile", label: "Profile", icon: Icons.Profile },
+  { id: "account", label: "Account", icon: Icons.Account },
 ];
 
 const StatCard = ({ title, value, color, icon }) => (
@@ -208,6 +211,7 @@ function AdminDashboard() {
       report: <Reports />,
       profile: <Profile />,
       reservations: <Reservation />,
+      account: <AccountManagement />,
     };
     return sections[activeSection] || null;
   };
