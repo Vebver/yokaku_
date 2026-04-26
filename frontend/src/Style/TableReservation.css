@@ -1,6 +1,5 @@
 :root {
   --bg-soft: #fcfcfc;
-  --canvas-bg: #e9e5d9;
   --card-bg: #ffffff;
   --accent-orange: #f38d31;
   --status-available: #52b788;
@@ -24,17 +23,16 @@
   height: 100vh;
   z-index: 9999;
   display: flex;
-  flex-direction: row;
+  flex-direction: row; /* Desktop split */
   background-color: #fdfbf0;
   padding: 40px;
-  gap: 40px;
+  gap: 30px;
   font-family: "Inter", sans-serif;
   justify-content: center;
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   align-items: flex-start;
-  transition: all 0.4s ease-in-out;
 }
 
 /* --- INITIAL STATE: CENTERED FORM --- */
@@ -52,21 +50,44 @@
 /* --- SIDEBAR PANEL (THE ASIDE) --- */
 .floor-sidebar {
   order: 1;
-  flex: 1;
-  min-width: 400px;
-  max-width: 460px;
+  flex: 0 0 450px; /* Prevents form from shrinking too much */
   display: block;
-  transition: all 0.4s ease-in-out;
 }
 
 /* --- MAIN SECTION (TABLE GRID) --- */
 .floor-plan-main {
   order: 2;
-  flex: 3;
+  flex: 1;
   display: flex;
   flex-direction: column;
-  max-width: 1000px;
-  transition: opacity 0.5s ease;
+  min-width: 300px;
+}
+
+/* --- RESPONSIVE SECTION (STRICTLY RESTORED) --- */
+@media (max-width: 1100px) {
+  .floor-plan-wrapper {
+    flex-direction: column;
+    padding: 90px 15px 40px 15px; /* 90px top padding for mobile navbar */
+    align-items: center;
+    overflow-y: auto;
+    display: block; /* Allows natural vertical scrolling */
+  }
+
+  .floor-plan-main {
+    order: 1;
+    width: 100%;
+    margin-bottom: 30px;
+  }
+
+  .floor-sidebar {
+    order: 2;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .res-panel {
+    margin-bottom: 40px;
+  }
 }
 
 /* --- 3D EFFECT: MAIN RESERVATION PANEL --- */
@@ -77,8 +98,7 @@
   position: relative;
   border: 1px solid rgba(0, 0, 0, 0.05);
   box-shadow:
-    0 20px 40px rgba(0, 0, 0, 0.08),
-    0 5px 15px rgba(0, 0, 0, 0.04),
+    0 15px 35px rgba(0, 0, 0, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
@@ -90,19 +110,50 @@
   color: var(--text-dark);
 }
 
-/* --- FORM ELEMENTS DESIGN --- */
+/* --- RESERVED LIST (SCHEDULE) DESIGN --- */
+.table-schedule-section {
+  background: #f9f9f9;
+  padding: 15px;
+  border-radius: 16px;
+  margin-bottom: 20px;
+  border: 1px solid #eee;
+}
+.schedule-header {
+  font-size: 11px;
+  font-weight: 800;
+  color: #999;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.schedule-item-3d {
+  background: white;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid #f0f0f0;
+  border-left: 4px solid var(--accent-orange);
+  font-size: 13px;
+  font-weight: 600;
+  color: #444;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* --- FORM ELEMENTS --- */
 .res-form {
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
-
 .input-group {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
-
 .input-group label {
   font-size: 11px;
   font-weight: 800;
@@ -113,35 +164,27 @@
   align-items: center;
   gap: 6px;
 }
-
 .input-group input,
 .input-group select,
 .res-input-dropdown {
   width: 100%;
-  padding: 12px 16px;
+  padding: 12px;
   border-radius: 12px;
-  border: 1.5px solid #f2f2f2;
+  border: 1px solid #f2f2f2;
   background: #fafafa;
-  font-size: 14px;
-  color: #333;
   outline: none;
-  transition: all 0.2s ease;
 }
-
-.input-group input:focus,
-.input-group select:focus {
-  border-color: var(--accent-orange);
-  background: white;
-  box-shadow: 0 0 0 4px rgba(243, 141, 49, 0.1);
+.label-with-icon {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
 }
-
-/* --- CUSTOM RADIO BUTTONS ALIGNMENT --- */
 .radio-group-horizontal {
   display: flex;
   gap: 30px;
   padding: 5px 0;
 }
-
 .custom-radio {
   display: flex;
   align-items: center;
@@ -149,14 +192,11 @@
   cursor: pointer;
   font-size: 14px;
   font-weight: 600;
-  color: #555;
 }
-
-.custom-radio input[type="radio"] {
+.custom-radio input {
+  accent-color: var(--accent-orange);
   width: 18px;
   height: 18px;
-  accent-color: var(--accent-orange);
-  cursor: pointer;
 }
 
 /* --- BUTTONS --- */
@@ -171,63 +211,31 @@
   background: white;
   color: var(--accent-orange);
   font-weight: 700;
-  font-size: 14px;
-  cursor: pointer;
-  width: 100%;
-  transition: all 0.2s ease;
 }
-
-.btn-link-mode:hover {
-  background: var(--bg-soft);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(243, 141, 49, 0.15);
-}
-
 .btn-confirm {
-  margin-top: 10px;
+  background: #ebba8d;
+  color: white;
   padding: 16px;
   border-radius: 16px;
   border: none;
-  background: #ebba8d;
-  color: white;
   font-weight: 800;
   font-size: 16px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  margin-top: 10px;
 }
-
 .btn-confirm:hover:not(.btn-disabled) {
   background: var(--accent-orange);
-  transform: translateY(-3px);
   box-shadow: 0 10px 20px rgba(243, 141, 49, 0.3);
+  transform: translateY(-3px);
 }
 
-/* --- UTILS & ALIGNMENT --- */
-.label-with-icon {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-}
-
-.edit-toggle-icon {
-  color: #ccc;
-  cursor: pointer;
-  transition: color 0.2s;
-}
-
-.edit-toggle-icon.active {
-  color: var(--accent-orange);
-}
-
-/* --- 3D EFFECT: INDIVIDUAL TABLE CARDS --- */
+/* --- 3D EFFECT: TABLE CARDS --- */
 .table-selection-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 15px;
   margin-top: 30px;
 }
-
 .table-list-card {
   background: white;
   padding: 18px;
@@ -240,52 +248,33 @@
   transition: all 0.25s ease;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.04);
 }
-
 .table-list-card:hover:not(.occupied):not(.reserved) {
   border-color: var(--accent-orange);
   transform: translateY(-5px);
   box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
 }
 
-/* --- ICON BESIDE NAME LOGIC --- */
+/* Card Content / Alignment */
 .table-details {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
-
 .table-title-row {
   display: flex;
   align-items: center;
-  gap: 8px; /* Gap between icon and table name */
+  gap: 8px;
 }
-
-.table-title-row svg {
-  color: #888; /* Default icon color */
-}
-
-/* Status Colors affecting the Row Icons */
-.reserved .table-title-row svg {
-  color: var(--status-reserved);
-}
-.occupied .table-title-row svg {
-  color: var(--status-occupied);
-}
-.selected .table-title-row svg {
-  color: var(--accent-orange);
-}
-
 .table-label-text {
   font-weight: 800;
   font-size: 16px;
-  color: var(--text-dark);
 }
 .table-seats-text {
   font-size: 12px;
   color: var(--text-light);
 }
 
-/* Card Real-time Status Colors */
+/* Card Real-time status */
 .table-list-card.reserved {
   background-color: #fffbeb;
   border-color: var(--status-reserved);
@@ -294,15 +283,13 @@
   background-color: #fceaea;
   border-color: var(--status-occupied);
   opacity: 0.7;
-  cursor: not-allowed;
 }
 .table-list-card.selected {
   border-color: var(--accent-orange);
   background-color: #fff9f4;
-  box-shadow: inset 0 2px 4px rgba(243, 141, 49, 0.1);
 }
 
-/* Legend Fixes */
+/* Legend & Utils */
 .dot,
 .status-dot {
   display: inline-block;
@@ -311,7 +298,6 @@
   border-radius: 50%;
   flex-shrink: 0;
 }
-
 .dot.available,
 .status-dot.available {
   background-color: var(--status-available);
@@ -324,20 +310,23 @@
 .status-dot.occupied {
   background-color: var(--status-occupied);
 }
-.dot.selected {
-  background-color: var(--accent-orange);
-}
-
 .floor-legend-horizontal {
   display: flex;
   flex-wrap: wrap;
   gap: 25px;
   margin-top: 40px;
-  padding: 25px 0;
+  padding-top: 20px;
   border-top: 1px solid #eee;
 }
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #555;
+}
 
-/* --- OTHER UI --- */
 .page-back-btn {
   position: absolute;
   top: 20px;
@@ -349,28 +338,8 @@
   background-color: white;
   border: 1px solid #eee;
   border-radius: 12px;
-  color: var(--text-dark);
-  font-weight: 700;
   z-index: 10000;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
-}
-
-.res-input-dropdown {
-  appearance: none;
-  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 12px center;
-}
-
-@media (max-width: 1100px) {
-  .floor-plan-wrapper {
-    flex-direction: column;
-    padding: 90px 15px 40px 15px;
-  }
-  .floor-sidebar {
-    width: 100% !important;
-    max-width: 100% !important;
-  }
 }
 
 .fade-in {

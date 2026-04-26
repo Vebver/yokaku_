@@ -23,16 +23,16 @@ import ReservationSummary from "./ReservationSummary";
 import TermsModal from "./TermsModal";
 
 const TABLES_DATA = [
-  { id: 1, label: "T1", seats: 5 },
-  { id: 2, label: "T2", seats: 2 },
-  { id: 3, label: "T3", seats: 4 },
-  { id: 4, label: "T4", seats: 4 },
-  { id: 5, label: "T5", seats: 4 },
-  { id: 6, label: "T6", seats: 4 },
-  { id: 7, label: "T7", seats: 4 },
-  { id: 8, label: "T8", seats: 4 },
-  { id: 9, label: "T9", seats: 4 },
-  { id: 10, label: "T10", seats: 3 },
+  { id: 1, label: "Table 1", seats: 5 },
+  { id: 2, label: "Table 2", seats: 2 },
+  { id: 3, label: "Table 3", seats: 4 },
+  { id: 4, label: "Table 4", seats: 4 },
+  { id: 5, label: "Table 5", seats: 4 },
+  { id: 6, label: "Table 6", seats: 4 },
+  { id: 7, label: "Table 7", seats: 4 },
+  { id: 8, label: "Table 8", seats: 4 },
+  { id: 9, label: "Table 9", seats: 4 },
+  { id: 10, label: "Table 10", seats: 3 },
 ];
 
 export default function TableReservation({ onClose, onSuccess }) {
@@ -42,10 +42,10 @@ export default function TableReservation({ onClose, onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [isTermsOpen, setIsTermsOpen] = useState(false);
+  const [hasActiveReservation, setHasActiveReservation] = useState(false);
   const [dbOccupiedTables, setDbOccupiedTables] = useState({});
   const [tableSchedule, setTableSchedule] = useState([]);
 
-  // --- FORM STATES ---
   const [firstName, setFirstName] = useState(
     localStorage.getItem("firstName") || "",
   );
@@ -60,10 +60,6 @@ export default function TableReservation({ onClose, onSuccess }) {
   const [endTime, setEndTime] = useState("");
   const [guestCount, setGuestCount] = useState("");
   const [selectedItems, setSelectedItems] = useState([]);
-  const [municipalities, setMunicipalities] = useState([]);
-  const [barangays, setBarangays] = useState([]);
-  const [selectedMunicipality, setSelectedMunicipality] = useState("");
-  const [selectedBarangay, setSelectedBarangay] = useState("");
   const [highChair, setHighChair] = useState("No");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
@@ -117,53 +113,34 @@ export default function TableReservation({ onClose, onSuccess }) {
     return () => clearInterval(interval);
   }, [selectedId, resDate]);
 
-  // --- DATA FETCHING ---
-  useEffect(() => {
-    axios
-      .get("http://localhost:5000/api/address/municipalities")
-      .then((res) =>
-        setMunicipalities(
-          Array.isArray(res.data) ? res.data : res.data.data || [],
-        ),
-      )
-      .catch(console.error);
-  }, []);
-
-  useEffect(() => {
-    if (selectedMunicipality) {
-      axios
-        .get(
-          `http://localhost:5000/api/address/barangays/${selectedMunicipality}`,
-        )
-        .then((res) => setBarangays(Array.isArray(res.data) ? res.data : []))
-        .catch(console.error);
-    }
-  }, [selectedMunicipality]);
-
-  // --- HELPERS ---
   const timeToMinutes = (t) => {
     if (!t) return 0;
-    const is12 = t.includes("AM") || t.includes("PM");
-    if (is12) {
+    const is12Hour = t.includes("AM") || t.includes("PM");
+    if (is12Hour) {
       const [time, period] = t.split(" ");
       let [h, m] = time.split(":").map(Number);
       if (period === "PM" && h !== 12) h += 12;
       if (period === "AM" && h === 12) h = 0;
       return h * 60 + m;
     }
-    const [h, m] = t.split(":").map(Number);
-    return h * 60 + m;
+    const parts = t.split(":");
+    return Number(parts[0]) * 60 + Number(parts[1]);
   };
 
-  const formatTimeForDisplay = (t) => (t ? t.replace(/:00\s/, " ") : "");
+  const formatTimeForDisplay = (timeStr) => {
+    if (!timeStr) return "";
+    if (timeStr.includes("AM") || timeStr.includes("PM")) return timeStr;
+    const parts = timeStr.split(":");
+    let hours = parseInt(parts[0], 10);
+    const ampm = hours >= 12 ? "PM" : "AM";
+    hours = hours % 12 || 12;
+    return `${hours}:${parts[1]} ${ampm}`;
+  };
 
   const availableStartTimeOptions = useMemo(() => {
     const options = [];
-    const periods = ["AM", "PM"];
-    periods.forEach((p) => {
-      const start = p === "AM" ? 10 : 1;
-      const end = p === "AM" ? 11 : 10;
-      for (let h = start; h <= end; h++) {
+    ["AM", "PM"].forEach((p) => {
+      for (let h = p === "AM" ? 10 : 1; h <= (p === "AM" ? 11 : 10); h++) {
         ["00", "15", "30", "45"].forEach((m) => {
           if (p === "PM" && h === 10 && m !== "00") return;
           if (p === "AM" && h === 12) return;
@@ -171,7 +148,6 @@ export default function TableReservation({ onClose, onSuccess }) {
         });
       }
     });
-
     let filtered = options;
     if (resDate === todayStr) {
       const thresh = new Date().getHours() * 60 + new Date().getMinutes() + 15;
@@ -180,19 +156,21 @@ export default function TableReservation({ onClose, onSuccess }) {
     return filtered.filter((t) => {
       const m = timeToMinutes(t);
       return !tableSchedule.some(
-        (r) => m >= timeToMinutes(r.startTime) && m < timeToMinutes(r.endTime),
+        (r) =>
+          r.status !== "Done" &&
+          r.status !== "Completed" &&
+          m >= timeToMinutes(r.startTime) &&
+          m < timeToMinutes(r.endTime),
       );
     });
   }, [tableSchedule, resDate, todayStr]);
 
   const filteredEndTimeOptions = useMemo(() => {
+    if (!startTime) return [];
     const startM = timeToMinutes(startTime);
     const options = [];
-    const periods = ["AM", "PM"];
-    periods.forEach((p) => {
-      const start = p === "AM" ? 10 : 1;
-      const end = p === "AM" ? 11 : 10;
-      for (let h = start; h <= end; h++) {
+    ["AM", "PM"].forEach((p) => {
+      for (let h = p === "AM" ? 10 : 1; h <= (p === "AM" ? 11 : 10); h++) {
         ["00", "15", "30", "45"].forEach((m) => {
           if (p === "PM" && h === 10 && m !== "00") return;
           if (p === "AM" && h === 12) return;
@@ -212,44 +190,22 @@ export default function TableReservation({ onClose, onSuccess }) {
     [primaryTable],
   );
 
-  const fullReservationData = useMemo(
-    () => ({
-      firstName,
-      lastName,
-      email,
-      phone,
-      guestCount,
-      resDate,
-      startTime,
-      endTime,
-      tableLabel: primaryTable?.label,
-      packages: selectedItems,
-    }),
-    [
-      firstName,
-      lastName,
-      email,
-      phone,
-      guestCount,
-      resDate,
-      startTime,
-      endTime,
-      primaryTable,
-      selectedItems,
-    ],
-  );
-
   const isFormInvalid = useMemo(() => {
     const s = timeToMinutes(startTime),
       e = timeToMinutes(endTime);
     const conflict = tableSchedule.some(
-      (r) => s < timeToMinutes(r.endTime) && e > timeToMinutes(r.startTime),
+      (r) =>
+        r.status !== "Done" &&
+        r.status !== "Completed" &&
+        s < timeToMinutes(r.endTime) &&
+        e > timeToMinutes(r.startTime),
     );
+    const isPhoneValid = phone.length === 11 && phone.startsWith("09");
     return (
       !selectedId ||
       !firstName.trim() ||
       !email.trim() ||
-      !phone.trim() ||
+      !isPhoneValid ||
       !resDate ||
       !startTime ||
       !endTime ||
@@ -306,13 +262,39 @@ export default function TableReservation({ onClose, onSuccess }) {
     }
   };
 
+  const fullReservationData = useMemo(
+    () => ({
+      firstName,
+      lastName,
+      email,
+      phone,
+      guestCount,
+      resDate,
+      startTime,
+      endTime,
+      tableLabel: primaryTable?.label,
+      packages: selectedItems,
+    }),
+    [
+      firstName,
+      lastName,
+      email,
+      phone,
+      guestCount,
+      resDate,
+      startTime,
+      endTime,
+      primaryTable,
+      selectedItems,
+    ],
+  );
+
   return (
     <div className={`floor-plan-wrapper ${!resDate ? "init-state" : ""}`}>
       <button className="page-back-btn" onClick={onClose}>
         <ArrowLeft size={18} /> <span>Back</span>
       </button>
 
-      {/* FORM ASIDE */}
       <aside
         className={`floor-sidebar ${!resDate ? "centered-form" : ""}`}
         onClick={(e) => e.stopPropagation()}
@@ -340,6 +322,55 @@ export default function TableReservation({ onClose, onSuccess }) {
 
             {resDate && (
               <>
+                {primaryTable && (
+                  <div className="table-schedule-section">
+                    <h4 className="schedule-header">
+                      <Clock size={14} /> Occupied Slots for{" "}
+                      {primaryTable.label}
+                    </h4>
+                    <div className="schedule-list">
+                      {tableSchedule.filter((res) => {
+                        const isNotDone =
+                          res.status !== "Done" && res.status !== "Completed";
+                        if (resDate === todayStr) {
+                          return (
+                            isNotDone &&
+                            timeToMinutes(res.endTime) >
+                              new Date().getHours() * 60 +
+                                new Date().getMinutes()
+                          );
+                        }
+                        return isNotDone;
+                      }).length > 0 ? (
+                        tableSchedule
+                          .filter((res) => {
+                            const isNotDone =
+                              res.status !== "Done" &&
+                              res.status !== "Completed";
+                            if (resDate === todayStr) {
+                              return (
+                                isNotDone &&
+                                timeToMinutes(res.endTime) >
+                                  new Date().getHours() * 60 +
+                                    new Date().getMinutes()
+                              );
+                            }
+                            return isNotDone;
+                          })
+                          .map((res, index) => (
+                            <div key={index} className="schedule-item-3d">
+                              <Clock size={12} />{" "}
+                              {formatTimeForDisplay(res.startTime)} -{" "}
+                              {formatTimeForDisplay(res.endTime)}
+                            </div>
+                          ))
+                      ) : (
+                        <p className="no-res-text">Table is fully available.</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <div className="input-row">
                   <div className="input-group">
                     <label>
@@ -406,7 +437,6 @@ export default function TableReservation({ onClose, onSuccess }) {
                     disabled={!isEditing}
                   />
                 </div>
-
                 <div className="input-group">
                   <label>
                     <Mail size={12} /> EMAIL ADDRESS
@@ -424,22 +454,34 @@ export default function TableReservation({ onClose, onSuccess }) {
                   </label>
                   <input
                     type="text"
+                    placeholder="09xxxxxxxxx"
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, "");
+                      if (val.length <= 11) setPhone(val);
+                    }}
                   />
                 </div>
-
                 <div className="input-group">
                   <label>GUESTS (MAX {totalSeats || "?"})</label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="1"
                     value={guestCount}
-                    onChange={(e) => setGuestCount(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, "");
+                      if (val === "") return setGuestCount("");
+                      let num = parseInt(val, 10);
+                      if (num > totalSeats) num = totalSeats;
+                      if (num < 1) num = 1;
+                      setGuestCount(num);
+                    }}
                   />
                 </div>
 
                 <div className="input-group">
-                  <label style={{ display: "block" }}>
+                  <label style={{ display: "block", marginBottom: "8px" }}>
                     <Baby size={12} /> HIGH CHAIR NEEDED?
                   </label>
                   <div className="radio-group-horizontal">
@@ -484,12 +526,13 @@ export default function TableReservation({ onClose, onSuccess }) {
         </div>
       </aside>
 
-      {/* TABLES SECTION */}
       {resDate && (
-        <div className="floor-plan-main fade-in">
+        <div
+          className="floor-plan-main fade-in"
+          onClick={(e) => e.stopPropagation()}
+        >
           <header className="floor-header">
             <h1 className="floor-title">Select a Table</h1>
-            <p className="floor-subtitle">Available tables for {resDate}</p>
           </header>
           <div className="table-selection-grid">
             {TABLES_DATA.map((table) => {
@@ -501,7 +544,9 @@ export default function TableReservation({ onClose, onSuccess }) {
                     ? "reserved"
                     : selectedId === table.id
                       ? "selected"
-                      : "available";
+                      : linkedIds.includes(table.id)
+                        ? "linked"
+                        : "available";
               return (
                 <div
                   key={table.id}
@@ -510,7 +555,6 @@ export default function TableReservation({ onClose, onSuccess }) {
                 >
                   <div className="table-card-content">
                     <div className="table-details">
-                      {/* Icon Beside Table Name */}
                       <div className="table-title-row">
                         <Armchair size={16} />
                         <strong className="table-label-text">
