@@ -25,7 +25,7 @@
   display: flex;
   flex-direction: row;
   background-color: #fdfbf0;
-  padding: 100px 40px 40px 40px; /* Top padding to clear Back button */
+  padding: 100px 40px 40px 40px;
   gap: 40px;
   font-family: "Inter", sans-serif;
   justify-content: center;
@@ -54,47 +54,6 @@
   display: block;
 }
 
-/* --- MAIN SECTION (TABLE GRID) --- */
-.floor-plan-main {
-  order: 2;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-/* --- RESPONSIVE SECTION (FIXED) --- */
-@media (max-width: 1100px) {
-  .floor-plan-wrapper {
-    flex-direction: column;
-    display: block; /* Switch from flex to block for natural scrolling */
-    padding: 110px 15px 40px 15px; /* Clear the back button on small screens */
-    height: 100%;
-    overflow-y: auto;
-  }
-
-  .floor-plan-main {
-    width: 100% !important;
-    max-width: 100% !important;
-    margin-bottom: 40px;
-  }
-
-  .floor-sidebar {
-    width: 100% !important;
-    max-width: 100% !important;
-    margin-top: 20px;
-  }
-
-  .table-selection-grid {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
-  }
-
-  /* Ensure the back button stays accessible */
-  .page-back-btn {
-    top: 25px !important;
-    left: 15px !important;
-  }
-}
-
 /* --- 3D EFFECT: MAIN RESERVATION PANEL --- */
 .res-panel {
   background: white;
@@ -115,40 +74,6 @@
   color: var(--text-dark);
 }
 
-/* --- RESERVED LIST DESIGN --- */
-.table-schedule-section {
-  background: #f9f9f9;
-  padding: 15px;
-  border-radius: 16px;
-  margin-bottom: 20px;
-  border: 1px solid #eee;
-}
-.schedule-header {
-  font-size: 11px;
-  font-weight: 800;
-  color: #999;
-  text-transform: uppercase;
-  margin-bottom: 12px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.schedule-item-3d {
-  background: white;
-  padding: 10px 14px;
-  border-radius: 10px;
-  border: 1px solid #f0f0f0;
-  border-left: 4px solid var(--accent-orange);
-  font-size: 13px;
-  font-weight: 600;
-  color: #444;
-  margin-bottom: 8px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
-}
-
 /* --- FORM ELEMENTS --- */
 .res-form {
   display: flex;
@@ -159,6 +84,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  width: 100%;
 }
 .input-group label {
   font-size: 11px;
@@ -170,16 +96,52 @@
   align-items: center;
   gap: 6px;
 }
+
 .input-group input,
 .input-group select,
 .res-input-dropdown {
   width: 100%;
-  padding: 12px;
+  padding: 12px 16px;
   border-radius: 12px;
-  border: 1px solid #f2f2f2;
+  border: 1.5px solid #f2f2f2;
   background: #fafafa;
   outline: none;
+  font-size: 14px;
 }
+
+/* --- FIXED: VIEW PACKAGES BUTTON WIDTH & ALIGNMENT --- */
+.btn-link-mode {
+  display: flex;
+  align-items: center;
+  justify-content: center; /* Centers label and icon */
+  gap: 10px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1.5px solid var(--accent-orange);
+  background: white;
+  color: var(--accent-orange);
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  width: 100% !important; /* Forces full width of the container */
+  box-sizing: border-box; /* Ensures padding doesn't push it out of bounds */
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.btn-link-mode:hover {
+  background: rgba(243, 141, 49, 0.05);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(243, 141, 49, 0.1);
+}
+
+.btn-link-mode.active {
+  background-color: var(--accent-orange) !important;
+  color: white !important;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* --- OTHER UI ELEMENTS --- */
 .label-with-icon {
   display: flex;
   justify-content: space-between;
@@ -205,34 +167,6 @@
   height: 18px;
 }
 
-/* --- BUTTONS --- */
-.btn-link-mode {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 12px;
-  border: 1.5px solid var(--accent-orange);
-  background: white;
-  color: var(--accent-orange);
-  font-weight: 700;
-  font-size: 15px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-}
-.btn-link-mode:hover {
-  background: var(--bg-soft);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(243, 141, 49, 0.1);
-}
-.btn-link-mode.active {
-  background-color: var(--accent-orange) !important;
-  color: white !important;
-  border-color: var(--accent-orange) !important;
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
-  transform: translateY(1px);
-}
-
 .btn-confirm {
   background: #ebba8d;
   color: white;
@@ -250,7 +184,14 @@
   transform: translateY(-3px);
 }
 
-/* --- TABLE CARDS & STATUS --- */
+/* --- 3D EFFECT: TABLE CARDS --- */
+.floor-plan-main {
+  order: 2;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 300px;
+}
 .table-selection-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -275,6 +216,7 @@
   box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
 }
 
+/* Table Logic Styles */
 .table-details {
   display: flex;
   flex-direction: column;
@@ -285,11 +227,6 @@
   align-items: center;
   gap: 8px;
 }
-.table-label-text {
-  font-weight: 800;
-  font-size: 16px;
-}
-
 .table-list-card.reserved {
   background-color: #fffbeb;
   border-color: var(--status-reserved);
@@ -306,7 +243,7 @@
   box-shadow: inset 0 2px 4px rgba(243, 141, 49, 0.1);
 }
 
-/* --- UI UTILS --- */
+/* Legend & Back Button */
 .dot,
 .status-dot {
   display: inline-block;
@@ -335,6 +272,14 @@
   padding: 25px 0;
   border-top: 1px solid #eee;
 }
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #555;
+}
 
 .page-back-btn {
   position: absolute;
@@ -349,6 +294,27 @@
   border-radius: 12px;
   z-index: 10001;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+}
+
+/* Responsive */
+@media (max-width: 1100px) {
+  .floor-plan-wrapper {
+    flex-direction: column;
+    display: block;
+    padding: 110px 15px 40px 15px;
+    height: 100%;
+    overflow-y: auto;
+  }
+  .floor-plan-main {
+    width: 100% !important;
+    margin-bottom: 40px;
+  }
+  .floor-sidebar {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-top: 20px;
+  }
 }
 
 .fade-in {
