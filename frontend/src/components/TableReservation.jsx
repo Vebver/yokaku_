@@ -43,7 +43,6 @@ export default function TableReservation({ onClose, onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [isTermsOpen, setIsTermsOpen] = useState(false);
-  const [hasActiveReservation, setHasActiveReservation] = useState(false);
   const [dbOccupiedTables, setDbOccupiedTables] = useState({});
   const [tableSchedule, setTableSchedule] = useState([]);
 
@@ -71,6 +70,7 @@ export default function TableReservation({ onClose, onSuccess }) {
     return new Date(now - offset).toISOString().split("T")[0];
   }, []);
 
+  // --- DERIVED STATE ---
   const primaryTable = useMemo(
     () => TABLES_DATA.find((t) => t.id === selectedId),
     [selectedId],
@@ -84,15 +84,48 @@ export default function TableReservation({ onClose, onSuccess }) {
     return primaryTable.seats + linkedSeats;
   }, [primaryTable, linkedIds]);
 
+  const fullReservationData = useMemo(
+    () => ({
+      firstName,
+      lastName,
+      email,
+      phone,
+      guestCount: totalSeats,
+      resDate,
+      startTime,
+      endTime,
+      tableLabel: primaryTable?.label,
+      linkedTables: linkedIds,
+      packages: selectedItems,
+    }),
+    [
+      firstName,
+      lastName,
+      email,
+      phone,
+      totalSeats,
+      resDate,
+      startTime,
+      endTime,
+      primaryTable,
+      linkedIds,
+      selectedItems,
+    ],
+  );
+
   // --- REAL-TIME POLLING ---
   useEffect(() => {
     const fetchData = async () => {
-      if (resDate && startTime && endTime) {
+      if (resDate) {
         try {
           const res = await axios.get(
             `http://localhost:5000/api/reservations/table-statuses`,
             {
-              params: { date: resDate, startTime, endTime },
+              params: {
+                date: resDate,
+                startTime: startTime || "00:00",
+                endTime: endTime || "23:59",
+              },
             },
           );
           setDbOccupiedTables(res.data || {});
@@ -127,10 +160,11 @@ export default function TableReservation({ onClose, onSuccess }) {
     return () => clearInterval(interval);
   }, [selectedId, resDate]);
 
+  // --- HELPERS ---
   const timeToMinutes = (t) => {
     if (!t) return 0;
-    const is12Hour = t.includes("AM") || t.includes("PM");
-    if (is12Hour) {
+    const is12 = t.includes("AM") || t.includes("PM");
+    if (is12) {
       const [time, period] = t.split(" ");
       let [h, m] = time.split(":").map(Number);
       if (period === "PM" && h !== 12) h += 12;
@@ -146,7 +180,8 @@ export default function TableReservation({ onClose, onSuccess }) {
     const parts = timeStr.split(":");
     let hours = parseInt(parts[0], 10);
     const ampm = hours >= 12 ? "PM" : "AM";
-    return `${hours % 12 || 12}:${parts[1]} ${ampm}`;
+    hours = hours % 12 || 12;
+    return `${hours}:${parts[1]} ${ampm}`;
   };
 
   const availableStartTimeOptions = useMemo(() => {
@@ -219,6 +254,7 @@ export default function TableReservation({ onClose, onSuccess }) {
       !startTime ||
       !endTime ||
       e - s < 60 ||
+      selectedItems.length === 0 ||
       conflict
     );
   }, [
@@ -230,11 +266,14 @@ export default function TableReservation({ onClose, onSuccess }) {
     endTime,
     tableSchedule,
     selectedId,
+    selectedItems,
   ]);
 
   const handleTableClick = (table) => {
     const status = dbOccupiedTables[table.id];
-    if (["Confirmed", "Seated", "Pending"].includes(status)) return;
+    if (status === "Confirmed" || status === "Seated" || status === "Pending")
+      return;
+
     if (isLinkMode) {
       if (table.id === selectedId) return;
       setLinkedIds((prev) =>
@@ -252,6 +291,7 @@ export default function TableReservation({ onClose, onSuccess }) {
     setLoading(true);
     try {
       const data = new FormData();
+      const allTables = [selectedId, ...linkedIds];
       data.append("userId", localStorage.getItem("userId") || "");
       data.append("firstName", firstName);
       data.append("lastName", lastName);
@@ -261,9 +301,10 @@ export default function TableReservation({ onClose, onSuccess }) {
       data.append("startTime", startTime);
       data.append("endTime", endTime);
       data.append("guests", totalSeats);
-      data.append("tableIds", JSON.stringify([selectedId, ...linkedIds]));
+      data.append("tableIds", JSON.stringify(allTables));
       data.append("receipt", file);
       data.append("status", "Confirmed");
+      data.append("selectedItems", JSON.stringify(selectedItems));
       const res = await axios.post(
         "http://localhost:5000/api/reservations/table",
         data,
@@ -277,35 +318,6 @@ export default function TableReservation({ onClose, onSuccess }) {
     }
   };
 
-  const fullReservationData = useMemo(
-    () => ({
-      firstName,
-      lastName,
-      email,
-      phone,
-      guestCount: totalSeats,
-      resDate,
-      startTime,
-      endTime,
-      tableLabel: primaryTable?.label,
-      linkedTables: linkedIds,
-      packages: selectedItems,
-    }),
-    [
-      firstName,
-      lastName,
-      email,
-      phone,
-      totalSeats,
-      resDate,
-      startTime,
-      endTime,
-      primaryTable,
-      linkedIds,
-      selectedItems,
-    ],
-  );
-
   return (
     <div className={`floor-plan-wrapper ${!resDate ? "init-state" : ""}`}>
       <button className="page-back-btn" onClick={onClose}>
@@ -318,7 +330,11 @@ export default function TableReservation({ onClose, onSuccess }) {
       >
         <div className="res-panel fade-in">
           <h2 className="panel-title">
-            {!resDate ? "Select Reservation Date" : "Reservation Form"}
+            {!resDate
+              ? "Select Reservation Date"
+              : selectedId
+                ? `Reserve ${primaryTable?.label}`
+                : "Pick a Table"}
           </h2>
           <div className="res-form">
             <div className="input-group">
@@ -331,44 +347,41 @@ export default function TableReservation({ onClose, onSuccess }) {
                 min={todayStr}
                 onChange={(e) => {
                   setResDate(e.target.value);
+                  setSelectedId(null);
                   setStartTime("");
                   setEndTime("");
                 }}
               />
             </div>
 
-            {resDate && (
+            {resDate && selectedId && (
               <>
-                {primaryTable && (
-                  <div className="table-schedule-section">
-                    <h4 className="schedule-header">
-                      <Clock size={14} /> Occupied Slots for{" "}
-                      {primaryTable.label}
-                    </h4>
-                    <div className="schedule-list">
-                      {tableSchedule.filter(
-                        (res) =>
-                          res.status !== "Done" && res.status !== "Completed",
-                      ).length > 0 ? (
-                        tableSchedule
-                          .filter(
-                            (res) =>
-                              res.status !== "Done" &&
-                              res.status !== "Completed",
-                          )
-                          .map((res, index) => (
-                            <div key={index} className="schedule-item-3d">
-                              <Clock size={12} />{" "}
-                              {formatTimeForDisplay(res.startTime)} -{" "}
-                              {formatTimeForDisplay(res.endTime)}
-                            </div>
-                          ))
-                      ) : (
-                        <p className="no-res-text">Table is fully available.</p>
-                      )}
-                    </div>
+                <div className="table-schedule-section">
+                  <h4 className="schedule-header">
+                    <Clock size={14} /> Occupied Slots for {primaryTable?.label}
+                  </h4>
+                  <div className="schedule-list">
+                    {tableSchedule.filter(
+                      (res) =>
+                        res.status !== "Done" && res.status !== "Completed",
+                    ).length > 0 ? (
+                      tableSchedule
+                        .filter(
+                          (res) =>
+                            res.status !== "Done" && res.status !== "Completed",
+                        )
+                        .map((res, index) => (
+                          <div key={index} className="schedule-item-3d">
+                            <Clock size={12} />{" "}
+                            {formatTimeForDisplay(res.startTime)} -{" "}
+                            {formatTimeForDisplay(res.endTime)}
+                          </div>
+                        ))
+                    ) : (
+                      <p className="no-res-text">Table is fully available.</p>
+                    )}
                   </div>
-                )}
+                </div>
 
                 <div className="input-row">
                   <div className="input-group">
@@ -530,7 +543,6 @@ export default function TableReservation({ onClose, onSuccess }) {
             <h1 className="floor-title">Select a Table</h1>
           </header>
 
-          {/* UPDATED: STRETCHED & CENTERED LINK TABLE BUTTON */}
           {selectedId && (
             <div style={{ marginBottom: "20px", width: "100%" }}>
               <button
@@ -544,7 +556,7 @@ export default function TableReservation({ onClose, onSuccess }) {
                   alignItems: "center",
                 }}
               >
-                <LinkIcon size={18} style={{ marginRight: "10px" }} />
+                <LinkIcon size={18} style={{ marginRight: "10px" }} />{" "}
                 {isLinkMode ? "Finish Linking" : "Link Tables"}
               </button>
             </div>
@@ -552,11 +564,11 @@ export default function TableReservation({ onClose, onSuccess }) {
 
           <div className="table-selection-grid">
             {TABLES_DATA.map((table) => {
-              const dbStatus = dbOccupiedTables[table.id];
+              const status = dbOccupiedTables[table.id];
               let cls =
-                dbStatus === "Confirmed"
+                status === "Confirmed" || status === "Seated"
                   ? "occupied"
-                  : dbStatus === "Pending"
+                  : status === "Pending"
                     ? "reserved"
                     : selectedId === table.id
                       ? "selected"
@@ -595,13 +607,7 @@ export default function TableReservation({ onClose, onSuccess }) {
               <span className="dot reserved"></span> Reserved
             </div>
             <div className="legend-item">
-              <span className="dot occupied"></span> Occupied
-            </div>
-            <div className="legend-item">
-              <span className="dot selected"></span> Selected
-            </div>
-            <div className="legend-item">
-              <span className="dot linked"></span> Linked
+              <span className="dot occupied"></span> Occupied (Ongoing)
             </div>
           </div>
         </div>

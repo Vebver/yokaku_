@@ -23,10 +23,10 @@
   height: 100vh;
   z-index: 9999;
   display: flex;
-  flex-direction: row; /* Desktop split */
+  flex-direction: row;
   background-color: #fdfbf0;
-  padding: 40px;
-  gap: 30px;
+  padding: 100px 40px 40px 40px; /* Top padding to clear Back button */
+  gap: 40px;
   font-family: "Inter", sans-serif;
   justify-content: center;
   overflow-y: auto;
@@ -50,7 +50,7 @@
 /* --- SIDEBAR PANEL (THE ASIDE) --- */
 .floor-sidebar {
   order: 1;
-  flex: 0 0 450px; /* Prevents form from shrinking too much */
+  flex: 0 0 450px;
   display: block;
 }
 
@@ -60,33 +60,38 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-width: 300px;
 }
 
-/* --- RESPONSIVE SECTION (STRICTLY RESTORED) --- */
+/* --- RESPONSIVE SECTION (FIXED) --- */
 @media (max-width: 1100px) {
   .floor-plan-wrapper {
     flex-direction: column;
-    padding: 90px 15px 40px 15px; /* 90px top padding for mobile navbar */
-    align-items: center;
+    display: block; /* Switch from flex to block for natural scrolling */
+    padding: 110px 15px 40px 15px; /* Clear the back button on small screens */
+    height: 100%;
     overflow-y: auto;
-    display: block; /* Allows natural vertical scrolling */
   }
 
   .floor-plan-main {
-    order: 1;
-    width: 100%;
-    margin-bottom: 30px;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-bottom: 40px;
   }
 
   .floor-sidebar {
-    order: 2;
     width: 100% !important;
     max-width: 100% !important;
+    margin-top: 20px;
   }
 
-  .res-panel {
-    margin-bottom: 40px;
+  .table-selection-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
+  }
+
+  /* Ensure the back button stays accessible */
+  .page-back-btn {
+    top: 25px !important;
+    left: 15px !important;
   }
 }
 
@@ -110,7 +115,7 @@
   color: var(--text-dark);
 }
 
-/* --- RESERVED LIST (SCHEDULE) DESIGN --- */
+/* --- RESERVED LIST DESIGN --- */
 .table-schedule-section {
   background: #f9f9f9;
   padding: 15px;
@@ -141,13 +146,14 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
 }
 
 /* --- FORM ELEMENTS --- */
 .res-form {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 22px;
 }
 .input-group {
   display: flex;
@@ -212,14 +218,19 @@
   font-size: 15px;
   cursor: pointer;
   transition: all 0.2s ease;
-  /* 3D Depth for the button */
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
 }
-
 .btn-link-mode:hover {
   background: var(--bg-soft);
   transform: translateY(-2px);
   box-shadow: 0 6px 12px rgba(243, 141, 49, 0.1);
+}
+.btn-link-mode.active {
+  background-color: var(--accent-orange) !important;
+  color: white !important;
+  border-color: var(--accent-orange) !important;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+  transform: translateY(1px);
 }
 
 .btn-confirm {
@@ -239,17 +250,7 @@
   transform: translateY(-3px);
 }
 
-.table-list-card.linked {
-  border-color: var(--status-linked);
-  background-color: #f0f5ff;
-}
-
-.status-dot.linked,
-.dot.linked {
-  background-color: var(--status-linked);
-}
-
-/* --- 3D EFFECT: TABLE CARDS --- */
+/* --- TABLE CARDS & STATUS --- */
 .table-selection-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -274,7 +275,6 @@
   box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
 }
 
-/* Card Content / Alignment */
 .table-details {
   display: flex;
   flex-direction: column;
@@ -289,12 +289,7 @@
   font-weight: 800;
   font-size: 16px;
 }
-.table-seats-text {
-  font-size: 12px;
-  color: var(--text-light);
-}
 
-/* Card Real-time status */
 .table-list-card.reserved {
   background-color: #fffbeb;
   border-color: var(--status-reserved);
@@ -303,13 +298,15 @@
   background-color: #fceaea;
   border-color: var(--status-occupied);
   opacity: 0.7;
+  cursor: not-allowed;
 }
 .table-list-card.selected {
   border-color: var(--accent-orange);
   background-color: #fff9f4;
+  box-shadow: inset 0 2px 4px rgba(243, 141, 49, 0.1);
 }
 
-/* Legend & Utils */
+/* --- UI UTILS --- */
 .dot,
 .status-dot {
   display: inline-block;
@@ -335,16 +332,8 @@
   flex-wrap: wrap;
   gap: 25px;
   margin-top: 40px;
-  padding-top: 20px;
+  padding: 25px 0;
   border-top: 1px solid #eee;
-}
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #555;
 }
 
 .page-back-btn {
@@ -358,17 +347,8 @@
   background-color: white;
   border: 1px solid #eee;
   border-radius: 12px;
-  z-index: 10000;
+  z-index: 10001;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
-}
-
-.btn-link-mode.active {
-  background-color: var(--accent-orange) !important;
-  color: white !important;
-  border-color: var(--accent-orange) !important;
-  /* 3D Inset look when active */
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
-  transform: translateY(1px);
 }
 
 .fade-in {

@@ -127,7 +127,7 @@ function LoginSection({ onClose }) {
       localStorage.setItem("email", res.data.user.email);
       localStorage.setItem("firstName", res.data.user.firstName);
       localStorage.setItem("lastName", res.data.user.lastName);
-      localStorage.setItem("role", res.data.user.role); 
+      localStorage.setItem("role", res.data.user.role);
       window.location.href = "/customer";
       onClose();
     } catch (err) {
@@ -185,6 +185,7 @@ function LoginSection({ onClose }) {
               >
                 {view === "signup" && (
                   <>
+                    <label className="firstName">First Name</label>
                     <input
                       type="text"
                       placeholder="First Name"
@@ -195,6 +196,7 @@ function LoginSection({ onClose }) {
                       }
                       required
                     />
+                    <label className="lastName">Last Name</label>
                     <input
                       type="text"
                       placeholder="Last Name"
