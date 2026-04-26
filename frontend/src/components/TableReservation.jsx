@@ -16,6 +16,7 @@ import {
   Armchair,
   Mail,
   Phone,
+  Link as LinkIcon,
 } from "lucide-react";
 import "../Style/TableReservation.css";
 import MenuModal from "./MenuModal";
@@ -59,7 +60,6 @@ export default function TableReservation({ onClose, onSuccess }) {
   const [resDate, setResDate] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
-  const [guestCount, setGuestCount] = useState("");
   const [selectedItems, setSelectedItems] = useState([]);
   const [highChair, setHighChair] = useState("No");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -71,15 +71,18 @@ export default function TableReservation({ onClose, onSuccess }) {
     return new Date(now - offset).toISOString().split("T")[0];
   }, []);
 
-  // NEW: Automatically update Guest Count based on selected Table
-  useEffect(() => {
-    if (selectedId) {
-      const table = TABLES_DATA.find((t) => t.id === selectedId);
-      if (table) setGuestCount(table.seats);
-    } else {
-      setGuestCount("");
-    }
-  }, [selectedId]);
+  const primaryTable = useMemo(
+    () => TABLES_DATA.find((t) => t.id === selectedId),
+    [selectedId],
+  );
+
+  const totalSeats = useMemo(() => {
+    if (!primaryTable) return 0;
+    const linkedSeats = TABLES_DATA.filter((t) =>
+      linkedIds.includes(t.id),
+    ).reduce((sum, t) => sum + t.seats, 0);
+    return primaryTable.seats + linkedSeats;
+  }, [primaryTable, linkedIds]);
 
   // --- REAL-TIME POLLING ---
   useEffect(() => {
@@ -134,8 +137,7 @@ export default function TableReservation({ onClose, onSuccess }) {
       if (period === "AM" && h === 12) h = 0;
       return h * 60 + m;
     }
-    const [h, m] = t.split(":").map(Number);
-    return h * 60 + m;
+    return t.split(":").reduce((h, m) => h * 60 + +m, 0);
   };
 
   const formatTimeForDisplay = (timeStr) => {
@@ -144,8 +146,7 @@ export default function TableReservation({ onClose, onSuccess }) {
     const parts = timeStr.split(":");
     let hours = parseInt(parts[0], 10);
     const ampm = hours >= 12 ? "PM" : "AM";
-    hours = hours % 12 || 12;
-    return `${hours}:${parts[1]} ${ampm}`;
+    return `${hours % 12 || 12}:${parts[1]} ${ampm}`;
   };
 
   const availableStartTimeOptions = useMemo(() => {
@@ -153,8 +154,11 @@ export default function TableReservation({ onClose, onSuccess }) {
     ["AM", "PM"].forEach((p) => {
       for (let h = p === "AM" ? 10 : 1; h <= (p === "AM" ? 11 : 10); h++) {
         ["00", "15", "30", "45"].forEach((m) => {
-          if (p === "PM" && h === 10 && m !== "00") return;
-          if (p === "AM" && h === 12) return;
+          if (
+            (p === "PM" && h === 10 && m !== "00") ||
+            (p === "AM" && h === 12)
+          )
+            return;
           options.push(`${h.toString().padStart(2, "0")}:${m} ${p}`);
         });
       }
@@ -183,23 +187,17 @@ export default function TableReservation({ onClose, onSuccess }) {
     ["AM", "PM"].forEach((p) => {
       for (let h = p === "AM" ? 10 : 1; h <= (p === "AM" ? 11 : 10); h++) {
         ["00", "15", "30", "45"].forEach((m) => {
-          if (p === "PM" && h === 10 && m !== "00") return;
-          if (p === "AM" && h === 12) return;
+          if (
+            (p === "PM" && h === 10 && m !== "00") ||
+            (p === "AM" && h === 12)
+          )
+            return;
           options.push(`${h.toString().padStart(2, "0")}:${m} ${p}`);
         });
       }
     });
     return options.filter((t) => timeToMinutes(t) >= startM + 60);
   }, [startTime]);
-
-  const primaryTable = useMemo(
-    () => TABLES_DATA.find((t) => t.id === selectedId),
-    [selectedId],
-  );
-  const totalSeats = useMemo(
-    () => (primaryTable ? primaryTable.seats : 0),
-    [primaryTable],
-  );
 
   const isFormInvalid = useMemo(() => {
     const s = timeToMinutes(startTime),
@@ -221,7 +219,6 @@ export default function TableReservation({ onClose, onSuccess }) {
       !startTime ||
       !endTime ||
       e - s < 60 ||
-      !guestCount ||
       conflict
     );
   }, [
@@ -231,16 +228,24 @@ export default function TableReservation({ onClose, onSuccess }) {
     resDate,
     startTime,
     endTime,
-    guestCount,
     tableSchedule,
     selectedId,
   ]);
 
   const handleTableClick = (table) => {
     const status = dbOccupiedTables[table.id];
-    if (status === "Confirmed" || status === "Seated" || status === "Pending")
-      return;
-    setSelectedId(selectedId === table.id ? null : table.id);
+    if (["Confirmed", "Seated", "Pending"].includes(status)) return;
+    if (isLinkMode) {
+      if (table.id === selectedId) return;
+      setLinkedIds((prev) =>
+        prev.includes(table.id)
+          ? prev.filter((id) => id !== table.id)
+          : [...prev, table.id],
+      );
+    } else {
+      setSelectedId(selectedId === table.id ? null : table.id);
+      setLinkedIds([]);
+    }
   };
 
   const handleConfirmReservation = async (file) => {
@@ -255,11 +260,10 @@ export default function TableReservation({ onClose, onSuccess }) {
       data.append("date", resDate);
       data.append("startTime", startTime);
       data.append("endTime", endTime);
-      data.append("guests", guestCount);
-      data.append("tableIds", JSON.stringify([selectedId]));
+      data.append("guests", totalSeats);
+      data.append("tableIds", JSON.stringify([selectedId, ...linkedIds]));
       data.append("receipt", file);
       data.append("status", "Confirmed");
-      data.append("selectedItems", JSON.stringify(selectedItems));
       const res = await axios.post(
         "http://localhost:5000/api/reservations/table",
         data,
@@ -279,11 +283,12 @@ export default function TableReservation({ onClose, onSuccess }) {
       lastName,
       email,
       phone,
-      guestCount,
+      guestCount: totalSeats,
       resDate,
       startTime,
       endTime,
       tableLabel: primaryTable?.label,
+      linkedTables: linkedIds,
       packages: selectedItems,
     }),
     [
@@ -291,11 +296,12 @@ export default function TableReservation({ onClose, onSuccess }) {
       lastName,
       email,
       phone,
-      guestCount,
+      totalSeats,
       resDate,
       startTime,
       endTime,
       primaryTable,
+      linkedIds,
       selectedItems,
     ],
   );
@@ -340,28 +346,16 @@ export default function TableReservation({ onClose, onSuccess }) {
                       {primaryTable.label}
                     </h4>
                     <div className="schedule-list">
-                      {tableSchedule.filter((res) => {
-                        const isNotDone =
-                          res.status !== "Done" && res.status !== "Completed";
-                        return resDate === todayStr
-                          ? isNotDone &&
-                              timeToMinutes(res.endTime) >
-                                new Date().getHours() * 60 +
-                                  new Date().getMinutes()
-                          : isNotDone;
-                      }).length > 0 ? (
+                      {tableSchedule.filter(
+                        (res) =>
+                          res.status !== "Done" && res.status !== "Completed",
+                      ).length > 0 ? (
                         tableSchedule
-                          .filter((res) => {
-                            const isNotDone =
+                          .filter(
+                            (res) =>
                               res.status !== "Done" &&
-                              res.status !== "Completed";
-                            return resDate === todayStr
-                              ? isNotDone &&
-                                  timeToMinutes(res.endTime) >
-                                    new Date().getHours() * 60 +
-                                      new Date().getMinutes()
-                              : isNotDone;
-                          })
+                              res.status !== "Completed",
+                          )
                           .map((res, index) => (
                             <div key={index} className="schedule-item-3d">
                               <Clock size={12} />{" "}
@@ -459,7 +453,7 @@ export default function TableReservation({ onClose, onSuccess }) {
                   </label>
                   <input
                     type="text"
-                    placeholder="09123456789"
+                    placeholder="09xxxxxxxxx"
                     value={phone}
                     onChange={(e) => {
                       const val = e.target.value.replace(/\D/g, "");
@@ -467,18 +461,14 @@ export default function TableReservation({ onClose, onSuccess }) {
                     }}
                   />
                 </div>
-
-                {/* UPDATED: Guest count is now automatic and Read-Only */}
                 <div className="input-group">
-                  <label>GUESTS (Auto-filled by Table)</label>
+                  <label>GUESTS (Based on Selection)</label>
                   <input
                     type="text"
-                    value={guestCount}
+                    value={totalSeats}
                     readOnly
-                    placeholder="Select a table..."
                     style={{
                       backgroundColor: "#f0f0f0",
-                      color: "#666",
                       cursor: "not-allowed",
                       fontWeight: "700",
                     }}
@@ -539,17 +529,40 @@ export default function TableReservation({ onClose, onSuccess }) {
           <header className="floor-header">
             <h1 className="floor-title">Select a Table</h1>
           </header>
+
+          {/* UPDATED: STRETCHED & CENTERED LINK TABLE BUTTON */}
+          {selectedId && (
+            <div style={{ marginBottom: "20px", width: "100%" }}>
+              <button
+                className={`btn-link-mode ${isLinkMode ? "active" : ""}`}
+                onClick={() => setIsLinkMode(!isLinkMode)}
+                style={{
+                  width: "100%",
+                  padding: "14px 0",
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
+                <LinkIcon size={18} style={{ marginRight: "10px" }} />
+                {isLinkMode ? "Finish Linking" : "Link Tables"}
+              </button>
+            </div>
+          )}
+
           <div className="table-selection-grid">
             {TABLES_DATA.map((table) => {
-              const status = dbOccupiedTables[table.id];
+              const dbStatus = dbOccupiedTables[table.id];
               let cls =
-                status === "Confirmed"
+                dbStatus === "Confirmed"
                   ? "occupied"
-                  : status === "Pending"
+                  : dbStatus === "Pending"
                     ? "reserved"
                     : selectedId === table.id
                       ? "selected"
-                      : "available";
+                      : linkedIds.includes(table.id)
+                        ? "linked"
+                        : "available";
               return (
                 <div
                   key={table.id}
@@ -583,6 +596,12 @@ export default function TableReservation({ onClose, onSuccess }) {
             </div>
             <div className="legend-item">
               <span className="dot occupied"></span> Occupied
+            </div>
+            <div className="legend-item">
+              <span className="dot selected"></span> Selected
+            </div>
+            <div className="legend-item">
+              <span className="dot linked"></span> Linked
             </div>
           </div>
         </div>
