@@ -46,6 +46,7 @@ export default function TableReservation({ onClose, onSuccess }) {
   const [dbOccupiedTables, setDbOccupiedTables] = useState({});
   const [tableSchedule, setTableSchedule] = useState([]);
 
+  // --- FORM STATES ---
   const [firstName, setFirstName] = useState(
     localStorage.getItem("firstName") || "",
   );
@@ -70,7 +71,17 @@ export default function TableReservation({ onClose, onSuccess }) {
     return new Date(now - offset).toISOString().split("T")[0];
   }, []);
 
-  // --- REAL-TIME POLLING (5s) ---
+  // NEW: Automatically update Guest Count based on selected Table
+  useEffect(() => {
+    if (selectedId) {
+      const table = TABLES_DATA.find((t) => t.id === selectedId);
+      if (table) setGuestCount(table.seats);
+    } else {
+      setGuestCount("");
+    }
+  }, [selectedId]);
+
+  // --- REAL-TIME POLLING ---
   useEffect(() => {
     const fetchData = async () => {
       if (resDate && startTime && endTime) {
@@ -123,8 +134,8 @@ export default function TableReservation({ onClose, onSuccess }) {
       if (period === "AM" && h === 12) h = 0;
       return h * 60 + m;
     }
-    const parts = t.split(":");
-    return Number(parts[0]) * 60 + Number(parts[1]);
+    const [h, m] = t.split(":").map(Number);
+    return h * 60 + m;
   };
 
   const formatTimeForDisplay = (timeStr) => {
@@ -332,30 +343,24 @@ export default function TableReservation({ onClose, onSuccess }) {
                       {tableSchedule.filter((res) => {
                         const isNotDone =
                           res.status !== "Done" && res.status !== "Completed";
-                        if (resDate === todayStr) {
-                          return (
-                            isNotDone &&
-                            timeToMinutes(res.endTime) >
-                              new Date().getHours() * 60 +
-                                new Date().getMinutes()
-                          );
-                        }
-                        return isNotDone;
+                        return resDate === todayStr
+                          ? isNotDone &&
+                              timeToMinutes(res.endTime) >
+                                new Date().getHours() * 60 +
+                                  new Date().getMinutes()
+                          : isNotDone;
                       }).length > 0 ? (
                         tableSchedule
                           .filter((res) => {
                             const isNotDone =
                               res.status !== "Done" &&
                               res.status !== "Completed";
-                            if (resDate === todayStr) {
-                              return (
-                                isNotDone &&
-                                timeToMinutes(res.endTime) >
-                                  new Date().getHours() * 60 +
-                                    new Date().getMinutes()
-                              );
-                            }
-                            return isNotDone;
+                            return resDate === todayStr
+                              ? isNotDone &&
+                                  timeToMinutes(res.endTime) >
+                                    new Date().getHours() * 60 +
+                                      new Date().getMinutes()
+                              : isNotDone;
                           })
                           .map((res, index) => (
                             <div key={index} className="schedule-item-3d">
@@ -454,7 +459,7 @@ export default function TableReservation({ onClose, onSuccess }) {
                   </label>
                   <input
                     type="text"
-                    placeholder="09xxxxxxxxx"
+                    placeholder="09123456789"
                     value={phone}
                     onChange={(e) => {
                       const val = e.target.value.replace(/\D/g, "");
@@ -462,20 +467,20 @@ export default function TableReservation({ onClose, onSuccess }) {
                     }}
                   />
                 </div>
+
+                {/* UPDATED: Guest count is now automatic and Read-Only */}
                 <div className="input-group">
-                  <label>GUESTS (MAX {totalSeats || "?"})</label>
+                  <label>GUESTS (Auto-filled by Table)</label>
                   <input
                     type="text"
-                    inputMode="numeric"
-                    placeholder="1"
                     value={guestCount}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/\D/g, "");
-                      if (val === "") return setGuestCount("");
-                      let num = parseInt(val, 10);
-                      if (num > totalSeats) num = totalSeats;
-                      if (num < 1) num = 1;
-                      setGuestCount(num);
+                    readOnly
+                    placeholder="Select a table..."
+                    style={{
+                      backgroundColor: "#f0f0f0",
+                      color: "#666",
+                      cursor: "not-allowed",
+                      fontWeight: "700",
                     }}
                   />
                 </div>
@@ -544,9 +549,7 @@ export default function TableReservation({ onClose, onSuccess }) {
                     ? "reserved"
                     : selectedId === table.id
                       ? "selected"
-                      : linkedIds.includes(table.id)
-                        ? "linked"
-                        : "available";
+                      : "available";
               return (
                 <div
                   key={table.id}
