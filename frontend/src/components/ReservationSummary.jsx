@@ -21,9 +21,10 @@ const ReservationSummary = ({
   reservationData,
   onConfirm,
   loading,
+  paymentMethod, // Add this
+  setPaymentMethod,
 }) => {
   const [receipt, setReceipt] = useState(null);
-  const [paymentMethod, setPaymentMethod] = useState(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false); // New state for redirecting
   const fileInputRef = useRef(null);
 
@@ -103,7 +104,7 @@ const ReservationSummary = ({
       }
     } else {
       // Original logic for manual upload (Maya or others)
-      onConfirm(receipt);
+      onConfirm(receipt, paymentMethod);
     }
   };
 

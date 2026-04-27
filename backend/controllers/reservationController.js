@@ -220,18 +220,20 @@ const reservationController = {
       }
 
       // 6. Prepare data for Model
-      const reservationData = {
+        const reservationData = {
         ...body,
         date: dbDate,
         startTime: dbStart,
         endTime: dbEnd,
-        // Optional: Store the raw endDateTime for easier "Countdown" calculation on frontend
         expiresAt: endDateTime,
         tableIds: requestedTables,
         selectedItems: items,
+        // Ensure we check both 'amount' and 'downpayment' from the frontend
+        amount: parseFloat(body.amount || body.downpayment || 0), 
+        paymentMethod: body.paymentMethod || "Maya",
+        paymentStatus: body.paymentStatus || (body.paymentMethod === "Gcash" ? "verified" : "pending"),
         receiptPath: req.file ? req.file.filename : body.receiptPath || null,
       };
-
       const newId = await Reservation.create(reservationData);
 
       return res.status(201).json({

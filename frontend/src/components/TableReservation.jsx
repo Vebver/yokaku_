@@ -60,6 +60,7 @@ export default function TableReservation({ onClose, onSuccess }) {
   const [linkedIds, setLinkedIds] = useState([]);
   const [selectedItems, setSelectedItems] = useState([]);
   const [isLinkMode, setIsLinkMode] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState(null); // Add this line
 
   const [form, setForm] = useState({
     date: "",
@@ -194,6 +195,9 @@ export default function TableReservation({ onClose, onSuccess }) {
       ),
       packages: selectedItems,
       resDate: form.date,
+      amount: orderSummary.downpayment,
+      downpayment: orderSummary.downpayment,
+      paymentMethod: paymentMethod || "Maya",
       municipality:
         addressData.municipalities.find((m) => m.code === form.muni)?.name ||
         "",
@@ -207,6 +211,8 @@ export default function TableReservation({ onClose, onSuccess }) {
       primaryTable,
       linkedIds,
       selectedItems,
+      orderSummary.downpayment,
+      paymentMethod,
       addressData,
     ],
   );
@@ -310,22 +316,37 @@ export default function TableReservation({ onClose, onSuccess }) {
 
   const confirmBooking = async (file) => {
     setUi((p) => ({ ...p, loading: true }));
+
+    // LOG THIS TO YOUR CONSOLE TO CHECK BEFORE SENDING
+    console.log("Submitting Amount:", orderSummary.downpayment);
+    console.log("Submitting Method:", paymentMethod);
+
     try {
       const payload = new FormData();
       const submission = {
         ...user,
         ...form,
         guests: totalSeats,
+        amount: orderSummary.downpayment, // Pulls from your useMemo
+        paymentMethod: paymentMethod || "Maya", // Pulls from the new state
         tableIds: JSON.stringify([selectedId, ...linkedIds]),
         selectedItems: JSON.stringify(selectedItems),
         status: "Confirmed",
-        receipt: file,
       };
-      Object.entries(submission).forEach(([k, v]) => payload.append(k, v));
+
+      // Important: Append the file separately
+      if (file) payload.append("receipt", file);
+
+      Object.entries(submission).forEach(([k, v]) => {
+        if (v !== undefined && v !== null) {
+          payload.append(k, v);
+        }
+      });
+
       const res = await axios.post(`${API_BASE}/reservations/table`, payload);
       onSuccess(res.data.id);
     } catch (e) {
-      console.error(e);
+      console.error("Booking Error:", e);
     } finally {
       setUi((p) => ({ ...p, loading: false }));
     }
@@ -723,6 +744,8 @@ export default function TableReservation({ onClose, onSuccess }) {
         reservationData={fullReservationData}
         onConfirm={confirmBooking}
         loading={ui.loading}
+        paymentMethod={paymentMethod}
+        setPaymentMethod={setPaymentMethod}
       />
     </div>
   );

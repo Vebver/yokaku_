@@ -170,12 +170,21 @@ const Reservation = {
       }
 
       // Handle Payment
-      const paymentQuery =
-        "INSERT INTO payments (reservation_id, amount, payment_status) VALUES (?, ?, ?)";
+      // 1. Identify the amount (check all possible variable names)
+      const finalAmount = data.amount || data.downpayment || 0;
+      const finalMethod = data.paymentMethod || "Maya";
+
+      const paymentQuery = `
+        INSERT INTO payments 
+        (reservation_id, amount, payment_method, payment_status, paid_at) 
+        VALUES (?, ?, ?, ?, NOW())
+      `;
+
       await conn.execute(paymentQuery, [
         customId,
-        data.totalAmount || 0, // Using totalAmount from controller
-        data.paymentStatus === "Paid" ? "paid" : "pending",
+        finalAmount, // This is now correctly linked
+        finalMethod,
+        data.paymentMethod === "Gcash" ? "verified" : "pending",
       ]);
 
       await conn.commit();

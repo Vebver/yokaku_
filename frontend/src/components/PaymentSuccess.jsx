@@ -30,7 +30,8 @@ export default function PaymentSuccess() {
           ...reservation,
           userId: userId,
           status: "Confirmed",
-          paymentStatus: "Paid",
+          paymentStatus: "verified",
+          paymentMethod: "Gcash",
           // Since it's automated GCash, we don't have a manual receipt file
           receiptPath: "PAID_VIA_GCASH_AUTOMATED",
         });
