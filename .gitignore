@@ -5,6 +5,6 @@ dist
 .vite
 .env
 
-# Add this line:
-backend/uploads/*
-!backend/uploads/.gitkeep
+# Ignore uploaded files but keep the directory
+frontend/public/uploads/*
+!frontend/public/uploads/.gitkeep

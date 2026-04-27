@@ -86,8 +86,8 @@ app.use("/api/categories", categoryRoutes);
 // Inventory routes
 app.use('/api/inventory', protect, adminOnly, inventoryRoutes);
 
-// Static folder for uploaded images
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Static folder for uploaded images (serve from frontend/public/uploads)
+app.use('/uploads', express.static(path.join(__dirname, '../frontend/public/uploads')));
 
 // Admin routes
 app.use('/api/admin', protect, adminOnly, adminRoutes);
@@ -102,7 +102,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/reviews', reviewRoutes);
 
 // Order routes
-app.use('/api/inventory', orderRoutes);
+app.use('/api/orders', orderRoutes)
 
 
 // Protected check route

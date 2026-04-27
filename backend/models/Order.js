@@ -1,12 +1,12 @@
 // backend/models/Order.js
-const db = require('../config/db');
+const db = require("../config/db");
 
 const Order = {
   // Get the recipe for a specific menu item
   getIngredients: async (conn, itemId) => {
     const [rows] = await conn.execute(
       `SELECT inventory_id, quantity_required FROM menu_item_ingredients WHERE item_id = ?`,
-      [itemId]
+      [itemId],
     );
     return rows;
   },
@@ -15,7 +15,7 @@ const Order = {
   checkStock: async (conn, inventoryId) => {
     const [rows] = await conn.execute(
       `SELECT quantity, item_name, reorder_level FROM inventory WHERE inventory_id = ?`,
-      [inventoryId]
+      [inventoryId],
     );
     return rows[0];
   },
@@ -32,15 +32,44 @@ const Order = {
             ELSE 'Available' 
           END
       WHERE inventory_id = ?`;
-    
-    return await conn.execute(query, [amountUsed, amountUsed, amountUsed, amountUsed, inventoryId]);
+
+    return await conn.execute(query, [
+      amountUsed,
+      amountUsed,
+      amountUsed,
+      amountUsed,
+      inventoryId,
+    ]);
   },
 
   // Record the actual order
   createOrderEntry: async (conn, reservationId, itemId, quantity) => {
     const query = `INSERT INTO kiosk_orders (reservation_id, item_id, quantity, kitchen_status) VALUES (?, ?, ?, 'Pending')`;
     return await conn.execute(query, [reservationId, itemId, quantity]);
-  }
+  },
+
+  // Get all orders for a reservation (Kitchen display)
+  getOrdersByReservation: async (reservationId) => {
+    const [rows] = await db.execute(
+      `SELECT o.order_id, o.item_id, o.quantity, o.kitchen_status, m.name AS item_name 
+       FROM kiosk_orders o 
+       JOIN menu_items m ON o.item_id = m.item_id 
+       WHERE o.reservation_id = ?`,
+      [reservationId],
+    );
+    return rows;
+  },
+  // Get pre-reserved items for a reservation (before they are placed as orders)
+  getPreReservedItems: async (reservationId) => {
+    const [rows] = await db.execute(
+      `SELECT m.* 
+       FROM menu_items m
+       JOIN reservation_items ri ON m.item_id = ri.product_id 
+       WHERE ri.reservation_id = ?`,
+      [reservationId],
+    );
+    return rows;
+  },
 };
 
 module.exports = Order;
