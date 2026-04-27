@@ -254,30 +254,93 @@ const Billing = () => {
                   )}
                 </div>
               </div>
-
               {/* Payment Summary Box */}
               <div className="card border-0 shadow-sm mb-4">
                 <div className="card-body">
                   <label className="small fw-bold text-muted text-uppercase mb-3 d-block">
-                    Payment Calculation
+                    Payment Breakdown
                   </label>
+
+                  {/* Inside the Payment Summary Box in Billing.jsx */}
                   <div className="d-flex justify-content-between mb-2">
-                    <span className="text-muted">
-                      Paid ({selectedPayment.payment_method}):
-                    </span>
-                    <span className="fw-bold text-success">
-                      - ₱{parseFloat(selectedPayment.amount).toLocaleString()}
+                    <span className="text-muted">Total Bill:</span>
+                    <span className="fw-bold text-dark">
+                      ₱
+                      {Number(selectedPayment.total_bill).toLocaleString(
+                        undefined,
+                        { minimumFractionDigits: 2 },
+                      )}
                     </span>
                   </div>
-                  <div className="d-flex justify-content-between border-top pt-2">
+
+                  <div className="d-flex justify-content-between mb-2">
+                    <span className="text-muted">Amount Paid:</span>
+                    <span className="fw-bold text-success">
+                      - ₱
+                      {Number(selectedPayment.amount).toLocaleString(
+                        undefined,
+                        { minimumFractionDigits: 2 },
+                      )}
+                    </span>
+                  </div>
+
+                  <div className="d-flex justify-content-between border-top pt-2 mt-2">
                     <span className="fw-bold text-dark">
                       Remaining Balance:
                     </span>
                     <span className="fw-bold text-danger">
                       ₱
                       {(
+                        Number(selectedPayment.total_bill) -
+                        Number(selectedPayment.amount)
+                      ).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  {/* Inside the Payment Summary Box in Billing.jsx */}
+                  <div className="d-flex justify-content-between mb-2">
+                    <span className="text-muted">Total Bill:</span>
+                    <span className="fw-bold text-dark">
+                      ₱
+                      {Number(selectedPayment.total_bill).toLocaleString(
+                        undefined,
+                        { minimumFractionDigits: 2 },
+                      )}
+                    </span>
+                  </div>
+
+                  <div className="d-flex justify-content-between mb-2">
+                    <span className="text-muted">Amount Paid:</span>
+                    <span className="fw-bold text-success">
+                      - ₱
+                      {Number(selectedPayment.amount).toLocaleString(
+                        undefined,
+                        { minimumFractionDigits: 2 },
+                      )}
+                    </span>
+                  </div>
+
+                  <div className="d-flex justify-content-between border-top pt-2 mt-2">
+                    <span className="fw-bold text-dark">
+                      Remaining Balance:
+                    </span>
+                    <span className="fw-bold text-danger">
+                      ₱
+                      {(
+                        Number(selectedPayment.total_bill) -
+                        Number(selectedPayment.amount)
+                      ).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+
+                  <div className="d-flex justify-content-between border-top pt-2 mt-2">
+                    <span className="fw-bold text-dark fs-5">
+                      Remaining Balance:
+                    </span>
+                    <span className="fw-bold text-danger fs-5">
+                      ₱
+                      {(
                         calculateTotal() - parseFloat(selectedPayment.amount)
-                      ).toLocaleString()}
+                      ).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </span>
                   </div>
                 </div>

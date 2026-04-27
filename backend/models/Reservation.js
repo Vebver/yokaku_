@@ -92,6 +92,7 @@ const Reservation = {
       await conn.beginTransaction();
       const customId = generateRandomId();
 
+      // 1. Insert Main Reservation
       const resQuery = `INSERT INTO reservations (reservation_id, user_id, first_name, last_name, email, phone, reservation_date, reservation_time, end_time, num_guests, package_name, status, receipt_path, brgy_code, allergy) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
       const resValues = [
@@ -105,93 +106,76 @@ const Reservation = {
         data.startTime || null,
         data.endTime || null,
         data.guests || 0,
-        data.packageName || "Table Reservation",
+        data.packageName,
         data.status || "Confirmed",
         data.receiptPath || null,
         data.brgyCode || null,
         data.allergy || "None",
       ];
-
       await conn.execute(resQuery, resValues);
 
-      // Handle Tables - Safe Parsing
+      // 2. RESTORED: Insert Tables
       let tableIdsArray = data.tableIds || [];
-      if (typeof tableIdsArray === "string") {
-        try {
-          tableIdsArray = JSON.parse(tableIdsArray);
-        } catch (e) {
-          tableIdsArray = [tableIdsArray];
-        }
-      }
+      if (typeof tableIdsArray === "string")
+        tableIdsArray = JSON.parse(tableIdsArray);
 
       if (Array.isArray(tableIdsArray) && tableIdsArray.length > 0) {
         const tableLinkQuery =
-          "INSERT INTO reservation_tables (reservation_id, table_id, customer_name, check_in_time, status) VALUES (?, ?, ?, ?, 'confirmed')";
+          "INSERT INTO reservation_tables (reservation_id, table_id, customer_name, status, check_in_time) VALUES (?, ?, ?, 'confirmed', NOW())";
+
         for (const tid of tableIdsArray) {
-          if (!tid) continue;
-          const cleanTid = parseInt(String(tid).replace(/\D/g, ""));
-          await conn.execute(tableLinkQuery, [
-            customId,
-            cleanTid || 0,
-            `${data.firstName || ""} ${data.lastName || ""}`.trim() || "Guest",
-            new Date(),
-          ]);
+          // Only proceed if tid is a valid number
+          const cleanTid = parseInt(tid);
+          if (isNaN(cleanTid)) continue;
+
+          try {
+            await conn.execute(tableLinkQuery, [
+              customId,
+              cleanTid,
+              `${data.firstName} ${data.lastName}`,
+            ]);
+          } catch (dbErr) {
+            // This will tell you exactly which ID is causing the error in your terminal
+            console.error(
+              `FOREIGN KEY ERROR: Table ID ${cleanTid} does not exist in the 'tables' table.`,
+            );
+            throw dbErr; // Re-throw to trigger the rollback
+          }
         }
       }
 
-      // Handle Items - Safe Guard against Undefined
-      const itemsToProcess = Array.isArray(data.selectedItems)
-        ? data.selectedItems
-        : typeof data.selectedItems === "string"
-          ? JSON.parse(data.selectedItems)
-          : [];
+      // 3. RESTORED: Insert Items (This prevents packs from "disappearing")
+      let itemsToProcess = data.selectedItems || [];
+      if (typeof itemsToProcess === "string")
+        itemsToProcess = JSON.parse(itemsToProcess);
 
       if (itemsToProcess.length > 0) {
         const itemQuery = `INSERT INTO reservation_items (reservation_id, product_id, quantity, price) VALUES (?, ?, ?, ?)`;
         for (const item of itemsToProcess) {
           await conn.execute(itemQuery, [
             customId,
-            item.item_id || item.id || null,
-            item.quantity || 0,
-            item.price || 0,
+            item.item_id || item.id,
+            item.quantity,
+            item.price,
           ]);
         }
       }
 
-      // Handle Notification
-      if (data.userId && data.userId !== "null") {
-        await Notification.create(conn, {
-          userId: data.userId,
-          reservationId: customId,
-          title: "Reservation Confirmed",
-          message: `Your reservation for ${data.guests} guest(s) on ${data.date} at ${data.startTime} has been confirmed.`,
-          type: "reservation",
-        });
-      }
-
-      // Handle Payment
-      // 1. Identify the amount (check all possible variable names)
-      const finalAmount = data.amount || data.downpayment || 0;
-      const finalMethod = data.paymentMethod || "Maya";
-
-      const paymentQuery = `
-        INSERT INTO payments 
-        (reservation_id, amount, payment_method, payment_status, paid_at) 
-        VALUES (?, ?, ?, ?, NOW())
-      `;
-
+      // 4. Insert Payment
+      const paymentQuery = `INSERT INTO payments (reservation_id, amount, total_bill, payment_method, payment_status, paid_at) VALUES (?, ?, ?, ?, ?, NOW())`;
       await conn.execute(paymentQuery, [
         customId,
-        finalAmount, // This is now correctly linked
-        finalMethod,
-        data.paymentMethod === "Gcash" ? "verified" : "pending",
+        data.amount || 0,
+        data.totalAmount || data.amount || 0,
+        data.paymentMethod || "Maya",
+        data.paymentStatus || "pending",
       ]);
 
       await conn.commit();
       return customId;
     } catch (err) {
       await conn.rollback();
-      console.error("MODEL ERROR:", err.message);
+      console.error("DB ERROR:", err);
       throw err;
     } finally {
       conn.release();

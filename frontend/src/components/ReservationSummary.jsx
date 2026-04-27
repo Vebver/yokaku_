@@ -182,19 +182,27 @@ const ReservationSummary = ({
           </section>
 
           {/* Section 3: Ordered Packages */}
+          {/* Section 3: Ordered Packages */}
           <section className="summary-section">
             <div className="section-title-wrapper">
               <Layers size={16} color="#f38d31" />
               <h3>Ordered Packages</h3>
             </div>
             <div className="packages-summary-list">
-              {reservationData.packages?.length > 0 ? (
-                reservationData.packages.map((item, index) => (
-                  <div key={index} className="package-summary-item">
-                    <span className="pkg-name">{item.name}</span>
-                    <span className="pkg-qty">Qty: {item.quantity}</span>
-                  </div>
-                ))
+              {/* FIX: Check for both 'packages' and 'selectedItems' */}
+              {reservationData.packages?.length > 0 ||
+              reservationData.selectedItems?.length > 0 ? (
+                (reservationData.packages || reservationData.selectedItems).map(
+                  (item, index) => (
+                    <div key={index} className="package-summary-item">
+                      {/* Check for item.name or item.item_name */}
+                      <span className="pkg-name">
+                        {item.name || item.item_name}
+                      </span>
+                      <span className="pkg-qty">Qty: {item.quantity}</span>
+                    </div>
+                  ),
+                )
               ) : (
                 <p className="no-res-text">No packages selected.</p>
               )}

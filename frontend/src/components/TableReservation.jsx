@@ -184,18 +184,34 @@ export default function TableReservation({ onClose, onSuccess }) {
     };
   }, [selectedItems]);
 
-  const fullReservationData = useMemo(
-    () => ({
+  // Find the fullReservationData useMemo and update it:
+  const fullReservationData = useMemo(() => {
+    // Determine package name here for storage
+    let pName = "Table Reservation";
+    if (selectedItems.length > 0) {
+      pName =
+        selectedItems[0].name + (selectedItems.length > 1 ? " + Others" : "");
+    }
+
+    return {
       ...user,
       ...form,
+      userId: localStorage.getItem("userId"),
       guestCount: totalSeats,
       tableLabel: primaryTable?.label,
       linkedTables: linkedIds.map(
         (id) => TABLES_DATA.find((t) => t.id === id)?.label,
       ),
+
+      // FIX 1: Change 'packages' to 'selectedItems'
+      selectedItems: selectedItems,
+
+      // FIX 2: Explicitly add 'packageName'
       packages: selectedItems,
+
       resDate: form.date,
       amount: orderSummary.downpayment,
+      totalAmount: orderSummary.totalOrderPrice, // FIX 3: Ensure total is here
       downpayment: orderSummary.downpayment,
       paymentMethod: paymentMethod || "Maya",
       municipality:
@@ -203,19 +219,18 @@ export default function TableReservation({ onClose, onSuccess }) {
         "",
       barangay:
         addressData.barangays.find((b) => b.code === form.brgy)?.name || "",
-    }),
-    [
-      user,
-      form,
-      totalSeats,
-      primaryTable,
-      linkedIds,
-      selectedItems,
-      orderSummary.downpayment,
-      paymentMethod,
-      addressData,
-    ],
-  );
+    };
+  }, [
+    user,
+    form,
+    totalSeats,
+    primaryTable,
+    linkedIds,
+    selectedItems,
+    orderSummary,
+    paymentMethod,
+    addressData,
+  ]);
 
   const timeOptions = useMemo(() => {
     const opts = [];
@@ -317,36 +332,44 @@ export default function TableReservation({ onClose, onSuccess }) {
   const confirmBooking = async (file) => {
     setUi((p) => ({ ...p, loading: true }));
 
-    // LOG THIS TO YOUR CONSOLE TO CHECK BEFORE SENDING
-    console.log("Submitting Amount:", orderSummary.downpayment);
-    console.log("Submitting Method:", paymentMethod);
-
     try {
       const payload = new FormData();
+
+      // 1. Create a clean array of IDs and filter out any nulls
+      const tableIdsArray = [selectedId, ...linkedIds]
+        .filter((id) => id !== null && id !== undefined)
+        .map((id) => Number(id)); // Ensure they are numbers
+
       const submission = {
         ...user,
         ...form,
+        userId: localStorage.getItem("userId"),
         guests: totalSeats,
-        amount: orderSummary.downpayment, // Pulls from your useMemo
-        paymentMethod: paymentMethod || "Maya", // Pulls from the new state
-        tableIds: JSON.stringify([selectedId, ...linkedIds]),
+        packageName: productDisplayName,
+        totalAmount: orderSummary.totalOrderPrice,
+        amount: orderSummary.downpayment,
+        paymentMethod: paymentMethod || "Maya",
+        // SEND AS CLEAN JSON ARRAY
+        tableIds: JSON.stringify(tableIdsArray),
         selectedItems: JSON.stringify(selectedItems),
         status: "Confirmed",
+        brgyCode: form.brgy,
       };
 
-      // Important: Append the file separately
       if (file) payload.append("receipt", file);
 
       Object.entries(submission).forEach(([k, v]) => {
-        if (v !== undefined && v !== null) {
-          payload.append(k, v);
-        }
+        if (v !== undefined && v !== null) payload.append(k, v);
       });
 
       const res = await axios.post(`${API_BASE}/reservations/table`, payload);
       onSuccess(res.data.id);
     } catch (e) {
-      console.error("Booking Error:", e);
+      // LOG the error response to see which ID failed
+      console.error("Booking Error:", e.response?.data || e.message);
+      alert(
+        "Table Selection Error: One of the selected tables does not exist in the database.",
+      );
     } finally {
       setUi((p) => ({ ...p, loading: false }));
     }

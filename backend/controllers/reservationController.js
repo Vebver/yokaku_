@@ -169,80 +169,58 @@ const reservationController = {
       const body = req.body;
       const now = new Date();
 
-      // 1. Determine Start Time
-      // If user sends "now", use current server time, otherwise use their selected time
+      // 1. Time logic (keep your existing logic)
       let startDateTime;
       if (body.startTime === "now" || !body.startTime) {
         startDateTime = now;
       } else {
-        // Combines the provided date string and time string into a Date object
         startDateTime = new Date(`${body.date} ${body.startTime}`);
       }
 
-      // 2. Calculate End Time based on Duration
-      // Let's assume the frontend sends 'durationDays' and 'durationHours'
-      const durationDays = parseInt(body.durationDays) || 0;
-      const durationHours = parseInt(body.durationHours) || 2; // Default to 2 hours if not specified
-
+      const durationHours = parseInt(body.durationHours) || 2;
       const endDateTime = new Date(startDateTime);
-      endDateTime.setDate(endDateTime.getDate() + durationDays);
       endDateTime.setHours(endDateTime.getHours() + durationHours);
 
-      // 3. Format for Database (MySQL expects YYYY-MM-DD and HH:mm:ss)
       const dbDate = startDateTime.toISOString().split("T")[0];
-      const dbStart = startDateTime.toTimeString().split(" ")[0]; // "HH:mm:ss"
-      const dbEnd = endDateTime.toTimeString().split(" ")[0]; // "HH:mm:ss"
+      const dbStart = startDateTime.toTimeString().split(" ")[0];
+      const dbEnd = endDateTime.toTimeString().split(" ")[0];
 
-      // 4. Handle JSON parsing for Tables and Items (Existing Logic)
-      const requestedTables =
-        typeof body.tableIds === "string"
-          ? JSON.parse(body.tableIds)
-          : body.tableIds;
-
+      // 2. Parse Items
       const items =
         typeof body.selectedItems === "string"
           ? JSON.parse(body.selectedItems)
           : body.selectedItems || [];
 
-      // 5. Conflict Check (Existing Logic)
-      const conflicts = await Reservation.checkTableConflicts(
-        dbDate,
-        requestedTables,
-        dbStart,
-        dbEnd,
-      );
+      // --- FIX: CALCULATE PACKAGE NAME IF MISSING ---
+      let finalPackageName = body.packageName;
 
-      if (conflicts.length > 0) {
-        return res.status(400).json({
-          message:
-            "One or more tables are already booked for this specific time slot.",
-        });
+      if (!finalPackageName || finalPackageName === "Table Reservation") {
+        if (items.length > 0) {
+          // Fallback: If frontend failed to send it, try to get it from the items array
+          finalPackageName =
+            items[0].name || items[0].item_name || "Product Selection";
+          if (items.length > 1) finalPackageName += " + Others";
+        } else {
+          finalPackageName = "Table Reservation";
+        }
       }
 
-      // 6. Prepare data for Model
-        const reservationData = {
+      const reservationData = {
         ...body,
         date: dbDate,
         startTime: dbStart,
         endTime: dbEnd,
-        expiresAt: endDateTime,
-        tableIds: requestedTables,
+        packageName: finalPackageName, // <--- Passes "Pizza" or "Package A" to model
+        totalAmount: parseFloat(body.totalAmount || 0),
+        amount: parseFloat(body.amount || 0),
+        tableIds: body.tableIds,
         selectedItems: items,
-        // Ensure we check both 'amount' and 'downpayment' from the frontend
-        amount: parseFloat(body.amount || body.downpayment || 0), 
-        paymentMethod: body.paymentMethod || "Maya",
-        paymentStatus: body.paymentStatus || (body.paymentMethod === "Gcash" ? "verified" : "pending"),
-        receiptPath: req.file ? req.file.filename : body.receiptPath || null,
+        receiptPath: req.file ? req.file.filename : null,
       };
-      const newId = await Reservation.create(reservationData);
 
-      return res.status(201).json({
-        id: newId,
-        message: "Reservation created!",
-        expiresAt: endDateTime, // Send this back so frontend can start a timer
-      });
+      const newId = await Reservation.create(reservationData);
+      return res.status(201).json({ id: newId });
     } catch (error) {
-      console.error("CRITICAL BACKEND ERROR:", error.message);
       res.status(500).json({ error: error.message });
     }
   },

@@ -21,20 +21,27 @@ export default function PaymentSuccess() {
         return;
       }
 
+      // Inside saveToDatabase function in PaymentSuccess.jsx
       try {
         const reservation = JSON.parse(pendingData);
 
-        // Send to your existing reservation endpoint
-        // We include the userId from localStorage to ensure the booking is linked to the account
         await axios.post("http://localhost:5000/api/reservations/table", {
           ...reservation,
           userId: userId,
+          guests: reservation.guestCount, // Map guestCount to guests
+          tableIds:
+            reservation.tableIds ||
+            JSON.stringify([
+              reservation.selectedId,
+              ...(reservation.linkedIds || []),
+            ]),
           status: "Confirmed",
           paymentStatus: "verified",
           paymentMethod: "Gcash",
-          // Since it's automated GCash, we don't have a manual receipt file
           receiptPath: "PAID_VIA_GCASH_AUTOMATED",
         });
+
+        // ... rest of code
 
         localStorage.removeItem("pendingReservation"); // Clear data after success
         hasSaved.current = true;
