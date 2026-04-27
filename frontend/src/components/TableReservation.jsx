@@ -16,6 +16,7 @@ import {
   Mail,
   Phone,
   Link as LinkIcon,
+  AlertTriangle,
 } from "lucide-react";
 import "../Style/TableReservation.css";
 import MenuModal from "./MenuModal";
@@ -553,6 +554,47 @@ export default function TableReservation({ onClose, onSuccess }) {
                       ? `${selectedItems.length} Selected`
                       : "View Packages"}
                   </button>
+                  {/* DOWNPAYMENT DISPLAY LOGIC */}
+                  {selectedItems.length > 0 && (
+                    <div
+                      style={{
+                        marginTop: "10px",
+                        padding: "12px",
+                        backgroundColor: "#fff9f4",
+                        border: "1px solid #fbd7b5",
+                        borderRadius: "12px",
+                        fontSize: "13px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          marginBottom: "5px",
+                        }}
+                      >
+                        <span style={{ color: "#666" }}>Total Amount:</span>
+                        <strong style={{ color: "#333" }}>
+                          ₱{orderSummary.totalOrderPrice.toFixed(2)}
+                        </strong>
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          borderTop: "1px dashed #fbd7b5",
+                          paddingTop: "5px",
+                        }}
+                      >
+                        <span style={{ color: "#666" }}>
+                          Downpayment (20%):
+                        </span>
+                        <strong style={{ color: "#f38d31" }}>
+                          ₱{orderSummary.downpayment.toFixed(2)}
+                        </strong>
+                      </div>
+                    </div>
+                  )}
                   {selectedItems.length === 0 && (
                     <span style={errorTextStyle}>
                       Please select at least one package
@@ -670,7 +712,9 @@ export default function TableReservation({ onClose, onSuccess }) {
       <TermsModal
         isOpen={ui.terms}
         onClose={() => setUi((p) => ({ ...p, terms: false }))}
-        onAccept={() => setUi((p) => ({ ...p, terms: false, summary: true }))}
+        onAccept={() => {
+          setUi((p) => ({ ...p, terms: false, summary: true }));
+        }}
       />
       <ReservationSummary
         isOpen={ui.summary}

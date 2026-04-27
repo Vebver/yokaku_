@@ -132,12 +132,28 @@ const reservationController = {
   getTableStatuses: async (req, res) => {
     try {
       const { date, startTime, endTime } = req.query;
-      if (!date || !startTime) return res.json({});
-      const rows = await Reservation.getOccupiedTablesByTime(
-        date,
-        startTime,
-        endTime,
-      );
+      if (!date) return res.json({});
+
+      let rows;
+      // If time is provided, check for specific overlaps (Red/Occupied)
+      if (startTime && endTime && startTime !== "" && endTime !== "") {
+        rows = await Reservation.getOccupiedTablesByTime(
+          date,
+          startTime,
+          endTime,
+        );
+      } else {
+        // If NO time is provided, check for ANY reservation on that day (Yellow/Reserved)
+        const sql = `
+          SELECT DISTINCT rt.table_id, 'Pending' as status 
+          FROM reservations r 
+          JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id 
+          WHERE r.reservation_date = ? 
+          AND r.status IN ('Pending', 'Confirmed', 'Seated')`;
+        const [result] = await db.execute(sql, [date]);
+        rows = result;
+      }
+
       const statusMap = {};
       rows.forEach((row) => {
         statusMap[row.table_id] = row.status;

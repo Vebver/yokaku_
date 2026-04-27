@@ -1,6 +1,6 @@
 const db = require("../config/db");
 const Notification = require("./Notification");
-const TableStatus = require('./TableStatus');
+const TableStatus = require("./TableStatus");
 
 const generateRandomId = () => {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -23,7 +23,7 @@ const Reservation = {
   getSlotsByTableAndDate: async (date, tableId) => {
     const sql = `SELECT r.reservation_time FROM reservations r JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id WHERE r.reservation_date = ? AND rt.table_id = ? AND r.status != 'Rejected'`;
     const [rows] = await db.execute(sql, [date, tableId]);
-    return rows.map((row) => row.reservation_time);
+    return Array.isArray(rows) ? rows.map((row) => row.reservation_time) : [];
   },
 
   getOccupiedTablesByTime: async (date, startTime, endTime) => {
@@ -33,6 +33,10 @@ const Reservation = {
   },
 
   checkTableConflicts: async (date, requestedTables, startTime, endTime) => {
+    // SAFETY GUARD: Prevent .map() crash if requestedTables is undefined or empty
+    if (!Array.isArray(requestedTables) || requestedTables.length === 0)
+      return [];
+
     const placeholders = requestedTables.map(() => "?").join(",");
     const sql = `SELECT rt.table_id FROM reservations r JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id WHERE r.reservation_date = ? AND r.status IN ('Pending', 'Confirmed', 'Seated') AND rt.table_id IN (${placeholders}) AND r.reservation_time < ? AND r.end_time > ?`;
     const [rows] = await db.execute(sql, [
@@ -44,9 +48,8 @@ const Reservation = {
     return rows;
   },
 
-  // --- MOVED: GET SPECIFIC TABLE SCHEDULE ---
   getSpecificTableSchedule: async (tableId, date) => {
-    const cleanId = String(tableId).replace(/\D/g, ""); // Standardize ID format
+    const cleanId = String(tableId).replace(/\D/g, "");
     const sql = `
       SELECT r.reservation_time AS startTime, r.end_time AS endTime, r.status
       FROM reservations r
@@ -58,8 +61,6 @@ const Reservation = {
     return rows;
   },
 
-  // --- MOVED: GET ITEMS BY RESERVATION ID ---
-  // --- GET ITEMS BY RESERVATION ID (With Price Lookup) ---
   getItemsByReservationId: async (reservationId) => {
     const sql = `
       SELECT 
@@ -84,18 +85,18 @@ const Reservation = {
     const [rows] = await db.execute(sql, [reservationId, reservationId]);
     return rows;
   },
-  // --- CREATE METHOD ---
-create: async (data) => {
+
+  create: async (data) => {
     const conn = await db.getConnection();
     try {
       await conn.beginTransaction();
       const customId = generateRandomId();
 
       const resQuery = `INSERT INTO reservations (reservation_id, user_id, first_name, last_name, email, phone, reservation_date, reservation_time, end_time, num_guests, package_name, status, receipt_path, brgy_code, allergy) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-      
+
       const resValues = [
         customId,
-        (data.userId && data.userId !== "null") ? data.userId : null,
+        data.userId && data.userId !== "null" ? data.userId : null,
         data.firstName || null,
         data.lastName || null,
         data.email || null,
@@ -106,72 +107,88 @@ create: async (data) => {
         data.guests || 0,
         data.packageName || "Table Reservation",
         data.status || "Confirmed",
-        data.receiptPath || null, // Ensure this matches the key in the controller
+        data.receiptPath || null,
         data.brgyCode || null,
         data.allergy || "None",
       ];
 
       await conn.execute(resQuery, resValues);
 
-      // Handle Tables
+      // Handle Tables - Safe Parsing
       let tableIdsArray = data.tableIds || [];
-      if (typeof tableIdsArray === "string") tableIdsArray = JSON.parse(tableIdsArray);
-      
-      if (tableIdsArray.length > 0) {
-        const tableLinkQuery = "INSERT INTO reservation_tables (reservation_id, table_id, customer_name, check_in_time, status) VALUES (?, ?, ?, ?, 'confirmed')";
+      if (typeof tableIdsArray === "string") {
+        try {
+          tableIdsArray = JSON.parse(tableIdsArray);
+        } catch (e) {
+          tableIdsArray = [tableIdsArray];
+        }
+      }
+
+      if (Array.isArray(tableIdsArray) && tableIdsArray.length > 0) {
+        const tableLinkQuery =
+          "INSERT INTO reservation_tables (reservation_id, table_id, customer_name, check_in_time, status) VALUES (?, ?, ?, ?, 'confirmed')";
         for (const tid of tableIdsArray) {
+          if (!tid) continue;
           const cleanTid = parseInt(String(tid).replace(/\D/g, ""));
           await conn.execute(tableLinkQuery, [
-            customId, 
+            customId,
             cleanTid || 0,
-            `${data.firstName} ${data.lastName}`.trim() || null,
-            new Date() // Current timestamp for check_in_time
+            `${data.firstName || ""} ${data.lastName || ""}`.trim() || "Guest",
+            new Date(),
           ]);
         }
       }
 
-      // Handle Items (This is a common place for 'undefined' errors)
-      if (data.selectedItems && data.selectedItems.length > 0) {
-        const itemQuery = `INSERT INTO reservation_items (reservation_id, product_id, quantity, price) VALUES (?, ?, ?, ?)`;
+      // Handle Items - Safe Guard against Undefined
+      const itemsToProcess = Array.isArray(data.selectedItems)
+        ? data.selectedItems
+        : typeof data.selectedItems === "string"
+          ? JSON.parse(data.selectedItems)
+          : [];
 
-        for (const item of data.selectedItems) {
+      if (itemsToProcess.length > 0) {
+        const itemQuery = `INSERT INTO reservation_items (reservation_id, product_id, quantity, price) VALUES (?, ?, ?, ?)`;
+        for (const item of itemsToProcess) {
           await conn.execute(itemQuery, [
             customId,
-            item.item_id || item.id || null, // Fallback if ID is named differently
+            item.item_id || item.id || null,
             item.quantity || 0,
-            item.price || 0
+            item.price || 0,
           ]);
         }
       }
 
       // Handle Notification
-      if (data.userId) {
+      if (data.userId && data.userId !== "null") {
         await Notification.create(conn, {
           userId: data.userId,
           reservationId: customId,
           title: "Reservation Confirmed",
           message: `Your reservation for ${data.guests} guest(s) on ${data.date} at ${data.startTime} has been confirmed.`,
-          type: "reservation"
+          type: "reservation",
         });
       }
 
       // Handle Payment
-      const paymentQuery = "INSERT INTO payments (reservation_id, amount, payment_status) VALUES (?, ?, ?)";
+      const paymentQuery =
+        "INSERT INTO payments (reservation_id, amount, payment_status) VALUES (?, ?, ?)";
       await conn.execute(paymentQuery, [
         customId,
-        data.downpayment || 0,
-        "pending",
+        data.totalAmount || 0, // Using totalAmount from controller
+        data.paymentStatus === "Paid" ? "paid" : "pending",
       ]);
 
       await conn.commit();
       return customId;
     } catch (err) {
       await conn.rollback();
+      console.error("MODEL ERROR:", err.message);
       throw err;
     } finally {
       conn.release();
     }
   },
+
   getAll: async () => {
     const sql = `SELECT r.*, p.payment_status, p.amount, CONCAT(b.brgy_name, ', ', m.muni_name) AS full_address, GROUP_CONCAT(DISTINCT t.table_number SEPARATOR ' + ') AS assigned_tables FROM reservations r LEFT JOIN payments p ON r.reservation_id = p.reservation_id LEFT JOIN barangays b ON r.brgy_code = b.brgy_code LEFT JOIN municipalities m ON b.muni_code = m.muni_code LEFT JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id LEFT JOIN tables t ON rt.table_id = t.table_id GROUP BY r.reservation_id ORDER BY r.created_at DESC`;
     const [rows] = await db.execute(sql);
@@ -185,12 +202,10 @@ create: async (data) => {
   },
 
   updateStatus: async (id, status) => {
-    // First update the reservation status
     await db.execute(
       "UPDATE reservations SET status = ? WHERE reservation_id = ?",
       [status, id],
     );
-    // Then update the table status based on the new reservation status
     await TableStatus.updateTableStatusByReservation(id, status);
   },
 
