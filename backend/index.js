@@ -87,7 +87,7 @@ app.use("/api/categories", categoryRoutes);
 app.use('/api/inventory', protect, adminOnly, inventoryRoutes);
 
 // Static folder for uploaded images (serve from frontend/public/uploads)
-app.use('/uploads', express.static(path.join(__dirname, '../frontend/public/uploads')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Admin routes
 app.use('/api/admin', protect, adminOnly, adminRoutes);

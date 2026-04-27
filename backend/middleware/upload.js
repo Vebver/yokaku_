@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 
 // Configure storage - save to frontend/public/uploads
-const uploadsDir = path.join(__dirname, '../../frontend/public/uploads');
+const uploadsDir = path.join(__dirname, '../uploads');
 
 // Ensure directory exists
 if (!fs.existsSync(uploadsDir)) {
