@@ -1,3 +1,4 @@
+const axios = require("axios"); // For PayMongo API calls
 const db = require("../config/db");
 const Reservation = require("../models/Reservation");
 
@@ -11,7 +12,71 @@ const formatTimeTo24h = (timeStr) => {
 };
 
 const reservationController = {
-  // Check if a user has an active/pending booking
+  // --- PAYMONGO GCASH SESSION CREATION ---
+  createPaymentSession: async (req, res) => {
+    try {
+      const { amount, tableLabel } = req.body;
+
+      // Log arriving data for debugging
+      console.log("Payment Request Received:", { amount, tableLabel });
+
+      if (!amount || isNaN(amount)) {
+        return res.status(400).json({ error: "Invalid amount provided" });
+      }
+
+      // PayMongo requires amount in centavos (integer)
+      const amountInCentavos = Math.round(parseFloat(amount) * 100);
+
+      const options = {
+        method: "POST",
+        url: "https://api.paymongo.com/v1/checkout_sessions",
+        headers: {
+          accept: "application/json",
+          "Content-Type": "application/json",
+          authorization: `Basic ${Buffer.from(process.env.PAYMONGO_SECRET_KEY + ":").toString("base64")}`,
+        },
+        data: {
+          data: {
+            attributes: {
+              send_email_receipt: true,
+              show_description: true,
+              show_line_items: true,
+              payment_method_types: ["gcash"],
+              line_items: [
+                {
+                  currency: "PHP",
+                  amount: amountInCentavos,
+                  description: `Downpayment for Table ${tableLabel || "Reservation"}`,
+                  name: "Table Reservation Downpayment",
+                  quantity: 1,
+                },
+              ],
+              success_url: `${process.env.CLIENT_URL}/payment-success`,
+              cancel_url: `${process.env.CLIENT_URL}/payment-cancel`,
+              description: "Reservation Security Deposit",
+            },
+          },
+        },
+      };
+
+      const response = await axios.request(options);
+      res.json({ checkoutUrl: response.data.data.attributes.checkout_url });
+    } catch (error) {
+      // Detailed error logging to identify why the 500 error is occurring
+      console.error("--- PAYMONGO INTEGRATION ERROR ---");
+      console.error("Status:", error.response?.status);
+      console.error("Data:", JSON.stringify(error.response?.data, null, 2));
+      console.error("Message:", error.message);
+
+      res.status(500).json({
+        error: "Failed to initiate GCash payment",
+        details: error.response?.data?.errors?.[0]?.detail || error.message,
+      });
+    }
+  },
+
+  // --- EXISTING LOGIC (UNTOUCHED) ---
+
   checkUserActive: async (req, res) => {
     try {
       const hasActive = await Reservation.checkActiveByUserId(
@@ -23,7 +88,6 @@ const reservationController = {
     }
   },
 
-  // Check specific slot availability for a table
   checkAvailability: async (req, res) => {
     try {
       const { date, tableId } = req.query;
@@ -43,15 +107,10 @@ const reservationController = {
     }
   },
 
-  // Get food items linked to a specific reservation (Used in Billing)
   getReservationItems: async (req, res) => {
     try {
-      const { id } = req.params; // This is the '?' in your SQL
-
-      // Calling the model function that uses the JOIN we fixed
+      const { id } = req.params;
       const items = await Reservation.getItemsByReservationId(id);
-
-      // Send the items back to the React frontend
       res.json(items);
     } catch (error) {
       console.error("Error fetching reservation items:", error);
@@ -59,12 +118,10 @@ const reservationController = {
     }
   },
 
-  // Get the full schedule for a specific table on a specific date
   getSpecificTableSchedule: async (req, res) => {
     try {
       const { tableId, date } = req.query;
       if (!tableId || !date) return res.json([]);
-
       const rows = await Reservation.getSpecificTableSchedule(tableId, date);
       res.json(rows);
     } catch (error) {
@@ -72,16 +129,30 @@ const reservationController = {
     }
   },
 
-  // Get which tables are occupied at a specific date/time
   getTableStatuses: async (req, res) => {
     try {
       const { date, startTime, endTime } = req.query;
-      if (!date || !startTime) return res.json({});
-      const rows = await Reservation.getOccupiedTablesByTime(
-        date,
-        startTime,
-        endTime,
-      );
+      if (!date) return res.json({});
+
+      let rows;
+      // If time is provided, check for specific overlaps (Red/Occupied)
+      if (startTime && endTime && startTime !== "" && endTime !== "") {
+        rows = await Reservation.getOccupiedTablesByTime(
+          date,
+          startTime,
+          endTime,
+        );
+      } else {
+        // If NO time is provided, check for ANY reservation on that day (Yellow/Reserved)
+        const sql = `
+          SELECT DISTINCT rt.table_id, 'Pending' as status 
+          FROM reservations r 
+          JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id 
+          WHERE r.reservation_date = ? 
+          AND r.status IN ('Pending', 'Confirmed', 'Seated')`;
+        const [result] = await db.execute(sql, [date]);
+        rows = result;
+      }
 
       const statusMap = {};
       rows.forEach((row) => {
@@ -92,33 +163,31 @@ const reservationController = {
       res.status(500).json({ error: error.message });
     }
   },
- // Create a new reservation
+
   createReservation: async (req, res) => {
     try {
       const body = req.body;
 
-      // 1. Parse Table IDs if sent as stringified JSON
       const requestedTables =
         typeof body.tableIds === "string"
           ? JSON.parse(body.tableIds)
           : body.tableIds;
 
-      // 2. Parse Selected Items (THIS WAS THE MISSING PART)
-      const items = typeof body.selectedItems === "string"
-        ? JSON.parse(body.selectedItems)
-        : (body.selectedItems || []);
+      const items =
+        typeof body.selectedItems === "string"
+          ? JSON.parse(body.selectedItems)
+          : body.selectedItems || [];
 
-      // 3. Format times for DB compatibility
       const dbStart = formatTimeTo24h(body.startTime);
       const dbEnd = formatTimeTo24h(body.endTime);
 
-      // 4. Check for double-booking conflicts
       const conflicts = await Reservation.checkTableConflicts(
         body.date,
         requestedTables,
         dbStart,
         dbEnd,
       );
+
       if (conflicts.length > 0) {
         return res.status(400).json({
           message:
@@ -126,7 +195,6 @@ const reservationController = {
         });
       }
 
-      // 5. Combine body data with the filename from Multer
       const reservationData = {
         ...body,
         firstName: body.firstName,
@@ -136,13 +204,11 @@ const reservationController = {
         startTime: dbStart,
         endTime: dbEnd,
         tableIds: requestedTables,
-        selectedItems: items, // Now 'items' is defined!
-        receiptPath: req.file ? req.file.filename : null,
+        selectedItems: items,
+        receiptPath: req.file ? req.file.filename : body.receiptPath || null,
       };
 
-      // 6. Pass the NEW object to the model
       const newId = await Reservation.create(reservationData);
-
       return res.status(201).json({ id: newId, message: "Success!" });
     } catch (error) {
       console.error("CRITICAL BACKEND ERROR:", error.message);
@@ -151,7 +217,7 @@ const reservationController = {
       }
     }
   },
-  // Get all reservations (Admin Dashboard view)
+
   getReservations: async (req, res) => {
     try {
       const data = await Reservation.getAll();
@@ -161,7 +227,6 @@ const reservationController = {
     }
   },
 
-  // Update reservation status (Confirmed, Seated, Cancelled, etc.)
   updateStatus: async (req, res) => {
     try {
       await Reservation.updateStatus(req.params.id, req.body.status);
@@ -171,7 +236,6 @@ const reservationController = {
     }
   },
 
-  // Delete a reservation record
   deleteReservation: async (req, res) => {
     try {
       await Reservation.delete(req.params.id);
@@ -181,7 +245,6 @@ const reservationController = {
     }
   },
 
-  // Get full details of a specific reservation (Used for receipt validation)
   checkReservationId: async (req, res) => {
     try {
       const reservation = await Reservation.findById(req.params.id);

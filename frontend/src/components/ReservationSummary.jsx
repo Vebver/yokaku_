@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import axios from "axios"; // Added for PayMongo API call
 import {
   X,
   Upload,
@@ -23,6 +24,7 @@ const ReservationSummary = ({
 }) => {
   const [receipt, setReceipt] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState(null);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false); // New state for redirecting
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -32,6 +34,7 @@ const ReservationSummary = ({
       document.body.style.overflow = "unset";
       setReceipt(null);
       setPaymentMethod(null);
+      setIsProcessingPayment(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
     return () => {
@@ -50,12 +53,58 @@ const ReservationSummary = ({
   // Improved helper to format table display
   const displayTables = () => {
     const main = reservationData.tableLabel || "";
-    // Check if linkedTables exists and has items
     const linked =
       reservationData.linkedTables && reservationData.linkedTables.length > 0
         ? ` + ${reservationData.linkedTables.join(", ")}`
         : "";
     return main + linked;
+  };
+
+  // --- NEW: PAYMONGO REDIRECT LOGIC ---
+  const handlePaymentAndConfirm = async () => {
+    if (paymentMethod === "Gcash") {
+      // Safety check for amount
+      const amountToPay = orderSummary?.downpayment;
+
+      if (!amountToPay || amountToPay <= 0) {
+        alert(
+          "Payment amount not found. Please ensure your order total is calculated.",
+        );
+        return;
+      }
+
+      setIsProcessingPayment(true);
+      try {
+        // 1. Save reservation data to localStorage so we can retrieve it on the /payment-success page
+        localStorage.setItem(
+          "pendingReservation",
+          JSON.stringify(reservationData),
+        );
+
+        // 2. Call your backend to create the PayMongo session
+        const response = await axios.post(
+          "http://localhost:5000/api/reservations/create-payment",
+          {
+            amount: amountToPay,
+            tableLabel: displayTables(),
+          },
+        );
+
+        // 3. Redirect to GCash Sandbox
+        if (response.data.checkoutUrl) {
+          window.location.href = response.data.checkoutUrl;
+        }
+      } catch (err) {
+        console.error("Payment initiation failed", err);
+        alert(
+          "Failed to initiate GCash payment. Please ensure the downpayment is at least ₱100.00.",
+        );
+        setIsProcessingPayment(false);
+      }
+    } else {
+      // Original logic for manual upload (Maya or others)
+      onConfirm(receipt);
+    }
   };
 
   return (
@@ -242,7 +291,7 @@ const ReservationSummary = ({
               ))}
             </div>
 
-            {paymentMethod && (
+            {paymentMethod && paymentMethod !== "Gcash" && (
               <div className="payment-instructions fade-in">
                 <p>
                   Send{" "}
@@ -261,63 +310,77 @@ const ReservationSummary = ({
             )}
           </section>
 
-          {/* Section 5: Receipt Upload */}
-          <section className="summary-section">
-            <label className="upload-instruction">
-              Upload Receipt (Amount: ₱{orderSummary?.downpayment?.toFixed(2)})
-            </label>
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={(e) => setReceipt(e.target.files[0])}
-              accept="image/*"
-              style={{ display: "none" }}
-            />
+          {/* Section 5: Receipt Upload - Only required if not GCash (PayMongo) */}
+          {paymentMethod !== "Gcash" && (
+            <section className="summary-section">
+              <label className="upload-instruction">
+                Upload Receipt (Amount: ₱{orderSummary?.downpayment?.toFixed(2)}
+                )
+              </label>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={(e) => setReceipt(e.target.files[0])}
+                accept="image/*"
+                style={{ display: "none" }}
+              />
 
-            <div className="upload-container-wrapper">
-              <button
-                type="button"
-                className={`upload-btn ${receipt ? "file-selected" : ""}`}
-                onClick={() => fileInputRef.current.click()}
-              >
-                {receipt ? (
-                  <div className="selected-file-info">
-                    <CheckCircle2 size={18} color="#27ae60" />
-                    <span className="file-name">{receipt.name}</span>
-                  </div>
-                ) : (
-                  <div className="placeholder-info">
-                    <Upload size={18} />
-                    <span>Select Receipt Image</span>
-                  </div>
-                )}
-              </button>
-              {receipt && (
+              <div className="upload-container-wrapper">
                 <button
                   type="button"
-                  className="remove-file-action"
-                  onClick={handleRemoveFile}
+                  className={`upload-btn ${receipt ? "file-selected" : ""}`}
+                  onClick={() => fileInputRef.current.click()}
                 >
-                  <Trash2 size={18} />
+                  {receipt ? (
+                    <div className="selected-file-info">
+                      <CheckCircle2 size={18} color="#27ae60" />
+                      <span className="file-name">{receipt.name}</span>
+                    </div>
+                  ) : (
+                    <div className="placeholder-info">
+                      <Upload size={18} />
+                      <span>Select Receipt Image</span>
+                    </div>
+                  )}
                 </button>
-              )}
-            </div>
-            {!receipt && (
-              <div className="upload-tip">
-                <AlertCircle size={14} />
-                <span>Payment screenshot is required to complete booking.</span>
+                {receipt && (
+                  <button
+                    type="button"
+                    className="remove-file-action"
+                    onClick={handleRemoveFile}
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                )}
               </div>
-            )}
-          </section>
+              {!receipt && (
+                <div className="upload-tip">
+                  <AlertCircle size={14} />
+                  <span>
+                    Payment screenshot is required to complete booking.
+                  </span>
+                </div>
+              )}
+            </section>
+          )}
         </div>
 
         <footer className="summary-footer">
           <button
             className="confirm-btn"
-            disabled={!receipt || !paymentMethod || loading}
-            onClick={() => onConfirm(receipt)}
+            disabled={
+              (paymentMethod !== "Gcash" && !receipt) ||
+              !paymentMethod ||
+              loading ||
+              isProcessingPayment
+            }
+            onClick={handlePaymentAndConfirm}
           >
-            {loading ? "Processing..." : "Submit Reservation"}
+            {loading || isProcessingPayment
+              ? "Processing..."
+              : paymentMethod === "Gcash"
+                ? `Pay ₱${orderSummary?.downpayment?.toFixed(2)} with GCash`
+                : "Submit Reservation"}
           </button>
         </footer>
       </div>
