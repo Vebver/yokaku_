@@ -2,7 +2,6 @@ import React, { useState, useMemo, useEffect } from "react";
 import axios from "axios";
 import {
   UtensilsCrossed,
-  ArrowRight,
   ArrowLeft,
   X,
   Calendar,
@@ -23,6 +22,7 @@ import MenuModal from "./MenuModal";
 import ReservationSummary from "./ReservationSummary";
 import TermsModal from "./TermsModal";
 
+const API_BASE = "http://localhost:5000/api";
 const TABLES_DATA = [
   { id: 1, label: "Table 1", seats: 5 },
   { id: 2, label: "Table 2", seats: 2 },
@@ -36,305 +36,268 @@ const TABLES_DATA = [
   { id: 10, label: "Table 10", seats: 3 },
 ];
 
+const timeToMin = (t) => {
+  if (!t) return 0;
+  const [time, period] = t.split(" ");
+  let [h, m] = time.split(":").map(Number);
+  if (period === "PM" && h !== 12) h += 12;
+  if (period === "AM" && h === 12) h = 0;
+  return h * 60 + m;
+};
+
+const formatTime = (t) => {
+  if (!t || t.includes("AM") || t.includes("PM")) return t || "";
+  let [h, m] = t.split(":");
+  let hours = parseInt(h, 10);
+  const ampm = hours >= 12 ? "PM" : "AM";
+  return `${hours % 12 || 12}:${m} ${ampm}`;
+};
+
 export default function TableReservation({ onClose, onSuccess }) {
   const [selectedId, setSelectedId] = useState(null);
   const [linkedIds, setLinkedIds] = useState([]);
-  const [isLinkMode, setIsLinkMode] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [isTermsOpen, setIsTermsOpen] = useState(false);
-  const [dbOccupiedTables, setDbOccupiedTables] = useState({});
-  const [tableSchedule, setTableSchedule] = useState([]);
-
-  // --- FORM STATES ---
-  const [firstName, setFirstName] = useState(
-    localStorage.getItem("firstName") || "",
-  );
-  const [lastName, setLastName] = useState(
-    localStorage.getItem("lastName") || "",
-  );
-  const [email, setEmail] = useState(localStorage.getItem("email") || "");
-  const [phone, setPhone] = useState(localStorage.getItem("phone") || "");
-  const [isEditing, setIsEditing] = useState(false);
-  const [resDate, setResDate] = useState("");
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
   const [selectedItems, setSelectedItems] = useState([]);
-  const [highChair, setHighChair] = useState("No");
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isSummaryOpen, setIsSummaryOpen] = useState(false);
+  const [isLinkMode, setIsLinkMode] = useState(false);
 
-  const todayStr = useMemo(() => {
-    const now = new Date();
-    const offset = now.getTimezoneOffset() * 60000;
-    return new Date(now - offset).toISOString().split("T")[0];
+  const [form, setForm] = useState({
+    date: "",
+    startTime: "",
+    endTime: "",
+    highChair: "No",
+    muni: "",
+    brgy: "",
+  });
+  const [addressData, setAddressData] = useState({
+    municipalities: [],
+    barangays: [],
+  });
+  const [user, setUser] = useState({
+    firstName: localStorage.getItem("firstName") || "",
+    lastName: localStorage.getItem("lastName") || "",
+    email: localStorage.getItem("email") || "",
+    phone: "09",
+  });
+
+  const [data, setData] = useState({ occupied: {}, schedule: [] });
+  const [ui, setUi] = useState({
+    loading: false,
+    editing: false,
+    menu: false,
+    summary: false,
+    terms: false,
+  });
+
+  const todayStr = new Date(new Date() - new Date().getTimezoneOffset() * 60000)
+    .toISOString()
+    .split("T")[0];
+
+  // --- ERROR VALIDATION LOGIC ---
+  const fieldErrors = useMemo(() => {
+    const errors = {};
+    if (form.date && form.date < todayStr)
+      errors.date = "Date cannot be in the past";
+    if (form.startTime && form.endTime) {
+      if (timeToMin(form.endTime) - timeToMin(form.startTime) < 60)
+        errors.time = "Minimum 1 hour required";
+    }
+    if (user.email && !/^\S+@\S+\.\S+$/.test(user.email))
+      errors.email = "Invalid email address";
+    if (
+      user.phone.length > 2 &&
+      (user.phone.length !== 11 || !user.phone.startsWith("09"))
+    )
+      errors.phone = "Must be 11 digits starting with 09";
+    return errors;
+  }, [
+    form.date,
+    form.startTime,
+    form.endTime,
+    user.email,
+    user.phone,
+    todayStr,
+  ]);
+
+  const errorTextStyle = {
+    color: "#e63946",
+    fontSize: "10px",
+    fontWeight: "bold",
+    marginTop: "2px",
+    marginLeft: "5px",
+  };
+
+  useEffect(() => {
+    axios
+      .get(`${API_BASE}/address/municipalities`)
+      .then((res) =>
+        setAddressData((prev) => ({
+          ...prev,
+          municipalities: Array.isArray(res.data)
+            ? res.data
+            : res.data.data || [],
+        })),
+      )
+      .catch(console.error);
   }, []);
 
-  // --- DERIVED STATE ---
-  const primaryTable = useMemo(
-    () => TABLES_DATA.find((t) => t.id === selectedId),
-    [selectedId],
-  );
+  useEffect(() => {
+    if (form.muni) {
+      axios
+        .get(`${API_BASE}/address/barangays/${form.muni}`)
+        .then((res) =>
+          setAddressData((prev) => ({
+            ...prev,
+            barangays: Array.isArray(res.data) ? res.data : [],
+          })),
+        )
+        .catch(console.error);
+    }
+  }, [form.muni]);
+
+  useEffect(() => {
+    const poll = async () => {
+      if (!form.date) return;
+      try {
+        const [statRes, schedRes] = await Promise.all([
+          axios.get(`${API_BASE}/reservations/table-statuses`, {
+            params: {
+              date: form.date,
+              startTime: form.startTime || "00:00",
+              endTime: form.endTime || "23:59",
+            },
+          }),
+          selectedId
+            ? axios.get(`${API_BASE}/reservations/table-schedule`, {
+                params: { tableId: selectedId, date: form.date },
+              })
+            : { data: [] },
+        ]);
+        setData({
+          occupied: statRes.data || {},
+          schedule: Array.isArray(schedRes.data) ? schedRes.data : [],
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    poll();
+    const id = setInterval(poll, 5000);
+    return () => clearInterval(id);
+  }, [form.date, form.startTime, form.endTime, selectedId]);
+
+  const timeOptions = useMemo(() => {
+    const opts = [];
+    for (let h = 10; h <= 22; h++) {
+      for (let m = 0; m < 60; m += 15) {
+        if (h === 22 && m > 0) break;
+        const hour12 = h % 12 || 12;
+        const period = h < 12 ? "AM" : "PM";
+        opts.push(
+          `${hour12.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")} ${period}`,
+        );
+      }
+    }
+    return opts;
+  }, []);
 
   const totalSeats = useMemo(() => {
-    if (!primaryTable) return 0;
-    const linkedSeats = TABLES_DATA.filter((t) =>
-      linkedIds.includes(t.id),
-    ).reduce((sum, t) => sum + t.seats, 0);
-    return primaryTable.seats + linkedSeats;
-  }, [primaryTable, linkedIds]);
+    if (!selectedId) return 0;
+    const primary = TABLES_DATA.find((t) => t.id === selectedId);
+    return (
+      (primary?.seats || 0) +
+      TABLES_DATA.filter((t) => linkedIds.includes(t.id)).reduce(
+        (sum, t) => sum + t.seats,
+        0,
+      )
+    );
+  }, [selectedId, linkedIds]);
+
+  const orderSummary = useMemo(() => {
+    const total = selectedItems.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0,
+    );
+    return {
+      totalOrderPrice: total,
+      downpayment: total * 0.2,
+      balance: total * 0.8,
+    };
+  }, [selectedItems]);
 
   const fullReservationData = useMemo(
     () => ({
-      firstName,
-      lastName,
-      email,
-      phone,
+      ...user,
+      ...form,
       guestCount: totalSeats,
-      resDate,
-      startTime,
-      endTime,
-      tableLabel: primaryTable?.label,
-      linkedTables: linkedIds,
+      tableLabel: TABLES_DATA.find((t) => t.id === selectedId)?.label,
+      linkedTables: linkedIds.map(
+        (id) => TABLES_DATA.find((t) => t.id === id)?.label,
+      ),
       packages: selectedItems,
+      resDate: form.date,
+      municipality:
+        addressData.municipalities.find((m) => m.code === form.muni)?.name ||
+        "",
+      barangay:
+        addressData.barangays.find((b) => b.code === form.brgy)?.name || "",
     }),
-    [
-      firstName,
-      lastName,
-      email,
-      phone,
-      totalSeats,
-      resDate,
-      startTime,
-      endTime,
-      primaryTable,
-      linkedIds,
-      selectedItems,
-    ],
+    [user, form, totalSeats, selectedId, linkedIds, selectedItems, addressData],
   );
 
-  // --- REAL-TIME POLLING ---
-  useEffect(() => {
-    const fetchData = async () => {
-      if (resDate) {
-        try {
-          const res = await axios.get(
-            `http://localhost:5000/api/reservations/table-statuses`,
-            {
-              params: {
-                date: resDate,
-                startTime: startTime || "00:00",
-                endTime: endTime || "23:59",
-              },
-            },
-          );
-          setDbOccupiedTables(res.data || {});
-        } catch (err) {
-          console.error(err);
-        }
-      }
-    };
-    fetchData();
-    const interval = setInterval(fetchData, 5000);
-    return () => clearInterval(interval);
-  }, [resDate, startTime, endTime]);
-
-  useEffect(() => {
-    const fetchSchedule = async () => {
-      if (selectedId && resDate) {
-        try {
-          const res = await axios.get(
-            `http://localhost:5000/api/reservations/table-schedule`,
-            {
-              params: { tableId: selectedId, date: resDate },
-            },
-          );
-          setTableSchedule(Array.isArray(res.data) ? res.data : []);
-        } catch (err) {
-          console.error(err);
-        }
-      }
-    };
-    fetchSchedule();
-    const interval = setInterval(fetchSchedule, 5000);
-    return () => clearInterval(interval);
-  }, [selectedId, resDate]);
-
-  // --- HELPERS ---
-  const timeToMinutes = (t) => {
-    if (!t) return 0;
-    const is12 = t.includes("AM") || t.includes("PM");
-    if (is12) {
-      const [time, period] = t.split(" ");
-      let [h, m] = time.split(":").map(Number);
-      if (period === "PM" && h !== 12) h += 12;
-      if (period === "AM" && h === 12) h = 0;
-      return h * 60 + m;
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    if (name === "phone") {
+      let val = value.replace(/\D/g, "");
+      if (!val.startsWith("09")) val = "09";
+      if (val.length <= 11) setUser((p) => ({ ...p, phone: val }));
+      return;
     }
-    return t.split(":").reduce((h, m) => h * 60 + +m, 0);
+    if (name in user) setUser((prev) => ({ ...prev, [name]: value }));
+    else setForm((prev) => ({ ...prev, [name]: value }));
   };
-
-  const formatTimeForDisplay = (timeStr) => {
-    if (!timeStr) return "";
-    if (timeStr.includes("AM") || timeStr.includes("PM")) return timeStr;
-    const parts = timeStr.split(":");
-    let hours = parseInt(parts[0], 10);
-    const ampm = hours >= 12 ? "PM" : "AM";
-    hours = hours % 12 || 12;
-    return `${hours}:${parts[1]} ${ampm}`;
-  };
-
-  const availableStartTimeOptions = useMemo(() => {
-    const options = [];
-    ["AM", "PM"].forEach((p) => {
-      for (let h = p === "AM" ? 10 : 1; h <= (p === "AM" ? 11 : 10); h++) {
-        ["00", "15", "30", "45"].forEach((m) => {
-          if (
-            (p === "PM" && h === 10 && m !== "00") ||
-            (p === "AM" && h === 12)
-          )
-            return;
-          options.push(`${h.toString().padStart(2, "0")}:${m} ${p}`);
-        });
-      }
-    });
-    let filtered = options;
-    if (resDate === todayStr) {
-      const thresh = new Date().getHours() * 60 + new Date().getMinutes() + 15;
-      filtered = filtered.filter((t) => timeToMinutes(t) >= thresh);
-    }
-    return filtered.filter((t) => {
-      const m = timeToMinutes(t);
-      return !tableSchedule.some(
-        (r) =>
-          r.status !== "Done" &&
-          r.status !== "Completed" &&
-          m >= timeToMinutes(r.startTime) &&
-          m < timeToMinutes(r.endTime),
-      );
-    });
-  }, [tableSchedule, resDate, todayStr]);
-
-  const filteredEndTimeOptions = useMemo(() => {
-    if (!startTime) return [];
-    const startM = timeToMinutes(startTime);
-    const options = [];
-    ["AM", "PM"].forEach((p) => {
-      for (let h = p === "AM" ? 10 : 1; h <= (p === "AM" ? 11 : 10); h++) {
-        ["00", "15", "30", "45"].forEach((m) => {
-          if (
-            (p === "PM" && h === 10 && m !== "00") ||
-            (p === "AM" && h === 12)
-          )
-            return;
-          options.push(`${h.toString().padStart(2, "0")}:${m} ${p}`);
-        });
-      }
-    });
-    return options.filter((t) => timeToMinutes(t) >= startM + 60);
-  }, [startTime]);
 
   const isFormInvalid = useMemo(() => {
-    const s = timeToMinutes(startTime),
-      e = timeToMinutes(endTime);
-    const conflict = tableSchedule.some(
+    const s = timeToMin(form.startTime),
+      e = timeToMin(form.endTime);
+    const hasConflict = data.schedule.some(
       (r) =>
         r.status !== "Done" &&
-        r.status !== "Completed" &&
-        s < timeToMinutes(r.endTime) &&
-        e > timeToMinutes(r.startTime),
+        s < timeToMin(r.endTime) &&
+        e > timeToMin(r.startTime),
     );
-    const isPhoneValid = phone.length === 11 && phone.startsWith("09");
+    const phoneValid = user.phone.length === 11 && user.phone.startsWith("09");
+    const emailValid = /^\S+@\S+\.\S+$/.test(user.email);
+
     return (
       !selectedId ||
-      !firstName.trim() ||
-      !email.trim() ||
-      !isPhoneValid ||
-      !resDate ||
-      !startTime ||
-      !endTime ||
+      !user.firstName.trim() ||
+      !emailValid ||
+      !phoneValid ||
+      !form.date ||
       e - s < 60 ||
       selectedItems.length === 0 ||
-      conflict
+      !form.muni ||
+      !form.brgy ||
+      hasConflict
     );
-  }, [
-    firstName,
-    email,
-    phone,
-    resDate,
-    startTime,
-    endTime,
-    tableSchedule,
-    selectedId,
-    selectedItems,
-  ]);
-
-  const handleTableClick = (table) => {
-    const status = dbOccupiedTables[table.id];
-    if (status === "Confirmed" || status === "Seated" || status === "Pending")
-      return;
-
-    if (isLinkMode) {
-      if (table.id === selectedId) return;
-      setLinkedIds((prev) =>
-        prev.includes(table.id)
-          ? prev.filter((id) => id !== table.id)
-          : [...prev, table.id],
-      );
-    } else {
-      setSelectedId(selectedId === table.id ? null : table.id);
-      setLinkedIds([]);
-    }
-  };
-
-  const handleConfirmReservation = async (file) => {
-    setLoading(true);
-    try {
-      const data = new FormData();
-      const allTables = [selectedId, ...linkedIds];
-      data.append("userId", localStorage.getItem("userId") || "");
-      data.append("firstName", firstName);
-      data.append("lastName", lastName);
-      data.append("email", email);
-      data.append("phone", phone);
-      data.append("date", resDate);
-      data.append("startTime", startTime);
-      data.append("endTime", endTime);
-      data.append("guests", totalSeats);
-      data.append("tableIds", JSON.stringify(allTables));
-      data.append("receipt", file);
-      data.append("status", "Confirmed");
-      data.append("selectedItems", JSON.stringify(selectedItems));
-      const res = await axios.post(
-        "http://localhost:5000/api/reservations/table",
-        data,
-        { headers: { "Content-Type": "multipart/form-data" } },
-      );
-      if (res.status === 200 || res.status === 201) onSuccess(res.data.id);
-    } catch (err) {
-      setError("Failed");
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [user, form, data.schedule, selectedId, selectedItems]);
 
   return (
-    <div className={`floor-plan-wrapper ${!resDate ? "init-state" : ""}`}>
+    <div className={`floor-plan-wrapper ${!form.date ? "init-state" : ""}`}>
       <button className="page-back-btn" onClick={onClose}>
         <ArrowLeft size={18} /> <span>Back</span>
       </button>
 
       <aside
-        className={`floor-sidebar ${!resDate ? "centered-form" : ""}`}
+        className={`floor-sidebar ${!form.date ? "centered-form" : ""}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="res-panel fade-in">
           <h2 className="panel-title">
-            {!resDate
+            {!form.date
               ? "Select Reservation Date"
               : selectedId
-                ? `Reserve ${primaryTable?.label}`
-                : "Pick a Table"}
+                ? "Reservation Form"
+                : "Select a Table"}
           </h2>
           <div className="res-form">
             <div className="input-group">
@@ -343,42 +306,39 @@ export default function TableReservation({ onClose, onSuccess }) {
               </label>
               <input
                 type="date"
-                value={resDate}
+                name="date"
+                value={form.date}
                 min={todayStr}
                 onChange={(e) => {
-                  setResDate(e.target.value);
+                  handleInputChange(e);
                   setSelectedId(null);
-                  setStartTime("");
-                  setEndTime("");
                 }}
               />
+              {fieldErrors.date && (
+                <span style={errorTextStyle}>{fieldErrors.date}</span>
+              )}
             </div>
 
-            {resDate && selectedId && (
+            {form.date && selectedId && (
               <>
                 <div className="table-schedule-section">
                   <h4 className="schedule-header">
-                    <Clock size={14} /> Occupied Slots for {primaryTable?.label}
+                    <Clock size={14} /> Occupied Slots for{" "}
+                    {fullReservationData.tableLabel}
                   </h4>
                   <div className="schedule-list">
-                    {tableSchedule.filter(
-                      (res) =>
-                        res.status !== "Done" && res.status !== "Completed",
-                    ).length > 0 ? (
-                      tableSchedule
-                        .filter(
-                          (res) =>
-                            res.status !== "Done" && res.status !== "Completed",
-                        )
-                        .map((res, index) => (
-                          <div key={index} className="schedule-item-3d">
-                            <Clock size={12} />{" "}
-                            {formatTimeForDisplay(res.startTime)} -{" "}
-                            {formatTimeForDisplay(res.endTime)}
+                    {data.schedule.filter((r) => r.status !== "Done").length >
+                    0 ? (
+                      data.schedule
+                        .filter((r) => r.status !== "Done")
+                        .map((res, i) => (
+                          <div key={i} className="schedule-item-3d">
+                            <Clock size={12} /> {formatTime(res.startTime)} -{" "}
+                            {formatTime(res.endTime)}
                           </div>
                         ))
                     ) : (
-                      <p className="no-res-text">Table is fully available.</p>
+                      <p className="no-res-text">Available all day</p>
                     )}
                   </div>
                 </div>
@@ -389,19 +349,26 @@ export default function TableReservation({ onClose, onSuccess }) {
                       <Clock size={12} /> START
                     </label>
                     <select
+                      name="startTime"
                       className="res-input-dropdown"
-                      value={startTime}
-                      onChange={(e) => {
-                        setStartTime(e.target.value);
-                        setEndTime("");
-                      }}
+                      value={form.startTime}
+                      onChange={handleInputChange}
                     >
                       <option value="">--:-- --</option>
-                      {availableStartTimeOptions.map((t) => (
-                        <option key={t} value={t}>
-                          {t}
-                        </option>
-                      ))}
+                      {timeOptions
+                        .filter(
+                          (t) =>
+                            form.date !== todayStr ||
+                            timeToMin(t) >=
+                              new Date().getHours() * 60 +
+                                new Date().getMinutes() +
+                                15,
+                        )
+                        .map((t) => (
+                          <option key={t} value={t}>
+                            {t}
+                          </option>
+                        ))}
                     </select>
                   </div>
                   <div className="input-group">
@@ -410,72 +377,138 @@ export default function TableReservation({ onClose, onSuccess }) {
                     </label>
                     <select
                       className="res-input-dropdown"
-                      value={endTime}
-                      onChange={(e) => setEndTime(e.target.value)}
-                      disabled={!startTime}
+                      name="endTime"
+                      value={form.endTime}
+                      onChange={handleInputChange}
+                      disabled={!form.startTime}
                     >
                       <option value="">--:-- --</option>
-                      {filteredEndTimeOptions.map((t) => (
-                        <option key={t} value={t}>
-                          {t}
-                        </option>
-                      ))}
+                      {timeOptions
+                        .filter(
+                          (t) => timeToMin(t) >= timeToMin(form.startTime) + 60,
+                        )
+                        .map((t) => (
+                          <option key={t} value={t}>
+                            {t}
+                          </option>
+                        ))}
                     </select>
                   </div>
                 </div>
+                {fieldErrors.time && (
+                  <span style={errorTextStyle}>{fieldErrors.time}</span>
+                )}
 
                 <div className="input-group">
                   <div className="label-with-icon">
                     <label>FIRST NAME</label>
                     <Pencil
                       size={16}
-                      className={`edit-toggle-icon ${isEditing ? "active" : ""}`}
-                      onClick={() => setIsEditing(!isEditing)}
+                      className={`edit-toggle-icon ${ui.editing ? "active" : ""}`}
+                      onClick={() =>
+                        setUi((p) => ({ ...p, editing: !p.editing }))
+                      }
                     />
                   </div>
                   <input
                     type="text"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    disabled={!isEditing}
+                    name="firstName"
+                    value={user.firstName}
+                    onChange={handleInputChange}
+                    disabled={!ui.editing}
                   />
+                  {!user.firstName.trim() && (
+                    <span style={errorTextStyle}>First name is required</span>
+                  )}
                 </div>
                 <div className="input-group">
                   <label>LAST NAME</label>
                   <input
                     type="text"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    disabled={!isEditing}
+                    name="lastName"
+                    value={user.lastName}
+                    onChange={handleInputChange}
+                    disabled={!ui.editing}
                   />
+                  {!user.lastName.trim() && (
+                    <span style={errorTextStyle}>Last name is required</span>
+                  )}
                 </div>
                 <div className="input-group">
                   <label>
-                    <Mail size={12} /> EMAIL ADDRESS
+                    <Mail size={12} /> EMAIL
                   </label>
                   <input
                     type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    disabled={!isEditing}
+                    name="email"
+                    value={user.email}
+                    onChange={handleInputChange}
+                    disabled={!ui.editing}
                   />
+                  {fieldErrors.email && (
+                    <span style={errorTextStyle}>{fieldErrors.email}</span>
+                  )}
                 </div>
                 <div className="input-group">
                   <label>
-                    <Phone size={12} /> CONTACT NUMBER
+                    <Phone size={12} /> CONTACT
                   </label>
                   <input
                     type="text"
-                    placeholder="09xxxxxxxxx"
-                    value={phone}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/\D/g, "");
-                      if (val.length <= 11) setPhone(val);
-                    }}
+                    name="phone"
+                    value={user.phone}
+                    onChange={handleInputChange}
                   />
+                  {fieldErrors.phone && (
+                    <span style={errorTextStyle}>{fieldErrors.phone}</span>
+                  )}
                 </div>
+
+                <div className="input-row">
+                  <div className="input-group">
+                    <label>
+                      <MapPin size={12} /> CITY
+                    </label>
+                    <select
+                      name="muni"
+                      className="res-input-dropdown"
+                      value={form.muni}
+                      onChange={handleInputChange}
+                    >
+                      <option value="">Select City</option>
+                      {addressData.municipalities.map((m) => (
+                        <option key={m.code} value={m.code}>
+                          {m.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="input-group">
+                    <label>
+                      <MapPin size={12} /> BRGY
+                    </label>
+                    <select
+                      name="brgy"
+                      className="res-input-dropdown"
+                      value={form.brgy}
+                      onChange={handleInputChange}
+                      disabled={!form.muni}
+                    >
+                      <option value="">Select Brgy</option>
+                      {addressData.barangays.map((b) => (
+                        <option key={b.code} value={b.code}>
+                          {b.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                {(!form.muni || !form.brgy) && (
+                  <span style={errorTextStyle}>Address is required</span>
+                )}
+
                 <div className="input-group">
-                  <label>GUESTS (Based on Selection)</label>
+                  <label>GUESTS</label>
                   <input
                     type="text"
                     value={totalSeats}
@@ -497,11 +530,11 @@ export default function TableReservation({ onClose, onSuccess }) {
                       <label key={opt} className="custom-radio">
                         <input
                           type="radio"
-                          name="hc"
+                          name="highChair"
                           value={opt}
-                          checked={highChair === opt}
-                          onChange={(e) => setHighChair(e.target.value)}
-                        />
+                          checked={form.highChair === opt}
+                          onChange={handleInputChange}
+                        />{" "}
                         <span>{opt}</span>
                       </label>
                     ))}
@@ -509,24 +542,29 @@ export default function TableReservation({ onClose, onSuccess }) {
                 </div>
 
                 <div className="input-group">
-                  <label>PACKAGES</label>
+                  <label>PACKAGES WE'RE OFFERING</label>
                   <button
                     type="button"
                     className="btn-link-mode"
-                    onClick={() => setIsMenuOpen(true)}
+                    onClick={() => setUi((p) => ({ ...p, menu: true }))}
                   >
                     <Layers size={16} />{" "}
                     {selectedItems.length > 0
                       ? `${selectedItems.length} Selected`
                       : "View Packages"}
                   </button>
+                  {selectedItems.length === 0 && (
+                    <span style={errorTextStyle}>
+                      Please select at least one package
+                    </span>
+                  )}
                 </div>
                 <button
                   className={`btn-confirm ${isFormInvalid ? "btn-disabled" : ""}`}
-                  onClick={() => setIsTermsOpen(true)}
-                  disabled={isFormInvalid || loading}
+                  onClick={() => setUi((p) => ({ ...p, terms: true }))}
+                  disabled={isFormInvalid}
                 >
-                  Confirm Reservation
+                  Confirm
                 </button>
               </>
             )}
@@ -534,7 +572,7 @@ export default function TableReservation({ onClose, onSuccess }) {
         </div>
       </aside>
 
-      {resDate && (
+      {form.date && (
         <div
           className="floor-plan-main fade-in"
           onClick={(e) => e.stopPropagation()}
@@ -542,7 +580,6 @@ export default function TableReservation({ onClose, onSuccess }) {
           <header className="floor-header">
             <h1 className="floor-title">Select a Table</h1>
           </header>
-
           {selectedId && (
             <div style={{ marginBottom: "20px", width: "100%" }}>
               <button
@@ -561,37 +598,49 @@ export default function TableReservation({ onClose, onSuccess }) {
               </button>
             </div>
           )}
-
           <div className="table-selection-grid">
-            {TABLES_DATA.map((table) => {
-              const status = dbOccupiedTables[table.id];
+            {TABLES_DATA.map((t) => {
+              const status = data.occupied[t.id];
               let cls =
                 status === "Confirmed" || status === "Seated"
                   ? "occupied"
                   : status === "Pending"
                     ? "reserved"
-                    : selectedId === table.id
+                    : selectedId === t.id
                       ? "selected"
-                      : linkedIds.includes(table.id)
+                      : linkedIds.includes(t.id)
                         ? "linked"
                         : "available";
               return (
                 <div
-                  key={table.id}
+                  key={t.id}
                   className={`table-list-card ${cls}`}
-                  onClick={() => handleTableClick(table)}
+                  onClick={() => {
+                    if (["Confirmed", "Seated", "Pending"].includes(status)) {
+                      setSelectedId(t.id);
+                      setLinkedIds([]);
+                      return;
+                    }
+                    if (isLinkMode) {
+                      if (t.id === selectedId) return;
+                      setLinkedIds((prev) =>
+                        prev.includes(t.id)
+                          ? prev.filter((id) => id !== t.id)
+                          : [...prev, t.id],
+                      );
+                    } else {
+                      setSelectedId(selectedId === t.id ? null : t.id);
+                      setLinkedIds([]);
+                    }
+                  }}
                 >
                   <div className="table-card-content">
                     <div className="table-details">
                       <div className="table-title-row">
                         <Armchair size={16} />
-                        <strong className="table-label-text">
-                          {table.label}
-                        </strong>
+                        <strong className="table-label-text">{t.label}</strong>
                       </div>
-                      <span className="table-seats-text">
-                        {table.seats} Seats
-                      </span>
+                      <span className="table-seats-text">{t.seats} Seats</span>
                     </div>
                   </div>
                   <div className={`status-dot ${cls}`} />
@@ -600,40 +649,36 @@ export default function TableReservation({ onClose, onSuccess }) {
             })}
           </div>
           <div className="floor-legend-horizontal">
-            <div className="legend-item">
-              <span className="dot available"></span> Available
-            </div>
-            <div className="legend-item">
-              <span className="dot reserved"></span> Reserved
-            </div>
-            <div className="legend-item">
-              <span className="dot occupied"></span> Occupied (Ongoing)
-            </div>
+            {["available", "reserved", "occupied"].map((l) => (
+              <div key={l} className="legend-item">
+                <span className={`dot ${l}`}></span>{" "}
+                {l === "occupied"
+                  ? "Occupied (Ongoing)"
+                  : l.charAt(0).toUpperCase() + l.slice(1)}
+              </div>
+            ))}
           </div>
         </div>
       )}
 
       <MenuModal
-        isOpen={isMenuOpen}
-        onClose={() => setIsMenuOpen(false)}
+        isOpen={ui.menu}
+        onClose={() => setUi((p) => ({ ...p, menu: false }))}
         onSelectedItemsChange={setSelectedItems}
         initialSelectedItems={selectedItems}
       />
       <TermsModal
-        isOpen={isTermsOpen}
-        onClose={() => setIsTermsOpen(false)}
-        onAccept={() => {
-          setIsTermsOpen(false);
-          setIsSummaryOpen(true);
-        }}
+        isOpen={ui.terms}
+        onClose={() => setUi((p) => ({ ...p, terms: false }))}
+        onAccept={() => setUi((p) => ({ ...p, terms: false, summary: true }))}
       />
       <ReservationSummary
-        isOpen={isSummaryOpen}
-        onClose={() => setIsSummaryOpen(false)}
-        orderSummary={{}}
+        isOpen={ui.summary}
+        onClose={() => setUi((p) => ({ ...p, summary: false }))}
+        orderSummary={orderSummary}
         reservationData={fullReservationData}
-        onConfirm={handleConfirmReservation}
-        loading={loading}
+        onConfirm={onSuccess}
+        loading={ui.loading}
       />
     </div>
   );

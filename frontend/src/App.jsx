@@ -31,6 +31,7 @@ import KitchenPage from "./components/kitchen-page/KitchenPage.jsx";
 import TableReservation from "./components/TableReservation.jsx";
 import TermsModal from "./components/TermsModal";
 import ResetPasswordPage from "./components/ResetPasswordPage";
+import PaymentSuccess from "./components/PaymentSuccess.jsx";
 
 import "./Style/App.css";
 
@@ -190,6 +191,7 @@ function AppContent() {
         <Route path="/kiosk-selection/kiosk-menu" element={<KioskMenu />} />
         <Route path="/kitchen-page" element={<KitchenPage />} />
         <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+        <Route path="/payment-success" element={<PaymentSuccess />} />
         <Route
           path="/kiosk-selection/kiosk-reservation"
           element={<KioskReservation />}
