@@ -35,28 +35,7 @@ const Dashboard = {
       throw error;
     }
   },
-  getRevenueChartData: async (req, res) => {
-    try {
-      const [rows] = await db.execute(`
-                SELECT 
-                    MONTHNAME(paid_at) as labels, 
-                    SUM(amount) as data 
-                FROM payments
-                WHERE payment_status = 'verified'
-                GROUP BY MONTH(paid_at), MONTHNAME(paid_at)
-                ORDER BY MONTH(paid_at) ASC
-                LIMIT 6
-            `);
-
-      const labels = rows.map((r) => r.labels);
-      const data = rows.map((r) => parseFloat(r.data) || 0);
-
-      return { labels, data };
-    } catch (error) {
-      console.error("Revenue Chart Error:", error);
-      throw error;
-    }
-  },
+  
 };
 
 module.exports = Dashboard;

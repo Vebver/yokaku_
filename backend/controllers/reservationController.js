@@ -167,7 +167,33 @@ const reservationController = {
   createReservation: async (req, res) => {
     try {
       const body = req.body;
+      const now = new Date();
 
+      // 1. Determine Start Time
+      // If user sends "now", use current server time, otherwise use their selected time
+      let startDateTime;
+      if (body.startTime === "now" || !body.startTime) {
+        startDateTime = now;
+      } else {
+        // Combines the provided date string and time string into a Date object
+        startDateTime = new Date(`${body.date} ${body.startTime}`);
+      }
+
+      // 2. Calculate End Time based on Duration
+      // Let's assume the frontend sends 'durationDays' and 'durationHours'
+      const durationDays = parseInt(body.durationDays) || 0;
+      const durationHours = parseInt(body.durationHours) || 2; // Default to 2 hours if not specified
+
+      const endDateTime = new Date(startDateTime);
+      endDateTime.setDate(endDateTime.getDate() + durationDays);
+      endDateTime.setHours(endDateTime.getHours() + durationHours);
+
+      // 3. Format for Database (MySQL expects YYYY-MM-DD and HH:mm:ss)
+      const dbDate = startDateTime.toISOString().split("T")[0];
+      const dbStart = startDateTime.toTimeString().split(" ")[0]; // "HH:mm:ss"
+      const dbEnd = endDateTime.toTimeString().split(" ")[0]; // "HH:mm:ss"
+
+      // 4. Handle JSON parsing for Tables and Items (Existing Logic)
       const requestedTables =
         typeof body.tableIds === "string"
           ? JSON.parse(body.tableIds)
@@ -178,11 +204,9 @@ const reservationController = {
           ? JSON.parse(body.selectedItems)
           : body.selectedItems || [];
 
-      const dbStart = formatTimeTo24h(body.startTime);
-      const dbEnd = formatTimeTo24h(body.endTime);
-
+      // 5. Conflict Check (Existing Logic)
       const conflicts = await Reservation.checkTableConflicts(
-        body.date,
+        dbDate,
         requestedTables,
         dbStart,
         dbEnd,
@@ -195,29 +219,31 @@ const reservationController = {
         });
       }
 
+      // 6. Prepare data for Model
       const reservationData = {
         ...body,
-        firstName: body.firstName,
-        lastName: body.lastName,
-        date: body.date,
-        guests: body.guests,
+        date: dbDate,
         startTime: dbStart,
         endTime: dbEnd,
+        // Optional: Store the raw endDateTime for easier "Countdown" calculation on frontend
+        expiresAt: endDateTime,
         tableIds: requestedTables,
         selectedItems: items,
         receiptPath: req.file ? req.file.filename : body.receiptPath || null,
       };
 
       const newId = await Reservation.create(reservationData);
-      return res.status(201).json({ id: newId, message: "Success!" });
+
+      return res.status(201).json({
+        id: newId,
+        message: "Reservation created!",
+        expiresAt: endDateTime, // Send this back so frontend can start a timer
+      });
     } catch (error) {
       console.error("CRITICAL BACKEND ERROR:", error.message);
-      if (!res.headersSent) {
-        return res.status(500).json({ error: error.message });
-      }
+      res.status(500).json({ error: error.message });
     }
   },
-
   getReservations: async (req, res) => {
     try {
       const data = await Reservation.getAll();

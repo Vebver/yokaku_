@@ -1,60 +1,84 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
-import FinancialOverview from "./FinancialOverview";
-import InventoryReport from "./InventoryReport";
-import OperationalTrends from "./OperationalTrends";
-import ProductPerformance from "./ProductPerformance";
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler,
-} from "chart.js";
-import { Bar } from "react-chartjs-2";
-
-// Register ChartJS components
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler,
-);
+import FinancialOverview from "./FinancialOverview"; // Path to your child component
+import { RefreshCw, Download } from "lucide-react";
 
 function Reports() {
+  const [financialData, setFinancialData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Function to fetch the data
+  const fetchReportData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Get the token from local storage (if your admin route is protected)
+      const token = localStorage.getItem("token");
+      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+
+      const response = await axios.get("http://localhost:5000/api/admin/reports/financial", config);
+
+      if (response.data.success) {
+        setFinancialData(response.data.data);
+      } else {
+        throw new Error("Data fetch unsuccessful");
+      }
+    } catch (err) {
+      console.error("Error fetching reports:", err);
+      setError("Failed to load financial reports. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch on component mount
+  useEffect(() => {
+    fetchReportData();
+  }, []);
+
   return (
-    <div className="container-fluid p-4">
-      <h2 className="fw-bold mb-4">Hangout Business Intelligence</h2>
-      
-      <section className="mb-5">
-        <h5 className="text-muted mb-3 uppercase small tracking-wider">1. Financial Overview</h5>
-        <FinancialOverview />
-      </section>
+    <div className="container-fluid p-4 bg-light">
+      {/* Header Section */}
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <div>
+          <h2 className="fw-bold text-dark mb-0">Financial Analytics</h2>
+          <p className="text-muted small">Comprehensive business performance reports.</p>
+        </div>
+        
+        <div className="d-flex gap-2">
+          <button 
+            className="btn btn-outline-dark d-flex align-items-center gap-2" 
+            onClick={fetchReportData}
+            disabled={loading}
+          >
+            <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
+            Refresh
+          </button>
+          <button className="btn btn-dark d-flex align-items-center gap-2">
+            <Download size={18} />
+            Export CSV
+          </button>
+        </div>
+      </div>
 
-      <section className="mb-5">
-        <h5 className="text-muted mb-3 uppercase small tracking-wider">2. Product Performance</h5>
-        <ProductPerformance />
-      </section>
-
-      <section className="mb-5">
-        <h5 className="text-muted mb-3 uppercase small tracking-wider">3. Inventory & Cost</h5>
-        <InventoryReport />
-      </section>
-
-      <section className="mb-5">
-        <h5 className="text-muted mb-3 uppercase small tracking-wider">4. Operational Trends</h5>
-        <OperationalTrends />
-      </section>
+      {/* Main Content */}
+      {loading && !financialData ? (
+        <div className="text-center p-5 mt-5">
+          <div className="spinner-border text-primary" role="status"></div>
+          <p className="mt-2 text-muted">Analyzing financial records...</p>
+        </div>
+      ) : error ? (
+        <div className="alert alert-danger shadow-sm border-0 m-4">
+          {error}
+        </div>
+      ) : (
+        <div className="fade-in">
+          {/* We pass the data we got from axios into the child component */}
+          <FinancialOverview data={financialData} />
+        </div>
+      )}
     </div>
   );
 }
