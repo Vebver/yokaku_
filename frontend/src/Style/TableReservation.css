@@ -8,6 +8,10 @@
   --status-linked: #3a86ff;
   --text-dark: #1a1a1a;
   --text-light: #666666;
+  --schedule-reserved-bg: #fff9e6;
+  --schedule-occupied-bg: #ffe6e6;
+  --schedule-reserved-border: #ffcc00;
+  --schedule-occupied-border: #e63946;
 }
 
 * {
@@ -237,20 +241,93 @@
   background-color: white !important;
   opacity: 1;
 }
+
+/* --- MODERN SCHEDULE ITEM STYLES --- */
 .schedule-item-3d {
   background: white;
-  padding: 10px 14px;
-  border-radius: 10px;
+  padding: 12px 16px;
+  border-radius: 12px;
   border: 1px solid #f0f0f0;
-  /* border-left is now handled dynamically in the JSX above */
-  border-left: 4px solid #ccc;
   font-size: 13px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
+  gap: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.schedule-item-3d::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  transition: all 0.3s ease;
+}
+
+/* Reserved status styling */
+.schedule-item-3d.reserved {
+  background: linear-gradient(135deg, #fff9e6 0%, #fffef5 100%);
+  border-left: none;
+}
+
+.schedule-item-3d.reserved::before {
+  background: var(--schedule-reserved-border);
+}
+
+.schedule-item-3d.reserved .schedule-status {
+  background: rgba(255, 204, 0, 0.15);
+  color: #d4a000;
+}
+
+/* Occupied status styling */
+.schedule-item-3d.occupied {
+  background: linear-gradient(135deg, #ffe6e6 0%, #fff5f5 100%);
+  border-left: none;
+}
+
+.schedule-item-3d.occupied::before {
+  background: var(--schedule-occupied-border);
+}
+
+.schedule-item-3d.occupied .schedule-status {
+  background: rgba(230, 57, 70, 0.15);
+  color: #c72535;
+}
+
+/* Schedule icon */
+.schedule-item-3d svg {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+/* Schedule time text */
+.schedule-time {
+  flex: 1;
+  font-weight: 600;
+  color: #333;
+}
+
+/* Schedule status badge */
+.schedule-status {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 20px;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+/* Hover effect */
+.schedule-item-3d:hover {
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .table-title-row {

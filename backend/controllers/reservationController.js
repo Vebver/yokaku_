@@ -12,70 +12,7 @@ const formatTimeTo24h = (timeStr) => {
 };
 
 const reservationController = {
-  // --- PAYMONGO GCASH SESSION CREATION ---
-  createPaymentSession: async (req, res) => {
-    try {
-      const { amount, tableLabel } = req.body;
-
-      // Log arriving data for debugging
-      console.log("Payment Request Received:", { amount, tableLabel });
-
-      if (!amount || isNaN(amount)) {
-        return res.status(400).json({ error: "Invalid amount provided" });
-      }
-
-      // PayMongo requires amount in centavos (integer)
-      const amountInCentavos = Math.round(parseFloat(amount) * 100);
-
-      const options = {
-        method: "POST",
-        url: "https://api.paymongo.com/v1/checkout_sessions",
-        headers: {
-          accept: "application/json",
-          "Content-Type": "application/json",
-          authorization: `Basic ${Buffer.from(process.env.PAYMONGO_SECRET_KEY + ":").toString("base64")}`,
-        },
-        data: {
-          data: {
-            attributes: {
-              send_email_receipt: true,
-              show_description: true,
-              show_line_items: true,
-              payment_method_types: ["gcash"],
-              line_items: [
-                {
-                  currency: "PHP",
-                  amount: amountInCentavos,
-                  description: `Downpayment for Table ${tableLabel || "Reservation"}`,
-                  name: "Table Reservation Downpayment",
-                  quantity: 1,
-                },
-              ],
-              success_url: `${process.env.CLIENT_URL}/payment-success`,
-              cancel_url: `${process.env.CLIENT_URL}/payment-cancel`,
-              description: "Reservation Security Deposit",
-            },
-          },
-        },
-      };
-
-      const response = await axios.request(options);
-      res.json({ checkoutUrl: response.data.data.attributes.checkout_url });
-    } catch (error) {
-      // Detailed error logging to identify why the 500 error is occurring
-      console.error("--- PAYMONGO INTEGRATION ERROR ---");
-      console.error("Status:", error.response?.status);
-      console.error("Data:", JSON.stringify(error.response?.data, null, 2));
-      console.error("Message:", error.message);
-
-      res.status(500).json({
-        error: "Failed to initiate GCash payment",
-        details: error.response?.data?.errors?.[0]?.detail || error.message,
-      });
-    }
-  },
-
-  // --- EXISTING LOGIC (UNTOUCHED) ---
+  // --- EXISTING LOGIC ---
 
   checkUserActive: async (req, res) => {
     try {

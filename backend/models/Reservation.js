@@ -174,7 +174,7 @@ const Reservation = {
         "INSERT INTO payments (reservation_id, amount, payment_status) VALUES (?, ?, ?)";
       await conn.execute(paymentQuery, [
         customId,
-        data.totalAmount || 0, // Using totalAmount from controller
+        data.totalAmount || 0,
         data.paymentStatus === "Paid" ? "paid" : "pending",
       ]);
 

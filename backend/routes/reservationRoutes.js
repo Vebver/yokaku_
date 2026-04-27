@@ -20,9 +20,6 @@ router.post(
   reservationController.createReservation,
 );
 
-// backend/routes/reservationRoutes.js
-router.post("/create-payment", reservationController.createPaymentSession);
-
 // 3. Generic /:id routes (KEEP THESE LAST)
 router.get("/:id", reservationController.checkReservationId);
 router.put("/:id/status", reservationController.updateStatus);

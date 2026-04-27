@@ -55,6 +55,21 @@ const formatTime = (timeStr) => {
   return `${hours % 12 || 12}:${parts[1]} ${ampm}`;
 };
 
+// Helper function to get schedule item class based on status
+const getScheduleItemClass = (status) => {
+  if (status === "Seated") return "occupied";
+  if (status === "Confirmed" || status === "Pending") return "reserved";
+  return "";
+};
+
+// Helper function to get status display text
+const getStatusDisplayText = (status) => {
+  if (status === "Seated") return "OCCUPIED";
+  if (status === "Confirmed") return "CONFIRMED";
+  if (status === "Pending") return "PENDING";
+  return status.toUpperCase();
+};
+
 export default function TableReservation({ onClose, onSuccess }) {
   const [selectedId, setSelectedId] = useState(null);
   const [linkedIds, setLinkedIds] = useState([]);
@@ -81,6 +96,7 @@ export default function TableReservation({ onClose, onSuccess }) {
   });
 
   const [data, setData] = useState({ occupied: {}, schedule: [] });
+  const [tableSchedules, setTableSchedules] = useState({});
   const [ui, setUi] = useState({
     loading: false,
     editing: false,
@@ -122,6 +138,37 @@ export default function TableReservation({ onClose, onSuccess }) {
     }
   }, [form.muni]);
 
+  // Fetch schedules for all tables when date changes
+  useEffect(() => {
+    const fetchAllTableSchedules = async () => {
+      if (!form.date) return;
+
+      const schedules = {};
+      for (const table of TABLES_DATA) {
+        try {
+          const response = await axios.get(
+            `${API_BASE}/reservations/table-schedule`,
+            {
+              params: { tableId: table.id, date: form.date },
+            },
+          );
+          schedules[table.id] = Array.isArray(response.data)
+            ? response.data
+            : [];
+        } catch (error) {
+          console.error(
+            `Error fetching schedule for table ${table.id}:`,
+            error,
+          );
+          schedules[table.id] = [];
+        }
+      }
+      setTableSchedules(schedules);
+    };
+
+    fetchAllTableSchedules();
+  }, [form.date]);
+
   // REAL-TIME POLLING (5s)
   useEffect(() => {
     const poll = async () => {
@@ -159,6 +206,33 @@ export default function TableReservation({ onClose, onSuccess }) {
     () => TABLES_DATA.find((t) => t.id === selectedId),
     [selectedId],
   );
+
+  // Check if a table is available for the selected time slot
+  const isTableAvailableForTime = (tableId, startTime, endTime) => {
+    const schedule = tableSchedules[tableId] || [];
+    const startM = timeToMin(startTime);
+    const endM = timeToMin(endTime);
+
+    return !schedule.some(
+      (r) =>
+        r.status !== "Done" &&
+        r.status !== "Completed" &&
+        startM < timeToMin(r.endTime) &&
+        endM > timeToMin(r.startTime),
+    );
+  };
+
+  // Filter available tables for linking based on time compatibility
+  const getAvailableTablesForLinking = () => {
+    if (!form.startTime || !form.endTime) return [];
+
+    return TABLES_DATA.filter(
+      (table) =>
+        table.id !== selectedId &&
+        !linkedIds.includes(table.id) &&
+        isTableAvailableForTime(table.id, form.startTime, form.endTime),
+    );
+  };
 
   const totalSeats = useMemo(() => {
     if (!selectedId) return 0;
@@ -266,15 +340,34 @@ export default function TableReservation({ onClose, onSuccess }) {
 
   const onTableClick = (table) => {
     const status = data.occupied[table.id];
-    if (status === "Seated") return;
+
+    // In link mode, allow clicking on tables even if they have reservations
     if (isLinkMode) {
+      // Don't allow linking the primary table to itself
       if (table.id === selectedId) return;
+
+      // Check if time is selected before allowing linking
+      if (!form.startTime || !form.endTime) {
+        alert("Please select start time and end time first");
+        return;
+      }
+
+      // Check if the table is available for the selected time slot
+      if (!isTableAvailableForTime(table.id, form.startTime, form.endTime)) {
+        alert(
+          `This table has a reservation during the selected time slot. Please choose a different time or another table.`,
+        );
+        return;
+      }
+
       setLinkedIds((prev) =>
         prev.includes(table.id)
           ? prev.filter((id) => id !== table.id)
           : [...prev, table.id],
       );
     } else {
+      // Normal mode - can't select tables with existing reservations
+      if (status === "Seated") return;
       setSelectedId(selectedId === table.id ? null : table.id);
       setLinkedIds([]);
     }
@@ -283,7 +376,6 @@ export default function TableReservation({ onClose, onSuccess }) {
   const isFormInvalid = useMemo(() => {
     const s = timeToMin(form.startTime),
       e = timeToMin(form.endTime);
-    // Fixed the hasConflict variable reference
     const conflictDetected = data.schedule.some(
       (r) =>
         r.status !== "Done" &&
@@ -331,6 +423,8 @@ export default function TableReservation({ onClose, onSuccess }) {
     }
   };
 
+  const availableTablesForLinking = getAvailableTablesForLinking();
+
   return (
     <div className={`floor-plan-wrapper ${!form.date ? "init-state" : ""}`}>
       <button className="page-back-btn" onClick={onClose}>
@@ -363,6 +457,7 @@ export default function TableReservation({ onClose, onSuccess }) {
                 onChange={(e) => {
                   handleInputChange(e);
                   setSelectedId(null);
+                  setLinkedIds([]);
                 }}
               />
             </div>
@@ -383,9 +478,18 @@ export default function TableReservation({ onClose, onSuccess }) {
                             r.status !== "Done" && r.status !== "Completed",
                         )
                         .map((res, i) => (
-                          <div key={i} className="schedule-item-3d">
-                            <Clock size={12} /> {formatTime(res.startTime)} -{" "}
-                            {formatTime(res.endTime)}
+                          <div
+                            key={i}
+                            className={`schedule-item-3d ${getScheduleItemClass(res.status)}`}
+                          >
+                            <Clock size={12} />
+                            <span className="schedule-time">
+                              {formatTime(res.startTime)} -{" "}
+                              {formatTime(res.endTime)}
+                            </span>
+                            <span className="schedule-status">
+                              {getStatusDisplayText(res.status)}
+                            </span>
                           </div>
                         ))
                     ) : (
@@ -403,7 +507,11 @@ export default function TableReservation({ onClose, onSuccess }) {
                       name="startTime"
                       className="res-input-dropdown"
                       value={form.startTime}
-                      onChange={handleInputChange}
+                      onChange={(e) => {
+                        handleInputChange(e);
+                        // Clear linked tables when time changes
+                        setLinkedIds([]);
+                      }}
                     >
                       <option value="">--:-- --</option>
                       {availableStartTimeOptions.map((t) => (
@@ -421,7 +529,11 @@ export default function TableReservation({ onClose, onSuccess }) {
                       className="res-input-dropdown"
                       name="endTime"
                       value={form.endTime}
-                      onChange={handleInputChange}
+                      onChange={(e) => {
+                        handleInputChange(e);
+                        // Clear linked tables when time changes
+                        setLinkedIds([]);
+                      }}
                       disabled={!form.startTime}
                     >
                       <option value="">--:-- --</option>
@@ -632,49 +744,112 @@ export default function TableReservation({ onClose, onSuccess }) {
           <header className="floor-header">
             <h1 className="floor-title">Select a Table</h1>
           </header>
-          {selectedId &&
-            !["Confirmed", "Seated", "Pending"].includes(
-              data.occupied[selectedId],
-            ) && (
-              <div style={{ marginBottom: "20px", width: "100%" }}>
-                <button
-                  className={`btn-link-mode ${isLinkMode ? "active" : ""}`}
-                  onClick={() => setIsLinkMode(!isLinkMode)}
+          {selectedId && (
+            <div style={{ marginBottom: "20px", width: "100%" }}>
+              <button
+                className={`btn-link-mode ${isLinkMode ? "active" : ""}`}
+                onClick={() => {
+                  setIsLinkMode(!isLinkMode);
+                  if (!isLinkMode && (!form.startTime || !form.endTime)) {
+                    alert(
+                      "Please select start time and end time before linking tables",
+                    );
+                  }
+                }}
+                style={{
+                  width: "100%",
+                  padding: "14px 0",
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
+                <LinkIcon size={18} style={{ marginRight: "10px" }} />{" "}
+                {isLinkMode ? "Finish Linking" : "Link Tables"}
+              </button>
+
+              {isLinkMode && form.startTime && form.endTime && (
+                <div
                   style={{
-                    width: "100%",
-                    padding: "14px 0",
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
+                    marginTop: "10px",
+                    padding: "10px",
+                    backgroundColor: "#f0f5ff",
+                    borderRadius: "8px",
+                    fontSize: "12px",
+                    textAlign: "center",
                   }}
                 >
-                  <LinkIcon size={18} style={{ marginRight: "10px" }} />{" "}
-                  {isLinkMode ? "Finish Linking" : "Link Tables"}
-                </button>
-              </div>
-            )}
+                  <strong>Available tables for linking:</strong>{" "}
+                  {availableTablesForLinking.length} tables available
+                  <br />
+                  <small>
+                    Only tables with no time conflict during {form.startTime} -{" "}
+                    {form.endTime} can be linked
+                  </small>
+                </div>
+              )}
+            </div>
+          )}
           <div className="table-selection-grid">
             {TABLES_DATA.map((t) => {
               const status = data.occupied[t.id];
               const isSelected = selectedId === t.id;
               const isLinked = linkedIds.includes(t.id);
-              let cardCls = isSelected
-                ? "selected"
-                : isLinked
-                  ? "linked"
-                  : "available";
-              let dotCls =
-                status === "Seated"
-                  ? "occupied"
-                  : status === "Confirmed" || status === "Pending"
-                    ? "reserved"
-                    : "available";
+
+              // Check if table has existing reservation status
+              const hasReservation =
+                status === "Confirmed" || status === "Pending";
+              const isOccupied = status === "Seated";
+
+              // Check if table is available for linking (only relevant in link mode)
+              const isAvailableForLinking =
+                isLinkMode &&
+                form.startTime &&
+                form.endTime &&
+                isTableAvailableForTime(t.id, form.startTime, form.endTime) &&
+                t.id !== selectedId &&
+                !linkedIds.includes(t.id);
+
+              // Determine card class - priority: selected > linked > reservation status
+              let cardCls = "";
+              if (isSelected) {
+                cardCls = "selected";
+              } else if (isLinked) {
+                cardCls = "linked";
+              } else if (!isLinkMode && hasReservation) {
+                cardCls = "reserved";
+              } else if (!isLinkMode && isOccupied) {
+                cardCls = "occupied";
+              } else {
+                cardCls = "available";
+              }
+
+              // Determine dot class - show actual status even in link mode
+              let dotCls = "available";
+              if (isOccupied) {
+                dotCls = "occupied";
+              } else if (hasReservation) {
+                dotCls = "reserved";
+              }
+
+              // In link mode, if table is not available for linking (time conflict), show as disabled
+              const isDisabledInLinkMode =
+                isLinkMode &&
+                !isAvailableForLinking &&
+                !isLinked &&
+                t.id !== selectedId &&
+                form.startTime &&
+                form.endTime;
 
               return (
                 <div
                   key={t.id}
                   className={`table-list-card ${cardCls}`}
                   onClick={() => onTableClick(t)}
+                  style={{
+                    opacity: isDisabledInLinkMode ? 0.5 : 1,
+                    cursor: isDisabledInLinkMode ? "not-allowed" : "pointer",
+                  }}
                 >
                   <div className="table-card-content">
                     <div className="table-details">
@@ -699,6 +874,15 @@ export default function TableReservation({ onClose, onSuccess }) {
                   : l.charAt(0).toUpperCase() + l.slice(1)}
               </div>
             ))}
+            {isLinkMode && (
+              <div className="legend-item">
+                <span
+                  className="dot"
+                  style={{ backgroundColor: "#3a86ff" }}
+                ></span>{" "}
+                Linked
+              </div>
+            )}
           </div>
         </div>
       )}
