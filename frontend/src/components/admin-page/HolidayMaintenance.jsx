@@ -12,7 +12,7 @@ const HolidayMaintenance = () => {
 
   const fetchHolidays = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/blocked-dates");
+      const res = await axios.get("http://localhost:5000/api/admin/blocked-dates");
       setHolidays(res.data);
     } catch (err) { console.error(err); }
   };
@@ -20,7 +20,7 @@ const HolidayMaintenance = () => {
   const handleAdd = async () => {
     if (!newHoliday.date) return alert("Select a date");
     try {
-      await axios.post("http://localhost:5000/api/blocked-dates", newHoliday);
+      await axios.post("http://localhost:5000/api/admin/blocked-dates", newHoliday);
       setNewHoliday({ date: "", reason: "" });
       fetchHolidays();
     } catch (err) { alert("This date is already blocked."); }
@@ -28,7 +28,7 @@ const HolidayMaintenance = () => {
 
   const handleDelete = async (id) => {
     if (!window.confirm("Unblock this date?")) return;
-    await axios.delete(`http://localhost:5000/api/blocked-dates/${id}`);
+    await axios.delete(`http://localhost:5000/api/admin/blocked-dates/${id}`);
     fetchHolidays();
   };
 

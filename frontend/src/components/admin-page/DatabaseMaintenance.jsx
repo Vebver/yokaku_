@@ -7,7 +7,7 @@ const DatabaseMaintenance = () => {
     if (!window.confirm(`Are you sure you want to run: ${taskName}?`)) return;
     try {
       const res = await axios.post(
-        `http://localhost:5000/api/maintenance/${endpoint}`,
+        `http://localhost:5000/api/admin/maintenance/${endpoint}`,
       );
       alert(res.data.message);
     } catch (err) {
@@ -18,7 +18,7 @@ const DatabaseMaintenance = () => {
 
   const downloadBackup = () => {
     // This opens the backend backup route in a new tab to trigger the download
-    window.open("http://localhost:5000/api/maintenance/backup", "_blank");
+    window.open("http://localhost:5000/api/admin/maintenance/backup", "_blank");
   };
 
   return (

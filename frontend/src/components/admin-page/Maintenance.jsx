@@ -3,6 +3,7 @@ import axios from "axios";
 import { Save, Smartphone, User, RefreshCw } from "lucide-react";
 // 1. IMPORT THE NEW FILE
 import DatabaseMaintenance from "./DatabaseMaintenance"; 
+import HolidayMaintenance from "./HolidayMaintenance"
 
 const Maintenance = () => {
   const [settings, setSettings] = useState({
@@ -131,6 +132,7 @@ const Maintenance = () => {
 
       {/* SECTION 2: Database Maintenance */}
       <DatabaseMaintenance />
+      <HolidayMaintenance/>
       
     </div>
   );

@@ -297,14 +297,24 @@ export default function TableReservation({ onClose, onSuccess }) {
     return () => clearInterval(pollInterval);
   }, [form.date, form.startTime, form.endTime, selectedId]);
   //BLOCKED DATES
-  useEffect(() => {
-    // Fetch blocked dates from backend
-    axios.get("http://localhost:5000/api/blocked-dates").then((res) => {
-      // Convert dates to YYYY-MM-DD strings for easy comparison
-      const formatted = res.data.map((h) => h.block_date.split("T")[0]);
-      setBlockedDates(formatted);
-    });
-  }, []);
+useEffect(() => {
+  axios.get("http://localhost:5000/api/admin/blocked-dates")
+    .then((res) => {
+      if (Array.isArray(res.data)) {
+        const formatted = res.data.map((h) => {
+          // Convert to local date string to avoid timezone shifts
+          const d = new Date(h.block_date);
+          const year = d.getFullYear();
+          const month = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`; 
+        });
+        console.log("Verified Blocked Dates:", formatted); // CHECK YOUR CONSOLE
+        setBlockedDates(formatted);
+      }
+    })
+    .catch(err => console.error("Error fetching blocked dates", err));
+}, []);
 
   // --- CALCULATIONS ---
   const primaryTable = useMemo(
@@ -318,23 +328,26 @@ export default function TableReservation({ onClose, onSuccess }) {
     return schedule.length > 0;
   };
 
-  const handleDateSelection = (e) => {
-    const selectedDate = e.target.value;
+ const handleDateSelection = (e) => {
+  const selectedDate = e.target.value;
+  console.log("User selected:", selectedDate);
+  console.log("Checking against:", blockedDates);
 
-    if (blockedDates.includes(selectedDate)) {
-      alert(
-        "We are sorry, but the restaurant is closed on this date. Please choose another day.",
-      );
-
-      // Clear the input field in the UI
-      e.target.value = "";
-      return true; // It is blocked
-    } else {
-      // If it's a valid date, update the form state
-      handleInputChange(e);
-      return false; // It is not blocked
-    }
-  };
+  if (blockedDates.includes(selectedDate)) {
+    alert("We are sorry, but the restaurant is closed on this date.");
+    
+    // 1. Clear the state so it can't be submitted
+    setForm(prev => ({ ...prev, date: "" })); 
+    
+    // 2. Clear the visual input
+    e.target.value = ""; 
+    return true; 
+  } else {
+    // 3. Date is okay, update the state normally
+    handleInputChange(e); 
+    return false; 
+  }
+};
   // Check if a table has ongoing reservation
   const hasOngoingReservation = (tableId) => {
     const schedule = tableSchedules[tableId] || [];
