@@ -115,7 +115,7 @@
   font-size: 14px;
 }
 
-/* --- FIXED: VIEW PACKAGES BUTTON WIDTH & ALIGNMENT --- */
+/* --- VIEW PACKAGES BUTTON --- */
 .btn-link-mode {
   display: flex;
   align-items: center;
@@ -190,7 +190,7 @@
   transform: translateY(-3px);
 }
 
-/* --- 3D EFFECT: TABLE CARDS --- */
+/* --- TABLE CARDS --- */
 .floor-plan-main {
   order: 2;
   flex: 1;
@@ -223,13 +223,12 @@
   box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
 }
 
-/* Table Logic Styles */
 .table-details {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
-/* --- PRESERVED ICON COLORS --- */
+
 .table-title-row svg {
   color: #888;
 }
@@ -237,14 +236,57 @@
   color: var(--accent-orange);
 }
 
-/* Remove background changes for reserved/occupied cards to keep them white */
-.table-list-card.reserved,
-.table-list-card.occupied {
-  background-color: white !important;
-  opacity: 1;
+/* Table Status Styles */
+.table-list-card.reserved {
+  background-color: #fffbeb !important;
+  border-color: #ffcc00 !important;
+}
+.table-list-card.reserved .table-label-text,
+.table-list-card.reserved svg {
+  color: #ffcc00 !important;
 }
 
-/* --- MODERN SCHEDULE ITEM STYLES --- */
+.table-list-card.occupied {
+  background-color: #fceaea !important;
+  border-color: #e63946 !important;
+}
+.table-list-card.occupied .table-label-text,
+.table-list-card.occupied svg {
+  color: #e63946 !important;
+}
+
+.table-list-card.selected {
+  border-color: var(--accent-orange);
+  background-color: #fff9f4 !important;
+  box-shadow: inset 0 2px 4px rgba(243, 141, 49, 0.1);
+}
+
+.table-list-card.linked {
+  background-color: #f0f5ff !important;
+  border-color: var(--status-linked);
+}
+
+/* Ongoing reservation styles for table cards */
+.table-list-card.ongoing-warning {
+  background: linear-gradient(135deg, #fff5f5 0%, #ffe6e6 100%) !important;
+  border: 2px solid #e63946 !important;
+  position: relative;
+  animation: pulseWarning 2s infinite;
+}
+
+@keyframes pulseWarning {
+  0% {
+    box-shadow: 0 0 0 0 rgba(230, 57, 70, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(230, 57, 70, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(230, 57, 70, 0);
+  }
+}
+
+/* Schedule Section */
 .schedule-list {
   max-height: 200px;
   overflow-y: auto;
@@ -291,7 +333,6 @@
   transition: all 0.3s ease;
 }
 
-/* Reserved status styling */
 .schedule-item-3d.reserved {
   background: linear-gradient(135deg, #fff9e6 0%, #fffef5 100%);
   border-left: none;
@@ -306,7 +347,6 @@
   color: #d4a000;
 }
 
-/* Occupied/Ongoing status styling */
 .schedule-item-3d.occupied,
 .schedule-item-3d.ongoing {
   background: linear-gradient(135deg, #ffe6e6 0%, #fff5f5 100%);
@@ -326,7 +366,6 @@
   animation: pulse 1.5s infinite;
 }
 
-/* Ongoing schedule badge */
 .schedule-item-3d.ongoing .schedule-status::before {
   content: "🟢 ";
   font-size: 10px;
@@ -355,20 +394,17 @@
   }
 }
 
-/* Schedule icon */
 .schedule-item-3d svg {
   flex-shrink: 0;
   opacity: 0.7;
 }
 
-/* Schedule time text */
 .schedule-time {
   flex: 1;
   font-weight: 600;
   color: #333;
 }
 
-/* Schedule status badge */
 .schedule-status {
   font-size: 10px;
   font-weight: 800;
@@ -380,67 +416,39 @@
   white-space: nowrap;
 }
 
-/* Hover effect */
 .schedule-item-3d:hover {
   transform: translateX(4px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-.table-title-row {
+/* Badges */
+.reserved-badge {
   display: flex;
   align-items: center;
-  gap: 8px;
-}
-.table-list-card.reserved {
-  background-color: #fffbeb;
-  border-color: var(--status-reserved);
-}
-.table-list-card.occupied {
-  background-color: #fceaea;
-  border-color: var(--status-occupied);
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-.table-list-card.selected {
-  border-color: var(--accent-orange);
-  background-color: #fff9f4 !important;
-  box-shadow: inset 0 2px 4px rgba(243, 141, 49, 0.1);
+  gap: 4px;
+  font-size: 10px;
+  color: #d4a000;
+  background: rgba(255, 204, 0, 0.1);
+  padding: 4px 8px;
+  border-radius: 12px;
+  margin-top: 6px;
+  font-weight: 600;
 }
 
-.table-list-card.linked {
-  background-color: #f0f5ff !important;
-  border-color: var(--status-linked);
+.ongoing-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: #e63946;
+  background: rgba(230, 57, 70, 0.1);
+  padding: 4px 8px;
+  border-radius: 12px;
+  margin-top: 6px;
+  font-weight: 600;
 }
 
-/* YELLOW - For Reserved/Pending/Confirmed */
-.table-list-card.reserved {
-  background-color: #fffbeb !important;
-  border-color: #ffcc00 !important;
-}
-.table-list-card.reserved .table-label-text,
-.table-list-card.reserved svg {
-  color: #ffcc00 !important;
-}
-
-.status-dot.reserved,
-.dot.reserved {
-  background-color: #ffcc00 !important;
-}
-
-/* RED - For Ongoing (Seated) */
-.table-list-card.occupied {
-  background-color: #fceaea !important;
-  border-color: #e63946 !important;
-}
-.table-list-card.occupied .table-label-text,
-.table-list-card.occupied svg {
-  color: #e63946 !important;
-}
-.status-dot.occupied,
-.dot.occupied {
-  background-color: #e63946 !important;
-}
-/* Legend & Back Button */
+/* Status Dots */
 .dot,
 .status-dot {
   display: inline-block;
@@ -449,69 +457,20 @@
   border-radius: 50%;
   flex-shrink: 0;
 }
-.dot.available,
-.status-dot.available {
+
+.status-dot.available,
+.dot.available {
   background-color: var(--status-available) !important;
 }
-.dot.reserved,
-.status-dot.reserved {
+
+.status-dot.reserved,
+.dot.reserved {
   background-color: var(--status-reserved) !important;
 }
-.dot.occupied,
-.status-dot.occupied {
+
+.status-dot.occupied,
+.dot.occupied {
   background-color: var(--status-occupied) !important;
-}
-.floor-legend-horizontal {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 25px;
-  margin-top: 40px;
-  padding: 25px 0;
-  border-top: 1px solid #eee;
-}
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #555;
-}
-
-.page-back-btn {
-  position: absolute;
-  top: 20px;
-  left: 20px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 18px;
-  background-color: white;
-  border: 1px solid #eee;
-  border-radius: 12px;
-  z-index: 10001;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
-  cursor: pointer;
-}
-
-/* Ongoing reservation styles for table cards */
-.table-list-card.ongoing-warning {
-  background: linear-gradient(135deg, #fff5f5 0%, #ffe6e6 100%) !important;
-  border: 2px solid #e63946 !important;
-  position: relative;
-  animation: pulseWarning 2s infinite;
-}
-
-@keyframes pulseWarning {
-  0% {
-    box-shadow: 0 0 0 0 rgba(230, 57, 70, 0.4);
-  }
-  70% {
-    box-shadow: 0 0 0 10px rgba(230, 57, 70, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(230, 57, 70, 0);
-  }
 }
 
 .status-dot.ongoing {
@@ -534,19 +493,48 @@
   }
 }
 
-.ongoing-badge {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 10px;
-  color: #e63946;
-  background: rgba(230, 57, 70, 0.1);
-  padding: 4px 8px;
-  border-radius: 12px;
-  margin-top: 6px;
-  font-weight: 600;
+.dot.ongoing {
+  background-color: #e63946;
+  animation: pulse 1.5s infinite;
 }
 
+/* Legend */
+.floor-legend-horizontal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 25px;
+  margin-top: 40px;
+  padding: 25px 0;
+  border-top: 1px solid #eee;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #555;
+}
+
+/* Back Button */
+.page-back-btn {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background-color: white;
+  border: 1px solid #eee;
+  border-radius: 12px;
+  z-index: 10001;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+}
+
+/* Tooltip */
 .warning-tooltip {
   position: absolute;
   top: -30px;
@@ -564,6 +552,34 @@
   animation: slideIn 0.3s ease;
 }
 
+/* Disabled button styling */
+.btn-confirm.btn-disabled {
+  background: #ccc !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+  box-shadow: none !important;
+  opacity: 0.6;
+}
+
+.btn-confirm.btn-disabled:hover {
+  background: #ccc !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Input error styling */
+.input-error {
+  border-color: #e63946 !important;
+  background-color: #fff5f5 !important;
+}
+
+.input-hint {
+  font-size: 10px;
+  color: #888;
+  margin-top: 4px;
+  display: block;
+}
+
 @keyframes slideIn {
   from {
     opacity: 0;
@@ -573,12 +589,6 @@
     opacity: 1;
     transform: translateY(0);
   }
-}
-
-/* Update legend dot styles */
-.dot.ongoing {
-  background-color: #e63946;
-  animation: pulse 1.5s infinite;
 }
 
 /* Responsive */
@@ -600,22 +610,12 @@
     margin-top: 20px;
   }
 }
-.reserved-badge {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 10px;
-  color: #d4a000;
-  background: rgba(255, 204, 0, 0.1);
-  padding: 4px 8px;
-  border-radius: 12px;
-  margin-top: 6px;
-  font-weight: 600;
-}
 
+/* Animations */
 .fade-in {
   animation: fadeIn 0.4s ease;
 }
+
 @keyframes fadeIn {
   from {
     opacity: 0;

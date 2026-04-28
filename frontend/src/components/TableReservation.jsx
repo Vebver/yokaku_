@@ -19,7 +19,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import "../Style/TableReservation.css";
-import MenuModal from "./MenuModal";
+import PackageModal from "./PackageModal";
 import ReservationSummary from "./ReservationSummary";
 import TermsModal from "./TermsModal";
 
@@ -47,7 +47,6 @@ const timeToMin = (t) => {
   return h * 60 + m;
 };
 
-// This function is already in your TableReservation.jsx
 const formatTime = (timeStr) => {
   if (!timeStr || timeStr.includes("AM") || timeStr.includes("PM"))
     return timeStr || "";
@@ -76,12 +75,10 @@ const isReservationCompleted = (reservation, selectedDate) => {
   const currentTime = now.getHours() * 60 + now.getMinutes();
   const currentDate = now.toISOString().split("T")[0];
 
-  // If status is Done or Completed, hide it
   if (reservation.status === "Done" || reservation.status === "Completed") {
     return true;
   }
 
-  // If it's today's date and end time has passed, hide it
   if (selectedDate === currentDate) {
     const endM = timeToMin(reservation.endTime);
     if (currentTime > endM) {
@@ -89,7 +86,6 @@ const isReservationCompleted = (reservation, selectedDate) => {
     }
   }
 
-  // If the reservation date is in the past, hide it
   if (selectedDate < currentDate) {
     return true;
   }
@@ -218,7 +214,6 @@ export default function TableReservation({ onClose, onSuccess }) {
               },
             },
           );
-          // Filter out completed/ended reservations on the frontend
           schedules[table.id] = Array.isArray(response.data)
             ? response.data.filter((r) => !isReservationCompleted(r, form.date))
             : [];
@@ -238,7 +233,6 @@ export default function TableReservation({ onClose, onSuccess }) {
     const poll = async () => {
       if (!form.date) return;
       try {
-        // Get table statuses
         const statRes = await axios.get(
           `${API_BASE}/reservations/table-statuses`,
           {
@@ -250,7 +244,6 @@ export default function TableReservation({ onClose, onSuccess }) {
           },
         );
 
-        // Get schedule for selected table only if a table is selected
         let schedRes = { data: [] };
         if (selectedId && form.date) {
           try {
@@ -268,7 +261,6 @@ export default function TableReservation({ onClose, onSuccess }) {
           }
         }
 
-        // Process schedule and filter out completed/ended reservations
         const processedSchedule = (schedRes.data || [])
           .filter((res) => !isReservationCompleted(res, form.date))
           .map((res) => {
@@ -322,7 +314,6 @@ useEffect(() => {
     [selectedId],
   );
 
-  // Check if a table has any active reservation (not completed)
   const hasActiveReservation = (tableId) => {
     const schedule = tableSchedules[tableId] || [];
     return schedule.length > 0;
@@ -362,7 +353,6 @@ useEffect(() => {
     });
   };
 
-  // Check if a table is available for the selected time slot
   const isTableAvailableForTime = (tableId, startTime, endTime) => {
     const schedule = tableSchedules[tableId] || [];
     const startM = timeToMin(startTime);
@@ -373,7 +363,6 @@ useEffect(() => {
     });
   };
 
-  // Filter available tables for linking based on time compatibility
   const getAvailableTablesForLinking = () => {
     if (!form.startTime || !form.endTime) return [];
 
@@ -408,15 +397,19 @@ useEffect(() => {
     };
   }, [selectedItems]);
 
-  // Find the fullReservationData useMemo and update it:
-  const fullReservationData = useMemo(() => {
-    // Determine package name here for storage
-    let pName = "Table Reservation";
-    if (selectedItems.length > 0) {
-      pName =
-        selectedItems[0].name + (selectedItems.length > 1 ? " + Others" : "");
-    }
+  // Prepare tableIds array for submission
+  const tableIdsArray = useMemo(() => {
+    return [selectedId, ...linkedIds].filter((id) => id !== null);
+  }, [selectedId, linkedIds]);
 
+  // Generate package display name
+  const productDisplayName = useMemo(() => {
+    if (selectedItems.length === 0) return "Table Reservation";
+    if (selectedItems.length === 1) return selectedItems[0].name;
+    return `${selectedItems[0].name} + ${selectedItems.length - 1} more`;
+  }, [selectedItems]);
+
+  const fullReservationData = useMemo(() => {
     return {
       ...user,
       ...form,
@@ -426,16 +419,11 @@ useEffect(() => {
       linkedTables: linkedIds.map(
         (id) => TABLES_DATA.find((t) => t.id === id)?.label,
       ),
-
-      // FIX 1: Change 'packages' to 'selectedItems'
       selectedItems: selectedItems,
-
-      // FIX 2: Explicitly add 'packageName'
       packages: selectedItems,
-
       resDate: form.date,
       amount: orderSummary.downpayment,
-      totalAmount: orderSummary.totalOrderPrice, // FIX 3: Ensure total is here
+      totalAmount: orderSummary.totalOrderPrice,
       downpayment: orderSummary.downpayment,
       paymentMethod: paymentMethod || "Maya",
       municipality:
@@ -491,6 +479,61 @@ useEffect(() => {
     return timeOptions.filter((t) => timeToMin(t) >= startM + 60);
   }, [form.startTime, timeOptions]);
 
+  // --- FIELD VALIDATION ---
+  const isFirstNameValid = user.firstName && user.firstName.trim().length > 0;
+  const isLastNameValid = user.lastName && user.lastName.trim().length > 0;
+  const isEmailValid = /^\S+@\S+\.\S+$/.test(user.email);
+  const isPhoneValid = user.phone.length === 11 && user.phone.startsWith("09");
+  const isDateValid = form.date && form.date !== "";
+  const isStartTimeValid = form.startTime && form.startTime !== "";
+  const isEndTimeValid = form.endTime && form.endTime !== "";
+  const isTimeValid = (() => {
+    if (!form.startTime || !form.endTime) return false;
+    const s = timeToMin(form.startTime);
+    const e = timeToMin(form.endTime);
+    return e - s >= 60;
+  })();
+  const isMuniValid = form.muni && form.muni !== "";
+  const isBrgyValid = form.brgy && form.brgy !== "";
+  const hasSelectedItems = selectedItems.length > 0;
+  const hasNoConflict = !data.schedule.some((r) => {
+    const s = timeToMin(form.startTime);
+    const e = timeToMin(form.endTime);
+    return s < timeToMin(r.endTime) && e > timeToMin(r.startTime);
+  });
+
+  const isFormInvalid = useMemo(() => {
+    return (
+      !selectedId ||
+      !isFirstNameValid ||
+      !isLastNameValid ||
+      !isEmailValid ||
+      !isPhoneValid ||
+      !isDateValid ||
+      !isStartTimeValid ||
+      !isEndTimeValid ||
+      !isTimeValid ||
+      !hasSelectedItems ||
+      !isMuniValid ||
+      !isBrgyValid ||
+      !hasNoConflict
+    );
+  }, [
+    selectedId,
+    isFirstNameValid,
+    isLastNameValid,
+    isEmailValid,
+    isPhoneValid,
+    isDateValid,
+    isStartTimeValid,
+    isEndTimeValid,
+    isTimeValid,
+    hasSelectedItems,
+    isMuniValid,
+    isBrgyValid,
+    hasNoConflict,
+  ]);
+
   // --- HANDLERS ---
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -509,13 +552,11 @@ useEffect(() => {
     const hasActive = hasActiveReservation(table.id);
     const hasOngoing = hasOngoingReservation(table.id);
 
-    // If table has ongoing reservation, show warning
     if (hasOngoing && !isLinkMode) {
       setShowOngoingWarning(table.id);
       setTimeout(() => setShowOngoingWarning(null), 3000);
     }
 
-    // In link mode, check time availability
     if (isLinkMode) {
       if (table.id === selectedId) return;
 
@@ -537,64 +578,24 @@ useEffect(() => {
           : [...prev, table.id],
       );
     } else {
-      // Allow selection even if table has reservation
       setSelectedId(selectedId === table.id ? null : table.id);
       setLinkedIds([]);
     }
   };
-
-  const isFormInvalid = useMemo(() => {
-    const s = timeToMin(form.startTime),
-      e = timeToMin(form.endTime);
-    const conflictDetected = data.schedule.some(
-      (r) => s < timeToMin(r.endTime) && e > timeToMin(r.startTime),
-    );
-    const phoneValid = user.phone.length === 11 && user.phone.startsWith("09");
-    const emailValid = /^\S+@\S+\.\S+$/.test(user.email);
-
-    return (
-      !selectedId ||
-      !user.firstName.trim() ||
-      !emailValid ||
-      !phoneValid ||
-      !form.date ||
-      e - s < 60 ||
-      selectedItems.length === 0 ||
-      !form.muni ||
-      !form.brgy ||
-      conflictDetected
-    );
-  }, [user, form, data.schedule, selectedId, selectedItems]);
 
   const confirmBooking = async (file) => {
     setUi((p) => ({ ...p, loading: true }));
 
     try {
       const payload = new FormData();
-
-      // --- FIX: DEFINE productDisplayName HERE ---
-      let productDisplayName = "Table Reservation";
-      if (selectedItems && selectedItems.length > 0) {
-        const firstItem = selectedItems[0];
-        // Use .name or .item_name depending on your product object structure
-        productDisplayName = firstItem.name || firstItem.item_name || "Product";
-
-        if (selectedItems.length > 1) {
-          productDisplayName += ` + ${selectedItems.length - 1} more`;
-        }
-      }
-
-      // --- FIX: Create clean table ID array ---
-      const tableIdsArray = [selectedId, ...linkedIds]
-        .filter((id) => id !== null && id !== undefined)
-        .map((id) => Number(id));
+      const userId = localStorage.getItem("userId");
 
       const submission = {
         ...user,
         ...form,
-        userId: localStorage.getItem("userId"),
+        userId: userId,
         guests: totalSeats,
-        packageName: productDisplayName, // Now it is defined!
+        packageName: productDisplayName,
         totalAmount: orderSummary.totalOrderPrice,
         amount: orderSummary.downpayment,
         paymentMethod: paymentMethod || "Maya",
@@ -604,10 +605,8 @@ useEffect(() => {
         brgyCode: form.brgy,
       };
 
-      // Append file if it exists
       if (file) payload.append("receipt", file);
 
-      // Append all other fields to FormData
       Object.entries(submission).forEach(([k, v]) => {
         if (v !== undefined && v !== null) {
           payload.append(k, v);
@@ -615,8 +614,6 @@ useEffect(() => {
       });
 
       const res = await axios.post(`${API_BASE}/reservations/table`, payload);
-
-      // Successfully saved!
       onSuccess(res.data.id);
     } catch (e) {
       console.error("Booking Error:", e.response?.data || e.message);
@@ -637,7 +634,6 @@ useEffect(() => {
         <ArrowLeft size={18} /> <span>Back</span>
       </button>
 
-      {/* 1. ASIDE TAG (FORM) */}
       <aside
         className={`floor-sidebar ${!form.date ? "centered-form" : ""}`}
         onClick={(e) => e.stopPropagation()}
@@ -767,6 +763,9 @@ useEffect(() => {
                     value={user.firstName}
                     onChange={handleInputChange}
                     disabled={!ui.editing}
+                    className={
+                      !isFirstNameValid && user.firstName ? "input-error" : ""
+                    }
                   />
                 </div>
                 <div className="input-group">
@@ -777,6 +776,9 @@ useEffect(() => {
                     value={user.lastName}
                     onChange={handleInputChange}
                     disabled={!ui.editing}
+                    className={
+                      !isLastNameValid && user.lastName ? "input-error" : ""
+                    }
                   />
                 </div>
                 <div className="input-group">
@@ -789,6 +791,7 @@ useEffect(() => {
                     value={user.email}
                     onChange={handleInputChange}
                     disabled={!ui.editing}
+                    className={!isEmailValid && user.email ? "input-error" : ""}
                   />
                 </div>
                 <div className="input-group">
@@ -800,7 +803,13 @@ useEffect(() => {
                     name="phone"
                     value={user.phone}
                     onChange={handleInputChange}
+                    className={
+                      !isPhoneValid && user.phone !== "09" ? "input-error" : ""
+                    }
                   />
+                  <small className="input-hint">
+                    Must be 11 digits starting with 09
+                  </small>
                 </div>
                 <div className="input-row">
                   <div className="input-group">
@@ -939,7 +948,6 @@ useEffect(() => {
         </div>
       </aside>
 
-      {/* 2. MAIN SECTION (TABLES) */}
       {form.date && (
         <div
           className="floor-plan-main fade-in"
@@ -1002,7 +1010,6 @@ useEffect(() => {
               const isLinked = linkedIds.includes(t.id);
               const showWarning = showOngoingWarning === t.id;
 
-              // Determine card class
               let cardCls = "";
               if (isSelected) {
                 cardCls = "selected";
@@ -1016,7 +1023,6 @@ useEffect(() => {
                 cardCls = "available";
               }
 
-              // Determine dot class
               let dotCls = "available";
               if (hasOngoing) {
                 dotCls = "occupied";
@@ -1096,7 +1102,7 @@ useEffect(() => {
         </div>
       )}
 
-      <MenuModal
+      <PackageModal
         isOpen={ui.menu}
         onClose={() => setUi((p) => ({ ...p, menu: false }))}
         onSelectedItemsChange={setSelectedItems}
