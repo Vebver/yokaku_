@@ -75,7 +75,7 @@ const ExistingModal = ({ isOpen, onClose, reservationDetails }) => {
 
         <div className="existing-modal-actions">
           <button className="existing-modal-btn primary" onClick={onClose}>
-            OK, I Understand
+            Confirm
           </button>
         </div>
 
