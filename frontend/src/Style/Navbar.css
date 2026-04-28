@@ -1,4 +1,12 @@
 /* --- Desktop / General Styles --- */
+
+/* Add padding to the body to account for fixed navbar */
+body {
+  padding-top: 50px;
+  margin: 0;
+  background-color: #fdfbf0;
+}
+
 .navbar {
   background-color: black;
   color: #fff;
@@ -6,17 +14,24 @@
   justify-content: space-between;
   align-items: center;
   padding: 1rem 2rem;
-
-  /* --- UPDATED PROPERTIES --- */
-  position: fixed; /* Forces it to stay relative to the screen */
+  position: fixed;
   top: 0;
   left: 0;
-  width: 100%; /* Ensures it spans the full width */
-  z-index: 9999; /* Set very high to stay above all content and modals */
-  box-sizing: border-box; /* Ensures padding doesn't push the navbar off-screen */
-  /* -------------------------- */
-
+  width: 100%;
+  z-index: 9999;
+  box-sizing: border-box;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+
+/* Hero Section needs top padding to avoid being hidden under navbar */
+.hero {
+  margin-top: 0;
+  padding-top: 20px;
+}
+
+/* For CustomerPage, add a spacer or adjust hero section */
+.customer-page-content {
+  padding-top: 20px;
 }
 
 .navbar .logo {
@@ -77,7 +92,6 @@
 
 /* --- BURGER MENU UI (General Styles) --- */
 .burger-container {
-  /* display will be handled by media queries and classes */
   align-items: center;
   justify-content: center;
   position: relative; /* For dropdown positioning */
@@ -121,7 +135,6 @@
   border-radius: 8px;
   border: 1px solid #333;
   z-index: 2000;
-  /* ADD THESE TWO LINES BELOW */
   height: auto !important;
   display: flex !important;
   flex-direction: column !important;
@@ -164,50 +177,28 @@
   color: #ff4d4d !important;
 } /* Highlight for logout link */
 
-/* +++++++++++++++++++++++++++++++++++++++++++ */
-/*           RESPONSIVE LOGIC                */
-/* +++++++++++++++++++++++++++++++++++++++++++ */
-
-/* --- MOBILE-FIRST DEFAULTS (for screens up to 768px) --- */
-/* By default, on mobile, the burger is always visible, and desktop elements are hidden */
-.nav-menu {
-  display: none; /* Hide desktop nav links */
-}
-
-.desktop-only {
-  display: none; /* Hide the styled login button */
-}
-
-.burger-container {
-  display: flex; /* Always show burger on mobile */
-}
-
-.mobile-nav-links {
-  display: block; /* Show mobile nav links within the dropdown */
-}
-
+/* Notification Bell Styles */
 .notification-container {
-  position: relative !important; /* Essential for the badge to sit on top */
+  position: relative !important;
   cursor: pointer;
-  margin-right: 20px; /* Space between bell and burger icon */
+  margin-right: 20px;
   display: flex;
   align-items: center;
 }
 
 .notification-dot {
   position: absolute;
-  top: 2px; /* Adjust based on bell icon position */
-  right: 5px; /* Adjust based on bell icon position */
+  top: 2px;
+  right: 5px;
   width: 10px;
   height: 10px;
-  background-color: #ff4444; /* Bright Red */
+  background-color: #ff4444;
   border-radius: 50%;
-  border: 2px solid black; /* Creates a gap between dot and bell */
+  border: 2px solid black;
   z-index: 10;
   animation: pulse-dot 2s infinite;
 }
 
-/* Add to your existing CSS */
 .notification-icon {
   position: relative;
   cursor: pointer;
@@ -234,41 +225,73 @@
   gap: 15px;
 }
 
-/* --- DESKTOP-SPECIFIC OVERRIDES (for screens 769px and wider) --- */
-@media (min-width: 769px) {
-  .navbar {
-    padding: 1rem 2rem; /* Restore desktop padding if changed for mobile */
-  }
-
-  /* Show desktop navigation links */
+/* ============================================ */
+/* DEFAULT MOBILE STYLES (screens up to 768px) */
+/* ============================================ */
+@media (max-width: 768px) {
+  /* Hide desktop navigation links */
   .nav-menu {
-    display: flex;
+    display: none !important;
   }
 
-  /* Show the designed login button, but only if it has the 'desktop-only' class */
+  /* Hide desktop-only login button */
   .desktop-only {
-    display: block;
+    display: none !important;
   }
 
-  /* Hide the burger on desktop if it's in the 'mobile-only' state (i.e., logged out) */
-  .burger-container.mobile-only {
-    display: none;
+  /* Show burger menu */
+  .burger-container {
+    display: flex !important;
   }
 
-  /* Show the burger on desktop if it's in the 'force-show' state (i.e., logged in) */
-  .burger-container.force-show {
-    display: flex;
-  }
-  .burger-dropdown {
-    min-width: 180px; /* Optional: Make it slightly narrower on desktop */
-    top: 55px; /* Adjust distance from top if needed */
-  }
-
-  /* Hide the mobile navigation links within the burger dropdown (they are in the main nav) */
+  /* Show mobile navigation links in dropdown */
   .mobile-nav-links {
-    display: none;
+    display: block !important;
   }
 }
+
+/* ============================================ */
+/* DESKTOP STYLES (screens 769px and wider) */
+/* ============================================ */
+@media (min-width: 769px) {
+  /* Show desktop navigation links */
+  .nav-menu {
+    display: flex !important;
+  }
+
+  /* Show desktop login button when not logged in */
+  .desktop-only {
+    display: block !important;
+  }
+
+  /* Hide mobile-nav-links in burger dropdown on desktop */
+  .mobile-nav-links {
+    display: none !important;
+  }
+
+  /* Hide burger menu for regular Navbar (logged out state) */
+  .burger-container.mobile-only {
+    display: none !important;
+  }
+
+  /* Show burger menu for CustomerNavbar (logged in state) - only the icon, not the nav links */
+  .burger-container.force-show {
+    display: flex !important;
+  }
+
+  /* For CustomerNavbar, ensure burger is visible but mobile-nav-links hidden */
+  .burger-container {
+    display: flex !important;
+  }
+
+  /* Adjust dropdown position on desktop */
+  .burger-dropdown {
+    min-width: 180px;
+    top: 55px;
+  }
+}
+
+/* Pulse Animation */
 @keyframes pulse-dot {
   0% {
     transform: scale(1);
