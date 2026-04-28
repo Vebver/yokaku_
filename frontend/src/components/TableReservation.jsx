@@ -532,65 +532,57 @@ export default function TableReservation({ onClose, onSuccess }) {
     try {
       const payload = new FormData();
 
-      // 1. Create a clean array of IDs and filter out any nulls
+      // --- FIX: DEFINE productDisplayName HERE ---
+      let productDisplayName = "Table Reservation";
+      if (selectedItems && selectedItems.length > 0) {
+        const firstItem = selectedItems[0];
+        // Use .name or .item_name depending on your product object structure
+        productDisplayName = firstItem.name || firstItem.item_name || "Product";
+
+        if (selectedItems.length > 1) {
+          productDisplayName += ` + ${selectedItems.length - 1} more`;
+        }
+      }
+
+      // --- FIX: Create clean table ID array ---
       const tableIdsArray = [selectedId, ...linkedIds]
         .filter((id) => id !== null && id !== undefined)
-        .map((id) => Number(id)); // Ensure they are numbers
+        .map((id) => Number(id));
 
       const submission = {
         ...user,
         ...form,
         userId: localStorage.getItem("userId"),
         guests: totalSeats,
-        packageName: productDisplayName,
+        packageName: productDisplayName, // Now it is defined!
         totalAmount: orderSummary.totalOrderPrice,
         amount: orderSummary.downpayment,
         paymentMethod: paymentMethod || "Maya",
-        // SEND AS CLEAN JSON ARRAY
         tableIds: JSON.stringify(tableIdsArray),
         selectedItems: JSON.stringify(selectedItems),
         status: "Confirmed",
         brgyCode: form.brgy,
       };
 
+      // Append file if it exists
       if (file) payload.append("receipt", file);
 
+      // Append all other fields to FormData
       Object.entries(submission).forEach(([k, v]) => {
-        if (v !== undefined && v !== null) payload.append(k, v);
+        if (v !== undefined && v !== null) {
+          payload.append(k, v);
+        }
       });
 
       const res = await axios.post(`${API_BASE}/reservations/table`, payload);
 
-      // Refresh schedules after successful booking
-      setTimeout(() => {
-        const refreshSchedules = async () => {
-          const schedules = {};
-          for (const table of TABLES_DATA) {
-            try {
-              const response = await axios.get(
-                `${API_BASE}/reservations/table-schedule`,
-                { params: { tableId: table.id, date: form.date } },
-              );
-              schedules[table.id] = Array.isArray(response.data)
-                ? response.data.filter(
-                    (r) => !isReservationCompleted(r, form.date),
-                  )
-                : [];
-            } catch (error) {
-              schedules[table.id] = [];
-            }
-          }
-          setTableSchedules(schedules);
-        };
-        refreshSchedules();
-      }, 500);
-
+      // Successfully saved!
       onSuccess(res.data.id);
     } catch (e) {
-      // LOG the error response to see which ID failed
       console.error("Booking Error:", e.response?.data || e.message);
       alert(
-        "Table Selection Error: One of the selected tables does not exist in the database.",
+        e.response?.data?.message ||
+          "Table Selection Error: One of the selected tables does not exist in the database or is already booked.",
       );
     } finally {
       setUi((p) => ({ ...p, loading: false }));
