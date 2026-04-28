@@ -1,20 +1,54 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import io from "socket.io-client";
 import "../../Style/Notifications.css";
 
 const Notifications = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [socket, setSocket] = useState(null);
 
   useEffect(() => {
+    const token = localStorage.getItem("token");
+    const userId = localStorage.getItem("userId");
+
+    if (token && userId) {
+      // Setup Socket.IO
+      const newSocket = io("http://localhost:5000", {
+        transports: ["websocket", "polling"],
+      });
+      setSocket(newSocket);
+
+      newSocket.on("connect", () => {
+        console.log("Socket connected");
+        newSocket.emit("join_user", userId);
+      });
+
+      newSocket.on("new_notification", (notification) => {
+        console.log("New notification:", notification);
+        setNotifications((prev) => [notification, ...prev]);
+        setUnreadCount((prev) => prev + 1);
+      });
+
+      newSocket.on("unread_count_updated", (data) => {
+        setUnreadCount(data.unreadCount);
+      });
+    }
+
     fetchNotifications();
+    fetchUnreadCount();
+
+    return () => {
+      if (socket) socket.close();
+    };
   }, []);
 
   const fetchNotifications = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.get("http://localhost:5000/api/notifications", {
-        headers: { Authorization: `Bearer ${token}` }
+      const res = await axios.get("/api/notifications", {
+        headers: { Authorization: `Bearer ${token}` },
       });
       setNotifications(res.data);
     } catch (err) {
@@ -24,35 +58,67 @@ const Notifications = () => {
     }
   };
 
+  const fetchUnreadCount = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await axios.get("/api/notifications/unread-count", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setUnreadCount(res.data.unreadCount);
+    } catch (err) {
+      console.error("Error fetching unread count", err);
+    }
+  };
+
   const markAsRead = async (id) => {
     try {
       const token = localStorage.getItem("token");
-      await axios.put(`http://localhost:5000/api/notifications/${id}/read`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setNotifications(notifications.map(n => 
-        n.notification_id === id ? { ...n, is_read: 1 } : n
-      ));
-    } catch (err) { console.error(err); }
+      await axios.put(
+        `/api/notifications/${id}/read`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      setNotifications(
+        notifications.map((n) =>
+          n.notification_id === id ? { ...n, is_read: 1 } : n,
+        ),
+      );
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const markAllAsRead = async () => {
     try {
       const token = localStorage.getItem("token");
-      await axios.put("http://localhost:5000/api/notifications/read-all", {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setNotifications(notifications.map(n => ({ ...n, is_read: 1 })));
-    } catch (err) { console.error(err); }
+      await axios.put(
+        "/api/notifications/read-all",
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      setNotifications(notifications.map((n) => ({ ...n, is_read: 1 })));
+      setUnreadCount(0);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (
     <div className="notifications-page">
       <div className="notifications-container">
-        
         <div className="notifications-header">
-          <h1 className="notif-title-text">NOTIFICATIONS</h1>
-          {!loading && notifications.some(n => !n.is_read) && (
+          <div className="header-left">
+            <h1>Notifications</h1>
+            {unreadCount > 0 && (
+              <span className="unread-badge">{unreadCount} new</span>
+            )}
+          </div>
+          {notifications.some((n) => !n.is_read) && (
             <button className="mark-all-btn" onClick={markAllAsRead}>
               Mark all as read
             </button>
@@ -61,40 +127,28 @@ const Notifications = () => {
 
         <div className="notifications-list">
           {loading ? (
-            <div className="no-notifications"><p>Loading notifications...</p></div>
+            <p>Loading notifications...</p>
           ) : notifications.length > 0 ? (
-            notifications.map((n) => (
+            notifications.map((notif) => (
               <div
-                key={n.notification_id}
-                className={`notification-item ${n.is_read ? "read" : "unread"}`}
-                onClick={() => !n.is_read && markAsRead(n.notification_id)}
+                key={notif.notification_id}
+                className={`notification-item ${!notif.is_read ? "unread" : "read"}`}
+                onClick={() =>
+                  !notif.is_read && markAsRead(notif.notification_id)
+                }
               >
-                <div className="notification-icon-area">
-                  <div className="status-dot"></div>
+                <div className="notification-icon">
+                  {!notif.is_read && <span className="unread-dot"></span>}
                 </div>
                 <div className="notification-content">
-                  <div className="notification-top">
-                    <div className="notification-title-group">
-                        <span className="notification-title">{n.title || "UPDATE"}</span>
-                        
-                        {n.reservation_id && (
-                            <span className="notif-res-id-badge">
-                                {n.reservation_id}
-                            </span>
-                        )}
-                    </div>
-                    <span className="notification-time">
-                        {new Date(n.created_at).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <p className="notification-message">{n.message}</p>
+                  <h4>{notif.title}</h4>
+                  <p>{notif.message}</p>
+                  <small>{new Date(notif.created_at).toLocaleString()}</small>
                 </div>
               </div>
             ))
           ) : (
-            <div className="no-notifications">
-              <p>You have no notifications yet.</p>
-            </div>
+            <p>No notifications yet</p>
           )}
         </div>
       </div>

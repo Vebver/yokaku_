@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import axios from "axios"; // Added for PayMongo API call
+import axios from "axios";
 import {
   X,
   Upload,
@@ -35,7 +35,6 @@ const ReservationSummary = ({
       document.body.style.overflow = "unset";
       setReceipt(null);
       setPaymentMethod(null);
-      setIsProcessingPayment(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
     return () => {
@@ -61,7 +60,7 @@ const ReservationSummary = ({
     return main + linked;
   };
 
-  // --- NEW: PAYMONGO REDIRECT LOGIC ---
+  // Handle payment and confirmation
   const handlePaymentAndConfirm = async () => {
     if (paymentMethod === "Gcash") {
       // Safety check for amount
@@ -107,6 +106,24 @@ const ReservationSummary = ({
       onConfirm(receipt, paymentMethod);
     }
   };
+
+  // Get account details based on payment method
+  const getAccountDetails = () => {
+    if (paymentMethod === "Gcash") {
+      return {
+        number: "09060052831",
+        name: "Carl Lorenz Leabres",
+      };
+    } else if (paymentMethod === "Maya") {
+      return {
+        number: "09060052831",
+        name: "Carl Lorenz Leabres",
+      };
+    }
+    return null;
+  };
+
+  const accountDetails = getAccountDetails();
 
   return (
     <div className="summary-modal-overlay" onClick={onClose}>
@@ -300,7 +317,7 @@ const ReservationSummary = ({
               ))}
             </div>
 
-            {paymentMethod && paymentMethod !== "Gcash" && (
+            {paymentMethod && accountDetails && (
               <div className="payment-instructions fade-in">
                 <p>
                   Send{" "}
@@ -310,86 +327,72 @@ const ReservationSummary = ({
                   Payment to:
                 </p>
                 <div className="account-details">
-                  <strong>09060052831</strong>
+                  <strong>{accountDetails.number}</strong>
                   <div className="account-name">
-                    Account Name: Carl Lorenz Leabres
+                    Account Name: {accountDetails.name}
                   </div>
                 </div>
               </div>
             )}
           </section>
 
-          {/* Section 5: Receipt Upload - Only required if not GCash (PayMongo) */}
-          {paymentMethod !== "Gcash" && (
-            <section className="summary-section">
-              <label className="upload-instruction">
-                Upload Receipt (Amount: ₱{orderSummary?.downpayment?.toFixed(2)}
-                )
-              </label>
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={(e) => setReceipt(e.target.files[0])}
-                accept="image/*"
-                style={{ display: "none" }}
-              />
+          {/* Section 5: Receipt Upload */}
+          <section className="summary-section">
+            <label className="upload-instruction">
+              Upload Receipt (Amount: ₱{orderSummary?.downpayment?.toFixed(2)})
+            </label>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={(e) => setReceipt(e.target.files[0])}
+              accept="image/*"
+              style={{ display: "none" }}
+            />
 
-              <div className="upload-container-wrapper">
+            <div className="upload-container-wrapper">
+              <button
+                type="button"
+                className={`upload-btn ${receipt ? "file-selected" : ""}`}
+                onClick={() => fileInputRef.current.click()}
+              >
+                {receipt ? (
+                  <div className="selected-file-info">
+                    <CheckCircle2 size={18} color="#27ae60" />
+                    <span className="file-name">{receipt.name}</span>
+                  </div>
+                ) : (
+                  <div className="placeholder-info">
+                    <Upload size={18} />
+                    <span>Select Receipt Image</span>
+                  </div>
+                )}
+              </button>
+              {receipt && (
                 <button
                   type="button"
-                  className={`upload-btn ${receipt ? "file-selected" : ""}`}
-                  onClick={() => fileInputRef.current.click()}
+                  className="remove-file-action"
+                  onClick={handleRemoveFile}
                 >
-                  {receipt ? (
-                    <div className="selected-file-info">
-                      <CheckCircle2 size={18} color="#27ae60" />
-                      <span className="file-name">{receipt.name}</span>
-                    </div>
-                  ) : (
-                    <div className="placeholder-info">
-                      <Upload size={18} />
-                      <span>Select Receipt Image</span>
-                    </div>
-                  )}
+                  <Trash2 size={18} />
                 </button>
-                {receipt && (
-                  <button
-                    type="button"
-                    className="remove-file-action"
-                    onClick={handleRemoveFile}
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                )}
-              </div>
-              {!receipt && (
-                <div className="upload-tip">
-                  <AlertCircle size={14} />
-                  <span>
-                    Payment screenshot is required to complete booking.
-                  </span>
-                </div>
               )}
-            </section>
-          )}
+            </div>
+            {!receipt && (
+              <div className="upload-tip">
+                <AlertCircle size={14} />
+                <span>Payment screenshot is required to complete booking.</span>
+              </div>
+            )}
+          </section>
         </div>
 
         <footer className="summary-footer">
           <button
             className="confirm-btn"
-            disabled={
-              (paymentMethod !== "Gcash" && !receipt) ||
-              !paymentMethod ||
-              loading ||
-              isProcessingPayment
-            }
+            disabled={!receipt || !paymentMethod || loading}
             onClick={handlePaymentAndConfirm}
           >
-            {loading || isProcessingPayment
-              ? "Processing..."
-              : paymentMethod === "Gcash"
-                ? `Pay ₱${orderSummary?.downpayment?.toFixed(2)} with GCash`
-                : "Submit Reservation"}
+            {loading ? "Processing..." : "Submit Reservation"}
           </button>
         </footer>
       </div>

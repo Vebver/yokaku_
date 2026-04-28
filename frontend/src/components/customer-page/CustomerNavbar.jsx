@@ -1,13 +1,51 @@
-import React, { useState, useEffect, use } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
+import io from "socket.io-client";
 import "../../Style/Navbar.css";
 
 function CustomerNavbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [hasUnread, setHasUnread] = useState(false);
+  const [socket, setSocket] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const userId = localStorage.getItem("userId");
+
+    // Setup Socket.IO for real-time notifications
+    if (token && userId) {
+      // Use direct connection:
+      const newSocket = io("http://localhost:5000", {
+        transports: ["websocket", "polling"],
+      });
+      setSocket(newSocket);
+
+      newSocket.on("connect", () => {
+        console.log("Socket connected for notifications");
+        newSocket.emit("join_user", userId);
+      });
+
+      newSocket.on("new_notification", () => {
+        console.log("New notification received");
+        setHasUnread(true);
+      });
+
+      newSocket.on("unread_count_updated", (data) => {
+        setHasUnread(data.unreadCount > 0);
+      });
+
+      newSocket.on("connect_error", (error) => {
+        console.error("Socket connection error:", error);
+      });
+
+      return () => {
+        if (newSocket) newSocket.close();
+      };
+    }
+  }, []);
 
   useEffect(() => {
     const checkNotifications = async () => {
@@ -15,7 +53,7 @@ function CustomerNavbar() {
         const token = localStorage.getItem("token");
         if (!token) return; // No token, user not logged in
 
-        const res = await axios.get("http://localhost:5000/api/notifications", {
+        const res = await axios.get("/api/notifications", {
           headers: { Authorization: `Bearer ${token}` },
         });
         const unread = res.data.some((n) => !n.is_read);
@@ -55,7 +93,7 @@ function CustomerNavbar() {
   };
 
   const handleNavClick = (e, item) => {
-    if(e) e.preventDefault();
+    if (e) e.preventDefault();
     closeMenu();
 
     // 1. HOME logic: Just go to /customer top

@@ -16,6 +16,7 @@ import {
   Mail,
   Phone,
   Link as LinkIcon,
+  AlertCircle,
 } from "lucide-react";
 import "../Style/TableReservation.css";
 import MenuModal from "./MenuModal";
@@ -46,6 +47,7 @@ const timeToMin = (t) => {
   return h * 60 + m;
 };
 
+// This function is already in your TableReservation.jsx
 const formatTime = (timeStr) => {
   if (!timeStr || timeStr.includes("AM") || timeStr.includes("PM"))
     return timeStr || "";
@@ -55,12 +57,86 @@ const formatTime = (timeStr) => {
   return `${hours % 12 || 12}:${parts[1]} ${ampm}`;
 };
 
+// Helper function to check if a reservation is ongoing based on current time
+const isReservationOngoing = (startTime, endTime) => {
+  if (!startTime || !endTime) return false;
+
+  const now = new Date();
+  const currentTime = now.getHours() * 60 + now.getMinutes();
+
+  const startM = timeToMin(startTime);
+  const endM = timeToMin(endTime);
+
+  return currentTime >= startM && currentTime <= endM;
+};
+
+// Helper function to check if a reservation is completed (should be hidden)
+const isReservationCompleted = (reservation, selectedDate) => {
+  const now = new Date();
+  const currentTime = now.getHours() * 60 + now.getMinutes();
+  const currentDate = now.toISOString().split("T")[0];
+
+  // If status is Done or Completed, hide it
+  if (reservation.status === "Done" || reservation.status === "Completed") {
+    return true;
+  }
+
+  // If it's today's date and end time has passed, hide it
+  if (selectedDate === currentDate) {
+    const endM = timeToMin(reservation.endTime);
+    if (currentTime > endM) {
+      return true;
+    }
+  }
+
+  // If the reservation date is in the past, hide it
+  if (selectedDate < currentDate) {
+    return true;
+  }
+
+  return false;
+};
+
+// Helper function to get schedule item class based on status and time
+const getScheduleItemClass = (reservation) => {
+  let status = reservation.status;
+
+  if (
+    (status === "Confirmed" || status === "Pending") &&
+    isReservationOngoing(reservation.startTime, reservation.endTime)
+  ) {
+    return "ongoing";
+  }
+
+  if (status === "Seated") return "ongoing";
+  if (status === "Confirmed" || status === "Pending") return "reserved";
+  return "";
+};
+
+// Helper function to get status display text with real-time checking
+const getStatusDisplayText = (reservation) => {
+  let status = reservation.status;
+
+  if (
+    (status === "Confirmed" || status === "Pending") &&
+    isReservationOngoing(reservation.startTime, reservation.endTime)
+  ) {
+    return "ONGOING";
+  }
+
+  if (status === "Seated") return "ONGOING";
+  if (status === "Confirmed") return "CONFIRMED";
+  if (status === "Pending") return "PENDING";
+  return status.toUpperCase();
+};
+
 export default function TableReservation({ onClose, onSuccess }) {
   const [selectedId, setSelectedId] = useState(null);
   const [linkedIds, setLinkedIds] = useState([]);
   const [selectedItems, setSelectedItems] = useState([]);
   const [isLinkMode, setIsLinkMode] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState(null); // Add this line
+  const [showOngoingWarning, setShowOngoingWarning] = useState(null);
 
   const [form, setForm] = useState({
     date: "",
@@ -82,6 +158,7 @@ export default function TableReservation({ onClose, onSuccess }) {
   });
 
   const [data, setData] = useState({ occupied: {}, schedule: [] });
+  const [tableSchedules, setTableSchedules] = useState({});
   const [ui, setUi] = useState({
     loading: false,
     editing: false,
@@ -123,36 +200,100 @@ export default function TableReservation({ onClose, onSuccess }) {
     }
   }, [form.muni]);
 
-  // REAL-TIME POLLING (5s)
+  // Fetch schedules for all tables when date changes
+  useEffect(() => {
+    const fetchAllTableSchedules = async () => {
+      if (!form.date) return;
+
+      const schedules = {};
+      for (const table of TABLES_DATA) {
+        try {
+          const response = await axios.get(
+            `${API_BASE}/reservations/table-schedule`,
+            {
+              params: {
+                tableId: table.id,
+                date: form.date,
+              },
+            },
+          );
+          // Filter out completed/ended reservations on the frontend
+          schedules[table.id] = Array.isArray(response.data)
+            ? response.data.filter((r) => !isReservationCompleted(r, form.date))
+            : [];
+        } catch (error) {
+          console.warn(`Error fetching schedule for table ${table.id}:`, error);
+          schedules[table.id] = [];
+        }
+      }
+      setTableSchedules(schedules);
+    };
+
+    fetchAllTableSchedules();
+  }, [form.date]);
+
+  // REAL-TIME POLLING
   useEffect(() => {
     const poll = async () => {
       if (!form.date) return;
       try {
-        const [statRes, schedRes] = await Promise.all([
-          axios.get(`${API_BASE}/reservations/table-statuses`, {
+        // Get table statuses
+        const statRes = await axios.get(
+          `${API_BASE}/reservations/table-statuses`,
+          {
             params: {
               date: form.date,
               startTime: form.startTime || "00:00",
               endTime: form.endTime || "23:59",
             },
-          }),
-          selectedId
-            ? axios.get(`${API_BASE}/reservations/table-schedule`, {
-                params: { tableId: selectedId, date: form.date },
-              })
-            : { data: [] },
-        ]);
+          },
+        );
+
+        // Get schedule for selected table only if a table is selected
+        let schedRes = { data: [] };
+        if (selectedId && form.date) {
+          try {
+            schedRes = await axios.get(
+              `${API_BASE}/reservations/table-schedule`,
+              {
+                params: {
+                  tableId: selectedId,
+                  date: form.date,
+                },
+              },
+            );
+          } catch (error) {
+            schedRes = { data: [] };
+          }
+        }
+
+        // Process schedule and filter out completed/ended reservations
+        const processedSchedule = (schedRes.data || [])
+          .filter((res) => !isReservationCompleted(res, form.date))
+          .map((res) => {
+            const processed = { ...res };
+            if (
+              (processed.status === "Confirmed" ||
+                processed.status === "Pending") &&
+              isReservationOngoing(processed.startTime, processed.endTime)
+            ) {
+              processed.status = "Ongoing";
+            }
+            return processed;
+          });
+
         setData({
           occupied: statRes.data || {},
-          schedule: Array.isArray(schedRes.data) ? schedRes.data : [],
+          schedule: processedSchedule,
         });
       } catch (e) {
-        console.error(e);
+        console.error("Polling error:", e);
       }
     };
+
     poll();
-    const id = setInterval(poll, 5000);
-    return () => clearInterval(id);
+    const pollInterval = setInterval(poll, 10000);
+    return () => clearInterval(pollInterval);
   }, [form.date, form.startTime, form.endTime, selectedId]);
 
   // --- CALCULATIONS ---
@@ -160,6 +301,49 @@ export default function TableReservation({ onClose, onSuccess }) {
     () => TABLES_DATA.find((t) => t.id === selectedId),
     [selectedId],
   );
+
+  // Check if a table has any active reservation (not completed)
+  const hasActiveReservation = (tableId) => {
+    const schedule = tableSchedules[tableId] || [];
+    return schedule.length > 0;
+  };
+
+  // Check if a table has ongoing reservation
+  const hasOngoingReservation = (tableId) => {
+    const schedule = tableSchedules[tableId] || [];
+    return schedule.some((r) => {
+      const isOngoing = isReservationOngoing(r.startTime, r.endTime);
+      return (
+        (r.status === "Confirmed" ||
+          r.status === "Pending" ||
+          r.status === "Seated") &&
+        isOngoing
+      );
+    });
+  };
+
+  // Check if a table is available for the selected time slot
+  const isTableAvailableForTime = (tableId, startTime, endTime) => {
+    const schedule = tableSchedules[tableId] || [];
+    const startM = timeToMin(startTime);
+    const endM = timeToMin(endTime);
+
+    return !schedule.some((r) => {
+      return startM < timeToMin(r.endTime) && endM > timeToMin(r.startTime);
+    });
+  };
+
+  // Filter available tables for linking based on time compatibility
+  const getAvailableTablesForLinking = () => {
+    if (!form.startTime || !form.endTime) return [];
+
+    return TABLES_DATA.filter(
+      (table) =>
+        table.id !== selectedId &&
+        !linkedIds.includes(table.id) &&
+        isTableAvailableForTime(table.id, form.startTime, form.endTime),
+    );
+  };
 
   const totalSeats = useMemo(() => {
     if (!selectedId) return 0;
@@ -256,11 +440,7 @@ export default function TableReservation({ onClose, onSuccess }) {
     return filtered.filter((t) => {
       const m = timeToMin(t);
       return !data.schedule.some(
-        (r) =>
-          r.status !== "Done" &&
-          r.status !== "Completed" &&
-          m >= timeToMin(r.startTime) &&
-          m < timeToMin(r.endTime),
+        (r) => m >= timeToMin(r.startTime) && m < timeToMin(r.endTime),
       );
     });
   }, [timeOptions, data.schedule, form.date, todayStr]);
@@ -286,16 +466,38 @@ export default function TableReservation({ onClose, onSuccess }) {
   };
 
   const onTableClick = (table) => {
-    const status = data.occupied[table.id];
-    if (status === "Seated") return;
+    const hasActive = hasActiveReservation(table.id);
+    const hasOngoing = hasOngoingReservation(table.id);
+
+    // If table has ongoing reservation, show warning
+    if (hasOngoing && !isLinkMode) {
+      setShowOngoingWarning(table.id);
+      setTimeout(() => setShowOngoingWarning(null), 3000);
+    }
+
+    // In link mode, check time availability
     if (isLinkMode) {
       if (table.id === selectedId) return;
+
+      if (!form.startTime || !form.endTime) {
+        alert("Please select start time and end time first");
+        return;
+      }
+
+      if (!isTableAvailableForTime(table.id, form.startTime, form.endTime)) {
+        alert(
+          `This table has a reservation during the selected time slot. Please choose a different time or another table.`,
+        );
+        return;
+      }
+
       setLinkedIds((prev) =>
         prev.includes(table.id)
           ? prev.filter((id) => id !== table.id)
           : [...prev, table.id],
       );
     } else {
+      // Allow selection even if table has reservation
       setSelectedId(selectedId === table.id ? null : table.id);
       setLinkedIds([]);
     }
@@ -304,13 +506,8 @@ export default function TableReservation({ onClose, onSuccess }) {
   const isFormInvalid = useMemo(() => {
     const s = timeToMin(form.startTime),
       e = timeToMin(form.endTime);
-    // Fixed the hasConflict variable reference
     const conflictDetected = data.schedule.some(
-      (r) =>
-        r.status !== "Done" &&
-        r.status !== "Completed" &&
-        s < timeToMin(r.endTime) &&
-        e > timeToMin(r.startTime),
+      (r) => s < timeToMin(r.endTime) && e > timeToMin(r.startTime),
     );
     const phoneValid = user.phone.length === 11 && user.phone.startsWith("09");
     const emailValid = /^\S+@\S+\.\S+$/.test(user.email);
@@ -363,6 +560,31 @@ export default function TableReservation({ onClose, onSuccess }) {
       });
 
       const res = await axios.post(`${API_BASE}/reservations/table`, payload);
+
+      // Refresh schedules after successful booking
+      setTimeout(() => {
+        const refreshSchedules = async () => {
+          const schedules = {};
+          for (const table of TABLES_DATA) {
+            try {
+              const response = await axios.get(
+                `${API_BASE}/reservations/table-schedule`,
+                { params: { tableId: table.id, date: form.date } },
+              );
+              schedules[table.id] = Array.isArray(response.data)
+                ? response.data.filter(
+                    (r) => !isReservationCompleted(r, form.date),
+                  )
+                : [];
+            } catch (error) {
+              schedules[table.id] = [];
+            }
+          }
+          setTableSchedules(schedules);
+        };
+        refreshSchedules();
+      }, 500);
+
       onSuccess(res.data.id);
     } catch (e) {
       // LOG the error response to see which ID failed
@@ -374,6 +596,8 @@ export default function TableReservation({ onClose, onSuccess }) {
       setUi((p) => ({ ...p, loading: false }));
     }
   };
+
+  const availableTablesForLinking = getAvailableTablesForLinking();
 
   return (
     <div className={`floor-plan-wrapper ${!form.date ? "init-state" : ""}`}>
@@ -407,6 +631,7 @@ export default function TableReservation({ onClose, onSuccess }) {
                 onChange={(e) => {
                   handleInputChange(e);
                   setSelectedId(null);
+                  setLinkedIds([]);
                 }}
               />
             </div>
@@ -418,22 +643,26 @@ export default function TableReservation({ onClose, onSuccess }) {
                     <Clock size={14} /> Occupied Slots for {primaryTable?.label}
                   </h4>
                   <div className="schedule-list">
-                    {data.schedule.filter(
-                      (r) => r.status !== "Done" && r.status !== "Completed",
-                    ).length > 0 ? (
-                      data.schedule
-                        .filter(
-                          (r) =>
-                            r.status !== "Done" && r.status !== "Completed",
-                        )
-                        .map((res, i) => (
-                          <div key={i} className="schedule-item-3d">
-                            <Clock size={12} /> {formatTime(res.startTime)} -{" "}
+                    {data.schedule.length > 0 ? (
+                      data.schedule.map((res, i) => (
+                        <div
+                          key={i}
+                          className={`schedule-item-3d ${getScheduleItemClass(res)}`}
+                        >
+                          <Clock size={12} />
+                          <span className="schedule-time">
+                            {formatTime(res.startTime)} -{" "}
                             {formatTime(res.endTime)}
-                          </div>
-                        ))
+                          </span>
+                          <span className="schedule-status">
+                            {getStatusDisplayText(res)}
+                          </span>
+                        </div>
+                      ))
                     ) : (
-                      <p className="no-res-text">Available all day</p>
+                      <p className="no-res-text">
+                        No active reservations for this table
+                      </p>
                     )}
                   </div>
                 </div>
@@ -447,7 +676,10 @@ export default function TableReservation({ onClose, onSuccess }) {
                       name="startTime"
                       className="res-input-dropdown"
                       value={form.startTime}
-                      onChange={handleInputChange}
+                      onChange={(e) => {
+                        handleInputChange(e);
+                        setLinkedIds([]);
+                      }}
                     >
                       <option value="">--:-- --</option>
                       {availableStartTimeOptions.map((t) => (
@@ -465,7 +697,10 @@ export default function TableReservation({ onClose, onSuccess }) {
                       className="res-input-dropdown"
                       name="endTime"
                       value={form.endTime}
-                      onChange={handleInputChange}
+                      onChange={(e) => {
+                        handleInputChange(e);
+                        setLinkedIds([]);
+                      }}
                       disabled={!form.startTime}
                     >
                       <option value="">--:-- --</option>
@@ -676,49 +911,91 @@ export default function TableReservation({ onClose, onSuccess }) {
           <header className="floor-header">
             <h1 className="floor-title">Select a Table</h1>
           </header>
-          {selectedId &&
-            !["Confirmed", "Seated", "Pending"].includes(
-              data.occupied[selectedId],
-            ) && (
-              <div style={{ marginBottom: "20px", width: "100%" }}>
-                <button
-                  className={`btn-link-mode ${isLinkMode ? "active" : ""}`}
-                  onClick={() => setIsLinkMode(!isLinkMode)}
+          {selectedId && (
+            <div style={{ marginBottom: "20px", width: "100%" }}>
+              <button
+                className={`btn-link-mode ${isLinkMode ? "active" : ""}`}
+                onClick={() => {
+                  setIsLinkMode(!isLinkMode);
+                  if (!isLinkMode && (!form.startTime || !form.endTime)) {
+                    alert(
+                      "Please select start time and end time before linking tables",
+                    );
+                  }
+                }}
+                style={{
+                  width: "100%",
+                  padding: "14px 0",
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
+                <LinkIcon size={18} style={{ marginRight: "10px" }} />{" "}
+                {isLinkMode ? "Finish Linking" : "Link Tables"}
+              </button>
+
+              {isLinkMode && form.startTime && form.endTime && (
+                <div
                   style={{
-                    width: "100%",
-                    padding: "14px 0",
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
+                    marginTop: "10px",
+                    padding: "10px",
+                    backgroundColor: "#f0f5ff",
+                    borderRadius: "8px",
+                    fontSize: "12px",
+                    textAlign: "center",
                   }}
                 >
-                  <LinkIcon size={18} style={{ marginRight: "10px" }} />{" "}
-                  {isLinkMode ? "Finish Linking" : "Link Tables"}
-                </button>
-              </div>
-            )}
+                  <strong>Available tables for linking:</strong>{" "}
+                  {availableTablesForLinking.length} tables available
+                  <br />
+                  <small>
+                    Only tables with no time conflict during {form.startTime} -{" "}
+                    {form.endTime} can be linked
+                  </small>
+                </div>
+              )}
+            </div>
+          )}
           <div className="table-selection-grid">
             {TABLES_DATA.map((t) => {
-              const status = data.occupied[t.id];
+              const hasAnyReservation = hasActiveReservation(t.id);
+              const hasOngoing = hasOngoingReservation(t.id);
               const isSelected = selectedId === t.id;
               const isLinked = linkedIds.includes(t.id);
-              let cardCls = isSelected
-                ? "selected"
-                : isLinked
-                  ? "linked"
-                  : "available";
-              let dotCls =
-                status === "Seated"
-                  ? "occupied"
-                  : status === "Confirmed" || status === "Pending"
-                    ? "reserved"
-                    : "available";
+              const showWarning = showOngoingWarning === t.id;
+
+              // Determine card class
+              let cardCls = "";
+              if (isSelected) {
+                cardCls = "selected";
+              } else if (isLinked) {
+                cardCls = "linked";
+              } else if (hasOngoing && !isLinkMode) {
+                cardCls = "occupied";
+              } else if (hasAnyReservation && !isLinkMode) {
+                cardCls = "reserved";
+              } else {
+                cardCls = "available";
+              }
+
+              // Determine dot class
+              let dotCls = "available";
+              if (hasOngoing) {
+                dotCls = "occupied";
+              } else if (hasAnyReservation) {
+                dotCls = "reserved";
+              }
 
               return (
                 <div
                   key={t.id}
                   className={`table-list-card ${cardCls}`}
                   onClick={() => onTableClick(t)}
+                  style={{
+                    cursor: "pointer",
+                    position: "relative",
+                  }}
                 >
                   <div className="table-card-content">
                     <div className="table-details">
@@ -727,22 +1004,57 @@ export default function TableReservation({ onClose, onSuccess }) {
                         <strong className="table-label-text">{t.label}</strong>
                       </div>
                       <span className="table-seats-text">{t.seats} Seats</span>
+                      {hasOngoing && !isLinkMode && (
+                        <div className="ongoing-badge">
+                          <AlertCircle size={12} />
+                          <span>Ongoing Now</span>
+                        </div>
+                      )}
+                      {hasAnyReservation && !hasOngoing && !isLinkMode && (
+                        <div className="reserved-badge">
+                          <Clock size={12} />
+                          <span>Reserved</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className={`status-dot ${dotCls}`} />
+                  {showWarning && !isLinkMode && (
+                    <div className="warning-tooltip">
+                      <AlertCircle size={14} />
+                      <span>This table has an ongoing reservation</span>
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
           <div className="floor-legend-horizontal">
-            {["available", "reserved", "occupied"].map((l) => (
-              <div key={l} className="legend-item">
-                <span className={`dot ${l}`}></span>{" "}
-                {l === "occupied"
-                  ? "Occupied (Ongoing)"
-                  : l.charAt(0).toUpperCase() + l.slice(1)}
+            <div className="legend-item">
+              <span className="dot available"></span> Available
+            </div>
+            <div className="legend-item">
+              <span className="dot reserved"></span> Reserved
+            </div>
+            <div className="legend-item">
+              <span className="dot occupied"></span> Occupied/Ongoing
+            </div>
+            <div className="legend-item">
+              <span
+                className="dot"
+                style={{ backgroundColor: "#3a86ff" }}
+              ></span>{" "}
+              Selected
+            </div>
+            {isLinkMode && (
+              <div className="legend-item">
+                <span
+                  className="dot"
+                  style={{ backgroundColor: "#3a86ff" }}
+                ></span>{" "}
+                Linked
               </div>
-            ))}
+            )}
           </div>
         </div>
       )}

@@ -20,9 +20,8 @@ router.post(
   reservationController.createReservation,
 );
 
-// backend/routes/reservationRoutes.js
-router.post("/create-payment", reservationController.createPaymentSession);
-
+// Add this route to your reservationRoutes.js file
+router.get("/update-ongoing", reservationController.updateOngoingReservations);
 // 3. Generic /:id routes (KEEP THESE LAST)
 router.get("/:id", reservationController.checkReservationId);
 router.put("/:id/status", reservationController.updateStatus);
