@@ -1,7 +1,7 @@
 const Dashboard = require("../models/AdminDashboard");
 const AccountManagement = require("../models/AccountManagement");
 const TableStatus = require("../models/TableStatus");
-const FinancialReport  = require("../models/FinancialReport")
+const FinancialReport = require("../models/FinancialReport");
 const { get } = require("node:http");
 
 const adminController = {
@@ -70,7 +70,7 @@ const adminController = {
   },
   getFinancialOverview: async (req, res) => {
     try {
-      // Use Promise.all to run all database queries at the same time (faster)
+      // 1. Fetch all data from the model
       const [monthlyTrend, stats, paymentMethods, sources] = await Promise.all([
         FinancialReport.getMonthlyTrend(),
         FinancialReport.getFinancialStats(),
@@ -78,19 +78,21 @@ const adminController = {
         FinancialReport.getRevenueSources()
       ]);
 
+      // 2. Wrap it in 'success' and 'data' to match your Reports.jsx logic
       res.status(200).json({
-        success: true,
-        data: {
-          monthlyTrend,
+        success: true, // <--- Reports.jsx is checking for this
+        data: {        // <--- Reports.jsx is looking for this key
           summary: stats,
-          paymentMethods,
-          sources
+          monthlyTrend: monthlyTrend,
+          paymentMethods: paymentMethods,
+          sources: sources
         }
       });
+      
     } catch (error) {
       console.error("Financial Report Controller Error:", error);
       res.status(500).json({ 
-        success: false, 
+        success: false, // <--- Send false if it fails
         error: "Failed to generate financial reports" 
       });
     }

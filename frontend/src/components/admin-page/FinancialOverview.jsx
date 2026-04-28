@@ -33,14 +33,15 @@ const FinancialOverview = ({ data }) => {
 
   // 2. Format Line Chart Data (Monthly Trend)
   const lineChartData = {
-    labels: data.monthlyTrend?.map(item => item.label) || [],
+    labels: data.monthlyTrend?.length > 0 ? data.monthlyTrend.map(item => item.label) : ["No Data"],
     datasets: [{
       label: 'Revenue (₱)',
-      data: data.monthlyTrend?.map(item => item.value) || [],
+      // Ensure the value is converted to a Number
+      data: data.monthlyTrend?.length > 0 ? data.monthlyTrend.map(item => Number(item.value)) : [0],
       borderColor: '#10b981',
+      backgroundColor: 'rgba(16, 185, 129, 0.1)',
       tension: 0.4, 
       fill: true,
-      backgroundColor: 'rgba(16, 185, 129, 0.1)',
       pointBackgroundColor: '#10b981',
     }]
   };

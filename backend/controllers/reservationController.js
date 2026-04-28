@@ -313,11 +313,6 @@ createReservation: async (req, res) => {
       const dbStart = startDateTime.toTimeString().split(" ")[0];
       const dbEnd = endDateTime.toTimeString().split(" ")[0];
 
-      const items =
-        typeof body.selectedItems === "string"
-          ? JSON.parse(body.selectedItems)
-          : body.selectedItems || [];
-
       let tableIdsArray = body.tableIds;
       if (typeof tableIdsArray === "string") {
         tableIdsArray = JSON.parse(tableIdsArray);
