@@ -12,6 +12,8 @@
   --schedule-occupied-bg: #ffe6e6;
   --schedule-reserved-border: #ffcc00;
   --schedule-occupied-border: #e63946;
+  --schedule-ongoing-bg: #ffe6e6;
+  --schedule-ongoing-border: #e63946;
 }
 
 * {
@@ -117,7 +119,7 @@
 .btn-link-mode {
   display: flex;
   align-items: center;
-  justify-content: center; /* Centers label and icon */
+  justify-content: center;
   gap: 10px;
   padding: 14px;
   border-radius: 12px;
@@ -127,8 +129,8 @@
   font-weight: 700;
   font-size: 14px;
   cursor: pointer;
-  width: 100% !important; /* Forces full width of the container */
-  box-sizing: border-box; /* Ensures padding doesn't push it out of bounds */
+  width: 100% !important;
+  box-sizing: border-box;
   transition: all 0.2s ease;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
 }
@@ -243,6 +245,26 @@
 }
 
 /* --- MODERN SCHEDULE ITEM STYLES --- */
+.schedule-list {
+  max-height: 200px;
+  overflow-y: auto;
+  padding-right: 5px;
+}
+
+.schedule-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.schedule-list::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.schedule-list::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 10px;
+}
+
 .schedule-item-3d {
   background: white;
   padding: 12px 16px;
@@ -284,19 +306,53 @@
   color: #d4a000;
 }
 
-/* Occupied status styling */
-.schedule-item-3d.occupied {
+/* Occupied/Ongoing status styling */
+.schedule-item-3d.occupied,
+.schedule-item-3d.ongoing {
   background: linear-gradient(135deg, #ffe6e6 0%, #fff5f5 100%);
   border-left: none;
+  animation: pulseRed 2s infinite;
 }
 
-.schedule-item-3d.occupied::before {
-  background: var(--schedule-occupied-border);
+.schedule-item-3d.occupied::before,
+.schedule-item-3d.ongoing::before {
+  background: var(--schedule-ongoing-border);
 }
 
-.schedule-item-3d.occupied .schedule-status {
+.schedule-item-3d.occupied .schedule-status,
+.schedule-item-3d.ongoing .schedule-status {
   background: rgba(230, 57, 70, 0.15);
   color: #c72535;
+  animation: pulse 1.5s infinite;
+}
+
+/* Ongoing schedule badge */
+.schedule-item-3d.ongoing .schedule-status::before {
+  content: "🟢 ";
+  font-size: 10px;
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes pulseRed {
+  0% {
+    box-shadow: 0 0 0 0 rgba(230, 57, 70, 0.2);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(230, 57, 70, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(230, 57, 70, 0);
+  }
 }
 
 /* Schedule icon */
@@ -438,6 +494,93 @@
   cursor: pointer;
 }
 
+/* Ongoing reservation styles for table cards */
+.table-list-card.ongoing-warning {
+  background: linear-gradient(135deg, #fff5f5 0%, #ffe6e6 100%) !important;
+  border: 2px solid #e63946 !important;
+  position: relative;
+  animation: pulseWarning 2s infinite;
+}
+
+@keyframes pulseWarning {
+  0% {
+    box-shadow: 0 0 0 0 rgba(230, 57, 70, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(230, 57, 70, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(230, 57, 70, 0);
+  }
+}
+
+.status-dot.ongoing {
+  background-color: #e63946;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.ongoing-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: #e63946;
+  background: rgba(230, 57, 70, 0.1);
+  padding: 4px 8px;
+  border-radius: 12px;
+  margin-top: 6px;
+  font-weight: 600;
+}
+
+.warning-tooltip {
+  position: absolute;
+  top: -30px;
+  right: 10px;
+  background: #e63946;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  z-index: 10;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Update legend dot styles */
+.dot.ongoing {
+  background-color: #e63946;
+  animation: pulse 1.5s infinite;
+}
+
 /* Responsive */
 @media (max-width: 1100px) {
   .floor-plan-wrapper {
@@ -456,6 +599,18 @@
     max-width: 100% !important;
     margin-top: 20px;
   }
+}
+.reserved-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: #d4a000;
+  background: rgba(255, 204, 0, 0.1);
+  padding: 4px 8px;
+  border-radius: 12px;
+  margin-top: 6px;
+  font-weight: 600;
 }
 
 .fade-in {

@@ -158,15 +158,24 @@ const Reservation = {
         }
       }
 
-      // Handle Notification
+      // Handle Notification - Create for logged-in users only
+      // Handle Notification - Create for logged-in users only
       if (data.userId && data.userId !== "null") {
+        console.log(
+          `📝 Attempting to create notification for user: ${data.userId}`,
+        );
+        console.log(`📝 Reservation ID: ${customId}`);
+        console.log(`📝 Date: ${data.date}, Time: ${data.startTime}`);
         await Notification.create(conn, {
           userId: data.userId,
           reservationId: customId,
-          title: "Reservation Confirmed",
-          message: `Your reservation for ${data.guests} guest(s) on ${data.date} at ${data.startTime} has been confirmed.`,
+          title: "Reservation Confirmed 🎉",
+          message: `Your reservation for ${data.guests} guest(s) on ${data.date} at ${data.startTime} has been confirmed. Reservation ID: ${customId}`,
           type: "reservation",
         });
+        console.log(
+          `✅ Notification created successfully for user ${data.userId}`,
+        );
       }
 
       // Handle Payment
