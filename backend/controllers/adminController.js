@@ -1,6 +1,7 @@
 const Dashboard = require("../models/AdminDashboard");
 const AccountManagement = require("../models/AccountManagement");
 const TableStatus = require("../models/TableStatus");
+const FinancialReport  = require("../models/FinancialReport")
 const { get } = require("node:http");
 
 const adminController = {
@@ -8,14 +9,6 @@ const adminController = {
     try {
       const stats = await Dashboard.getDashboardStats();
       res.json(stats);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  },
-  getRevenueChartData: async (req, res) => {
-    try {
-      const data = await Dashboard.getRevenueChartData();
-      res.json(data);
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
@@ -73,6 +66,33 @@ const adminController = {
       res.json({ message: "Checked out successfully", result });
     } catch (error) {
       res.status(500).json({ error: error.message });
+    }
+  },
+  getFinancialOverview: async (req, res) => {
+    try {
+      // Use Promise.all to run all database queries at the same time (faster)
+      const [monthlyTrend, stats, paymentMethods, sources] = await Promise.all([
+        FinancialReport.getMonthlyTrend(),
+        FinancialReport.getFinancialStats(),
+        FinancialReport.getPaymentMethods(),
+        FinancialReport.getRevenueSources()
+      ]);
+
+      res.status(200).json({
+        success: true,
+        data: {
+          monthlyTrend,
+          summary: stats,
+          paymentMethods,
+          sources
+        }
+      });
+    } catch (error) {
+      console.error("Financial Report Controller Error:", error);
+      res.status(500).json({ 
+        success: false, 
+        error: "Failed to generate financial reports" 
+      });
     }
   },
 };

@@ -136,6 +136,7 @@ export default function TableReservation({ onClose, onSuccess }) {
   const [selectedItems, setSelectedItems] = useState([]);
   const [isLinkMode, setIsLinkMode] = useState(false);
   const [showOngoingWarning, setShowOngoingWarning] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState(null); // Add this line
 
   const [form, setForm] = useState({
     date: "",
@@ -367,33 +368,53 @@ export default function TableReservation({ onClose, onSuccess }) {
     };
   }, [selectedItems]);
 
-  const fullReservationData = useMemo(
-    () => ({
+  // Find the fullReservationData useMemo and update it:
+  const fullReservationData = useMemo(() => {
+    // Determine package name here for storage
+    let pName = "Table Reservation";
+    if (selectedItems.length > 0) {
+      pName =
+        selectedItems[0].name + (selectedItems.length > 1 ? " + Others" : "");
+    }
+
+    return {
       ...user,
       ...form,
+      userId: localStorage.getItem("userId"),
       guestCount: totalSeats,
       tableLabel: primaryTable?.label,
       linkedTables: linkedIds.map(
         (id) => TABLES_DATA.find((t) => t.id === id)?.label,
       ),
+
+      // FIX 1: Change 'packages' to 'selectedItems'
+      selectedItems: selectedItems,
+
+      // FIX 2: Explicitly add 'packageName'
       packages: selectedItems,
+
       resDate: form.date,
+      amount: orderSummary.downpayment,
+      totalAmount: orderSummary.totalOrderPrice, // FIX 3: Ensure total is here
+      downpayment: orderSummary.downpayment,
+      paymentMethod: paymentMethod || "Maya",
       municipality:
         addressData.municipalities.find((m) => m.code === form.muni)?.name ||
         "",
       barangay:
         addressData.barangays.find((b) => b.code === form.brgy)?.name || "",
-    }),
-    [
-      user,
-      form,
-      totalSeats,
-      primaryTable,
-      linkedIds,
-      selectedItems,
-      addressData,
-    ],
-  );
+    };
+  }, [
+    user,
+    form,
+    totalSeats,
+    primaryTable,
+    linkedIds,
+    selectedItems,
+    orderSummary,
+    paymentMethod,
+    addressData,
+  ]);
 
   const timeOptions = useMemo(() => {
     const opts = [];
@@ -507,25 +528,37 @@ export default function TableReservation({ onClose, onSuccess }) {
 
   const confirmBooking = async (file) => {
     setUi((p) => ({ ...p, loading: true }));
+
     try {
       const payload = new FormData();
 
-      // Get userId from localStorage
-      const userId = localStorage.getItem("userId");
-      console.log("🔍 Sending userId:", userId); // Debug log
+      // 1. Create a clean array of IDs and filter out any nulls
+      const tableIdsArray = [selectedId, ...linkedIds]
+        .filter((id) => id !== null && id !== undefined)
+        .map((id) => Number(id)); // Ensure they are numbers
 
       const submission = {
         ...user,
         ...form,
-        userId: userId, // ✅ ADD THIS LINE
+        userId: localStorage.getItem("userId"),
         guests: totalSeats,
-        tableIds: JSON.stringify([selectedId, ...linkedIds]),
+        packageName: productDisplayName,
+        totalAmount: orderSummary.totalOrderPrice,
+        amount: orderSummary.downpayment,
+        paymentMethod: paymentMethod || "Maya",
+        // SEND AS CLEAN JSON ARRAY
+        tableIds: JSON.stringify(tableIdsArray),
         selectedItems: JSON.stringify(selectedItems),
         status: "Confirmed",
-        receipt: file,
+        brgyCode: form.brgy,
       };
 
-      Object.entries(submission).forEach(([k, v]) => payload.append(k, v));
+      if (file) payload.append("receipt", file);
+
+      Object.entries(submission).forEach(([k, v]) => {
+        if (v !== undefined && v !== null) payload.append(k, v);
+      });
+
       const res = await axios.post(`${API_BASE}/reservations/table`, payload);
 
       // Refresh schedules after successful booking
@@ -554,7 +587,11 @@ export default function TableReservation({ onClose, onSuccess }) {
 
       onSuccess(res.data.id);
     } catch (e) {
-      console.error(e);
+      // LOG the error response to see which ID failed
+      console.error("Booking Error:", e.response?.data || e.message);
+      alert(
+        "Table Selection Error: One of the selected tables does not exist in the database.",
+      );
     } finally {
       setUi((p) => ({ ...p, loading: false }));
     }
@@ -1042,6 +1079,8 @@ export default function TableReservation({ onClose, onSuccess }) {
         reservationData={fullReservationData}
         onConfirm={confirmBooking}
         loading={ui.loading}
+        paymentMethod={paymentMethod}
+        setPaymentMethod={setPaymentMethod}
       />
     </div>
   );

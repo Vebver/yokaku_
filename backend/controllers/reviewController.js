@@ -21,7 +21,7 @@ exports.checkEligibility = async (req, res) => {
     try {
         const userId = req.user.userId;
         const [rows] = await db.execute(
-            "SELECT * FROM reservations WHERE user_id = ? AND status IN ('Confirmed', 'Seated') LIMIT 1",
+            "SELECT * FROM reservations WHERE user_id = ? AND status = 'Seated' LIMIT 1",
             [userId]
         );
         res.json({ canReview: rows.length > 0 });

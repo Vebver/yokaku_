@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import {
   Chart as ChartJS,
@@ -11,7 +11,6 @@ import {
   PointElement,
   LineElement,
 } from "chart.js";
-import { Bar } from "react-chartjs-2";
 
 // Internal Components
 import Billing from "./Billing";
@@ -21,10 +20,11 @@ import Reports from "./Reports";
 import Profile from "./Profile";
 import Reservation from "./Reservation";
 import Categories from "./Categories";
-import "../../Style/AdminDashboard.css";
 import RecipeManager from "./RecipeManager";
 import AccountManagement from "./AccountManagement";
 import TableStatus from "./TableStatus";
+
+import "../../Style/AdminDashboard.css";
 
 ChartJS.register(
   CategoryScale,
@@ -34,7 +34,7 @@ ChartJS.register(
   LineElement,
   Title,
   Tooltip,
-  Legend,
+  Legend
 );
 
 const Icons = {
@@ -65,8 +65,8 @@ const navItems = [
 ];
 
 const StatCard = ({ title, value, color, icon }) => (
-  <div className="col-12 col-md-6 col-xl-3">
-    <div className="card border-0 shadow-sm h-100 rounded-4 bg-white">
+  <div className="col-12 col-md-4"> {/* Changed to col-md-4 since there are now 3 cards */}
+    <div className="card border-0 shadow-sm h-100 rounded-4 bg-white text-dark">
       <div className="card-body p-4 p-xxl-5 text-center">
         <div
           className={`mx-auto mb-4 d-flex align-items-center justify-content-center rounded-circle bg-${color}-subtle text-${color}`}
@@ -74,15 +74,10 @@ const StatCard = ({ title, value, color, icon }) => (
         >
           <i className={`bi ${icon}`} style={{ fontSize: "2.5rem" }}></i>
         </div>
-
-        <p
-          className="text-muted fw-bold text-uppercase mb-2"
-          style={{ letterSpacing: "1px", fontSize: "0.9rem" }}
-        >
+        <p className="text-muted fw-bold text-uppercase mb-2" style={{ letterSpacing: "1px", fontSize: "0.9rem" }}>
           {title}
         </p>
-
-        <h1 className="display-5 fw-bold mb-0 text-dark">{value}</h1>
+        <h1 className="display-5 fw-bold mb-0">{value}</h1>
       </div>
     </div>
   </div>
@@ -98,12 +93,6 @@ function AdminDashboard() {
     totalBookings: 0,
     activeTables: 0,
     kitchenQueue: 0,
-    revenue: 0,
-  });
-
-  const [revenueChartData, setRevenueChartData] = useState({
-    labels: [],
-    data: [],
   });
 
   useEffect(() => {
@@ -122,55 +111,33 @@ function AdminDashboard() {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const statsRes = await axios.get("/api/admin/stats");
-      const chartRes = await axios.get("/api/admin/revenue-chart");
+      const token = localStorage.getItem("token");
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+
+      // ONLY fetch the basic stats (Bookings, Tables, Queue)
+      // REMOVED the call to /api/admin/reports/financial
+      const statsRes = await axios.get("http://localhost:5000/api/admin/stats", config);
 
       setStats(statsRes.data);
-      setRevenueChartData({
-        labels: chartRes.data.labels || [],
-        data: chartRes.data.data || [],
-      });
+
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
     } finally {
       setLoading(false);
     }
   };
-
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("userRole");
-    localStorage.removeItem("role");
+    localStorage.clear();
     delete axios.defaults.headers.common["Authorization"];
     setIsAuthenticated(false);
     window.location.href = "/";
   };
 
-  const barChartConfig = useMemo(
-    () => ({
-      labels:
-        revenueChartData.labels.length > 0
-          ? revenueChartData.labels
-          : ["No Data"],
-      datasets: [
-        {
-          label: "Downpayment Revenue (₱)",
-          data: revenueChartData.data.length > 0 ? revenueChartData.data : [0],
-          backgroundColor: "rgba(16, 185, 129, 0.7)",
-          borderRadius: 5,
-        },
-      ],
-    }),
-    [revenueChartData],
-  );
-
   const DashboardOverview = () => (
     <div className="container-fluid fade-in py-3">
       <div className="mb-5">
         <h1 className="fw-bold text-dark">Welcome Back, Admin</h1>
-        <p className="text-muted fs-5">
-          Here is what's happening at Hangout today.
-        </p>
+        <p className="text-muted fs-5">Here is what's happening at Hangout today.</p>
       </div>
 
       <div className="row g-4 mb-5">
@@ -191,12 +158,6 @@ function AdminDashboard() {
           value={stats.kitchenQueue}
           color="warning"
           icon="bi-egg-fried"
-        />
-        <StatCard
-          title="Total Revenue"
-          value={`₱${stats.revenue.toLocaleString()}`}
-          color="danger"
-          icon="bi-wallet-fill"
         />
       </div>
     </div>
@@ -219,62 +180,36 @@ function AdminDashboard() {
     return sections[activeSection] || null;
   };
 
- if (!isAuthenticated && !loading) {
-  return (
-    <div className="vh-100 d-flex align-items-center justify-content-center bg-light">
-      <div className="card border-0 shadow p-5 text-center" style={{ maxWidth: "400px" }}>
-        <i className="bi bi-shield-lock-fill text-danger" style={{ fontSize: "3rem" }}></i>
-        <h2 className="fw-bold mb-3 text-dark">Access Denied</h2>
-        <p className="text-muted mb-4">You do not have the required permissions to view the Admin Dashboard.</p>
-        <button
-          className="btn btn-dark btn-lg w-100"
-          onClick={() => (window.location.href = "/")}
-        >
-          Return to Home
-        </button>
+  if (!isAuthenticated && !loading) {
+    return (
+      <div className="vh-100 d-flex align-items-center justify-content-center bg-light text-dark">
+        <div className="card border-0 shadow p-5 text-center" style={{ maxWidth: "400px" }}>
+          <i className="bi bi-shield-lock-fill text-danger" style={{ fontSize: "3rem" }}></i>
+          <h2 className="fw-bold mb-3">Access Denied</h2>
+          <button className="btn btn-dark btn-lg w-100" onClick={() => (window.location.href = "/")}>Return to Home</button>
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
   return (
     <div className="admin-layout">
-      {/* 1. SIDEBAR */}
-      <aside
-        className={`admin-sidebar bg-dark text-white ${sidebarOpen ? "expanded" : "collapsed"}`}
-      >
+      <aside className={`admin-sidebar bg-dark text-white ${sidebarOpen ? "expanded" : "collapsed"}`}>
         <div className="sidebar-header d-flex align-items-center justify-content-between px-3">
-          {sidebarOpen && <h4 className="fw-bold mb-0">Hangout</h4>}
-          <button
-            className="btn btn-dark btn-sm d-none d-md-block ms-auto"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-          >
-            <i
-              className={`bi ${sidebarOpen ? "bi-chevron-left" : "bi-list"} fs-5`}
-            ></i>
-          </button>
-          <button
-            className="btn btn-dark btn-sm d-md-none ms-auto"
-            onClick={() => setSidebarOpen(false)}
-          >
-            <i className="bi bi-x-lg fs-5"></i>
+          {sidebarOpen && <h4 className="fw-bold mb-0 text-white">Hangout</h4>}
+          <button className="btn btn-dark btn-sm ms-auto" onClick={() => setSidebarOpen(!sidebarOpen)}>
+            <i className={`bi ${sidebarOpen ? "bi-chevron-left" : "bi-list"} fs-5 text-white`}></i>
           </button>
         </div>
 
-        {/* Scrollable middle container for nav items */}
         <div className="sidebar-nav-container">
           <nav className="nav flex-column gap-2 px-2">
             {navItems.map((item) => (
               <button
                 key={item.id}
-                onClick={() => {
-                  setActiveSection(item.id);
-                  if (window.innerWidth < 768) setSidebarOpen(false);
-                }}
+                onClick={() => setActiveSection(item.id)}
                 className={`nav-link text-start border-0 rounded py-3 px-3 d-flex align-items-center transition-all ${
-                  activeSection === item.id
-                    ? "bg-success text-white active"
-                    : "text-secondary bg-transparent"
+                  activeSection === item.id ? "bg-success text-white active" : "text-secondary bg-transparent"
                 }`}
               >
                 <item.icon />
@@ -284,39 +219,19 @@ function AdminDashboard() {
           </nav>
         </div>
 
-        {/* Pinned footer area for Logout */}
-        <div className="sidebar-footer px-3 pb-4">
-          <button
-            className="btn btn-outline-danger btn-sm w-100 py-2 d-flex align-items-center justify-content-center"
-            onClick={handleLogout}
-          >
+        <div className="sidebar-footer px-3 pb-4 text-white">
+          <button className="btn btn-outline-danger btn-sm w-100 py-2 d-flex align-items-center justify-content-center" onClick={handleLogout}>
             <i className="bi bi-box-arrow-left"></i>
             {sidebarOpen && <span className="ms-2">Logout</span>}
           </button>
         </div>
       </aside>
 
-      {/* 2. MAIN CONTENT AREA */}
-      <div className="main-container">
-        <header className="d-md-none bg-white border-bottom p-3 d-flex align-items-center sticky-top">
-          <button
-            className="btn btn-outline-dark me-3"
-            onClick={() => setSidebarOpen(true)}
-          >
-            <i className="bi bi-list fs-4"></i>
-          </button>
-          <h5 className="mb-0 fw-bold">Hangout Admin</h5>
-        </header>
-
-        <main className="p-3 p-md-4">{renderSection()}</main>
+      <div className="main-container bg-light">
+        <main className="p-3 p-md-4">
+          {loading ? <div className="text-center p-5 text-dark">Loading Dashboard...</div> : renderSection()}
+        </main>
       </div>
-
-      {sidebarOpen && (
-        <div
-          className="mobile-overlay d-md-none"
-          onClick={() => setSidebarOpen(false)}
-        ></div>
-      )}
     </div>
   );
 }

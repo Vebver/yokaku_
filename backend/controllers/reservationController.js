@@ -235,32 +235,42 @@ const reservationController = {
   createReservation: async (req, res) => {
     try {
       const body = req.body;
+      const now = new Date();
 
-      const requestedTables =
-        typeof body.tableIds === "string"
-          ? JSON.parse(body.tableIds)
-          : body.tableIds;
+      // 1. Time logic (keep your existing logic)
+      let startDateTime;
+      if (body.startTime === "now" || !body.startTime) {
+        startDateTime = now;
+      } else {
+        startDateTime = new Date(`${body.date} ${body.startTime}`);
+      }
 
+      const durationHours = parseInt(body.durationHours) || 2;
+      const endDateTime = new Date(startDateTime);
+      endDateTime.setHours(endDateTime.getHours() + durationHours);
+
+      const dbDate = startDateTime.toISOString().split("T")[0];
+      const dbStart = startDateTime.toTimeString().split(" ")[0];
+      const dbEnd = endDateTime.toTimeString().split(" ")[0];
+
+      // 2. Parse Items
       const items =
         typeof body.selectedItems === "string"
           ? JSON.parse(body.selectedItems)
           : body.selectedItems || [];
 
-      const dbStart = formatTimeTo24h(body.startTime);
-      const dbEnd = formatTimeTo24h(body.endTime);
+      // --- FIX: CALCULATE PACKAGE NAME IF MISSING ---
+      let finalPackageName = body.packageName;
 
-      const conflicts = await Reservation.checkTableConflicts(
-        body.date,
-        requestedTables,
-        dbStart,
-        dbEnd,
-      );
-
-      if (conflicts.length > 0) {
-        return res.status(400).json({
-          message:
-            "One or more tables are already booked for this specific time slot.",
-        });
+      if (!finalPackageName || finalPackageName === "Table Reservation") {
+        if (items.length > 0) {
+          // Fallback: If frontend failed to send it, try to get it from the items array
+          finalPackageName =
+            items[0].name || items[0].item_name || "Product Selection";
+          if (items.length > 1) finalPackageName += " + Others";
+        } else {
+          finalPackageName = "Table Reservation";
+        }
       }
 
       const reservationData = {
@@ -272,9 +282,12 @@ const reservationController = {
         guests: body.guests,
         startTime: dbStart,
         endTime: dbEnd,
-        tableIds: requestedTables,
+        packageName: finalPackageName, // <--- Passes "Pizza" or "Package A" to model
+        totalAmount: parseFloat(body.totalAmount || 0),
+        amount: parseFloat(body.amount || 0),
+        tableIds: body.tableIds,
         selectedItems: items,
-        receiptPath: req.file ? req.file.filename : body.receiptPath || null,
+        receiptPath: req.file ? req.file.filename : null,
       };
 
       console.log(
@@ -283,15 +296,11 @@ const reservationController = {
       ); // Debug log
 
       const newId = await Reservation.create(reservationData);
-      return res.status(201).json({ id: newId, message: "Success!" });
+      return res.status(201).json({ id: newId });
     } catch (error) {
-      console.error("CRITICAL BACKEND ERROR:", error.message);
-      if (!res.headersSent) {
-        return res.status(500).json({ error: error.message });
-      }
+      res.status(500).json({ error: error.message });
     }
   },
-
   getReservations: async (req, res) => {
     try {
       const data = await Reservation.getAll();
