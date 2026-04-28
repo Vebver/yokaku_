@@ -25,21 +25,9 @@ const Notifications = () => {
         newSocket.emit("join_user", userId);
       });
 
-      // In the new_notification event handler, make sure the field names match your DB
       newSocket.on("new_notification", (notification) => {
         console.log("New notification:", notification);
-        // Ensure the notification has the correct field names
-        setNotifications((prev) => [
-          {
-            notification_id: notification.notification_id,
-            title: notification.title,
-            message: notification.message,
-            reservation_id: notification.reservation_id,
-            is_read: notification.is_read || 0,
-            created_at: notification.created_at || new Date().toISOString(),
-          },
-          ...prev,
-        ]);
+        setNotifications((prev) => [notification, ...prev]);
         setUnreadCount((prev) => prev + 1);
       });
 

@@ -11,6 +11,21 @@ const generateRandomId = () => {
   return `RES-${result}`;
 };
 
+// Helper function to format time from 24-hour to 12-hour format
+const formatTo12Hour = (timeStr) => {
+  if (!timeStr) return timeStr;
+
+  // Handle if already in 12-hour format
+  if (timeStr.includes("AM") || timeStr.includes("PM")) return timeStr;
+
+  const [hours, minutes] = timeStr.split(":");
+  let hour = parseInt(hours, 10);
+  const ampm = hour >= 12 ? "PM" : "AM";
+  hour = hour % 12 || 12;
+
+  return `${hour}:${minutes} ${ampm}`;
+};
+
 const Reservation = {
   // --- EXISTING METHODS ---
   checkActiveByUserId: async (userId) => {
@@ -159,23 +174,17 @@ const Reservation = {
       }
 
       // Handle Notification - Create for logged-in users only
-      // Handle Notification - Create for logged-in users only
       if (data.userId && data.userId !== "null") {
-        console.log(
-          `📝 Attempting to create notification for user: ${data.userId}`,
-        );
-        console.log(`📝 Reservation ID: ${customId}`);
-        console.log(`📝 Date: ${data.date}, Time: ${data.startTime}`);
+        const formattedStartTime = formatTo12Hour(data.startTime);
+        const formattedEndTime = formatTo12Hour(data.endTime);
+
         await Notification.create(conn, {
           userId: data.userId,
           reservationId: customId,
           title: "Reservation Confirmed 🎉",
-          message: `Your reservation for ${data.guests} guest(s) on ${data.date} at ${data.startTime} has been confirmed. Reservation ID: ${customId}`,
-          type: "reservation",
+          message: `Your reservation for ${data.guests} guest(s) on ${data.date} at ${formattedStartTime} has been confirmed. Reservation ID: ${customId}`,
+          type: "info",
         });
-        console.log(
-          `✅ Notification created successfully for user ${data.userId}`,
-        );
       }
 
       // Handle Payment

@@ -47,6 +47,7 @@ const timeToMin = (t) => {
   return h * 60 + m;
 };
 
+// This function is already in your TableReservation.jsx
 const formatTime = (timeStr) => {
   if (!timeStr || timeStr.includes("AM") || timeStr.includes("PM"))
     return timeStr || "";
@@ -508,15 +509,22 @@ export default function TableReservation({ onClose, onSuccess }) {
     setUi((p) => ({ ...p, loading: true }));
     try {
       const payload = new FormData();
+
+      // Get userId from localStorage
+      const userId = localStorage.getItem("userId");
+      console.log("🔍 Sending userId:", userId); // Debug log
+
       const submission = {
         ...user,
         ...form,
+        userId: userId, // ✅ ADD THIS LINE
         guests: totalSeats,
         tableIds: JSON.stringify([selectedId, ...linkedIds]),
         selectedItems: JSON.stringify(selectedItems),
         status: "Confirmed",
         receipt: file,
       };
+
       Object.entries(submission).forEach(([k, v]) => payload.append(k, v));
       const res = await axios.post(`${API_BASE}/reservations/table`, payload);
 

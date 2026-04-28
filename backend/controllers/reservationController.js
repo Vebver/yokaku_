@@ -265,6 +265,7 @@ const reservationController = {
 
       const reservationData = {
         ...body,
+        userId: body.userId || req.user?.userId, // ✅ ADD THIS LINE - IMPORTANT!
         firstName: body.firstName,
         lastName: body.lastName,
         date: body.date,
@@ -275,6 +276,11 @@ const reservationController = {
         selectedItems: items,
         receiptPath: req.file ? req.file.filename : body.receiptPath || null,
       };
+
+      console.log(
+        "🔍 Creating reservation with userId:",
+        reservationData.userId,
+      ); // Debug log
 
       const newId = await Reservation.create(reservationData);
       return res.status(201).json({ id: newId, message: "Success!" });
