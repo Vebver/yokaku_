@@ -2,6 +2,20 @@ const db = require("../config/db");
 const Notification = require("./Notification");
 const TableStatus = require("./TableStatus");
 
+const formatTo12Hour = (timeStr) => {
+  if (!timeStr) return "";
+  // Handles HH:mm:ss or HH:mm
+  let [hours, minutes] = timeStr.split(":");
+  let period = "AM";
+  hours = parseInt(hours, 10);
+  if (hours >= 12) {
+    period = "PM";
+    if (hours > 12) hours -= 12;
+  }
+  if (hours === 0) hours = 12;
+  return `${hours}:${minutes} ${period}`;
+};
+
 const generateRandomId = () => {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let result = "";
@@ -163,15 +177,13 @@ const Reservation = {
 
       // Handle Notification - Create for logged-in users only
       if (data.userId && data.userId !== "null") {
-        const formattedStartTime = formatTo12Hour(data.startTime);
-        const formattedEndTime = formatTo12Hour(data.endTime);
-
         await Notification.create(conn, {
           userId: data.userId,
           reservationId: customId,
-          title: "Reservation Confirmed 🎉",
-          message: `Your reservation for ${data.guests} guest(s) on ${data.date} at ${formattedStartTime} has been confirmed. Reservation ID: ${customId}`,
-          type: "info",
+          title: "Reservation Confirmed",
+          // Use the function here to make the time look nice for the user
+          message: `Your reservation for ${data.guests} guest(s) on ${data.date} at ${formatTo12Hour(data.startTime)} has been confirmed.`,
+          type: "reservation",
         });
       }
       // 4. Insert Payment

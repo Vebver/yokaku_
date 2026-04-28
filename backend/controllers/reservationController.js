@@ -232,75 +232,77 @@ const reservationController = {
     }
   },
 
-  createReservation: async (req, res) => {
-    try {
-      const body = req.body;
-      const now = new Date();
+createReservation: async (req, res) => {
+  try {
+    const body = req.body;
+    
+    // 1. Parse JSON strings from FormData (IMPORTANT)
+    const items = typeof body.selectedItems === "string" 
+      ? JSON.parse(body.selectedItems) 
+      : body.selectedItems || [];
 
-      // 1. Time logic (keep your existing logic)
-      let startDateTime;
-      if (body.startTime === "now" || !body.startTime) {
-        startDateTime = now;
-      } else {
-        startDateTime = new Date(`${body.date} ${body.startTime}`);
-      }
+    const tableIds = typeof body.tableIds === "string" 
+      ? JSON.parse(body.tableIds) 
+      : body.tableIds || [];
 
-      const durationHours = parseInt(body.durationHours) || 2;
-      const endDateTime = new Date(startDateTime);
-      endDateTime.setHours(endDateTime.getHours() + durationHours);
-
-      const dbDate = startDateTime.toISOString().split("T")[0];
-      const dbStart = startDateTime.toTimeString().split(" ")[0];
-      const dbEnd = endDateTime.toTimeString().split(" ")[0];
-
-      // 2. Parse Items
-      const items =
-        typeof body.selectedItems === "string"
-          ? JSON.parse(body.selectedItems)
-          : body.selectedItems || [];
-
-      // --- FIX: CALCULATE PACKAGE NAME IF MISSING ---
-      let finalPackageName = body.packageName;
-
-      if (!finalPackageName || finalPackageName === "Table Reservation") {
-        if (items.length > 0) {
-          // Fallback: If frontend failed to send it, try to get it from the items array
-          finalPackageName =
-            items[0].name || items[0].item_name || "Product Selection";
-          if (items.length > 1) finalPackageName += " + Others";
-        } else {
-          finalPackageName = "Table Reservation";
-        }
-      }
-
-      const reservationData = {
-        ...body,
-        userId: body.userId || req.user?.userId, // ✅ ADD THIS LINE - IMPORTANT!
-        firstName: body.firstName,
-        lastName: body.lastName,
-        date: body.date,
-        guests: body.guests,
-        startTime: dbStart,
-        endTime: dbEnd,
-        packageName: finalPackageName, // <--- Passes "Pizza" or "Package A" to model
-        totalAmount: parseFloat(body.totalAmount || 0),
-        amount: parseFloat(body.amount || 0),
-        tableIds: body.tableIds,
-        selectedItems: items,
-        receiptPath: req.file ? req.file.filename : null,
-      };
-
-      console.log(
-        "🔍 Creating reservation with userId:",
-        reservationData.userId,
-      ); // Debug log
-
-      const newId = await Reservation.create(reservationData);
-      return res.status(201).json({ id: newId });
-    } catch (error) {
-      res.status(500).json({ error: error.message });
+    // 2. Format Date and Time properly
+    // Use the calculated startDateTime for consistency
+    let startDateTime = new Date(`${body.date} ${body.startTime}`);
+    
+    // Fallback if Date conversion fails
+    if (isNaN(startDateTime.getTime())) {
+       startDateTime = new Date();
     }
-  },
+
+    const durationHours = parseInt(body.durationHours) || 2;
+    const endDateTime = new Date(startDateTime);
+    endDateTime.setHours(endDateTime.getHours() + durationHours);
+
+    const dbDate = startDateTime.toISOString().split("T")[0];
+    const dbStart = body.startTime.includes(":") ? body.startTime : startDateTime.toTimeString().split(" ")[0];
+    const dbEnd = endDateTime.toTimeString().split(" ")[0];
+
+    // 3. Package Name logic
+    let finalPackageName = body.packageName;
+    if (!finalPackageName || finalPackageName === "Table Reservation") {
+      if (items.length > 0) {
+        finalPackageName = items[0].name || items[0].item_name || "Package Selection";
+        if (items.length > 1) finalPackageName += " + Others";
+      } else {
+        finalPackageName = "Table Reservation";
+      }
+    }
+
+    // 4. Prepare data for Model
+    const reservationData = {
+      userId: (body.userId === "null" || !body.userId) ? null : body.userId,
+      firstName: body.firstName || "Guest",
+      lastName: body.lastName || "",
+      email: body.email || null,
+      phone: body.phone || null,
+      date: dbDate,             // Use the cleaned date
+      startTime: dbStart,       // Use the cleaned start time
+      endTime: dbEnd,           // Use the calculated end time
+      guests: parseInt(body.guests) || 0,
+      packageName: finalPackageName,
+      totalAmount: parseFloat(body.totalAmount || 0),
+      amount: parseFloat(body.amount || 0),
+      paymentMethod: body.paymentMethod || "Manual",
+      tableIds: tableIds,       // Now an actual Array
+      selectedItems: items,     // Now an actual Array
+      receiptPath: req.file ? req.file.filename : null,
+      brgyCode: body.brgyCode || body.brgy || null,
+      allergy: body.allergy || "None"
+    };
+
+    const newId = await Reservation.create(reservationData);
+    return res.status(201).json({ id: newId });
+
+  } catch (error) {
+    console.error("CRITICAL BACKEND ERROR:", error);
+    res.status(500).json({ error: error.message });
+  }
+},
   getReservations: async (req, res) => {
     try {
       const data = await Reservation.getAll();
