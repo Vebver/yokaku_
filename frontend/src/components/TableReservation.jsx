@@ -47,7 +47,6 @@ const timeToMin = (t) => {
   return h * 60 + m;
 };
 
-// This function is already in your TableReservation.jsx
 const formatTime = (timeStr) => {
   if (!timeStr || timeStr.includes("AM") || timeStr.includes("PM"))
     return timeStr || "";
@@ -532,6 +531,7 @@ export default function TableReservation({ onClose, onSuccess }) {
     try {
       const payload = new FormData();
 
+<<<<<<< Updated upstream
       // --- FIX: DEFINE productDisplayName HERE ---
       let productDisplayName = "Table Reservation";
       if (selectedItems && selectedItems.length > 0) {
@@ -548,11 +548,19 @@ export default function TableReservation({ onClose, onSuccess }) {
       const tableIdsArray = [selectedId, ...linkedIds]
         .filter((id) => id !== null && id !== undefined)
         .map((id) => Number(id));
+=======
+      // Get userId from localStorage
+      const userId = localStorage.getItem("userId");
+>>>>>>> Stashed changes
 
       const submission = {
         ...user,
         ...form,
+<<<<<<< Updated upstream
         userId: localStorage.getItem("userId"),
+=======
+        userId: userId,
+>>>>>>> Stashed changes
         guests: totalSeats,
         packageName: productDisplayName, // Now it is defined!
         totalAmount: orderSummary.totalOrderPrice,
@@ -1051,7 +1059,7 @@ export default function TableReservation({ onClose, onSuccess }) {
         </div>
       )}
 
-      <MenuModal
+      <PackageModal
         isOpen={ui.menu}
         onClose={() => setUi((p) => ({ ...p, menu: false }))}
         onSelectedItemsChange={setSelectedItems}
