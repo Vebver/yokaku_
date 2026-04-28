@@ -161,6 +161,19 @@ const Reservation = {
         }
       }
 
+      // Handle Notification - Create for logged-in users only
+      if (data.userId && data.userId !== "null") {
+        const formattedStartTime = formatTo12Hour(data.startTime);
+        const formattedEndTime = formatTo12Hour(data.endTime);
+
+        await Notification.create(conn, {
+          userId: data.userId,
+          reservationId: customId,
+          title: "Reservation Confirmed 🎉",
+          message: `Your reservation for ${data.guests} guest(s) on ${data.date} at ${formattedStartTime} has been confirmed. Reservation ID: ${customId}`,
+          type: "info",
+        });
+      }
       // 4. Insert Payment
       const paymentQuery = `INSERT INTO payments (reservation_id, amount, total_bill, payment_method, payment_status, paid_at) VALUES (?, ?, ?, ?, ?, NOW())`;
       await conn.execute(paymentQuery, [

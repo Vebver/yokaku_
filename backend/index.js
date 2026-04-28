@@ -113,29 +113,6 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/inventory", orderRoutes);
 
-// Inventory routes
-app.use('/api/inventory', protect, adminOnly, inventoryRoutes);
-
-// Static folder for uploaded images (serve from frontend/public/uploads)
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// Admin routes
-app.use('/api/admin', protect, adminOnly, adminRoutes);
-
-// Billing routes
-app.use('/api/billing', protect, adminOnly, billingRoutes)
-
-// Notification routes
-app.use('/api/notifications', notificationRoutes);
-
-// Review routes
-app.use('/api/reviews', reviewRoutes);
-
-// Order routes
-app.use('/api/orders', orderRoutes)
-
-
-// Protected check route
 app.get("/api/protected", protect, (req, res) => {
   res.json({ message: "Protected data", user: req.user });
 });

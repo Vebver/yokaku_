@@ -61,50 +61,19 @@ const ReservationSummary = ({
   };
 
   // Handle payment and confirmation
-  const handlePaymentAndConfirm = async () => {
-    if (paymentMethod === "Gcash") {
-      // Safety check for amount
-      const amountToPay = orderSummary?.downpayment;
-
-      if (!amountToPay || amountToPay <= 0) {
-        alert(
-          "Payment amount not found. Please ensure your order total is calculated.",
-        );
-        return;
-      }
-
-      setIsProcessingPayment(true);
-      try {
-        // 1. Save reservation data to localStorage so we can retrieve it on the /payment-success page
-        localStorage.setItem(
-          "pendingReservation",
-          JSON.stringify(reservationData),
-        );
-
-        // 2. Call your backend to create the PayMongo session
-        const response = await axios.post(
-          "http://localhost:5000/api/reservations/create-payment",
-          {
-            amount: amountToPay,
-            tableLabel: displayTables(),
-          },
-        );
-
-        // 3. Redirect to GCash Sandbox
-        if (response.data.checkoutUrl) {
-          window.location.href = response.data.checkoutUrl;
-        }
-      } catch (err) {
-        console.error("Payment initiation failed", err);
-        alert(
-          "Failed to initiate GCash payment. Please ensure the downpayment is at least ₱100.00.",
-        );
-        setIsProcessingPayment(false);
-      }
-    } else {
-      // Original logic for manual upload (Maya or others)
-      onConfirm(receipt, paymentMethod);
+  const handlePaymentAndConfirm = () => {
+    if (!paymentMethod) {
+      alert("Please select a payment method.");
+      return;
     }
+
+    if (!receipt) {
+      alert("Please upload your payment receipt screenshot.");
+      return;
+    }
+
+    // Both GCash and Maya now just call onConfirm with the receipt file
+    onConfirm(receipt, paymentMethod);
   };
 
   // Get account details based on payment method
