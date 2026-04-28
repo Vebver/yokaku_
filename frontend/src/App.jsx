@@ -43,7 +43,7 @@ function App() {
   );
 }
 
-// 2. SUB-COMPONENT (So we can use useNavigate)
+// 2. SUB-COMPONENT (Handles Logic)
 function AppContent() {
   const navigate = useNavigate();
   const [isLoginOpen, setIsLoginOpen] = useState(false);
@@ -52,9 +52,44 @@ function AppContent() {
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("token"));
   const [userRole, setUserRole] = useState(localStorage.getItem("role"));
 
+  // --- OFFLINE SYNC LOGIC ---
+  // This listener stays active to push orders when internet returns
+  useEffect(() => {
+    const handleSync = async () => {
+      const offlineOrders = JSON.parse(
+        localStorage.getItem("offline_orders") || "[]"
+      );
+
+      if (offlineOrders.length > 0) {
+        console.log(`⚡ Internet Restored! Syncing ${offlineOrders.length} orders...`);
+
+        for (const order of offlineOrders) {
+          try {
+            await fetch("http://localhost:5000/api/orders/place", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(order),
+            });
+          } catch (err) {
+            console.error("❌ Failed to sync one order, keeping in queue.");
+          }
+        }
+
+        localStorage.removeItem("offline_orders");
+        alert("Kiosk Sync: All offline orders have been sent to the kitchen!");
+      }
+    };
+
+    window.addEventListener("online", handleSync);
+    return () => window.removeEventListener("online", handleSync);
+  }, []);
+
+  // Update login status when app loads
   useEffect(() => {
     const token = localStorage.getItem("token");
+    const role = localStorage.getItem("role");
     setIsLoggedIn(!!token);
+    setUserRole(role);
   }, []);
 
   const handleLogout = () => {
@@ -69,7 +104,6 @@ function AppContent() {
     setShowSuccessMessage(true);
   };
 
-  // --- IMPROVED REDIRECT LOGIC ---
   const handleCloseSuccessModal = () => {
     setShowSuccessMessage(false);
     if (isLoggedIn) {
@@ -143,7 +177,6 @@ function AppContent() {
           element={
             isLoggedIn ? (
               userRole === "admin" ? (
-                // If an admin tries to go to /customer, send them back to admin
                 <Navigate to="/admin" replace />
               ) : (
                 <CustomerPage
@@ -161,20 +194,9 @@ function AppContent() {
 
         <Route
           path="/profile"
-          element={
-            isLoggedIn ? <CustomerProfile /> : <Navigate to="/" replace />
-          }
+          element={isLoggedIn ? <CustomerProfile /> : <Navigate to="/" replace />}
         />
-        <Route
-          path="/profile"
-          element={
-            isLoggedIn && userRole !== "admin" ? (
-              <CustomerProfile />
-            ) : (
-              <Navigate to="/" replace />
-            )
-          }
-        />
+        
         <Route
           path="/notifications"
           element={
@@ -185,6 +207,7 @@ function AppContent() {
             )
           }
         />
+
         <Route path="/admin/*" element={<AdminDashboard />} />
         <Route path="/kiosk-selection" element={<KioskSelection />} />
         <Route path="/kiosk-selection/kiosk-menu" element={<KioskMenu />} />
@@ -224,7 +247,6 @@ function AppContent() {
         onAccept={handleAcceptTerms}
       />
 
-      {/* FIXED SUCCESS MODAL CALL */}
       {showSuccessMessage && (
         <ReservationSuccess onClose={handleCloseSuccessModal} />
       )}
@@ -232,27 +254,20 @@ function AppContent() {
   );
 }
 
-// 3. SUCCESS COMPONENT
+// 3. SUCCESS MODAL COMPONENT
 const ReservationSuccess = ({ onClose }) => {
   return (
     <div className="res-success-overlay">
-      <div
-        className="res-success-card fade-in"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="res-success-card fade-in" onClick={(e) => e.stopPropagation()}>
         <div style={{ fontSize: "50px", color: "#f38d31" }}>✔</div>
         <h2>SUBMITTED SUCCESSFULLY</h2>
-
         <p>Your reservation request has been received.</p>
-
         <div className="res-status-text">
           Status: <strong>Confirmed</strong>
         </div>
-
         <p className="res-info-small">
           Check your notifications for assigned table details and updates.
         </p>
-
         <button className="res-success-close" onClick={onClose}>
           OKAY
         </button>
@@ -261,20 +276,23 @@ const ReservationSuccess = ({ onClose }) => {
   );
 };
 
-// 4. NAVBAR WRAPPER (Keep as is)
+// 4. NAVBAR WRAPPER
 const NavbarWrapper = ({ onLoginClick, isLoggedIn, onLogout }) => {
   const location = useLocation();
 
-  if (
-    location.pathname.startsWith("/admin") ||
-    location.pathname.startsWith("/cashier-selection") ||
-    location.pathname.startsWith("/kiosk-selection") ||
-    location.pathname.startsWith("/kitchen-page") ||
-    location.pathname.startsWith("/tablereservation") ||
-    location.pathname.startsWith("/reset-password")
-  ) {
-    return null;
-  }
+  // Hide Navbar for these specific routes
+  const hideNavbarRoutes = [
+    "/admin",
+    "/cashier-selection",
+    "/kiosk-selection",
+    "/kitchen-page",
+    "/tablereservation",
+    "/reset-password"
+  ];
+
+  const shouldHide = hideNavbarRoutes.some(route => location.pathname.startsWith(route));
+
+  if (shouldHide) return null;
 
   if (isLoggedIn) {
     return <CustomerNavbar onLogout={onLogout} />;

@@ -22,18 +22,43 @@ const addressRoutes = require("./routes/addressRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const startCronJobs = require("./cronJobs");
 const Notification = require("./models/Notification");
-const settingRoutes = require("./routes/settingRoutes")
+const settingRoutes = require("./routes/settingRoutes");
 
 const PORT = process.env.PORT || 5000;
 const app = express();
 
-// Create HTTP server
+// --- CORS CONFIGURATION ---
+// Added 4173 (Vite Preview) to the allowed origins
+const allowedOrigins = [
+  "http://localhost:5173", 
+  "http://127.0.0.1:5173", 
+  "http://localhost:4173", 
+  "http://127.0.0.1:4173"
+];
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) === -1) {
+      return callback(new Error('The CORS policy for this site does not allow access from the specified Origin.'), false);
+    }
+    return callback(null, true);
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
+
+app.use(cors(corsOptions));
+// --------------------------
+
 const server = http.createServer(app);
 
-// Initialize Socket.io with better error handling
+// Initialize Socket.io with updated allowed origins
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -41,58 +66,34 @@ const io = new Server(server, {
   allowEIO3: true,
 });
 
-// Store connected users
 const connectedUsers = new Map();
-
-// Set io instance for Notification model
 Notification.setIo(io);
 
-// --- SOCKET.IO LOGIC ---
 io.on("connection", (socket) => {
   console.log(`📡 New client connected: ${socket.id}`);
-
-  // Handle user joining their personal room
   socket.on("join_user", (userId) => {
     if (userId) {
       socket.join(`user_${userId}`);
       connectedUsers.set(userId, socket.id);
-      console.log(`✅ User ${userId} joined their notification room`);
-      // Send acknowledgment
+      console.log(`✅ User ${userId} joined room`);
       socket.emit("join_ack", { success: true, userId });
     }
   });
-
-  // Listen for orders
   socket.on("send_order", (orderData) => {
-    console.log("📦 Order received from kiosk:", orderData.id);
     io.emit("new_order", orderData);
   });
-
   socket.on("disconnect", () => {
     for (const [userId, socketId] of connectedUsers.entries()) {
       if (socketId === socket.id) {
         connectedUsers.delete(userId);
-        console.log(`🔌 User ${userId} disconnected`);
         break;
       }
     }
-    console.log(`🔌 Client disconnected: ${socket.id}`);
   });
 });
 
-// Make io accessible to routes
 app.set("io", io);
 app.set("connectedUsers", connectedUsers);
-
-// --- MIDDLEWARE ---
-app.use(
-  cors({
-    origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  }),
-);
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
@@ -107,34 +108,32 @@ app.use("/api/reservations", reservationRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/inventory", protect, adminOnly, inventoryRoutes);
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// FIXED: Static files now use CORS so the Service Worker can cache images
+app.use("/uploads", cors(corsOptions), express.static(path.join(__dirname, "uploads")));
+
 app.use("/api/admin", adminRoutes);
 app.use("/api/billing", protect, adminOnly, billingRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/reviews", reviewRoutes);
-app.use("/api/inventory", orderRoutes);
-app.use("/api/settings", settingRoutes)
+app.use("/api/orders", orderRoutes);
+app.use("/api/settings", settingRoutes);
 
 app.get("/api/protected", protect, (req, res) => {
   res.json({ message: "Protected data", user: req.user });
 });
 
-// Error handling middleware
 app.use((err, req, res, next) => {
   console.error("Error:", err);
   res.status(500).json({ error: "Internal server error" });
 });
 
-// --- SERVER START ---
 server.listen(PORT, "0.0.0.0", async (error) => {
   if (error) {
     console.error("❌ Server failed to start:", error);
     process.exit(1);
   }
-
   console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`📡 WebSocket server running on ws://localhost:${PORT}`);
-
   try {
     const connection = await User.pool.getConnection();
     console.log("✅ MySQL connection pool is ready");
@@ -145,12 +144,9 @@ server.listen(PORT, "0.0.0.0", async (error) => {
   }
 });
 
-// Graceful shutdown
 process.on("SIGINT", async () => {
-  console.log("🛑 Shutting down server...");
   await User.pool.end();
   server.close(() => {
-    console.log("✅ Server closed");
     process.exit(0);
   });
 });

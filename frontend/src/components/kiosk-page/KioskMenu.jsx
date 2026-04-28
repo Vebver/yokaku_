@@ -66,6 +66,27 @@ const KioskMenu = () => {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showEndModal, setShowEndModal] = useState(false);
   const [showOrderSuccessModal, setShowOrderSuccessModal] = useState(false);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+useEffect(() => {
+  const goOnline = () => setIsOffline(false);
+  const goOffline = () => setIsOffline(true);
+
+  window.addEventListener('online', goOnline);
+  window.addEventListener('offline', goOffline);
+
+  return () => {
+    window.removeEventListener('online', goOnline);
+    window.removeEventListener('offline', goOffline);
+  };
+}, []);
+
+// In your JSX:
+{isOffline && (
+  <div style={{ background: 'red', color: 'white', padding: '5px', textAlign: 'center' }}>
+    OFFLINE MODE - Orders will be queued
+  </div>
+)}
 
   // --- 1. NUCLEAR STOP (Kiosk Reset) ---
   const handleEndSession = () => {
@@ -159,43 +180,47 @@ const KioskMenu = () => {
   };
 
  const handlePlaceOrder = async () => {
-    if (cart.length > 0) {
-      try {
-        // 1. Send the order to the backend
-        const response = await fetch("http://localhost:5000/api/orders/place", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            reservation_id: "WALKIN", // Or your dynamic ID
-            items: cart.map(item => ({
-              item_id: item.id,
-              quantity: item.quantity
-            }))
-          })
-        });
+  if (cart.length === 0) return;
 
-        const result = await response.json();
+  // FIX: Calculate total directly here if you don't have a calculateTotal function
+  const totalBill = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-        if (response.ok) {
-          // 2. Start timer if it's the first order
-          if (!localStorage.getItem(TIMER_KEY)) {
-            const endTime = Date.now() + 5400 * 1000;
-            localStorage.setItem(TIMER_KEY, endTime.toString());
-            setIsTimerRunning(true);
-          }
-          
-          // 3. Clear UI and show success
-          setCart([]);
-          setShowOrderSuccessModal(true);
-        } else {
-          alert("Error: " + result.error); // e.g., "Out of stock!"
-        }
-      } catch (error) {
-        console.error("Order failed:", error);
-        alert("Server error. Please try again.");
-      }
-    }
+  const orderData = {
+    reservation_id: "WALKIN", 
+    items: cart.map(item => ({ item_id: item.id, quantity: item.quantity })),
+    total: totalBill, // Use the new variable
+    orderedAt: new Date().toISOString()
   };
+
+  if (navigator.onLine) {
+    try {
+      const response = await fetch("http://localhost:5000/api/orders/place", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(orderData)
+      });
+      if (response.ok) {
+        alert("Order sent to kitchen!");
+        setCart([]);
+      } else {
+        saveOrderOffline(orderData);
+      }
+    } catch (e) {
+      saveOrderOffline(orderData);
+    }
+  } else {
+    saveOrderOffline(orderData);
+  }
+};
+
+const saveOrderOffline = (order) => {
+  const queue = JSON.parse(localStorage.getItem("offline_orders") || "[]");
+  queue.push({ ...order, offline_id: Date.now() });
+  localStorage.setItem("offline_orders", JSON.stringify(queue));
+  
+  alert("OFFLINE MODE: Your order is saved on this tablet. Please call a waiter to verify your tray.");
+  setCart([]); // Clear tray so next customer can use it
+};
 
   const formatTime = (seconds) => {
     if (seconds <= 0) return "0:00:00";
@@ -277,6 +302,7 @@ const KioskMenu = () => {
                     src={item.image}
                     alt={item.name}
                     className="res-food-img"
+                    crossOrigin="anonymous" 
                     onError={(e) => { e.target.src = "https://via.placeholder.com/150"; }}
                   />
                 </div>
