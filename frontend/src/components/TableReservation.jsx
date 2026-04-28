@@ -19,7 +19,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import "../Style/TableReservation.css";
-import MenuModal from "./MenuModal";
+import PackageModal from "./PackageModal";
 import ReservationSummary from "./ReservationSummary";
 import TermsModal from "./TermsModal";
 
@@ -75,12 +75,10 @@ const isReservationCompleted = (reservation, selectedDate) => {
   const currentTime = now.getHours() * 60 + now.getMinutes();
   const currentDate = now.toISOString().split("T")[0];
 
-  // If status is Done or Completed, hide it
   if (reservation.status === "Done" || reservation.status === "Completed") {
     return true;
   }
 
-  // If it's today's date and end time has passed, hide it
   if (selectedDate === currentDate) {
     const endM = timeToMin(reservation.endTime);
     if (currentTime > endM) {
@@ -88,7 +86,6 @@ const isReservationCompleted = (reservation, selectedDate) => {
     }
   }
 
-  // If the reservation date is in the past, hide it
   if (selectedDate < currentDate) {
     return true;
   }
@@ -135,7 +132,7 @@ export default function TableReservation({ onClose, onSuccess }) {
   const [selectedItems, setSelectedItems] = useState([]);
   const [isLinkMode, setIsLinkMode] = useState(false);
   const [showOngoingWarning, setShowOngoingWarning] = useState(null);
-  const [paymentMethod, setPaymentMethod] = useState(null); // Add this line
+  const [paymentMethod, setPaymentMethod] = useState(null);
 
   const [form, setForm] = useState({
     date: "",
@@ -216,7 +213,6 @@ export default function TableReservation({ onClose, onSuccess }) {
               },
             },
           );
-          // Filter out completed/ended reservations on the frontend
           schedules[table.id] = Array.isArray(response.data)
             ? response.data.filter((r) => !isReservationCompleted(r, form.date))
             : [];
@@ -236,7 +232,6 @@ export default function TableReservation({ onClose, onSuccess }) {
     const poll = async () => {
       if (!form.date) return;
       try {
-        // Get table statuses
         const statRes = await axios.get(
           `${API_BASE}/reservations/table-statuses`,
           {
@@ -248,7 +243,6 @@ export default function TableReservation({ onClose, onSuccess }) {
           },
         );
 
-        // Get schedule for selected table only if a table is selected
         let schedRes = { data: [] };
         if (selectedId && form.date) {
           try {
@@ -266,7 +260,6 @@ export default function TableReservation({ onClose, onSuccess }) {
           }
         }
 
-        // Process schedule and filter out completed/ended reservations
         const processedSchedule = (schedRes.data || [])
           .filter((res) => !isReservationCompleted(res, form.date))
           .map((res) => {
@@ -301,13 +294,11 @@ export default function TableReservation({ onClose, onSuccess }) {
     [selectedId],
   );
 
-  // Check if a table has any active reservation (not completed)
   const hasActiveReservation = (tableId) => {
     const schedule = tableSchedules[tableId] || [];
     return schedule.length > 0;
   };
 
-  // Check if a table has ongoing reservation
   const hasOngoingReservation = (tableId) => {
     const schedule = tableSchedules[tableId] || [];
     return schedule.some((r) => {
@@ -321,7 +312,6 @@ export default function TableReservation({ onClose, onSuccess }) {
     });
   };
 
-  // Check if a table is available for the selected time slot
   const isTableAvailableForTime = (tableId, startTime, endTime) => {
     const schedule = tableSchedules[tableId] || [];
     const startM = timeToMin(startTime);
@@ -332,7 +322,6 @@ export default function TableReservation({ onClose, onSuccess }) {
     });
   };
 
-  // Filter available tables for linking based on time compatibility
   const getAvailableTablesForLinking = () => {
     if (!form.startTime || !form.endTime) return [];
 
@@ -367,15 +356,19 @@ export default function TableReservation({ onClose, onSuccess }) {
     };
   }, [selectedItems]);
 
-  // Find the fullReservationData useMemo and update it:
-  const fullReservationData = useMemo(() => {
-    // Determine package name here for storage
-    let pName = "Table Reservation";
-    if (selectedItems.length > 0) {
-      pName =
-        selectedItems[0].name + (selectedItems.length > 1 ? " + Others" : "");
-    }
+  // Prepare tableIds array for submission
+  const tableIdsArray = useMemo(() => {
+    return [selectedId, ...linkedIds].filter((id) => id !== null);
+  }, [selectedId, linkedIds]);
 
+  // Generate package display name
+  const productDisplayName = useMemo(() => {
+    if (selectedItems.length === 0) return "Table Reservation";
+    if (selectedItems.length === 1) return selectedItems[0].name;
+    return `${selectedItems[0].name} + ${selectedItems.length - 1} more`;
+  }, [selectedItems]);
+
+  const fullReservationData = useMemo(() => {
     return {
       ...user,
       ...form,
@@ -385,16 +378,11 @@ export default function TableReservation({ onClose, onSuccess }) {
       linkedTables: linkedIds.map(
         (id) => TABLES_DATA.find((t) => t.id === id)?.label,
       ),
-
-      // FIX 1: Change 'packages' to 'selectedItems'
       selectedItems: selectedItems,
-
-      // FIX 2: Explicitly add 'packageName'
       packages: selectedItems,
-
       resDate: form.date,
       amount: orderSummary.downpayment,
-      totalAmount: orderSummary.totalOrderPrice, // FIX 3: Ensure total is here
+      totalAmount: orderSummary.totalOrderPrice,
       downpayment: orderSummary.downpayment,
       paymentMethod: paymentMethod || "Maya",
       municipality:
@@ -468,13 +456,11 @@ export default function TableReservation({ onClose, onSuccess }) {
     const hasActive = hasActiveReservation(table.id);
     const hasOngoing = hasOngoingReservation(table.id);
 
-    // If table has ongoing reservation, show warning
     if (hasOngoing && !isLinkMode) {
       setShowOngoingWarning(table.id);
       setTimeout(() => setShowOngoingWarning(null), 3000);
     }
 
-    // In link mode, check time availability
     if (isLinkMode) {
       if (table.id === selectedId) return;
 
@@ -496,7 +482,6 @@ export default function TableReservation({ onClose, onSuccess }) {
           : [...prev, table.id],
       );
     } else {
-      // Allow selection even if table has reservation
       setSelectedId(selectedId === table.id ? null : table.id);
       setLinkedIds([]);
     }
@@ -530,39 +515,14 @@ export default function TableReservation({ onClose, onSuccess }) {
 
     try {
       const payload = new FormData();
-
-<<<<<<< Updated upstream
-      // --- FIX: DEFINE productDisplayName HERE ---
-      let productDisplayName = "Table Reservation";
-      if (selectedItems && selectedItems.length > 0) {
-        const firstItem = selectedItems[0];
-        // Use .name or .item_name depending on your product object structure
-        productDisplayName = firstItem.name || firstItem.item_name || "Product";
-
-        if (selectedItems.length > 1) {
-          productDisplayName += ` + ${selectedItems.length - 1} more`;
-        }
-      }
-
-      // --- FIX: Create clean table ID array ---
-      const tableIdsArray = [selectedId, ...linkedIds]
-        .filter((id) => id !== null && id !== undefined)
-        .map((id) => Number(id));
-=======
-      // Get userId from localStorage
       const userId = localStorage.getItem("userId");
->>>>>>> Stashed changes
 
       const submission = {
         ...user,
         ...form,
-<<<<<<< Updated upstream
-        userId: localStorage.getItem("userId"),
-=======
         userId: userId,
->>>>>>> Stashed changes
         guests: totalSeats,
-        packageName: productDisplayName, // Now it is defined!
+        packageName: productDisplayName,
         totalAmount: orderSummary.totalOrderPrice,
         amount: orderSummary.downpayment,
         paymentMethod: paymentMethod || "Maya",
@@ -572,10 +532,8 @@ export default function TableReservation({ onClose, onSuccess }) {
         brgyCode: form.brgy,
       };
 
-      // Append file if it exists
       if (file) payload.append("receipt", file);
 
-      // Append all other fields to FormData
       Object.entries(submission).forEach(([k, v]) => {
         if (v !== undefined && v !== null) {
           payload.append(k, v);
@@ -583,8 +541,6 @@ export default function TableReservation({ onClose, onSuccess }) {
       });
 
       const res = await axios.post(`${API_BASE}/reservations/table`, payload);
-
-      // Successfully saved!
       onSuccess(res.data.id);
     } catch (e) {
       console.error("Booking Error:", e.response?.data || e.message);
@@ -597,6 +553,25 @@ export default function TableReservation({ onClose, onSuccess }) {
     }
   };
 
+  // Refresh schedules after booking
+  const refreshSchedules = async () => {
+    const schedules = {};
+    for (const table of TABLES_DATA) {
+      try {
+        const response = await axios.get(
+          `${API_BASE}/reservations/table-schedule`,
+          { params: { tableId: table.id, date: form.date } },
+        );
+        schedules[table.id] = Array.isArray(response.data)
+          ? response.data.filter((r) => !isReservationCompleted(r, form.date))
+          : [];
+      } catch (error) {
+        schedules[table.id] = [];
+      }
+    }
+    setTableSchedules(schedules);
+  };
+
   const availableTablesForLinking = getAvailableTablesForLinking();
 
   return (
@@ -605,7 +580,6 @@ export default function TableReservation({ onClose, onSuccess }) {
         <ArrowLeft size={18} /> <span>Back</span>
       </button>
 
-      {/* 1. ASIDE TAG (FORM) */}
       <aside
         className={`floor-sidebar ${!form.date ? "centered-form" : ""}`}
         onClick={(e) => e.stopPropagation()}
@@ -902,7 +876,6 @@ export default function TableReservation({ onClose, onSuccess }) {
         </div>
       </aside>
 
-      {/* 2. MAIN SECTION (TABLES) */}
       {form.date && (
         <div
           className="floor-plan-main fade-in"
@@ -965,7 +938,6 @@ export default function TableReservation({ onClose, onSuccess }) {
               const isLinked = linkedIds.includes(t.id);
               const showWarning = showOngoingWarning === t.id;
 
-              // Determine card class
               let cardCls = "";
               if (isSelected) {
                 cardCls = "selected";
@@ -979,7 +951,6 @@ export default function TableReservation({ onClose, onSuccess }) {
                 cardCls = "available";
               }
 
-              // Determine dot class
               let dotCls = "available";
               if (hasOngoing) {
                 dotCls = "occupied";
