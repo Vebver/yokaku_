@@ -9,6 +9,8 @@ import {
   Info,
   ShoppingCart,
   Trash2,
+  Settings,
+  Sliders,
 } from "lucide-react";
 import "../Style/PackageModal.css";
 
@@ -39,6 +41,12 @@ const PackageModal = ({
   const [showItemModal, setShowItemModal] = useState(false);
   const [showCartModal, setShowCartModal] = useState(false);
   const [itemQuantity, setItemQuantity] = useState(1);
+  const [showCustomizePanel, setShowCustomizePanel] = useState(false);
+  const [customizations, setCustomizations] = useState({
+    addOns: [],
+    specialInstructions: "",
+    spiceLevel: "Medium",
+  });
 
   useEffect(() => {
     if (isOpen) {
@@ -54,9 +62,14 @@ const PackageModal = ({
   const fetchCategories = async () => {
     try {
       const res = await axios.get(`${API_BASE}/categories`);
-      setCategories(res.data);
-      if (res.data.length > 0 && !selectedCategory) {
-        setSelectedCategory(Number(res.data[0].category_id));
+      const sortedCategories = [...res.data].sort((a, b) => {
+        if (a.name === "Hangout Bundle") return -1;
+        if (b.name === "Hangout Bundle") return 1;
+        return a.name.localeCompare(b.name);
+      });
+      setCategories(sortedCategories);
+      if (sortedCategories.length > 0 && !selectedCategory) {
+        setSelectedCategory(Number(sortedCategories[0].category_id));
       }
     } catch (error) {
       console.error("Error fetching categories:", error);
@@ -87,6 +100,12 @@ const PackageModal = ({
   const handleCardClick = (item) => {
     setSelectedItem(item);
     setItemQuantity(getItemQuantity(item.item_id) || 1);
+    setShowCustomizePanel(false);
+    setCustomizations({
+      addOns: [],
+      specialInstructions: "",
+      spiceLevel: "Medium",
+    });
     setShowItemModal(true);
   };
 
@@ -100,17 +119,36 @@ const PackageModal = ({
     }
   };
 
+  const handleCustomize = () => {
+    setShowCustomizePanel(true);
+  };
+
+  const handleSaveCustomizations = () => {
+    setShowCustomizePanel(false);
+  };
+
+  const handleCancelCustomize = () => {
+    setShowCustomizePanel(false);
+  };
+
   const handleAddToCart = () => {
     const existing = selectedItems.find((i) => i.id === selectedItem.item_id);
 
+    let updatedItems;
     if (existing) {
-      setSelectedItems(
-        selectedItems.map((i) =>
-          i.id === selectedItem.item_id ? { ...i, quantity: itemQuantity } : i,
-        ),
+      updatedItems = selectedItems.map((i) =>
+        i.id === selectedItem.item_id
+          ? {
+              ...i,
+              quantity: itemQuantity,
+              customizations: showCustomizePanel
+                ? customizations
+                : i.customizations,
+            }
+          : i,
       );
     } else {
-      setSelectedItems([
+      updatedItems = [
         ...selectedItems,
         {
           id: selectedItem.item_id,
@@ -119,37 +157,54 @@ const PackageModal = ({
           quantity: itemQuantity,
           image: selectedItem.image_url,
           description: selectedItem.description,
+          customizations: showCustomizePanel ? customizations : null,
         },
-      ]);
+      ];
     }
+
+    setSelectedItems(updatedItems);
+    onSelectedItemsChange(updatedItems);
     setShowItemModal(false);
     setSelectedItem(null);
     setItemQuantity(1);
+    setShowCustomizePanel(false);
+  };
+
+  const handleCancel = () => {
+    setShowItemModal(false);
+    setSelectedItem(null);
+    setItemQuantity(1);
+    setShowCustomizePanel(false);
   };
 
   const handleRemoveFromCart = () => {
-    setSelectedItems(
-      selectedItems.filter((i) => i.id !== selectedItem.item_id),
+    const updatedItems = selectedItems.filter(
+      (i) => i.id !== selectedItem.item_id,
     );
+    setSelectedItems(updatedItems);
+    onSelectedItemsChange(updatedItems);
     setShowItemModal(false);
     setSelectedItem(null);
     setItemQuantity(1);
   };
 
   const handleRemoveCartItem = (itemId) => {
-    setSelectedItems(selectedItems.filter((i) => i.id !== itemId));
+    const updatedItems = selectedItems.filter((i) => i.id !== itemId);
+    setSelectedItems(updatedItems);
+    onSelectedItemsChange(updatedItems);
   };
 
   const handleUpdateCartItem = (itemId, newQuantity) => {
+    let updatedItems;
     if (newQuantity <= 0) {
-      handleRemoveCartItem(itemId);
+      updatedItems = selectedItems.filter((i) => i.id !== itemId);
     } else {
-      setSelectedItems(
-        selectedItems.map((i) =>
-          i.id === itemId ? { ...i, quantity: newQuantity } : i,
-        ),
+      updatedItems = selectedItems.map((i) =>
+        i.id === itemId ? { ...i, quantity: newQuantity } : i,
       );
     }
+    setSelectedItems(updatedItems);
+    onSelectedItemsChange(updatedItems);
   };
 
   const handleViewOrder = () => {
@@ -171,6 +226,18 @@ const PackageModal = ({
     setImageErrors((prev) => ({ ...prev, [itemId]: true }));
   };
 
+  const handleAddOnToggle = (addOn) => {
+    setCustomizations((prev) => {
+      const exists = prev.addOns.includes(addOn);
+      return {
+        ...prev,
+        addOns: exists
+          ? prev.addOns.filter((a) => a !== addOn)
+          : [...prev.addOns, addOn],
+      };
+    });
+  };
+
   const filteredProducts = products.filter(
     (p) => Number(p.category_id) === Number(selectedCategory),
   );
@@ -179,6 +246,14 @@ const PackageModal = ({
     (sum, item) => sum + item.price * item.quantity,
     0,
   );
+
+  // Sample add-ons (you can customize these or fetch from backend)
+  const addOnsList = [
+    { name: "Extra Rice", price: 15 },
+    { name: "Extra Sauce", price: 10 },
+    { name: "Cheese", price: 20 },
+    { name: "Bacon", price: 25 },
+  ];
 
   if (!isOpen) return null;
 
@@ -335,40 +410,133 @@ const PackageModal = ({
                     "No description available for this item."}
                 </p>
 
-                <div className="item-detail-quantity">
-                  <label>Quantity:</label>
-                  <div className="quantity-controls">
-                    <button
-                      className="qty-btn"
-                      onClick={handleDecreaseQuantity}
-                    >
-                      <Minus size={16} />
-                    </button>
-                    <span className="qty-value">{itemQuantity}</span>
-                    <button
-                      className="qty-btn"
-                      onClick={handleIncreaseQuantity}
-                    >
-                      <Plus size={16} />
-                    </button>
-                  </div>
-                </div>
+                {/* Customization Panel */}
+                {!showCustomizePanel ? (
+                  <>
+                    <div className="item-detail-quantity">
+                      <label>Quantity:</label>
+                      <div className="quantity-controls">
+                        <button
+                          className="qty-btn"
+                          onClick={handleDecreaseQuantity}
+                        >
+                          <Minus size={16} />
+                        </button>
+                        <span className="qty-value">{itemQuantity}</span>
+                        <button
+                          className="qty-btn"
+                          onClick={handleIncreaseQuantity}
+                        >
+                          <Plus size={16} />
+                        </button>
+                      </div>
+                    </div>
 
-                <div className="item-detail-actions">
-                  {isItemSelected(selectedItem.item_id) && (
-                    <button
-                      className="remove-btn"
-                      onClick={handleRemoveFromCart}
-                    >
-                      Remove from Cart
-                    </button>
-                  )}
-                  <button className="add-btn" onClick={handleAddToCart}>
-                    {isItemSelected(selectedItem.item_id)
-                      ? "Update Cart"
-                      : "Add to Cart"}
-                  </button>
-                </div>
+                    <div className="item-detail-actions">
+                      {selectedItem.name.includes("Hangout Bundle") && (
+                        <button
+                          className="customize-btn"
+                          onClick={handleCustomize}
+                        >
+                          <Settings size={16} />
+                          Customize
+                        </button>
+                      )}
+                      <button className="cancel-btn" onClick={handleCancel}>
+                        Cancel
+                      </button>
+                      <button className="add-btn" onClick={handleAddToCart}>
+                        {isItemSelected(selectedItem.item_id)
+                          ? "Update Cart"
+                          : "Add to Cart"}
+                      </button>
+                    </div>
+
+                    {isItemSelected(selectedItem.item_id) && (
+                      <button
+                        className="remove-from-cart-btn"
+                        onClick={handleRemoveFromCart}
+                      >
+                        <Trash2 size={14} />
+                        Remove from Cart
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <div className="customize-panel">
+                    <h3>Customize Your Order</h3>
+
+                    <div className="customize-section">
+                      <label>Add-ons:</label>
+                      <div className="addons-list">
+                        {addOnsList.map((addOn) => (
+                          <label key={addOn.name} className="addon-item">
+                            <input
+                              type="checkbox"
+                              checked={customizations.addOns.includes(
+                                addOn.name,
+                              )}
+                              onChange={() => handleAddOnToggle(addOn.name)}
+                            />
+                            <span>{addOn.name}</span>
+                            <span className="addon-price">+₱{addOn.price}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="customize-section">
+                      <label>Spice Level:</label>
+                      <div className="spice-levels">
+                        {["Mild", "Medium", "Hot", "Extra Hot"].map((level) => (
+                          <button
+                            key={level}
+                            className={`spice-btn ${customizations.spiceLevel === level ? "active" : ""}`}
+                            onClick={() =>
+                              setCustomizations((prev) => ({
+                                ...prev,
+                                spiceLevel: level,
+                              }))
+                            }
+                          >
+                            {level}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="customize-section">
+                      <label>Special Instructions:</label>
+                      <textarea
+                        className="special-instructions"
+                        placeholder="Any special requests? (e.g., no onions, extra sauce, etc.)"
+                        value={customizations.specialInstructions}
+                        onChange={(e) =>
+                          setCustomizations((prev) => ({
+                            ...prev,
+                            specialInstructions: e.target.value,
+                          }))
+                        }
+                        rows="3"
+                      />
+                    </div>
+
+                    <div className="customize-actions">
+                      <button
+                        className="cancel-customize-btn"
+                        onClick={handleCancelCustomize}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        className="save-customize-btn"
+                        onClick={handleSaveCustomizations}
+                      >
+                        Save Customizations
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -422,6 +590,19 @@ const PackageModal = ({
                         <div className="cart-item-details">
                           <h4>{item.name}</h4>
                           <p>₱{item.price.toFixed(2)} each</p>
+                          {item.customizations && (
+                            <div className="cart-item-customizations">
+                              <small>
+                                Customized: {item.customizations.spiceLevel}
+                              </small>
+                              {item.customizations.addOns.length > 0 && (
+                                <small>
+                                  Add-ons:{" "}
+                                  {item.customizations.addOns.join(", ")}
+                                </small>
+                              )}
+                            </div>
+                          )}
                         </div>
                         <div className="cart-item-quantity">
                           <button
@@ -460,13 +641,9 @@ const PackageModal = ({
                       <span>Subtotal:</span>
                       <span>₱{totalPrice.toFixed(2)}</span>
                     </div>
-                    <div className="cart-total-row">
-                      <span>Service Charge (10%):</span>
-                      <span>₱{(totalPrice * 0.1).toFixed(2)}</span>
-                    </div>
                     <div className="cart-total-row grand-total">
-                      <span>Grand Total:</span>
-                      <span>₱{(totalPrice * 1.1).toFixed(2)}</span>
+                      <span>Total:</span>
+                      <span>₱{totalPrice.toFixed(2)}</span>
                     </div>
                   </div>
                 </>

@@ -438,6 +438,61 @@ export default function TableReservation({ onClose, onSuccess }) {
     return timeOptions.filter((t) => timeToMin(t) >= startM + 60);
   }, [form.startTime, timeOptions]);
 
+  // --- FIELD VALIDATION ---
+  const isFirstNameValid = user.firstName && user.firstName.trim().length > 0;
+  const isLastNameValid = user.lastName && user.lastName.trim().length > 0;
+  const isEmailValid = /^\S+@\S+\.\S+$/.test(user.email);
+  const isPhoneValid = user.phone.length === 11 && user.phone.startsWith("09");
+  const isDateValid = form.date && form.date !== "";
+  const isStartTimeValid = form.startTime && form.startTime !== "";
+  const isEndTimeValid = form.endTime && form.endTime !== "";
+  const isTimeValid = (() => {
+    if (!form.startTime || !form.endTime) return false;
+    const s = timeToMin(form.startTime);
+    const e = timeToMin(form.endTime);
+    return e - s >= 60;
+  })();
+  const isMuniValid = form.muni && form.muni !== "";
+  const isBrgyValid = form.brgy && form.brgy !== "";
+  const hasSelectedItems = selectedItems.length > 0;
+  const hasNoConflict = !data.schedule.some((r) => {
+    const s = timeToMin(form.startTime);
+    const e = timeToMin(form.endTime);
+    return s < timeToMin(r.endTime) && e > timeToMin(r.startTime);
+  });
+
+  const isFormInvalid = useMemo(() => {
+    return (
+      !selectedId ||
+      !isFirstNameValid ||
+      !isLastNameValid ||
+      !isEmailValid ||
+      !isPhoneValid ||
+      !isDateValid ||
+      !isStartTimeValid ||
+      !isEndTimeValid ||
+      !isTimeValid ||
+      !hasSelectedItems ||
+      !isMuniValid ||
+      !isBrgyValid ||
+      !hasNoConflict
+    );
+  }, [
+    selectedId,
+    isFirstNameValid,
+    isLastNameValid,
+    isEmailValid,
+    isPhoneValid,
+    isDateValid,
+    isStartTimeValid,
+    isEndTimeValid,
+    isTimeValid,
+    hasSelectedItems,
+    isMuniValid,
+    isBrgyValid,
+    hasNoConflict,
+  ]);
+
   // --- HANDLERS ---
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -487,29 +542,6 @@ export default function TableReservation({ onClose, onSuccess }) {
     }
   };
 
-  const isFormInvalid = useMemo(() => {
-    const s = timeToMin(form.startTime),
-      e = timeToMin(form.endTime);
-    const conflictDetected = data.schedule.some(
-      (r) => s < timeToMin(r.endTime) && e > timeToMin(r.startTime),
-    );
-    const phoneValid = user.phone.length === 11 && user.phone.startsWith("09");
-    const emailValid = /^\S+@\S+\.\S+$/.test(user.email);
-
-    return (
-      !selectedId ||
-      !user.firstName.trim() ||
-      !emailValid ||
-      !phoneValid ||
-      !form.date ||
-      e - s < 60 ||
-      selectedItems.length === 0 ||
-      !form.muni ||
-      !form.brgy ||
-      conflictDetected
-    );
-  }, [user, form, data.schedule, selectedId, selectedItems]);
-
   const confirmBooking = async (file) => {
     setUi((p) => ({ ...p, loading: true }));
 
@@ -551,25 +583,6 @@ export default function TableReservation({ onClose, onSuccess }) {
     } finally {
       setUi((p) => ({ ...p, loading: false }));
     }
-  };
-
-  // Refresh schedules after booking
-  const refreshSchedules = async () => {
-    const schedules = {};
-    for (const table of TABLES_DATA) {
-      try {
-        const response = await axios.get(
-          `${API_BASE}/reservations/table-schedule`,
-          { params: { tableId: table.id, date: form.date } },
-        );
-        schedules[table.id] = Array.isArray(response.data)
-          ? response.data.filter((r) => !isReservationCompleted(r, form.date))
-          : [];
-      } catch (error) {
-        schedules[table.id] = [];
-      }
-    }
-    setTableSchedules(schedules);
   };
 
   const availableTablesForLinking = getAvailableTablesForLinking();
@@ -704,6 +717,9 @@ export default function TableReservation({ onClose, onSuccess }) {
                     value={user.firstName}
                     onChange={handleInputChange}
                     disabled={!ui.editing}
+                    className={
+                      !isFirstNameValid && user.firstName ? "input-error" : ""
+                    }
                   />
                 </div>
                 <div className="input-group">
@@ -714,6 +730,9 @@ export default function TableReservation({ onClose, onSuccess }) {
                     value={user.lastName}
                     onChange={handleInputChange}
                     disabled={!ui.editing}
+                    className={
+                      !isLastNameValid && user.lastName ? "input-error" : ""
+                    }
                   />
                 </div>
                 <div className="input-group">
@@ -726,6 +745,7 @@ export default function TableReservation({ onClose, onSuccess }) {
                     value={user.email}
                     onChange={handleInputChange}
                     disabled={!ui.editing}
+                    className={!isEmailValid && user.email ? "input-error" : ""}
                   />
                 </div>
                 <div className="input-group">
@@ -737,7 +757,13 @@ export default function TableReservation({ onClose, onSuccess }) {
                     name="phone"
                     value={user.phone}
                     onChange={handleInputChange}
+                    className={
+                      !isPhoneValid && user.phone !== "09" ? "input-error" : ""
+                    }
                   />
+                  <small className="input-hint">
+                    Must be 11 digits starting with 09
+                  </small>
                 </div>
                 <div className="input-row">
                   <div className="input-group">

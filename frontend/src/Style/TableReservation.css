@@ -552,6 +552,34 @@
   animation: slideIn 0.3s ease;
 }
 
+/* Disabled button styling */
+.btn-confirm.btn-disabled {
+  background: #ccc !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+  box-shadow: none !important;
+  opacity: 0.6;
+}
+
+.btn-confirm.btn-disabled:hover {
+  background: #ccc !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Input error styling */
+.input-error {
+  border-color: #e63946 !important;
+  background-color: #fff5f5 !important;
+}
+
+.input-hint {
+  font-size: 10px;
+  color: #888;
+  margin-top: 4px;
+  display: block;
+}
+
 @keyframes slideIn {
   from {
     opacity: 0;
