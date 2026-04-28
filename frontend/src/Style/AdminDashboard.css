@@ -160,13 +160,49 @@ main {
   }
 }
 
-@media (max-width: 767px) {
+@media (max-width: 768px) {
   .admin-sidebar {
-    position: fixed;
-    left: 0;
-    transform: translateX(-100%);
+    position: fixed; /* Floats over content */
+    left: -260px;    /* Hidden by default */
+    width: 260px !important;
   }
-  .admin-sidebar.expanded {
-    transform: translateX(0);
+
+  /* When sidebar is toggled open on mobile */
+  .sidebar-open .admin-sidebar {
+    left: 0;
+  }
+
+  /* Main container takes full width on mobile */
+  .main-container {
+    width: 100%;
+    margin-left: 0 !important;
+  }
+
+  /* Show the mobile overlay shadow */
+  .sidebar-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 999;
+  }
+  
+  .sidebar-overlay.show {
+    display: block;
+  }
+
+  /* Hide the desktop collapse button on mobile */
+  .sidebar-header .btn-sm {
+    display: none;
+  }
+}
+
+/* Ensure StatCards stack on mobile */
+@media (max-width: 576px) {
+  .display-5 {
+    font-size: 2rem;
   }
 }

@@ -100,7 +100,7 @@ const Billing = () => {
                   <th className="ps-4">Customer & ID</th>
                   <th>Method</th>
                   <th>Amount</th>
-                  <th>Payment Type</th> {/* Changed from 'Status' */}
+                  <th>Payment Type</th>
                   <th className="text-end pe-4">Actions</th>
                 </tr>
               </thead>
@@ -136,7 +136,6 @@ const Billing = () => {
                       </span>
                     </td>
 
-                    {/* CHANGED: This column now shows "PAYMENT TYPE" instead of just Status */}
                     <td>
                       {p.payment_method === "Gcash" ? (
                         <span

@@ -113,36 +113,30 @@ const reservationController = {
 
   // Check if user has active reservation
   checkUserActive: async (req, res) => {
-    try {
-      const { userId } = req.params;
-      console.log("🔍 [checkUserActive] Checking for user:", userId);
+  try {
+    const { userId } = req.params;
 
-      // First, check if user has ANY reservation with active status
-      const sql = `
-        SELECT reservation_id, status, reservation_date, reservation_time, end_time
-        FROM reservations 
-        WHERE user_id = ? 
-        AND status IN ('Pending', 'Confirmed', 'Seated')
-        ORDER BY created_at DESC
-        LIMIT 1
-      `;
+    // We search for a reservation that is ONLY 'Pending' or 'Confirmed'
+    const sql = `
+      SELECT * FROM reservations 
+      WHERE user_id = ? 
+      AND status IN ('Pending', 'Confirmed') 
+      LIMIT 1
+    `;
+    
+    const [rows] = await db.execute(sql, [userId]);
 
-      const [rows] = await db.execute(sql, [userId]);
-
-      console.log("🔍 [checkUserActive] Found rows:", rows.length);
-      if (rows.length > 0) {
-        console.log("🔍 [checkUserActive] Reservation:", rows[0]);
-      }
-
-      const hasActive = rows.length > 0;
-      console.log("🔍 [checkUserActive] Result:", hasActive);
-
-      res.json({ hasActive });
-    } catch (error) {
-      console.error("Error checking active reservation:", error);
-      res.status(500).json({ error: error.message });
+    if (rows.length > 0) {
+      // User has a real active booking (not yet arrived)
+      res.json({ hasActive: true, reservation: rows[0] });
+    } else {
+      // User is either Seated, has no booking, or it was completed
+      res.json({ hasActive: false });
     }
-  },
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+},
 
   checkAvailability: async (req, res) => {
     try {
@@ -289,14 +283,15 @@ const reservationController = {
     }
   },
 
-createReservation: async (req, res) => {
-  try {
-    const body = req.body;
-    
-    // 1. Parse JSON strings from FormData (IMPORTANT)
-    const items = typeof body.selectedItems === "string" 
-      ? JSON.parse(body.selectedItems) 
-      : body.selectedItems || [];
+  createReservation: async (req, res) => {
+    try {
+      const body = req.body;
+
+      // 1. Parse JSON strings from FormData (IMPORTANT)
+      const items =
+        typeof body.selectedItems === "string"
+          ? JSON.parse(body.selectedItems)
+          : body.selectedItems || [];
 
       let startDateTime;
       if (body.startTime === "now" || !body.startTime) {
@@ -388,11 +383,34 @@ createReservation: async (req, res) => {
     }
   },
 
-  updateStatus: async (req, res) => {
+  // controllers/reservationController.js
+
+   updateStatus: async (req, res) => {
     try {
-      await Reservation.updateStatus(req.params.id, req.body.status);
-      res.json({ message: `Status updated to ${req.body.status}` });
+      const { id } = req.params; // This is the reservation_id from URL
+      const { status } = req.body;
+
+      if (!id) {
+        return res.status(400).json({ error: "Reservation ID is required" });
+      }
+
+      console.log(`Updating status for ${id} to ${status}`);
+
+      // 1. Update the status in the main 'reservations' table
+      await Reservation.updateStatus(id, status);
+
+      // 2. Update the bridge table so the Table Status dashboard turns RED
+      // Note: check your table name, is it reservation_tables or reservation_table?
+      const bridgeStatus = status.toLowerCase(); // "Seated" -> "seated"
+      
+      const sql = "UPDATE reservation_tables SET status = ? WHERE reservation_id = ?";
+      const [result] = await db.execute(sql, [bridgeStatus, id]);
+
+      console.log("Bridge table update result:", result.affectedRows);
+
+      res.json({ success: true, message: `Status updated to ${status}` });
     } catch (error) {
+      console.error("BACKEND CRASH ERROR:", error); // Look at your VS Code terminal for this!
       res.status(500).json({ error: error.message });
     }
   },

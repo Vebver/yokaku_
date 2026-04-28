@@ -27,12 +27,21 @@ const generateRandomId = () => {
 
 const Reservation = {
   // --- EXISTING METHODS ---
-  checkActiveByUserId: async (userId) => {
-    const sql =
-      "SELECT reservation_id FROM reservations WHERE user_id = ? AND status IN ('Pending', 'Confirmed') LIMIT 1";
-    const [rows] = await db.execute(sql, [userId]);
-    return rows.length > 0;
-  },
+  // models/Reservation.js
+
+checkActiveByUserId: async (userId) => {
+  // CHANGE: Remove 'Seated' from this query.
+  // Now, if a user is already 'Seated', this returns false, 
+  // allowing them to create a new reservation.
+  const sql = `
+    SELECT reservation_id FROM reservations 
+    WHERE user_id = ? 
+    AND status IN ('Pending', 'Confirmed') 
+    LIMIT 1
+  `;
+  const [rows] = await db.execute(sql, [userId]);
+  return rows.length > 0;
+},
 
   getSlotsByTableAndDate: async (date, tableId) => {
     const sql = `SELECT r.reservation_time FROM reservations r JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id WHERE r.reservation_date = ? AND rt.table_id = ? AND r.status != 'Rejected'`;

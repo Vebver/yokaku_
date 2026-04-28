@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { Clock, Armchair, User } from "lucide-react"; // Added Armchair icon
+import { Clock, Armchair } from "lucide-react";
 
 // --- SUB-COMPONENT: REAL-TIME COUNTDOWN ---
 const CountdownTimer = ({ expiryDate }) => {
@@ -24,16 +24,20 @@ const CountdownTimer = ({ expiryDate }) => {
     return () => clearInterval(timer);
   }, [expiryDate]);
 
-  if (!timeLeft) return <span className="badge bg-danger-subtle text-danger">EXPIRED</span>;
+  if (!timeLeft)
+    return <span className="badge bg-danger-subtle text-danger">EXPIRED</span>;
 
   return (
-    <div className="d-flex align-items-center gap-1 text-primary fw-bold" style={{ fontSize: '0.8rem' }}>
+    <div
+      className="d-flex align-items-center gap-1 text-primary fw-bold"
+      style={{ fontSize: "0.8rem" }}
+    >
       <Clock size={12} />
       <span>
         {timeLeft.d > 0 && `${timeLeft.d}d `}
-        {timeLeft.h.toString().padStart(2, '0')}:
-        {timeLeft.m.toString().padStart(2, '0')}:
-        {timeLeft.s.toString().padStart(2, '0')}
+        {timeLeft.h.toString().padStart(2, "0")}:
+        {timeLeft.m.toString().padStart(2, "0")}:
+        {timeLeft.s.toString().padStart(2, "0")}
       </span>
     </div>
   );
@@ -60,43 +64,32 @@ const Reservations = () => {
     }
   };
 
-  const updateStatus = async (id, newStatus) => {
-    if (!window.confirm(`Mark as ${newStatus}?`)) return;
-    try {
-      await axios.put(`http://localhost:5000/api/reservations/${id}/status`, { status: newStatus });
-      setInquiries(prev => prev.map(item => 
-        item.reservation_id === id ? { ...item, status: newStatus } : item
-      ));
-    } catch (err) { alert("Action failed"); }
-  };
-
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to reject/delete this reservation?")) return;
-    try {
-      await axios.delete(`http://localhost:5000/api/reservations/${id}`);
-      setInquiries(prev => prev.filter(item => item.reservation_id !== id));
-    } catch (err) { alert("Delete failed"); }
-  };
-
   const getStatusBadge = (s) => {
     const status = s?.toLowerCase();
-    if (status === 'confirmed') return 'bg-success text-white';
-    if (status === 'pending') return 'bg-warning text-dark';
-    if (status === 'seated') return 'bg-info text-white';
-    return 'bg-secondary text-white';
+    if (status === "confirmed") return "bg-success text-white";
+    if (status === "pending") return "bg-warning text-dark";
+    if (status === "seated") return "bg-info text-white";
+    if (status === "rejected") return "bg-danger text-white";
+    return "bg-secondary text-white";
   };
 
   const indexOfLastItem = currentPage * itemsPerPage;
-  const currentItems = inquiries.slice(indexOfLastItem - itemsPerPage, indexOfLastItem);
+  const currentItems = inquiries.slice(
+    indexOfLastItem - itemsPerPage,
+    indexOfLastItem
+  );
 
-  if (loading) return <div className="p-5 text-center text-muted">Loading Records...</div>;
+  if (loading)
+    return <div className="p-5 text-center text-muted">Loading Records...</div>;
 
   return (
     <div className="container-fluid py-4 fade-in text-dark">
       <div className="d-flex justify-content-between align-items-end mb-4">
         <div>
-          <h2 className="fw-bold mb-1 text-dark">Reservations</h2>
-          <p className="text-muted small mb-0">Live booking management and table assignments</p>
+          <h2 className="fw-bold mb-1 text-dark">Reservation Logs</h2>
+          <p className="text-muted small mb-0">
+            View all booking history and current assignments
+          </p>
         </div>
         <div className="badge bg-dark px-3 py-2">{inquiries.length} Total</div>
       </div>
@@ -105,68 +98,76 @@ const Reservations = () => {
         <div className="table-responsive">
           <table className="table table-hover align-middle mb-0">
             <thead className="bg-light">
-              <tr className="text-muted small text-uppercase" style={{ fontSize: '0.75rem' }}>
+              <tr
+                className="text-muted small text-uppercase"
+                style={{ fontSize: "0.75rem" }}
+              >
                 <th className="ps-4">ID</th>
                 <th>Guest Details</th>
-                <th>Assigned Tables</th> {/* NEW COLUMN */}
+                <th>Assigned Tables</th>
                 <th>Time Remaining</th>
                 <th>Schedule</th>
                 <th className="text-center">Pax</th>
-                <th>Status</th>
-                <th className="text-end pe-4">Manage</th>
+                <th className="pe-4">Status</th>
               </tr>
             </thead>
             <tbody>
               {currentItems.map((item) => {
-                const startDateTime = new Date(`${item.reservation_date.split('T')[0]} ${item.reservation_time}`);
+                const startDateTime = new Date(
+                  `${item.reservation_date.split("T")[0]} ${item.reservation_time}`
+                );
                 const expiryDate = new Date(startDateTime);
                 expiryDate.setDate(expiryDate.getDate() + 2);
 
                 return (
-                  <tr key={item.reservation_id} style={{ height: '70px' }}>
-                    <td className="ps-4 text-muted small">#{item.reservation_id}</td>
-                    <td>
-                      <div className="fw-bold text-dark">{item.first_name} {item.last_name}</div>
-                      <div className="text-muted" style={{ fontSize: '0.7rem' }}>{item.email}</div>  
+                  <tr key={item.reservation_id} style={{ height: "70px" }}>
+                    <td className="ps-4 text-muted small">
+                      #{item.reservation_id}
                     </td>
-                    
-                    {/* TABLE ASSIGNMENT COLUMN */}
+                    <td>
+                      <div className="fw-bold text-dark">
+                        {item.first_name} {item.last_name}
+                      </div>
+                      <div
+                        className="text-muted"
+                        style={{ fontSize: "0.7rem" }}
+                      >
+                        {item.email}
+                      </div>
+                    </td>
                     <td>
                       <div className="d-flex align-items-center gap-2">
                         <div className="p-1 bg-primary-subtle text-primary rounded">
-                           <Armchair size={14} />
+                          <Armchair size={14} />
                         </div>
-                        <span className="fw-bold" style={{ color: '#333' }}>
+                        <span className="fw-bold" style={{ color: "#333" }}>
                           {item.assigned_tables || "N/A"}
                         </span>
                       </div>
                     </td>
-
                     <td>
-                       <CountdownTimer expiryDate={expiryDate} />
+                      <CountdownTimer expiryDate={expiryDate} />
                     </td>
                     <td>
                       <div className="fw-bold text-dark">
-                        {new Date(item.reservation_date).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}
+                        {new Date(item.reservation_date).toLocaleDateString(
+                          "en-US",
+                          { month: "short", day: "numeric" }
+                        )}
                       </div>
-                      <div className="text-muted small">{item.reservation_time}</div>
+                      <div className="text-muted small">
+                        {item.reservation_time}
+                      </div>
                     </td>
-                    <td className="text-center fw-bold text-dark">{item.num_guests}</td>
-                    <td>
-                      <span className={`badge rounded-pill ${getStatusBadge(item.status)}`}>
+                    <td className="text-center fw-bold text-dark">
+                      {item.num_guests}
+                    </td>
+                    <td className="pe-4">
+                      <span
+                        className={`badge rounded-pill ${getStatusBadge(item.status)}`}
+                      >
                         {item.status}
                       </span>
-                    </td>
-                    <td className="text-end pe-4">
-                      <div className="d-flex justify-content-end gap-2">
-                        {item.status === "Pending" && (
-                          <button className="btn btn-sm btn-success px-3" onClick={() => updateStatus(item.reservation_id, "Confirmed")}>Approve</button>
-                        )}
-                        {item.status === "Confirmed" && (
-                          <button className="btn btn-sm btn-info text-white px-3" onClick={() => updateStatus(item.reservation_id, "Seated")}>Seat</button>
-                        )}
-                        <button className="btn btn-sm btn-outline-danger" onClick={() => handleDelete(item.reservation_id)}>Reject</button>
-                      </div>
                     </td>
                   </tr>
                 );

@@ -28,4 +28,6 @@ router.get('/blocked-dates', blockedDateController.list);
 router.post('/blocked-dates', protect, adminOnly, blockedDateController.add);
 router.delete('/blocked-dates/:id', protect, adminOnly, blockedDateController.remove);
 
+router.post('/add-table', protect, adminOnly, adminController.addTable);
+
 module.exports = router;

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { Plus, Armchair } from "lucide-react"; // Added icons
 
 const TableStatus = () => {
   const [tables, setTables] = useState([]);
@@ -8,8 +9,15 @@ const TableStatus = () => {
 
   // Modal States
   const [showModal, setShowModal] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false); // For adding new tables
   const [selectedTable, setSelectedTable] = useState(null);
   const [guestName, setGuestName] = useState("");
+
+  // New Table State
+  const [newTableData, setNewTableData] = useState({
+    table_number: "",
+    capacity: 4,
+  });
 
   // Fetch Tables from Backend
   const fetchTables = async () => {
@@ -29,16 +37,33 @@ const TableStatus = () => {
 
   useEffect(() => {
     fetchTables();
-    // Auto-refresh every 60 seconds
     const interval = setInterval(fetchTables, 60000);
     return () => clearInterval(interval);
   }, []);
+
+  // Handle Adding a New Table to the Database
+  const handleAddTableSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      setUpdating(true);
+      const token = localStorage.getItem("token");
+      await axios.post("/api/admin/add-table", newTableData, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setShowAddModal(false);
+      setNewTableData({ table_number: "", capacity: 4 });
+      fetchTables(); // Refresh the grid
+    } catch (err) {
+      alert("Failed to add table. Table number might already exist.");
+    } finally {
+      setUpdating(false);
+    }
+  };
 
   // Handle Walk-in Submission
   const handleWalkInSubmit = async (e) => {
     e.preventDefault();
     if (!guestName) return;
-
     try {
       setUpdating(true);
       const token = localStorage.getItem("token");
@@ -47,10 +72,9 @@ const TableStatus = () => {
         { customer_name: guestName },
         { headers: { Authorization: `Bearer ${token}` } },
       );
-
       setShowModal(false);
       setGuestName("");
-      fetchTables(); // Refresh grid
+      fetchTables();
     } catch (err) {
       alert("Failed to process walk-in");
     } finally {
@@ -58,11 +82,33 @@ const TableStatus = () => {
     }
   };
 
-  // Handle Checkout (Clear Table)
-  const handleCheckout = async (e, tableId) => {
-    e.stopPropagation(); // Prevent opening modal
-    if (!window.confirm("Are you sure you want to clear this table?")) return;
+  const handleMarkAsSeated = async (tableId, reservationId) => {
+    // If you wrote 'resId' here, it will crash because the parameter above is 'reservationId'
+    console.log("Reservation ID is:", reservationId);
 
+    try {
+      setUpdating(true);
+      const token = localStorage.getItem("token");
+
+      // Ensure you use 'reservationId' here to match the parameter name above
+      await axios.put(
+        `http://localhost:5000/api/reservations/${reservationId}/status`,
+        { status: "Seated" },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+
+      fetchTables(); // Refresh the grid
+    } catch (err) {
+      console.error(err);
+      alert("Update failed");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleCheckout = async (e, tableId) => {
+    e.stopPropagation();
+    if (!window.confirm("Are you sure you want to clear this table?")) return;
     try {
       setUpdating(true);
       const token = localStorage.getItem("token");
@@ -83,67 +129,85 @@ const TableStatus = () => {
 
   const getMinutesElapsed = (startTime) => {
     if (!startTime) return 0;
-    const diff = Math.floor((new Date() - new Date(startTime)) / 60000);
-    return diff;
+    return Math.floor((new Date() - new Date(startTime)) / 60000);
   };
 
   if (loading && tables.length === 0)
-    return <div className="text-center mt-5 p-5">Loading Floor Plan...</div>;
+    return (
+      <div className="text-center mt-5 p-5 text-dark">
+        Loading Floor Plan...
+      </div>
+    );
 
   return (
     <div className="container-fluid px-5 py-4 bg-light min-vh-100">
-      {/* HEADER SECTION */}
       <div className="d-flex justify-content-between align-items-start mb-5">
         <div>
           <h1 className="fw-bold mb-0 text-dark" style={{ fontSize: "2.5rem" }}>
             Table Management
           </h1>
           <p className="text-muted small">
-            Monitor real-time table occupancy and process walk-ins
+            Monitor occupancy and manage your restaurant floor
           </p>
         </div>
-        <button
-          className="btn btn-dark px-4 fw-bold shadow-sm"
-          style={{ borderRadius: "8px" }}
-          onClick={fetchTables}
-          disabled={loading}
-        >
-          {loading ? "Refreshing..." : "Refresh Floor Plan"}
-        </button>
+        <div className="d-flex gap-2">
+          <button
+            className="btn btn-outline-dark px-4 fw-bold shadow-sm"
+            onClick={() => setShowAddModal(true)}
+          >
+            <Plus size={18} className="me-1" /> Add Table
+          </button>
+          <button
+            className="btn btn-dark px-4 fw-bold shadow-sm"
+            onClick={fetchTables}
+            disabled={loading}
+          >
+            {loading ? "Refreshing..." : "Refresh Layout"}
+          </button>
+        </div>
       </div>
 
-      {/* TABLE GRID */}
       <div className="row g-4">
         {tables.map((table) => {
-          // Check 'reservation_status' instead of 'status'
-          const isOccupied = table.reservation_status === "seated";
-          const time = isOccupied ? getMinutesElapsed(table.check_in_time) : 0;
-          const isWarning = time > 90;
+          const isSeated = table.bridge_status === "seated";
+          const isReserved = table.bridge_status === "confirmed"; // Matches your 'INSERT' logic
+
+          let currentStatus = "AVAILABLE";
+          let statusColor = "#10b981"; // Green
+          let badgeColor = "#ecfdf5";
+          let textColor = "#059669";
+
+          // RED: Physically at the restaurant
+          if (isSeated) {
+            currentStatus = "OCCUPIED";
+            statusColor = "#ef4444";
+            badgeColor = "#fef2f2";
+            textColor = "#dc2626";
+          }
+          // YELLOW: Someone booked it for today, but hasn't arrived yet
+          else if (isReserved) {
+            currentStatus = "RESERVED";
+            statusColor = "#f59e0b";
+            badgeColor = "#fff7ed";
+            textColor = "#d97706";
+          }
 
           return (
             <div key={table.table_id} className="col-12 col-md-4 col-lg-3">
               <div
                 className="card border-0 shadow-sm h-100 position-relative overflow-hidden hover-card"
                 style={{
-                  cursor: isOccupied ? "default" : "pointer",
-                  transition: "0.3s",
+                  cursor: isSeated || isReserved ? "default" : "pointer",
                 }}
                 onClick={() =>
-                  !isOccupied && (setSelectedTable(table), setShowModal(true))
+                  !isSeated &&
+                  !isReserved &&
+                  (setSelectedTable(table), setShowModal(true))
                 }
               >
-                {/* Top Indicator Bar */}
                 <div
-                  style={{
-                    height: "6px",
-                    backgroundColor: !isOccupied
-                      ? "#10b981"
-                      : isWarning
-                        ? "#f59e0b"
-                        : "#ef4444",
-                  }}
+                  style={{ height: "6px", backgroundColor: statusColor }}
                 ></div>
-
                 <div className="card-body p-4">
                   <div className="d-flex justify-content-between align-items-start mb-3">
                     <div>
@@ -151,59 +215,53 @@ const TableStatus = () => {
                         Table {table.table_number}
                       </h3>
                       <span className="text-muted small">
-                        {isOccupied 
-                          ? `${table.available_seats || 0} Available` 
-                          : `${table.capacity} Seater`
-                        }
+                        {table.capacity} Pax Capacity
                       </span>
                     </div>
                     <span
                       className="badge rounded-pill px-3 py-2"
                       style={{
-                        backgroundColor: !isOccupied
-                          ? "#ecfdf5"
-                          : isWarning
-                            ? "#fffbeb"
-                            : "#fef2f2",
-                        color: !isOccupied
-                          ? "#059669"
-                          : isWarning
-                            ? "#b45309"
-                            : "#dc2626",
+                        backgroundColor: badgeColor,
+                        color: textColor,
                         fontSize: "0.65rem",
                       }}
                     >
-                      {isOccupied ? "OCCUPIED" : "AVAILABLE"}
+                      {currentStatus}
                     </span>
                   </div>
-
                   <div className="mt-4 pt-3 border-top">
-                    {isOccupied ? (
-                      <div>
-                        <div
-                          className="fw-bold text-dark small text-uppercase mb-1"
-                          style={{ fontSize: "0.65rem" }}
-                        >
-                          Guest Name
-                        </div>
-                        <div className="fw-bold mb-2">
-                          {table.customer_name}
-                        </div>
-                        <div
-                          className={`small mb-3 ${isWarning ? "text-danger fw-bold" : "text-muted"}`}
-                        >
-                          ⏱ Seated for {time} minutes
-                        </div>
-                        <button
-                          className="btn btn-sm btn-outline-danger w-100 fw-bold"
-                          onClick={(e) => handleCheckout(e, table.table_id)}
-                        >
-                          Checkout
-                        </button>
-                      </div>
+                    {isSeated ? (
+                      <button
+                        className="btn btn-sm btn-outline-danger w-100 fw-bold"
+                        onClick={(e) => handleCheckout(e, table.table_id)}
+                      >
+                        Checkout
+                      </button>
+                    ) : isReserved ? (
+                      <button
+                        className="btn btn-sm btn-warning w-100 fw-bold text-white"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // Check if the property name is 'reservation_id' in your SQL query
+                          if (table.reservation_id) {
+                            handleMarkAsSeated(
+                              table.table_id,
+                              table.reservation_id,
+                            );
+                          } else {
+                            console.error(
+                              "Missing reservation_id for table:",
+                              table,
+                            );
+                            alert("No reservation found for this table.");
+                          }
+                        }}
+                      >
+                        Mark Seated
+                      </button>
                     ) : (
                       <div className="text-center py-2 text-muted small fw-bold text-uppercase">
-                        Click to Start Walk-in
+                        Start Walk-in
                       </div>
                     )}
                   </div>
@@ -214,7 +272,84 @@ const TableStatus = () => {
         })}
       </div>
 
-      {/* WALK-IN MODAL */}
+      {/* MODAL: ADD NEW TABLE */}
+      {showAddModal && (
+        <div
+          className="modal show d-block"
+          tabIndex="-1"
+          style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+        >
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content border-0 shadow">
+              <div className="modal-header">
+                <h5 className="modal-title fw-bold">Add New Table</h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowAddModal(false)}
+                ></button>
+              </div>
+              <form onSubmit={handleAddTableSubmit}>
+                <div className="modal-body py-4">
+                  <div className="mb-3">
+                    <label className="form-label small fw-bold">
+                      Table Number / Label
+                    </label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="e.g. 15 or T-1"
+                      value={newTableData.table_number}
+                      onChange={(e) =>
+                        setNewTableData({
+                          ...newTableData,
+                          table_number: e.target.value,
+                        })
+                      }
+                      required
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label small fw-bold">
+                      Seating Capacity
+                    </label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      value={newTableData.capacity}
+                      onChange={(e) =>
+                        setNewTableData({
+                          ...newTableData,
+                          capacity: e.target.value,
+                        })
+                      }
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="modal-footer border-0">
+                  <button
+                    type="button"
+                    className="btn btn-light"
+                    onClick={() => setShowAddModal(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-dark"
+                    disabled={updating}
+                  >
+                    Create Table
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* WALK-IN MODAL (Existing) */}
       {showModal && (
         <div
           className="modal show d-block"
@@ -235,33 +370,31 @@ const TableStatus = () => {
               </div>
               <form onSubmit={handleWalkInSubmit}>
                 <div className="modal-body py-4">
-                  <label className="form-label small fw-bold text-muted text-uppercase">
+                  <label className="form-label small fw-bold">
                     Customer Name
                   </label>
                   <input
                     type="text"
-                    className="form-control bg-light border-0 py-2"
-                    placeholder="Enter guest name..."
+                    className="form-control"
                     value={guestName}
                     onChange={(e) => setGuestName(e.target.value)}
                     required
-                    autoFocus
                   />
                 </div>
                 <div className="modal-footer border-0">
                   <button
                     type="button"
-                    className="btn btn-light px-4"
+                    className="btn btn-light"
                     onClick={() => setShowModal(false)}
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="btn btn-dark px-4"
+                    className="btn btn-dark"
                     disabled={updating}
                   >
-                    {updating ? "Processing..." : "Confirm Walk-in"}
+                    Confirm
                   </button>
                 </div>
               </form>
@@ -270,9 +403,7 @@ const TableStatus = () => {
         </div>
       )}
 
-      <style>{`
-        .hover-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important; }
-      `}</style>
+      <style>{`.hover-card:hover { transform: translateY(-5px); transition: 0.3s; box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important; }`}</style>
     </div>
   );
 };

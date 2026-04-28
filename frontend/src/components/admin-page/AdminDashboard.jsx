@@ -49,7 +49,7 @@ const Icons = {
   Profile: () => <i className="bi bi-person-circle me-2"></i>,
   Reservations: () => <i className="bi bi-calendar-check me-2"></i>,
   Account: () => <i className="bi bi-people me-2"></i>,
-  Maintenance: () => <i className="bi bi-people me-2"></i>,
+  Maintenance: () => <i className="bi bi-tools me-2"></i>,
 };
 
 const navItems = [
@@ -68,19 +68,19 @@ const navItems = [
 ];
 
 const StatCard = ({ title, value, color, icon }) => (
-  <div className="col-12 col-md-4"> {/* Changed to col-md-4 since there are now 3 cards */}
+  <div className="col-12 col-md-4">
     <div className="card border-0 shadow-sm h-100 rounded-4 bg-white text-dark">
-      <div className="card-body p-4 p-xxl-5 text-center">
+      <div className="card-body p-4 text-center">
         <div
-          className={`mx-auto mb-4 d-flex align-items-center justify-content-center rounded-circle bg-${color}-subtle text-${color}`}
-          style={{ width: "80px", height: "80px" }}
+          className={`mx-auto mb-3 d-flex align-items-center justify-content-center rounded-circle bg-${color}-subtle text-${color}`}
+          style={{ width: "60px", height: "60px" }}
         >
-          <i className={`bi ${icon}`} style={{ fontSize: "2.5rem" }}></i>
+          <i className={`bi ${icon}`} style={{ fontSize: "1.8rem" }}></i>
         </div>
-        <p className="text-muted fw-bold text-uppercase mb-2" style={{ letterSpacing: "1px", fontSize: "0.9rem" }}>
+        <p className="text-muted fw-bold text-uppercase mb-1" style={{ letterSpacing: "1px", fontSize: "0.8rem" }}>
           {title}
         </p>
-        <h1 className="display-5 fw-bold mb-0">{value}</h1>
+        <h2 className="fw-bold mb-0">{value}</h2>
       </div>
     </div>
   </div>
@@ -89,7 +89,7 @@ const StatCard = ({ title, value, color, icon }) => (
 function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeSection, setActiveSection] = useState("dashboard");
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 768); // Auto-close on small screens
   const [loading, setLoading] = useState(true);
 
   const [stats, setStats] = useState({
@@ -109,6 +109,14 @@ function AdminDashboard() {
       setIsAuthenticated(false);
       setLoading(false);
     }
+
+    // Auto-collapse sidebar on window resize
+    const handleResize = () => {
+        if (window.innerWidth <= 768) setSidebarOpen(false);
+        else setSidebarOpen(true);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   const fetchDashboardData = async () => {
@@ -116,19 +124,15 @@ function AdminDashboard() {
       setLoading(true);
       const token = localStorage.getItem("token");
       const config = { headers: { Authorization: `Bearer ${token}` } };
-
-      // ONLY fetch the basic stats (Bookings, Tables, Queue)
-      // REMOVED the call to /api/admin/reports/financial
       const statsRes = await axios.get("http://localhost:5000/api/admin/stats", config);
-
       setStats(statsRes.data);
-
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
     } finally {
       setLoading(false);
     }
   };
+
   const handleLogout = () => {
     localStorage.clear();
     delete axios.defaults.headers.common["Authorization"];
@@ -138,30 +142,15 @@ function AdminDashboard() {
 
   const DashboardOverview = () => (
     <div className="container-fluid fade-in py-3">
-      <div className="mb-5">
+      <div className="mb-4">
         <h1 className="fw-bold text-dark">Welcome Back, Admin</h1>
-        <p className="text-muted fs-5">Here is what's happening at Hangout today.</p>
+        <p className="text-muted">Here is what's happening at Hangout today.</p>
       </div>
 
-      <div className="row g-4 mb-5">
-        <StatCard
-          title="Total Bookings"
-          value={stats.totalBookings}
-          color="primary"
-          icon="bi-calendar-check-fill"
-        />
-        <StatCard
-          title="Active Tables"
-          value={stats.activeTables}
-          color="success"
-          icon="bi-door-open-fill"
-        />
-        <StatCard
-          title="Kitchen Queue"
-          value={stats.kitchenQueue}
-          color="warning"
-          icon="bi-egg-fried"
-        />
+      <div className="row g-3 mb-5">
+        <StatCard title="Total Bookings" value={stats.totalBookings} color="primary" icon="bi-calendar-check-fill" />
+        <StatCard title="Active Tables" value={stats.activeTables} color="success" icon="bi-door-open-fill" />
+        <StatCard title="Kitchen Queue" value={stats.kitchenQueue} color="warning" icon="bi-egg-fried" />
       </div>
     </div>
   );
@@ -186,8 +175,8 @@ function AdminDashboard() {
 
   if (!isAuthenticated && !loading) {
     return (
-      <div className="vh-100 d-flex align-items-center justify-content-center bg-light text-dark">
-        <div className="card border-0 shadow p-5 text-center" style={{ maxWidth: "400px" }}>
+      <div className="vh-100 d-flex align-items-center justify-content-center bg-light text-dark p-3">
+        <div className="card border-0 shadow p-4 text-center w-100" style={{ maxWidth: "400px" }}>
           <i className="bi bi-shield-lock-fill text-danger" style={{ fontSize: "3rem" }}></i>
           <h2 className="fw-bold mb-3">Access Denied</h2>
           <button className="btn btn-dark btn-lg w-100" onClick={() => (window.location.href = "/")}>Return to Home</button>
@@ -197,21 +186,36 @@ function AdminDashboard() {
   }
 
   return (
-    <div className="admin-layout">
+    <div className={`admin-layout ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
+      
+      {/* MOBILE OVERLAY */}
+      <div 
+        className={`sidebar-overlay ${sidebarOpen ? "show" : ""}`} 
+        onClick={() => setSidebarOpen(false)}
+      ></div>
+
+      {/* SIDEBAR */}
       <aside className={`admin-sidebar bg-dark text-white ${sidebarOpen ? "expanded" : "collapsed"}`}>
         <div className="sidebar-header d-flex align-items-center justify-content-between px-3">
           {sidebarOpen && <h4 className="fw-bold mb-0 text-white">Hangout</h4>}
-          <button className="btn btn-dark btn-sm ms-auto" onClick={() => setSidebarOpen(!sidebarOpen)}>
+          <button className="btn btn-dark btn-sm d-none d-md-block ms-auto" onClick={() => setSidebarOpen(!sidebarOpen)}>
             <i className={`bi ${sidebarOpen ? "bi-chevron-left" : "bi-list"} fs-5 text-white`}></i>
+          </button>
+          {/* Mobile close button */}
+          <button className="btn btn-dark d-md-none" onClick={() => setSidebarOpen(false)}>
+            <i className="bi bi-x-lg text-white"></i>
           </button>
         </div>
 
         <div className="sidebar-nav-container">
-          <nav className="nav flex-column gap-2 px-2">
+          <nav className="nav flex-column gap-1 px-2">
             {navItems.map((item) => (
               <button
                 key={item.id}
-                onClick={() => setActiveSection(item.id)}
+                onClick={() => {
+                    setActiveSection(item.id);
+                    if(window.innerWidth <= 768) setSidebarOpen(false); // Auto-close on click for mobile
+                }}
                 className={`nav-link text-start border-0 rounded py-3 px-3 d-flex align-items-center transition-all ${
                   activeSection === item.id ? "bg-success text-white active" : "text-secondary bg-transparent"
                 }`}
@@ -223,17 +227,32 @@ function AdminDashboard() {
           </nav>
         </div>
 
-        <div className="sidebar-footer px-3 pb-4 text-white">
-          <button className="btn btn-outline-danger btn-sm w-100 py-2 d-flex align-items-center justify-content-center" onClick={handleLogout}>
+        <div className="sidebar-footer px-3 pb-4">
+          <button className="btn btn-outline-danger btn-sm w-100 py-2" onClick={handleLogout}>
             <i className="bi bi-box-arrow-left"></i>
             {sidebarOpen && <span className="ms-2">Logout</span>}
           </button>
         </div>
       </aside>
 
+      {/* MAIN CONTENT AREA */}
       <div className="main-container bg-light">
-        <main className="p-3 p-md-4">
-          {loading ? <div className="text-center p-5 text-dark">Loading Dashboard...</div> : renderSection()}
+        {/* MOBILE TOP NAV (Hamburger) */}
+        <header className="mobile-top-nav d-md-none bg-dark text-white p-3 d-flex justify-content-between align-items-center">
+            <h5 className="mb-0">Hangout Admin</h5>
+            <button className="btn btn-dark border" onClick={() => setSidebarOpen(true)}>
+                <i className="bi bi-list fs-4"></i>
+            </button>
+        </header>
+
+        <main className="p-2 p-md-4">
+          {loading ? (
+            <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '60vh' }}>
+                <div className="spinner-border text-success"></div>
+            </div>
+          ) : (
+            renderSection()
+          )}
         </main>
       </div>
     </div>
