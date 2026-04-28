@@ -22,6 +22,8 @@ const addressRoutes = require("./routes/addressRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const startCronJobs = require("./cronJobs");
 const Notification = require("./models/Notification");
+const settingRoutes = require("./routes/settingRoutes")
+const maintenanceController = require("./routes/maitenanceRoutes")
 
 const PORT = process.env.PORT || 5000;
 const app = express();
@@ -112,6 +114,8 @@ app.use("/api/billing", protect, adminOnly, billingRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/inventory", orderRoutes);
+app.use("/api/settings", settingRoutes)
+app.use("/api/maintenance", maintenanceController)
 
 app.get("/api/protected", protect, (req, res) => {
   res.json({ message: "Protected data", user: req.user });

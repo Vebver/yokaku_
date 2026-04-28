@@ -137,6 +137,7 @@ export default function TableReservation({ onClose, onSuccess }) {
   const [isLinkMode, setIsLinkMode] = useState(false);
   const [showOngoingWarning, setShowOngoingWarning] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState(null); // Add this line
+  const [blockedDates, setBlockedDates] = useState([]);
 
   const [form, setForm] = useState({
     date: "",
@@ -295,6 +296,15 @@ export default function TableReservation({ onClose, onSuccess }) {
     const pollInterval = setInterval(poll, 10000);
     return () => clearInterval(pollInterval);
   }, [form.date, form.startTime, form.endTime, selectedId]);
+  //BLOCKED DATES
+  useEffect(() => {
+    // Fetch blocked dates from backend
+    axios.get("http://localhost:5000/api/blocked-dates").then((res) => {
+      // Convert dates to YYYY-MM-DD strings for easy comparison
+      const formatted = res.data.map((h) => h.block_date.split("T")[0]);
+      setBlockedDates(formatted);
+    });
+  }, []);
 
   // --- CALCULATIONS ---
   const primaryTable = useMemo(
@@ -308,6 +318,23 @@ export default function TableReservation({ onClose, onSuccess }) {
     return schedule.length > 0;
   };
 
+  const handleDateSelection = (e) => {
+    const selectedDate = e.target.value;
+
+    if (blockedDates.includes(selectedDate)) {
+      alert(
+        "We are sorry, but the restaurant is closed on this date. Please choose another day.",
+      );
+
+      // Clear the input field in the UI
+      e.target.value = "";
+      return true; // It is blocked
+    } else {
+      // If it's a valid date, update the form state
+      handleInputChange(e);
+      return false; // It is not blocked
+    }
+  };
   // Check if a table has ongoing reservation
   const hasOngoingReservation = (tableId) => {
     const schedule = tableSchedules[tableId] || [];
@@ -621,9 +648,14 @@ export default function TableReservation({ onClose, onSuccess }) {
                 value={form.date}
                 min={todayStr}
                 onChange={(e) => {
-                  handleInputChange(e);
-                  setSelectedId(null);
-                  setLinkedIds([]);
+                  // 1. Check if the date is blocked first
+                  const isBlocked = handleDateSelection(e);
+
+                  // 2. If it's NOT blocked, reset the tables
+                  if (!isBlocked) {
+                    setSelectedId(null);
+                    setLinkedIds([]);
+                  }
                 }}
               />
             </div>

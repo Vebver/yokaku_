@@ -27,6 +27,12 @@ const ReservationSummary = ({
   const [receipt, setReceipt] = useState(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false); // New state for redirecting
   const fileInputRef = useRef(null);
+  const [paymentSettings, setPaymentSettings] = useState({
+    gcash_number: "",
+    gcash_name: "",
+    maya_number: "",
+    maya_name: "",
+  });
 
   useEffect(() => {
     if (isOpen) {
@@ -40,6 +46,15 @@ const ReservationSummary = ({
     return () => {
       document.body.style.overflow = "unset";
     };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen) {
+      axios
+        .get("http://localhost:5000/api/settings")
+        .then((res) => setPaymentSettings(res.data))
+        .catch((err) => console.error("Could not load payment info"));
+    }
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -80,13 +95,13 @@ const ReservationSummary = ({
   const getAccountDetails = () => {
     if (paymentMethod === "Gcash") {
       return {
-        number: "09060052831",
-        name: "Carl Lorenz Leabres",
+        number: paymentSettings.gcash_number || "Loading...",
+        name: paymentSettings.gcash_name || "Loading...",
       };
     } else if (paymentMethod === "Maya") {
       return {
-        number: "09060052831",
-        name: "Carl Lorenz Leabres",
+        number: paymentSettings.maya_number || "Loading...",
+        name: paymentSettings.maya_name || "Loading...",
       };
     }
     return null;
@@ -296,9 +311,10 @@ const ReservationSummary = ({
                   Payment to:
                 </p>
                 <div className="account-details">
-                  <strong>{accountDetails.number}</strong>
+                  {/* DISPLAY DYNAMIC VALUES FROM SETTINGS */}
+                  <strong>{accountDetails.number || "Not Set"}</strong>
                   <div className="account-name">
-                    Account Name: {accountDetails.name}
+                    Account Name: {accountDetails.name || "Not Set"}
                   </div>
                 </div>
               </div>

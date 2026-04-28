@@ -23,6 +23,7 @@ import Categories from "./Categories";
 import RecipeManager from "./RecipeManager";
 import AccountManagement from "./AccountManagement";
 import TableStatus from "./TableStatus";
+import Maintenance from "./Maintenance";
 
 import "../../Style/AdminDashboard.css";
 
@@ -48,6 +49,7 @@ const Icons = {
   Profile: () => <i className="bi bi-person-circle me-2"></i>,
   Reservations: () => <i className="bi bi-calendar-check me-2"></i>,
   Account: () => <i className="bi bi-people me-2"></i>,
+  Maintenance: () => <i className="bi bi-people me-2"></i>,
 };
 
 const navItems = [
@@ -62,6 +64,7 @@ const navItems = [
   { id: "profile", label: "Profile", icon: Icons.Profile },
   { id: "account", label: "Account", icon: Icons.Account },
   { id: "table-status", label: "Table Status", icon: Icons.Dashboard },
+  { id: "maintenance", label: "Maintenance", icon: Icons.Maintenance },
 ];
 
 const StatCard = ({ title, value, color, icon }) => (
@@ -176,6 +179,7 @@ function AdminDashboard() {
       reservations: <Reservation />,
       account: <AccountManagement />,
       "table-status": <TableStatus />,
+      maintenance: <Maintenance/>,  
     };
     return sections[activeSection] || null;
   };
