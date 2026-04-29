@@ -63,6 +63,7 @@ const reservationController = {
       const currentTime = now.toTimeString().slice(0, 5);
       const currentDate = now.toISOString().split("T")[0];
 
+      // Update Confirmed/Pending to Seated when current time is between start and end
       const updateToSeated = `
         UPDATE reservations 
         SET status = 'Seated' 
@@ -78,6 +79,7 @@ const reservationController = {
         currentTime,
       ]);
 
+      // Update Seated to Completed when current time is past end time
       const updateToCompleted = `
         UPDATE reservations 
         SET status = 'Completed' 
@@ -91,43 +93,71 @@ const reservationController = {
         currentTime,
       ]);
 
+      // Update expired Confirmed/Pending reservations to Completed
+      const updateExpired = `
+        UPDATE reservations 
+        SET status = 'Completed' 
+        WHERE reservation_date = ? 
+        AND status IN ('Confirmed', 'Pending')
+        AND end_time < ?
+      `;
+
+      const [expiredResult] = await db.execute(updateExpired, [
+        currentDate,
+        currentTime,
+      ]);
+
       if (res) {
         res.json({
           updatedToSeated: seatedResult.affectedRows,
           updatedToCompleted: completedResult.affectedRows,
+          updatedExpired: expiredResult.affectedRows,
         });
       }
 
       return {
         seated: seatedResult.affectedRows,
         completed: completedResult.affectedRows,
+        expired: expiredResult.affectedRows,
       };
     } catch (error) {
       console.error("Error updating ongoing reservations:", error);
       if (res) {
         res.status(500).json({ error: error.message });
       }
-      return { seated: 0, completed: 0 };
+      return { seated: 0, completed: 0, expired: 0 };
     }
   },
 
-  // Check if user has active reservation
+  // Check if user has active reservation (considering current time)
   checkUserActive: async (req, res) => {
     try {
       const { userId } = req.params;
       console.log("🔍 [checkUserActive] Checking for user:", userId);
 
-      // First, check if user has ANY reservation with active status
+      const now = new Date();
+      const currentTime = now.toTimeString().slice(0, 5); // Format: HH:MM
+      const currentDate = now.toISOString().split("T")[0];
+
+      console.log("🔍 Current date:", currentDate);
+      console.log("🔍 Current time:", currentTime);
+
+      // Check for active reservations that are NOT expired time-wise
       const sql = `
         SELECT reservation_id, status, reservation_date, reservation_time, end_time
         FROM reservations 
         WHERE user_id = ? 
         AND status IN ('Pending', 'Confirmed', 'Seated')
+        AND reservation_date >= CURDATE()
+        AND (
+          reservation_date > CURDATE() 
+          OR (reservation_date = CURDATE() AND end_time > ?)
+        )
         ORDER BY created_at DESC
         LIMIT 1
       `;
 
-      const [rows] = await db.execute(sql, [userId]);
+      const [rows] = await db.execute(sql, [userId, currentTime]);
 
       console.log("🔍 [checkUserActive] Found rows:", rows.length);
       if (rows.length > 0) {
@@ -197,7 +227,7 @@ const reservationController = {
     }
   },
 
-  // Get active reservation for a user
+  // Get active reservation for a user (only if not expired)
   getUserActiveReservation: async (req, res) => {
     try {
       const { userId } = req.params;
@@ -205,6 +235,10 @@ const reservationController = {
         "🔍 [getUserActiveReservation] Getting details for user:",
         userId,
       );
+
+      const now = new Date();
+      const currentTime = now.toTimeString().slice(0, 5);
+      const currentDate = now.toISOString().split("T")[0];
 
       const sql = `
         SELECT 
@@ -220,12 +254,17 @@ const reservationController = {
         LEFT JOIN tables t ON rt.table_id = t.table_id
         WHERE r.user_id = ? 
         AND r.status IN ('Pending', 'Confirmed', 'Seated')
+        AND r.reservation_date >= CURDATE()
+        AND (
+          r.reservation_date > CURDATE() 
+          OR (r.reservation_date = CURDATE() AND r.end_time > ?)
+        )
         GROUP BY r.reservation_id
         ORDER BY r.created_at DESC
         LIMIT 1
       `;
 
-      const [rows] = await db.execute(sql, [userId]);
+      const [rows] = await db.execute(sql, [userId, currentTime]);
       console.log(
         "🔍 [getUserActiveReservation] Found:",
         rows.length > 0 ? rows[0] : "None",
