@@ -148,8 +148,9 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/billing", protect, adminOnly, billingRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/reviews", reviewRoutes);
-app.use("/api/inventory", orderRoutes);
+app.use("/api/inventory", inventoryRoutes);
 app.use("/api/settings", settingRoutes)
+app.use('/api/orders', orderRoutes);
 
 app.get("/api/protected", protect, (req, res) => {
   res.json({ message: "Protected data", user: req.user });

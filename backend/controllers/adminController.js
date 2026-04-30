@@ -86,7 +86,7 @@ const adminController = {
         FinancialReport.getPaymentMethods(),
         FinancialReport.getRevenueSources(),
       ]);
-
+        console.log("DEBUG: Daily Revenue from DB is:", stats.daily_revenue);
       // 2. Wrap it in 'success' and 'data' to match your Reports.jsx logic
       res.status(200).json({
         success: true, // <--- Reports.jsx is checking for this
