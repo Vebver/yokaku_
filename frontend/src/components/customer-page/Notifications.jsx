@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import io from "socket.io-client";
+import { Trash2, Archive } from "lucide-react";
+import DeletedNotifications from "./DeletedNotifications";
 import "../../Style/Notifications.css";
 
 const Notifications = () => {
@@ -11,6 +13,9 @@ const Notifications = () => {
   const [selectedReservation, setSelectedReservation] = useState(null);
   const [showReservationModal, setShowReservationModal] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
+  const [showDeletedModal, setShowDeletedModal] = useState(false);
+  const [notificationToDelete, setNotificationToDelete] = useState(null);
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -110,6 +115,33 @@ const Notifications = () => {
     }
   };
 
+  // Soft delete notification (move to trash)
+  const handleDeleteNotification = async () => {
+    if (!notificationToDelete) return;
+
+    try {
+      const token = localStorage.getItem("token");
+      await axios.delete(`/api/notifications/${notificationToDelete}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setNotifications(
+        notifications.filter((n) => n.notification_id !== notificationToDelete),
+      );
+      // Alert removed - no popup notification
+    } catch (err) {
+      console.error("Error deleting notification:", err);
+    } finally {
+      setShowConfirmDelete(false);
+      setNotificationToDelete(null);
+    }
+  };
+
+  const openDeleteConfirm = (id, e) => {
+    e.stopPropagation();
+    setNotificationToDelete(id);
+    setShowConfirmDelete(true);
+  };
+
   // Fetch and show reservation details
   const handleViewReservation = async (reservationId) => {
     setModalLoading(true);
@@ -160,13 +192,6 @@ const Notifications = () => {
     });
   };
 
-  // Format date to "MM/DD/YYYY" as fallback
-  const formatDateSimple = (dateString) => {
-    if (!dateString) return "N/A";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US");
-  };
-
   // Extract reservation ID from message
   const extractReservationId = (message) => {
     const match = message.match(/Reservation ID: ([A-Z0-9-]+)/i);
@@ -178,11 +203,20 @@ const Notifications = () => {
       <div className="notifications-page">
         <div className="notifications-container">
           <div className="notifications-header">
-            <h1>Your Inbox</h1>
-            <p>
-              Recent reservations, updates, and invitations from your dining
-              circle.
-            </p>
+            <div className="header-left">
+              <h1>Your Inbox</h1>
+              <p>
+                Recent reservations, updates, and invitations from your dining
+                circle.
+              </p>
+            </div>
+            <button
+              className="view-deleted-btn"
+              onClick={() => setShowDeletedModal(true)}
+            >
+              <Archive size={18} />
+              View Deleted
+            </button>
           </div>
 
           <div className="notification-stats">
@@ -231,27 +265,39 @@ const Notifications = () => {
                             ID: {reservationId}
                           </div>
                         )}
-                        <div className="notification-actions">
-                          <button
-                            className={`mark-read-btn ${notif.is_read ? "already-read" : ""}`}
-                            onClick={() =>
-                              !notif.is_read &&
-                              markAsRead(notif.notification_id)
-                            }
-                            disabled={notif.is_read}
-                          >
-                            {notif.is_read ? "Read" : "Mark as read"}
-                          </button>
-                          {reservationId && (
+                        <div className="notification-actions-bottom">
+                          <div className="notification-actions">
                             <button
-                              className="view-btn"
+                              className={`mark-read-btn ${notif.is_read ? "already-read" : ""}`}
                               onClick={() =>
-                                handleViewReservation(reservationId)
+                                !notif.is_read &&
+                                markAsRead(notif.notification_id)
                               }
+                              disabled={notif.is_read}
                             >
-                              View
+                              {notif.is_read ? "Read" : "Mark as read"}
                             </button>
-                          )}
+                            {reservationId && (
+                              <button
+                                className="view-btn"
+                                onClick={() =>
+                                  handleViewReservation(reservationId)
+                                }
+                              >
+                                View
+                              </button>
+                            )}
+                          </div>
+                          <button
+                            className="delete-notif-btn"
+                            onClick={(e) =>
+                              openDeleteConfirm(notif.notification_id, e)
+                            }
+                            title="Move to trash"
+                          >
+                            <Trash2 size={16} />
+                            Delete
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -266,6 +312,39 @@ const Notifications = () => {
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showConfirmDelete && (
+        <div
+          className="confirm-modal-overlay"
+          onClick={() => setShowConfirmDelete(false)}
+        >
+          <div
+            className="confirm-modal-container"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3>Delete Notification</h3>
+            <p>
+              Are you sure you want to delete this notification? It will be
+              moved to trash and automatically deleted after 30 days.
+            </p>
+            <div className="confirm-modal-actions">
+              <button
+                className="confirm-cancel"
+                onClick={() => setShowConfirmDelete(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="confirm-delete"
+                onClick={handleDeleteNotification}
+              >
+                Yes, Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Reservation Detail Modal */}
       {showReservationModal && (
@@ -366,6 +445,14 @@ const Notifications = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Deleted Notifications Modal */}
+      {showDeletedModal && (
+        <DeletedNotifications
+          onClose={() => setShowDeletedModal(false)}
+          onRestore={fetchNotifications}
+        />
       )}
     </>
   );

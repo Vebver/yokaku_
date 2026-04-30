@@ -23,7 +23,7 @@ const Notification = {
       data.reservationId,
       data.title,
       data.message,
-      data.type || "reservation", // This will now work after fixing the ENUM
+      data.type || "reservation",
     ];
 
     const [result] = await conn.execute(sql, values);
@@ -31,7 +31,6 @@ const Notification = {
       `✅ Notification created for user ${data.userId}: ${data.title}`,
     );
 
-    // Emit real-time notification if socket.io is available
     if (ioInstance && data.userId) {
       const notificationData = {
         notification_id: result.insertId,
@@ -44,7 +43,6 @@ const Notification = {
         created_at: new Date().toISOString(),
       };
 
-      // Emit to user's room
       ioInstance
         .to(`user_${data.userId}`)
         .emit("new_notification", notificationData);
@@ -57,8 +55,18 @@ const Notification = {
   getByUserId: async (userId) => {
     const sql = `
       SELECT * FROM notifications 
-      WHERE user_id = ? 
+      WHERE user_id = ? AND deleted_at IS NULL
       ORDER BY created_at DESC
+    `;
+    const [rows] = await db.execute(sql, [userId]);
+    return rows;
+  },
+
+  getDeletedNotifications: async (userId) => {
+    const sql = `
+      SELECT * FROM notifications 
+      WHERE user_id = ? AND deleted_at IS NOT NULL
+      ORDER BY deleted_at DESC
     `;
     const [rows] = await db.execute(sql, [userId]);
     return rows;
@@ -68,7 +76,7 @@ const Notification = {
     const sql = `
       SELECT COUNT(*) as count 
       FROM notifications 
-      WHERE user_id = ? AND is_read = 0
+      WHERE user_id = ? AND is_read = 0 AND deleted_at IS NULL
     `;
     const [rows] = await db.execute(sql, [userId]);
     return rows[0].count;
@@ -82,7 +90,6 @@ const Notification = {
     `;
     const [result] = await db.execute(sql, [notificationId, userId]);
 
-    // Emit unread count update
     if (ioInstance && result.affectedRows > 0) {
       const unreadCount = await Notification.getUnreadCount(userId);
       ioInstance
@@ -97,7 +104,7 @@ const Notification = {
     const sql = `
       UPDATE notifications 
       SET is_read = 1, read_at = NOW() 
-      WHERE user_id = ? AND is_read = 0
+      WHERE user_id = ? AND is_read = 0 AND deleted_at IS NULL
     `;
     const [result] = await db.execute(sql, [userId]);
 
@@ -110,6 +117,37 @@ const Notification = {
     return result.affectedRows;
   },
 
+  softDelete: async (notificationId, userId) => {
+    const sql = `
+      UPDATE notifications 
+      SET deleted_at = NOW(), deleted_by = 'user'
+      WHERE notification_id = ? AND user_id = ? AND deleted_at IS NULL
+    `;
+    const [result] = await db.execute(sql, [notificationId, userId]);
+    return result.affectedRows;
+  },
+
+  restore: async (notificationId, userId) => {
+    const sql = `
+      UPDATE notifications 
+      SET deleted_at = NULL, deleted_by = NULL
+      WHERE notification_id = ? AND user_id = ? AND deleted_at IS NOT NULL
+    `;
+    const [result] = await db.execute(sql, [notificationId, userId]);
+    return result.affectedRows;
+  },
+
+  permanentlyDeleteExpired: async () => {
+    const sql = `
+      DELETE FROM notifications 
+      WHERE deleted_at IS NOT NULL 
+      AND deleted_at < DATE_SUB(NOW(), INTERVAL 30 DAY)
+    `;
+    const [result] = await db.execute(sql);
+    return result.affectedRows;
+  },
+
+  // Permanent delete - removes from database completely
   delete: async (notificationId, userId) => {
     const sql = `
       DELETE FROM notifications 

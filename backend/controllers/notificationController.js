@@ -12,6 +12,17 @@ const notificationController = {
     }
   },
 
+  getDeletedNotifications: async (req, res) => {
+    try {
+      const userId = req.user.userId;
+      const notifications = await Notification.getDeletedNotifications(userId);
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching deleted notifications:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+
   getUnreadCount: async (req, res) => {
     try {
       const userId = req.user.userId;
@@ -60,15 +71,56 @@ const notificationController = {
       const { id } = req.params;
       const userId = req.user.userId;
 
+      const result = await Notification.softDelete(id, userId);
+
+      if (result === 0) {
+        return res.status(404).json({ error: "Notification not found" });
+      }
+
+      res.json({ message: "Notification moved to trash" });
+    } catch (error) {
+      console.error("Error deleting notification:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+
+  permanentDeleteNotification: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.userId;
+
+      console.log(
+        `🔍 Permanently deleting notification ${id} for user ${userId}`,
+      );
+
       const result = await Notification.delete(id, userId);
 
       if (result === 0) {
         return res.status(404).json({ error: "Notification not found" });
       }
 
-      res.json({ message: "Notification deleted successfully" });
+      console.log(`✅ Notification ${id} permanently deleted`);
+      res.json({ message: "Notification permanently deleted" });
     } catch (error) {
-      console.error("Error deleting notification:", error);
+      console.error("Error permanently deleting notification:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+
+  restoreNotification: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.userId;
+
+      const result = await Notification.restore(id, userId);
+
+      if (result === 0) {
+        return res.status(404).json({ error: "Notification not found" });
+      }
+
+      res.json({ message: "Notification restored successfully" });
+    } catch (error) {
+      console.error("Error restoring notification:", error);
       res.status(500).json({ error: error.message });
     }
   },
