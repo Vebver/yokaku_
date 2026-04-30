@@ -166,15 +166,12 @@ const reservationController = {
       const hasActive = rows.length > 0;
       console.log("🔍 [checkUserActive] Result:", hasActive);
 
-      res.json({ hasActive });
+      res.json({ hasActive: rows.length > 0 });
     } catch (error) {
       console.error("Error checking active reservation:", error);
       res.status(500).json({ error: error.message });
     }
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-},
+  },
 
   checkAvailability: async (req, res) => {
     try {

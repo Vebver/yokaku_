@@ -36,7 +36,7 @@ checkActiveByUserId: async (userId) => {
   const sql = `
     SELECT reservation_id FROM reservations 
     WHERE user_id = ? 
-    AND status IN ('Pending', 'Confirmed') 
+    AND status IN ('Pending', 'Confirmed', 'Seated') 
     LIMIT 1
   `;
   const [rows] = await db.execute(sql, [userId]);

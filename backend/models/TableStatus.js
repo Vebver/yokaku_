@@ -42,29 +42,48 @@ const TableStatus = {
     }
   },
 
-  checkoutTable: async (tableId) => {
-    try {
-      // 1. Mark the bridge entry as completed
+checkoutTable: async (tableId) => {
+  try {
+    // 1. FIRST: Find the reservation_id currently using this table
+    // We need this ID to "free" the customer
+    const [rows] = await db.query(
+      `SELECT reservation_id FROM reservation_tables 
+       WHERE table_id = ? AND status IN ('Seated', 'Confirmed', 'seated', 'confirmed') 
+       LIMIT 1`,
+      [tableId]
+    );
+
+    if (rows.length > 0) {
+      const resId = rows[0].reservation_id;
+
+      // 2. IMPORTANT: Update the MAIN reservation record
+      // This is what allows the customer to reserve again!
       await db.query(
-        `
-        UPDATE reservation_tables 
-        SET status = 'completed' 
-        WHERE table_id = ? AND status IN ('seated', 'confirmed')
-      `,
-        [tableId],
+        `UPDATE reservations SET status = 'Completed' WHERE reservation_id = ?`,
+        [resId]
       );
 
-      // 2. Reset the table to available
+      // 3. Mark the bridge entry as completed
       await db.query(
-        `UPDATE tables SET status = 'available' WHERE table_id = ?`,
-        [tableId],
+        `UPDATE reservation_tables 
+         SET status = 'completed' 
+         WHERE reservation_id = ?`,
+        [resId]
       );
-
-      return { success: true };
-    } catch (err) {
-      throw err;
     }
-  },
+
+    // 4. Reset the table to available (This matches your screenshot)
+    await db.query(
+      `UPDATE tables SET status = 'available' WHERE table_id = ?`,
+      [tableId]
+    );
+
+    return { success: true };
+  } catch (err) {
+    console.error("Checkout Error:", err);
+    throw err;
+  }
+},
 
   createNewTable: async (number, capacity) => {
     const sql =
