@@ -8,6 +8,9 @@ const Notifications = () => {
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
   const [socket, setSocket] = useState(null);
+  const [selectedReservation, setSelectedReservation] = useState(null);
+  const [showReservationModal, setShowReservationModal] = useState(false);
+  const [modalLoading, setModalLoading] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -107,7 +110,30 @@ const Notifications = () => {
     }
   };
 
-  // Format time difference (e.g., "2 MIN AGO")
+  // Fetch and show reservation details
+  const handleViewReservation = async (reservationId) => {
+    setModalLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.get(`/api/reservations/${reservationId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setSelectedReservation(response.data.reservation);
+      setShowReservationModal(true);
+    } catch (err) {
+      console.error("Error fetching reservation details:", err);
+      alert("Failed to load reservation details. Please try again.");
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  const closeModal = () => {
+    setShowReservationModal(false);
+    setSelectedReservation(null);
+  };
+
+  // Format time difference
   const formatTimeAgo = (dateString) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -123,91 +149,225 @@ const Notifications = () => {
     return `${diffDays} DAY${diffDays > 1 ? "S" : ""} AGO`;
   };
 
-  // Format date for display (e.g., "Wed, Apr 29 · 10:00 AM")
-  const formatNotificationDate = (dateString) => {
+  // Format date to "April 24, 2026"
+  const formatDateReadable = (dateString) => {
+    if (!dateString) return "N/A";
     const date = new Date(dateString);
-    const options = { weekday: "short", month: "short", day: "numeric" };
-    return date.toLocaleDateString("en-US", options);
-  };
-
-  const formatNotificationTime = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
   };
 
-  return (
-    <div className="notifications-page">
-      <div className="notifications-container">
-        <div className="notifications-header">
-          <h1>Your Inbox</h1>
-          <p>Recent reservation and updates</p>
-        </div>
+  // Format date to "MM/DD/YYYY" as fallback
+  const formatDateSimple = (dateString) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US");
+  };
 
-        <div className="notification-stats">
-          <div className="unread-count">
-            {unreadCount > 0 && (
-              <>
-                <span className="unread-badge">{unreadCount}NEW</span>
-                <span className="unread-label">Unread messages</span>
-              </>
+  // Extract reservation ID from message
+  const extractReservationId = (message) => {
+    const match = message.match(/Reservation ID: ([A-Z0-9-]+)/i);
+    return match ? match[1] : null;
+  };
+
+  return (
+    <>
+      <div className="notifications-page">
+        <div className="notifications-container">
+          <div className="notifications-header">
+            <h1>Your Inbox</h1>
+            <p>
+              Recent reservations, updates, and invitations from your dining
+              circle.
+            </p>
+          </div>
+
+          <div className="notification-stats">
+            <div className="unread-count">
+              {unreadCount > 0 && (
+                <>
+                  <span className="unread-badge">{unreadCount} NEW</span>
+                  <span className="unread-label">Unread messages</span>
+                </>
+              )}
+            </div>
+            {notifications.some((n) => !n.is_read) && (
+              <button className="mark-all-btn" onClick={markAllAsRead}>
+                Mark all as read
+              </button>
             )}
           </div>
-          {notifications.some((n) => !n.is_read) && (
-            <button className="mark-all-btn" onClick={markAllAsRead}>
-              Mark all as read
-            </button>
-          )}
-        </div>
 
-        <div className="notifications-list">
-          {loading ? (
-            <div className="loading-spinner">Loading notifications...</div>
-          ) : notifications.length > 0 ? (
-            notifications.map((notif) => (
-              <div
-                key={notif.notification_id}
-                className={`notification-item ${!notif.is_read ? "unread" : "read"}`}
-              >
-                <div className="notification-card-content">
-                  <div className="notification-icon"></div>
-                  <div className="notification-content">
-                    <div className="notification-top">
-                      <span className="notification-title">{notif.title}</span>
-                      <span className="notification-time">
-                        {formatTimeAgo(notif.created_at)}
-                      </span>
-                    </div>
-                    <p className="notification-message">{notif.message}</p>
-                    {notif.reservation_id && (
-                      <div className="notif-res-id-badge">
-                        ID: {notif.reservation_id}
+          <div className="notifications-list">
+            {loading ? (
+              <div className="loading-spinner">Loading notifications...</div>
+            ) : notifications.length > 0 ? (
+              notifications.map((notif) => {
+                const reservationId = extractReservationId(notif.message);
+                return (
+                  <div
+                    key={notif.notification_id}
+                    className={`notification-item ${!notif.is_read ? "unread" : "read"}`}
+                  >
+                    <div className="notification-card-content">
+                      <div className="notification-icon">
+                        <span className="notification-emoji">🔔</span>
                       </div>
-                    )}
-                    <div className="notification-actions">
-                      {!notif.is_read && (
-                        <button
-                          className="mark-read-btn"
-                          onClick={() => markAsRead(notif.notification_id)}
-                        >
-                          Mark as read
-                        </button>
-                      )}
+                      <div className="notification-content">
+                        <div className="notification-top">
+                          <span className="notification-title">
+                            {notif.title}
+                          </span>
+                          <span className="notification-time">
+                            {formatTimeAgo(notif.created_at)}
+                          </span>
+                        </div>
+                        <p className="notification-message">{notif.message}</p>
+                        {reservationId && (
+                          <div className="notif-res-id-badge">
+                            ID: {reservationId}
+                          </div>
+                        )}
+                        <div className="notification-actions">
+                          <button
+                            className={`mark-read-btn ${notif.is_read ? "already-read" : ""}`}
+                            onClick={() =>
+                              !notif.is_read &&
+                              markAsRead(notif.notification_id)
+                            }
+                            disabled={notif.is_read}
+                          >
+                            {notif.is_read ? "Read" : "Mark as read"}
+                          </button>
+                          {reservationId && (
+                            <button
+                              className="view-btn"
+                              onClick={() =>
+                                handleViewReservation(reservationId)
+                              }
+                            >
+                              View
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
+                );
+              })
+            ) : (
+              <div className="no-notifications">
+                <p>No notifications yet</p>
               </div>
-            ))
-          ) : (
-            <div className="no-notifications">
-              <p>No notifications yet</p>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* Reservation Detail Modal */}
+      {showReservationModal && (
+        <div className="reservation-modal-overlay" onClick={closeModal}>
+          <div
+            className="reservation-modal-container"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="reservation-modal-header">
+              <h2>Reservation Details</h2>
+              <button className="reservation-modal-close" onClick={closeModal}>
+                &times;
+              </button>
+            </div>
+
+            {modalLoading ? (
+              <div className="reservation-modal-loading">
+                Loading reservation details...
+              </div>
+            ) : selectedReservation ? (
+              <div className="reservation-modal-content">
+                <div className="reservation-detail-row">
+                  <span className="detail-label">Reservation ID:</span>
+                  <span className="detail-value">
+                    {selectedReservation.reservation_id}
+                  </span>
+                </div>
+                <div className="reservation-detail-row">
+                  <span className="detail-label">Date:</span>
+                  <span className="detail-value">
+                    {formatDateReadable(selectedReservation.reservation_date)}
+                  </span>
+                </div>
+                <div className="reservation-detail-row">
+                  <span className="detail-label">Time:</span>
+                  <span className="detail-value">
+                    {selectedReservation.reservation_time} -{" "}
+                    {selectedReservation.end_time}
+                  </span>
+                </div>
+                <div className="reservation-detail-row">
+                  <span className="detail-label">Guests:</span>
+                  <span className="detail-value">
+                    {selectedReservation.num_guests}
+                  </span>
+                </div>
+                <div className="reservation-detail-row">
+                  <span className="detail-label">Status:</span>
+                  <span
+                    className={`status-badge ${selectedReservation.status?.toLowerCase()}`}
+                  >
+                    {selectedReservation.status}
+                  </span>
+                </div>
+                {selectedReservation.assigned_tables && (
+                  <div className="reservation-detail-row">
+                    <span className="detail-label">Tables:</span>
+                    <span className="detail-value">
+                      {selectedReservation.assigned_tables}
+                    </span>
+                  </div>
+                )}
+                {selectedReservation.package_name && (
+                  <div className="reservation-detail-row">
+                    <span className="detail-label">Package:</span>
+                    <span className="detail-value">
+                      {selectedReservation.package_name}
+                    </span>
+                  </div>
+                )}
+                {selectedReservation.payment_method && (
+                  <div className="reservation-detail-row">
+                    <span className="detail-label">Payment Method:</span>
+                    <span className="detail-value">
+                      {selectedReservation.payment_method}
+                    </span>
+                  </div>
+                )}
+                {selectedReservation.payment_status && (
+                  <div className="reservation-detail-row">
+                    <span className="detail-label">Payment Status:</span>
+                    <span className="detail-value">
+                      {selectedReservation.payment_status}
+                    </span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="reservation-modal-error">
+                No reservation details found.
+              </div>
+            )}
+
+            <div className="reservation-modal-footer">
+              <button className="reservation-modal-ok" onClick={closeModal}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 
