@@ -2,7 +2,7 @@
 const cron = require("node-cron");
 const db = require("./config/db");
 
-// Run every minute to check for ongoing reservations
+// Run every minute to check for ongoing and expired reservations
 const startCronJobs = () => {
   console.log("🕐 Starting reservation status cron job...");
 
@@ -12,7 +12,9 @@ const startCronJobs = () => {
       const currentTime = now.toTimeString().slice(0, 5);
       const currentDate = now.toISOString().split("T")[0];
 
-      // Update Confirmed/Pending to Seated when current time is between start and end
+      console.log(`⏰ Running cron job at ${currentDate} ${currentTime}`);
+
+      // 1. Update Confirmed/Pending to Seated when current time is between start and end
       const updateToSeated = `
         UPDATE reservations 
         SET status = 'Seated' 
@@ -28,8 +30,8 @@ const startCronJobs = () => {
         currentTime,
       ]);
 
-      // Update Seated to Completed when current time is past end time
-      const updateToCompleted = `
+      // 2. Update Seated to Completed when current time is past end time
+      const updateSeatedToCompleted = `
         UPDATE reservations 
         SET status = 'Completed' 
         WHERE reservation_date = ? 
@@ -37,14 +39,50 @@ const startCronJobs = () => {
         AND end_time < ?
       `;
 
-      const [completedResult] = await db.execute(updateToCompleted, [
+      const [seatedToCompletedResult] = await db.execute(
+        updateSeatedToCompleted,
+        [currentDate, currentTime],
+      );
+
+      // 3. Update Confirmed/Pending to Completed when end time has passed (expired)
+      const updateExpiredToCompleted = `
+        UPDATE reservations 
+        SET status = 'Completed' 
+        WHERE reservation_date = ? 
+        AND status IN ('Confirmed', 'Pending')
+        AND end_time < ?
+      `;
+
+      const [expiredResult] = await db.execute(updateExpiredToCompleted, [
         currentDate,
         currentTime,
       ]);
 
-      if (seatedResult.affectedRows > 0 || completedResult.affectedRows > 0) {
+      // 4. Update any reservations from past dates to Completed
+      const updatePastDates = `
+        UPDATE reservations 
+        SET status = 'Completed' 
+        WHERE reservation_date < ?
+        AND status NOT IN ('Completed', 'Done', 'Rejected')
+      `;
+
+      const [pastDatesResult] = await db.execute(updatePastDates, [
+        currentDate,
+      ]);
+
+      // Log results if any changes were made
+      if (
+        seatedResult.affectedRows > 0 ||
+        seatedToCompletedResult.affectedRows > 0 ||
+        expiredResult.affectedRows > 0 ||
+        pastDatesResult.affectedRows > 0
+      ) {
         console.log(
-          `✅ [${new Date().toLocaleTimeString()}] Updated ${seatedResult.affectedRows} to Seated, ${completedResult.affectedRows} to Completed`,
+          `✅ [${new Date().toLocaleTimeString()}] Updated: 
+            - ${seatedResult.affectedRows} to Seated
+            - ${seatedToCompletedResult.affectedRows} Seated to Completed
+            - ${expiredResult.affectedRows} expired to Completed
+            - ${pastDatesResult.affectedRows} past dates to Completed`,
         );
       }
     } catch (error) {

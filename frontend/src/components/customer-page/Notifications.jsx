@@ -14,7 +14,6 @@ const Notifications = () => {
     const userId = localStorage.getItem("userId");
 
     if (token && userId) {
-      // Setup Socket.IO
       const newSocket = io("http://localhost:5000", {
         transports: ["websocket", "polling"],
       });
@@ -108,14 +107,52 @@ const Notifications = () => {
     }
   };
 
+  // Format time difference (e.g., "2 MIN AGO")
+  const formatTimeAgo = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return "JUST NOW";
+    if (diffMins < 60) return `${diffMins} MIN AGO`;
+    if (diffHours < 24)
+      return `${diffHours} HOUR${diffHours > 1 ? "S" : ""} AGO`;
+    return `${diffDays} DAY${diffDays > 1 ? "S" : ""} AGO`;
+  };
+
+  // Format date for display (e.g., "Wed, Apr 29 · 10:00 AM")
+  const formatNotificationDate = (dateString) => {
+    const date = new Date(dateString);
+    const options = { weekday: "short", month: "short", day: "numeric" };
+    return date.toLocaleDateString("en-US", options);
+  };
+
+  const formatNotificationTime = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  };
+
   return (
     <div className="notifications-page">
       <div className="notifications-container">
         <div className="notifications-header">
-          <div className="header-left">
-            <h1>Notifications</h1>
+          <h1>Your Inbox</h1>
+          <p>Recent reservation and updates</p>
+        </div>
+
+        <div className="notification-stats">
+          <div className="unread-count">
             {unreadCount > 0 && (
-              <span className="unread-badge">{unreadCount} new</span>
+              <>
+                <span className="unread-badge">{unreadCount}NEW</span>
+                <span className="unread-label">Unread messages</span>
+              </>
             )}
           </div>
           {notifications.some((n) => !n.is_read) && (
@@ -127,28 +164,46 @@ const Notifications = () => {
 
         <div className="notifications-list">
           {loading ? (
-            <p>Loading notifications...</p>
+            <div className="loading-spinner">Loading notifications...</div>
           ) : notifications.length > 0 ? (
             notifications.map((notif) => (
               <div
                 key={notif.notification_id}
                 className={`notification-item ${!notif.is_read ? "unread" : "read"}`}
-                onClick={() =>
-                  !notif.is_read && markAsRead(notif.notification_id)
-                }
               >
-                <div className="notification-icon">
-                  {!notif.is_read && <span className="unread-dot"></span>}
-                </div>
-                <div className="notification-content">
-                  <h4>{notif.title}</h4>
-                  <p>{notif.message}</p>
-                  <small>{new Date(notif.created_at).toLocaleString()}</small>
+                <div className="notification-card-content">
+                  <div className="notification-icon"></div>
+                  <div className="notification-content">
+                    <div className="notification-top">
+                      <span className="notification-title">{notif.title}</span>
+                      <span className="notification-time">
+                        {formatTimeAgo(notif.created_at)}
+                      </span>
+                    </div>
+                    <p className="notification-message">{notif.message}</p>
+                    {notif.reservation_id && (
+                      <div className="notif-res-id-badge">
+                        ID: {notif.reservation_id}
+                      </div>
+                    )}
+                    <div className="notification-actions">
+                      {!notif.is_read && (
+                        <button
+                          className="mark-read-btn"
+                          onClick={() => markAsRead(notif.notification_id)}
+                        >
+                          Mark as read
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             ))
           ) : (
-            <p>No notifications yet</p>
+            <div className="no-notifications">
+              <p>No notifications yet</p>
+            </div>
           )}
         </div>
       </div>
