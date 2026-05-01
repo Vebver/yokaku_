@@ -43,7 +43,7 @@ function Profile() {
       const res = await axios.put("/api/profile", profile, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setProfile(res.data); // Update local state with fresh data from server
+      setProfile(res.data); 
       alert("Profile updated successfully!");
     } catch (err) {
       alert("Error updating profile: " + (err.response?.data?.error || err.message));
@@ -52,125 +52,158 @@ function Profile() {
     }
   };
 
-  if (loading) return <div className="p-5 text-center">Loading Profile Data...</div>;
+  if (loading) return (
+    <div className="d-flex justify-content-center align-items-center vh-100">
+      <div className="spinner-border text-dark" role="status"></div>
+    </div>
+  );
 
   return (
-    <div className="container-fluid fade-in">
-      <div className="mb-4">
-        <h2 className="fw-bold mb-0">Profile & Settings</h2>
-        <p className="text-muted small">Manage your account information</p>
+    <div className="container-fluid px-2 py-5" style={{ backgroundColor: '#f8f9fa', minHeight: '100vh' }}>
+      
+      {/* PAGE HEADER - Title on the Left */}
+      <div className="d-flex justify-content-between align-items-start mb-1">
+        <div>
+          <h1 className="fw-bold mb-0 text-dark" style={{ fontSize: '2.5rem' }}>Profile & Settings</h1>
+          <p className="text-muted small">Manage your account information and security preferences</p>
+        </div>
+        <button 
+          onClick={() => window.location.reload()} 
+          className="btn btn-dark px-4 fw-bold shadow-sm"
+          style={{ borderRadius: '8px' }}
+        >
+          Refresh Data
+        </button>
       </div>
 
-      <div className="row g-4">
-        {/* Left Column: Profile Card */}
+      <div className="row g-3">
+        {/* LEFT COLUMN: Profile Summary Card */}
         <div className="col-lg-4">
-          <div className="card border-0 shadow-sm text-center p-4">
-            <div className="mb-3">
+          <div className="card border-0 shadow-sm text-center p-4 h-100">
+            <div className="mb-3 mt-3">
               <img 
                 src={`https://ui-avatars.com/api/?name=${profile.firstName}+${profile.lastName}&background=10b981&color=fff&size=128`} 
                 alt="Avatar" 
                 className="rounded-circle shadow-sm border border-4 border-white"
-                width="120"
+                width="100"
               />
             </div>
-            <h4 className="fw-bold mb-1">{profile.firstName} {profile.lastName}</h4>
-            <p className="text-muted small mb-1">Admin</p>
+            <h3 className="fw-bold mb-1">{profile.firstName} {profile.lastName}</h3>
+            <p className="text-muted small mb-3 text-uppercase fw-bold" style={{ letterSpacing: '1px' }}>
+                {profile.role || 'User'}
+            </p>
+            
             {profile.customerId && (
-                <span className="badge bg-light text-dark border mb-3">{profile.customerId}</span>
+                <div className="mb-4">
+                    <span className="badge bg-light text-dark border px-3 py-2">ID: {profile.customerId}</span>
+                </div>
             )}
             
             <hr className="my-4 text-muted opacity-25" />
             
-            <div className="text-start">
-              <h6 className="fw-bold small text-uppercase text-muted mb-3">Account Details</h6>
-              <div className="d-flex justify-content-between align-items-center mb-2">
-                <span className="small">Role</span>
-                <span className="text-primary small fw-bold">{profile.role}</span>
+            <div className="text-start px-2">
+              <h6 className="fw-bold small text-uppercase text-muted mb-3" style={{ letterSpacing: '0.5px' }}>Account Details</h6>
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <span className="small text-muted">Current Role</span>
+                <span className="text-dark small fw-bold">{profile.role}</span>
+              </div>
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <span className="small text-muted">Account Status</span>
+                <span className="badge bg-success-subtle text-success small">Active</span>
               </div>
               <div className="d-flex justify-content-between align-items-center">
-                <span className="small">Member Since</span>
-                <span className="text-muted small">
-                    {new Date(profile.memberSince).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                <span className="small text-muted">Member Since</span>
+                <span className="text-dark small fw-bold">
+                    {profile.memberSince ? new Date(profile.memberSince).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'N/A'}
                 </span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Right Column: Edit Forms */}
+        {/* RIGHT COLUMN: Forms */}
         <div className="col-lg-8">
+          
+          {/* PERSONAL INFO CARD */}
           <div className="card border-0 shadow-sm p-4 mb-4">
-            <h5 className="fw-bold mb-4">Personal Information</h5>
+            <div className="mb-4">
+                <h5 className="fw-bold mb-1">Personal Information</h5>
+                <p className="text-muted small">Update your name, email and phone contact details.</p>
+            </div>
+            
             <form onSubmit={handleUpdate}>
-              <div className="row g-3">
+              <div className="row g-4">
                 <div className="col-md-6">
-                  <label className="form-label small fw-bold">First Name</label>
+                  <label className="form-label small fw-bold text-uppercase text-muted" style={{ fontSize: '0.7rem' }}>First Name</label>
                   <input 
                     type="text" 
-                    className="form-control" 
+                    className="form-control bg-light border-0 py-2" 
                     value={profile.firstName || ''}
                     onChange={(e) => setProfile({...profile, firstName: e.target.value})}
                     required
                   />
                 </div>
                 <div className="col-md-6">
-                  <label className="form-label small fw-bold">Last Name</label>
+                  <label className="form-label small fw-bold text-uppercase text-muted" style={{ fontSize: '0.7rem' }}>Last Name</label>
                   <input 
                     type="text" 
-                    className="form-control" 
-                    value={profile.lastName}
+                    className="form-control bg-light border-0 py-2" 
+                    value={profile.lastName || ''}
                     onChange={(e) => setProfile({...profile, lastName: e.target.value})}
                     required
                   />
                 </div>
                 <div className="col-md-6">
-                  <label className="form-label small fw-bold">Email Address</label>
+                  <label className="form-label small fw-bold text-uppercase text-muted" style={{ fontSize: '0.7rem' }}>Email Address</label>
                   <input 
                     type="email" 
-                    className="form-control" 
-                    value={profile.email}
+                    className="form-control bg-light border-0 py-2" 
+                    value={profile.email || ''}
                     onChange={(e) => setProfile({...profile, email: e.target.value})}
                     required
                   />
                 </div>
                 <div className="col-md-6">
-                  <label className="form-label small fw-bold">Phone Number</label>
+                  <label className="form-label small fw-bold text-uppercase text-muted" style={{ fontSize: '0.7rem' }}>Phone Number</label>
                   <input 
                     type="text" 
-                    className="form-control" 
+                    className="form-control bg-light border-0 py-2" 
                     value={profile.phone || ''}
                     onChange={(e) => setProfile({...profile, phone: e.target.value})}
                   />
                 </div>
               </div>
-              <div className="mt-4">
-                <button type="submit" className="btn btn-primary px-4" disabled={isSaving}>
-                  {isSaving ? 'Saving...' : 'Save Changes'}
+              <div className="mt-5">
+                <button type="submit" className="btn btn-dark px-5 py-2 fw-bold" disabled={isSaving}>
+                  {isSaving ? 'Saving Changes...' : 'Save Profile Changes'}
                 </button>
               </div>
             </form>
           </div>
 
-          {/* Security / Password (Logic can be added later) */}
+          {/* SECURITY CARD */}
           <div className="card border-0 shadow-sm p-4">
             <div className="d-flex align-items-center mb-4">
-              <div className="bg-danger-subtle text-danger p-2 rounded me-3">
-                <i className="bi bi-shield-lock fs-5"></i>
+              <div className="bg-dark text-white p-2 rounded me-3 d-flex align-items-center justify-content-center" style={{ width: '40px', height: '40px' }}>
+                <i className="bi bi-shield-lock"></i>
               </div>
-              <h5 className="fw-bold mb-0">Security Settings</h5>
+              <div>
+                <h5 className="fw-bold mb-0">Security Settings</h5>
+                <p className="text-muted small mb-0">Manage your password and authentication</p>
+              </div>
             </div>
-            <form>
-              <div className="row g-3">
-                <div className="col-md-4">
-                  <label className="form-label small fw-bold">New Password</label>
-                  <input type="password" fix="1" className="form-control" placeholder="Optional" />
-                </div>
+            
+            <div className="row g-3 align-items-end">
+              <div className="col-md-6">
+                <label className="form-label small fw-bold text-uppercase text-muted" style={{ fontSize: '0.7rem' }}>New Password</label>
+                <input type="password" fix="1" className="form-control bg-light border-0 py-2" placeholder="Leave blank to keep current" />
               </div>
-              <div className="mt-4">
-                <button type="button" className="btn btn-outline-danger btn-sm">Update Password</button>
+              <div className="col-md-6 text-md-end">
+                <button type="button" className="btn btn-outline-dark fw-bold px-4">Update Password</button>
               </div>
-            </form>
+            </div>
           </div>
+
         </div>
       </div>
     </div>

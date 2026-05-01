@@ -1,21 +1,59 @@
-import React, { useState, useEffect, use } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
+import io from "socket.io-client";
 import "../../Style/Navbar.css";
 
 function CustomerNavbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [hasUnread, setHasUnread] = useState(false);
+  const [socket, setSocket] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const userId = localStorage.getItem("userId");
+
+    // Setup Socket.IO for real-time notifications
+    if (token && userId) {
+      // Use direct connection:
+      const newSocket = io("http://localhost:5000", {
+        transports: ["websocket", "polling"],
+      });
+      setSocket(newSocket);
+
+      newSocket.on("connect", () => {
+        console.log("Socket connected for notifications");
+        newSocket.emit("join_user", userId);
+      });
+
+      newSocket.on("new_notification", () => {
+        console.log("New notification received");
+        setHasUnread(true);
+      });
+
+      newSocket.on("unread_count_updated", (data) => {
+        setHasUnread(data.unreadCount > 0);
+      });
+
+      newSocket.on("connect_error", (error) => {
+        console.error("Socket connection error:", error);
+      });
+
+      return () => {
+        if (newSocket) newSocket.close();
+      };
+    }
+  }, []);
 
   useEffect(() => {
     const checkNotifications = async () => {
       try {
         const token = localStorage.getItem("token");
-        if (!token) return; // No token, user not logged in
+        if (!token) return;
 
-        const res = await axios.get("http://localhost:5000/api/notifications", {
+        const res = await axios.get("/api/notifications", {
           headers: { Authorization: `Bearer ${token}` },
         });
         const unread = res.data.some((n) => !n.is_read);
@@ -26,9 +64,9 @@ function CustomerNavbar() {
     };
 
     checkNotifications();
-    const interval = setInterval(checkNotifications, 30000); // Check every 30 seconds
+    const interval = setInterval(checkNotifications, 30000);
     return () => clearInterval(interval);
-  }, [location.pathname]); // Re-run when route changes to update notification status
+  }, [location.pathname]);
 
   const navItems = ["HOME", "MENU", "ABOUT", "PROMOS", "FEEDBACKS", "CONTACT"];
 
@@ -38,15 +76,14 @@ function CustomerNavbar() {
   // --- LOGOUT LOGIC ---
   const handleLogout = () => {
     closeMenu();
-    localStorage.clear(); // Clears token so user is logged out
-    window.location.href = "/"; // Force refresh to landing page
+    localStorage.clear();
+    window.location.href = "/";
   };
 
   // --- NAVIGATION LOGIC ---
   const handleLogoClick = (e) => {
     e.preventDefault();
     closeMenu();
-    // If already on customer page, just scroll to top
     if (location.pathname === "/customer") {
       window.scrollTo({ top: 0, behavior: "smooth" });
     } else {
@@ -55,10 +92,9 @@ function CustomerNavbar() {
   };
 
   const handleNavClick = (e, item) => {
-    if(e) e.preventDefault();
+    if (e) e.preventDefault();
     closeMenu();
 
-    // 1. HOME logic: Just go to /customer top
     if (item === "HOME") {
       if (location.pathname === "/customer") {
         window.scrollTo({ top: 0, behavior: "smooth" });
@@ -68,24 +104,21 @@ function CustomerNavbar() {
       return;
     }
 
-    // 2. SCROLL logic for other sections
     const sectionId = `${item.toLowerCase()}-section`;
 
     if (location.pathname === "/customer") {
-      // If already on /customer, scroll immediately
       const element = document.getElementById(sectionId);
       if (element) {
         element.scrollIntoView({ behavior: "smooth" });
       }
     } else {
-      // If on /notifications or /profile, go home first, then scroll
       navigate("/customer");
       setTimeout(() => {
         const element = document.getElementById(sectionId);
         if (element) {
           element.scrollIntoView({ behavior: "smooth" });
         }
-      }, 100); // Small delay to allow the page to load
+      }, 100);
     }
   };
 
@@ -100,6 +133,7 @@ function CustomerNavbar() {
         </div>
       </div>
 
+      {/* DESKTOP NAVIGATION */}
       <nav className="nav-menu">
         <ul>
           {navItems.map((item, index) => (
@@ -141,8 +175,8 @@ function CustomerNavbar() {
           {hasUnread && <span className="notification-dot"></span>}
         </div>
 
-        {/* BURGER MENU */}
-        <div className="burger-container">
+        {/* BURGER MENU - force-show class ensures it's visible on desktop */}
+        <div className="burger-container force-show">
           <div
             className={`burger-icon ${isMenuOpen ? "open" : ""}`}
             onClick={toggleMenu}
@@ -155,7 +189,7 @@ function CustomerNavbar() {
           {/* DROPDOWN MENU */}
           {isMenuOpen && (
             <div className="burger-dropdown shadow-lg">
-              {/* --- ADD THIS WRAPPER CLASS --- */}
+              {/* Mobile navigation links (hidden on desktop by CSS) */}
               <div className="mobile-nav-links">
                 {navItems.map((item, index) => (
                   <div

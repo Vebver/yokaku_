@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import axios from "axios";
 import {
   X,
   Upload,
@@ -8,13 +9,8 @@ import {
   CreditCard,
   Trash2,
   User,
-  MapPin,
   Calendar,
-  Clock,
   Layers,
-  Info,
-  Mail,
-  Phone,
 } from "lucide-react";
 import "../Style/ReservationSummary.css";
 
@@ -25,24 +21,40 @@ const ReservationSummary = ({
   reservationData,
   onConfirm,
   loading,
+  paymentMethod, // Add this
+  setPaymentMethod,
 }) => {
   const [receipt, setReceipt] = useState(null);
-  const [paymentMethod, setPaymentMethod] = useState(null); // State for Gcash/Maya selection
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false); // New state for redirecting
   const fileInputRef = useRef(null);
+  const [paymentSettings, setPaymentSettings] = useState({
+    gcash_number: "",
+    gcash_name: "",
+    maya_number: "",
+    maya_name: "",
+  });
 
-  // Auto-manage body scroll and reset file on close
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "unset";
       setReceipt(null);
-      setPaymentMethod(null); // Reset selection
+      setPaymentMethod(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
     return () => {
       document.body.style.overflow = "unset";
     };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen) {
+      axios
+        .get("http://localhost:5000/api/settings")
+        .then((res) => setPaymentSettings(res.data))
+        .catch((err) => console.error("Could not load payment info"));
+    }
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -53,15 +65,49 @@ const ReservationSummary = ({
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  // Helper to format linked tables display
+  // Improved helper to format table display
   const displayTables = () => {
     const main = reservationData.tableLabel || "";
     const linked =
-      reservationData.linkedTables?.length > 0
-        ? ` + ${reservationData.linkedTables.map((id) => `T${id}`).join(", ")}`
+      reservationData.linkedTables && reservationData.linkedTables.length > 0
+        ? ` + ${reservationData.linkedTables.join(", ")}`
         : "";
     return main + linked;
   };
+
+  // Handle payment and confirmation
+  const handlePaymentAndConfirm = () => {
+    if (!paymentMethod) {
+      alert("Please select a payment method.");
+      return;
+    }
+
+    if (!receipt) {
+      alert("Please upload your payment receipt screenshot.");
+      return;
+    }
+
+    // Both GCash and Maya now just call onConfirm with the receipt file
+    onConfirm(receipt, paymentMethod);
+  };
+
+  // Get account details based on payment method
+  const getAccountDetails = () => {
+    if (paymentMethod === "Gcash") {
+      return {
+        number: paymentSettings.gcash_number || "Loading...",
+        name: paymentSettings.gcash_name || "Loading...",
+      };
+    } else if (paymentMethod === "Maya") {
+      return {
+        number: paymentSettings.maya_number || "Loading...",
+        name: paymentSettings.maya_name || "Loading...",
+      };
+    }
+    return null;
+  };
+
+  const accountDetails = getAccountDetails();
 
   return (
     <div className="summary-modal-overlay" onClick={onClose}>
@@ -82,7 +128,7 @@ const ReservationSummary = ({
         </header>
 
         <div className="summary-body">
-          {/* Section 1: Personal Information */}
+          {/* Section 1: Customer Profile */}
           <section className="summary-section">
             <div className="section-title-wrapper">
               <User size={16} color="#f38d31" />
@@ -103,17 +149,10 @@ const ReservationSummary = ({
                 <label>Email Address</label>
                 <span>{reservationData.email}</span>
               </div>
-              <div className="detail-item full-width">
-                <label>Home Address</label>
-                <span>
-                  Brgy. {reservationData.barangay},{" "}
-                  {reservationData.municipality}
-                </span>
-              </div>
             </div>
           </section>
 
-          {/* Section 2: Reservation Logistics */}
+          {/* Section 2: Booking Schedule */}
           <section className="summary-section">
             <div className="section-title-wrapper">
               <Calendar size={16} color="#f38d31" />
@@ -132,44 +171,46 @@ const ReservationSummary = ({
               </div>
               <div className="detail-item">
                 <label>Table(s) Selected</label>
-                <span className="highlight-text">{displayTables()}</span>
+                <span className="highlight-text">
+                  {displayTables() || "No Table Selected"}
+                </span>
               </div>
               <div className="detail-item">
                 <label>Total Pax</label>
                 <span>{reservationData.guestCount} Guests</span>
               </div>
-              <div className="detail-item full-width">
-                <label>Allergy / Health Notes</label>
-                <span
-                  className={
-                    reservationData.allergy !== "No Allergy"
-                      ? "allergy-active"
-                      : ""
-                  }
-                >
-                  {reservationData.allergy}
-                </span>
-              </div>
             </div>
           </section>
 
-          {/* Section 3: Packages Selected */}
+          {/* Section 3: Ordered Packages */}
+          {/* Section 3: Ordered Packages */}
           <section className="summary-section">
             <div className="section-title-wrapper">
               <Layers size={16} color="#f38d31" />
               <h3>Ordered Packages</h3>
             </div>
             <div className="packages-summary-list">
-              {reservationData.packages?.map((item, index) => (
-                <div key={index} className="package-summary-item">
-                  <span className="pkg-name">{item.name}</span>
-                  <span className="pkg-qty">Qty: {item.quantity}</span>
-                </div>
-              ))}
+              {/* FIX: Check for both 'packages' and 'selectedItems' */}
+              {reservationData.packages?.length > 0 ||
+              reservationData.selectedItems?.length > 0 ? (
+                (reservationData.packages || reservationData.selectedItems).map(
+                  (item, index) => (
+                    <div key={index} className="package-summary-item">
+                      {/* Check for item.name or item.item_name */}
+                      <span className="pkg-name">
+                        {item.name || item.item_name}
+                      </span>
+                      <span className="pkg-qty">Qty: {item.quantity}</span>
+                    </div>
+                  ),
+                )
+              ) : (
+                <p className="no-res-text">No packages selected.</p>
+              )}
             </div>
           </section>
 
-          {/* Section 4: Payment Details */}
+          {/* Section 4: Payment Breakdown */}
           <section className="summary-section payment-box">
             <div className="section-header">
               <CreditCard size={18} color="#f38d31" />
@@ -182,29 +223,33 @@ const ReservationSummary = ({
 
             <div className="payment-row">
               <span>Total Bill</span>
-              <span>₱{orderSummary?.totalOrderPrice?.toFixed(2)}</span>
+              <span>
+                ₱
+                {orderSummary?.totalOrderPrice?.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                })}
+              </span>
             </div>
             <div className="payment-row highlight">
               <span>Required Downpayment (20%)</span>
-              <span>₱{orderSummary?.downpayment?.toFixed(2)}</span>
+              <span>
+                ₱
+                {orderSummary?.downpayment?.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                })}
+              </span>
             </div>
             <div className="payment-row balance">
               <span>Remaining Balance to Pay</span>
-              <span>₱{orderSummary?.balance?.toFixed(2)}</span>
+              <span>
+                ₱
+                {orderSummary?.balance?.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                })}
+              </span>
             </div>
 
-            {/* MODERN PAYMENT SELECTION CARDS */}
-            <label
-              style={{
-                fontSize: "12px",
-                fontWeight: "bold",
-                color: "#888",
-                display: "block",
-                marginTop: "20px",
-                marginBottom: "10px",
-                textTransform: "uppercase",
-              }}
-            >
+            <label className="payment-method-label">
               Select Payment Method
             </label>
             <div style={{ display: "flex", gap: "12px", marginBottom: "15px" }}>
@@ -212,20 +257,21 @@ const ReservationSummary = ({
                 <div
                   key={method}
                   onClick={() => setPaymentMethod(method)}
+                  className={`payment-card ${paymentMethod === method ? "selected" : ""}`}
                   style={{
                     flex: 1,
                     padding: "15px",
                     borderRadius: "12px",
+                    cursor: "pointer",
+                    textAlign: "center",
+                    transition: "all 0.2s",
+                    position: "relative",
                     border:
                       paymentMethod === method
                         ? "2px solid #f38d31"
                         : "2px solid #eee",
                     backgroundColor:
                       paymentMethod === method ? "#fffcf9" : "#fff",
-                    cursor: "pointer",
-                    textAlign: "center",
-                    transition: "all 0.2s ease",
-                    position: "relative",
                     boxShadow:
                       paymentMethod === method
                         ? "0 4px 12px rgba(243, 141, 49, 0.1)"
@@ -236,7 +282,6 @@ const ReservationSummary = ({
                     style={{
                       fontWeight: "700",
                       color: paymentMethod === method ? "#f38d31" : "#555",
-                      fontSize: "15px",
                     }}
                   >
                     {method}
@@ -256,26 +301,20 @@ const ReservationSummary = ({
               ))}
             </div>
 
-            {/* CONDITIONAL PAYMENT INSTRUCTIONS */}
-            {paymentMethod && (
-              <div
-                className="fade-in"
-                style={{
-                  backgroundColor: "#e8f5e9",
-                  padding: "15px",
-                  borderRadius: "10px",
-                  border: "1px solid #c8e6c9",
-                  fontSize: "14px",
-                }}
-              >
-                <p style={{ margin: 0, fontWeight: "600", color: "#2e7d32" }}>
-                  Send <span style={{ color: "red" }}>{paymentMethod}</span>{" "}
+            {paymentMethod && accountDetails && (
+              <div className="payment-instructions fade-in">
+                <p>
+                  Send{" "}
+                  <span style={{ color: "#e63946", fontWeight: "bold" }}>
+                    {paymentMethod}
+                  </span>{" "}
                   Payment to:
                 </p>
-                <div style={{ color: "#2e7d32", marginTop: "6px" }}>
-                  <strong style={{ fontSize: "16px" }}>09060052831</strong>
-                  <div style={{ fontSize: "13px", opacity: 0.8 }}>
-                    Account Name: Carl Lorenz Leabres
+                <div className="account-details">
+                  {/* DISPLAY DYNAMIC VALUES FROM SETTINGS */}
+                  <strong>{accountDetails.number || "Not Set"}</strong>
+                  <div className="account-name">
+                    Account Name: {accountDetails.name || "Not Set"}
                   </div>
                 </div>
               </div>
@@ -285,9 +324,7 @@ const ReservationSummary = ({
           {/* Section 5: Receipt Upload */}
           <section className="summary-section">
             <label className="upload-instruction">
-              Upload <span style={{ color: "red" }}>Gcash</span> /
-              <span style={{ color: "red" }}> Maya</span> Receipt (Amount: ₱
-              {orderSummary?.downpayment?.toFixed(2)})
+              Upload Receipt (Amount: ₱{orderSummary?.downpayment?.toFixed(2)})
             </label>
             <input
               type="file"
@@ -296,6 +333,7 @@ const ReservationSummary = ({
               accept="image/*"
               style={{ display: "none" }}
             />
+
             <div className="upload-container-wrapper">
               <button
                 type="button"
@@ -336,8 +374,8 @@ const ReservationSummary = ({
         <footer className="summary-footer">
           <button
             className="confirm-btn"
-            disabled={!receipt || !paymentMethod || loading} // Also disable if no method selected
-            onClick={() => onConfirm(receipt)}
+            disabled={!receipt || !paymentMethod || loading}
+            onClick={handlePaymentAndConfirm}
           >
             {loading ? "Processing..." : "Submit Reservation"}
           </button>

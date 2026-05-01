@@ -1,469 +1,605 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import axios from "axios";
 import {
   UtensilsCrossed,
-  ArrowRight,
+  ArrowLeft,
   X,
   Calendar,
   Clock,
   Info,
   MapPin,
   Pencil,
-  Upload,
   Layers,
-  User,
   Baby,
+  ChevronRight,
+  Armchair,
+  Mail,
+  Phone,
+  Link as LinkIcon,
+  AlertCircle,
 } from "lucide-react";
 import "../Style/TableReservation.css";
-import MenuModal from "./MenuModal";
+import PackageModal from "./PackageModal";
 import ReservationSummary from "./ReservationSummary";
 import TermsModal from "./TermsModal";
 
+const API_BASE = "http://localhost:5000/api";
 const TABLES_DATA = [
-  {
-    id: 1,
-    label: "T1",
-    seats: 5,
-    top: "23%",
-    left: "15%",
-    type: "rect-v",
-    layout: "right-side",
-  },
-  {
-    id: 2,
-    label: "T2",
-    seats: 2,
-    top: "50%",
-    left: "25%",
-    type: "square-sm",
-    layout: "sides",
-  },
-  {
-    id: 3,
-    label: "T3",
-    seats: 4,
-    top: "65%",
-    left: "25%",
-    type: "square",
-    layout: "sides",
-  },
-  {
-    id: 4,
-    label: "T4",
-    seats: 4,
-    top: "82%",
-    left: "25%",
-    type: "square",
-    layout: "sides",
-  },
-  {
-    id: 5,
-    label: "T5",
-    seats: 4,
-    top: "38%",
-    left: "50%",
-    type: "square",
-    layout: "sides",
-  },
-  {
-    id: 6,
-    label: "T6",
-    seats: 4,
-    top: "58%",
-    left: "50%",
-    type: "square",
-    layout: "sides",
-  },
-  {
-    id: 7,
-    label: "T7",
-    seats: 4,
-    top: "17%",
-    left: "77%",
-    type: "square",
-    layout: "top-bottom",
-  },
-  {
-    id: 8,
-    label: "T8",
-    seats: 4,
-    top: "45%",
-    left: "77%",
-    type: "square",
-    layout: "top-bottom",
-  },
-  {
-    id: 9,
-    label: "T9",
-    seats: 4,
-    top: "72%",
-    left: "77%",
-    type: "square",
-    layout: "top-bottom",
-  },
-  {
-    id: 10,
-    label: "T10",
-    seats: 3,
-    top: "92%",
-    left: "65%",
-    type: "rect-h",
-    layout: "top-side",
-  },
+  { id: 1, label: "Table 1", seats: 5 },
+  { id: 2, label: "Table 2", seats: 2 },
+  { id: 3, label: "Table 3", seats: 4 },
+  { id: 4, label: "Table 4", seats: 4 },
+  { id: 5, label: "Table 5", seats: 4 },
+  { id: 6, label: "Table 6", seats: 4 },
+  { id: 7, label: "Table 7", seats: 4 },
+  { id: 8, label: "Table 8", seats: 4 },
+  { id: 9, label: "Table 9", seats: 4 },
+  { id: 10, label: "Table 10", seats: 3 },
 ];
+
+// --- UTILITIES ---
+const timeToMin = (t) => {
+  if (!t) return 0;
+  const [time, period] = t.split(" ");
+  let [h, m] = time.split(":").map(Number);
+  if (period === "PM" && h !== 12) h += 12;
+  if (period === "AM" && h === 12) h = 0;
+  return h * 60 + m;
+};
+
+const formatTime = (timeStr) => {
+  if (!timeStr || timeStr.includes("AM") || timeStr.includes("PM"))
+    return timeStr || "";
+  const parts = timeStr.split(":");
+  let hours = parseInt(parts[0], 10);
+  const ampm = hours >= 12 ? "PM" : "AM";
+  return `${hours % 12 || 12}:${parts[1]} ${ampm}`;
+};
+
+// Helper function to check if a reservation is ongoing based on current time
+const isReservationOngoing = (startTime, endTime) => {
+  if (!startTime || !endTime) return false;
+
+  const now = new Date();
+  const currentTime = now.getHours() * 60 + now.getMinutes();
+
+  const startM = timeToMin(startTime);
+  const endM = timeToMin(endTime);
+
+  return currentTime >= startM && currentTime <= endM;
+};
+
+// Helper function to check if a reservation is completed (should be hidden)
+const isReservationCompleted = (reservation, selectedDate) => {
+  const now = new Date();
+  const currentTime = now.getHours() * 60 + now.getMinutes();
+  const currentDate = now.toISOString().split("T")[0];
+
+  if (reservation.status === "Done" || reservation.status === "Completed") {
+    return true;
+  }
+
+  if (selectedDate === currentDate) {
+    const endM = timeToMin(reservation.endTime);
+    if (currentTime > endM) {
+      return true;
+    }
+  }
+
+  if (selectedDate < currentDate) {
+    return true;
+  }
+
+  return false;
+};
+
+// Helper function to get schedule item class based on status and time
+const getScheduleItemClass = (reservation) => {
+  let status = reservation.status;
+
+  if (
+    (status === "Confirmed" || status === "Pending") &&
+    isReservationOngoing(reservation.startTime, reservation.endTime)
+  ) {
+    return "ongoing";
+  }
+
+  if (status === "Seated") return "ongoing";
+  if (status === "Confirmed" || status === "Pending") return "reserved";
+  return "";
+};
+
+// Helper function to get status display text with real-time checking
+const getStatusDisplayText = (reservation) => {
+  let status = reservation.status;
+
+  if (
+    (status === "Confirmed" || status === "Pending") &&
+    isReservationOngoing(reservation.startTime, reservation.endTime)
+  ) {
+    return "ONGOING";
+  }
+
+  if (status === "Seated") return "ONGOING";
+  if (status === "Confirmed") return "CONFIRMED";
+  if (status === "Pending") return "PENDING";
+  return status.toUpperCase();
+};
 
 export default function TableReservation({ onClose, onSuccess }) {
   const [selectedId, setSelectedId] = useState(null);
   const [linkedIds, setLinkedIds] = useState([]);
-  const [isLinkMode, setIsLinkMode] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [isTermsOpen, setIsTermsOpen] = useState(false);
-
-  const [hasActiveReservation, setHasActiveReservation] = useState(false);
-  const [dbOccupiedTables, setDbOccupiedTables] = useState({});
-  const [tableSchedule, setTableSchedule] = useState([]);
-
-  // --- FORM STATES ---
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [isEditing, setIsEditing] = useState(false);
-  const [resDate, setResDate] = useState("");
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
-  const [guestCount, setGuestCount] = useState("");
-
-  const [allergy, setAllergy] = useState("No Allergy");
-  const [otherAllergy, setOtherAllergy] = useState("");
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isSummaryOpen, setIsSummaryOpen] = useState(false);
   const [selectedItems, setSelectedItems] = useState([]);
-  const [municipalities, setMunicipalities] = useState([]);
-  const [barangays, setBarangays] = useState([]);
-  const [selectedMunicipality, setSelectedMunicipality] = useState("");
-  const [selectedBarangay, setSelectedBarangay] = useState("");
-  const [highChair, setHighChair] = useState("No");
+  const [isLinkMode, setIsLinkMode] = useState(false);
+  const [showOngoingWarning, setShowOngoingWarning] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState(null); // Add this line
+  const [blockedDates, setBlockedDates] = useState([]);
+  const [existingReservation, setExistingReservation] = useState(null); // Add this
 
-  const renderChairs = (table) => {
-    const chairs = [];
-    for (let i = 0; i < table.seats; i++) {
-      chairs.push(
-        <div key={i} className={`chair chair-${table.layout}-${i + 1}`} />,
-      );
-    }
-    return chairs;
-  };
+  const [form, setForm] = useState({
+    date: "",
+    startTime: "",
+    endTime: "",
+    highChair: "No",
+    muni: "",
+    brgy: "",
+  });
+  const [addressData, setAddressData] = useState({
+    municipalities: [],
+    barangays: [],
+  });
+  const [user, setUser] = useState({
+    firstName: localStorage.getItem("firstName") || "",
+    lastName: localStorage.getItem("lastName") || "",
+    email: localStorage.getItem("email") || "",
+    phone: "09",
+  });
 
+  const [data, setData] = useState({ occupied: {}, schedule: [] });
+  const [tableSchedules, setTableSchedules] = useState({});
+  const [ui, setUi] = useState({
+    loading: false,
+    editing: false,
+    menu: false,
+    summary: false,
+    terms: false,
+  });
+
+  const todayStr = new Date(new Date() - new Date().getTimezoneOffset() * 60000)
+    .toISOString()
+    .split("T")[0];
+
+  // --- API DATA ---
   useEffect(() => {
-    const checkUser = async () => {
-      const userId = localStorage.getItem("userId");
-      if (userId) {
-        try {
-          const res = await axios.get(
-            `http://localhost:5000/api/reservations/user-active/${userId}`,
-          );
-          setHasActiveReservation(res.data.hasActive);
-        } catch (err) {
-          console.error(err);
-        }
-      }
-    };
-    checkUser();
-  }, []);
-
-  useEffect(() => {
-    const fetchLiveStatus = async () => {
-      if (resDate && startTime && endTime) {
-        try {
-          const res = await axios.get(
-            `http://localhost:5000/api/reservations/table-statuses`,
-            {
-              params: { date: resDate, startTime, endTime },
-            },
-          );
-          setDbOccupiedTables(res.data);
-        } catch (err) {
-          console.error("Fetch Error:", err);
-        }
-      }
-    };
-    fetchLiveStatus();
-  }, [resDate, startTime, endTime]);
-
-  useEffect(() => {
-    const fetchTableSchedule = async () => {
-      if (selectedId && resDate) {
-        try {
-          const res = await axios.get(
-            `http://localhost:5000/api/reservations/table-schedule`,
-            {
-              params: { tableId: selectedId, date: resDate },
-            },
-          );
-          setTableSchedule(res.data);
-        } catch (err) {
-          console.error("Schedule Error:", err);
-        }
-      } else {
-        setTableSchedule([]);
-      }
-    };
-    fetchTableSchedule();
-  }, [selectedId, resDate]);
-
-  useEffect(() => {
-    fetch("http://localhost:5000/api/address/municipalities")
-      .then((res) => res.json())
-      .then((data) =>
-        setMunicipalities(Array.isArray(data) ? data : data.data || []),
+    axios
+      .get(`${API_BASE}/address/municipalities`)
+      .then((res) =>
+        setAddressData((prev) => ({
+          ...prev,
+          municipalities: Array.isArray(res.data)
+            ? res.data
+            : res.data.data || [],
+        })),
       )
-      .catch((err) => console.error(err));
+      .catch(console.error);
   }, []);
 
   useEffect(() => {
-    if (selectedMunicipality) {
-      fetch(
-        `http://localhost:5000/api/address/barangays/${selectedMunicipality}`,
-      )
-        .then((res) => res.json())
-        .then((data) => setBarangays(Array.isArray(data) ? data : []))
-        .catch((err) => console.error(err));
-    }
-  }, [selectedMunicipality]);
+  const checkExisting = async () => {
+    const userId = localStorage.getItem("userId");
+    const token = localStorage.getItem("token"); // Get the token
 
-  useEffect(() => {
-    setFirstName(localStorage.getItem("firstName") || "");
-    setLastName(localStorage.getItem("lastName") || "");
-    setEmail(localStorage.getItem("email") || "");
-    setPhone(localStorage.getItem("phone") || "");
-    if (!localStorage.getItem("firstName")) setIsEditing(true);
-  }, []);
+    if (!userId || userId === "null") return;
 
-  const timeToMinutes = (timeStr) => {
-    if (!timeStr) return 0;
-    const is12Hour = timeStr.includes("AM") || timeStr.includes("PM");
-    if (is12Hour) {
-      const [time, period] = timeStr.split(" ");
-      let [h, m] = time.split(":").map(Number);
-      if (period === "PM" && h !== 12) h += 12;
-      if (period === "AM" && h === 12) h = 0;
-      return h * 60 + m;
-    } else {
-      const parts = timeStr.split(":");
-      const h = Number(parts[0]);
-      const m = Number(parts[1]);
-      return h * 60 + m;
-    }
-  };
-
-  const formatTimeForDisplay = (timeStr) => {
-    if (!timeStr) return "";
-    if (timeStr.includes("AM") || timeStr.includes("PM")) {
-      return timeStr.replace(/:00\s/, " ");
-    }
-    let [h, m] = timeStr.split(":");
-    let hours = parseInt(h, 10);
-    const suffix = hours >= 12 ? "PM" : "AM";
-    hours = hours % 12 || 12;
-    return `${hours}:${m} ${suffix}`;
-  };
-
-  const handleAcceptTerms = () => {
-    setIsTermsOpen(false);
-    setIsSummaryOpen(true);
-  };
-
-  const timeOptions = useMemo(() => {
-    const options = [];
-    const periods = ["AM", "PM"];
-    const intervals = ["00", "15", "30", "45"];
-    periods.forEach((period) => {
-      const startHour = period === "AM" ? 10 : 1;
-      const endHour = period === "AM" ? 11 : 10;
-      if (period === "PM") intervals.forEach((m) => options.push(`12:${m} PM`));
-      for (let h = startHour; h <= endHour; h++) {
-        intervals.forEach((m) => {
-          if (period === "PM" && h === 10 && m !== "00") return;
-          if (period === "AM" && h === 12) return;
-          options.push(`${h.toString().padStart(2, "0")}:${m} ${period}`);
-        });
-      }
-    });
-    return options;
-  }, []);
-
-  const todayStr = useMemo(() => {
-    const now = new Date();
-    const offset = now.getTimezoneOffset() * 60000;
-    return new Date(now - offset).toISOString().split("T")[0];
-  }, []);
-
-  const availableStartTimeOptions = useMemo(() => {
-    let options = timeOptions;
-
-    // --- NEW: Filter choices to be at least 15 minutes ahead of current time ---
-    if (resDate === todayStr) {
-      const now = new Date();
-      const currentMins = now.getHours() * 60 + now.getMinutes();
-      const threshold = currentMins + 15;
-      options = options.filter((t) => timeToMinutes(t) >= threshold);
-    }
-
-    if (!tableSchedule.length) return options;
-    return options.filter((timeStr) => {
-      const timeMin = timeToMinutes(timeStr);
-      return !tableSchedule.some((res) => {
-        const startMin = timeToMinutes(res.startTime);
-        const endMin = timeToMinutes(res.endTime);
-        return timeMin >= startMin && timeMin < endMin;
-      });
-    });
-  }, [timeOptions, tableSchedule, resDate, todayStr]);
-
-  const filteredEndTimeOptions = useMemo(() => {
-    if (!startTime) return timeOptions;
-    const startMins = timeToMinutes(startTime);
-    let options = timeOptions.filter((t) => timeToMinutes(t) >= startMins + 60);
-
-    // --- Ensure End time options also respect the current time if today ---
-    if (resDate === todayStr) {
-      const now = new Date();
-      const currentMins = now.getHours() * 60 + now.getMinutes();
-      const threshold = currentMins + 15;
-      options = options.filter((t) => timeToMinutes(t) >= threshold);
-    }
-
-    return options;
-  }, [startTime, timeOptions, resDate, todayStr]);
-
-  const handleConfirmReservation = async (receiptFile) => {
-    setLoading(true);
-    setError("");
     try {
-      const productNames = selectedItems
-        .map((item) => `${item.name} (x${item.quantity})`)
-        .join(", ");
-      const storedUserId = localStorage.getItem("userId");
-      console.log("Current User ID in LocalStorage:", storedUserId);
-
-      const data = new FormData();
-      data.append("userId", localStorage.getItem("userId") || "");
-      data.append("firstName", firstName);
-      data.append("lastName", lastName);
-      data.append("email", email);
-      data.append("phone", phone);
-      data.append("date", resDate);
-      data.append("startTime", startTime);
-      data.append("endTime", endTime);
-      data.append("guests", guestCount);
-      data.append("brgyCode", selectedBarangay);
-      data.append("tableIds", JSON.stringify([selectedId, ...linkedIds]));
-      data.append("allergy", allergy === "Other" ? otherAllergy : allergy);
-      data.append("receipt", receiptFile);
-      data.append("status", "Confirmed");
-      data.append("packageName", productNames);
-      data.append("totalAmount", orderSummary.totalOrderPrice);
-      data.append("downpayment", orderSummary.downpayment);
-      data.append("balance", orderSummary.balance);
-      data.append("selectedItems", JSON.stringify(selectedItems));
-
-      const response = await axios.post(
-        "http://localhost:5000/api/reservations/table",
-        data,
-        {
-          headers: { "Content-Type": "multipart/form-data" },
-        },
+      const res = await axios.get(
+        `http://localhost:5000/api/reservations/check-active/${userId}`, 
+        { headers: { Authorization: `Bearer ${token}` } } // SEND THE TOKEN
       );
-      if (response.status === 200 || response.status === 201) {
-        setIsSummaryOpen(false);
-        onSuccess(response.data.id);
+      
+      // Now that we fixed the backend format, this line will work!
+      if (res.data.hasActive) {
+        setExistingReservation(res.data.reservation);
+        setUi(prev => ({ ...prev, showExistingModal: true }));
       }
     } catch (err) {
-      setError(err.response?.data?.message || "Booking failed.");
-    } finally {
-      setLoading(false);
+      console.error("Check active error:", err);
     }
   };
 
+  checkExisting();
+}, []);
+
+  useEffect(() => {
+    if (form.muni) {
+      axios
+        .get(`${API_BASE}/address/barangays/${form.muni}`)
+        .then((res) =>
+          setAddressData((prev) => ({
+            ...prev,
+            barangays: Array.isArray(res.data) ? res.data : [],
+          })),
+        )
+        .catch(console.error);
+    }
+  }, [form.muni]);
+
+  // Fetch schedules for all tables when date changes
+  useEffect(() => {
+    const fetchAllTableSchedules = async () => {
+      if (!form.date) return;
+
+      const schedules = {};
+      for (const table of TABLES_DATA) {
+        try {
+          const response = await axios.get(
+            `${API_BASE}/reservations/table-schedule`,
+            {
+              params: {
+                tableId: table.id,
+                date: form.date,
+              },
+            },
+          );
+          schedules[table.id] = Array.isArray(response.data)
+            ? response.data.filter((r) => !isReservationCompleted(r, form.date))
+            : [];
+        } catch (error) {
+          console.warn(`Error fetching schedule for table ${table.id}:`, error);
+          schedules[table.id] = [];
+        }
+      }
+      setTableSchedules(schedules);
+    };
+
+    fetchAllTableSchedules();
+  }, [form.date]);
+
+  // REAL-TIME POLLING
+  useEffect(() => {
+    const poll = async () => {
+      if (!form.date) return;
+      try {
+        const statRes = await axios.get(
+          `${API_BASE}/reservations/table-statuses`,
+          {
+            params: {
+              date: form.date,
+              startTime: form.startTime || "00:00",
+              endTime: form.endTime || "23:59",
+            },
+          },
+        );
+
+        let schedRes = { data: [] };
+        if (selectedId && form.date) {
+          try {
+            schedRes = await axios.get(
+              `${API_BASE}/reservations/table-schedule`,
+              {
+                params: {
+                  tableId: selectedId,
+                  date: form.date,
+                },
+              },
+            );
+          } catch (error) {
+            schedRes = { data: [] };
+          }
+        }
+
+        const processedSchedule = (schedRes.data || [])
+          .filter((res) => !isReservationCompleted(res, form.date))
+          .map((res) => {
+            const processed = { ...res };
+            if (
+              (processed.status === "Confirmed" ||
+                processed.status === "Pending") &&
+              isReservationOngoing(processed.startTime, processed.endTime)
+            ) {
+              processed.status = "Ongoing";
+            }
+            return processed;
+          });
+
+        setData({
+          occupied: statRes.data || {},
+          schedule: processedSchedule,
+        });
+      } catch (e) {
+        console.error("Polling error:", e);
+      }
+    };
+
+    poll();
+    const pollInterval = setInterval(poll, 10000);
+    return () => clearInterval(pollInterval);
+  }, [form.date, form.startTime, form.endTime, selectedId]);
+  //BLOCKED DATES
+  useEffect(() => {
+    axios
+      .get("http://localhost:5000/api/admin/blocked-dates")
+      .then((res) => {
+        if (Array.isArray(res.data)) {
+          const formatted = res.data.map((h) => {
+            // Convert to local date string to avoid timezone shifts
+            const d = new Date(h.block_date);
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, "0");
+            const day = String(d.getDate()).padStart(2, "0");
+            return `${year}-${month}-${day}`;
+          });
+          console.log("Verified Blocked Dates:", formatted); // CHECK YOUR CONSOLE
+          setBlockedDates(formatted);
+        }
+      })
+      .catch((err) => console.error("Error fetching blocked dates", err));
+  }, []);
+
+  // --- CALCULATIONS ---
   const primaryTable = useMemo(
     () => TABLES_DATA.find((t) => t.id === selectedId),
     [selectedId],
   );
 
+  const hasActiveReservation = (tableId) => {
+    const schedule = tableSchedules[tableId] || [];
+    return schedule.length > 0;
+  };
+
+  const handleDateSelection = (e) => {
+    const selectedDate = e.target.value;
+    console.log("User selected:", selectedDate);
+    console.log("Checking against:", blockedDates);
+
+    if (blockedDates.includes(selectedDate)) {
+      alert("We are sorry, but the restaurant is closed on this date.");
+
+      // 1. Clear the state so it can't be submitted
+      setForm((prev) => ({ ...prev, date: "" }));
+
+      // 2. Clear the visual input
+      e.target.value = "";
+      return true;
+    } else {
+      // 3. Date is okay, update the state normally
+      handleInputChange(e);
+      return false;
+    }
+  };
+  // Check if a table has ongoing reservation
+  const hasOngoingReservation = (tableId) => {
+    const schedule = tableSchedules[tableId] || [];
+    return schedule.some((r) => {
+      const isOngoing = isReservationOngoing(r.startTime, r.endTime);
+      return (
+        (r.status === "Confirmed" ||
+          r.status === "Pending" ||
+          r.status === "Seated") &&
+        isOngoing
+      );
+    });
+  };
+
+  const isTableAvailableForTime = (tableId, startTime, endTime) => {
+    const schedule = tableSchedules[tableId] || [];
+    const startM = timeToMin(startTime);
+    const endM = timeToMin(endTime);
+
+    return !schedule.some((r) => {
+      return startM < timeToMin(r.endTime) && endM > timeToMin(r.startTime);
+    });
+  };
+
+  const getAvailableTablesForLinking = () => {
+    if (!form.startTime || !form.endTime) return [];
+
+    return TABLES_DATA.filter(
+      (table) =>
+        table.id !== selectedId &&
+        !linkedIds.includes(table.id) &&
+        isTableAvailableForTime(table.id, form.startTime, form.endTime),
+    );
+  };
+
   const totalSeats = useMemo(() => {
-    if (!primaryTable) return 0;
-    const linkedSeats = TABLES_DATA.filter((t) =>
-      linkedIds.includes(t.id),
-    ).reduce((sum, t) => sum + t.seats, 0);
-    return primaryTable.seats + linkedSeats;
-  }, [primaryTable, linkedIds]);
+    if (!selectedId) return 0;
+    return (
+      (primaryTable?.seats || 0) +
+      TABLES_DATA.filter((t) => linkedIds.includes(t.id)).reduce(
+        (sum, t) => sum + t.seats,
+        0,
+      )
+    );
+  }, [selectedId, linkedIds, primaryTable]);
 
   const orderSummary = useMemo(() => {
-    const totalOrderPrice = selectedItems.reduce(
+    const total = selectedItems.reduce(
       (sum, item) => sum + item.price * item.quantity,
       0,
     );
-    const downpayment = totalOrderPrice * 0.2;
-    const balance = totalOrderPrice - downpayment;
-    return { totalOrderPrice, downpayment, balance };
+    return {
+      totalOrderPrice: total,
+      downpayment: total * 0.2,
+      balance: total * 0.8,
+    };
   }, [selectedItems]);
 
-  const isFormInvalid = useMemo(() => {
-    const startMin = timeToMinutes(startTime);
-    const endMin = timeToMinutes(endTime);
-    const hasOneHourDiff = endMin - startMin >= 60;
-    const isOtherAllergyEmpty = allergy === "Other" && !otherAllergy.trim();
+  // Prepare tableIds array for submission
+  const tableIdsArray = useMemo(() => {
+    return [selectedId, ...linkedIds].filter((id) => id !== null);
+  }, [selectedId, linkedIds]);
 
-    const hasConflict = tableSchedule.some((res) => {
-      const resStart = timeToMinutes(res.startTime);
-      const resEnd = timeToMinutes(res.endTime);
-      return startMin < resEnd && endMin > resStart;
-    });
+  // Generate package display name
+  const productDisplayName = useMemo(() => {
+    if (selectedItems.length === 0) return "Table Reservation";
+    if (selectedItems.length === 1) return selectedItems[0].name;
+    return `${selectedItems[0].name} + ${selectedItems.length - 1} more`;
+  }, [selectedItems]);
 
-    return (
-      !firstName.trim() ||
-      !lastName.trim() ||
-      !email.trim() ||
-      !resDate ||
-      !startTime ||
-      !endTime ||
-      !hasOneHourDiff ||
-      !guestCount ||
-      guestCount <= 0 ||
-      !selectedMunicipality ||
-      !selectedBarangay ||
-      isOtherAllergyEmpty ||
-      selectedItems.length === 0 ||
-      hasConflict
-    );
+  const fullReservationData = useMemo(() => {
+    return {
+      ...user,
+      ...form,
+      userId: localStorage.getItem("userId"),
+      guestCount: totalSeats,
+      tableLabel: primaryTable?.label,
+      linkedTables: linkedIds.map(
+        (id) => TABLES_DATA.find((t) => t.id === id)?.label,
+      ),
+      selectedItems: selectedItems,
+      packages: selectedItems,
+      resDate: form.date,
+      amount: orderSummary.downpayment,
+      totalAmount: orderSummary.totalOrderPrice,
+      downpayment: orderSummary.downpayment,
+      paymentMethod: paymentMethod || "Maya",
+      municipality:
+        addressData.municipalities.find((m) => m.code === form.muni)?.name ||
+        "",
+      barangay:
+        addressData.barangays.find((b) => b.code === form.brgy)?.name || "",
+    };
   }, [
-    firstName,
-    lastName,
-    email,
-    resDate,
-    startTime,
-    endTime,
-    guestCount,
-    selectedMunicipality,
-    selectedBarangay,
-    allergy,
-    otherAllergy,
+    user,
+    form,
+    totalSeats,
+    primaryTable,
+    linkedIds,
     selectedItems,
-    tableSchedule,
+    orderSummary,
+    paymentMethod,
+    addressData,
   ]);
 
-  const handleTableClick = (table) => {
-    if (dbOccupiedTables[table.id]) return;
+  const timeOptions = useMemo(() => {
+    const opts = [];
+    for (let h = 10; h <= 22; h++) {
+      for (let m = 0; m < 60; m += 15) {
+        if (h === 22 && m > 0) break;
+        const hour12 = h % 12 || 12;
+        const period = h < 12 ? "AM" : "PM";
+        opts.push(
+          `${hour12.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")} ${period}`,
+        );
+      }
+    }
+    return opts;
+  }, []);
+
+  const availableStartTimeOptions = useMemo(() => {
+    let filtered = timeOptions;
+    if (form.date === todayStr) {
+      const thresh = new Date().getHours() * 60 + new Date().getMinutes() + 15;
+      filtered = filtered.filter((t) => timeToMin(t) >= thresh);
+    }
+    return filtered.filter((t) => {
+      const m = timeToMin(t);
+      return !data.schedule.some(
+        (r) => m >= timeToMin(r.startTime) && m < timeToMin(r.endTime),
+      );
+    });
+  }, [timeOptions, data.schedule, form.date, todayStr]);
+
+  const filteredEndTimeOptions = useMemo(() => {
+    if (!form.startTime) return [];
+    const startM = timeToMin(form.startTime);
+    return timeOptions.filter((t) => timeToMin(t) >= startM + 60);
+  }, [form.startTime, timeOptions]);
+
+  // --- FIELD VALIDATION ---
+  const isFirstNameValid = user.firstName && user.firstName.trim().length > 0;
+  const isLastNameValid = user.lastName && user.lastName.trim().length > 0;
+  const isEmailValid = /^\S+@\S+\.\S+$/.test(user.email);
+  const isPhoneValid = user.phone.length === 11 && user.phone.startsWith("09");
+  const isDateValid = form.date && form.date !== "";
+  const isStartTimeValid = form.startTime && form.startTime !== "";
+  const isEndTimeValid = form.endTime && form.endTime !== "";
+  const isTimeValid = (() => {
+    if (!form.startTime || !form.endTime) return false;
+    const s = timeToMin(form.startTime);
+    const e = timeToMin(form.endTime);
+    return e - s >= 60;
+  })();
+  const isMuniValid = form.muni && form.muni !== "";
+  const isBrgyValid = form.brgy && form.brgy !== "";
+  const hasSelectedItems = selectedItems.length > 0;
+  const hasNoConflict = !data.schedule.some((r) => {
+    const s = timeToMin(form.startTime);
+    const e = timeToMin(form.endTime);
+    return s < timeToMin(r.endTime) && e > timeToMin(r.startTime);
+  });
+
+  const isFormInvalid = useMemo(() => {
+    return (
+      !selectedId ||
+      !isFirstNameValid ||
+      !isLastNameValid ||
+      !isEmailValid ||
+      !isPhoneValid ||
+      !isDateValid ||
+      !isStartTimeValid ||
+      !isEndTimeValid ||
+      !isTimeValid ||
+      !hasSelectedItems ||
+      !isMuniValid ||
+      !isBrgyValid ||
+      !hasNoConflict
+    );
+  }, [
+    selectedId,
+    isFirstNameValid,
+    isLastNameValid,
+    isEmailValid,
+    isPhoneValid,
+    isDateValid,
+    isStartTimeValid,
+    isEndTimeValid,
+    isTimeValid,
+    hasSelectedItems,
+    isMuniValid,
+    isBrgyValid,
+    hasNoConflict,
+  ]);
+
+  // --- HANDLERS ---
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    if (name === "phone") {
+      let val = value.replace(/\D/g, "");
+      if (!val.startsWith("09")) val = "09";
+      if (val.length <= 11) setUser((p) => ({ ...p, phone: val }));
+    } else if (name in user) {
+      setUser((prev) => ({ ...prev, [name]: value }));
+    } else {
+      setForm((prev) => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const onTableClick = (table) => {
+    const hasActive = hasActiveReservation(table.id);
+    const hasOngoing = hasOngoingReservation(table.id);
+
+    if (hasOngoing && !isLinkMode) {
+      setShowOngoingWarning(table.id);
+      setTimeout(() => setShowOngoingWarning(null), 3000);
+    }
 
     if (isLinkMode) {
-      if (table.id === selectedId) {
-        setSelectedId(null);
-        setLinkedIds([]);
-        setIsLinkMode(false);
+      if (table.id === selectedId) return;
+
+      if (!form.startTime || !form.endTime) {
+        alert("Please select start time and end time first");
         return;
       }
+
+      if (!isTableAvailableForTime(table.id, form.startTime, form.endTime)) {
+        alert(
+          `This table has a reservation during the selected time slot. Please choose a different time or another table.`,
+        );
+        return;
+      }
+
       setLinkedIds((prev) =>
         prev.includes(table.id)
           ? prev.filter((id) => id !== table.id)
@@ -475,552 +611,547 @@ export default function TableReservation({ onClose, onSuccess }) {
     }
   };
 
-  const fullReservationData = useMemo(() => {
-    const muniName =
-      municipalities.find((m) => m.code === selectedMunicipality)?.name || "";
-    const brgyName =
-      barangays.find((b) => b.code === selectedBarangay)?.name || "";
-    return {
-      firstName,
-      lastName,
-      email,
-      phone,
-      municipality: muniName,
-      barangay: brgyName,
-      guestCount,
-      resDate,
-      startTime,
-      endTime,
-      tableLabel: primaryTable?.label,
-      linkedTables: linkedIds,
-      allergy: allergy === "Other" ? otherAllergy : allergy,
-      packages: selectedItems,
-    };
-  }, [
-    firstName,
-    lastName,
-    email,
-    phone,
-    selectedMunicipality,
-    selectedBarangay,
-    guestCount,
-    resDate,
-    startTime,
-    endTime,
-    primaryTable,
-    linkedIds,
-    municipalities,
-    barangays,
-    allergy,
-    otherAllergy,
-    selectedItems,
-  ]);
+  const confirmBooking = async (file) => {
+    setUi((p) => ({ ...p, loading: true }));
+
+    try {
+      const payload = new FormData();
+      const userId = localStorage.getItem("userId");
+
+      const submission = {
+        ...user,
+        ...form,
+        userId: userId,
+        guests: totalSeats,
+        packageName: productDisplayName,
+        totalAmount: orderSummary.totalOrderPrice,
+        amount: orderSummary.downpayment,
+        paymentMethod: paymentMethod || "Maya",
+        tableIds: JSON.stringify(tableIdsArray),
+        selectedItems: JSON.stringify(selectedItems),
+        status: "Confirmed",
+        brgyCode: form.brgy,
+      };
+
+      if (file) payload.append("receipt", file);
+
+      Object.entries(submission).forEach(([k, v]) => {
+        if (v !== undefined && v !== null) {
+          payload.append(k, v);
+        }
+      });
+
+      const res = await axios.post(`${API_BASE}/reservations/table`, payload);
+      onSuccess(res.data.id);
+    } catch (e) {
+      console.error("Booking Error:", e.response?.data || e.message);
+      alert(
+        e.response?.data?.message ||
+          "Table Selection Error: One of the selected tables does not exist in the database or is already booked.",
+      );
+    } finally {
+      setUi((p) => ({ ...p, loading: false }));
+    }
+  };
+
+  const availableTablesForLinking = getAvailableTablesForLinking();
 
   return (
-    <div className="floor-plan-wrapper">
-      <div className="floor-plan-main" onClick={(e) => e.stopPropagation()}>
-        <header className="floor-header">
-          <div className="floor-logo-bar">
-            <div className="floor-icon-circle">
-              <UtensilsCrossed size={20} color="white" />
-            </div>
-            <div className="floor-header-text">
-              <h1 className="floor-title">Floor Plan</h1>
-              <p className="floor-subtitle">Select a table to reserve</p>
-            </div>
-          </div>
-          <button className="floor-back-btn" onClick={onClose}>
-            Back
-          </button>
-        </header>
+    <div className={`floor-plan-wrapper ${!form.date ? "init-state" : ""}`}>
+      <button className="page-back-btn" onClick={onClose}>
+        <ArrowLeft size={18} /> <span>Back</span>
+      </button>
 
-        <div className="map-scroll-area">
-          <div className="map-container">
-            {isLinkMode && (
-              <div className="link-tooltip fade-in">
-                Click available tables to link them
-              </div>
-            )}
-            <div className="tables-area">
-              {TABLES_DATA.map((table) => {
-                const dbStatus = dbOccupiedTables[table.id];
-                let statusClass = "available";
-                if (dbStatus === "Confirmed" || dbStatus === "Seated");
-                else if (dbStatus === "Pending") statusClass = "reserved";
-                else if (selectedId === table.id) statusClass = "selected";
-                else if (linkedIds.includes(table.id)) statusClass = "linked";
+      <aside
+        className={`floor-sidebar ${!form.date ? "centered-form" : ""}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="res-panel fade-in">
+          <h2 className="panel-title">
+            {!form.date
+              ? "Select Reservation Date"
+              : selectedId
+                ? `Reserve ${primaryTable?.label}`
+                : "Pick a Table"}
+          </h2>
+          <div className="res-form">
+            <div className="input-group">
+              <label>
+                <Calendar size={12} /> DATE
+              </label>
+              <input
+                type="date"
+                name="date"
+                value={form.date}
+                min={todayStr}
+                onChange={(e) => {
+                  // 1. Check if the date is blocked first
+                  const isBlocked = handleDateSelection(e);
 
-                return (
-                  <div
-                    key={table.id}
-                    className={`floor-table ${table.type} ${statusClass}`}
-                    style={{ top: table.top, left: table.left }}
-                    onClick={() => handleTableClick(table)}
-                  >
-                    {renderChairs(table)}
-                    <div className="table-inner">
-                      <span className="table-id-label">{table.label}</span>
-                      <span className="table-p-label">{table.seats}p</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        <div className="floor-legend">
-          <div className="legend-item">
-            <span className="dot available"></span> Available
-          </div>
-          <div className="legend-item">
-            <span className="dot selected"></span> Selected
-          </div>
-          <div className="legend-item">
-            <span className="dot linked"></span> Linked
-          </div>
-          <div className="legend-item">
-            <span className="dot reserved"></span> Reserved
-          </div>
-        </div>
-      </div>
-
-      <aside className="floor-sidebar" onClick={(e) => e.stopPropagation()}>
-        {hasActiveReservation ? (
-          <div className="reserved-notice fade-in">
-            <span className="info-icon-large">
-              <Info size={32} color="#e74c3c" />
-            </span>
-            <p>
-              You already have an active reservation. You cannot book again.
-            </p>
-          </div>
-        ) : !primaryTable ? (
-          <div className="empty-sidebar">
-            <p>Select a table to reserve</p>
-          </div>
-        ) : (
-          <div className="res-panel fade-in">
-            <button
-              className="panel-close"
-              onClick={() => {
-                setSelectedId(null);
-                setIsLinkMode(false);
-              }}
-            >
-              <X size={18} />
-            </button>
-            <h2 className="panel-title">
-              Reserve {primaryTable.label} {linkedIds.map((id) => ` + T${id}`)}
-              {(primaryTable.id === 1 ||
-                primaryTable.id === 10 ||
-                linkedIds.includes(1) ||
-                linkedIds.includes(10)) && (
-                <span
-                  style={{
-                    fontSize: "10px",
-                    color: "#e63946",
-                    marginLeft: "5px",
-                    fontWeight: "600",
-                  }}
-                >
-                  (T1/T10 cannot be combined)
-                </span>
-              )}
-            </h2>
-
-            <div
-              className="table-schedule-section"
-              style={{
-                padding: "10px",
-                backgroundColor: "#f9f9f9",
-                borderRadius: "8px",
-                marginBottom: "15px",
-                border: "1px solid #eee",
-              }}
-            >
-              <h4
-                style={{
-                  fontSize: "12px",
-                  marginBottom: "8px",
-                  color: "#555",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "5px",
-                }}
-              >
-                <Clock size={14} /> Occupied Slots for{" "}
-                {resDate || "selected date"}
-              </h4>
-
-              <div className="schedule-list">
-                {tableSchedule.length > 0 ? (
-                  tableSchedule
-                    .filter((res) => {
-                      if (resDate === todayStr) {
-                        const now = new Date();
-                        const currentMins =
-                          now.getHours() * 60 + now.getMinutes();
-                        return timeToMinutes(res.endTime) > currentMins;
-                      }
-                      return true;
-                    })
-                    .map((res, index) => (
-                      <div
-                        key={index}
-                        style={{
-                          fontSize: "12px",
-                          padding: "8px",
-                          background: "#fff",
-                          borderLeft: "3px solid #f38d31",
-                          marginBottom: "4px",
-                          boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-                        }}
-                      >
-                        <div style={{ fontWeight: "600", color: "#333" }}>
-                          <Clock size={10} style={{ marginRight: "4px" }} />
-                          {formatTimeForDisplay(res.startTime)} -{" "}
-                          {formatTimeForDisplay(res.endTime)}
-                        </div>
-                        <div style={{ fontSize: "10px", color: "#888" }}>
-                          Status: {res.status}
-                        </div>
-                      </div>
-                    ))
-                ) : (
-                  <p style={{ fontSize: "11px", color: "#2a9d8f" }}>
-                    No reservations. All slots are available.
-                  </p>
-                )}
-                {resDate === todayStr &&
-                  tableSchedule.length > 0 &&
-                  tableSchedule.filter(
-                    (r) =>
-                      timeToMinutes(r.endTime) >
-                      new Date().getHours() * 60 + new Date().getMinutes(),
-                  ).length === 0 && (
-                    <p style={{ fontSize: "11px", color: "#2a9d8f" }}>
-                      No remaining reservations for today.
-                    </p>
-                  )}
-              </div>
-            </div>
-
-            <div className="res-form">
-              <button
-                className={`btn-link-mode ${isLinkMode ? "active" : ""}`}
-                onClick={() => setIsLinkMode(!isLinkMode)}
-              >
-                {isLinkMode ? "Done Linking" : "Link Tables"}
-              </button>
-
-              <div className="input-group">
-                <label>
-                  <Calendar size={12} /> DATE
-                </label>
-                <input
-                  type="date"
-                  value={resDate}
-                  min={todayStr}
-                  onChange={(e) => {
-                    setResDate(e.target.value);
-                    setStartTime("");
-                    setEndTime("");
-                  }}
-                />
-              </div>
-
-              <div className="input-row">
-                <div className="input-group">
-                  <label>
-                    <Clock size={12} /> START
-                  </label>
-                  <select
-                    className="res-input-dropdown"
-                    value={startTime}
-                    onChange={(e) => {
-                      setStartTime(e.target.value);
-                      setEndTime("");
-                    }}
-                  >
-                    <option value="">--:-- --</option>
-                    {availableStartTimeOptions.map((t) => (
-                      <option key={`start-${t}`} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="input-group">
-                  <label>
-                    <Clock size={12} /> END
-                  </label>
-                  <select
-                    className="res-input-dropdown"
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                    disabled={!startTime}
-                  >
-                    <option value="">--:-- --</option>
-                    {filteredEndTimeOptions.map((t) => (
-                      <option key={`end-${t}`} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              {/* FIRST NAME */}
-              <div className="input-group">
-                <div className="label-with-icon">
-                  <label>FIRST NAME</label>
-                  <Pencil
-                    size={16}
-                    className={`edit-toggle-icon ${isEditing ? "active" : ""}`}
-                    onClick={() => setIsEditing(!isEditing)}
-                  />
-                </div>
-                <input
-                  type="text"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  disabled={!isEditing}
-                />
-              </div>
-              {/* LAST NAME */}
-              <div className="input-group">
-                <label>LAST NAME</label>
-                <input
-                  type="text"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  disabled={!isEditing}
-                />
-              </div>
-              {/* EMAIL ADDRESS */}
-              <div className="input-group">
-                <label>EMAIL ADDRESS</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={!isEditing}
-                />
-              </div>
-              {/* CONTACT NUMBER */}
-              <div className="input-group">
-                <label>CONTACT NUMBER</label>
-                <input
-                  type="text"
-                  value={phone}
-                  onChange={(e) =>
-                    setPhone(e.target.value.replace(/\D/g, "").slice(0, 11))
+                  // 2. If it's NOT blocked, reset the tables
+                  if (!isBlocked) {
+                    setSelectedId(null);
+                    setLinkedIds([]);
                   }
-                />
-              </div>
-              {/* LOCATION SELECTION */}
-              <div className="input-row">
-                <div className="input-group">
-                  <label>
-                    <MapPin size={12} /> MUNICIPALITY
-                  </label>
-                  <select
-                    className="res-input-dropdown"
-                    value={selectedMunicipality}
-                    onChange={(e) => setSelectedMunicipality(e.target.value)}
-                  >
-                    <option value="">Select City</option>
-                    {municipalities.map((m) => (
-                      <option key={m.code} value={m.code}>
-                        {m.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="input-group">
-                  <label>
-                    <MapPin size={12} /> BARANGAY
-                  </label>
-                  <select
-                    className="res-input-dropdown"
-                    value={selectedBarangay}
-                    onChange={(e) => setSelectedBarangay(e.target.value)}
-                    disabled={!selectedMunicipality}
-                  >
-                    <option value="">Select Brgy</option>
-                    {barangays.map((b) => (
-                      <option key={b.code} value={b.code}>
-                        {b.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              {/* GUEST COUNT */}
-              <div className="input-group">
-                <label>GUESTS (MAX {totalSeats})</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="1"
-                  value={guestCount}
-                  onKeyDown={(e) => {
-                    if (["e", "E", "+", "-", "."].includes(e.key)) {
-                      e.preventDefault();
-                    }
-                  }}
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/\D/g, "");
-                    if (val === "") {
-                      setGuestCount("");
-                      return;
-                    }
-                    let num = parseInt(val, 10);
-                    if (num > totalSeats) num = totalSeats;
-                    if (num < 1 && val !== "") num = 1;
-                    setGuestCount(num);
-                  }}
-                />
-              </div>
-              {/* HIGH CHAIR SECTION */}
-              <div className="input-group">
-                <label>
-                  <Baby size={12} /> HIGH CHAIR NEEDED?
-                </label>
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "20px",
-                    marginTop: "8px",
-                    padding: "5px 0",
-                  }}
-                >
-                  <label
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                      fontSize: "13px",
-                      cursor: "pointer",
-                      color: "#555",
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name="highChair"
-                      value="Yes"
-                      checked={highChair === "Yes"}
-                      onChange={(e) => setHighChair(e.target.value)}
-                      style={{ accentColor: "#f38d31" }} // Matches your orange theme
-                    />
-                    Yes
-                  </label>
-                  <label
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                      fontSize: "13px",
-                      cursor: "pointer",
-                      color: "#555",
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name="highChair"
-                      value="No"
-                      checked={highChair === "No"}
-                      onChange={(e) => setHighChair(e.target.value)}
-                      style={{ accentColor: "#f38d31" }}
-                    />
-                    No
-                  </label>
-                </div>
-              </div>
+                }}
+              />
+            </div>
 
-              <div className="input-group">
-                <label>ALLERGY</label>
-                <select
-                  className="res-input-dropdown"
-                  value={allergy}
-                  onChange={(e) => {
-                    setAllergy(e.target.value);
-                    if (e.target.value !== "Other") setOtherAllergy("");
-                  }}
-                >
-                  <option value="No Allergy">No Allergy</option>
-                  <option value="Peanuts">Peanuts</option>
-                  <option value="Seafood">Seafood</option>
-                  <option value="Dairy">Dairy</option>
-                  <option value="Other">Other</option>
-                </select>
-                {allergy === "Other" && (
+            {form.date && selectedId && (
+              <>
+                <div className="table-schedule-section">
+                  <h4 className="schedule-header">
+                    <Clock size={14} /> Occupied Slots for {primaryTable?.label}
+                  </h4>
+                  <div className="schedule-list">
+                    {data.schedule.length > 0 ? (
+                      data.schedule.map((res, i) => (
+                        <div
+                          key={i}
+                          className={`schedule-item-3d ${getScheduleItemClass(res)}`}
+                        >
+                          <Clock size={12} />
+                          <span className="schedule-time">
+                            {formatTime(res.startTime)} -{" "}
+                            {formatTime(res.endTime)}
+                          </span>
+                          <span className="schedule-status">
+                            {getStatusDisplayText(res)}
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="no-res-text">
+                        No active reservations for this table
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="input-row">
+                  <div className="input-group">
+                    <label>
+                      <Clock size={12} /> START
+                    </label>
+                    <select
+                      name="startTime"
+                      className="res-input-dropdown"
+                      value={form.startTime}
+                      onChange={(e) => {
+                        handleInputChange(e);
+                        setLinkedIds([]);
+                      }}
+                    >
+                      <option value="">--:-- --</option>
+                      {availableStartTimeOptions.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="input-group">
+                    <label>
+                      <Clock size={12} /> END
+                    </label>
+                    <select
+                      className="res-input-dropdown"
+                      name="endTime"
+                      value={form.endTime}
+                      onChange={(e) => {
+                        handleInputChange(e);
+                        setLinkedIds([]);
+                      }}
+                      disabled={!form.startTime}
+                    >
+                      <option value="">--:-- --</option>
+                      {filteredEndTimeOptions.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="input-group">
+                  <div className="label-with-icon">
+                    <label>FIRST NAME</label>
+                    <Pencil
+                      size={16}
+                      className={`edit-toggle-icon ${ui.editing ? "active" : ""}`}
+                      onClick={() =>
+                        setUi((p) => ({ ...p, editing: !p.editing }))
+                      }
+                    />
+                  </div>
                   <input
                     type="text"
-                    className="res-input fade-in"
-                    style={{ marginTop: "10px", borderColor: "#f38d31" }}
-                    placeholder="Specify allergy"
-                    value={otherAllergy}
-                    onChange={(e) => setOtherAllergy(e.target.value)}
+                    name="firstName"
+                    value={user.firstName}
+                    onChange={handleInputChange}
+                    disabled={!ui.editing}
+                    className={
+                      !isFirstNameValid && user.firstName ? "input-error" : ""
+                    }
                   />
-                )}
-              </div>
-
-              <div className="input-group">
-                <label>PACKAGES WE'RE OFFERING</label>
+                </div>
+                <div className="input-group">
+                  <label>LAST NAME</label>
+                  <input
+                    type="text"
+                    name="lastName"
+                    value={user.lastName}
+                    onChange={handleInputChange}
+                    disabled={!ui.editing}
+                    className={
+                      !isLastNameValid && user.lastName ? "input-error" : ""
+                    }
+                  />
+                </div>
+                <div className="input-group">
+                  <label>
+                    <Mail size={12} /> EMAIL ADDRESS
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={user.email}
+                    onChange={handleInputChange}
+                    disabled={!ui.editing}
+                    className={!isEmailValid && user.email ? "input-error" : ""}
+                  />
+                </div>
+                <div className="input-group">
+                  <label>
+                    <Phone size={12} /> CONTACT
+                  </label>
+                  <input
+                    type="text"
+                    name="phone"
+                    value={user.phone}
+                    onChange={handleInputChange}
+                    className={
+                      !isPhoneValid && user.phone !== "09" ? "input-error" : ""
+                    }
+                  />
+                  <small className="input-hint">
+                    Must be 11 digits starting with 09
+                  </small>
+                </div>
+                <div className="input-row">
+                  <div className="input-group">
+                    <label>
+                      <MapPin size={12} /> CITY
+                    </label>
+                    <select
+                      name="muni"
+                      className="res-input-dropdown"
+                      value={form.muni}
+                      onChange={handleInputChange}
+                    >
+                      <option value="">Select City</option>
+                      {addressData.municipalities.map((m) => (
+                        <option key={m.code} value={m.code}>
+                          {m.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="input-group">
+                    <label>
+                      <MapPin size={12} /> BRGY
+                    </label>
+                    <select
+                      name="brgy"
+                      className="res-input-dropdown"
+                      value={form.brgy}
+                      onChange={handleInputChange}
+                      disabled={!form.muni}
+                    >
+                      <option value="">Select Brgy</option>
+                      {addressData.barangays.map((b) => (
+                        <option key={b.code} value={b.code}>
+                          {b.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="input-group">
+                  <label>GUESTS</label>
+                  <input
+                    type="text"
+                    value={totalSeats}
+                    readOnly
+                    style={{
+                      backgroundColor: "#f0f0f0",
+                      cursor: "not-allowed",
+                      fontWeight: "700",
+                    }}
+                  />
+                </div>
+                <div className="input-group">
+                  <label style={{ display: "block", marginBottom: "8px" }}>
+                    <Baby size={12} /> HIGH CHAIR NEEDED?
+                  </label>
+                  <div className="radio-group-horizontal">
+                    {["Yes", "No"].map((opt) => (
+                      <label key={opt} className="custom-radio">
+                        <input
+                          type="radio"
+                          name="highChair"
+                          value={opt}
+                          checked={form.highChair === opt}
+                          onChange={handleInputChange}
+                        />{" "}
+                        <span>{opt}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div className="input-group">
+                  <label>PACKAGES</label>
+                  <button
+                    type="button"
+                    className="btn-link-mode"
+                    onClick={() => setUi((p) => ({ ...p, menu: true }))}
+                  >
+                    <Layers size={16} />{" "}
+                    {selectedItems.length > 0
+                      ? `${selectedItems.length} Selected`
+                      : "View Packages"}
+                  </button>
+                  {selectedItems.length > 0 && (
+                    <div
+                      style={{
+                        marginTop: "10px",
+                        padding: "12px",
+                        backgroundColor: "#fff9f4",
+                        border: "1px solid #fbd7b5",
+                        borderRadius: "12px",
+                        fontSize: "13px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                        }}
+                      >
+                        <span>Total:</span>
+                        <strong>
+                          ₱{orderSummary.totalOrderPrice.toFixed(2)}
+                        </strong>
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          borderTop: "1px dashed #fbd7b5",
+                          marginTop: "5px",
+                          paddingTop: "5px",
+                        }}
+                      >
+                        <span style={{ color: "#f38d31", fontWeight: "800" }}>
+                          Downpayment (20%):
+                        </span>
+                        <strong style={{ color: "#f38d31" }}>
+                          ₱{orderSummary.downpayment.toFixed(2)}
+                        </strong>
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <button
-                  type="button"
-                  className="btn-link-mode"
-                  style={{ width: "100%", marginBottom: "10px" }}
-                  onClick={() => setIsMenuOpen(true)}
+                  className={`btn-confirm ${isFormInvalid ? "btn-disabled" : ""}`}
+                  onClick={() => setUi((p) => ({ ...p, terms: true }))}
+                  disabled={isFormInvalid}
                 >
-                  <Layers size={16} />{" "}
-                  {selectedItems.length > 0
-                    ? `Selected ${selectedItems.length} Items`
-                    : "View Packages"}
+                  Confirm
                 </button>
-              </div>
-
-              {error && (
-                <p
-                  className="error-message"
-                  style={{ color: "red", fontSize: "11px" }}
-                >
-                  {error}
-                </p>
-              )}
-
-              <button
-                className={`btn-confirm ${isFormInvalid ? "btn-disabled" : ""}`}
-                onClick={() => setIsTermsOpen(true)}
-                disabled={isFormInvalid || loading}
-              >
-                {loading ? "Processing..." : "Confirm Reservation"}
-              </button>
-            </div>
+              </>
+            )}
           </div>
-        )}
+        </div>
       </aside>
 
-      <TermsModal
-        isOpen={isTermsOpen}
-        onClose={() => setIsTermsOpen(false)}
-        onAccept={handleAcceptTerms}
-      />
+      {form.date && (
+        <div
+          className="floor-plan-main fade-in"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <header className="floor-header">
+            <h1 className="floor-title">Select a Table</h1>
+          </header>
+          {selectedId && (
+            <div style={{ marginBottom: "20px", width: "100%" }}>
+              <button
+                className={`btn-link-mode ${isLinkMode ? "active" : ""}`}
+                onClick={() => {
+                  setIsLinkMode(!isLinkMode);
+                  if (!isLinkMode && (!form.startTime || !form.endTime)) {
+                    alert(
+                      "Please select start time and end time before linking tables",
+                    );
+                  }
+                }}
+                style={{
+                  width: "100%",
+                  padding: "14px 0",
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
+                <LinkIcon size={18} style={{ marginRight: "10px" }} />{" "}
+                {isLinkMode ? "Finish Linking" : "Link Tables"}
+              </button>
 
-      <MenuModal
-        isOpen={isMenuOpen}
-        onClose={() => setIsMenuOpen(false)}
-        onSelectedItemsChange={(items) => setSelectedItems(items)}
+              {isLinkMode && form.startTime && form.endTime && (
+                <div
+                  style={{
+                    marginTop: "10px",
+                    padding: "10px",
+                    backgroundColor: "#f0f5ff",
+                    borderRadius: "8px",
+                    fontSize: "12px",
+                    textAlign: "center",
+                  }}
+                >
+                  <strong>Available tables for linking:</strong>{" "}
+                  {availableTablesForLinking.length} tables available
+                  <br />
+                  <small>
+                    Only tables with no time conflict during {form.startTime} -{" "}
+                    {form.endTime} can be linked
+                  </small>
+                </div>
+              )}
+            </div>
+          )}
+          <div className="table-selection-grid">
+            {TABLES_DATA.map((t) => {
+              const hasAnyReservation = hasActiveReservation(t.id);
+              const hasOngoing = hasOngoingReservation(t.id);
+              const isSelected = selectedId === t.id;
+              const isLinked = linkedIds.includes(t.id);
+              const showWarning = showOngoingWarning === t.id;
+
+              let cardCls = "";
+              if (isSelected) {
+                cardCls = "selected";
+              } else if (isLinked) {
+                cardCls = "linked";
+              } else if (hasOngoing && !isLinkMode) {
+                cardCls = "occupied";
+              } else if (hasAnyReservation && !isLinkMode) {
+                cardCls = "reserved";
+              } else {
+                cardCls = "available";
+              }
+
+              let dotCls = "available";
+              if (hasOngoing) {
+                dotCls = "occupied";
+              } else if (hasAnyReservation) {
+                dotCls = "reserved";
+              }
+
+              return (
+                <div
+                  key={t.id}
+                  className={`table-list-card ${cardCls}`}
+                  onClick={() => onTableClick(t)}
+                  style={{
+                    cursor: "pointer",
+                    position: "relative",
+                  }}
+                >
+                  <div className="table-card-content">
+                    <div className="table-details">
+                      <div className="table-title-row">
+                        <Armchair size={16} />
+                        <strong className="table-label-text">{t.label}</strong>
+                      </div>
+                      <span className="table-seats-text">{t.seats} Seats</span>
+                      {hasOngoing && !isLinkMode && (
+                        <div className="ongoing-badge">
+                          <AlertCircle size={12} />
+                          <span>Ongoing Now</span>
+                        </div>
+                      )}
+                      {hasAnyReservation && !hasOngoing && !isLinkMode && (
+                        <div className="reserved-badge">
+                          <Clock size={12} />
+                          <span>Reserved</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className={`status-dot ${dotCls}`} />
+                  {showWarning && !isLinkMode && (
+                    <div className="warning-tooltip">
+                      <AlertCircle size={14} />
+                      <span>This table has an ongoing reservation</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div className="floor-legend-horizontal">
+            <div className="legend-item">
+              <span className="dot available"></span> Available
+            </div>
+            <div className="legend-item">
+              <span className="dot reserved"></span> Reserved
+            </div>
+            <div className="legend-item">
+              <span className="dot occupied"></span> Occupied/Ongoing
+            </div>
+            <div className="legend-item">
+              <span
+                className="dot"
+                style={{ backgroundColor: "#3a86ff" }}
+              ></span>{" "}
+              Selected
+            </div>
+            {isLinkMode && (
+              <div className="legend-item">
+                <span
+                  className="dot"
+                  style={{ backgroundColor: "#3a86ff" }}
+                ></span>{" "}
+                Linked
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <PackageModal
+        isOpen={ui.menu}
+        onClose={() => setUi((p) => ({ ...p, menu: false }))}
+        onSelectedItemsChange={setSelectedItems}
         initialSelectedItems={selectedItems}
       />
+      <TermsModal
+        isOpen={ui.terms}
+        onClose={() => setUi((p) => ({ ...p, terms: false }))}
+        onAccept={() => {
+          setUi((p) => ({ ...p, terms: false, summary: true }));
+        }}
+      />
       <ReservationSummary
-        isOpen={isSummaryOpen}
-        onClose={() => setIsSummaryOpen(false)}
+        isOpen={ui.summary}
+        onClose={() => setUi((p) => ({ ...p, summary: false }))}
         orderSummary={orderSummary}
         reservationData={fullReservationData}
-        onConfirm={handleConfirmReservation}
-        loading={loading}
+        onConfirm={confirmBooking}
+        loading={ui.loading}
+        paymentMethod={paymentMethod}
+        setPaymentMethod={setPaymentMethod}
       />
     </div>
   );

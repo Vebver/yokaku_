@@ -5,7 +5,7 @@
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.5); /* Lightened overlay for white theme */
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -15,16 +15,16 @@
 }
 
 .modal-content {
-  background: #ffffff; /* CHANGED TO WHITE */
-  color: #333; /* DARK TEXT FOR WHITE BG */
+  background: #ffffff;
+  color: #333;
   padding: 40px 30px;
   border-radius: 15px;
   width: 95%;
   max-width: 420px;
   position: relative;
   text-align: center;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15); /* Softer shadow */
-  border: 1px solid #eee; /* Lighter border */
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  border: 1px solid #eee;
   transition: all 0.3s ease-in-out;
   overflow: hidden;
 }
@@ -32,29 +32,59 @@
 /* --- TYPOGRAPHY & HEADERS --- */
 .modal-content h2 {
   margin-bottom: 25px;
-  font-family: "Arial Black", sans-serif;
+  font-family: "Arial Black", "Inter", sans-serif;
   letter-spacing: 2px;
-  color: #ffcc00; /* Keep the gold accent */
+  color: #ffcc00;
   text-transform: uppercase;
+}
+
+/* --- FORM LABELS - NO GAP BELOW --- */
+.form-label {
+  display: block;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  color: #666;
+  margin-bottom: 4px;
+  margin-top: 12px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  text-align: left;
+}
+
+.form-label:first-of-type {
+  margin-top: 0;
 }
 
 /* --- FORMS & INPUTS --- */
 .modal-content form {
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 0;
 }
 
 .login-input {
   width: 100%;
   padding: 12px;
   border-radius: 8px;
-  border: 1px solid #ddd; /* Light border for visibility on white */
-  background: #fdfdfd; /* Very light gray background */
-  color: #333; /* Dark text */
+  border: 1px solid #ddd;
+  background: #fdfdfd;
+  color: #333;
   outline: none;
-  font-size: 16px;
+  font-size: 14px;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
   box-sizing: border-box;
+  margin-top: 0;
 }
 
 .login-input:focus {
@@ -88,7 +118,7 @@
 
 .eye-svg,
 .eye-svg-confirm {
-  color: #aaa; /* Gray icons */
+  color: #aaa;
   transition: color 0.2s;
 }
 
@@ -107,12 +137,13 @@
   padding: 14px;
   border-radius: 8px;
   font-weight: bold;
-  font-size: 16px;
+  font-size: 14px;
+  font-family: "Inter", sans-serif;
   cursor: pointer;
   transition:
     transform 0.2s,
     background 0.2s;
-  margin-top: 10px;
+  margin-top: 12px;
 }
 
 .submit-btn:hover:not(:disabled) {
@@ -122,21 +153,22 @@
 }
 
 .submit-btn:disabled {
-  background: #e0e0e0 !important; /* Muted gray for disabled */
+  background: #e0e0e0 !important;
   color: #999;
   cursor: not-allowed;
 }
 
 /* --- OTP / EMAIL VERIFICATION --- */
 .verify-desc {
-  color: #555; /* Darker gray for white bg */
+  color: #555;
   font-size: 14px;
+  font-family: "Inter", sans-serif;
   margin-bottom: 20px;
   line-height: 1.5;
 }
 
 .user-email {
-  color: #d4ac0d; /* Slightly darker gold for readability on white */
+  color: #d4ac0d;
   font-weight: bold;
   word-break: break-all;
 }
@@ -154,13 +186,14 @@
   min-width: 35px;
   max-width: 50px;
   height: 55px;
-  background: #f9f9f9; /* Light background */
+  background: #f9f9f9;
   border: 1px solid #ddd;
   border-radius: 8px;
   color: #333;
   text-align: center;
   font-size: 20px;
   font-weight: bold;
+  font-family: "Inter", sans-serif;
   outline: none;
   transition: all 0.2s;
 }
@@ -182,7 +215,8 @@
 /* --- TEXT LINKS & SWITCHERS --- */
 .signup-text,
 .verify-footer p {
-  font-size: 14px;
+  font-size: 13px;
+  font-family: "Inter", sans-serif;
   color: #666;
 }
 
@@ -191,10 +225,11 @@
 .resend-btn {
   background: none;
   border: none;
-  color: #d4ac0d; /* Darker gold */
+  color: #d4ac0d;
   font-weight: bold;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
+  font-family: "Inter", sans-serif;
   padding: 0;
   transition: color 0.2s;
   text-decoration: none;
@@ -211,6 +246,7 @@
   color: #999;
   text-decoration: none;
   font-size: 13px;
+  font-family: "Inter", sans-serif;
 }
 
 .back-link:hover {
@@ -222,8 +258,9 @@
 .password-warning {
   color: #d9534f;
   font-size: 12px;
-  margin-top: -10px;
-  margin-bottom: 5px;
+  font-family: "Inter", sans-serif;
+  margin-top: 4px;
+  margin-bottom: 0;
   text-align: left;
   width: 100%;
 }
@@ -239,6 +276,7 @@
   color: #ccc;
   cursor: pointer;
   line-height: 1;
+  font-family: sans-serif;
 }
 
 .close-btn:hover {
@@ -250,25 +288,64 @@
   display: flex;
   justify-content: flex-end;
   width: 100%;
-  margin-top: 10px; /* Adjust this to move it closer to the password field */
-  margin-bottom: 5px;
+  margin-top: 4px;
+  margin-bottom: 0;
 }
 
 /* Styling the button to look like a yellow underlined link */
 .forgot-password-link {
   background: none;
   border: none;
-  color: #ffcc00; /* Yellow color */
+  color: #ffcc00;
   text-decoration: underline;
-  font-size: 0.85rem;
+  font-size: 11px;
+  font-family: "Inter", sans-serif;
   cursor: pointer;
   padding: 0;
   font-weight: 500;
   transition: color 0.2s ease;
-  font-weight: bold;
 }
 
 .forgot-password-link:hover {
-  color: #e6bf00; /* Slightly darker yellow on hover */
-  text-decoration: none; /* Optional: remove underline on hover */
+  color: #e6bf00;
+  text-decoration: none;
+}
+
+/* --- ANIMATIONS --- */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* --- RESPONSIVE --- */
+@media (max-width: 480px) {
+  .modal-content {
+    padding: 30px 20px;
+    width: 90%;
+  }
+
+  .otp-input {
+    height: 45px;
+    font-size: 16px;
+  }
+
+  .submit-btn {
+    padding: 12px;
+    font-size: 13px;
+  }
+
+  .form-label {
+    font-size: 10px;
+    margin-top: 10px;
+  }
+
+  .forgot-password-link {
+    font-size: 10px;
+  }
 }

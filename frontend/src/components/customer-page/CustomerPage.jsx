@@ -9,82 +9,97 @@ import ReviewsSection from "../ReviewsSection";
 import Footer from "../Footer";
 import LoginSection from "../LoginSection";
 import TableReservation from "../TableReservation";
+import ExistingModal from "../ExistingModal";
+import axios from "axios";
 import "../../Style/App.css";
 
 // Receive props passed from App.jsx
-function CustomerPage({
-  onSuccess,
-  onReserveClick,
-  isLoggedIn: parentIsLoggedIn,
-  onLoginClick,
-}) {
-  const [isLoginOpen, setIsLoginOpen] = useState(false);
-  const [isReservationOpen, setIsReservationOpen] = useState(false);
-  const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const navigate = useNavigate();
+function CustomerPage({ isLoggedIn, onLoginClick, onReserveClick, onSuccess }) {
+  const [showExistingModal, setShowExistingModal] = useState(false);
+  const [existingReservation, setExistingReservation] = useState(null);
+  const [checking, setChecking] = useState(false);
 
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      setIsLoggedIn(true);
-    } else {
-      navigate("/");
+  const checkExistingReservation = async () => {
+    const userId = localStorage.getItem("userId");
+    if (!userId) return false;
+
+    try {
+      setChecking(true);
+      const response = await axios.get(
+        `/api/reservations/check-active/${userId}`,
+      );
+
+      if (response.data.hasActive) {
+        const detailsRes = await axios.get(
+          `/api/reservations/user-active/${userId}`,
+        );
+        setExistingReservation(detailsRes.data);
+        setShowExistingModal(true);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error("Error checking existing reservation:", error);
+      return false;
+    } finally {
+      setChecking(false);
     }
-  }, [navigate]);
-
-  const handleReservationSuccess = () => {
-    setIsReservationOpen(false);
-    setShowSuccessOverlay(true);
-    if (onSuccess) onSuccess();
   };
 
-  if (!isLoggedIn) return <div>Loading...</div>;
+  const handleReserveTable = async () => {
+    if (!isLoggedIn) {
+      onLoginClick();
+      return;
+    }
+
+    const hasActive = await checkExistingReservation();
+    if (!hasActive) {
+      onReserveClick();
+    }
+  };
+
+  const handleCloseModal = () => {
+    setShowExistingModal(false);
+    setExistingReservation(null);
+  };
 
   return (
-    <div id="app" style={{ position: "relative" }}>
+    <>
+      {/* Hero Section with Reserve Button */}
       <HeroSection
-        /* Use props from App.jsx to ensure the URL changes */
-        isLoggedIn={parentIsLoggedIn || isLoggedIn}
-        onLoginClick={onLoginClick || (() => setIsLoginOpen(true))}
-        onReserveClick={onReserveClick}
+        isLoggedIn={isLoggedIn}
+        onLoginClick={onLoginClick}
+        onReserveClick={handleReserveTable}
       />
 
+      {/* Menu Section */}
       <div id="menu-section">
-        <FeaturedMenu
-          onLoginClick={onLoginClick || (() => setIsLoginOpen(true))}
-        />
+        <FeaturedMenu onLoginClick={onLoginClick} />
       </div>
+
+      {/* About Section */}
       <div id="about-section">
-        <AboutSection
-          isLoggedIn={isLoggedIn}
-          onLoginClick={onLoginClick || (() => setIsLoginOpen(true))}
-        />
+        <AboutSection isLoggedIn={isLoggedIn} onLoginClick={onLoginClick} />
       </div>
+
+      {/* Promos Section */}
       <div id="promos-section">
         <PromoSection />
       </div>
+
+      {/* Reviews Section */}
       <ReviewsSection />
+
+      {/* Footer */}
       <Footer />
 
-      {showSuccessOverlay && (
-        <div className="res-success-overlay">
-          <div className="res-success-card fade-in">
-            <CheckCircle size={60} color="#52b788" />
-            <h2>Reservation Submitted!</h2>
-            <p>Your request has been sent successfully.</p>
-            <button
-              className="res-success-close"
-              onClick={() => setShowSuccessOverlay(false)}
-            >
-              Back to Home
-            </button>
-          </div>
-        </div>
-      )}
-
-      {isLoginOpen && <LoginSection onClose={() => setIsLoginOpen(false)} />}
-    </div>
+      {/* Existing Reservation Modal */}
+      <ExistingModal
+        isOpen={showExistingModal}
+        onClose={handleCloseModal}
+        reservationDetails={existingReservation}
+      />
+    </>
   );
 }
 

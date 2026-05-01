@@ -8,6 +8,11 @@
   border-radius: 0 0 20px 20px;
 }
 
+/* For logged-in users, ensure hero is visible */
+.logged-in .hero {
+  margin-top: 0;
+}
+
 .hero .hero-image-container {
   position: absolute;
   top: 0;
@@ -44,11 +49,13 @@
 }
 
 .hero .hero-text .highlight {
-  color: #FFD400;
+  color: #ffd400;
 }
 
 .hero .hero-text p {
-  font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+  font-family:
+    "Lucida Sans", "Lucida Sans Regular", "Lucida Grande",
+    "Lucida Sans Unicode", Geneva, Verdana, sans-serif;
   font-weight: 400;
   font-size: 1.1rem;
   margin-bottom: 2rem;
@@ -83,4 +90,3 @@
     max-width: 100%;
   }
 }
-

@@ -2,6 +2,7 @@
 .featured-menu {
   padding: 3rem 2rem;
   text-align: center;
+  background-color: #fdfbf0;
 }
 
 .featured-menu h2 {
@@ -79,11 +80,11 @@
   width: 95%;
   max-width: 1200px;
   margin: 0 auto 50px auto; /* Increased bottom margin to make room for dots */
-  padding: 0 40px; 
+  padding: 0 40px;
   position: relative;
   /* Removed overflow: hidden; so dots can be seen */
   display: block;
-  overflow:visible;
+  overflow: visible;
 }
 .featured-menu .slick-dots {
   bottom: -35px;

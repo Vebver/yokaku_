@@ -52,14 +52,25 @@ function AppContent() {
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("token"));
   const [userRole, setUserRole] = useState(localStorage.getItem("role"));
 
+  // Update state when localStorage changes
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    setIsLoggedIn(!!token);
+    const handleStorageChange = () => {
+      const token = localStorage.getItem("token");
+      setIsLoggedIn(!!token);
+      setUserRole(localStorage.getItem("role"));
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("role");
+    localStorage.removeItem("userId");
+    localStorage.removeItem("firstName");
+    localStorage.removeItem("lastName");
+    localStorage.removeItem("email");
     setIsLoggedIn(false);
     setUserRole(null);
     navigate("/");
@@ -69,7 +80,6 @@ function AppContent() {
     setShowSuccessMessage(true);
   };
 
-  // --- IMPROVED REDIRECT LOGIC ---
   const handleCloseSuccessModal = () => {
     setShowSuccessMessage(false);
     if (isLoggedIn) {
@@ -90,9 +100,11 @@ function AppContent() {
         onLoginClick={() => setIsLoginOpen(true)}
         isLoggedIn={isLoggedIn}
         onLogout={handleLogout}
+        userRole={userRole}
       />
 
       <Routes>
+        {/* Landing Page - Redirect logged in users to their respective dashboards */}
         <Route
           path="/"
           element={
@@ -128,6 +140,7 @@ function AppContent() {
           }
         />
 
+        {/* Table Reservation Page */}
         <Route
           path="/tablereservation"
           element={
@@ -138,33 +151,24 @@ function AppContent() {
           }
         />
 
+        {/* Customer Dashboard */}
         <Route
           path="/customer"
           element={
-            isLoggedIn ? (
-              userRole === "admin" ? (
-                // If an admin tries to go to /customer, send them back to admin
-                <Navigate to="/admin" replace />
-              ) : (
-                <CustomerPage
-                  isLoggedIn={isLoggedIn}
-                  onLoginClick={() => setIsLoginOpen(true)}
-                  onReserveClick={() => navigate("/tablereservation")}
-                  onSuccess={handleReservationSuccess}
-                />
-              )
+            isLoggedIn && userRole !== "admin" ? (
+              <CustomerPage
+                isLoggedIn={isLoggedIn}
+                onLoginClick={() => setIsLoginOpen(true)}
+                onReserveClick={() => navigate("/tablereservation")}
+                onSuccess={handleReservationSuccess}
+              />
             ) : (
               <Navigate to="/" replace />
             )
           }
         />
 
-        <Route
-          path="/profile"
-          element={
-            isLoggedIn ? <CustomerProfile /> : <Navigate to="/" replace />
-          }
-        />
+        {/* Customer Profile */}
         <Route
           path="/profile"
           element={
@@ -175,6 +179,8 @@ function AppContent() {
             )
           }
         />
+
+        {/* Notifications */}
         <Route
           path="/notifications"
           element={
@@ -185,11 +191,13 @@ function AppContent() {
             )
           }
         />
+
+        {/* Admin Dashboard */}
         <Route path="/admin/*" element={<AdminDashboard />} />
+
+        {/* Kiosk Routes */}
         <Route path="/kiosk-selection" element={<KioskSelection />} />
         <Route path="/kiosk-selection/kiosk-menu" element={<KioskMenu />} />
-        <Route path="/kitchen-page" element={<KitchenPage />} />
-        <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
         <Route
           path="/kiosk-selection/kiosk-reservation"
           element={<KioskReservation />}
@@ -198,8 +206,17 @@ function AppContent() {
           path="/kiosk-selection/kiosk-reservation-menu"
           element={<KioskReservationMenu />}
         />
+
+        {/* Kitchen Page */}
+        <Route path="/kitchen-page" element={<KitchenPage />} />
+
+        {/* Reset Password */}
+        <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+
+        {/* Full Menu */}
         <Route path="/menu" element={<FullMenu />} />
 
+        {/* Catch all - Redirect to appropriate dashboard */}
         <Route
           path="*"
           element={
@@ -216,6 +233,7 @@ function AppContent() {
         />
       </Routes>
 
+      {/* Modals */}
       {isLoginOpen && <LoginSection onClose={() => setIsLoginOpen(false)} />}
 
       <TermsModal
@@ -224,7 +242,6 @@ function AppContent() {
         onAccept={handleAcceptTerms}
       />
 
-      {/* FIXED SUCCESS MODAL CALL */}
       {showSuccessMessage && (
         <ReservationSuccess onClose={handleCloseSuccessModal} />
       )}
@@ -235,24 +252,20 @@ function AppContent() {
 // 3. SUCCESS COMPONENT
 const ReservationSuccess = ({ onClose }) => {
   return (
-    <div className="res-success-overlay">
+    <div className="res-success-overlay" onClick={onClose}>
       <div
         className="res-success-card fade-in"
         onClick={(e) => e.stopPropagation()}
       >
         <div style={{ fontSize: "50px", color: "#f38d31" }}>✔</div>
         <h2>SUBMITTED SUCCESSFULLY</h2>
-
         <p>Your reservation request has been received.</p>
-
         <div className="res-status-text">
           Status: <strong>Confirmed</strong>
         </div>
-
         <p className="res-info-small">
           Check your notifications for assigned table details and updates.
         </p>
-
         <button className="res-success-close" onClick={onClose}>
           OKAY
         </button>
@@ -261,25 +274,38 @@ const ReservationSuccess = ({ onClose }) => {
   );
 };
 
-// 4. NAVBAR WRAPPER (Keep as is)
-const NavbarWrapper = ({ onLoginClick, isLoggedIn, onLogout }) => {
+// 4. NAVBAR WRAPPER
+const NavbarWrapper = ({ onLoginClick, isLoggedIn, onLogout, userRole }) => {
   const location = useLocation();
 
-  if (
-    location.pathname.startsWith("/admin") ||
-    location.pathname.startsWith("/cashier-selection") ||
-    location.pathname.startsWith("/kiosk-selection") ||
-    location.pathname.startsWith("/kitchen-page") ||
-    location.pathname.startsWith("/tablereservation") ||
-    location.pathname.startsWith("/reset-password")
-  ) {
+  // Debug logging
+  console.log("NavbarWrapper - Path:", location.pathname);
+  console.log("NavbarWrapper - IsLoggedIn:", isLoggedIn);
+  console.log("NavbarWrapper - UserRole:", userRole);
+
+  // Hide navbar on these pages
+  const hiddenPaths = [
+    "/admin",
+    "/cashier-selection",
+    "/kiosk-selection",
+    "/kitchen-page",
+    "/tablereservation",
+    "/reset-password",
+  ];
+
+  if (hiddenPaths.some((path) => location.pathname.startsWith(path))) {
+    console.log("NavbarWrapper - Hiding navbar (special page)");
     return null;
   }
 
+  // Show CustomerNavbar for logged in users (both customer and admin on customer routes)
   if (isLoggedIn) {
+    console.log("NavbarWrapper - Showing CustomerNavbar");
     return <CustomerNavbar onLogout={onLogout} />;
   }
 
+  // Show regular Navbar for non-logged in users
+  console.log("NavbarWrapper - Showing regular Navbar");
   return (
     <Navbar
       onLoginClick={onLoginClick}

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   PlusSquare, Drumstick, CupSoda, Check, Bell, 
-  AlertCircle, Clock, Star, User, CheckCircle,
+  AlertCircle, Clock, Star, User, CheckCircle, PackageSearch
 } from "lucide-react";
 import "../../Style/KioskReservationMenu.css";
 import ReservationOrderModal from "./ReservationOrderModal";
@@ -13,6 +13,7 @@ import PortalModal from "./PortalModal";
 let socket;
 
 const categoryIcons = {
+  "My Reserved Items": <PackageSearch color="#ffcc00" />,
   "Chicken Wings": <Drumstick />,
   Extra: <PlusSquare />,
   Drinks: <CupSoda />,
@@ -26,12 +27,12 @@ const KioskReservationMenu = () => {
   const [menuData, setMenuData] = useState({});
   const [loading, setLoading] = useState(true);
   const [showEndModal, setShowEndModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false); // New Success State
   const [activeCategory, setActiveCategory] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [cart, setOrderCart] = useState([]);
 
-  // 1 Hour 30 Minutes = 5400 Seconds
   const [timeLeft, setTimeLeft] = useState(5400); 
   const [isTimerRunning, setIsTimerRunning] = useState(false);
 
@@ -63,6 +64,49 @@ const KioskReservationMenu = () => {
   useEffect(() => {
     socket = io("http://localhost:5000");
 
+    const fetchData = async () => {
+      try {
+        // 1. Fetch All Products
+        const prodRes = await fetch("http://localhost:5000/api/products");
+        const allProducts = await prodRes.json();
+
+        // 2. Fetch User's Reserved Items (Items chosen during booking)
+        const resItemsRes = await fetch(`http://localhost:5000/api/orders/reservation-items/${reservationId}`);
+        const reservedItems = await resItemsRes.json();
+
+        const grouped = {};
+
+        // 3. Add "My Reserved Items" category at the TOP if items exist
+        if (reservedItems.length > 0) {
+          grouped["My Reserved Items"] = reservedItems.map(item => ({
+            id: item.item_id,
+            name: item.name,
+            price: item.price,
+            image: item.image_url.startsWith("http") ? item.image_url : `http://localhost:5000${item.image_url.startsWith("/") ? "" : "/"}${item.image_url}`
+          }));
+        }
+
+        // 4. Group all other products
+        allProducts.forEach(item => {
+          const cat = item.category_name || "Uncategorized";
+          if (!grouped[cat]) grouped[cat] = [];
+          const img = item.image_url || "";
+          const finalImg = img.startsWith("http") ? img : `http://localhost:5000${img.startsWith("/") ? "" : "/"}${img}`;
+          grouped[cat].push({ id: item.item_id, name: item.name, price: item.price, image: finalImg });
+        });
+
+        setMenuData(grouped);
+        const cats = Object.keys(grouped);
+        if (cats.length > 0) setActiveCategory(cats[0]); // Defaults to "My Reserved Items"
+        setLoading(false);
+      } catch (err) {
+        console.error("Data Fetch Error:", err);
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+
     const savedEndTime = localStorage.getItem(TIMER_SESSION_KEY);
     if (savedEndTime) {
       const remaining = Math.floor((parseInt(savedEndTime) - Date.now()) / 1000);
@@ -70,29 +114,10 @@ const KioskReservationMenu = () => {
         setTimeLeft(remaining);
         setIsTimerRunning(true);
       }
-    } else {
-        setTimeLeft(5400); // Default UI display
     }
 
-    fetch("http://localhost:5000/api/products")
-      .then(res => res.json())
-      .then(data => {
-        const grouped = data.reduce((acc, item) => {
-          const cat = item.category_name || "Uncategorized";
-          if (!acc[cat]) acc[cat] = [];
-          const img = item.image_url || "";
-          const finalImg = img.startsWith("http") ? img : `http://localhost:5000${img.startsWith("/") ? "" : "/"}${img}`;
-          acc[cat].push({ id: item.item_id, name: item.name, image: finalImg });
-          return acc;
-        }, {});
-        setMenuData(grouped);
-        const cats = Object.keys(grouped);
-        if (cats.length > 0) setActiveCategory(cats[0]);
-        setLoading(false);
-      });
-
     return () => { if (socket) socket.disconnect(); };
-  }, []);
+  }, [reservationId]);
 
   const formatTime = (seconds) => {
     if (seconds <= 0) return "0:00:00";
@@ -102,15 +127,37 @@ const KioskReservationMenu = () => {
     return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
-  const handleSendRequest = () => {
+  const handleSendRequest = async () => {
     if (cart.length > 0) {
-      socket.emit("send_order", { table: reservationId, items: cart.map(i => ({ name: i.name, qty: i.quantity })) });
-      if (!localStorage.getItem(TIMER_SESSION_KEY)) {
-        const endTime = (Date.now() + 5400 * 1000).toString();
-        localStorage.setItem(TIMER_SESSION_KEY, endTime);
-        setIsTimerRunning(true);
+      try {
+        const response = await fetch("http://localhost:5000/api/orders/place", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            reservation_id: reservationId,
+            items: cart.map(i => ({ item_id: i.id, quantity: i.quantity }))
+          })
+        });
+
+        if (response.ok) {
+          // Send via socket for real-time kitchen display (optional)
+          socket.emit("send_order", { table: reservationId, items: cart.map(i => ({ name: i.name, qty: i.quantity })) });
+
+          if (!localStorage.getItem(TIMER_SESSION_KEY)) {
+            const endTime = (Date.now() + 5400 * 1000).toString();
+            localStorage.setItem(TIMER_SESSION_KEY, endTime);
+            setIsTimerRunning(true);
+          }
+          
+          setOrderCart([]);
+          setShowSuccessModal(true); // Show success modal
+        } else {
+          const err = await response.json();
+          alert("Order failed: " + err.error);
+        }
+      } catch (err) {
+        alert("Server error. Please try again.");
       }
-      setOrderCart([]);
     }
   };
 
@@ -149,7 +196,7 @@ const KioskReservationMenu = () => {
         <div className="header-right-spacer"></div>
       </header>
 
-      <div className="res-main-layout" style={{ display: 'flex', height: '100vh', paddingTop: '80px' }}>
+     <div className="res-main-layout" style={{ display: 'flex', height: 'calc(100vh - 80px)', marginTop: '80px' }}>
         <aside className="res-sidebar">
           <div className="res-brand"><h1>HANGOUT</h1><p>Resto Bar</p></div>
           <div className="res-category-list">
@@ -162,6 +209,7 @@ const KioskReservationMenu = () => {
               ))}
             </div>
           </div>
+          <button className="res-assist-btn" onClick={() => (window.location.href = "/kiosk-selection")}><Bell size={18} /><span>Assist Me</span></button>
         </aside>
 
         <main className="res-content-area" style={{ flex: 1, overflowY: 'auto' }}>
@@ -171,7 +219,10 @@ const KioskReservationMenu = () => {
                 <div className="res-card-image-container">
                     <img src={item.image} alt={item.name} className="res-food-img" onError={(e) => { e.target.src = "https://via.placeholder.com/150"; }} />
                 </div>
-                <div className="res-card-info"><h4 className="res-food-label">{item.name}</h4></div>
+                <div className="res-card-info">
+                    <h4 className="res-food-label">{item.name}</h4>
+                    <p style={{color: '#ffcc00', fontSize: '0.9rem'}}>₱{item.price}</p>
+                </div>
               </div>
             ))}
           </div>
@@ -183,18 +234,36 @@ const KioskReservationMenu = () => {
       <footer className="res-bottom-bar" style={{ zIndex: 4000 }}>
         <button className="res-btn-view-all" onClick={() => (window.location.href = "/kiosk-selection")}>Back</button>
         <div className="res-action-btns">
-          <button className="res-btn-view" onClick={handleSendRequest} style={{ background: '#ffcc00' }}>Send Request</button>
+          <button className="res-btn-view" disabled={cart.length === 0} onClick={handleSendRequest} style={{ background: '#ffcc00' }}>Place Order</button>
         </div>
       </footer>
 
-      {/* PORTAL MODAL - This will always be on top */}
+      {/* ORDER SENT SUCCESS MODAL */}
+      {showSuccessModal && (
+        <div className="res-modal-overlay" style={{ zIndex: 10000, display: 'flex' }} onClick={() => setShowSuccessModal(false)}>
+          <div className="res-modal-card res-fade-in-scale" style={{ textAlign: "center" }}>
+            <CheckCircle size={60} color="#ffcc00" style={{ margin: "0 auto 20px" }} />
+            <h2 style={{ color: "#ffcc00" }}>Order Sent!</h2>
+            <p style={{ color: "#fff", marginBottom: "20px" }}>Your items are being prepared.</p>
+            <button className="res-modal-btn-primary" onClick={() => setShowSuccessModal(false)}>OK</button>
+          </div>
+        </div>
+      )}
+
       <PortalModal 
         isOpen={showEndModal} 
         onClose={() => setShowEndModal(false)} 
         onConfirm={stopAndClearEverything} 
       />
 
-      {isModalOpen && <ReservationOrderModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} item={selectedItem} onAdd={(item) => setOrderCart([...cart, item])} />}
+      {isModalOpen && (
+        <ReservationOrderModal 
+            isOpen={isModalOpen} 
+            onClose={() => setIsModalOpen(false)} 
+            item={selectedItem} 
+            onAdd={(item) => setOrderCart([...cart, item])} 
+        />
+      )}
     </div>
   );
 };

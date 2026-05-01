@@ -2,7 +2,7 @@
 .promos {
   text-align: center;
   padding: 3rem 2rem;
-  background-color: white;
+  background-color: #fdfbf0;
 }
 
 .promos h2 {
@@ -14,7 +14,7 @@
 }
 
 .promos .highlight {
-  color: #FFD400;
+  color: #ffd400;
   text-shadow: 2px 2px 2px #a68300;
 }
 
@@ -93,6 +93,5 @@
 }
 
 .modal-close:hover {
-  background-color: #FFD400;
+  background-color: #ffd400;
 }
-

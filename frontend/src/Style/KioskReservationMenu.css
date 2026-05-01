@@ -27,7 +27,7 @@
   white-space: nowrap;
   font-size: clamp(0.9rem, 2vw, 1.1rem);
   background-color: white; /* Black to contrast with the gold/white buttons */
-  color: black;         /* Gold text */
+  color: black; /* Gold text */
   border: 2px solid gray;
   transition: all 0.2s ease;
 }
@@ -110,37 +110,75 @@
 }
 /* --- SIDEBAR --- */
 .res-sidebar {
-  width: 280px;
-  background: var(--panel-bg);
-  backdrop-filter: blur(15px);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-lg);
+  height: 100%;
   display: flex;
   flex-direction: column;
-  padding: 1.5rem 1rem;
+  overflow: hidden; /* Prevents the sidebar box itself from expanding */
   flex-shrink: 0;
 }
 
-.res-brand { text-align: center; margin-bottom: 1.5rem; color: var(--accent)}
-.res-brand p{
+.res-brand {
+  flex-shrink: 0; /* Prevents the logo section from squishing */
+  text-align: center;
+  margin-bottom: 1.5rem;
+  color: var(--accent);
+}
+.res-brand p {
   color: white;
 }
-.res-logo-main { color: var(--accent); font-weight: 900; font-size: 1.5rem; margin: 0; }
-.res-logo-sub { margin: 0; font-size: 0.9rem; font-family: serif; font-style: italic; opacity: 0.8; color: white; text-align: center;}
+.res-logo-main {
+  color: var(--accent);
+  font-weight: 900;
+  font-size: 1.5rem;
+  margin: 0;
+}
+.res-logo-sub {
+  margin: 0;
+  font-size: 0.9rem;
+  font-family: serif;
+  font-style: italic;
+  opacity: 0.8;
+  color: white;
+  text-align: center;
+}
+.res-category-list {
+  flex: 1;
+  min-height: 0; /* MAGIC FLEXBOX LINE: Allows items to shrink and scroll */
+  display: flex;
+  flex-direction: column;
+}
+.res-cat-btn span {
+  color: #ffffff !important; /* Forces the text to be white */
+  font-weight: 600;
+}
 
 .res-cat-scroll-wrapper {
   flex: 1;
-  overflow-y: auto;
+  min-height: 0; /* CRITICAL: Must be here too */
+  overflow-y: auto; /* Enable the scrollbar */
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  scrollbar-width: none;
+  padding-right: 8px; /* Space for the scrollbar thumb */
+  scrollbar-color: #ffcc00 transparent;
 }
 
-.res-cat-scroll-wrapper::-webkit-scrollbar { display: none; }
+.res-cat-scroll-wrapper::-webkit-scrollbar {
+  scrollbar-color: #ffcc00 transparent;
+}
+.res-cat-scroll-wrapper::-webkit-scrollbar-thumb {
+  background-color: #ffcc00; /* Your gold color */
+  border-radius: 20px; /* Makes the edges round */
+  border: none; /* Ensures no weird borders */
+}
+
+.res-cat-scroll-wrapper::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05); /* Very faint track */
+  border-radius: 10px;
+}
 
 .res-cat-btn {
-  background: rgba(255,255,255,0.03);
+  background: rgba(255, 255, 255, 0.03);
   border: 1px solid transparent;
   color: var(--text-main);
   padding: 1rem;
@@ -188,9 +226,16 @@
   stroke: #000000;
 }
 
-.res-scroll-arrow { display: flex; justify-content: center; padding: 0.5rem; opacity: 0.5; color: white;}
+.res-scroll-arrow {
+  display: flex;
+  justify-content: center;
+  padding: 0.5rem;
+  opacity: 0.5;
+  color: white;
+}
 
 .res-assist-btn {
+  flex-shrink: 0;
   margin-top: auto;
   background: #000;
   border: 1.5px solid #fff;
@@ -222,8 +267,9 @@
   flex-shrink: 0; /* Don't let the grid squeeze the summary */
 }
 
-
-.res-content-area::-webkit-scrollbar { display: none; }
+.res-content-area::-webkit-scrollbar {
+  display: none;
+}
 
 .res-grid-container {
   display: grid;
@@ -262,7 +308,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
   z-index: 2;
 }
 
@@ -322,9 +368,15 @@
   align-items: center;
 }
 
-.res-action-btns { display: flex; gap: 1rem; flex: 1; justify-content: flex-end;}
+.res-action-btns {
+  display: flex;
+  gap: 1rem;
+  flex: 1;
+  justify-content: flex-end;
+}
 
-.res-btn-cancel, .res-btn-view {
+.res-btn-cancel,
+.res-btn-view {
   padding: 0.8rem 1.5rem;
   border-radius: 1rem;
   font-weight: 700;
@@ -337,13 +389,18 @@
 .res-btn-cancel {
   cursor: pointer;
   pointer-events: auto !important; /* Forces the button to receive the click */
-  background: white; 
-  border: 2px solid gray; 
-  color: #000; 
+  background: white;
+  border: 2px solid gray;
+  color: #000;
   flex-grow: 0.2;
 }
 
-.res-btn-view { background: var(--accent); border: none; color: #000; flex-grow: 0.2; }
+.res-btn-view {
+  background: var(--accent);
+  border: none;
+  color: #000;
+  flex-grow: 0.2;
+}
 
 .res-btn-view:disabled {
   background-color: #555;
@@ -363,7 +420,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 200000 !important; 
+  z-index: 200000 !important;
   pointer-events: auto;
 }
 
@@ -431,20 +488,19 @@
   animation: modalPop 0.3s ease-out forwards;
 }
 
-
 /* --- VIEW DETAILS (LABEL-ONLY STYLE) --- */
 .view-details-link {
   /* Alignment */
   align-self: flex-end; /* Pins it to the right */
-  margin-top: 15px;      /* Gap if the title is short */
-  
+  margin-top: 15px; /* Gap if the title is short */
+
   /* Reset Button Styles */
   background: none;
   border: none;
   padding: 0;
   cursor: pointer;
   outline: none;
-  
+
   /* Modern Subtle Styling */
   color: gray; /* Using your gold theme #ffcc00 */
   font-size: 0.8rem;
@@ -457,7 +513,7 @@
 
 /* Subtle Hover Effect (Underline Animation) */
 .view-details-link::after {
-  content: '';
+  content: "";
   position: absolute;
   width: 0;
   height: 2px;
@@ -485,7 +541,7 @@
   border-bottom: 1px solid #333;
   position: relative;
   /* INCREASED Z-INDEX TO ENSURE IT'S NEVER BLOCKED */
-  z-index: 99999; 
+  z-index: 99999;
   pointer-events: auto;
 }
 
@@ -503,11 +559,11 @@
   transform: translateX(-50%);
   /* BUTTON INSIDE THIS BOX NEEDS TO BE CLICKABLE */
   z-index: 100000;
-  pointer-events: auto !important; 
+  pointer-events: auto !important;
 }
 
 .timer-text {
-  font-family: 'Courier New', Courier, monospace;
+  font-family: "Courier New", Courier, monospace;
   font-size: 1.8rem;
   font-weight: 900;
   color: #ffcc00;
@@ -523,37 +579,37 @@
 
 /* User ID Section Styles */
 .header-id-section {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    background: rgba(255, 255, 255, 0.05);
-    padding: 8px 15px;
-    border-radius: 12px;
-    border: 1px solid #333;
-    z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 8px 15px;
+  border-radius: 12px;
+  border: 1px solid #333;
+  z-index: 2;
 }
 
 .id-details {
-    display: flex;
-    flex-direction: column;
+  display: flex;
+  flex-direction: column;
 }
 
 .id-label {
-    font-size: 0.6rem;
-    color: #888;
-    font-weight: 800;
-    letter-spacing: 1px;
+  font-size: 0.6rem;
+  color: #888;
+  font-weight: 800;
+  letter-spacing: 1px;
 }
 
 .id-value {
-    font-size: 1rem;
-    color: #fff;
-    font-weight: 700;
-    font-family: 'Courier New', Courier, monospace;
+  font-size: 1rem;
+  color: #fff;
+  font-weight: 700;
+  font-family: "Courier New", Courier, monospace;
 }
 
 .header-right-spacer {
-    width: 160px; /* Should roughly match the width of .header-id-section */
+  width: 160px; /* Should roughly match the width of .header-id-section */
 }
 
 .res-main-layout {
@@ -577,7 +633,7 @@
   z-index: 100001;
   pointer-events: auto !important;
   transition: all 0.2s ease;
-} 
+}
 
 .finish-session-header-btn:active {
   transform: scale(0.9);
@@ -598,35 +654,57 @@
 }
 
 @keyframes res-modalPop {
-  from { 
-    opacity: 0; 
-    transform: scale(0.9); 
+  from {
+    opacity: 0;
+    transform: scale(0.9);
   }
-  to { 
-    opacity: 1; 
-    transform: scale(1); 
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 
 /* --- RESPONSIVE FIXES --- */
 @media (max-width: 1024px) {
-  .res-main-layout { flex-direction: column; }
+  .res-main-layout {
+    flex-direction: column;
+    overflow-y: auto;
+  }
   .res-sidebar {
     width: 100%;
     height: auto;
     padding: 1rem;
   }
   .res-cat-scroll-wrapper {
-    flex-direction: row;
-    overflow-x: auto;
-    padding-bottom: 0.5rem;
-    height: 80px;
+    flex-direction: row !important;
+    overflow-x: auto !important; /* Enable side-swipe */
+    overflow-y: hidden !important;
+    padding: 10px 0;
+    gap: 1rem;
+    height: auto;
+    scrollbar-width: thin; /* Firefox */
   }
-  .res-cat-btn { white-space: nowrap; }
-  .res-brand, .res-scroll-arrow, .res-assist-btn { display: none; }
+  .res-cat-btn {
+    flex: 0 0 auto; /* MAGIC LINE: Prevents buttons from shrinking to fit screen */
+    width: 180px; /* Fixed width for buttons in horizontal mode */
+    white-space: nowrap;
+  }
+  .res-brand,
+  .res-scroll-arrow,
+  .res-assist-btn {
+    display: none;
+  }
 }
 
 @media (max-width: 600px) {
-    .res-bottom-bar { height: auto; padding: 1rem; flex-direction: column; gap: 1rem; }
-    .res-action-btns { width: 100%; justify-content: center; }
+  .res-bottom-bar {
+    height: auto;
+    padding: 1rem;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .res-action-btns {
+    width: 100%;
+    justify-content: center;
+  }
 }

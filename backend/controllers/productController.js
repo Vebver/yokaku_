@@ -60,7 +60,7 @@ const productController = {
       const clean_featured = parseInt(is_featured) === 1 ? 1 : 0;
 
       // 3. Get image URL
-      const image_url = req.file ? `/uploads/${req.file.filename}` : null;
+      const image_url = req.file ? `/uploads/${req.file.filename}` : null; // Images stored in frontend/public/uploads
 
       // 4. Call Model
       const newId = await Product.create({
@@ -105,7 +105,7 @@ const productController = {
 
       // If a new image was uploaded via multer, add it to the data
       if (req.file) {
-        data.image_url = `/uploads/${req.file.filename}`;
+        data.image_url = `/uploads/${req.file.filename}`; // Images stored in frontend/public/uploads
       }
 
       const result = await Product.update(id, data);

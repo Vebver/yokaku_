@@ -1,6 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
-import { User, Loader2, Receipt, CreditCard, AlertCircle } from "lucide-react";
+import {
+  User,
+  Loader2,
+  Receipt,
+  CreditCard,
+  AlertCircle,
+  CheckCircle2,
+} from "lucide-react";
 
 const Billing = () => {
   const [payments, setPayments] = useState([]);
@@ -31,7 +38,6 @@ const Billing = () => {
     setOrderItems([]);
     setLoadingItems(true);
     try {
-      // This calls the model function we updated with the UNION SQL
       const res = await axios.get(
         `/api/reservations/${p.reservation_id}/items`,
       );
@@ -43,10 +49,19 @@ const Billing = () => {
     }
   };
 
-  const handleStatusChange = async (id, newStatus) => {
+const handleStatusChange = async (id, newStatus) => {
     if (!window.confirm(`Mark as ${newStatus}?`)) return;
     try {
       await axios.put(`/api/billing/${id}/status`, { status: newStatus });
+      
+// Notify other components (like Reports) that payment was verified
+      if (newStatus === "verified") {
+        // Use custom event for same-tab communication
+        window.dispatchEvent(new Event("payment-verified"));
+        // Also set localStorage for cross-tab communication
+        localStorage.setItem("payment_verified", "true");
+      }
+      
       fetchPayments();
       if (closeBtnRef.current) closeBtnRef.current.click();
     } catch (err) {
@@ -54,7 +69,6 @@ const Billing = () => {
     }
   };
 
-  // Helper calculation for Total Bill
   const calculateTotal = () => {
     return orderItems.reduce(
       (sum, item) => sum + item.quantity * item.price,
@@ -70,13 +84,13 @@ const Billing = () => {
     );
 
   return (
-    <div className="container-fluid p-4">
+    <div className="container-fluid p-4 text-dark">
       <div className="fade-in">
         <div className="d-flex justify-content-between align-items-center mb-4">
           <div>
             <h2 className="fw-bold mb-0">Billing & Payments</h2>
             <p className="text-muted">
-              Verify customer receipts and manage balances
+              Manage customer balances and payment verification
             </p>
           </div>
           <button
@@ -92,52 +106,66 @@ const Billing = () => {
             <table className="table table-hover align-middle mb-0">
               <thead className="table-light text-muted small text-uppercase">
                 <tr>
-                  <th className="ps-4">Receipt</th>
-                  <th>Customer & ID</th>
-                  <th>Paid (Downpayment)</th>
-                  <th>Status</th>
+                  <th className="ps-4">Customer & ID</th>
+                  <th>Method</th>
+                  <th>Amount</th>
+                  <th>Payment Type</th>
                   <th className="text-end pe-4">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {payments.map((p) => (
-                  <tr key={p.payment_id}>
+                  <tr key={p.payment_id} style={{ height: "70px" }}>
                     <td className="ps-4">
-                      <img
-                        src={`http://localhost:5000/uploads/${p.receipt_path}`}
-                        alt="Receipt"
-                        style={{
-                          width: "50px",
-                          height: "50px",
-                          objectFit: "cover",
-                          borderRadius: "8px",
-                          border: "1px solid #eee",
-                        }}
-                      />
-                    </td>
-                    <td>
                       <div className="fw-bold text-dark">
                         {p.first_name} {p.last_name}
                       </div>
-                      <div className="text-muted smallest">
+                      <div
+                        className="text-muted small"
+                        style={{ fontSize: "0.75rem" }}
+                      >
                         ID: {p.reservation_id}
                       </div>
                     </td>
+
+                    <td>
+                      <span className="badge rounded-pill bg-light text-dark border px-3 py-2">
+                        {p.payment_method
+                          ? p.payment_method.toUpperCase()
+                          : "N/A"}
+                      </span>
+                    </td>
+
                     <td>
                       <span className="fw-bold text-success">
-                        ₱{parseFloat(p.amount).toLocaleString()}
+                        ₱
+                        {Number(p.amount || 0).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                        })}
                       </span>
                     </td>
+
                     <td>
-                      <span
-                        className={`badge ${p.payment_status === "verified" ? "bg-success-subtle text-success" : "bg-warning-subtle text-warning"} border px-2 py-1`}
-                      >
-                        {p.payment_status.toUpperCase()}
-                      </span>
+                      {p.payment_method === "Gcash" ? (
+                        <span
+                          className="badge rounded-pill bg-primary-subtle text-primary border border-primary-subtle px-3 py-2"
+                          style={{ fontSize: "0.7rem" }}
+                        >
+                          DIGITAL (PAYMONGO)
+                        </span>
+                      ) : (
+                        <span
+                          className="badge rounded-pill bg-info-subtle text-info border border-info-subtle px-3 py-2"
+                          style={{ fontSize: "0.7rem" }}
+                        >
+                          MANUAL UPLOAD
+                        </span>
+                      )}
                     </td>
+
                     <td className="text-end pe-4">
                       <button
-                        className="btn btn-sm btn-outline-dark px-3"
+                        className="btn btn-sm btn-outline-dark px-3 fw-bold"
                         data-bs-toggle="offcanvas"
                         data-bs-target="#billingDrawer"
                         onClick={() => handleReviewClick(p)}
@@ -161,7 +189,9 @@ const Billing = () => {
         style={{ width: "500px" }}
       >
         <div className="offcanvas-header border-bottom py-3 px-4">
-          <h5 className="offcanvas-title fw-bold">Payment Verification</h5>
+          <h5 className="offcanvas-title fw-bold text-dark">
+            Payment Verification
+          </h5>
           <button
             type="button"
             className="btn-close"
@@ -184,7 +214,7 @@ const Billing = () => {
                       <User size={20} />
                     </div>
                     <div>
-                      <div className="fw-bold fs-5">
+                      <div className="fw-bold fs-5 text-dark">
                         {selectedPayment.first_name} {selectedPayment.last_name}
                       </div>
                       <div className="small text-muted">
@@ -195,7 +225,7 @@ const Billing = () => {
                 </div>
               </div>
 
-              {/* Order Summary Box */}
+              {/* Order Details Box */}
               <div className="card border-0 shadow-sm mb-4">
                 <div className="card-body">
                   <label className="small fw-bold text-muted text-uppercase mb-3 d-block">
@@ -212,61 +242,109 @@ const Billing = () => {
                           key={idx}
                           className="d-flex justify-content-between mb-2 small"
                         >
-                          <span>
-                            {item.name}
-                            {/* Only show the extra xQty if the name doesn't already have '(x' in it */}
-                            {!item.name.includes("(x") && (
-                              <span className="text-muted">
-                                {" "}
-                                x{item.quantity}
-                              </span>
-                            )}
+                          <span className="text-dark">
+                            {item.name}{" "}
+                            <span className="text-muted">x{item.quantity}</span>
                           </span>
                           <span className="fw-bold text-dark">
-                            ₱
-                            {(item.quantity * item.price).toLocaleString(
-                              undefined,
-                              { minimumFractionDigits: 2 },
-                            )}
+                            ₱{(item.quantity * item.price).toLocaleString()}
                           </span>
                         </div>
                       ))}
                       <hr className="my-3" />
                       <div className="d-flex justify-content-between align-items-center">
-                        <span className="fw-bold">
-                          Total Bill (Actual Price):
-                        </span>
+                        <span className="fw-bold text-dark">Total Bill:</span>
                         <span className="fs-4 fw-bold text-primary">
-                          ₱
-                          {calculateTotal().toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                          })}
+                          ₱{calculateTotal().toLocaleString()}
                         </span>
                       </div>
                     </>
                   )}
                 </div>
               </div>
-
               {/* Payment Summary Box */}
               <div className="card border-0 shadow-sm mb-4">
                 <div className="card-body">
                   <label className="small fw-bold text-muted text-uppercase mb-3 d-block">
-                    Payment Calculation
+                    Payment Breakdown
                   </label>
+
+                  {/* Inside the Payment Summary Box in Billing.jsx */}
                   <div className="d-flex justify-content-between mb-2">
-                    <span className="text-muted">Downpayment Paid:</span>
-                    <span className="fw-bold text-success">
-                      - ₱
-                      {parseFloat(selectedPayment.amount).toLocaleString(
+                    <span className="text-muted">Total Bill:</span>
+                    <span className="fw-bold text-dark">
+                      ₱
+                      {Number(selectedPayment.total_bill).toLocaleString(
                         undefined,
                         { minimumFractionDigits: 2 },
                       )}
                     </span>
                   </div>
-                  <div className="d-flex justify-content-between border-top pt-2">
-                    <span className="fw-bold">Remaining Balance:</span>
+
+                  <div className="d-flex justify-content-between mb-2">
+                    <span className="text-muted">Amount Paid:</span>
+                    <span className="fw-bold text-success">
+                      - ₱
+                      {Number(selectedPayment.amount).toLocaleString(
+                        undefined,
+                        { minimumFractionDigits: 2 },
+                      )}
+                    </span>
+                  </div>
+
+                  <div className="d-flex justify-content-between border-top pt-2 mt-2">
+                    <span className="fw-bold text-dark">
+                      Remaining Balance:
+                    </span>
                     <span className="fw-bold text-danger">
+                      ₱
+                      {(
+                        Number(selectedPayment.total_bill) -
+                        Number(selectedPayment.amount)
+                      ).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  {/* Inside the Payment Summary Box in Billing.jsx */}
+                  <div className="d-flex justify-content-between mb-2">
+                    <span className="text-muted">Total Bill:</span>
+                    <span className="fw-bold text-dark">
+                      ₱
+                      {Number(selectedPayment.total_bill).toLocaleString(
+                        undefined,
+                        { minimumFractionDigits: 2 },
+                      )}
+                    </span>
+                  </div>
+
+                  <div className="d-flex justify-content-between mb-2">
+                    <span className="text-muted">Amount Paid:</span>
+                    <span className="fw-bold text-success">
+                      - ₱
+                      {Number(selectedPayment.amount).toLocaleString(
+                        undefined,
+                        { minimumFractionDigits: 2 },
+                      )}
+                    </span>
+                  </div>
+
+                  <div className="d-flex justify-content-between border-top pt-2 mt-2">
+                    <span className="fw-bold text-dark">
+                      Remaining Balance:
+                    </span>
+                    <span className="fw-bold text-danger">
+                      ₱
+                      {(
+                        Number(selectedPayment.total_bill) -
+                        Number(selectedPayment.amount)
+                      ).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+
+                  <div className="d-flex justify-content-between border-top pt-2 mt-2">
+                    <span className="fw-bold text-dark fs-5">
+                      Remaining Balance:
+                    </span>
+                    <span className="fw-bold text-danger fs-5">
                       ₱
                       {(
                         calculateTotal() - parseFloat(selectedPayment.amount)
@@ -276,25 +354,32 @@ const Billing = () => {
                 </div>
               </div>
 
-              {/* Receipt Image */}
+              {/* Verification Info (Text instead of Image) */}
               <div className="mb-4">
                 <label className="small fw-bold text-muted text-uppercase mb-2 d-block">
-                  Uploaded Receipt Proof
+                  Payment Status
                 </label>
-                <a
-                  href={`http://localhost:5000/uploads/${selectedPayment.receipt_path}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <img
-                    src={`http://localhost:5000/uploads/${selectedPayment.receipt_path}`}
-                    alt="Receipt"
-                    className="w-100 rounded shadow-sm border"
-                  />
-                </a>
+                {selectedPayment.payment_method === "Gcash" ? (
+                  <div className="alert alert-success d-flex align-items-center gap-3 py-3 border-0 shadow-sm">
+                    <CheckCircle2 size={24} className="text-success" />
+                    <div>
+                      <div className="fw-bold">
+                        PayMongo Digital Verification
+                      </div>
+                      <small className="text-muted">
+                        No manual receipt required.
+                      </small>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="alert alert-info py-3 border-0 shadow-sm">
+                    Manual Payment via{" "}
+                    <strong>{selectedPayment.payment_method}</strong>
+                  </div>
+                )}
               </div>
 
-              {/* Action Buttons */}
+              {/* Action Buttons Section */}
               <div className="d-grid gap-2 mb-5">
                 {selectedPayment.payment_status === "pending" ? (
                   <>
@@ -307,7 +392,7 @@ const Billing = () => {
                         )
                       }
                     >
-                      Verify & Approve Payment
+                      Approve Payment
                     </button>
                     <button
                       className="btn btn-outline-danger py-2"
@@ -318,13 +403,16 @@ const Billing = () => {
                         )
                       }
                     >
-                      Reject Receipt
+                      Reject Payment
                     </button>
                   </>
                 ) : (
-                  <div className="alert alert-info text-center fw-bold border-0 shadow-sm">
-                    This order is already{" "}
-                    {selectedPayment.payment_status.toUpperCase()}
+                  <div
+                    className={`alert ${selectedPayment.payment_status === "verified" ? "alert-success" : "alert-info"} text-center fw-bold border-0 shadow-sm`}
+                  >
+                    {selectedPayment.payment_status === "verified"
+                      ? "PAYMENT VERIFIED"
+                      : `STATUS: ${selectedPayment.payment_status.toUpperCase()}`}
                   </div>
                 )}
               </div>

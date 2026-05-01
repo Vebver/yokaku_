@@ -6,7 +6,7 @@ import axios from "axios";
 function LoginSection({ onClose }) {
   const [view, setView] = useState("login"); // 'login', 'signup', 'verify', 'forgot', 'reset'
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false); // Added for confirm field
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -127,7 +127,7 @@ function LoginSection({ onClose }) {
       localStorage.setItem("email", res.data.user.email);
       localStorage.setItem("firstName", res.data.user.firstName);
       localStorage.setItem("lastName", res.data.user.lastName);
-      localStorage.setItem("role", res.data.user.role); 
+      localStorage.setItem("role", res.data.user.role);
       window.location.href = "/customer";
       onClose();
     } catch (err) {
@@ -154,9 +154,10 @@ function LoginSection({ onClose }) {
             <>
               <h2>FORGOT PASSWORD</h2>
               <form onSubmit={handleForgotPasswordSubmit}>
+                <label className="form-label">Email Address</label>
                 <input
                   type="email"
-                  placeholder="Email"
+                  placeholder="Enter your email"
                   className="login-input"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -185,9 +186,10 @@ function LoginSection({ onClose }) {
               >
                 {view === "signup" && (
                   <>
+                    <label className="form-label">First Name</label>
                     <input
                       type="text"
-                      placeholder="First Name"
+                      placeholder="Enter your first name"
                       className="login-input"
                       value={firstName}
                       onChange={(e) =>
@@ -195,9 +197,11 @@ function LoginSection({ onClose }) {
                       }
                       required
                     />
+
+                    <label className="form-label">Last Name</label>
                     <input
                       type="text"
-                      placeholder="Last Name"
+                      placeholder="Enter your last name"
                       className="login-input"
                       value={lastName}
                       onChange={(e) =>
@@ -208,9 +212,10 @@ function LoginSection({ onClose }) {
                   </>
                 )}
 
+                <label className="form-label">Email Address</label>
                 <input
                   type="email"
-                  placeholder="Email"
+                  placeholder="Enter your email"
                   className="login-input"
                   value={email}
                   onChange={(e) => {
@@ -221,10 +226,11 @@ function LoginSection({ onClose }) {
                 />
 
                 {/* PASSWORD FIELD */}
+                <label className="form-label">Password</label>
                 <div className="password-container">
                   <input
                     type={showPassword ? "text" : "password"}
-                    placeholder="Password"
+                    placeholder="Enter your password"
                     className="login-input"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -248,24 +254,27 @@ function LoginSection({ onClose }) {
                   </div>
                 )}
 
-                {/* CONFIRM PASSWORD FIELD (Restored the Eye Icon here) */}
+                {/* CONFIRM PASSWORD FIELD */}
                 {view === "signup" && (
-                  <div className="password-container">
-                    <input
-                      type={showConfirmPassword ? "text" : "password"}
-                      placeholder="Confirm Password"
-                      className="login-input"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      required
-                    />
-                    <EyeIcon
-                      visible={showConfirmPassword}
-                      toggle={() =>
-                        setShowConfirmPassword(!showConfirmPassword)
-                      }
-                    />
-                  </div>
+                  <>
+                    <label className="form-label">Confirm Password</label>
+                    <div className="password-container">
+                      <input
+                        type={showConfirmPassword ? "text" : "password"}
+                        placeholder="Confirm your password"
+                        className="login-input"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        required
+                      />
+                      <EyeIcon
+                        visible={showConfirmPassword}
+                        toggle={() =>
+                          setShowConfirmPassword(!showConfirmPassword)
+                        }
+                      />
+                    </div>
+                  </>
                 )}
 
                 {error && <p className="password-warning">{error}</p>}
