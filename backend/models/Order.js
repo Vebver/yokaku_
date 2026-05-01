@@ -49,9 +49,7 @@ const Order = {
       (reservation_id, item_id, quantity, kitchen_status, customizations) 
       VALUES (?, ?, ?, 'Pending', ?)`;
     
-    // We stringify the customizations object into JSON for storage
     const customData = customizations ? JSON.stringify(customizations) : null;
-    
     return await conn.execute(query, [reservationId, itemId, quantity, customData]);
   },
 
@@ -84,6 +82,29 @@ const Order = {
       [reservationId],
     );
     return rows;
+  },
+   // --- NEW: Create the main reservation record for a Walk-in ---
+  createWalkinSession: async (conn, reservationId, firstName = "Walk-in") => {
+    const query = `
+      INSERT INTO reservations (reservation_id, first_name, status, reservation_date, reservation_time) 
+      VALUES (?, ?, 'Seated', CURDATE(), CURTIME())
+    `;
+    return await conn.execute(query, [reservationId, firstName]);
+  },
+  // --- NEW: Link the table and update master status (Turns dashboard RED) ---
+   linkTableToSession: async (conn, reservationId, tableId) => {
+    // 1. Insert into bridge table
+    const bridgeQuery = `
+      INSERT INTO reservation_tables (reservation_id, table_id, status, check_in_time) 
+      VALUES (?, ?, 'seated', NOW())
+    `;
+    await conn.execute(bridgeQuery, [reservationId, tableId]);
+
+    // 2. Update master tables record
+    const tableUpdateQuery = `
+      UPDATE tables SET status = 'occupied', available_seats = 0 WHERE table_id = ?
+    `;
+    return await conn.execute(tableUpdateQuery, [tableId]);
   },
 };
 

@@ -1,6 +1,15 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { Clock, Armchair, Receipt, User, Package, ChevronRight, X, Info } from "lucide-react";
+import {
+  Clock,
+  Armchair,
+  Receipt,
+  User,
+  Package,
+  ChevronRight,
+  X,
+  Info,
+} from "lucide-react";
 
 // --- SUB-COMPONENT: REAL-TIME COUNTDOWN ---
 const CountdownTimer = ({ expiryDate }) => {
@@ -58,6 +67,7 @@ const Reservations = () => {
   };
 
   const fetchItems = async (resId) => {
+    setOrderItems([]); // Clear old items while loading
     setLoadingItems(true);
     try {
       const res = await axios.get(`http://localhost:5000/api/reservations/${resId}/items`);
@@ -85,6 +95,13 @@ const Reservations = () => {
     return "badge bg-danger-subtle text-danger border border-danger-subtle";
   };
 
+  // Logic to calculate bill from items in drawer
+  const calculateDrawerTotal = () => {
+    return orderItems.reduce((total, item) => {
+      return total + parseFloat(item.price || 0) * parseInt(item.quantity || 1);
+    }, 0);
+  };
+
   return (
     <div className="container-fluid py-4 fade-in text-dark">
       <div className="d-flex justify-content-between align-items-end mb-4">
@@ -109,50 +126,42 @@ const Reservations = () => {
               </tr>
             </thead>
             <tbody>
-              {inquiries.map((item) => {
-                const startDateTime = new Date(`${item.reservation_date.split("T")[0]} ${item.reservation_time}`);
-                const expiryDate = new Date(startDateTime);
-                expiryDate.setDate(expiryDate.getDate() + 2);
-
-                return (
-                  <tr key={item.reservation_id} style={{ height: "70px" }}>
-                    <td className="ps-4">
-                      <div className="fw-bold">{item.first_name} {item.last_name}</div>
-                      <div className="text-muted" style={{ fontSize: "0.7rem" }}>ID: {item.reservation_id}</div>
-                    </td>
-                    <td>
-                      <div className="d-flex align-items-center gap-2">
-                        <Armchair size={14} className="text-primary" />
-                        <span className="fw-bold small">{item.assigned_tables || "N/A"}</span>
-                      </div>
-                    </td>
-                    <td>
-                      <div className="fw-bold small">{new Date(item.reservation_date).toLocaleDateString()}</div>
-                      <div className="text-muted" style={{fontSize: '0.75rem'}}>{item.reservation_time}</div>
-                    </td>
-                    <td>
-                      <span className={getPaymentBadge(item.payment_status)}>
-                        {item.payment_status?.toUpperCase() || "UNPAID"}
-                      </span>
-                    </td>
-                    <td className="text-center">
-                      <span className={`badge rounded-pill ${getStatusBadge(item.status)}`}>
-                        {item.status}
-                      </span>
-                    </td>
-                    <td className="text-end pe-4">
-                      <button 
-                        className="btn btn-sm btn-outline-dark fw-bold px-3"
-                        data-bs-toggle="offcanvas" 
-                        data-bs-target="#resDetailsDrawer"
-                        onClick={() => { setSelectedRes(item); fetchItems(item.reservation_id); }}
-                      >
-                        View Order
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
+              {inquiries.map((item) => (
+                <tr key={item.reservation_id} style={{ height: "70px" }}>
+                  <td className="ps-4">
+                    <div className="fw-bold">{item.first_name} {item.last_name}</div>
+                    <div className="text-muted" style={{ fontSize: "0.7rem" }}>ID: {item.reservation_id}</div>
+                  </td>
+                  <td>
+                    <div className="d-flex align-items-center gap-2">
+                      <Armchair size={14} className="text-primary" />
+                      <span className="fw-bold small">{item.assigned_tables || "N/A"}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="fw-bold small">{new Date(item.reservation_date).toLocaleDateString()}</div>
+                    <div className="text-muted" style={{ fontSize: "0.75rem" }}>{item.reservation_time}</div>
+                  </td>
+                  <td>
+                    <span className={getPaymentBadge(item.payment_status)}>
+                      {item.payment_status?.toUpperCase() || "UNPAID"}
+                    </span>
+                  </td>
+                  <td className="text-center">
+                    <span className={`badge rounded-pill ${getStatusBadge(item.status)}`}>{item.status}</span>
+                  </td>
+                  <td className="text-end pe-4">
+                    <button
+                      className="btn btn-sm btn-outline-dark fw-bold px-3"
+                      data-bs-toggle="offcanvas"
+                      data-bs-target="#resDetailsDrawer"
+                      onClick={() => { setSelectedRes(item); fetchItems(item.reservation_id); }}
+                    >
+                      View Order
+                    </button>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -167,19 +176,21 @@ const Reservations = () => {
         <div className="offcanvas-body bg-light-subtle">
           {selectedRes && (
             <>
+              {/* Section: Customer */}
               <div className="card border-0 shadow-sm mb-3">
                 <div className="card-body">
                   <h6 className="text-muted small text-uppercase fw-bold mb-3">Customer Info</h6>
                   <div className="d-flex align-items-center gap-3">
-                    <div className="p-2 bg-primary-subtle text-primary rounded-circle"><User size={20}/></div>
+                    <div className="p-2 bg-primary-subtle text-primary rounded-circle"><User size={20} /></div>
                     <div>
-                        <div className="fw-bold">{selectedRes.first_name} {selectedRes.last_name}</div>
-                        <div className="small text-muted">{selectedRes.email}</div>
+                      <div className="fw-bold">{selectedRes.first_name} {selectedRes.last_name}</div>
+                      <div className="small text-muted">{selectedRes.email}</div>
                     </div>
                   </div>
                 </div>
               </div>
 
+              {/* Section: Items */}
               <div className="card border-0 shadow-sm mb-3">
                 <div className="card-body">
                   <h6 className="text-muted small text-uppercase fw-bold mb-3">Order Items</h6>
@@ -187,45 +198,52 @@ const Reservations = () => {
                     <div className="text-center py-3"><div className="spinner-border spinner-border-sm"></div></div>
                   ) : (
                     <div className="item-list">
-                      {orderItems.map((order, idx) => {
-                        // PARSE CUSTOMIZATIONS (Flavors, Drinks, etc.)
+                      {orderItems.length > 0 ? orderItems.map((order, idx) => {
                         let customs = null;
                         if (order.customizations) {
-                            customs = typeof order.customizations === 'string' ? JSON.parse(order.customizations) : order.customizations;
+                          customs = typeof order.customizations === "string" ? JSON.parse(order.customizations) : order.customizations;
                         }
-
                         return (
                           <div key={idx} className="mb-3 pb-2 border-bottom border-light">
                             <div className="d-flex justify-content-between fw-bold">
-                              <span>{order.name || order.item_name}</span>
+                              <span>{order.name || order.item_name || "Unknown Item"}</span>
                               <span className="text-primary">x{order.quantity}</span>
                             </div>
+                            <div className="text-muted x-small">₱{Number(order.price).toFixed(2)} each</div>
                             {customs && (
                               <div className="mt-1 ps-2 border-start border-2 border-warning-subtle">
-                                {customs.flavor && <div className="text-muted" style={{fontSize: '0.75rem'}}>Flavor: <span className="text-dark fw-bold">{customs.flavor}</span></div>}
-                                {customs.drink && <div className="text-muted" style={{fontSize: '0.75rem'}}>Drink: <span className="text-dark fw-bold">{customs.drink}</span></div>}
-                                {customs.spiceLevel && <div className="text-muted" style={{fontSize: '0.75rem'}}>Spice: <span className="text-dark fw-bold">{customs.spiceLevel}</span></div>}
+                                {customs.flavor && <div className="small text-muted">Flavor: <span className="text-dark fw-bold">{customs.flavor}</span></div>}
+                                {customs.drink && <div className="small text-muted">Drink: <span className="text-dark fw-bold">{customs.drink}</span></div>}
+                                {customs.spiceLevel && <div className="small text-muted">Spice: <span className="text-dark fw-bold">{customs.spiceLevel}</span></div>}
                               </div>
                             )}
                           </div>
                         );
-                      })}
+                      }) : <p className="text-center text-muted small">No items found.</p>}
                     </div>
                   )}
                 </div>
               </div>
 
+              {/* Section: Single Clean Payment Card */}
               <div className="card border-0 shadow-sm bg-dark text-white">
                 <div className="card-body">
-                   <div className="d-flex justify-content-between align-items-center">
-                      <div>
-                         <div className="small text-white-50 text-uppercase">Payment Amount</div>
-                         <div className="fs-4 fw-bold">₱{Number(selectedRes.amount).toLocaleString()}</div>
+                  <div className="d-flex justify-content-between align-items-center">
+                    <div>
+                      <div className="small text-white-50 text-uppercase">
+                        {selectedRes.amount > 0 ? "Amount Paid (Downpayment)" : "Estimated Bill Total"}
                       </div>
-                      <span className={`badge ${selectedRes.payment_status === 'verified' ? 'bg-success' : 'bg-warning'}`}>
-                        {selectedRes.payment_status?.toUpperCase()}
-                      </span>
-                   </div>
+                      <div className="fs-4 fw-bold">
+                        ₱{selectedRes.amount > 0 
+                          ? Number(selectedRes.amount).toLocaleString(undefined, { minimumFractionDigits: 2 }) 
+                          : calculateDrawerTotal().toLocaleString(undefined, { minimumFractionDigits: 2 })
+                        }
+                      </div>
+                    </div>
+                    <span className={`badge ${selectedRes.payment_status === 'verified' ? 'bg-success' : 'bg-warning'}`}>
+                      {selectedRes.payment_status?.toUpperCase() || "PENDING"}
+                    </span>
+                  </div>
                 </div>
               </div>
             </>

@@ -84,12 +84,13 @@ checkActiveByUserId: async (userId) => {
     return rows;
   },
 
-  getItemsByReservationId: async (reservationId) => {
-    const sql = `
-     SELECT 
+ getItemsByReservationId: async (reservationId) => {
+  const sql = `
+    /* 1. Get items from Website Bookings */
+    SELECT 
       mi.name, 
       ri.quantity, 
-      ri.price,
+      mi.price,
       ri.customizations
     FROM reservation_items ri
     JOIN menu_items mi ON ri.product_id = mi.item_id
@@ -97,6 +98,19 @@ checkActiveByUserId: async (userId) => {
 
     UNION ALL
 
+    /* 2. Get items from Kiosk/Walk-in Orders (THIS WAS MISSING) */
+    SELECT 
+      mi.name, 
+      ko.quantity, 
+      mi.price,
+      ko.customizations
+    FROM kiosk_orders ko
+    JOIN menu_items mi ON ko.item_id = mi.item_id
+    WHERE ko.reservation_id = ?
+
+    UNION ALL
+
+    /* 3. Fallback: Only show the generic package name if BOTH item tables are empty */
     SELECT 
       r.package_name AS name, 
       1 AS quantity, 
@@ -105,10 +119,17 @@ checkActiveByUserId: async (userId) => {
     FROM reservations r
     WHERE r.reservation_id = ? 
     AND NOT EXISTS (SELECT 1 FROM reservation_items WHERE reservation_id = ?)
+    AND NOT EXISTS (SELECT 1 FROM kiosk_orders WHERE reservation_id = ?)
   `;
 
-  // We pass reservationId 3 times because of the 3 '?' in the query
-  const [rows] = await db.execute(sql, [reservationId, reservationId, reservationId]);
+  // Note: We now need to pass the ID 5 times because there are 5 '?'
+  const [rows] = await db.execute(sql, [
+    reservationId, 
+    reservationId, 
+    reservationId, 
+    reservationId, 
+    reservationId
+  ]);
   return rows;
 },
 
