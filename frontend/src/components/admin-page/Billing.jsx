@@ -49,10 +49,19 @@ const Billing = () => {
     }
   };
 
-  const handleStatusChange = async (id, newStatus) => {
+const handleStatusChange = async (id, newStatus) => {
     if (!window.confirm(`Mark as ${newStatus}?`)) return;
     try {
       await axios.put(`/api/billing/${id}/status`, { status: newStatus });
+      
+// Notify other components (like Reports) that payment was verified
+      if (newStatus === "verified") {
+        // Use custom event for same-tab communication
+        window.dispatchEvent(new Event("payment-verified"));
+        // Also set localStorage for cross-tab communication
+        localStorage.setItem("payment_verified", "true");
+      }
+      
       fetchPayments();
       if (closeBtnRef.current) closeBtnRef.current.click();
     } catch (err) {

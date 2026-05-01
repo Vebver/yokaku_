@@ -77,35 +77,34 @@ const adminController = {
       res.status(500).json({ error: error.message });
     }
   },
-  getFinancialOverview: async (req, res) => {
-    try {
-      // 1. Fetch all data from the model
-      const [monthlyTrend, stats, paymentMethods, sources] = await Promise.all([
-        FinancialReport.getMonthlyTrend(),
-        FinancialReport.getFinancialStats(),
-        FinancialReport.getPaymentMethods(),
-        FinancialReport.getRevenueSources(),
-      ]);
-        console.log("DEBUG: Daily Revenue from DB is:", stats.daily_revenue);
-      // 2. Wrap it in 'success' and 'data' to match your Reports.jsx logic
-      res.status(200).json({
-        success: true, // <--- Reports.jsx is checking for this
-        data: {
-          // <--- Reports.jsx is looking for this key
-          summary: stats,
-          monthlyTrend: monthlyTrend,
-          paymentMethods: paymentMethods,
-          sources: sources,
-        },
-      });
-    } catch (error) {
-      console.error("Financial Report Controller Error:", error);
-      res.status(500).json({
-        success: false, // <--- Send false if it fails
-        error: "Failed to generate financial reports",
-      });
-    }
-  },
+  // controllers/adminController.js
+getFinancialOverview: async (req, res) => {
+  try {
+    console.log("!!! API CALLED: Fetching Financial Data !!!");
+    
+    const [monthlyTrend, stats, paymentMethods, sources] = await Promise.all([
+      FinancialReport.getMonthlyTrend(),
+      FinancialReport.getFinancialStats(),
+      FinancialReport.getPaymentMethods(),
+      FinancialReport.getRevenueSources(),
+    ]);
+
+    console.log("DATABASE STATS:", stats);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        summary: stats,
+        monthlyTrend,
+        paymentMethods,
+        sources
+      }
+    });
+  } catch (error) {
+    console.error("REPORT ERROR:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+},
 };
 
 module.exports = adminController;
