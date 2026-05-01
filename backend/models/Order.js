@@ -43,15 +43,26 @@ const Order = {
   },
 
   // Record the actual order
-  createOrderEntry: async (conn, reservationId, itemId, quantity) => {
-    const query = `INSERT INTO kiosk_orders (reservation_id, item_id, quantity, kitchen_status) VALUES (?, ?, ?, 'Pending')`;
-    return await conn.execute(query, [reservationId, itemId, quantity]);
+   createOrderEntry: async (conn, reservationId, itemId, quantity, customizations) => {
+    const query = `
+      INSERT INTO kiosk_orders 
+      (reservation_id, item_id, quantity, kitchen_status, customizations) 
+      VALUES (?, ?, ?, 'Pending', ?)`;
+    
+    const customData = customizations ? JSON.stringify(customizations) : null;
+    return await conn.execute(query, [reservationId, itemId, quantity, customData]);
   },
 
   // Get all orders for a reservation (Kitchen display)
-  getOrdersByReservation: async (reservationId) => {
+ getOrdersByReservation: async (reservationId) => {
     const [rows] = await db.execute(
-      `SELECT o.order_id, o.item_id, o.quantity, o.kitchen_status, m.name AS item_name 
+      `SELECT 
+          o.order_id, 
+          o.item_id, 
+          o.quantity, 
+          o.kitchen_status, 
+          o.customizations, 
+          m.name AS item_name 
        FROM kiosk_orders o 
        JOIN menu_items m ON o.item_id = m.item_id 
        WHERE o.reservation_id = ?`,
@@ -62,13 +73,38 @@ const Order = {
   // Get pre-reserved items for a reservation (before they are placed as orders)
   getPreReservedItems: async (reservationId) => {
     const [rows] = await db.execute(
-      `SELECT m.* 
+      `SELECT 
+          m.*, 
+          ri.customizations 
        FROM menu_items m
        JOIN reservation_items ri ON m.item_id = ri.product_id 
        WHERE ri.reservation_id = ?`,
       [reservationId],
     );
     return rows;
+  },
+   // --- NEW: Create the main reservation record for a Walk-in ---
+  createWalkinSession: async (conn, reservationId, firstName = "Walk-in") => {
+    const query = `
+      INSERT INTO reservations (reservation_id, first_name, status, reservation_date, reservation_time) 
+      VALUES (?, ?, 'Seated', CURDATE(), CURTIME())
+    `;
+    return await conn.execute(query, [reservationId, firstName]);
+  },
+  // --- NEW: Link the table and update master status (Turns dashboard RED) ---
+   linkTableToSession: async (conn, reservationId, tableId) => {
+    // 1. Insert into bridge table
+    const bridgeQuery = `
+      INSERT INTO reservation_tables (reservation_id, table_id, status, check_in_time) 
+      VALUES (?, ?, 'seated', NOW())
+    `;
+    await conn.execute(bridgeQuery, [reservationId, tableId]);
+
+    // 2. Update master tables record
+    const tableUpdateQuery = `
+      UPDATE tables SET status = 'occupied', available_seats = 0 WHERE table_id = ?
+    `;
+    return await conn.execute(tableUpdateQuery, [tableId]);
   },
 };
 

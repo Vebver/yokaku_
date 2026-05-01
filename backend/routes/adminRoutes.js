@@ -27,6 +27,7 @@ router.get('/blocked-dates', blockedDateController.list);
 // 2. PRIVATE: Only Admin can add or delete (LOCKED)
 router.post('/blocked-dates', protect, adminOnly, blockedDateController.add);
 router.delete('/blocked-dates/:id', protect, adminOnly, blockedDateController.remove);
+router.get('/getTable',adminController.getTable)
 
 router.post('/add-table', protect, adminOnly, adminController.addTable);
 

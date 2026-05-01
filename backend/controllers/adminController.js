@@ -59,12 +59,17 @@ const adminController = {
   Walkin: async (req, res) => {
     try {
       const { tableId } = req.params;
-      const result = await TableStatus.createWalkIn(
-        tableId,
-        req.body.customerName,
-      );
-      res.json({ message: "Walk-in session created", result });
+      const { customerName } = req.body; // Ensure this matches frontend key
+
+      if (!customerName) {
+        return res.status(400).json({ error: "Name is required" });
+      }
+
+      const result = await TableStatus.createWalkIn(tableId, customerName);
+      res.json({ success: true, message: "Walk-in session created", result });
     } catch (error) {
+      // THIS LOG IS CRITICAL. Look at your VS Code terminal!
+      console.error("BACKEND CRASH:", error);
       res.status(500).json({ error: error.message });
     }
   },
@@ -78,33 +83,33 @@ const adminController = {
     }
   },
   // controllers/adminController.js
-getFinancialOverview: async (req, res) => {
-  try {
-    console.log("!!! API CALLED: Fetching Financial Data !!!");
-    
-    const [monthlyTrend, stats, paymentMethods, sources] = await Promise.all([
-      FinancialReport.getMonthlyTrend(),
-      FinancialReport.getFinancialStats(),
-      FinancialReport.getPaymentMethods(),
-      FinancialReport.getRevenueSources(),
-    ]);
+  getFinancialOverview: async (req, res) => {
+    try {
+      console.log("!!! API CALLED: Fetching Financial Data !!!");
 
-    console.log("DATABASE STATS:", stats);
+      const [monthlyTrend, stats, paymentMethods, sources] = await Promise.all([
+        FinancialReport.getMonthlyTrend(),
+        FinancialReport.getFinancialStats(),
+        FinancialReport.getPaymentMethods(),
+        FinancialReport.getRevenueSources(),
+      ]);
 
-    res.status(200).json({
-      success: true,
-      data: {
-        summary: stats,
-        monthlyTrend,
-        paymentMethods,
-        sources
-      }
-    });
-  } catch (error) {
-    console.error("REPORT ERROR:", error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-},
+      console.log("DATABASE STATS:", stats);
+
+      res.status(200).json({
+        success: true,
+        data: {
+          summary: stats,
+          monthlyTrend,
+          paymentMethods,
+          sources,
+        },
+      });
+    } catch (error) {
+      console.error("REPORT ERROR:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  },
 };
 
 module.exports = adminController;

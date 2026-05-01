@@ -276,6 +276,64 @@ const reservationController = {
     }
   },
 
+  // Get all reservations for a user (for My Reservations page)
+  // Get all reservations for a user (for My Reservations page) - Only active/ongoing
+  getUserReservations: async (req, res) => {
+    try {
+      const { userId } = req.params;
+      console.log(
+        "🔍 [getUserReservations] Getting active reservations for user:",
+        userId,
+      );
+
+      const now = new Date();
+      const currentTime = now.toTimeString().slice(0, 5);
+      const currentDate = now.toISOString().split("T")[0];
+
+      const sql = `
+      SELECT 
+        r.reservation_id,
+        DATE_FORMAT(r.reservation_date, '%Y-%m-%d') as reservation_date,
+        TIME_FORMAT(r.reservation_time, '%h:%i %p') as reservation_time,
+        TIME_FORMAT(r.end_time, '%h:%i %p') as end_time,
+        r.num_guests,
+        r.status,
+        r.package_name,
+        r.allergy,
+        r.occasion,
+        r.highChair,
+        p.payment_status,
+        p.payment_method,
+        p.amount,
+        GROUP_CONCAT(DISTINCT t.table_number SEPARATOR ', ') as assigned_tables,
+        CONCAT(IFNULL(b.brgy_name, 'N/A'), ', ', IFNULL(m.muni_name, 'N/A')) AS full_address
+      FROM reservations r
+      LEFT JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
+      LEFT JOIN tables t ON rt.table_id = t.table_id
+      LEFT JOIN payments p ON r.reservation_id = p.reservation_id
+      LEFT JOIN barangays b ON r.brgy_code = b.brgy_code
+      LEFT JOIN municipalities m ON b.muni_code = m.muni_code
+      WHERE r.user_id = ?
+      AND r.status NOT IN ('Completed', 'Done', 'Rejected', 'Cancelled')
+      AND (
+        r.reservation_date > CURDATE() 
+        OR (r.reservation_date = CURDATE() AND r.end_time > ?)
+      )
+      GROUP BY r.reservation_id
+      ORDER BY r.created_at DESC
+    `;
+
+      const [rows] = await db.execute(sql, [userId, currentTime]);
+      console.log(
+        `🔍 [getUserReservations] Found ${rows.length} active reservations`,
+      );
+      res.json(rows);
+    } catch (error) {
+      console.error("Error fetching user reservations:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+
   getTableStatuses: async (req, res) => {
     try {
       const { date, startTime, endTime } = req.query;

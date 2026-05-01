@@ -215,6 +215,15 @@ function CustomerNavbar() {
               <div
                 className="dropdown-item"
                 onClick={() => {
+                  navigate("/my-reservation");
+                  closeMenu();
+                }}
+              >
+                My Reservation
+              </div>
+              <div
+                className="dropdown-item"
+                onClick={() => {
                   navigate("/profile");
                   closeMenu();
                 }}

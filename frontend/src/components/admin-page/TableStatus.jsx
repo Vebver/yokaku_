@@ -12,7 +12,29 @@ const TableStatus = () => {
   const [showAddModal, setShowAddModal] = useState(false); // For adding new tables
   const [selectedTable, setSelectedTable] = useState(null);
   const [guestName, setGuestName] = useState("");
+  const [showBillModal, setShowBillModal] = useState(false);
+  const [billItems, setBillItems] = useState([]);
+  const [loadingBill, setLoadingBill] = useState(false);
+  const [activeTableLabel, setActiveTableLabel] = useState("");
 
+  const handleViewBill = async (reservationId, tableLabel) => {
+    if (!reservationId) return alert("No active session found for this table.");
+
+    setActiveTableLabel(tableLabel);
+    setShowBillModal(true);
+    setLoadingBill(true);
+
+    try {
+      const res = await axios.get(
+        `http://localhost:5000/api/reservations/${reservationId}/items`,
+      );
+      setBillItems(res.data);
+    } catch (err) {
+      console.error("Error fetching bill:", err);
+    } finally {
+      setLoadingBill(false);
+    }
+  };
   // New Table State
   const [newTableData, setNewTableData] = useState({
     table_number: "",
@@ -69,7 +91,7 @@ const TableStatus = () => {
       const token = localStorage.getItem("token");
       await axios.post(
         `/api/admin/walk-in/${selectedTable.table_id}`,
-        { customer_name: guestName },
+        { customerName: guestName },
         { headers: { Authorization: `Bearer ${token}` } },
       );
       setShowModal(false);
@@ -231,12 +253,25 @@ const TableStatus = () => {
                   </div>
                   <div className="mt-4 pt-3 border-top">
                     {isSeated ? (
-                      <button
-                        className="btn btn-sm btn-outline-danger w-100 fw-bold"
-                        onClick={(e) => handleCheckout(e, table.table_id)}
-                      >
-                        Checkout
-                      </button>
+                      <div className="d-flex flex-column gap-2 mt-3">
+                        <button
+                          className="btn btn-sm btn-primary fw-bold"
+                          onClick={() =>
+                            handleViewBill(
+                              table.reservation_id,
+                              table.table_number,
+                            )
+                          }
+                        >
+                          View Bill / Items
+                        </button>
+                        <button
+                          className="btn btn-sm btn-outline-danger fw-bold"
+                          onClick={(e) => handleCheckout(e, table.table_id)}
+                        >
+                          Checkout (Clear Table)
+                        </button>
+                      </div>
                     ) : isReserved ? (
                       <button
                         className="btn btn-sm btn-warning w-100 fw-bold text-white"
@@ -404,6 +439,156 @@ const TableStatus = () => {
       )}
 
       <style>{`.hover-card:hover { transform: translateY(-5px); transition: 0.3s; box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important; }`}</style>
+
+      {/* MODAL: VIEW BILL */}
+      {showBillModal && (
+        <div
+          className="modal show d-block"
+          tabIndex="-1"
+          style={{
+            backgroundColor: "rgba(0,0,0,0.6)",
+            backdropFilter: "blur(4px)",
+          }}
+        >
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content border-0 shadow-lg">
+              <div className="modal-header border-bottom-0 pt-4 px-4">
+                <div>
+                  <h5 className="modal-title fw-bold fs-4">
+                    Table {activeTableLabel} Bill
+                  </h5>
+                  <span className="text-muted small">
+                    Current running total for this session
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowBillModal(false)}
+                ></button>
+              </div>
+
+              <div className="modal-body px-4">
+                {loadingBill ? (
+                  <div className="text-center py-5">
+                    <div
+                      className="spinner-border text-primary"
+                      role="status"
+                    ></div>
+                    <p className="mt-2 text-muted">Calculating bill...</p>
+                  </div>
+                ) : billItems.length > 0 ? (
+                  <div className="bill-container">
+                    <div className="table-responsive">
+                      <table className="table table-borderless align-middle">
+                        <thead className="text-muted small text-uppercase">
+                          <tr>
+                            <th>Item</th>
+                            <th className="text-center">Qty</th>
+                            <th className="text-end">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {billItems.map((item, idx) => {
+                            // Parse customizations (Flavors, Drinks)
+                            const customs = item.customizations
+                              ? typeof item.customizations === "string"
+                                ? JSON.parse(item.customizations)
+                                : item.customizations
+                              : null;
+
+                            return (
+                              <tr key={idx} className="border-bottom-light">
+                                <td className="py-3">
+                                  <div className="fw-bold text-dark">
+                                    {item.name || item.item_name}
+                                  </div>
+                                  {customs && (
+                                    <div
+                                      className="small text-primary"
+                                      style={{ fontSize: "0.75rem" }}
+                                    >
+                                      {customs.flavor && (
+                                        <span>• {customs.flavor} </span>
+                                      )}
+                                      {customs.drink && (
+                                        <span>• {customs.drink} </span>
+                                      )}
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="text-center py-3">
+                                  x{item.quantity}
+                                </td>
+                                <td className="text-end py-3 fw-bold">
+                                  ₱
+                                  {(item.price * item.quantity).toLocaleString(
+                                    undefined,
+                                    { minimumFractionDigits: 2 },
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Total Calculation */}
+                    <div className="bg-light rounded-3 p-3 mt-3">
+                      <div className="d-flex justify-content-between align-items-center mb-1 text-muted">
+                        <span>Subtotal</span>
+                        <span>
+                          ₱
+                          {billItems
+                            .reduce((sum, i) => sum + i.price * i.quantity, 0)
+                            .toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="d-flex justify-content-between align-items-center border-top pt-2 mt-2">
+                        <span className="fw-bold fs-5">Amount Due</span>
+                        <span className="fw-bold fs-4 text-success">
+                          ₱
+                          {billItems
+                            .reduce((sum, i) => sum + i.price * i.quantity, 0)
+                            .toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                            })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-5 text-muted">
+                    <Armchair size={48} className="mb-3 opacity-25" />
+                    <p>No items have been ordered yet.</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="modal-footer border-top-0 pb-4 px-4 gap-2">
+                <button
+                  className="btn btn-light px-4 fw-bold"
+                  onClick={() => setShowBillModal(false)}
+                >
+                  Close
+                </button>
+                <button
+                  className="btn btn-dark px-4 fw-bold"
+                  onClick={() => {
+                    if (window.confirm("Mark as paid and clear table?")) {
+                      handleCheckout(null, selectedTable?.table_id); // Reuses your existing checkout logic
+                      setShowBillModal(false);
+                    }
+                  }}
+                >
+                  Mark Paid & Checkout
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

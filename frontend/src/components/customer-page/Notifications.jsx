@@ -127,7 +127,6 @@ const Notifications = () => {
       setNotifications(
         notifications.filter((n) => n.notification_id !== notificationToDelete),
       );
-      // Alert removed - no popup notification
     } catch (err) {
       console.error("Error deleting notification:", err);
     } finally {
@@ -190,6 +189,18 @@ const Notifications = () => {
       month: "long",
       day: "numeric",
     });
+  };
+
+  // Format time from "10:00:00" to "10:00 AM"
+  const formatTimeDisplay = (timeStr) => {
+    if (!timeStr) return "";
+    if (timeStr.includes("AM") || timeStr.includes("PM")) return timeStr;
+
+    const [hours, minutes] = timeStr.split(":");
+    const hour = parseInt(hours, 10);
+    const ampm = hour >= 12 ? "PM" : "AM";
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${minutes} ${ampm}`;
   };
 
   // Extract reservation ID from message
@@ -381,8 +392,8 @@ const Notifications = () => {
                 <div className="reservation-detail-row">
                   <span className="detail-label">Time:</span>
                   <span className="detail-value">
-                    {selectedReservation.reservation_time} -{" "}
-                    {selectedReservation.end_time}
+                    {formatTimeDisplay(selectedReservation.reservation_time)} -{" "}
+                    {formatTimeDisplay(selectedReservation.end_time)}
                   </span>
                 </div>
                 <div className="reservation-detail-row">
