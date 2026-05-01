@@ -611,7 +611,7 @@ export default function TableReservation({ onClose, onSuccess }) {
     }
   };
 
-  const confirmBooking = async (file) => {
+  const confirmBooking = async (file, method) => { // <--- Accept method here
     setUi((p) => ({ ...p, loading: true }));
 
     try {
@@ -626,9 +626,10 @@ export default function TableReservation({ onClose, onSuccess }) {
         packageName: productDisplayName,
         totalAmount: orderSummary.totalOrderPrice,
         amount: orderSummary.downpayment,
-        paymentMethod: paymentMethod || "Maya",
+        paymentMethod: method || paymentMethod || "Maya", 
         tableIds: JSON.stringify(tableIdsArray),
-        selectedItems: JSON.stringify(selectedItems),
+        // THIS IS THE CRITICAL LINE: it contains your flavors/drinks!
+        selectedItems: JSON.stringify(selectedItems), 
         status: "Confirmed",
         brgyCode: form.brgy,
       };

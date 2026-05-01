@@ -41,9 +41,16 @@ const PackageModal = ({
   const [showItemModal, setShowItemModal] = useState(false);
   const [showCartModal, setShowCartModal] = useState(false);
   const [itemQuantity, setItemQuantity] = useState(1);
+  const currentCategory = categories.find(
+    (c) => c.category_id === selectedItem?.category_id,
+  );
+  const isUnliPackage = currentCategory?.name === "Hangout Bundle";
+  const HIDDEN_CATEGORIES = ["Chicken", "Drinks"]; // Names of categories to hide from main view
   const [showCustomizePanel, setShowCustomizePanel] = useState(false);
   const [customizations, setCustomizations] = useState({
     addOns: [],
+    flavor: "", // For Chicken
+    drink: "",
     specialInstructions: "",
     spiceLevel: "Medium",
   });
@@ -62,12 +69,21 @@ const PackageModal = ({
   const fetchCategories = async () => {
     try {
       const res = await axios.get(`${API_BASE}/categories`);
-      const sortedCategories = [...res.data].sort((a, b) => {
+
+      // 1. Filter out categories that are meant for customization only
+      const publicCategories = res.data.filter(
+        (cat) => !HIDDEN_CATEGORIES.includes(cat.name),
+      );
+
+      const sortedCategories = [...publicCategories].sort((a, b) => {
         if (a.name === "Hangout Bundle") return -1;
         if (b.name === "Hangout Bundle") return 1;
         return a.name.localeCompare(b.name);
       });
-      setCategories(sortedCategories);
+
+      setCategories(res.data); // Keep full list in state for lookups
+
+      // Only set the FIRST visible category as selected
       if (sortedCategories.length > 0 && !selectedCategory) {
         setSelectedCategory(Number(sortedCategories[0].category_id));
       }
@@ -98,14 +114,21 @@ const PackageModal = ({
   };
 
   const handleCardClick = (item) => {
+    const existingItem = selectedItems.find((i) => i.id === item.item_id);
     setSelectedItem(item);
     setItemQuantity(getItemQuantity(item.item_id) || 1);
     setShowCustomizePanel(false);
-    setCustomizations({
-      addOns: [],
-      specialInstructions: "",
-      spiceLevel: "Medium",
-    });
+
+    // If item already in cart, load its customizations, otherwise set defaults
+    setCustomizations(
+      existingItem?.customizations || {
+        addOns: [],
+        flavor: "",
+        drink: "",
+        specialInstructions: "",
+        spiceLevel: "Medium",
+      },
+    );
     setShowItemModal(true);
   };
 
@@ -134,32 +157,28 @@ const PackageModal = ({
   const handleAddToCart = () => {
     const existing = selectedItems.find((i) => i.id === selectedItem.item_id);
 
+    // Define the new item data
+    const newItemData = {
+      id: selectedItem.item_id,
+      name: selectedItem.name,
+      price: parseFloat(selectedItem.price),
+      quantity: itemQuantity,
+      image: selectedItem.image_url,
+      description: selectedItem.description,
+      // ALWAYS save customizations if it's a bundle/unli, regardless of panel state
+      customizations:
+        isUnliPackage || selectedItem.name.includes("Bundle")
+          ? customizations
+          : null,
+    };
+
     let updatedItems;
     if (existing) {
       updatedItems = selectedItems.map((i) =>
-        i.id === selectedItem.item_id
-          ? {
-              ...i,
-              quantity: itemQuantity,
-              customizations: showCustomizePanel
-                ? customizations
-                : i.customizations,
-            }
-          : i,
+        i.id === selectedItem.item_id ? newItemData : i,
       );
     } else {
-      updatedItems = [
-        ...selectedItems,
-        {
-          id: selectedItem.item_id,
-          name: selectedItem.name,
-          price: parseFloat(selectedItem.price),
-          quantity: itemQuantity,
-          image: selectedItem.image_url,
-          description: selectedItem.description,
-          customizations: showCustomizePanel ? customizations : null,
-        },
-      ];
+      updatedItems = [...selectedItems, newItemData];
     }
 
     setSelectedItems(updatedItems);
@@ -273,19 +292,21 @@ const PackageModal = ({
 
           <div className="menu-modal-content">
             <div className="menu-categories">
-              {categories.map((cat) => (
-                <button
-                  key={cat.category_id}
-                  className={`category-btn ${
-                    Number(selectedCategory) === Number(cat.category_id)
-                      ? "active"
-                      : ""
-                  }`}
-                  onClick={() => setSelectedCategory(Number(cat.category_id))}
-                >
-                  {cat.name}
-                </button>
-              ))}
+              {categories
+                .filter((cat) => !HIDDEN_CATEGORIES.includes(cat.name)) // <--- ADD THIS FILTER
+                .map((cat) => (
+                  <button
+                    key={cat.category_id}
+                    className={`category-btn ${
+                      Number(selectedCategory) === Number(cat.category_id)
+                        ? "active"
+                        : ""
+                    }`}
+                    onClick={() => setSelectedCategory(Number(cat.category_id))}
+                  >
+                    {cat.name}
+                  </button>
+                ))}
             </div>
 
             <div className="menu-items-grid">
@@ -433,15 +454,19 @@ const PackageModal = ({
                     </div>
 
                     <div className="item-detail-actions">
-                      {selectedItem.name.includes("Hangout Bundle") && (
+                      {/* Show customize button for ANY category that needs it, 
+      or use (isUnliPackage) if only Hangout Bundles get it */}
+                      {(isUnliPackage ||
+                        selectedItem.name.includes("Bundle")) && (
                         <button
                           className="customize-btn"
                           onClick={handleCustomize}
                         >
                           <Settings size={16} />
-                          Customize
+                          Customize Selections
                         </button>
                       )}
+
                       <button className="cancel-btn" onClick={handleCancel}>
                         Cancel
                       </button>
@@ -466,25 +491,70 @@ const PackageModal = ({
                   <div className="customize-panel">
                     <h3>Customize Your Order</h3>
 
-                    <div className="customize-section">
-                      <label>Add-ons:</label>
-                      <div className="addons-list">
-                        {addOnsList.map((addOn) => (
-                          <label key={addOn.name} className="addon-item">
-                            <input
-                              type="checkbox"
-                              checked={customizations.addOns.includes(
-                                addOn.name,
-                              )}
-                              onChange={() => handleAddOnToggle(addOn.name)}
-                            />
-                            <span>{addOn.name}</span>
-                            <span className="addon-price">+₱{addOn.price}</span>
+                    {/* ONLY SHOW THIS IF IT IS A HANGOUT BUNDLE (UNLI) */}
+                    {isUnliPackage && (
+                      <>
+                        <div className="customize-section">
+                          <label className="section-label-highlight">
+                            Choose Chicken Flavor (Included):
                           </label>
-                        ))}
-                      </div>
-                    </div>
+                          <div className="flavor-grid">
+                            {products
+                              .filter(
+                                (p) =>
+                                  categories.find(
+                                    (c) => c.category_id === p.category_id,
+                                  )?.name === "Chicken",
+                              )
+                              .map((flavor) => (
+                                <button
+                                  key={flavor.item_id}
+                                  className={`spice-btn ${customizations.flavor === flavor.name ? "active" : ""}`}
+                                  onClick={() =>
+                                    setCustomizations((prev) => ({
+                                      ...prev,
+                                      flavor: flavor.name,
+                                    }))
+                                  }
+                                >
+                                  {flavor.name}
+                                </button>
+                              ))}
+                          </div>
+                        </div>
 
+                        <div className="customize-section">
+                          <label className="section-label-highlight">
+                            Choose Drink (Included):
+                          </label>
+                          <div className="flavor-grid">
+                            {products
+                              .filter(
+                                (p) =>
+                                  categories.find(
+                                    (c) => c.category_id === p.category_id,
+                                  )?.name === "Drinks",
+                              )
+                              .map((drink) => (
+                                <button
+                                  key={drink.item_id}
+                                  className={`spice-btn ${customizations.drink === drink.name ? "active" : ""}`}
+                                  onClick={() =>
+                                    setCustomizations((prev) => ({
+                                      ...prev,
+                                      drink: drink.name,
+                                    }))
+                                  }
+                                >
+                                  {drink.name}
+                                </button>
+                              ))}
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    {/* STANDARD CUSTOMIZATIONS (Shown for EVERY item that opens customize) */}
                     <div className="customize-section">
                       <label>Spice Level:</label>
                       <div className="spice-levels">
@@ -509,7 +579,7 @@ const PackageModal = ({
                       <label>Special Instructions:</label>
                       <textarea
                         className="special-instructions"
-                        placeholder="Any special requests? (e.g., no onions, extra sauce, etc.)"
+                        placeholder="Any special requests? (e.g., no onions, etc.)"
                         value={customizations.specialInstructions}
                         onChange={(e) =>
                           setCustomizations((prev) => ({
@@ -532,7 +602,7 @@ const PackageModal = ({
                         className="save-customize-btn"
                         onClick={handleSaveCustomizations}
                       >
-                        Save Customizations
+                        Save Selections
                       </button>
                     </div>
                   </div>
@@ -592,6 +662,16 @@ const PackageModal = ({
                           <p>₱{item.price.toFixed(2)} each</p>
                           {item.customizations && (
                             <div className="cart-item-customizations">
+                              {item.customizations.flavor && (
+                                <small>
+                                  Flavor: {item.customizations.flavor}
+                                </small>
+                              )}
+                              {item.customizations.drink && (
+                                <small>
+                                  Drink: {item.customizations.drink}
+                                </small>
+                              )}
                               <small>
                                 Customized: {item.customizations.spiceLevel}
                               </small>

@@ -38,6 +38,35 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
     return () => clearInterval(timer);
   }, [order.timestamp]);
 
+  // HELPER: Parse the customization string safely
+  const renderCustomizations = (customs) => {
+    if (!customs) return null;
+
+    try {
+      // Parse if it's a string, otherwise use as object
+      const c = typeof customs === "string" ? JSON.parse(customs) : customs;
+
+      return (
+        <div className="item-details-box">
+          {c.flavor && <span className="detail-tag flavor">{c.flavor}</span>}
+          {c.drink && <span className="detail-tag drink">{c.drink}</span>}
+          {c.spiceLevel && (
+            <span className="detail-tag spice">{c.spiceLevel}</span>
+          )}
+          {c.addOns?.length > 0 && (
+            <span className="detail-tag addons">+{c.addOns.join(", ")}</span>
+          )}
+          {c.specialInstructions && (
+            <div className="item-note">" {c.specialInstructions} "</div>
+          )}
+        </div>
+      );
+    } catch (e) {
+      console.error("Error parsing customizations:", e);
+      return null;
+    }
+  };
+
   const getTimerClass = () => {
     if (elapsed > 15) return "time-elapsed critical";
     if (elapsed > 10) return "time-elapsed warning";
@@ -46,7 +75,7 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
 
   return (
     <motion.div
-      ref={ref} // Attach the forwarded ref here
+      ref={ref}
       layout
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -55,7 +84,7 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
     >
       <div className="card-header">
         <div className="header-main">
-          <span className="table-number">T-{order.table}</span>
+          <span className="table-number">{order.table}</span>
           <StatusBadge status={order.status} />
         </div>
         <div className={getTimerClass()}>
@@ -67,13 +96,19 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
       <div className="card-body">
         <ul className="item-list">
           {order.items.map((item, idx) => (
-            <li key={idx} className="item-row">
-              <span className="item-name">{item.name}</span>
-              <span className="qty">x{item.qty}</span>
+            <li key={idx} className="item-container">
+              <div className="item-row">
+                <span className="item-name">{item.name}</span>
+                <span className="qty">x{item.qty}</span>
+              </div>
+
+              {/* DISPLAY CUSTOMIZATIONS HERE */}
+              {renderCustomizations(item.customizations)}
             </li>
           ))}
         </ul>
 
+        {/* This displays global order notes if any */}
         {order.instructions && (
           <div className="instructions">
             <MessageSquare size={14} />
@@ -88,7 +123,7 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
             onClick={() => onUpdateStatus(order.id, "preparing")}
             className="action-btn btn-start"
           >
-            <PlayCircle size={18} /> Start Preparing
+            <PlayCircle size={18} /> Start
           </button>
         )}
         {order.status === "preparing" && (
@@ -96,7 +131,7 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
             onClick={() => onUpdateStatus(order.id, "ready")}
             className="action-btn btn-ready"
           >
-            <CheckCircle2 size={18} /> Mark as Ready
+            <CheckCircle2 size={18} /> Ready
           </button>
         )}
         {order.status === "ready" && (
@@ -104,7 +139,7 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
             onClick={() => onUpdateStatus(order.id, "served")}
             className="action-btn btn-clear"
           >
-            Clear Order
+            Clear
           </button>
         )}
       </div>
@@ -120,8 +155,8 @@ const KitchenPage = () => {
   useEffect(() => {
     // Listen for real-time orders from the backend
     socket.on("new_order", (incomingOrder) => {
-      setOrders(prevOrders => {
-        const exists = prevOrders.find(o => o.id === incomingOrder.id);
+      setOrders((prevOrders) => {
+        const exists = prevOrders.find((o) => o.id === incomingOrder.id);
         if (exists) return prevOrders;
         return [incomingOrder, ...prevOrders];
       });

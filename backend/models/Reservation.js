@@ -86,28 +86,31 @@ checkActiveByUserId: async (userId) => {
 
   getItemsByReservationId: async (reservationId) => {
     const sql = `
-      SELECT 
-        r.package_name AS name, 
-        1 AS quantity, 
-        IFNULL(mi.price, 0) AS price 
-      FROM reservations r
-      LEFT JOIN menu_items mi ON 
-        (r.package_name = mi.name OR REPLACE(r.package_name, ' (x1)', '') = mi.name)
-      WHERE r.reservation_id = ?
+     SELECT 
+      mi.name, 
+      ri.quantity, 
+      ri.price,
+      ri.customizations
+    FROM reservation_items ri
+    JOIN menu_items mi ON ri.product_id = mi.item_id
+    WHERE ri.reservation_id = ?
 
-      UNION ALL
+    UNION ALL
 
-      SELECT 
-        mi.name, 
-        ri.quantity, 
-        ri.price
-      FROM reservation_items ri
-      JOIN menu_items mi ON ri.product_id = mi.item_id
-      WHERE ri.reservation_id = ?`;
+    SELECT 
+      r.package_name AS name, 
+      1 AS quantity, 
+      0 AS price,
+      NULL AS customizations
+    FROM reservations r
+    WHERE r.reservation_id = ? 
+    AND NOT EXISTS (SELECT 1 FROM reservation_items WHERE reservation_id = ?)
+  `;
 
-    const [rows] = await db.execute(sql, [reservationId, reservationId]);
-    return rows;
-  },
+  // We pass reservationId 3 times because of the 3 '?' in the query
+  const [rows] = await db.execute(sql, [reservationId, reservationId, reservationId]);
+  return rows;
+},
 
   create: async (data) => {
     const conn = await db.getConnection();
@@ -173,13 +176,14 @@ checkActiveByUserId: async (userId) => {
         itemsToProcess = JSON.parse(itemsToProcess);
 
       if (itemsToProcess.length > 0) {
-        const itemQuery = `INSERT INTO reservation_items (reservation_id, product_id, quantity, price) VALUES (?, ?, ?, ?)`;
+        const itemQuery = `INSERT INTO reservation_items (reservation_id, product_id, quantity, price,customizations) VALUES (?, ?, ?, ?,?)`;
         for (const item of itemsToProcess) {
           await conn.execute(itemQuery, [
             customId,
             item.item_id || item.id,
             item.quantity,
             item.price,
+            item.customizations ? JSON.stringify(item.customizations) : null
           ]);
         }
       }

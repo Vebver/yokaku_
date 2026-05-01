@@ -43,15 +43,28 @@ const Order = {
   },
 
   // Record the actual order
-  createOrderEntry: async (conn, reservationId, itemId, quantity) => {
-    const query = `INSERT INTO kiosk_orders (reservation_id, item_id, quantity, kitchen_status) VALUES (?, ?, ?, 'Pending')`;
-    return await conn.execute(query, [reservationId, itemId, quantity]);
+   createOrderEntry: async (conn, reservationId, itemId, quantity, customizations) => {
+    const query = `
+      INSERT INTO kiosk_orders 
+      (reservation_id, item_id, quantity, kitchen_status, customizations) 
+      VALUES (?, ?, ?, 'Pending', ?)`;
+    
+    // We stringify the customizations object into JSON for storage
+    const customData = customizations ? JSON.stringify(customizations) : null;
+    
+    return await conn.execute(query, [reservationId, itemId, quantity, customData]);
   },
 
   // Get all orders for a reservation (Kitchen display)
-  getOrdersByReservation: async (reservationId) => {
+ getOrdersByReservation: async (reservationId) => {
     const [rows] = await db.execute(
-      `SELECT o.order_id, o.item_id, o.quantity, o.kitchen_status, m.name AS item_name 
+      `SELECT 
+          o.order_id, 
+          o.item_id, 
+          o.quantity, 
+          o.kitchen_status, 
+          o.customizations, 
+          m.name AS item_name 
        FROM kiosk_orders o 
        JOIN menu_items m ON o.item_id = m.item_id 
        WHERE o.reservation_id = ?`,
@@ -62,7 +75,9 @@ const Order = {
   // Get pre-reserved items for a reservation (before they are placed as orders)
   getPreReservedItems: async (reservationId) => {
     const [rows] = await db.execute(
-      `SELECT m.* 
+      `SELECT 
+          m.*, 
+          ri.customizations 
        FROM menu_items m
        JOIN reservation_items ri ON m.item_id = ri.product_id 
        WHERE ri.reservation_id = ?`,

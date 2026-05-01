@@ -195,12 +195,77 @@ const ReservationSummary = ({
               reservationData.selectedItems?.length > 0 ? (
                 (reservationData.packages || reservationData.selectedItems).map(
                   (item, index) => (
-                    <div key={index} className="package-summary-item">
-                      {/* Check for item.name or item.item_name */}
-                      <span className="pkg-name">
-                        {item.name || item.item_name}
-                      </span>
-                      <span className="pkg-qty">Qty: {item.quantity}</span>
+                    <div
+                      key={index}
+                      className="package-summary-item"
+                      style={{
+                        flexDirection: "column",
+                        alignItems: "flex-start",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          width: "100%",
+                          fontWeight: "700",
+                        }}
+                      >
+                        <span className="pkg-name">
+                          {item.name || item.item_name}
+                        </span>
+                        <span className="pkg-qty">Qty: {item.quantity}</span>
+                      </div>
+
+                      {/* ADDED: Display Customizations (Flavor, Drink, etc.) */}
+                      {item.customizations && (
+                        <div
+                          className="customization-details"
+                          style={{
+                            fontSize: "0.8rem",
+                            color: "#666",
+                            marginTop: "4px",
+                            paddingLeft: "10px",
+                            borderLeft: "2px solid #eee",
+                          }}
+                        >
+                          {item.customizations.flavor && (
+                            <div>
+                              • Flavor:{" "}
+                              <span
+                                style={{ color: "#333", fontWeight: "600" }}
+                              >
+                                {item.customizations.flavor}
+                              </span>
+                            </div>
+                          )}
+                          {item.customizations.drink && (
+                            <div>
+                              • Drink:{" "}
+                              <span
+                                style={{ color: "#333", fontWeight: "600" }}
+                              >
+                                {item.customizations.drink}
+                              </span>
+                            </div>
+                          )}
+                          {item.customizations.spiceLevel && (
+                            <div>
+                              • Spice:{" "}
+                              <span
+                                style={{ color: "#333", fontWeight: "600" }}
+                              >
+                                {item.customizations.spiceLevel}
+                              </span>
+                            </div>
+                          )}
+                          {item.customizations.specialInstructions && (
+                            <div style={{ fontStyle: "italic" }}>
+                              " {item.customizations.specialInstructions} "
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ),
                 )
@@ -209,7 +274,6 @@ const ReservationSummary = ({
               )}
             </div>
           </section>
-
           {/* Section 4: Payment Breakdown */}
           <section className="summary-section payment-box">
             <div className="section-header">
