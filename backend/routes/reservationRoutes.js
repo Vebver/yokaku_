@@ -34,6 +34,9 @@ router.get(
   reservationController.getUserActiveReservation,
 );
 
+// Get all reservations for a specific user
+router.get("/user/:userId", protect, reservationController.getUserReservations);
+
 // Get all reservations (admin only)
 router.get("/", protect, adminOnly, reservationController.getReservations);
 
