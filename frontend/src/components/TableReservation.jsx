@@ -17,6 +17,11 @@ import {
   Phone,
   Link as LinkIcon,
   AlertCircle,
+  PartyPopper,
+  Cake,
+  GlassWater,
+  Heart,
+  Music,
 } from "lucide-react";
 import "../Style/TableReservation.css";
 import PackageModal from "./PackageModal";
@@ -25,17 +30,52 @@ import TermsModal from "./TermsModal";
 
 const API_BASE = "http://localhost:5000/api";
 const TABLES_DATA = [
-  { id: 1, label: "Table 1", seats: 5 },
-  { id: 2, label: "Table 2", seats: 2 },
-  { id: 3, label: "Table 3", seats: 4 },
-  { id: 4, label: "Table 4", seats: 4 },
-  { id: 5, label: "Table 5", seats: 4 },
-  { id: 6, label: "Table 6", seats: 4 },
-  { id: 7, label: "Table 7", seats: 4 },
-  { id: 8, label: "Table 8", seats: 4 },
-  { id: 9, label: "Table 9", seats: 4 },
-  { id: 10, label: "Table 10", seats: 3 },
+  { id: 1, label: "Table 1", seats: 5, status: "available" },
+  { id: 2, label: "Table 2", seats: 2, status: "available" },
+  { id: 3, label: "Table 3", seats: 4, status: "available" },
+  { id: 4, label: "Table 4", seats: 4, status: "available" },
+  { id: 5, label: "Table 5", seats: 4, status: "available" },
+  { id: 6, label: "Table 6", seats: 4, status: "available" },
+  { id: 7, label: "Table 7", seats: 4, status: "available" },
+  { id: 8, label: "Table 8", seats: 4, status: "available" },
+  { id: 9, label: "Table 9", seats: 4, status: "available" },
+  { id: 10, label: "Table 10", seats: 3, status: "available" },
 ];
+
+// Allergy options
+const ALLERGY_OPTIONS = [
+  "None",
+  "Nuts",
+  "Shellfish",
+  "Dairy",
+  "Eggs",
+  "Soy",
+  "Wheat/Gluten",
+  "Fish",
+  "Sesame",
+  "Other",
+];
+
+// Occasion options
+const OCCASION_OPTIONS = [
+  "Casual Dining",
+  "Birthday",
+  "Anniversary",
+  "Date Night",
+  "Family Gathering",
+  "Business Meeting",
+  "Graduation",
+  "Wedding Reception",
+  "Reunion",
+  "Holiday Celebration",
+  "Other",
+];
+
+// Helper function to sanitize input (letters, spaces, and basic punctuation only)
+const sanitizeStringInput = (value) => {
+  // Allow letters, spaces, apostrophes, hyphens, and periods
+  return value.replace(/[^a-zA-Z\s\-'\.]/g, "");
+};
 
 // --- UTILITIES ---
 const timeToMin = (t) => {
@@ -141,6 +181,10 @@ export default function TableReservation({ onClose, onSuccess }) {
     highChair: "No",
     muni: "",
     brgy: "",
+    allergy: "",
+    customAllergy: "",
+    occasion: "",
+    customOccasion: "",
   });
   const [addressData, setAddressData] = useState({
     municipalities: [],
@@ -368,6 +412,22 @@ export default function TableReservation({ onClose, onSuccess }) {
     return `${selectedItems[0].name} + ${selectedItems.length - 1} more`;
   }, [selectedItems]);
 
+  // Get final allergy value
+  const getFinalAllergy = useMemo(() => {
+    if (form.allergy === "Other" && form.customAllergy) {
+      return `Other: ${form.customAllergy}`;
+    }
+    return form.allergy || "None";
+  }, [form.allergy, form.customAllergy]);
+
+  // Get final occasion value
+  const getFinalOccasion = useMemo(() => {
+    if (form.occasion === "Other" && form.customOccasion) {
+      return `Other: ${form.customOccasion}`;
+    }
+    return form.occasion || "Casual Dining";
+  }, [form.occasion, form.customOccasion]);
+
   const fullReservationData = useMemo(() => {
     return {
       ...user,
@@ -390,6 +450,8 @@ export default function TableReservation({ onClose, onSuccess }) {
         "",
       barangay:
         addressData.barangays.find((b) => b.code === form.brgy)?.name || "",
+      allergy: getFinalAllergy,
+      occasion: getFinalOccasion,
     };
   }, [
     user,
@@ -401,6 +463,8 @@ export default function TableReservation({ onClose, onSuccess }) {
     orderSummary,
     paymentMethod,
     addressData,
+    getFinalAllergy,
+    getFinalOccasion,
   ]);
 
   const timeOptions = useMemo(() => {
@@ -496,10 +560,15 @@ export default function TableReservation({ onClose, onSuccess }) {
   // --- HANDLERS ---
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+
     if (name === "phone") {
       let val = value.replace(/\D/g, "");
       if (!val.startsWith("09")) val = "09";
       if (val.length <= 11) setUser((p) => ({ ...p, phone: val }));
+    } else if (name === "customAllergy" || name === "customOccasion") {
+      // Sanitize custom text inputs - only allow letters, spaces, apostrophes, hyphens, periods
+      const sanitized = sanitizeStringInput(value);
+      setForm((prev) => ({ ...prev, [name]: sanitized }));
     } else if (name in user) {
       setUser((prev) => ({ ...prev, [name]: value }));
     } else {
@@ -508,6 +577,14 @@ export default function TableReservation({ onClose, onSuccess }) {
   };
 
   const onTableClick = (table) => {
+    // Check if table is under maintenance
+    if (table.status === "maintenance") {
+      alert(
+        "This table is currently under maintenance and cannot be reserved.",
+      );
+      return;
+    }
+
     const hasActive = hasActiveReservation(table.id);
     const hasOngoing = hasOngoingReservation(table.id);
 
@@ -549,6 +626,16 @@ export default function TableReservation({ onClose, onSuccess }) {
       const payload = new FormData();
       const userId = localStorage.getItem("userId");
 
+      const finalAllergy =
+        form.allergy === "Other" && form.customAllergy
+          ? `Other: ${form.customAllergy}`
+          : form.allergy || "None";
+
+      const finalOccasion =
+        form.occasion === "Other" && form.customOccasion
+          ? `Other: ${form.customOccasion}`
+          : form.occasion || "Casual Dining";
+
       const submission = {
         ...user,
         ...form,
@@ -562,6 +649,8 @@ export default function TableReservation({ onClose, onSuccess }) {
         selectedItems: JSON.stringify(selectedItems),
         status: "Confirmed",
         brgyCode: form.brgy,
+        allergy: finalAllergy,
+        occasion: finalOccasion,
       };
 
       if (file) payload.append("receipt", file);
@@ -583,6 +672,14 @@ export default function TableReservation({ onClose, onSuccess }) {
     } finally {
       setUi((p) => ({ ...p, loading: false }));
     }
+  };
+
+  // Get table status for display
+  const getTableStatusDisplay = (table) => {
+    if (table.status === "maintenance") {
+      return { dotCls: "maintenance", label: "Maintenance" };
+    }
+    return null;
   };
 
   const availableTablesForLinking = getAvailableTablesForLinking();
@@ -836,6 +933,117 @@ export default function TableReservation({ onClose, onSuccess }) {
                     ))}
                   </div>
                 </div>
+
+                {/* OCCASION DROPDOWN FIELD */}
+                <div className="input-group">
+                  <label style={{ display: "block", marginBottom: "8px" }}>
+                    <PartyPopper size={12} /> OCCASION
+                  </label>
+                  <select
+                    name="occasion"
+                    className="res-input-dropdown"
+                    value={form.occasion}
+                    onChange={handleInputChange}
+                    style={{
+                      width: "100%",
+                      padding: "12px",
+                      borderRadius: "12px",
+                      border: "1.5px solid #f2f2f2",
+                      background: "#fafafa",
+                      outline: "none",
+                      fontSize: "14px",
+                    }}
+                  >
+                    <option value="">Select an occasion</option>
+                    {OCCASION_OPTIONS.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Custom Occasion Input - shows only when "Other" is selected */}
+                  {form.occasion === "Other" && (
+                    <input
+                      type="text"
+                      name="customOccasion"
+                      className="custom-occasion-input"
+                      placeholder="Please specify your occasion (e.g., Surprise Party, etc.)"
+                      value={form.customOccasion}
+                      onChange={handleInputChange}
+                      style={{
+                        width: "100%",
+                        padding: "12px",
+                        borderRadius: "12px",
+                        border: "1.5px solid #f2f2f2",
+                        background: "#fafafa",
+                        outline: "none",
+                        fontSize: "14px",
+                        marginTop: "10px",
+                      }}
+                    />
+                  )}
+
+                  <small className="input-hint">
+                    Let us know if you're celebrating a special occasion
+                  </small>
+                </div>
+
+                {/* ALLERGY DROPDOWN FIELD */}
+                <div className="input-group">
+                  <label style={{ display: "block", marginBottom: "8px" }}>
+                    <AlertCircle size={12} /> ALLERGIES / DIETARY RESTRICTIONS
+                  </label>
+                  <select
+                    name="allergy"
+                    className="res-input-dropdown"
+                    value={form.allergy}
+                    onChange={handleInputChange}
+                    style={{
+                      width: "100%",
+                      padding: "12px",
+                      borderRadius: "12px",
+                      border: "1.5px solid #f2f2f2",
+                      background: "#fafafa",
+                      outline: "none",
+                      fontSize: "14px",
+                    }}
+                  >
+                    <option value="">Select an allergy</option>
+                    {ALLERGY_OPTIONS.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Custom Allergy Input - shows only when "Other" is selected */}
+                  {form.allergy === "Other" && (
+                    <input
+                      type="text"
+                      name="customAllergy"
+                      className="custom-allergy-input"
+                      placeholder="Please specify your allergy (e.g., Peanuts, Strawberries, etc.)"
+                      value={form.customAllergy}
+                      onChange={handleInputChange}
+                      style={{
+                        width: "100%",
+                        padding: "12px",
+                        borderRadius: "12px",
+                        border: "1.5px solid #f2f2f2",
+                        background: "#fafafa",
+                        outline: "none",
+                        fontSize: "14px",
+                        marginTop: "10px",
+                      }}
+                    />
+                  )}
+
+                  <small className="input-hint">
+                    Please select any food allergies or dietary restrictions
+                  </small>
+                </div>
+
                 <div className="input-group">
                   <label>PACKAGES</label>
                   <button
@@ -963,12 +1171,15 @@ export default function TableReservation({ onClose, onSuccess }) {
               const isSelected = selectedId === t.id;
               const isLinked = linkedIds.includes(t.id);
               const showWarning = showOngoingWarning === t.id;
+              const isMaintenance = t.status === "maintenance";
 
               let cardCls = "";
               if (isSelected) {
                 cardCls = "selected";
               } else if (isLinked) {
                 cardCls = "linked";
+              } else if (isMaintenance) {
+                cardCls = "maintenance";
               } else if (hasOngoing && !isLinkMode) {
                 cardCls = "occupied";
               } else if (hasAnyReservation && !isLinkMode) {
@@ -978,7 +1189,9 @@ export default function TableReservation({ onClose, onSuccess }) {
               }
 
               let dotCls = "available";
-              if (hasOngoing) {
+              if (isMaintenance) {
+                dotCls = "maintenance";
+              } else if (hasOngoing) {
                 dotCls = "occupied";
               } else if (hasAnyReservation) {
                 dotCls = "reserved";
@@ -990,8 +1203,9 @@ export default function TableReservation({ onClose, onSuccess }) {
                   className={`table-list-card ${cardCls}`}
                   onClick={() => onTableClick(t)}
                   style={{
-                    cursor: "pointer",
+                    cursor: isMaintenance ? "not-allowed" : "pointer",
                     position: "relative",
+                    opacity: isMaintenance ? 0.7 : 1,
                   }}
                 >
                   <div className="table-card-content">
@@ -1001,22 +1215,31 @@ export default function TableReservation({ onClose, onSuccess }) {
                         <strong className="table-label-text">{t.label}</strong>
                       </div>
                       <span className="table-seats-text">{t.seats} Seats</span>
-                      {hasOngoing && !isLinkMode && (
+                      {hasOngoing && !isLinkMode && !isMaintenance && (
                         <div className="ongoing-badge">
                           <AlertCircle size={12} />
                           <span>Ongoing Now</span>
                         </div>
                       )}
-                      {hasAnyReservation && !hasOngoing && !isLinkMode && (
-                        <div className="reserved-badge">
-                          <Clock size={12} />
-                          <span>Reserved</span>
+                      {hasAnyReservation &&
+                        !hasOngoing &&
+                        !isLinkMode &&
+                        !isMaintenance && (
+                          <div className="reserved-badge">
+                            <Clock size={12} />
+                            <span>Reserved</span>
+                          </div>
+                        )}
+                      {isMaintenance && (
+                        <div className="maintenance-badge">
+                          <AlertCircle size={12} />
+                          <span>Under Maintenance</span>
                         </div>
                       )}
                     </div>
                   </div>
                   <div className={`status-dot ${dotCls}`} />
-                  {showWarning && !isLinkMode && (
+                  {showWarning && !isLinkMode && !isMaintenance && (
                     <div className="warning-tooltip">
                       <AlertCircle size={14} />
                       <span>This table has an ongoing reservation</span>
@@ -1035,6 +1258,9 @@ export default function TableReservation({ onClose, onSuccess }) {
             </div>
             <div className="legend-item">
               <span className="dot occupied"></span> Occupied/Ongoing
+            </div>
+            <div className="legend-item">
+              <span className="dot maintenance"></span> Maintenance
             </div>
             <div className="legend-item">
               <span
