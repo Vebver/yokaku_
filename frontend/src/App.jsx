@@ -31,6 +31,7 @@ import KitchenPage from "./components/kitchen-page/KitchenPage.jsx";
 import TableReservation from "./components/TableReservation.jsx";
 import TermsModal from "./components/TermsModal";
 import ResetPasswordPage from "./components/ResetPasswordPage";
+import MyReservation from "./components/customer-page/MyReservation";
 
 import "./Style/App.css";
 
@@ -136,6 +137,18 @@ function AppContent() {
                 <ReviewsSection />
                 <Footer />
               </>
+            )
+          }
+        />
+
+        {/* My Reservation Page*/}
+        <Route
+          path="/my-reservation"
+          element={
+            isLoggedIn && userRole !== "admin" ? (
+              <MyReservation />
+            ) : (
+              <Navigate to="/" replace />
             )
           }
         />

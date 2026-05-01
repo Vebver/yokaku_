@@ -73,7 +73,6 @@ const OCCASION_OPTIONS = [
 
 // Helper function to sanitize input (letters, spaces, and basic punctuation only)
 const sanitizeStringInput = (value) => {
-  // Allow letters, spaces, apostrophes, hyphens, and periods
   return value.replace(/[^a-zA-Z\s\-'\.]/g, "");
 };
 
@@ -400,19 +399,16 @@ export default function TableReservation({ onClose, onSuccess }) {
     };
   }, [selectedItems]);
 
-  // Prepare tableIds array for submission
   const tableIdsArray = useMemo(() => {
     return [selectedId, ...linkedIds].filter((id) => id !== null);
   }, [selectedId, linkedIds]);
 
-  // Generate package display name
   const productDisplayName = useMemo(() => {
     if (selectedItems.length === 0) return "Table Reservation";
     if (selectedItems.length === 1) return selectedItems[0].name;
     return `${selectedItems[0].name} + ${selectedItems.length - 1} more`;
   }, [selectedItems]);
 
-  // Get final allergy value
   const getFinalAllergy = useMemo(() => {
     if (form.allergy === "Other" && form.customAllergy) {
       return `Other: ${form.customAllergy}`;
@@ -420,7 +416,6 @@ export default function TableReservation({ onClose, onSuccess }) {
     return form.allergy || "None";
   }, [form.allergy, form.customAllergy]);
 
-  // Get final occasion value
   const getFinalOccasion = useMemo(() => {
     if (form.occasion === "Other" && form.customOccasion) {
       return `Other: ${form.customOccasion}`;
@@ -482,25 +477,54 @@ export default function TableReservation({ onClose, onSuccess }) {
     return opts;
   }, []);
 
+  // FIXED: availableStartTimeOptions - properly filters overlapping reservations
   const availableStartTimeOptions = useMemo(() => {
     let filtered = timeOptions;
+
+    // Filter out past times for today
     if (form.date === todayStr) {
       const thresh = new Date().getHours() * 60 + new Date().getMinutes() + 15;
       filtered = filtered.filter((t) => timeToMin(t) >= thresh);
     }
-    return filtered.filter((t) => {
-      const m = timeToMin(t);
-      return !data.schedule.some(
-        (r) => m >= timeToMin(r.startTime) && m < timeToMin(r.endTime),
-      );
+
+    // Filter out times that conflict with existing reservations
+    return filtered.filter((startTime) => {
+      const startM = timeToMin(startTime);
+      // Need at least 1 hour duration
+      const endM = startM + 60;
+
+      // Check if this time slot conflicts with any existing reservation
+      return !data.schedule.some((reservation) => {
+        const resStartM = timeToMin(reservation.startTime);
+        const resEndM = timeToMin(reservation.endTime);
+
+        // Check for overlap: new slot overlaps with existing reservation
+        return startM < resEndM && endM > resStartM;
+      });
     });
   }, [timeOptions, data.schedule, form.date, todayStr]);
 
+  // FIXED: filteredEndTimeOptions - properly filters based on conflicts
   const filteredEndTimeOptions = useMemo(() => {
     if (!form.startTime) return [];
     const startM = timeToMin(form.startTime);
-    return timeOptions.filter((t) => timeToMin(t) >= startM + 60);
-  }, [form.startTime, timeOptions]);
+
+    return timeOptions.filter((endTime) => {
+      const endM = timeToMin(endTime);
+      // Must be at least 1 hour after start
+      if (endM < startM + 60) return false;
+
+      // Check if this end time creates a conflict
+      return !data.schedule.some((reservation) => {
+        const resStartM = timeToMin(reservation.startTime);
+        const resEndM = timeToMin(reservation.endTime);
+
+        // The new reservation would be from startM to endM
+        // Check if this overlaps with existing reservation
+        return startM < resEndM && endM > resStartM;
+      });
+    });
+  }, [form.startTime, timeOptions, data.schedule]);
 
   // --- FIELD VALIDATION ---
   const isFirstNameValid = user.firstName && user.firstName.trim().length > 0;
@@ -566,7 +590,6 @@ export default function TableReservation({ onClose, onSuccess }) {
       if (!val.startsWith("09")) val = "09";
       if (val.length <= 11) setUser((p) => ({ ...p, phone: val }));
     } else if (name === "customAllergy" || name === "customOccasion") {
-      // Sanitize custom text inputs - only allow letters, spaces, apostrophes, hyphens, periods
       const sanitized = sanitizeStringInput(value);
       setForm((prev) => ({ ...prev, [name]: sanitized }));
     } else if (name in user) {
@@ -577,7 +600,6 @@ export default function TableReservation({ onClose, onSuccess }) {
   };
 
   const onTableClick = (table) => {
-    // Check if table is under maintenance
     if (table.status === "maintenance") {
       alert(
         "This table is currently under maintenance and cannot be reserved.",
@@ -672,14 +694,6 @@ export default function TableReservation({ onClose, onSuccess }) {
     } finally {
       setUi((p) => ({ ...p, loading: false }));
     }
-  };
-
-  // Get table status for display
-  const getTableStatusDisplay = (table) => {
-    if (table.status === "maintenance") {
-      return { dotCls: "maintenance", label: "Maintenance" };
-    }
-    return null;
   };
 
   const availableTablesForLinking = getAvailableTablesForLinking();
@@ -962,7 +976,6 @@ export default function TableReservation({ onClose, onSuccess }) {
                     ))}
                   </select>
 
-                  {/* Custom Occasion Input - shows only when "Other" is selected */}
                   {form.occasion === "Other" && (
                     <input
                       type="text"
@@ -1017,7 +1030,6 @@ export default function TableReservation({ onClose, onSuccess }) {
                     ))}
                   </select>
 
-                  {/* Custom Allergy Input - shows only when "Other" is selected */}
                   {form.allergy === "Other" && (
                     <input
                       type="text"
