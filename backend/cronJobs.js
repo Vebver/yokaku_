@@ -1,6 +1,7 @@
 // backend/cronJobs.js
 const cron = require("node-cron");
 const db = require("./config/db");
+const Notification = require("./models/Notification");
 
 // Run every minute to check for ongoing and expired reservations
 const startCronJobs = () => {
@@ -69,6 +70,15 @@ const startCronJobs = () => {
       const [pastDatesResult] = await db.execute(updatePastDates, [
         currentDate,
       ]);
+
+      // 5. Permanently delete notifications that have been in trash for more than 30 days
+      const deletedCount = await Notification.permanentlyDeleteExpired();
+
+      if (deletedCount > 0) {
+        console.log(
+          `✅ Permanently deleted ${deletedCount} old notifications from trash`,
+        );
+      }
 
       // Log results if any changes were made
       if (

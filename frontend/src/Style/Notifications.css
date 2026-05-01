@@ -16,9 +16,21 @@
   margin: 0 auto;
 }
 
-/* Header Section */
+/* ============================================ */
+/* HEADER SECTION */
+/* ============================================ */
+
 .notifications-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
   margin-bottom: 32px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.header-left {
+  flex: 1;
 }
 
 .notifications-header h1 {
@@ -38,7 +50,31 @@
   line-height: 1.4;
 }
 
-/* Stats Row */
+.view-deleted-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: 1.5px solid #f38d31;
+  color: #f38d31;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px 16px;
+  border-radius: 30px;
+  transition: all 0.2s ease;
+}
+
+.view-deleted-btn:hover {
+  background: #f38d31;
+  color: white;
+  transform: translateY(-2px);
+}
+
+/* ============================================ */
+/* STATS ROW */
+/* ============================================ */
+
 .notification-stats {
   display: flex;
   justify-content: space-between;
@@ -74,7 +110,6 @@
   color: #888;
 }
 
-/* Mark all read button */
 .mark-all-btn {
   background: none;
   border: none;
@@ -90,7 +125,10 @@
   opacity: 0.7;
 }
 
-/* Notifications List */
+/* ============================================ */
+/* NOTIFICATIONS LIST */
+/* ============================================ */
+
 .notifications-list {
   display: flex;
   flex-direction: column;
@@ -114,7 +152,6 @@
   border-color: #ddd;
 }
 
-/* Unread card styling */
 .notification-item.unread {
   background: white;
   border-left: 3px solid #f38d31;
@@ -125,6 +162,7 @@
 .notification-card-content {
   display: flex;
   gap: 14px;
+  width: 100%;
 }
 
 /* Icon Container */
@@ -139,9 +177,8 @@
   justify-content: center;
 }
 
-.notification-icon::before {
-  content: "🔔";
-  font-size: 20px;
+.notification-icon .notification-emoji {
+  font-size: 22px;
   opacity: 0.7;
 }
 
@@ -149,14 +186,8 @@
   background: #fff3e8;
 }
 
-.notification-item.unread .notification-icon::before {
-  content: "🔔";
+.notification-item.unread .notification-icon .notification-emoji {
   opacity: 1;
-}
-
-/* Hide existing SVG */
-.notification-icon svg {
-  display: none;
 }
 
 /* Content Area */
@@ -208,50 +239,580 @@
   margin-right: 8px;
 }
 
-/* Action Buttons Row */
+/* ============================================ */
+/* ACTION BUTTONS - Bottom aligned row */
+/* ============================================ */
+
+.notification-actions-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
 .notification-actions {
   display: flex;
-  gap: 16px;
-  margin-top: 8px;
+  gap: 12px;
 }
 
 .mark-read-btn {
   background: none;
-  border: none;
+  border: 1.5px solid #f38d31;
   color: #f38d31;
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
-  padding: 0;
-  transition: opacity 0.2s;
+  padding: 6px 16px;
+  border-radius: 20px;
+  transition: all 0.2s ease;
 }
 
 .mark-read-btn:hover {
-  opacity: 0.7;
-  text-decoration: underline;
+  background: #f38d31;
+  color: white;
+  transform: translateY(-1px);
 }
 
-.archive-btn {
+.mark-read-btn.already-read {
+  border-color: #ddd;
+  color: #ccc;
+  cursor: not-allowed;
+}
+
+.mark-read-btn.already-read:hover {
   background: none;
-  border: none;
-  color: #999;
-  font-size: 13px;
-  font-weight: 400;
-  cursor: pointer;
-  padding: 0;
-  transition: color 0.2s;
+  color: #ccc;
+  transform: none;
 }
 
-.archive-btn:hover {
+.view-btn {
+  background: none;
+  border: 1.5px solid #4caf50;
+  color: #4caf50;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 16px;
+  border-radius: 20px;
+  transition: all 0.2s ease;
+}
+
+.view-btn:hover {
+  background: #4caf50;
+  color: white;
+  transform: translateY(-1px);
+}
+
+/* Delete button styling - aligned right */
+.delete-notif-btn {
+  background: none;
+  border: 1.5px solid #e53935;
+  color: #e53935;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 20px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.delete-notif-btn:hover {
+  background: #e53935;
+  color: white;
+  transform: translateY(-1px);
+}
+
+/* ============================================ */
+/* CONFIRM DELETE MODAL */
+/* ============================================ */
+
+.confirm-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 20001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.confirm-modal-container {
+  background: white;
+  border-radius: 20px;
+  padding: 24px;
+  width: 90%;
+  max-width: 400px;
+  text-align: center;
+}
+
+.confirm-modal-container h3 {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0 0 12px 0;
+  color: #1a1a1a;
+}
+
+.confirm-modal-container p {
+  font-size: 14px;
+  color: #666;
+  margin: 0 0 24px 0;
+  line-height: 1.5;
+}
+
+.confirm-modal-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.confirm-cancel {
+  flex: 1;
+  padding: 10px 16px;
+  border-radius: 30px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: none;
+  border: 1.5px solid #ddd;
   color: #666;
 }
 
-/* Unread dot */
-.unread-dot {
-  display: none;
+.confirm-cancel:hover {
+  border-color: #666;
+  color: #333;
 }
 
-/* Empty State */
+.confirm-delete {
+  flex: 1;
+  padding: 10px 16px;
+  border-radius: 30px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: #e53935;
+  border: none;
+  color: white;
+}
+
+.confirm-delete:hover {
+  background: #c62828;
+  transform: translateY(-2px);
+}
+
+/* Confirm Delete Permanent Button */
+.confirm-delete-permanent {
+  flex: 1;
+  padding: 10px 16px;
+  border-radius: 30px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: #e53935;
+  border: none;
+  color: white;
+}
+
+.confirm-delete-permanent:hover {
+  background: #c62828;
+  transform: translateY(-2px);
+}
+
+/* ============================================ */
+/* RESERVATION DETAIL MODAL */
+/* ============================================ */
+
+.reservation-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 20000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.3s ease;
+}
+
+.reservation-modal-container {
+  background: white;
+  border-radius: 24px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 85vh;
+  overflow: hidden;
+  animation: slideUp 0.3s ease;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.reservation-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e8e8e8;
+  background: linear-gradient(135deg, #fef9f0, #fff5e6);
+}
+
+.reservation-modal-header h2 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0;
+}
+
+.reservation-modal-close {
+  background: none;
+  border: none;
+  font-size: 28px;
+  cursor: pointer;
+  color: #999;
+  transition: color 0.2s;
+  line-height: 1;
+}
+
+.reservation-modal-close:hover {
+  color: #f38d31;
+}
+
+.reservation-modal-content {
+  padding: 24px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.reservation-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.reservation-detail-row:last-child {
+  border-bottom: none;
+}
+
+.detail-label {
+  font-weight: 600;
+  color: #666;
+  font-size: 14px;
+}
+
+.detail-value {
+  font-weight: 500;
+  color: #1a1a1a;
+  font-size: 14px;
+  text-align: right;
+}
+
+.status-badge {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-badge.confirmed {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status-badge.pending {
+  background: #fff3e0;
+  color: #f38d31;
+}
+
+.status-badge.seated {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.status-badge.completed {
+  background: #f5f5f5;
+  color: #757575;
+}
+
+.reservation-modal-loading,
+.reservation-modal-error {
+  text-align: center;
+  padding: 40px;
+  color: #999;
+}
+
+.reservation-modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid #e8e8e8;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.reservation-modal-ok {
+  background: linear-gradient(135deg, #f38d31, #e07a1e);
+  color: white;
+  border: none;
+  padding: 10px 24px;
+  border-radius: 30px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.reservation-modal-ok:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(243, 141, 49, 0.3);
+}
+
+/* ============================================ */
+/* DELETED NOTIFICATIONS MODAL */
+/* ============================================ */
+
+.deleted-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 20002;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.deleted-modal-container {
+  background: white;
+  border-radius: 24px;
+  width: 90%;
+  max-width: 700px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: slideUp 0.3s ease;
+}
+
+.deleted-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e8e8e8;
+  background: linear-gradient(135deg, #fef9f0, #fff5e6);
+}
+
+.deleted-modal-header h2 {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
+  color: #1a1a1a;
+}
+
+.deleted-modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #999;
+  transition: color 0.2s;
+}
+
+.deleted-modal-close:hover {
+  color: #f38d31;
+}
+
+.deleted-modal-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.deleted-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.deleted-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f9f9f9;
+  border-radius: 16px;
+  padding: 16px;
+  border: 1px solid #e8e8e8;
+  transition: all 0.2s ease;
+}
+
+.deleted-item:hover {
+  border-color: #f38d31;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.deleted-item-content {
+  flex: 1;
+}
+
+.deleted-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.deleted-title {
+  font-weight: 700;
+  font-size: 15px;
+  color: #1a1a1a;
+}
+
+.deleted-expiry {
+  font-size: 11px;
+  color: #e53935;
+  background: rgba(229, 57, 53, 0.1);
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
+.deleted-message {
+  font-size: 13px;
+  color: #666;
+  margin: 0 0 8px 0;
+  line-height: 1.4;
+}
+
+.deleted-meta {
+  display: flex;
+  gap: 16px;
+  font-size: 11px;
+  color: #999;
+}
+
+/* Deleted item actions container */
+.deleted-item-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-left: 16px;
+}
+
+.restore-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: none;
+  border: 1.5px solid #4caf50;
+  color: #4caf50;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px 16px;
+  border-radius: 30px;
+  transition: all 0.2s ease;
+}
+
+.restore-btn:hover {
+  background: #4caf50;
+  color: white;
+  transform: translateY(-2px);
+}
+
+/* Permanent Delete Button */
+.permanent-delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: none;
+  border: 1.5px solid #e53935;
+  color: #e53935;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px 16px;
+  border-radius: 30px;
+  transition: all 0.2s ease;
+}
+
+.permanent-delete-btn:hover {
+  background: #e53935;
+  color: white;
+  transform: translateY(-2px);
+}
+
+.no-deleted {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.no-deleted p {
+  color: #999;
+  margin: 0;
+}
+
+.deleted-hint {
+  font-size: 12px;
+  margin-top: 8px !important;
+}
+
+.deleted-modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid #e8e8e8;
+  background: #fafafa;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.deleted-info {
+  font-size: 12px;
+  color: #888;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.deleted-close-btn {
+  background: linear-gradient(135deg, #f38d31, #e07a1e);
+  color: white;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 30px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.deleted-close-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(243, 141, 49, 0.3);
+}
+
+/* ============================================ */
+/* EMPTY & LOADING STATES */
+/* ============================================ */
+
 .no-notifications {
   text-align: center;
   padding: 80px 24px;
@@ -274,7 +835,6 @@
   margin: 0;
 }
 
-/* Loading State */
 .loading-spinner {
   text-align: center;
   padding: 60px;
@@ -283,17 +843,102 @@
   color: #999;
 }
 
-/* Status dot (legacy) */
-.status-dot {
-  display: none;
+/* Fix for modal stacking order */
+.confirm-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 20010 !important; /* Force higher z-index */
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-/* Responsive */
+.confirm-modal-container {
+  background: white;
+  border-radius: 20px;
+  padding: 24px;
+  width: 90%;
+  max-width: 400px;
+  text-align: center;
+  z-index: 20011;
+  position: relative;
+}
+
+.deleted-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 20002;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.deleted-modal-container {
+  background: white;
+  border-radius: 24px;
+  width: 90%;
+  max-width: 700px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: slideUp 0.3s ease;
+  z-index: 20003;
+  position: relative;
+}
+
+/* ============================================ */
+/* ANIMATIONS */
+/* ============================================ */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================ */
+/* RESPONSIVE DESIGN */
+/* ============================================ */
+
 @media (max-width: 600px) {
   .notifications-page {
     padding-top: 80px !important;
     padding-left: 16px;
     padding-right: 16px;
+  }
+
+  .notifications-header {
+    flex-direction: column;
+  }
+
+  .view-deleted-btn {
+    width: 100%;
+    justify-content: center;
   }
 
   .notifications-header h1 {
@@ -334,7 +979,7 @@
     height: 40px;
   }
 
-  .notification-icon::before {
+  .notification-icon .notification-emoji {
     font-size: 18px;
   }
 
@@ -350,8 +995,61 @@
     font-size: 11px;
   }
 
+  .notification-actions-bottom {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .notification-actions {
+    justify-content: center;
+  }
+
+  .delete-notif-btn {
+    justify-content: center;
+  }
+
   .mark-read-btn,
-  .archive-btn {
+  .view-btn,
+  .delete-notif-btn {
     font-size: 12px;
+    padding: 6px 12px;
+  }
+
+  /* Modal Responsive */
+  .reservation-modal-container {
+    width: 95%;
+  }
+
+  .reservation-detail-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .detail-value {
+    text-align: left;
+  }
+
+  /* Deleted Modal Responsive */
+  .deleted-item {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .deleted-item-actions {
+    flex-direction: row;
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .restore-btn,
+  .permanent-delete-btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .deleted-item-header {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
