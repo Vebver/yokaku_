@@ -69,7 +69,7 @@ const TableStatus = () => {
       const token = localStorage.getItem("token");
       await axios.post(
         `/api/admin/walk-in/${selectedTable.table_id}`,
-        { customer_name: guestName },
+        { customerName: guestName },
         { headers: { Authorization: `Bearer ${token}` } },
       );
       setShowModal(false);
