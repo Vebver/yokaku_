@@ -7,21 +7,19 @@ import {
   Timer,
   Filter,
 } from "lucide-react";
-import { useLocation } from "react-router-dom";
 import "../../Style/KitchenPage.css";
 import { io } from "socket.io-client";
 
-// Initialize socket connection to the new port 5000
+// Initialize socket connection
 const socket = io("http://localhost:5000");
 
-const INITIAL_ORDERS = [];
-
+// --- STATUS BADGE COMPONENT ---
 const StatusBadge = ({ status }) => {
-  const badgeClass = `badge badge-${status}`;
+  const badgeClass = `badge badge-${status.toLowerCase()}`;
   return <span className={badgeClass}>{status}</span>;
 };
 
-// Wrapped in forwardRef to fix the "Function components cannot be given refs" error
+// --- ORDER CARD COMPONENT ---
 const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
   const [elapsed, setElapsed] = useState(0);
 
@@ -38,21 +36,16 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
     return () => clearInterval(timer);
   }, [order.timestamp]);
 
-  // HELPER: Parse the customization string safely
+  // Restored: Customization rendering logic
   const renderCustomizations = (customs) => {
     if (!customs) return null;
-
     try {
-      // Parse if it's a string, otherwise use as object
       const c = typeof customs === "string" ? JSON.parse(customs) : customs;
-
       return (
         <div className="item-details-box">
           {c.flavor && <span className="detail-tag flavor">{c.flavor}</span>}
           {c.drink && <span className="detail-tag drink">{c.drink}</span>}
-          {c.spiceLevel && (
-            <span className="detail-tag spice">{c.spiceLevel}</span>
-          )}
+          {c.spiceLevel && <span className="detail-tag spice">{c.spiceLevel}</span>}
           {c.addOns?.length > 0 && (
             <span className="detail-tag addons">+{c.addOns.join(", ")}</span>
           )}
@@ -62,7 +55,6 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
         </div>
       );
     } catch (e) {
-      console.error("Error parsing customizations:", e);
       return null;
     }
   };
@@ -84,7 +76,7 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
     >
       <div className="card-header">
         <div className="header-main">
-          <span className="table-number">{order.table}</span>
+          <span className="table-number">Table {order.table}</span>
           <StatusBadge status={order.status} />
         </div>
         <div className={getTimerClass()}>
@@ -95,20 +87,17 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
 
       <div className="card-body">
         <ul className="item-list">
-          {order.items.map((item, idx) => (
+          {order.items && order.items.map((item, idx) => (
             <li key={idx} className="item-container">
               <div className="item-row">
                 <span className="item-name">{item.name}</span>
-                <span className="qty">x{item.qty}</span>
+                <span className="qty">x{item.qty || item.quantity}</span>
               </div>
-
-              {/* DISPLAY CUSTOMIZATIONS HERE */}
               {renderCustomizations(item.customizations)}
             </li>
           ))}
         </ul>
 
-        {/* This displays global order notes if any */}
         {order.instructions && (
           <div className="instructions">
             <MessageSquare size={14} />
@@ -147,49 +136,55 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
   );
 });
 
+// --- MAIN KITCHEN PAGE ---
 const KitchenPage = () => {
-  const [orders, setOrders] = useState(INITIAL_ORDERS);
+  const [orders, setOrders] = useState([]);
   const [filter, setFilter] = useState("all");
-  const location = useLocation();
 
   useEffect(() => {
-    // Listen for real-time orders from the backend
-    socket.on("new_order", (incomingOrder) => {
-      setOrders((prevOrders) => {
-        const exists = prevOrders.find((o) => o.id === incomingOrder.id);
-        if (exists) return prevOrders;
-        return [incomingOrder, ...prevOrders];
+    console.log("🔌 Kitchen monitoring active...");
+
+    socket.on("connect", () => console.log("✅ Socket Connected"));
+
+    socket.on("new_order", (data) => {
+      console.log("📩 New order received:", data);
+      setOrders((prev) => {
+        if (prev.find((o) => o.id === data.id)) return prev;
+        return [data, ...prev];
       });
     });
 
-    // Handle manual navigation state if provided
-    if (location.state?.newOrder) {
-      const newOrder = location.state.newOrder;
-      setOrders((prevOrders) => {
-        const exists = prevOrders.find((o) => o.id === newOrder.id);
-        if (exists) return prevOrders;
-        return [newOrder, ...prevOrders];
-      });
-      window.history.replaceState({}, document.title);
-    }
-
     return () => {
       socket.off("new_order");
+      socket.off("connect");
     };
-  }, [location.state]);
+  }, []);
 
-  const updateStatus = (id, newStatus) => {
-    if (newStatus === "served") {
-      setOrders(orders.filter((o) => o.id !== id));
-    } else {
-      setOrders(
-        orders.map((o) => (o.id === id ? { ...o, status: newStatus } : o)),
-      );
+  const updateStatus = async (id, newStatus) => {
+    try {
+      // Sync with database
+      await fetch(`http://localhost:5000/api/orders/${id}/status`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      // Update local UI
+      if (newStatus === "served") {
+        setOrders(orders.filter((o) => o.id !== id));
+      } else {
+        setOrders(prev => 
+          prev.map((o) => (o.id === id ? { ...o, status: newStatus } : o))
+        );
+      }
+    } catch (e) {
+      console.error("Status update failed:", e);
     }
   };
 
+  // Filter logic
   const filteredOrders = orders.filter(
-    (o) => filter === "all" || o.status === filter,
+    (o) => filter === "all" || o.status === filter
   );
 
   return (
@@ -217,7 +212,7 @@ const KitchenPage = () => {
 
       <main className="container">
         {filteredOrders.length > 0 ? (
-          <motion.div layout className="order-grid">
+          <div className="order-grid">
             <AnimatePresence mode="popLayout">
               {filteredOrders.map((order) => (
                 <OrderCard
@@ -227,10 +222,10 @@ const KitchenPage = () => {
                 />
               ))}
             </AnimatePresence>
-          </motion.div>
+          </div>
         ) : (
           <div className="empty-state">
-            <CheckCircle2 size={48} />
+            <CheckCircle2 size={48} color="#e0e0e0" />
             <p>Queue is empty</p>
           </div>
         )}
