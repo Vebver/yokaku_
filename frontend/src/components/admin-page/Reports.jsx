@@ -3,6 +3,8 @@ import axios from "axios";
 import FinancialOverview from "./FinancialOverview";
 import { RefreshCw } from "lucide-react";
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+
 function Reports() {
   const [financialData, setFinancialData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -10,7 +12,7 @@ function Reports() {
   const fetchReportData = async () => {
     try {
       setLoading(true);
-      const res = await axios.get("http://localhost:5000/api/admin/reports/financial");
+      const res = await axios.get(`${API_BASE}/admin/reports/financial`);
       if (res.data.success) {
         setFinancialData(res.data.data);
       }
@@ -29,8 +31,13 @@ function Reports() {
     <div className="container-fluid p-4 bg-light">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2 className="fw-bold">Financial Analytics</h2>
-        <button className="btn btn-dark" onClick={fetchReportData} disabled={loading}>
-          <RefreshCw size={18} className={loading ? "animate-spin" : ""} /> Refresh
+        <button
+          className="btn btn-dark"
+          onClick={fetchReportData}
+          disabled={loading}
+        >
+          <RefreshCw size={18} className={loading ? "animate-spin" : ""} />{" "}
+          Refresh
         </button>
       </div>
 

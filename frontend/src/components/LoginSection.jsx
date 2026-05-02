@@ -3,6 +3,8 @@ import VerifyEmail from "./VerifyEmail";
 import "../Style/LoginModal.css";
 import axios from "axios";
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+
 function LoginSection({ onClose }) {
   const [view, setView] = useState("login"); // 'login', 'signup', 'verify', 'forgot', 'reset'
   const [showPassword, setShowPassword] = useState(false);

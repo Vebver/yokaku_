@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+
 function Inventory() {
   const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -25,7 +27,7 @@ function Inventory() {
 
   const fetchInventory = async () => {
     try {
-      const response = await axios.get("http://localhost:5000/api/inventory");
+      const response = await axios.get(`${API_BASE}/inventory`);
       // Mapping the expanded database columns
       const mappedData = response.data.map((item) => ({
         id: item.inventory_id,
@@ -75,7 +77,7 @@ function Inventory() {
     };
     e.preventDefault();
     try {
-      await axios.post("http://localhost:5000/api/inventory", formattedItem);
+      await axios.post(`${API_BASE}/inventory`, formattedItem);
       fetchInventory(); // Refresh
       setNewItem({
         item_name: "",
@@ -98,7 +100,7 @@ function Inventory() {
   const deleteItem = async (id) => {
     if (window.confirm("Remove this item from inventory?")) {
       try {
-        await axios.delete(`http://localhost:5000/api/inventory/${id}`);
+        await axios.delete(`${API_BASE}/inventory/${id}`);
         setInventory(inventory.filter((item) => item.id !== id));
       } catch (err) {
         alert("Error deleting item.");
@@ -259,170 +261,180 @@ function Inventory() {
 
       {/* --- ADD INVENTORY SIDE DRAWER --- */}
 
-<div
-  className="offcanvas offcanvas-end" // This moves it to the right side
-  tabIndex="-1"
-  id="addInventoryDrawer" // Match the button target
-  aria-labelledby="offcanvasLabel"
-  style={{ width: "600px" }} // Give it a bit more width for your 2-column rows
->
-  <div className="offcanvas-header border-bottom pt-4 px-4">
-    <h5 className="offcanvas-title fw-bold" id="offcanvasLabel">
-      Add Raw Stock
-    </h5>
-    <button
-      type="button"
-      className="btn-close"
-      data-bs-dismiss="offcanvas" // Correct dismiss attribute
-      ref={closeBtnRef}
-    ></button>
-  </div>
-
-  <div className="offcanvas-body px-4">
-    <form onSubmit={handleAddItem}>
-      {/* Item Name & Category */}
-      <div className="row">
-        <div className="col-md-6 mb-3">
-          <label className="form-label small fw-bold">Item Name</label>
-          <input
-            type="text"
-            name="item_name"
-            className="form-control"
-            value={newItem.item_name}
-            onChange={handleInputChange}
-            required
-          />
+      <div
+        className="offcanvas offcanvas-end" // This moves it to the right side
+        tabIndex="-1"
+        id="addInventoryDrawer" // Match the button target
+        aria-labelledby="offcanvasLabel"
+        style={{ width: "600px" }} // Give it a bit more width for your 2-column rows
+      >
+        <div className="offcanvas-header border-bottom pt-4 px-4">
+          <h5 className="offcanvas-title fw-bold" id="offcanvasLabel">
+            Add Raw Stock
+          </h5>
+          <button
+            type="button"
+            className="btn-close"
+            data-bs-dismiss="offcanvas" // Correct dismiss attribute
+            ref={closeBtnRef}
+          ></button>
         </div>
-        <div className="col-md-6 mb-3">
-          <label className="form-label small fw-bold">Category</label>
-          <select
-            name="category"
-            className="form-select"
-            value={newItem.category}
-            onChange={handleInputChange}
-          >
-            <option value="Meat">Meat</option>
-            <option value="Dairy">Dairy</option>
-            <option value="Produce">Produce</option>
-            <option value="Dry Goods">Dry Goods</option>
-            <option value="Beverages">Beverages</option>
-          </select>
+
+        <div className="offcanvas-body px-4">
+          <form onSubmit={handleAddItem}>
+            {/* Item Name & Category */}
+            <div className="row">
+              <div className="col-md-6 mb-3">
+                <label className="form-label small fw-bold">Item Name</label>
+                <input
+                  type="text"
+                  name="item_name"
+                  className="form-control"
+                  value={newItem.item_name}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              <div className="col-md-6 mb-3">
+                <label className="form-label small fw-bold">Category</label>
+                <select
+                  name="category"
+                  className="form-select"
+                  value={newItem.category}
+                  onChange={handleInputChange}
+                >
+                  <option value="Meat">Meat</option>
+                  <option value="Dairy">Dairy</option>
+                  <option value="Produce">Produce</option>
+                  <option value="Dry Goods">Dry Goods</option>
+                  <option value="Beverages">Beverages</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Quantity, Unit, & Price */}
+            <div className="row">
+              <div className="col-md-4 mb-3">
+                <label className="form-label small fw-bold">Quantity</label>
+                <input
+                  type="number"
+                  name="quantity"
+                  className="form-control"
+                  value={newItem.quantity}
+                  onChange={handleInputChange}
+                  min="0"
+                  step={
+                    newItem.unit === "pcs" || newItem.unit === "box"
+                      ? "1"
+                      : "0.01"
+                  }
+                  required
+                />
+              </div>
+              <div className="col-md-4 mb-3">
+                <label className="form-label small fw-bold">Unit</label>
+                <select
+                  name="unit"
+                  className="form-select"
+                  value={newItem.unit}
+                  onChange={handleInputChange}
+                >
+                  <option value="kg">Kilograms (kg)</option>
+                  <option value="L">Liters (L)</option>
+                  <option value="pcs">Pieces (pcs)</option>
+                  <option value="box">Boxes</option>
+                </select>
+              </div>
+              <div className="col-md-4 mb-3">
+                <label className="form-label small fw-bold">
+                  Unit Cost (₱)
+                </label>
+                <input
+                  type="number"
+                  name="unit_price"
+                  step="0.01"
+                  min="0"
+                  className="form-control"
+                  value={newItem.unit_price}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Expiry & Reorder */}
+            <div className="row">
+              <div className="col-md-6 mb-3">
+                <label className="form-label small fw-bold">Expiry Date</label>
+                <input
+                  type="date"
+                  name="expiry_date"
+                  className="form-control"
+                  value={newItem.expiry_date}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              <div className="col-md-6 mb-3">
+                <label className="form-label small fw-bold">
+                  Reorder Level
+                </label>
+                <input
+                  type="number"
+                  name="reorder_level"
+                  className="form-control"
+                  value={newItem.reorder_level}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Supplier & Location */}
+            <div className="row">
+              <div className="col-md-6 mb-3">
+                <label className="form-label small fw-bold">Supplier</label>
+                <input
+                  type="text"
+                  name="supplier"
+                  className="form-control"
+                  value={newItem.supplier}
+                  onChange={handleInputChange}
+                />
+              </div>
+              <div className="col-md-6 mb-3">
+                <label className="form-label small fw-bold">
+                  Storage Location
+                </label>
+                <select
+                  name="storage_location"
+                  className="form-select"
+                  value={newItem.storage_location}
+                  onChange={handleInputChange}
+                >
+                  <option value="Dry Pantry">Dry Pantry</option>
+                  <option value="Walk-in Fridge">Walk-in Fridge</option>
+                  <option value="Freezer">Freezer</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="mt-4 d-grid gap-2">
+              <button type="submit" className="btn btn-success py-2">
+                Update Inventory
+              </button>
+              <button
+                type="button"
+                className="btn btn-light py-2"
+                data-bs-dismiss="offcanvas"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
         </div>
       </div>
-
-      {/* Quantity, Unit, & Price */}
-      <div className="row">
-        <div className="col-md-4 mb-3">
-          <label className="form-label small fw-bold">Quantity</label>
-          <input
-            type="number"
-            name="quantity"
-            className="form-control"
-            value={newItem.quantity}
-            onChange={handleInputChange}
-            min="0"
-            step={newItem.unit === "pcs" || newItem.unit === "box" ? "1" : "0.01"}
-            required
-          />
-        </div>
-        <div className="col-md-4 mb-3">
-          <label className="form-label small fw-bold">Unit</label>
-          <select
-            name="unit"
-            className="form-select"
-            value={newItem.unit}
-            onChange={handleInputChange}
-          >
-            <option value="kg">Kilograms (kg)</option>
-            <option value="L">Liters (L)</option>
-            <option value="pcs">Pieces (pcs)</option>
-            <option value="box">Boxes</option>
-          </select>
-        </div>
-        <div className="col-md-4 mb-3">
-          <label className="form-label small fw-bold">Unit Cost (₱)</label>
-          <input
-            type="number"
-            name="unit_price"
-            step="0.01"
-            min="0"
-            className="form-control"
-            value={newItem.unit_price}
-            onChange={handleInputChange}
-            required
-          />
-        </div>
-      </div>
-
-      {/* Expiry & Reorder */}
-      <div className="row">
-        <div className="col-md-6 mb-3">
-          <label className="form-label small fw-bold">Expiry Date</label>
-          <input
-            type="date"
-            name="expiry_date"
-            className="form-control"
-            value={newItem.expiry_date}
-            onChange={handleInputChange}
-            required
-          />
-        </div>
-        <div className="col-md-6 mb-3">
-          <label className="form-label small fw-bold">Reorder Level</label>
-          <input
-            type="number"
-            name="reorder_level"
-            className="form-control"
-            value={newItem.reorder_level}
-            onChange={handleInputChange}
-            required
-          />
-        </div>
-      </div>
-
-      {/* Supplier & Location */}
-      <div className="row">
-        <div className="col-md-6 mb-3">
-          <label className="form-label small fw-bold">Supplier</label>
-          <input
-            type="text"
-            name="supplier"
-            className="form-control"
-            value={newItem.supplier}
-            onChange={handleInputChange}
-          />
-        </div>
-        <div className="col-md-6 mb-3">
-          <label className="form-label small fw-bold">Storage Location</label>
-          <select
-            name="storage_location"
-            className="form-select"
-            value={newItem.storage_location}
-            onChange={handleInputChange}
-          >
-            <option value="Dry Pantry">Dry Pantry</option>
-            <option value="Walk-in Fridge">Walk-in Fridge</option>
-            <option value="Freezer">Freezer</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Action Buttons */}
-      <div className="mt-4 d-grid gap-2">
-        <button type="submit" className="btn btn-success py-2">
-          Update Inventory
-        </button>
-        <button
-          type="button"
-          className="btn btn-light py-2"
-          data-bs-dismiss="offcanvas"
-        >
-          Cancel
-        </button>
-      </div>
-    </form>
-  </div>
-</div>
     </div>
   );
 }

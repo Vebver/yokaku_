@@ -4,6 +4,8 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "../../Style/CustomerProfile.css";
 import CustomerProfileEdit from "./CustomerProfileEdit";
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+
 const CustomerProfile = () => {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -51,11 +53,9 @@ const CustomerProfile = () => {
       const token = localStorage.getItem("token");
 
       // 1. Send request
-      const response = await axios.put(
-        "api/profile",
-        updatedData,
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
+      const response = await axios.put("api/profile", updatedData, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
       // 2. Check what the server sent back
       console.log("Server returned fresh data:", response.data);

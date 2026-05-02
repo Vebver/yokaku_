@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { CalendarOff, Trash2, Plus } from "lucide-react";
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+
 const HolidayMaintenance = () => {
   const [holidays, setHolidays] = useState([]);
   const [newHoliday, setNewHoliday] = useState({ date: "", reason: "" });
@@ -12,23 +14,27 @@ const HolidayMaintenance = () => {
 
   const fetchHolidays = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/admin/blocked-dates");
+      const res = await axios.get(`${API_BASE}/admin/blocked-dates`);
       setHolidays(res.data);
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const handleAdd = async () => {
     if (!newHoliday.date) return alert("Select a date");
     try {
-      await axios.post("http://localhost:5000/api/admin/blocked-dates", newHoliday);
+      await axios.post(`${API_BASE}/admin/blocked-dates`, newHoliday);
       setNewHoliday({ date: "", reason: "" });
       fetchHolidays();
-    } catch (err) { alert("This date is already blocked."); }
+    } catch (err) {
+      alert("This date is already blocked.");
+    }
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm("Unblock this date?")) return;
-    await axios.delete(`http://localhost:5000/api/admin/blocked-dates/${id}`);
+    await axios.delete(`${API_BASE}/admin/blocked-dates/${id}`);
     fetchHolidays();
   };
 
@@ -37,25 +43,29 @@ const HolidayMaintenance = () => {
       <h5 className="mb-4 text-warning fw-bold d-flex align-items-center">
         <CalendarOff className="me-2" /> Holiday & Closure Management
       </h5>
-      
+
       <div className="row g-3 align-items-end mb-4">
         <div className="col-md-4">
           <label className="small fw-bold">Date to Block</label>
-          <input 
-            type="date" 
-            className="form-control" 
+          <input
+            type="date"
+            className="form-control"
             value={newHoliday.date}
-            onChange={(e) => setNewHoliday({...newHoliday, date: e.target.value})}
+            onChange={(e) =>
+              setNewHoliday({ ...newHoliday, date: e.target.value })
+            }
           />
         </div>
         <div className="col-md-5">
           <label className="small fw-bold">Reason (e.g., Staff Party)</label>
-          <input 
-            type="text" 
-            className="form-control" 
+          <input
+            type="text"
+            className="form-control"
             placeholder="Christmas, Renovation, etc."
             value={newHoliday.reason}
-            onChange={(e) => setNewHoliday({...newHoliday, reason: e.target.value})}
+            onChange={(e) =>
+              setNewHoliday({ ...newHoliday, reason: e.target.value })
+            }
           />
         </div>
         <div className="col-md-3">
@@ -75,13 +85,28 @@ const HolidayMaintenance = () => {
             </tr>
           </thead>
           <tbody>
-            {holidays.length === 0 && <tr><td colSpan="3" className="text-center text-muted">No blocked dates set.</td></tr>}
-            {holidays.map(h => (
+            {holidays.length === 0 && (
+              <tr>
+                <td colSpan="3" className="text-center text-muted">
+                  No blocked dates set.
+                </td>
+              </tr>
+            )}
+            {holidays.map((h) => (
               <tr key={h.id}>
-                <td>{new Date(h.block_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</td>
+                <td>
+                  {new Date(h.block_date).toLocaleDateString("en-US", {
+                    month: "long",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                </td>
                 <td>{h.reason}</td>
                 <td className="text-end">
-                  <button className="btn btn-link text-danger p-0" onClick={() => handleDelete(h.id)}>
+                  <button
+                    className="btn btn-link text-danger p-0"
+                    onClick={() => handleDelete(h.id)}
+                  >
                     <Trash2 size={18} />
                   </button>
                 </td>

@@ -4,6 +4,8 @@ import axios from "axios";
 import io from "socket.io-client";
 import "../../Style/Navbar.css";
 
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
+
 function CustomerNavbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [hasUnread, setHasUnread] = useState(false);
@@ -18,7 +20,7 @@ function CustomerNavbar() {
     // Setup Socket.IO for real-time notifications
     if (token && userId) {
       // Use direct connection:
-      const newSocket = io("http://localhost:5000", {
+      const newSocket = io(SOCKET_URL, {
         transports: ["websocket", "polling"],
       });
       setSocket(newSocket);

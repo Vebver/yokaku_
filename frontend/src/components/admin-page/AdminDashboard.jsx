@@ -27,6 +27,8 @@ import Maintenance from "./Maintenance";
 
 import "../../Style/AdminDashboard.css";
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -35,7 +37,7 @@ ChartJS.register(
   LineElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
 );
 
 const Icons = {
@@ -77,7 +79,10 @@ const StatCard = ({ title, value, color, icon }) => (
         >
           <i className={`bi ${icon}`} style={{ fontSize: "1.8rem" }}></i>
         </div>
-        <p className="text-muted fw-bold text-uppercase mb-1" style={{ letterSpacing: "1px", fontSize: "0.8rem" }}>
+        <p
+          className="text-muted fw-bold text-uppercase mb-1"
+          style={{ letterSpacing: "1px", fontSize: "0.8rem" }}
+        >
           {title}
         </p>
         <h2 className="fw-bold mb-0">{value}</h2>
@@ -112,11 +117,11 @@ function AdminDashboard() {
 
     // Auto-collapse sidebar on window resize
     const handleResize = () => {
-        if (window.innerWidth <= 768) setSidebarOpen(false);
-        else setSidebarOpen(true);
+      if (window.innerWidth <= 768) setSidebarOpen(false);
+      else setSidebarOpen(true);
     };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   const fetchDashboardData = async () => {
@@ -124,7 +129,7 @@ function AdminDashboard() {
       setLoading(true);
       const token = localStorage.getItem("token");
       const config = { headers: { Authorization: `Bearer ${token}` } };
-      const statsRes = await axios.get("http://localhost:5000/api/admin/stats", config);
+      const statsRes = await axios.get(`${API_BASE}/admin/stats`, config);
       setStats(statsRes.data);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
@@ -148,9 +153,24 @@ function AdminDashboard() {
       </div>
 
       <div className="row g-3 mb-5">
-        <StatCard title="Total Bookings" value={stats.totalBookings} color="primary" icon="bi-calendar-check-fill" />
-        <StatCard title="Active Tables" value={stats.activeTables} color="success" icon="bi-door-open-fill" />
-        <StatCard title="Kitchen Queue" value={stats.kitchenQueue} color="warning" icon="bi-egg-fried" />
+        <StatCard
+          title="Total Bookings"
+          value={stats.totalBookings}
+          color="primary"
+          icon="bi-calendar-check-fill"
+        />
+        <StatCard
+          title="Active Tables"
+          value={stats.activeTables}
+          color="success"
+          icon="bi-door-open-fill"
+        />
+        <StatCard
+          title="Kitchen Queue"
+          value={stats.kitchenQueue}
+          color="warning"
+          icon="bi-egg-fried"
+        />
       </div>
     </div>
   );
@@ -168,7 +188,7 @@ function AdminDashboard() {
       reservations: <Reservation />,
       account: <AccountManagement />,
       "table-status": <TableStatus />,
-      maintenance: <Maintenance/>,  
+      maintenance: <Maintenance />,
     };
     return sections[activeSection] || null;
   };
@@ -176,33 +196,55 @@ function AdminDashboard() {
   if (!isAuthenticated && !loading) {
     return (
       <div className="vh-100 d-flex align-items-center justify-content-center bg-light text-dark p-3">
-        <div className="card border-0 shadow p-4 text-center w-100" style={{ maxWidth: "400px" }}>
-          <i className="bi bi-shield-lock-fill text-danger" style={{ fontSize: "3rem" }}></i>
+        <div
+          className="card border-0 shadow p-4 text-center w-100"
+          style={{ maxWidth: "400px" }}
+        >
+          <i
+            className="bi bi-shield-lock-fill text-danger"
+            style={{ fontSize: "3rem" }}
+          ></i>
           <h2 className="fw-bold mb-3">Access Denied</h2>
-          <button className="btn btn-dark btn-lg w-100" onClick={() => (window.location.href = "/")}>Return to Home</button>
+          <button
+            className="btn btn-dark btn-lg w-100"
+            onClick={() => (window.location.href = "/")}
+          >
+            Return to Home
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`admin-layout ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
-      
+    <div
+      className={`admin-layout ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}
+    >
       {/* MOBILE OVERLAY */}
-      <div 
-        className={`sidebar-overlay ${sidebarOpen ? "show" : ""}`} 
+      <div
+        className={`sidebar-overlay ${sidebarOpen ? "show" : ""}`}
         onClick={() => setSidebarOpen(false)}
       ></div>
 
       {/* SIDEBAR */}
-      <aside className={`admin-sidebar bg-dark text-white ${sidebarOpen ? "expanded" : "collapsed"}`}>
+      <aside
+        className={`admin-sidebar bg-dark text-white ${sidebarOpen ? "expanded" : "collapsed"}`}
+      >
         <div className="sidebar-header d-flex align-items-center justify-content-between px-3">
           {sidebarOpen && <h4 className="fw-bold mb-0 text-white">Hangout</h4>}
-          <button className="btn btn-dark btn-sm d-none d-md-block ms-auto" onClick={() => setSidebarOpen(!sidebarOpen)}>
-            <i className={`bi ${sidebarOpen ? "bi-chevron-left" : "bi-list"} fs-5 text-white`}></i>
+          <button
+            className="btn btn-dark btn-sm d-none d-md-block ms-auto"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+          >
+            <i
+              className={`bi ${sidebarOpen ? "bi-chevron-left" : "bi-list"} fs-5 text-white`}
+            ></i>
           </button>
           {/* Mobile close button */}
-          <button className="btn btn-dark d-md-none" onClick={() => setSidebarOpen(false)}>
+          <button
+            className="btn btn-dark d-md-none"
+            onClick={() => setSidebarOpen(false)}
+          >
             <i className="bi bi-x-lg text-white"></i>
           </button>
         </div>
@@ -213,11 +255,13 @@ function AdminDashboard() {
               <button
                 key={item.id}
                 onClick={() => {
-                    setActiveSection(item.id);
-                    if(window.innerWidth <= 768) setSidebarOpen(false); // Auto-close on click for mobile
+                  setActiveSection(item.id);
+                  if (window.innerWidth <= 768) setSidebarOpen(false); // Auto-close on click for mobile
                 }}
                 className={`nav-link text-start border-0 rounded py-3 px-3 d-flex align-items-center transition-all ${
-                  activeSection === item.id ? "bg-success text-white active" : "text-secondary bg-transparent"
+                  activeSection === item.id
+                    ? "bg-success text-white active"
+                    : "text-secondary bg-transparent"
                 }`}
               >
                 <item.icon />
@@ -228,7 +272,10 @@ function AdminDashboard() {
         </div>
 
         <div className="sidebar-footer px-3 pb-4">
-          <button className="btn btn-outline-danger btn-sm w-100 py-2" onClick={handleLogout}>
+          <button
+            className="btn btn-outline-danger btn-sm w-100 py-2"
+            onClick={handleLogout}
+          >
             <i className="bi bi-box-arrow-left"></i>
             {sidebarOpen && <span className="ms-2">Logout</span>}
           </button>
@@ -239,16 +286,22 @@ function AdminDashboard() {
       <div className="main-container bg-light">
         {/* MOBILE TOP NAV (Hamburger) */}
         <header className="mobile-top-nav d-md-none bg-dark text-white p-3 d-flex justify-content-between align-items-center">
-            <h5 className="mb-0">Hangout Admin</h5>
-            <button className="btn btn-dark border" onClick={() => setSidebarOpen(true)}>
-                <i className="bi bi-list fs-4"></i>
-            </button>
+          <h5 className="mb-0">Hangout Admin</h5>
+          <button
+            className="btn btn-dark border"
+            onClick={() => setSidebarOpen(true)}
+          >
+            <i className="bi bi-list fs-4"></i>
+          </button>
         </header>
 
         <main className="p-2 p-md-4">
           {loading ? (
-            <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '60vh' }}>
-                <div className="spinner-border text-success"></div>
+            <div
+              className="d-flex justify-content-center align-items-center"
+              style={{ minHeight: "60vh" }}
+            >
+              <div className="spinner-border text-success"></div>
             </div>
           ) : (
             renderSection()

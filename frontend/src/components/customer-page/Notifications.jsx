@@ -5,6 +5,8 @@ import { Trash2, Archive } from "lucide-react";
 import DeletedNotifications from "./DeletedNotifications";
 import "../../Style/Notifications.css";
 
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
+
 const Notifications = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -22,7 +24,7 @@ const Notifications = () => {
     const userId = localStorage.getItem("userId");
 
     if (token && userId) {
-      const newSocket = io("http://localhost:5000", {
+      const newSocket = io(SOCKET_URL, {
         transports: ["websocket", "polling"],
       });
       setSocket(newSocket);

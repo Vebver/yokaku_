@@ -4,6 +4,9 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react"; // Import the icon
 import "../Style/FullMenu.css";
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const BASE_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
+
 function FullMenu() {
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
@@ -15,7 +18,7 @@ function FullMenu() {
   useEffect(() => {
     const fetchAllItems = async () => {
       try {
-        const res = await axios.get("http://localhost:5000/api/products");
+        const res = await axios.get(`${API_BASE}/products`);
         setItems(res.data);
         setFilteredItems(res.data);
 
@@ -75,7 +78,7 @@ function FullMenu() {
           </button>
         ))}
       </div>
-      
+
       <div className="menu-grid-compact">
         {filteredItems.map((item) => (
           <div key={item.item_id || item.id} className="small-menu-card">
@@ -83,7 +86,7 @@ function FullMenu() {
               <img
                 src={
                   item.image_url
-                    ? `http://localhost:5000${item.image_url}`
+                    ? `${BASE_URL}${item.image_url}`
                     : "https://placehold.co/150"
                 }
                 alt={item.name}

@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import "../Style/ReservationSummary.css";
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+
 const ReservationSummary = ({
   isOpen,
   onClose,
@@ -51,7 +53,7 @@ const ReservationSummary = ({
   useEffect(() => {
     if (isOpen) {
       axios
-        .get("http://localhost:5000/api/settings")
+        .get(`${API_BASE}/settings`)
         .then((res) => setPaymentSettings(res.data))
         .catch((err) => console.error("Could not load payment info"));
     }

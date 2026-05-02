@@ -14,8 +14,8 @@ import {
 } from "lucide-react";
 import "../Style/PackageModal.css";
 
-const API_BASE = "http://localhost:5000/api";
-const BASE_URL = "http://localhost:5000";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const BASE_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
 
 // Helper function to get correct image URL
 const getImageUrl = (imagePath) => {
