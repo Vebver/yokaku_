@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-
+const API_BASE = "https://yokaku-backend.onrender.com/api";
 const AccountManagement = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,7 +24,7 @@ const AccountManagement = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
-      const res = await axios.get("/api/admin/users", {
+      const res = await axios.get(`${API_BASE}/admin/users`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setUsers(res.data);
@@ -49,7 +49,7 @@ const AccountManagement = () => {
       const newRole = currentRole === "admin" ? "customer" : "admin";
 
       await axios.put(
-        `/api/admin/users/${userId}/update-role`,
+        `${API_BASE}/admin/users/${userId}/update-role`,
         { role: newRole },
         { headers: { Authorization: `Bearer ${token}` } },
       );

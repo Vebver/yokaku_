@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import "../Style/LoginModal.css"; // Reuse your styles
-
+const API_BASE = "https://yokaku-backend.onrender.com/api";
 function ResetPasswordPage() {
   const { token } = useParams();
   const navigate = useNavigate();
@@ -54,7 +54,7 @@ function ResetPasswordPage() {
 
     setLoading(true);
     try {
-      await axios.post("/api/auth/reset-password-final", {
+      await axios.post(`${API_BASE}/auth/reset-password-final`, {
         token,
         newPassword,
       });
