@@ -1,0 +1,12 @@
+{
+  "env": {
+    "VITE_API_URL": "https://yokaku-backend.onrender.com/api",
+    "VITE_SOCKET_URL": "https://yokaku-backend.onrender.com"
+  },
+  "build": {
+    "env": {
+      "VITE_API_URL": "https://yokaku-backend.onrender.com/api",
+      "VITE_SOCKET_URL": "https://yokaku-backend.onrender.com"
+    }
+  }
+}
