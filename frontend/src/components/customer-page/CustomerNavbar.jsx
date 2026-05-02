@@ -4,8 +4,8 @@ import axios from "axios";
 import io from "socket.io-client";
 import "../../Style/Navbar.css";
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
-
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL;
+const API_BASE = import.meta.env.VITE_API_URL;
 function CustomerNavbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [hasUnread, setHasUnread] = useState(false);
@@ -55,7 +55,7 @@ function CustomerNavbar() {
         const token = localStorage.getItem("token");
         if (!token) return;
 
-        const res = await axios.get("/api/notifications", {
+        const res = await axios.get(`${API_BASE}/notifications`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const unread = res.data.some((n) => !n.is_read);
