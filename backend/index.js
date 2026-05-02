@@ -4,7 +4,7 @@ const cors = require("cors");
 const path = require("path");
 const http = require("http");
 const { Server } = require("socket.io");
-const db = require("./config/db"); 
+const db = require("./config/db");
 
 const User = require("./models/User");
 const authRoutes = require("./routes/authRoutes");
@@ -23,7 +23,7 @@ const addressRoutes = require("./routes/addressRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const startCronJobs = require("./cronJobs");
 const Notification = require("./models/Notification");
-const settingRoutes = require("./routes/settingRoutes")
+const settingRoutes = require("./routes/settingRoutes");
 
 const PORT = process.env.PORT || 5000;
 const app = express();
@@ -88,7 +88,12 @@ app.set("connectedUsers", connectedUsers);
 // --- MIDDLEWARE ---
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
+    origin: [
+      "http://localhost:5173",
+      "http://127.0.0.1:5173",
+      "https://yokaku-drab.vercel.app",
+      "https://yokaku-backend.onrender.com",
+    ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -150,8 +155,8 @@ app.use("/api/billing", protect, adminOnly, billingRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/inventory", inventoryRoutes);
-app.use("/api/settings", settingRoutes)
-app.use('/api/orders', orderRoutes);
+app.use("/api/settings", settingRoutes);
+app.use("/api/orders", orderRoutes);
 
 app.get("/api/protected", protect, (req, res) => {
   res.json({ message: "Protected data", user: req.user });
