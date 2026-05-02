@@ -35,6 +35,11 @@ import MyReservation from "./components/customer-page/MyReservation";
 
 import "./Style/App.css";
 
+// Debug environment variables
+console.log("🔍 Environment Variables Debug:");
+console.log("VITE_API_URL:", import.meta.env.VITE_API_URL);
+console.log("VITE_SOCKET_URL:", import.meta.env.VITE_SOCKET_URL);
+
 // 1. MAIN APP COMPONENT
 function App() {
   return (
@@ -141,7 +146,7 @@ function AppContent() {
           }
         />
 
-        {/* My Reservation Page*/}
+        {/* My Reservation Page */}
         <Route
           path="/my-reservation"
           element={
