@@ -34,7 +34,12 @@ const server = http.createServer(app);
 // Initialize Socket.io with better error handling
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
+    origin: [
+      "http://localhost:5173",
+      "http://127.0.0.1:5173",
+      "https://yokaku-drab.vercel.app",
+      "https://yokaku.vercel.app",
+    ],
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -92,6 +97,7 @@ app.use(
       "http://localhost:5173",
       "http://127.0.0.1:5173",
       "https://yokaku-drab.vercel.app",
+      "https://yokaku.vercel.app",
       "https://yokaku-backend.onrender.com",
     ],
     credentials: true,
@@ -102,6 +108,20 @@ app.use(
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
+
+// --- ROOT ROUTE ---
+app.get("/", (req, res) => {
+  res.json({
+    status: "active",
+    message: "Yokaku Backend API is running",
+    endpoints: [
+      "/api/auth",
+      "/api/products",
+      "/api/reviews",
+      "/api/reservations",
+    ],
+  });
+});
 
 // --- DEBUG ROUTE - Remove after testing ---
 app.get("/debug/categories-products", async (req, res) => {
@@ -168,7 +188,6 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Internal server error" });
 });
 
-// --- SERVER START ---
 // --- SERVER START ---
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);

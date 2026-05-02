@@ -11,12 +11,9 @@ export default defineConfig({
       },
       "/socket.io": {
         target: "http://localhost:5000",
-        ws: true,
         changeOrigin: true,
-        rewriteWsOrigin: true,
+        ws: true,
       },
     },
   },
-  // For production build, the proxy is not used
-  // API calls will go to the URL defined in VITE_API_URL env variable
 });
