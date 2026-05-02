@@ -4,6 +4,7 @@ const cors = require("cors");
 const path = require("path");
 const http = require("http");
 const { Server } = require("socket.io");
+const db = require("./config/db"); 
 
 const User = require("./models/User");
 const authRoutes = require("./routes/authRoutes");
@@ -163,23 +164,21 @@ app.use((err, req, res, next) => {
 });
 
 // --- SERVER START ---
-server.listen(PORT, "0.0.0.0", async (error) => {
-  if (error) {
-    console.error("❌ Server failed to start:", error);
-    process.exit(1);
-  }
-
+// --- SERVER START ---
+server.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📡 WebSocket server running on ws://localhost:${PORT}`);
 
-  try {
-    const connection = await User.pool.getConnection();
-    console.log("✅ MySQL connection pool is ready");
-    startCronJobs();
-    connection.release();
-  } catch (error) {
-    console.error("❌ Database pool error:", error.message);
-  }
+  // Test the database connection using 'db', not 'User'
+  db.getConnection()
+    .then((connection) => {
+      console.log("✅ MySQL connection pool is ready");
+      startCronJobs();
+      connection.release();
+    })
+    .catch((error) => {
+      console.error("❌ Database pool error:", error.message);
+    });
 });
 
 // Graceful shutdown
