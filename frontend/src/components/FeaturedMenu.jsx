@@ -6,8 +6,8 @@ import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
 import "../Style/FeaturedMenu.css";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-const BASE_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
+const API_BASE = "https://yokaku-backend.onrender.com/api";
+const BASE_URL = "https://yokaku-backend.onrender.com";
 
 function FeaturedMenu() {
   const [featuredItems, setFeaturedItems] = useState([]);

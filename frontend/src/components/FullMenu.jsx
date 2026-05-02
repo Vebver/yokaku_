@@ -4,8 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react"; // Import the icon
 import "../Style/FullMenu.css";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-const BASE_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
+const API_BASE = "https://yokaku-backend.onrender.com/api";
+const BASE_URL = "https://yokaku-backend.onrender.com";
 
 function FullMenu() {
   const navigate = useNavigate();
