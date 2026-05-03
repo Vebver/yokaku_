@@ -1,6 +1,7 @@
 /* Container styling */
+
 .full-menu-page {
-  padding: 100px 5% 50px 5%; 
+  padding: 0 5% 50px 5%;
   background-color: #0f0f0f;
   color: #ffffff;
   min-height: 100vh;
@@ -18,6 +19,7 @@
   font-weight: 600;
   font-size: 16px;
   padding: 10px 0;
+  margin-top: 20px;
   margin-bottom: 10px;
   transition: all 0.2s ease;
   width: fit-content;
@@ -153,25 +155,25 @@
   letter-spacing: 2px;
 }
 
-/* Responsive Adjustments */
 @media (max-width: 768px) {
-  .full-menu-page h1 {
-    font-size: 2rem;
-    margin-top: 40px;
+  .full-menu-page {
+    padding: 0 5% 40px 5%;
   }
 
-  .back-btn {
-    top: 80px;
-    right: 5%;
-    left: auto;
-    padding: 6px 12px;
-    font-size: 0.8rem;
-    transform: translateX(-50%);
+  .menu-back-button {
+    margin-top: 15px;
+  }
+
+  .full-menu-page h1 {
+    font-size: 2rem;
+    margin-top: 20px;
+    margin-bottom: 0;
   }
 
   .category-bar {
     gap: 10px;
     padding: 0 10px;
+    margin: 20px auto;
   }
 
   .cat-btn {
