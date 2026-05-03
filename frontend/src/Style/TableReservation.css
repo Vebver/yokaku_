@@ -511,6 +511,7 @@
   pointer-events: none;
   color: #888;
   z-index: 2;
+  cursor: pointer;
 }
 
 /* For Firefox support */
