@@ -9,7 +9,9 @@ import {
 } from "lucide-react";
 import "../../Style/KitchenPage.css";
 import { io } from "socket.io-client";
+import { useLocation } from "react-router-dom";
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 // Initialize socket connection to the new port 5000
 const socket = io(SOCKET_URL);
 
@@ -140,38 +142,63 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
 const KitchenPage = () => {
   const [orders, setOrders] = useState([]);
   const [filter, setFilter] = useState("all");
+  const location = useLocation(); 
 
  useEffect(() => {
-  // Listen for real-time orders once when the page opens
-  socket.on("new_order", (incomingOrder) => {
-    setOrders((prevOrders) => {
-      if (prevOrders.find((o) => o.id === incomingOrder.id)) return prevOrders;
-      return [incomingOrder, ...prevOrders];
+    console.log("🔌 Kitchen monitoring active...");
+
+    socket.on("connect", () => console.log("✅ Socket Connected"));
+
+    socket.on("new_order", (data) => {
+      console.log("📩 New order received:", data);
+      setOrders((prev) => {
+        if (prev.find((o) => o.id === data.id)) return prev;
+        return [data, ...prev];
+      });
     });
-  });
 
-  // Handle manual navigation state (if someone redirected to this page with an order)
-  if (location.state?.newOrder) {
-    const newOrder = location.state.newOrder;
-    setOrders((prev) => prev.find(o => o.id === newOrder.id) ? prev : [newOrder, ...prev]);
-    window.history.replaceState({}, document.title);
-  }
+    // 3. Handle data passed from other pages (Navigation)
+    if (location.state?.newOrder) {
+      const newOrder = location.state.newOrder;
+      setOrders((prev) => {
+        if (prev.find(o => o.id === newOrder.id)) return prev;
+        return [newOrder, ...prev];
+      });
+      // Clear the state so it doesn't duplicate on refresh
+      window.history.replaceState({}, document.title);
+    }
 
-  return () => {
-    socket.off("new_order");
-  };
-}, []); // Empty dependency array means "run once on load"
+    return () => {
+      socket.off("new_order");
+    };
+  }, [location.state]); // Add location.state as a dependency
 
   const updateStatus = async (id, newStatus) => {
   try {
-    // 1. Tell the Backend/Database about the change
-    await fetch(`${API_URL}/orders/${id}/status`, {
+    console.log(`📡 Updating order ${id} to ${newStatus}...`);
+    
+    // --- CORRECTED ID LOGIC ---
+    // This handles IDs like "WALK-1777823758491-1777823761120" 
+    // by removing only the last timestamp part.
+    const parts = id.split('-');
+    if (parts.length > 2) {
+      parts.pop(); // Remove the unique timestamp we added for the socket
+    }
+    const dbId = parts.join('-'); // Rebuild the original ID: "WALK-1777823758491"
+    // ---------------------------
+
+    const response = await fetch(`${API_URL}/orders/${dbId}/status`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: newStatus }),
     });
 
-    // 2. Update the UI screen
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Server rejected status update");
+    }
+
+    // Update local UI
     if (newStatus === "served") {
       setOrders((prev) => prev.filter((o) => o.id !== id));
     } else {
@@ -179,8 +206,10 @@ const KitchenPage = () => {
         prev.map((o) => (o.id === id ? { ...o, status: newStatus } : o))
       );
     }
+    console.log(`✅ Order ${dbId} updated to ${newStatus}`);
   } catch (err) {
-    console.error("Failed to update database status:", err);
+    console.error("❌ Failed to update database status:", err.message);
+    alert(`Error: ${err.message}`);
   }
 };
 
