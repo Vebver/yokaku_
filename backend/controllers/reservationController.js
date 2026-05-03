@@ -445,6 +445,7 @@ const reservationController = {
         paymentStatus: body.paymentStatus,
         paymentMethod: body.paymentMethod,
       };
+      console.log("📦 Data size being sent:", reservationData.selectedItems.length, "chars");
 
       console.log(
         "🔍 Creating reservation with userId:",

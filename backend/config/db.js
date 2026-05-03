@@ -7,19 +7,17 @@ const pool = mysql.createPool({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   port: process.env.DB_PORT,
-  // --- THESE 4 SETTINGS ARE CRITICAL FOR RENDER + RAILWAY ---
   ssl: {
-    rejectUnauthorized: false, // Required for secure cloud connection
+    rejectUnauthorized: false, // Required for Render -> Railway
   },
-  maxAllowedPacket: 67108864,   // 64MB (Stops "Malformed Packet" errors)
-  charset: 'utf8mb4',          // Handles special characters in item names
-  connectTimeout: 30000,       // Gives the connection 30 seconds to wake up
-  // ---------------------------------------------------------
+  charset: 'utf8mb4',
   waitForConnections: true,
   connectionLimit: 10,
   enableKeepAlive: true,
   keepAliveInitialDelay: 10000,
+  connectTimeout: 30000,
 }).on('connection', (connection) => {
+    // This handles the Group By error we fixed earlier
     connection.query("SET SESSION sql_mode=(SELECT REPLACE(@@sql_mode,'ONLY_FULL_GROUP_BY',''))");
 });
 
