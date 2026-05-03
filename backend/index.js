@@ -4,7 +4,7 @@ const cors = require("cors");
 const path = require("path");
 const http = require("http");
 const { Server } = require("socket.io");
-const db = require("./config/db"); 
+const db = require("./config/db");
 
 const User = require("./models/User");
 const authRoutes = require("./routes/authRoutes");
@@ -23,7 +23,7 @@ const addressRoutes = require("./routes/addressRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const startCronJobs = require("./cronJobs");
 const Notification = require("./models/Notification");
-const settingRoutes = require("./routes/settingRoutes")
+const settingRoutes = require("./routes/settingRoutes");
 
 const PORT = process.env.PORT || 5000;
 const app = express();
@@ -34,7 +34,11 @@ const server = http.createServer(app);
 // Initialize Socket.io with better error handling
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
+    origin: [
+      "http://localhost:5173",
+      "http://127.0.0.1:5173",
+      "https://yokaku-tau.vercel.app",
+    ],
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -88,7 +92,11 @@ app.set("connectedUsers", connectedUsers);
 // --- MIDDLEWARE ---
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
+    origin: [
+      "http://localhost:5173",
+      "http://127.0.0.1:5173",
+      "https://yokaku-tau.vercel.app",
+    ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -97,6 +105,20 @@ app.use(
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
+
+// --- ROOT ROUTE ---
+app.get("/", (req, res) => {
+  res.json({
+    status: "active",
+    message: "Yokaku Backend API is running",
+    endpoints: [
+      "/api/auth",
+      "/api/products",
+      "/api/reviews",
+      "/api/reservations",
+    ],
+  });
+});
 
 // --- DEBUG ROUTE - Remove after testing ---
 app.get("/debug/categories-products", async (req, res) => {
@@ -150,8 +172,8 @@ app.use("/api/billing", protect, adminOnly, billingRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/inventory", inventoryRoutes);
-app.use("/api/settings", settingRoutes)
-app.use('/api/orders', orderRoutes);
+app.use("/api/settings", settingRoutes);
+app.use("/api/orders", orderRoutes);
 
 app.get("/api/protected", protect, (req, res) => {
   res.json({ message: "Protected data", user: req.user });
@@ -163,7 +185,6 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Internal server error" });
 });
 
-// --- SERVER START ---
 // --- SERVER START ---
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);

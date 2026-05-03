@@ -34,7 +34,6 @@ import ResetPasswordPage from "./components/ResetPasswordPage";
 import MyReservation from "./components/customer-page/MyReservation";
 
 import "./Style/App.css";
-
 // 1. MAIN APP COMPONENT
 function App() {
   return (
@@ -141,7 +140,7 @@ function AppContent() {
           }
         />
 
-        {/* My Reservation Page*/}
+        {/* My Reservation Page */}
         <Route
           path="/my-reservation"
           element={

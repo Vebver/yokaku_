@@ -12,6 +12,9 @@ import {
 } from "lucide-react";
 import "../Style/MenuModal.css";
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const BASE_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
+
 const MenuModal = ({
   isOpen,
   onClose,
@@ -24,7 +27,7 @@ const MenuModal = ({
   const [categories, setCategories] = useState([]);
   const [activeCategory, setActiveCategory] = useState("");
   const [loading, setLoading] = useState(true);
-  
+
   // Tray state for selection logic
   const [tray, setTray] = useState({});
 
@@ -38,10 +41,10 @@ const MenuModal = ({
     const fetchAllItems = async () => {
       try {
         setLoading(true);
-        const res = await axios.get("http://localhost:5000/api/products");
+        const res = await axios.get(`${API_BASE}/products`);
 
         setItems(res.data);
-        
+
         // Get unique Category Names from the data
         const uniqueNames = [
           ...new Set(res.data.map((item) => item.category_name)),
@@ -53,11 +56,11 @@ const MenuModal = ({
         // Logic to determine initial view
         if (uniqueNames.length > 0) {
           const firstCat = uniqueNames[0];
-          setActiveCategory(firstCat); 
+          setActiveCategory(firstCat);
 
           // Only show items belonging to that first category initially
           const initialFiltered = res.data.filter(
-            (item) => item.category_name === firstCat
+            (item) => item.category_name === firstCat,
           );
           setFilteredItems(initialFiltered);
         } else {
@@ -121,10 +124,14 @@ const MenuModal = ({
 
   const clearTray = () => setTray({});
 
-  const totalPrice = Object.values(tray).reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0
-  );
+  // This wraps your calculation and forces it to stay at 2 decimal places
+  const totalPrice =
+    Math.round(
+      Object.values(tray).reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0,
+      ) * 100,
+    ) / 100;
 
   if (!isOpen) return null;
 
@@ -172,7 +179,7 @@ const MenuModal = ({
                     <img
                       src={
                         item.image_url
-                          ? `http://localhost:5000${item.image_url}`
+                          ? `${BASE_URL}${item.image_url}`
                           : "https://placehold.co/300"
                       }
                       alt={item.name}

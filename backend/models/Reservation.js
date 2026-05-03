@@ -133,11 +133,13 @@ checkActiveByUserId: async (userId) => {
   return rows;
 },
 
-  create: async (data) => {
+create: async (data) => {
     const conn = await db.getConnection();
     try {
       await conn.beginTransaction();
-      const customId = generateRandomId();
+      
+      // Ensure we are using the Rounded values from the start
+      const customId = generateRandomId(); 
 
       // 1. Insert Main Reservation
       const resQuery = `INSERT INTO reservations (reservation_id, user_id, first_name, last_name, email, phone, reservation_date, reservation_time, end_time, num_guests, package_name, status, receipt_path, brgy_code, allergy) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
@@ -153,93 +155,89 @@ checkActiveByUserId: async (userId) => {
         data.startTime || null,
         data.endTime || null,
         data.guests || 0,
-        data.packageName,
+        data.packageName || "Table Reservation",
         data.status || "Confirmed",
         data.receiptPath || null,
         data.brgyCode || null,
         data.allergy || "None",
       ];
-      await conn.execute(resQuery, resValues);
+      
+      // Use query for better stability over cross-cloud networks
+      await conn.query(resQuery, resValues);
 
-      // 2. RESTORED: Insert Tables
+      // 2. Insert Tables
       let tableIdsArray = data.tableIds || [];
-      if (typeof tableIdsArray === "string")
-        tableIdsArray = JSON.parse(tableIdsArray);
+      if (typeof tableIdsArray === "string") tableIdsArray = JSON.parse(tableIdsArray);
 
       if (Array.isArray(tableIdsArray) && tableIdsArray.length > 0) {
-        const tableLinkQuery =
-          "INSERT INTO reservation_tables (reservation_id, table_id, customer_name, status, check_in_time) VALUES (?, ?, ?, 'confirmed', NOW())";
-
+        const tableLinkQuery = "INSERT INTO reservation_tables (reservation_id, table_id, customer_name, status, check_in_time) VALUES (?, ?, ?, 'confirmed', NOW())";
         for (const tid of tableIdsArray) {
-          // Only proceed if tid is a valid number
           const cleanTid = parseInt(tid);
-          if (isNaN(cleanTid)) continue;
-
-          try {
-            await conn.execute(tableLinkQuery, [
-              customId,
-              cleanTid,
-              `${data.firstName} ${data.lastName}`,
-            ]);
-          } catch (dbErr) {
-            // This will tell you exactly which ID is causing the error in your terminal
-            console.error(
-              `FOREIGN KEY ERROR: Table ID ${cleanTid} does not exist in the 'tables' table.`,
-            );
-            throw dbErr; // Re-throw to trigger the rollback
+          if (!isNaN(cleanTid)) {
+            // query is faster and more stable for loops
+            await conn.query(tableLinkQuery, [customId, cleanTid, `${data.firstName} ${data.lastName}`]);
           }
         }
       }
 
-      // 3. RESTORED: Insert Items (This prevents packs from "disappearing")
+      // 3. Insert Items
       let itemsToProcess = data.selectedItems || [];
-      if (typeof itemsToProcess === "string")
-        itemsToProcess = JSON.parse(itemsToProcess);
+      if (typeof itemsToProcess === "string") itemsToProcess = JSON.parse(itemsToProcess);
 
       if (itemsToProcess.length > 0) {
-        const itemQuery = `INSERT INTO reservation_items (reservation_id, product_id, quantity, price,customizations) VALUES (?, ?, ?, ?,?)`;
+        const itemQuery = `INSERT INTO reservation_items (reservation_id, product_id, quantity, price, customizations) VALUES (?, ?, ?, ?, ?)`;
         for (const item of itemsToProcess) {
-          await conn.execute(itemQuery, [
+          const cleanPrice = Math.round(parseFloat(item.price || 0) * 100) / 100;
+          const customs = item.customizations ? JSON.stringify(item.customizations) : null;
+          
+          await conn.query(itemQuery, [
             customId,
             item.item_id || item.id,
             item.quantity,
-            item.price,
-            item.customizations ? JSON.stringify(item.customizations) : null
+            cleanPrice,
+            customs
           ]);
         }
       }
 
-      // Handle Notification - Create for logged-in users only
-      if (data.userId && data.userId !== "null") {
-        await Notification.create(conn, {
-          userId: data.userId,
-          reservationId: customId,
-          title: "Reservation Confirmed",
-          // Use the function here to make the time look nice for the user
-          message: `Your reservation for ${data.guests} guest(s) on ${data.date} at ${formatTo12Hour(data.startTime)} has been confirmed.`,
-          type: "reservation",
-        });
-      }
       // 4. Insert Payment
       const paymentQuery = `INSERT INTO payments (reservation_id, amount, total_bill, payment_method, payment_status, paid_at) VALUES (?, ?, ?, ?, ?, NOW())`;
-      await conn.execute(paymentQuery, [
+      const cleanAmount = Math.round(parseFloat(data.amount || 0) * 100) / 100;
+      const cleanTotal = Math.round(parseFloat(data.totalAmount || data.amount || 0) * 100) / 100;
+
+      await conn.query(paymentQuery, [
         customId,
-        data.amount || 0,
-        data.totalAmount || data.amount || 0,
-        data.paymentMethod || "Maya",
+        cleanAmount,
+        cleanTotal,
+        data.paymentMethod || "Gcash",
         data.paymentStatus || "pending",
       ]);
+
+      // 5. Final Notification (Optional: Wrap in try/catch so it doesn't kill the whole booking)
+      try {
+          if (data.userId && data.userId !== "null") {
+            await Notification.create(conn, {
+              userId: data.userId,
+              reservationId: customId,
+              title: "Reservation Confirmed",
+              message: `Your reservation for ${data.guests} guest(s) has been confirmed.`,
+              type: "info", // Matching your ENUM fix!
+            });
+          }
+      } catch (notifErr) {
+          console.warn("Notification failed, but booking was saved.");
+      }
 
       await conn.commit();
       return customId;
     } catch (err) {
       await conn.rollback();
-      console.error("DB ERROR:", err);
+      console.error("TRANSACTION ERROR:", err.message);
       throw err;
     } finally {
       conn.release();
     }
-  },
+},
 
   getAll: async () => {
     const sql = `SELECT r.*, p.payment_status, p.amount, CONCAT(b.brgy_name, ', ', m.muni_name) AS full_address, GROUP_CONCAT(DISTINCT t.table_number SEPARATOR ' + ') AS assigned_tables FROM reservations r LEFT JOIN payments p ON r.reservation_id = p.reservation_id LEFT JOIN barangays b ON r.brgy_code = b.brgy_code LEFT JOIN municipalities m ON b.muni_code = m.muni_code LEFT JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id LEFT JOIN tables t ON rt.table_id = t.table_id GROUP BY r.reservation_id ORDER BY r.created_at DESC`;

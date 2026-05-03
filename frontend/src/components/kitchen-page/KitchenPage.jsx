@@ -9,9 +9,9 @@ import {
 } from "lucide-react";
 import "../../Style/KitchenPage.css";
 import { io } from "socket.io-client";
-
-// Initialize socket connection
-const socket = io("http://localhost:5000");
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
+// Initialize socket connection to the new port 5000
+const socket = io(SOCKET_URL);
 
 // --- STATUS BADGE COMPONENT ---
 const StatusBadge = ({ status }) => {
@@ -141,46 +141,48 @@ const KitchenPage = () => {
   const [orders, setOrders] = useState([]);
   const [filter, setFilter] = useState("all");
 
-  useEffect(() => {
-    console.log("🔌 Kitchen monitoring active...");
-
-    socket.on("connect", () => console.log("✅ Socket Connected"));
-
-    socket.on("new_order", (data) => {
-      console.log("📩 New order received:", data);
-      setOrders((prev) => {
-        if (prev.find((o) => o.id === data.id)) return prev;
-        return [data, ...prev];
-      });
+ useEffect(() => {
+  // Listen for real-time orders once when the page opens
+  socket.on("new_order", (incomingOrder) => {
+    setOrders((prevOrders) => {
+      if (prevOrders.find((o) => o.id === incomingOrder.id)) return prevOrders;
+      return [incomingOrder, ...prevOrders];
     });
+  });
 
-    return () => {
-      socket.off("new_order");
-      socket.off("connect");
-    };
-  }, []);
+  // Handle manual navigation state (if someone redirected to this page with an order)
+  if (location.state?.newOrder) {
+    const newOrder = location.state.newOrder;
+    setOrders((prev) => prev.find(o => o.id === newOrder.id) ? prev : [newOrder, ...prev]);
+    window.history.replaceState({}, document.title);
+  }
+
+  return () => {
+    socket.off("new_order");
+  };
+}, []); // Empty dependency array means "run once on load"
 
   const updateStatus = async (id, newStatus) => {
-    try {
-      // Sync with database
-      await fetch(`http://localhost:5000/api/orders/${id}/status`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      });
+  try {
+    // 1. Tell the Backend/Database about the change
+    await fetch(`${API_URL}/orders/${id}/status`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: newStatus }),
+    });
 
-      // Update local UI
-      if (newStatus === "served") {
-        setOrders(orders.filter((o) => o.id !== id));
-      } else {
-        setOrders(prev => 
-          prev.map((o) => (o.id === id ? { ...o, status: newStatus } : o))
-        );
-      }
-    } catch (e) {
-      console.error("Status update failed:", e);
+    // 2. Update the UI screen
+    if (newStatus === "served") {
+      setOrders((prev) => prev.filter((o) => o.id !== id));
+    } else {
+      setOrders((prev) =>
+        prev.map((o) => (o.id === id ? { ...o, status: newStatus } : o))
+      );
     }
-  };
+  } catch (err) {
+    console.error("Failed to update database status:", err);
+  }
+};
 
   // Filter logic
   const filteredOrders = orders.filter(

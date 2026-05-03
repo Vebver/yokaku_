@@ -2,8 +2,10 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Save, Smartphone, User, RefreshCw } from "lucide-react";
 // 1. IMPORT THE NEW FILE
-import DatabaseMaintenance from "./DatabaseMaintenance"; 
-import HolidayMaintenance from "./HolidayMaintenance"
+import DatabaseMaintenance from "./DatabaseMaintenance";
+import HolidayMaintenance from "./HolidayMaintenance";
+
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const Maintenance = () => {
   const [settings, setSettings] = useState({
@@ -21,7 +23,7 @@ const Maintenance = () => {
 
   const fetchSettings = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/settings");
+      const res = await axios.get(`${API_BASE}/settings`);
       setSettings({
         gcash_number: res.data.gcash_number || "",
         gcash_name: res.data.gcash_name || "",
@@ -47,7 +49,7 @@ const Maintenance = () => {
     e.preventDefault();
     setSaving(true);
     try {
-      await axios.put("http://localhost:5000/api/settings", { settings });
+      await axios.put(`${API_BASE}/settings`, { settings });
       alert("Payment details updated successfully!");
     } catch (err) {
       alert("Failed to update");
@@ -61,7 +63,7 @@ const Maintenance = () => {
   return (
     <div className="container p-4">
       <h2 className="fw-bold mb-4">System Maintenance</h2>
-      
+
       {/* SECTION 1: Payment Settings */}
       <div className="card shadow-sm border-0 p-4">
         <h5 className="mb-4 text-primary fw-bold">Payment Account Settings</h5>
@@ -123,7 +125,11 @@ const Maintenance = () => {
           </div>
 
           <div className="mt-4 text-end">
-            <button type="submit" className="btn btn-primary px-5 py-2 fw-bold" disabled={saving}>
+            <button
+              type="submit"
+              className="btn btn-primary px-5 py-2 fw-bold"
+              disabled={saving}
+            >
               {saving ? "Saving..." : "Save Changes"}
             </button>
           </div>
@@ -132,8 +138,7 @@ const Maintenance = () => {
 
       {/* SECTION 2: Database Maintenance */}
       <DatabaseMaintenance />
-      <HolidayMaintenance/>
-      
+      <HolidayMaintenance />
     </div>
   );
 };

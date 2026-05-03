@@ -28,7 +28,7 @@ import PackageModal from "./PackageModal";
 import ReservationSummary from "./ReservationSummary";
 import TermsModal from "./TermsModal";
 
-const API_BASE = "http://localhost:5000/api";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 const TABLES_DATA = [
   { id: 1, label: "Table 1", seats: 5, status: "available" },
   { id: 2, label: "Table 2", seats: 2, status: "available" },
@@ -228,30 +228,30 @@ export default function TableReservation({ onClose, onSuccess }) {
   }, []);
 
   useEffect(() => {
-  const checkExisting = async () => {
-    const userId = localStorage.getItem("userId");
-    const token = localStorage.getItem("token"); // Get the token
+    const checkExisting = async () => {
+      const userId = localStorage.getItem("userId");
+      const token = localStorage.getItem("token"); // Get the token
 
-    if (!userId || userId === "null") return;
+      if (!userId || userId === "null") return;
 
-    try {
-      const res = await axios.get(
-        `http://localhost:5000/api/reservations/check-active/${userId}`, 
-        { headers: { Authorization: `Bearer ${token}` } } // SEND THE TOKEN
-      );
-      
-      // Now that we fixed the backend format, this line will work!
-      if (res.data.hasActive) {
-        setExistingReservation(res.data.reservation);
-        setUi(prev => ({ ...prev, showExistingModal: true }));
+      try {
+        const res = await axios.get(
+          `${API_BASE}/reservations/check-active/${userId}`,
+          { headers: { Authorization: `Bearer ${token}` } }, // SEND THE TOKEN
+        );
+
+        // Now that we fixed the backend format, this line will work!
+        if (res.data.hasActive) {
+          setExistingReservation(res.data.reservation);
+          setUi((prev) => ({ ...prev, showExistingModal: true }));
+        }
+      } catch (err) {
+        console.error("Check active error:", err);
       }
-    } catch (err) {
-      console.error("Check active error:", err);
-    }
-  };
+    };
 
-  checkExisting();
-}, []);
+    checkExisting();
+  }, []);
 
   useEffect(() => {
     if (form.muni) {
@@ -361,7 +361,7 @@ export default function TableReservation({ onClose, onSuccess }) {
   //BLOCKED DATES
   useEffect(() => {
     axios
-      .get("http://localhost:5000/api/admin/blocked-dates")
+      .get(`${API_BASE}/admin/blocked-dates`)
       .then((res) => {
         if (Array.isArray(res.data)) {
           const formatted = res.data.map((h) => {
@@ -457,16 +457,23 @@ export default function TableReservation({ onClose, onSuccess }) {
   }, [selectedId, linkedIds, primaryTable]);
 
   const orderSummary = useMemo(() => {
-    const total = selectedItems.reduce(
-      (sum, item) => sum + item.price * item.quantity,
-      0,
-    );
-    return {
-      totalOrderPrice: total,
-      downpayment: total * 0.2,
-      balance: total * 0.8,
-    };
-  }, [selectedItems]);
+  // 1. Calculate the raw total
+  const rawTotal = selectedItems.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0,
+  );
+
+  // 2. Round everything to 2 decimal places to stop the "Malformed Packet" error
+  const total = Math.round(rawTotal * 100) / 100;
+  const downpayment = Math.round((total * 0.2) * 100) / 100;
+  const balance = Math.round((total * 0.8) * 100) / 100;
+
+  return {
+    totalOrderPrice: total,       // Will be 399.00
+    downpayment: downpayment,     // Will be 79.80
+    balance: balance,             // Will be 319.20
+  };
+}, [selectedItems]);
 
   const tableIdsArray = useMemo(() => {
     return [selectedId, ...linkedIds].filter((id) => id !== null);
@@ -710,7 +717,8 @@ export default function TableReservation({ onClose, onSuccess }) {
     }
   };
 
-  const confirmBooking = async (file, method) => { // <--- Accept method here
+  const confirmBooking = async (file, method) => {
+    // <--- Accept method here
     setUi((p) => ({ ...p, loading: true }));
 
     try {
@@ -735,10 +743,10 @@ export default function TableReservation({ onClose, onSuccess }) {
         packageName: productDisplayName,
         totalAmount: orderSummary.totalOrderPrice,
         amount: orderSummary.downpayment,
-        paymentMethod: method || paymentMethod || "Maya", 
+        paymentMethod: method || paymentMethod || "Maya",
         tableIds: JSON.stringify(tableIdsArray),
         // THIS IS THE CRITICAL LINE: it contains your flavors/drinks!
-        selectedItems: JSON.stringify(selectedItems), 
+        selectedItems: JSON.stringify(selectedItems),
         status: "Confirmed",
         brgyCode: form.brgy,
         allergy: finalAllergy,

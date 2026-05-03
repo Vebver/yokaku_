@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Trash2, Plus, Info } from "lucide-react";
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+
 function RecipeManager() {
   const [menuItems, setMenuItems] = useState([]);
   const [inventoryItems, setInventoryItems] = useState([]);
@@ -25,8 +27,8 @@ function RecipeManager() {
   const fetchBaseData = async () => {
     try {
       const [menuRes, invRes] = await Promise.all([
-        axios.get("http://localhost:5000/api/products"),
-        axios.get("http://localhost:5000/api/inventory")
+        axios.get(`${API_BASE}/products`),
+        axios.get(`${API_BASE}/inventory`),
       ]);
       setMenuItems(menuRes.data);
       setInventoryItems(invRes.data);
@@ -38,7 +40,9 @@ function RecipeManager() {
   const fetchCurrentRecipe = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`http://localhost:5000/api/products/${selectedItemId}/ingredients`);
+      const res = await axios.get(
+        `${API_BASE}/products/${selectedItemId}/ingredients`,
+      );
       setCurrentRecipe(res.data);
     } catch (err) {
       console.error("Error fetching recipe:", err);
@@ -49,12 +53,13 @@ function RecipeManager() {
 
   const handleAddIngredient = async (e) => {
     e.preventDefault();
-    if (!selectedItemId || !ingredientId || !qtyNeeded) return alert("Fill all fields");
+    if (!selectedItemId || !ingredientId || !qtyNeeded)
+      return alert("Fill all fields");
 
     try {
-      await axios.post(`http://localhost:5000/api/products/${selectedItemId}/ingredients`, {
+      await axios.post(`${API_BASE}/products/${selectedItemId}/ingredients`, {
         inventory_id: ingredientId,
-        quantity_required: qtyNeeded
+        quantity_required: qtyNeeded,
       });
       setQtyNeeded("");
       fetchCurrentRecipe();
@@ -66,7 +71,7 @@ function RecipeManager() {
   const removeIngredient = async (recipeId) => {
     if (!window.confirm("Remove this ingredient?")) return;
     try {
-      await axios.delete(`http://localhost:5000/api/products/ingredients/${recipeId}`);
+      await axios.delete(`${API_BASE}/products/ingredients/${recipeId}`);
       fetchCurrentRecipe();
     } catch (err) {
       alert("Error removing");
@@ -76,24 +81,26 @@ function RecipeManager() {
   return (
     <div className="container-fluid p-4">
       <h2 className="fw-bold mb-4">Recipe Manager</h2>
-      
+
       <div className="row g-4">
         {/* Left Side: Select Product */}
         <div className="col-md-4">
           <div className="card border-0 shadow-sm p-4">
             <label className="form-label fw-bold">1. Select Menu Item</label>
-            <select 
-              className="form-select mb-3" 
-              value={selectedItemId} 
+            <select
+              className="form-select mb-3"
+              value={selectedItemId}
               onChange={(e) => setSelectedItemId(e.target.value)}
             >
               <option value="">-- Choose a Dish --</option>
-              {menuItems.map(item => (
-                <option key={item.item_id} value={item.item_id}>{item.name}</option>
+              {menuItems.map((item) => (
+                <option key={item.item_id} value={item.item_id}>
+                  {item.name}
+                </option>
               ))}
             </select>
             <div className="alert alert-info py-2 small d-flex align-items-center">
-              <Info size={16} className="me-2"/>
+              <Info size={16} className="me-2" />
               Link inventory items to this dish.
             </div>
           </div>
@@ -103,14 +110,19 @@ function RecipeManager() {
         <div className="col-md-8">
           <div className="card border-0 shadow-sm p-4">
             <h5 className="fw-bold mb-3">Ingredients List</h5>
-            
+
             {selectedItemId ? (
               <>
                 <form className="row g-2 mb-4" onSubmit={handleAddIngredient}>
                   <div className="col-md-6">
-                    <select className="form-select" value={ingredientId} onChange={(e) => setIngredientId(e.target.value)} required>
+                    <select
+                      className="form-select"
+                      value={ingredientId}
+                      onChange={(e) => setIngredientId(e.target.value)}
+                      required
+                    >
                       <option value="">Select Inventory Item...</option>
-                      {inventoryItems.map(inv => (
+                      {inventoryItems.map((inv) => (
                         <option key={inv.inventory_id} value={inv.inventory_id}>
                           {inv.item_name} (Stock: {inv.quantity} {inv.unit})
                         </option>
@@ -118,11 +130,19 @@ function RecipeManager() {
                     </select>
                   </div>
                   <div className="col-md-3">
-                    <input type="number" step="0.01" className="form-control" placeholder="Qty Used" value={qtyNeeded} onChange={(e) => setQtyNeeded(e.target.value)} required />
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="form-control"
+                      placeholder="Qty Used"
+                      value={qtyNeeded}
+                      onChange={(e) => setQtyNeeded(e.target.value)}
+                      required
+                    />
                   </div>
                   <div className="col-md-3">
                     <button className="btn btn-success w-100 d-flex align-items-center justify-content-center">
-                      <Plus size={18} className="me-1"/> Add
+                      <Plus size={18} className="me-1" /> Add
                     </button>
                   </div>
                 </form>
@@ -137,17 +157,33 @@ function RecipeManager() {
                       </tr>
                     </thead>
                     <tbody>
-                      {currentRecipe.length > 0 ? currentRecipe.map(ing => (
-                        <tr key={ing.recipe_id}>
-                          <td>{ing.item_name}</td>
-                          <td>{ing.quantity_required} {ing.unit}</td>
-                          <td className="text-end">
-                            <button className="btn btn-sm btn-outline-danger" onClick={() => removeIngredient(ing.recipe_id)}>
-                              <Trash2 size={16}/>
-                            </button>
+                      {currentRecipe.length > 0 ? (
+                        currentRecipe.map((ing) => (
+                          <tr key={ing.recipe_id}>
+                            <td>{ing.item_name}</td>
+                            <td>
+                              {ing.quantity_required} {ing.unit}
+                            </td>
+                            <td className="text-end">
+                              <button
+                                className="btn btn-sm btn-outline-danger"
+                                onClick={() => removeIngredient(ing.recipe_id)}
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td
+                            colSpan="3"
+                            className="text-center text-muted p-4"
+                          >
+                            No ingredients linked yet.
                           </td>
                         </tr>
-                      )) : <tr><td colSpan="3" className="text-center text-muted p-4">No ingredients linked yet.</td></tr>}
+                      )}
                     </tbody>
                   </table>
                 </div>

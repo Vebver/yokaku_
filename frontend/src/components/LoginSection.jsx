@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import VerifyEmail from "./VerifyEmail";
 import "../Style/LoginModal.css";
-import axios from "axios";
+import api from "../api"
 
 function LoginSection({ onClose }) {
   const [view, setView] = useState("login"); // 'login', 'signup', 'verify', 'forgot', 'reset'
@@ -46,7 +46,7 @@ function LoginSection({ onClose }) {
     setLoading(true);
     setError("");
     try {
-      const res = await axios.post("/api/auth/login", { email, password });
+      const res = await api.post("/auth/login", { email, password });
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("userId", res.data.user.id);
       localStorage.setItem("userRole", res.data.user.role);
@@ -81,7 +81,7 @@ function LoginSection({ onClose }) {
 
     setLoading(true);
     try {
-      await axios.post("/api/auth/signup", {
+      await api.post("/auth/signup", {
         firstName,
         lastName,
         email,
@@ -105,7 +105,7 @@ function LoginSection({ onClose }) {
     setLoading(true);
     setError("");
     try {
-      await axios.post("/api/auth/forgot-password", { email });
+      await api.post("/auth/forgot-password", { email });
       alert("Reset link sent to your email!");
       setView("login");
     } catch (err) {
@@ -117,7 +117,7 @@ function LoginSection({ onClose }) {
 
   const handleVerifyOTP = async (code) => {
     try {
-      const res = await axios.post("/api/auth/verify-otp", {
+      const res = await api.post("/auth/verify-otp", {
         email,
         otp: code,
       });

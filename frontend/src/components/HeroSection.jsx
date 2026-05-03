@@ -3,6 +3,8 @@ import axios from "axios";
 import ExistingModal from "./ExistingModal";
 import "../Style/HeroSection.css";
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+
 function HeroSection({ onLoginClick, onReserveClick, isLoggedIn }) {
   const [showExistingModal, setShowExistingModal] = useState(false);
   const [existingReservation, setExistingReservation] = useState(null);

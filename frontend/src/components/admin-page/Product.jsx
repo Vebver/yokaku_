@@ -9,6 +9,8 @@ import {
   ChevronRight,
 } from "lucide-react";
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const BASE_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
 function Product() {
   const [menuItems, setMenuItems] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -38,9 +40,9 @@ function Product() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const catRes = await axios.get("http://localhost:5000/api/categories");
+      const catRes = await axios.get(`${API_BASE}/categories`);
       setCategories(catRes.data);
-      const menuRes = await axios.get("http://localhost:5000/api/products");
+      const menuRes = await axios.get(`${API_BASE}/products`);
       setMenuItems(menuRes.data);
       if (catRes.data.length > 0 && !isEditing) {
         setNewItem((prev) => ({
@@ -116,11 +118,8 @@ function Product() {
     });
     try {
       if (isEditing)
-        await axios.put(
-          `http://localhost:5000/api/products/${editId}`,
-          formData,
-        );
-      else await axios.post("http://localhost:5000/api/products", formData);
+        await axios.put(`${API_BASE}/products/${editId}`, formData);
+      else await axios.post(`${API_BASE}/products`, formData);
       fetchData();
       resetForm();
       if (closeBtnRef.current) closeBtnRef.current.click();
@@ -132,7 +131,7 @@ function Product() {
   const deleteMenuItem = async (id) => {
     if (window.confirm("Remove item?")) {
       try {
-        await axios.delete(`http://localhost:5000/api/products/${id}`);
+        await axios.delete(`${API_BASE}/products/${id}`);
         fetchData();
       } catch (err) {
         alert("Error.");
@@ -143,7 +142,7 @@ function Product() {
   const toggleFeature = async (id, currentStatus) => {
     try {
       const newStatus = currentStatus === 1 ? 0 : 1;
-      await axios.put(`http://localhost:5000/api/products/${id}/feature`, {
+      await axios.put(`${API_BASE}/products/${id}/feature`, {
         is_featured: newStatus,
       });
       fetchData();
@@ -278,7 +277,7 @@ function Product() {
                       <img
                         src={
                           item.image_url
-                            ? `http://localhost:5000${item.image_url}`
+                            ? `${BASE_URL}${item.image_url}`
                             : "https://via.placeholder.com/45"
                         }
                         alt={item.name}

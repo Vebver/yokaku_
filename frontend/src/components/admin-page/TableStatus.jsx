@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Plus, Armchair } from "lucide-react"; // Added icons
-
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 const TableStatus = () => {
   const [tables, setTables] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,7 +26,7 @@ const TableStatus = () => {
 
     try {
       const res = await axios.get(
-        `http://localhost:5000/api/reservations/${reservationId}/items`,
+        `${API_BASE}/reservations/${reservationId}/items`,
       );
       setBillItems(res.data);
     } catch (err) {
@@ -114,7 +114,7 @@ const TableStatus = () => {
 
       // Ensure you use 'reservationId' here to match the parameter name above
       await axios.put(
-        `http://localhost:5000/api/reservations/${reservationId}/status`,
+        `${API_BASE}/reservations/${reservationId}/status`,
         { status: "Seated" },
         { headers: { Authorization: `Bearer ${token}` } },
       );

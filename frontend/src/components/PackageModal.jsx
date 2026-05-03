@@ -14,8 +14,8 @@ import {
 } from "lucide-react";
 import "../Style/PackageModal.css";
 
-const API_BASE = "http://localhost:5000/api";
-const BASE_URL = "http://localhost:5000";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const BASE_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
 
 // Helper function to get correct image URL
 const getImageUrl = (imagePath) => {
@@ -155,34 +155,34 @@ const PackageModal = ({
   };
 
   const handleAddToCart = () => {
-    const existing = selectedItems.find((i) => i.id === selectedItem.item_id);
+  const existing = selectedItems.find((i) => i.id === selectedItem.item_id);
 
-    // Define the new item data
-    const newItemData = {
-      id: selectedItem.item_id,
-      name: selectedItem.name,
-      price: parseFloat(selectedItem.price),
-      quantity: itemQuantity,
-      image: selectedItem.image_url,
-      description: selectedItem.description,
-      // ALWAYS save customizations if it's a bundle/unli, regardless of panel state
-      customizations:
-        isUnliPackage || selectedItem.name.includes("Bundle")
-          ? customizations
-          : null,
-    };
+  // Define the new item data
+  const newItemData = {
+    id: selectedItem.item_id,
+    name: selectedItem.name,
+    // FIX: Round the price here to 2 decimal places
+    price: Math.round(parseFloat(selectedItem.price) * 100) / 100, 
+    quantity: itemQuantity,
+    image: selectedItem.image_url,
+    description: selectedItem.description,
+    customizations:
+      isUnliPackage || selectedItem.name.includes("Bundle")
+        ? customizations
+        : null,
+  };
 
-    let updatedItems;
-    if (existing) {
-      updatedItems = selectedItems.map((i) =>
-        i.id === selectedItem.item_id ? newItemData : i,
-      );
-    } else {
-      updatedItems = [...selectedItems, newItemData];
-    }
+  let updatedItems;
+  if (existing) {
+    updatedItems = selectedItems.map((i) =>
+      i.id === selectedItem.item_id ? newItemData : i,
+    );
+  } else {
+    updatedItems = [...selectedItems, newItemData];
+  }
 
-    setSelectedItems(updatedItems);
-    onSelectedItemsChange(updatedItems);
+  setSelectedItems(updatedItems);
+  onSelectedItemsChange(updatedItems);
     setShowItemModal(false);
     setSelectedItem(null);
     setItemQuantity(1);

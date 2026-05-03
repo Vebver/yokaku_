@@ -5,6 +5,8 @@ import { Trash2, Archive } from "lucide-react";
 import DeletedNotifications from "./DeletedNotifications";
 import "../../Style/Notifications.css";
 
+const SOCKET_URL = "https://yokaku-backend.onrender.com";
+const API_BASE = "https://yokaku-backend.onrender.com/api";
 const Notifications = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -22,7 +24,7 @@ const Notifications = () => {
     const userId = localStorage.getItem("userId");
 
     if (token && userId) {
-      const newSocket = io("http://localhost:5000", {
+      const newSocket = io(SOCKET_URL, {
         transports: ["websocket", "polling"],
       });
       setSocket(newSocket);
@@ -54,7 +56,7 @@ const Notifications = () => {
   const fetchNotifications = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.get("/api/notifications", {
+      const res = await axios.get(`${API_BASE}/api/notifications`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setNotifications(res.data);
@@ -68,9 +70,12 @@ const Notifications = () => {
   const fetchUnreadCount = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.get("/api/notifications/unread-count", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await axios.get(
+        `${API_BASE}/api/notifications/unread-count`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
       setUnreadCount(res.data.unreadCount);
     } catch (err) {
       console.error("Error fetching unread count", err);
@@ -81,7 +86,7 @@ const Notifications = () => {
     try {
       const token = localStorage.getItem("token");
       await axios.put(
-        `/api/notifications/${id}/read`,
+        `${API_BASE}/api/notifications/${id}/read`,
         {},
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -102,7 +107,7 @@ const Notifications = () => {
     try {
       const token = localStorage.getItem("token");
       await axios.put(
-        "/api/notifications/read-all",
+        `${API_BASE}/api/notifications/read-all`,
         {},
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -121,9 +126,12 @@ const Notifications = () => {
 
     try {
       const token = localStorage.getItem("token");
-      await axios.delete(`/api/notifications/${notificationToDelete}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await axios.delete(
+        `${API_BASE}/api/notifications/${notificationToDelete}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
       setNotifications(
         notifications.filter((n) => n.notification_id !== notificationToDelete),
       );
@@ -146,9 +154,12 @@ const Notifications = () => {
     setModalLoading(true);
     try {
       const token = localStorage.getItem("token");
-      const response = await axios.get(`/api/reservations/${reservationId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await axios.get(
+        `${API_BASE}/api/reservations/${reservationId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
       setSelectedReservation(response.data.reservation);
       setShowReservationModal(true);
     } catch (err) {

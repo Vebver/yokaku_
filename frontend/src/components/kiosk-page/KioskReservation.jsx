@@ -1,8 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { QrCode, ArrowLeft, X, Loader2, AlertCircle } from 'lucide-react'; // Added icons for feedback
-import { Html5Qrcode } from 'html5-qrcode';
-import '../../Style/KioskReservation.css';
+import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { QrCode, ArrowLeft, X, Loader2, AlertCircle } from "lucide-react"; // Added icons for feedback
+import { Html5Qrcode } from "html5-qrcode";
+import "../../Style/KioskReservation.css";
+
+const BASE_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const KioskReservation = () => {
   const navigate = useNavigate();
@@ -18,14 +21,16 @@ const KioskReservation = () => {
     setError("");
     try {
       // Adjust URL/Port to match your backend index.js
-      const response = await fetch(`http://localhost:5000/api/reservations/${id}`);
+      const response = await fetch(`${API_BASE}/reservations/${id}`);
       const data = await response.json();
 
       if (response.ok) {
         localStorage.setItem("resId", id); // Save valid ID to memory
-        navigate('/kiosk-selection/kiosk-reservation-menu');
+        navigate("/kiosk-selection/kiosk-reservation-menu");
       } else {
-        setError(data.message || "Reservation not found. Please check your ID.");
+        setError(
+          data.message || "Reservation not found. Please check your ID.",
+        );
         if (isScanning) stopScanner();
       }
     } catch (err) {
@@ -47,13 +52,15 @@ const KioskReservation = () => {
         const config = { fps: 10, qrbox: { width: 250, height: 250 } };
 
         await html5QrCode.start(
-          { facingMode: "environment" }, 
+          { facingMode: "environment" },
           config,
           (decodedText) => {
             stopScanner();
             validateAndProceed(decodedText); // Validate scan result
           },
-          (errorMessage) => { /* Scanning... */ }
+          (errorMessage) => {
+            /* Scanning... */
+          },
         );
       } catch (err) {
         console.error("Unable to start scanner", err);
@@ -93,7 +100,7 @@ const KioskReservation = () => {
     <div className="kiosk-res-wrapper">
       <div className="kiosk-background-overlay"></div>
 
-      <button className="back-btn" onClick={() => navigate('/kiosk-selection')}>
+      <button className="back-btn" onClick={() => navigate("/kiosk-selection")}>
         <ArrowLeft size={24} />
         <span>BACK</span>
       </button>
@@ -106,13 +113,28 @@ const KioskReservation = () => {
 
         <div className="res-header">
           <h2 className="res-title">Reservation</h2>
-          <p className="res-subtitle">Scan your QR code or enter your Reservation ID</p>
+          <p className="res-subtitle">
+            Scan your QR code or enter your Reservation ID
+          </p>
         </div>
 
         <div className="res-card fade-in">
           {/* Error Message Display */}
           {error && (
-            <div className="res-error-msg" style={{ color: '#ff4d4d', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '15px', justifyContent: 'center', background: 'rgba(255,0,0,0.1)', padding: '10px', borderRadius: '10px' }}>
+            <div
+              className="res-error-msg"
+              style={{
+                color: "#ff4d4d",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                marginBottom: "15px",
+                justifyContent: "center",
+                background: "rgba(255,0,0,0.1)",
+                padding: "10px",
+                borderRadius: "10px",
+              }}
+            >
               <AlertCircle size={18} />
               <span>{error}</span>
             </div>
@@ -120,16 +142,24 @@ const KioskReservation = () => {
 
           {!isScanning ? (
             <div className="qr-section" onClick={loading ? null : startScanner}>
-              <div className={`qr-scanner-glow ${loading ? 'loading' : 'clickable'}`}>
+              <div
+                className={`qr-scanner-glow ${loading ? "loading" : "clickable"}`}
+              >
                 <div className="qr-inner-circle">
                   {loading ? (
-                    <Loader2 className="animate-spin" size={60} color="#ffcc00" />
+                    <Loader2
+                      className="animate-spin"
+                      size={60}
+                      color="#ffcc00"
+                    />
                   ) : (
                     <QrCode size={80} color="#ffcc00" strokeWidth={1.5} />
                   )}
                 </div>
               </div>
-              <p className="qr-label">{loading ? "Verifying..." : "Tap to Scan QR Code"}</p>
+              <p className="qr-label">
+                {loading ? "Verifying..." : "Tap to Scan QR Code"}
+              </p>
             </div>
           ) : (
             <div className="scanner-container">
@@ -147,17 +177,17 @@ const KioskReservation = () => {
           </div>
 
           <div className="input-section">
-            <input 
-              type="text" 
-              className="res-input" 
-              placeholder="Enter Reservation ID" 
+            <input
+              type="text"
+              className="res-input"
+              placeholder="Enter Reservation ID"
               value={resId}
               onChange={(e) => setResId(e.target.value)}
               disabled={loading}
             />
-            <button 
-              className="confirm-res-btn" 
-              disabled={!resId.trim() || loading} 
+            <button
+              className="confirm-res-btn"
+              disabled={!resId.trim() || loading}
               onClick={handleConfirmClick}
             >
               {loading ? "Verifying..." : "Confirm Reservation"}

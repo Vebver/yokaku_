@@ -2,13 +2,13 @@ import React from "react";
 import axios from "axios";
 import { Trash2, Download, ShieldAlert } from "lucide-react";
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+
 const DatabaseMaintenance = () => {
   const runTask = async (endpoint, taskName) => {
     if (!window.confirm(`Are you sure you want to run: ${taskName}?`)) return;
     try {
-      const res = await axios.post(
-        `http://localhost:5000/api/admin/maintenance/${endpoint}`,
-      );
+      const res = await axios.post(`${API_BASE}/admin/maintenance/${endpoint}`);
       alert(res.data.message);
     } catch (err) {
       console.error(err);
@@ -18,7 +18,7 @@ const DatabaseMaintenance = () => {
 
   const downloadBackup = () => {
     // This opens the backend backup route in a new tab to trigger the download
-    window.open("http://localhost:5000/api/admin/maintenance/backup", "_blank");
+    window.open(`${API_BASE}/admin/maintenance/backup`, "_blank");
   };
 
   return (
@@ -49,9 +49,7 @@ const DatabaseMaintenance = () => {
           <div className="p-3 border rounded text-center h-100 bg-light">
             <ShieldAlert className="text-warning mb-2" size={32} />
             <h6 className="fw-bold">Clear Completed Reservation</h6>
-            <p className="small text-muted">
-              Delete Completed Reservation.
-            </p>
+            <p className="small text-muted">Delete Completed Reservation.</p>
             <button
               onClick={() => runTask("clean-reserve", "Clear Reserve")}
               className="btn btn-outline-warning btn-sm w-100 mt-2"

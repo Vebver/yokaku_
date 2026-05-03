@@ -30,6 +30,9 @@ import OrderSummary from "./OrderSummary";
 import PortalModal from "./PortalModal";
 import axios from "axios"; // <--- Add this line // Import the Portal component
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const BASE_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
+
 const categoryIcons = {
   "Best Seller": <Flame />,
   "Budget Meals": <Wallet />,
@@ -124,7 +127,7 @@ const KioskMenu = () => {
   useEffect(() => {
     const fetchMenu = async () => {
       try {
-        const response = await fetch("http://localhost:5000/api/products");
+        const response = await fetch(`${API_BASE}/products`);
         const data = await response.json();
         const grouped = data.reduce((acc, item) => {
           const cat = item.category_name || "General";
@@ -134,7 +137,7 @@ const KioskMenu = () => {
           const fullImage = item.image_url
             ? item.image_url.startsWith("http")
               ? item.image_url
-              : `http://localhost:5000${item.image_url.startsWith("/") ? "" : "/"}${item.image_url}`
+              : `${BASE_URL}${item.image_url.startsWith("/") ? "" : "/"}${item.image_url}`
             : "https://via.placeholder.com/150";
 
           acc[cat].push({
@@ -174,64 +177,64 @@ const KioskMenu = () => {
   };
 
   const handlePlaceOrder = () => {
-  setShowTypeModal(true); // Open Choice Modal
-};
+    setShowTypeModal(true); // Open Choice Modal
+  };
 
-// STEP 2: User clicks "Dine-in"
-// STEP 2: User clicks "Dine-in"
-const handleDineInSelection = async () => {
-  setShowTypeModal(false);
-  try {
-    // Fetch latest table statuses from port 5000
-    const res = await axios.get("http://localhost:5000/api/admin/getTable");
-    setAvailableTables(res.data);
-    setShowTablePicker(true);
-  } catch (err) {
-    console.error("Fetch tables error:", err);
-    alert("Could not load tables. Please check if the server is running.");
-  }
-};
-
-// STEP 3: Final Submission
-const submitOrderToDatabase = async (tableId = null) => {
-  try {
-    const dynamicResId = `WALK-${Date.now()}`; 
-    const response = await fetch("http://localhost:5000/api/orders/place", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        reservation_id: dynamicResId,
-        table_id: tableId, 
-        items: cart.map(item => ({
-          item_id: item.id,
-          quantity: item.quantity,
-          customizations: item.customizations || null // IMPORTANT: Includes flavors/drinks
-        }))
-      })
-    });
-
-    const result = await response.json();
-
-    if (response.ok) {
-      // START THE TIMER (For Unli-wings session)
-      if (!localStorage.getItem(TIMER_KEY)) {
-        const endTime = Date.now() + 5400 * 1000;
-        localStorage.setItem(TIMER_KEY, endTime.toString());
-        setIsTimerRunning(true);
-      }
-
-      setCart([]);
-      setShowTablePicker(false);
-      setShowTypeModal(false);
-      setShowOrderSuccessModal(true);
-    } else {
-      alert("Order Error: " + (result.error || "Unknown error"));
+  // STEP 2: User clicks "Dine-in"
+  // STEP 2: User clicks "Dine-in"
+  const handleDineInSelection = async () => {
+    setShowTypeModal(false);
+    try {
+      // Fetch latest table statuses from port 5000
+      const res = await axios.get(`${API_BASE}/admin/getTable`);
+      setAvailableTables(res.data);
+      setShowTablePicker(true);
+    } catch (err) {
+      console.error("Fetch tables error:", err);
+      alert("Could not load tables. Please check if the server is running.");
     }
-  } catch (error) {
-    console.error("Order failed:", error);
-    alert("Connection error. Please try again.");
-  }
-};
+  };
+
+  // STEP 3: Final Submission
+  const submitOrderToDatabase = async (tableId = null) => {
+    try {
+      const dynamicResId = `WALK-${Date.now()}`;
+      const response = await fetch(`${API_BASE}/orders/place`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reservation_id: dynamicResId,
+          table_id: tableId,
+          items: cart.map((item) => ({
+            item_id: item.id,
+            quantity: item.quantity,
+            customizations: item.customizations || null, // IMPORTANT: Includes flavors/drinks
+          })),
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        // START THE TIMER (For Unli-wings session)
+        if (!localStorage.getItem(TIMER_KEY)) {
+          const endTime = Date.now() + 5400 * 1000;
+          localStorage.setItem(TIMER_KEY, endTime.toString());
+          setIsTimerRunning(true);
+        }
+
+        setCart([]);
+        setShowTablePicker(false);
+        setShowTypeModal(false);
+        setShowOrderSuccessModal(true);
+      } else {
+        alert("Order Error: " + (result.error || "Unknown error"));
+      }
+    } catch (error) {
+      console.error("Order failed:", error);
+      alert("Connection error. Please try again.");
+    }
+  };
 
   const formatTime = (seconds) => {
     if (seconds <= 0) return "0:00:00";
@@ -378,22 +381,39 @@ const submitOrderToDatabase = async (tableId = null) => {
         onClose={() => setShowEndModal(false)}
         onConfirm={handleEndSession}
       />
-    {showTypeModal && (
-  <div className="res-modal-overlay" style={{ zIndex: 6000 }}>
-    <div className="res-modal-card">
-      <h2 style={{ color: "#ffcc00", marginBottom: '20px' }}>Order Mode</h2>
-      <div className="res-action-btns" style={{ flexDirection: 'column', gap: '15px' }}>
-        <button className="res-modal-btn-primary" onClick={handleDineInSelection}>
-          DINE-IN (Eat Here)
-        </button>
-        <button className="res-btn-view" style={{ background: '#444' }} onClick={() => submitOrderToDatabase(null)}>
-          TAKE-OUT (To-go)
-        </button>
-        <button className="res-btn-cancel" onClick={() => setShowTypeModal(false)}>Cancel</button>
-      </div>
-    </div>
-  </div>
-)}
+      {showTypeModal && (
+        <div className="res-modal-overlay" style={{ zIndex: 6000 }}>
+          <div className="res-modal-card">
+            <h2 style={{ color: "#ffcc00", marginBottom: "20px" }}>
+              Order Mode
+            </h2>
+            <div
+              className="res-action-btns"
+              style={{ flexDirection: "column", gap: "15px" }}
+            >
+              <button
+                className="res-modal-btn-primary"
+                onClick={handleDineInSelection}
+              >
+                DINE-IN (Eat Here)
+              </button>
+              <button
+                className="res-btn-view"
+                style={{ background: "#444" }}
+                onClick={() => submitOrderToDatabase(null)}
+              >
+                TAKE-OUT (To-go)
+              </button>
+              <button
+                className="res-btn-cancel"
+                onClick={() => setShowTypeModal(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Item Details Modal */}
       {isModalOpen && (
@@ -435,42 +455,57 @@ const submitOrderToDatabase = async (tableId = null) => {
         </div>
       )}
       {showTablePicker && (
-  <div className="res-modal-overlay" style={{ zIndex: 6000 }}>
-    <div className="res-modal-card" style={{ maxWidth: '600px', width: '90%' }}>
-      <h2 style={{ color: "#ffcc00" }}>Select a Table</h2>
-      <div className="table-grid-kiosk" style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(4, 1fr)', 
-          gap: '10px', 
-          margin: '20px 0' 
-      }}>
-        {availableTables.map(table => {
-          const isOccupied = table.bridge_status === 'seated' || table.bridge_status === 'confirmed';
-          return (
-            <button
-              key={table.table_id}
-              disabled={isOccupied}
-              onClick={() => submitOrderToDatabase(table.table_id)}
+        <div className="res-modal-overlay" style={{ zIndex: 6000 }}>
+          <div
+            className="res-modal-card"
+            style={{ maxWidth: "600px", width: "90%" }}
+          >
+            <h2 style={{ color: "#ffcc00" }}>Select a Table</h2>
+            <div
+              className="table-grid-kiosk"
               style={{
-                padding: '20px 10px',
-                borderRadius: '8px',
-                border: 'none',
-                background: isOccupied ? '#333' : '#ffcc00',
-                color: isOccupied ? '#666' : '#000',
-                fontWeight: 'bold',
-                cursor: isOccupied ? 'not-allowed' : 'pointer'
+                display: "grid",
+                gridTemplateColumns: "repeat(4, 1fr)",
+                gap: "10px",
+                margin: "20px 0",
               }}
             >
-              {table.table_number}
-              <div style={{ fontSize: '10px' }}>{isOccupied ? 'FULL' : 'OPEN'}</div>
+              {availableTables.map((table) => {
+                const isOccupied =
+                  table.bridge_status === "seated" ||
+                  table.bridge_status === "confirmed";
+                return (
+                  <button
+                    key={table.table_id}
+                    disabled={isOccupied}
+                    onClick={() => submitOrderToDatabase(table.table_id)}
+                    style={{
+                      padding: "20px 10px",
+                      borderRadius: "8px",
+                      border: "none",
+                      background: isOccupied ? "#333" : "#ffcc00",
+                      color: isOccupied ? "#666" : "#000",
+                      fontWeight: "bold",
+                      cursor: isOccupied ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    {table.table_number}
+                    <div style={{ fontSize: "10px" }}>
+                      {isOccupied ? "FULL" : "OPEN"}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              className="res-btn-cancel"
+              onClick={() => setShowTablePicker(false)}
+            >
+              Back
             </button>
-          )
-        })}
-      </div>
-      <button className="res-btn-cancel" onClick={() => setShowTablePicker(false)}>Back</button>
-    </div>
-  </div>
-)}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

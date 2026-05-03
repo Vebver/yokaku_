@@ -6,6 +6,9 @@ import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
 import "../Style/FeaturedMenu.css";
 
+const API_BASE = import.meta.env.VITE_API_URL;
+const BASE_URL = import.meta.env.VITE_SOCKET_URL;
+
 function FeaturedMenu() {
   const [featuredItems, setFeaturedItems] = useState([]);
   const navigate = useNavigate();
@@ -13,9 +16,7 @@ function FeaturedMenu() {
   useEffect(() => {
     const fetchFeatured = async () => {
       try {
-        const res = await axios.get(
-          "http://localhost:5000/api/products/featured",
-        );
+        const res = await axios.get(`${API_BASE}/products/featured`);
         setFeaturedItems(res.data);
       } catch (err) {
         console.error(err);
@@ -27,9 +28,8 @@ function FeaturedMenu() {
   const getImageUrl = (imagePath) => {
     if (!imagePath) return null;
     if (imagePath.startsWith("http")) return imagePath;
-    if (imagePath.startsWith("/uploads/"))
-      return `http://localhost:5000${imagePath}`;
-    return `http://localhost:5000/uploads/${imagePath}`;
+    if (imagePath.startsWith("/uploads/")) return `${BASE_URL}${imagePath}`;
+    return `${BASE_URL}/uploads/${imagePath}`;
   };
 
   const settings = {
