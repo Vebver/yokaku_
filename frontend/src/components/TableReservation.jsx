@@ -800,23 +800,22 @@ export default function TableReservation({ onClose, onSuccess }) {
               <label>
                 <Calendar size={12} /> DATE
               </label>
-              <input
-                type="date"
-                name="date"
-                value={form.date}
-                min={todayStr}
-                onChange={(e) => {
-                  const isBlocked = handleDateSelection(e);
-                  if (!isBlocked) {
-                    setSelectedId(null);
-                    setLinkedIds([]);
-                  }
-                }}
-                style={{
-                  cursor: "pointer",
-                  padding: "12px 16px",
-                }}
-              />
+              <div className="date-input-wrapper">
+                <input
+                  type="date"
+                  name="date"
+                  value={form.date}
+                  min={todayStr}
+                  onChange={(e) => {
+                    const isBlocked = handleDateSelection(e);
+                    if (!isBlocked) {
+                      setSelectedId(null);
+                      setLinkedIds([]);
+                    }
+                  }}
+                />
+                <Calendar size={16} className="date-input-icon" />
+              </div>
             </div>
 
             {form.date && selectedId && (
