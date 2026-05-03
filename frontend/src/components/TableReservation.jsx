@@ -210,9 +210,8 @@ export default function TableReservation({ onClose, onSuccess }) {
     terms: false,
   });
 
-  const todayStr = new Date(new Date() - new Date().getTimezoneOffset() * 60000)
-    .toISOString()
-    .split("T")[0];
+  // Fixed: Use toLocaleDateString to avoid timezone issues
+  const todayStr = new Date().toLocaleDateString("en-CA");
 
   // --- API DATA ---
   useEffect(() => {
@@ -817,23 +816,8 @@ export default function TableReservation({ onClose, onSuccess }) {
                       setLinkedIds([]);
                     }
                   }}
-                  style={{
-                    cursor: "pointer",
-                    paddingLeft: "35px", // Make room for icon
-                  }}
                 />
-                <Calendar
-                  size={16}
-                  className="date-input-icon"
-                  style={{
-                    position: "absolute",
-                    left: "12px",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    pointerEvents: "none",
-                    color: "#888",
-                  }}
-                />
+                <Calendar size={16} className="date-input-icon" />
               </div>
             </div>
 
