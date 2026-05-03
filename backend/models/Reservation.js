@@ -138,7 +138,7 @@ create: async (data) => {
     try {
       await conn.beginTransaction();
       
-      // Ensure the ID isn't too long (Check your VARCHAR(100) fix from earlier!)
+      // Ensure we are using the Rounded values from the start
       const customId = generateRandomId(); 
 
       // 1. Insert Main Reservation
@@ -155,13 +155,15 @@ create: async (data) => {
         data.startTime || null,
         data.endTime || null,
         data.guests || 0,
-        data.packageName,
+        data.packageName || "Table Reservation",
         data.status || "Confirmed",
         data.receiptPath || null,
         data.brgyCode || null,
         data.allergy || "None",
       ];
-      await conn.execute(resQuery, resValues);
+      
+      // Use query for better stability over cross-cloud networks
+      await conn.query(resQuery, resValues);
 
       // 2. Insert Tables
       let tableIdsArray = data.tableIds || [];
@@ -172,51 +174,65 @@ create: async (data) => {
         for (const tid of tableIdsArray) {
           const cleanTid = parseInt(tid);
           if (!isNaN(cleanTid)) {
-            await conn.execute(tableLinkQuery, [customId, cleanTid, `${data.firstName} ${data.lastName}`]);
+            // query is faster and more stable for loops
+            await conn.query(tableLinkQuery, [customId, cleanTid, `${data.firstName} ${data.lastName}`]);
           }
         }
       }
 
-      // 3. Insert Items (WITH ROUNDING FIX)
+      // 3. Insert Items
       let itemsToProcess = data.selectedItems || [];
       if (typeof itemsToProcess === "string") itemsToProcess = JSON.parse(itemsToProcess);
 
       if (itemsToProcess.length > 0) {
         const itemQuery = `INSERT INTO reservation_items (reservation_id, product_id, quantity, price, customizations) VALUES (?, ?, ?, ?, ?)`;
         for (const item of itemsToProcess) {
-          // FIX: Force price to 2 decimal places to prevent messy packets
           const cleanPrice = Math.round(parseFloat(item.price || 0) * 100) / 100;
+          const customs = item.customizations ? JSON.stringify(item.customizations) : null;
           
-          await conn.execute(itemQuery, [
+          await conn.query(itemQuery, [
             customId,
             item.item_id || item.id,
             item.quantity,
             cleanPrice,
-            item.customizations ? JSON.stringify(item.customizations) : null
+            customs
           ]);
         }
       }
 
-      // 4. Insert Payment (WITH ROUNDING FIX)
+      // 4. Insert Payment
       const paymentQuery = `INSERT INTO payments (reservation_id, amount, total_bill, payment_method, payment_status, paid_at) VALUES (?, ?, ?, ?, ?, NOW())`;
-      
-      // FIX: Clean the money fields
       const cleanAmount = Math.round(parseFloat(data.amount || 0) * 100) / 100;
       const cleanTotal = Math.round(parseFloat(data.totalAmount || data.amount || 0) * 100) / 100;
 
-      await conn.execute(paymentQuery, [
+      await conn.query(paymentQuery, [
         customId,
         cleanAmount,
         cleanTotal,
-        data.paymentMethod || "Maya",
+        data.paymentMethod || "Gcash",
         data.paymentStatus || "pending",
       ]);
+
+      // 5. Final Notification (Optional: Wrap in try/catch so it doesn't kill the whole booking)
+      try {
+          if (data.userId && data.userId !== "null") {
+            await Notification.create(conn, {
+              userId: data.userId,
+              reservationId: customId,
+              title: "Reservation Confirmed",
+              message: `Your reservation for ${data.guests} guest(s) has been confirmed.`,
+              type: "info", // Matching your ENUM fix!
+            });
+          }
+      } catch (notifErr) {
+          console.warn("Notification failed, but booking was saved.");
+      }
 
       await conn.commit();
       return customId;
     } catch (err) {
       await conn.rollback();
-      console.error("DB ERROR:", err);
+      console.error("TRANSACTION ERROR:", err.message);
       throw err;
     } finally {
       conn.release();
