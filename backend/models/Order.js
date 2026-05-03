@@ -100,11 +100,40 @@ const Order = {
     `;
     await conn.execute(bridgeQuery, [reservationId, tableId]);
 
-    // 2. Update master tables record
+    // 2. Update master tables record 
+    // Verify if your DB uses 'occupied', 'Occupied', or 'FULL'
     const tableUpdateQuery = `
-      UPDATE tables SET status = 'occupied', available_seats = 0 WHERE table_id = ?
+      UPDATE tables 
+      SET status = 'occupied', available_seats = 0 
+      WHERE table_id = ?
     `;
     return await conn.execute(tableUpdateQuery, [tableId]);
+  },
+  releaseTable: async (conn, tableId, reservationId) => {
+    // 1. Mark the table as available again
+    // Verify if your DB uses 'available', 'Available', or 'OPEN'
+    const tableQuery = `
+      UPDATE tables 
+      SET status = 'available' 
+      WHERE table_id = ?
+    `;
+    await conn.execute(tableQuery, [tableId]);
+
+    // 2. Mark the bridge record as completed
+    const bridgeQuery = `
+      UPDATE reservation_tables 
+      SET status = 'completed' 
+      WHERE reservation_id = ? AND table_id = ?
+    `;
+    await conn.execute(bridgeQuery, [reservationId, tableId]);
+
+    // 3. Mark the main reservation as Completed
+    const resQuery = `
+      UPDATE reservations 
+      SET status = 'Completed' 
+      WHERE reservation_id = ?
+    `;
+    return await conn.execute(resQuery, [reservationId]);
   },
 };
 

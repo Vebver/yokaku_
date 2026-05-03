@@ -91,6 +91,30 @@ const orderController = {
       conn.release();
     }
   },
+  // Inside your orderController object
+
+  finishSession: async (req, res) => {
+    const { table_id, reservation_id } = req.body;
+    const conn = await db.getConnection();
+
+    try {
+      await conn.beginTransaction();
+
+      // Only release if there is actually a table assigned
+      if (table_id && table_id !== "takeout") {
+        await Order.releaseTable(conn, table_id, reservation_id);
+      }
+
+      await conn.commit();
+      res.status(200).json({ success: true, message: "Session finished and table released" });
+    } catch (error) {
+      await conn.rollback();
+      console.error("Finish Session Error:", error.message);
+      res.status(500).json({ error: error.message });
+    } finally {
+      conn.release();
+    }
+  },
 };
 
 module.exports = orderController;

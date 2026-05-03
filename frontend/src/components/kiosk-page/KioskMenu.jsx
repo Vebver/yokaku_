@@ -76,12 +76,32 @@ const KioskMenu = () => {
   const [availableTables, setAvailableTables] = useState([]); // Real-time tables
 
   // --- 1. NUCLEAR STOP (Kiosk Reset) ---
-  const handleEndSession = () => {
+ const handleEndSession = async () => {
+    // 1. Get the current active session data
+    const activeTable = localStorage.getItem("kiosk_active_table_id");
+    const activeResId = localStorage.getItem("kiosk_active_res_id");
+
+    // 2. Tell the backend to clear the table if it's a Dine-in session
+    if (activeTable && activeTable !== "takeout") {
+      try {
+        await axios.post(`${API_BASE}/orders/finish`, {
+          table_id: activeTable,
+          reservation_id: activeResId
+        });
+        console.log("✅ Table released on server");
+      } catch (err) {
+        console.error("❌ Failed to release table:", err);
+      }
+    }
+
+    // 3. Clean up the Kiosk memory
     if (timerRef.current) clearInterval(timerRef.current);
-    localStorage.clear(); // Clear all kiosk data
+    localStorage.clear(); 
     setIsTimerRunning(false);
     setShowEndModal(false);
-    window.location.href = "/kiosk-selection"; // Hard refresh to kill all JS memory
+
+    // 4. Go back to the very start
+    window.location.href = "/kiosk-selection"; 
   };
 
   // --- 2. TIMER PERSISTENCE & TICK ---
