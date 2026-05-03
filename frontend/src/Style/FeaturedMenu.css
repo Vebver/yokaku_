@@ -172,3 +172,68 @@
   border-radius: 5px;
   margin-bottom: 10px;
 }
+
+/* Mobile Responsive Styles - Add at the end of your CSS file */
+@media (max-width: 768px) {
+  .featured-menu {
+    padding: 2rem 1rem;
+  }
+
+  .featured-menu h2 {
+    font-size: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .featured-menu .carousel-container {
+    width: 100%;
+    padding: 0 15px;
+    margin: 0 auto 40px auto;
+  }
+
+  .menu-card {
+    padding: 15px;
+  }
+
+  .menu-card img {
+    height: 180px;
+  }
+
+  .menu-card span {
+    font-size: 0.9rem;
+  }
+
+  .menu-card small {
+    font-size: 0.8rem;
+  }
+
+  .featured-menu .slick-dots {
+    bottom: -30px;
+  }
+
+  .featured-menu .slick-dots li button:before {
+    font-size: 10px;
+  }
+
+  .featured-menu .all-menu-btn {
+    padding: 0.5rem 1.2rem;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .featured-menu {
+    padding: 1.5rem 0.8rem;
+  }
+
+  .featured-menu h2 {
+    font-size: 1.3rem;
+  }
+
+  .menu-card img {
+    height: 150px;
+  }
+
+  .featured-menu .carousel-container {
+    padding: 0 10px;
+  }
+}
