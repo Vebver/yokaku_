@@ -1,6 +1,5 @@
 const mysql = require("mysql2/promise");
-const dotenv = require("dotenv");
-dotenv.config();
+require("dotenv").config();
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
@@ -11,6 +10,16 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
+  // --- ADD THESE CRITICAL SETTINGS ---
+  ssl: {
+    rejectUnauthorized: false, // Required for many cloud DBs
+  },
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 10000,
+  maxAllowedPacket: 67108864, // 64MB - fixes scrambled data
+  connectTimeout: 20000,      // 20 seconds
+}).on('connection', (connection) => {
+    connection.query("SET SESSION sql_mode=(SELECT REPLACE(@@sql_mode,'ONLY_FULL_GROUP_BY',''))");
 });
 
 module.exports = pool;
