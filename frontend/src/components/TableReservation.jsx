@@ -23,8 +23,8 @@ import {
   Heart,
   Music,
 } from "lucide-react";
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
+// import DatePicker from "react-datepicker";
+// import "react-datepicker/dist/react-datepicker.css";
 import "../Style/TableReservation.css";
 import PackageModal from "./PackageModal";
 import ReservationSummary from "./ReservationSummary";
@@ -801,37 +801,21 @@ export default function TableReservation({ onClose, onSuccess }) {
               <label>
                 <Calendar size={12} /> DATE
               </label>
-              <DatePicker
-                selected={form.date ? new Date(form.date) : null}
-                onChange={(date) => {
-                  if (date) {
-                    const formattedDate = date.toISOString().split("T")[0];
-
-                    // Create a synthetic event for handleDateSelection
-                    const syntheticEvent = { target: { value: formattedDate } };
-                    const isBlocked = handleDateSelection(syntheticEvent);
-
-                    if (!isBlocked) {
-                      setForm((prev) => ({ ...prev, date: formattedDate }));
-                      setSelectedId(null);
-                      setLinkedIds([]);
-                    }
-                  } else {
-                    setForm((prev) => ({ ...prev, date: "" }));
+              <input
+                type="date"
+                name="date"
+                value={form.date}
+                min={todayStr}
+                readOnly
+                onKeyDown={(e) => e.preventDefault()}
+                onPaste={(e) => e.preventDefault()}
+                onChange={(e) => {
+                  const isBlocked = handleDateSelection(e);
+                  if (!isBlocked) {
+                    setSelectedId(null);
+                    setLinkedIds([]);
                   }
                 }}
-                minDate={new Date()}
-                excludeDates={blockedDates.map((d) => new Date(d))}
-                dateFormat="yyyy-MM-dd"
-                placeholderText="Select a date"
-                className="date-picker-input"
-                wrapperClassName="date-picker-wrapper"
-                popperClassName="date-picker-popper"
-                showIcon
-                icon={<Calendar size={16} />}
-                closeOnScroll={true}
-                disabledKeyboardNavigation
-                onKeyDown={(e) => e.preventDefault()}
               />
             </div>
 
