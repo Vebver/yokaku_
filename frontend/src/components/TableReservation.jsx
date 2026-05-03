@@ -457,16 +457,23 @@ export default function TableReservation({ onClose, onSuccess }) {
   }, [selectedId, linkedIds, primaryTable]);
 
   const orderSummary = useMemo(() => {
-    const total = selectedItems.reduce(
-      (sum, item) => sum + item.price * item.quantity,
-      0,
-    );
-    return {
-      totalOrderPrice: total,
-      downpayment: total * 0.2,
-      balance: total * 0.8,
-    };
-  }, [selectedItems]);
+  // 1. Calculate the raw total
+  const rawTotal = selectedItems.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0,
+  );
+
+  // 2. Round everything to 2 decimal places to stop the "Malformed Packet" error
+  const total = Math.round(rawTotal * 100) / 100;
+  const downpayment = Math.round((total * 0.2) * 100) / 100;
+  const balance = Math.round((total * 0.8) * 100) / 100;
+
+  return {
+    totalOrderPrice: total,       // Will be 399.00
+    downpayment: downpayment,     // Will be 79.80
+    balance: balance,             // Will be 319.20
+  };
+}, [selectedItems]);
 
   const tableIdsArray = useMemo(() => {
     return [selectedId, ...linkedIds].filter((id) => id !== null);
