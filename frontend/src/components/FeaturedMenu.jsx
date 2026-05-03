@@ -11,7 +11,17 @@ const BASE_URL = import.meta.env.VITE_SOCKET_URL;
 
 function FeaturedMenu() {
   const [featuredItems, setFeaturedItems] = useState([]);
+  const [slidesToShow, setSlidesToShow] = useState(1); // Start with mobile default
   const navigate = useNavigate();
+
+  // Function to determine slides based on screen width
+  const getSlidesToShow = () => {
+    if (typeof window === "undefined") return 1;
+    const width = window.innerWidth;
+    if (width >= 1024) return 3; // Desktop - 3 items
+    if (width >= 768) return 2; // Tablet - 2 items
+    return 1; // Mobile - 1 item
+  };
 
   useEffect(() => {
     const fetchFeatured = async () => {
@@ -25,6 +35,20 @@ function FeaturedMenu() {
     fetchFeatured();
   }, []);
 
+  // Handle screen resize
+  useEffect(() => {
+    const handleResize = () => {
+      setSlidesToShow(getSlidesToShow());
+    };
+
+    // Set initial value
+    setSlidesToShow(getSlidesToShow());
+
+    // Listen for resize events
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   const getImageUrl = (imagePath) => {
     if (!imagePath) return null;
     if (imagePath.startsWith("http")) return imagePath;
@@ -34,39 +58,13 @@ function FeaturedMenu() {
 
   const settings = {
     dots: true,
-    arrows: true,
+    arrows: slidesToShow > 1, // Only show arrows if more than 1 slide
     infinite: true,
     speed: 500,
-    slidesToShow: 3,
+    slidesToShow: slidesToShow,
     slidesToScroll: 1,
     autoplay: true,
-    responsive: [
-      {
-        breakpoint: 1024,
-        settings: {
-          slidesToShow: 2,
-          slidesToScroll: 1,
-        },
-      },
-      {
-        breakpoint: 768,
-        settings: {
-          slidesToShow: 1,
-          slidesToScroll: 1,
-          arrows: false,
-          dots: true,
-        },
-      },
-      {
-        breakpoint: 480,
-        settings: {
-          slidesToShow: 1,
-          slidesToScroll: 1,
-          arrows: false,
-          dots: true,
-        },
-      },
-    ],
+    autoplaySpeed: 5000,
   };
 
   return (
