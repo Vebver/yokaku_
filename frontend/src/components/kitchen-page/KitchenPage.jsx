@@ -10,7 +10,7 @@ import {
 import { useLocation } from "react-router-dom";
 import "../../Style/KitchenPage.css";
 import { io } from "socket.io-client";
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL;
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
 // Initialize socket connection to the new port 5000
 const socket = io(SOCKET_URL);
 
@@ -152,41 +152,48 @@ const KitchenPage = () => {
   const [filter, setFilter] = useState("all");
   const location = useLocation();
 
-  useEffect(() => {
-    // Listen for real-time orders from the backend
-    socket.on("new_order", (incomingOrder) => {
-      setOrders((prevOrders) => {
-        const exists = prevOrders.find((o) => o.id === incomingOrder.id);
-        if (exists) return prevOrders;
-        return [incomingOrder, ...prevOrders];
-      });
+ useEffect(() => {
+  // Listen for real-time orders once when the page opens
+  socket.on("new_order", (incomingOrder) => {
+    setOrders((prevOrders) => {
+      if (prevOrders.find((o) => o.id === incomingOrder.id)) return prevOrders;
+      return [incomingOrder, ...prevOrders];
+    });
+  });
+
+  // Handle manual navigation state (if someone redirected to this page with an order)
+  if (location.state?.newOrder) {
+    const newOrder = location.state.newOrder;
+    setOrders((prev) => prev.find(o => o.id === newOrder.id) ? prev : [newOrder, ...prev]);
+    window.history.replaceState({}, document.title);
+  }
+
+  return () => {
+    socket.off("new_order");
+  };
+}, []); // Empty dependency array means "run once on load"
+
+  const updateStatus = async (id, newStatus) => {
+  try {
+    // 1. Tell the Backend/Database about the change
+    await fetch(`${API_URL}/orders/${id}/status`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: newStatus }),
     });
 
-    // Handle manual navigation state if provided
-    if (location.state?.newOrder) {
-      const newOrder = location.state.newOrder;
-      setOrders((prevOrders) => {
-        const exists = prevOrders.find((o) => o.id === newOrder.id);
-        if (exists) return prevOrders;
-        return [newOrder, ...prevOrders];
-      });
-      window.history.replaceState({}, document.title);
-    }
-
-    return () => {
-      socket.off("new_order");
-    };
-  }, [location.state]);
-
-  const updateStatus = (id, newStatus) => {
+    // 2. Update the UI screen
     if (newStatus === "served") {
-      setOrders(orders.filter((o) => o.id !== id));
+      setOrders((prev) => prev.filter((o) => o.id !== id));
     } else {
-      setOrders(
-        orders.map((o) => (o.id === id ? { ...o, status: newStatus } : o)),
+      setOrders((prev) =>
+        prev.map((o) => (o.id === id ? { ...o, status: newStatus } : o))
       );
     }
-  };
+  } catch (err) {
+    console.error("Failed to update database status:", err);
+  }
+};
 
   const filteredOrders = orders.filter(
     (o) => filter === "all" || o.status === filter,
