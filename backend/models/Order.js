@@ -90,12 +90,15 @@ const Order = {
   },
 
   // 8. Update Kitchen Status
-  updateStatus: async (reservationId, status) => {
+ updateStatus: async (reservationId, status) => {
+    // This forces 'Preparing' or 'READY' to become 'preparing' or 'ready'
+    const cleanStatus = status.toLowerCase();
+    
     return await db.execute(
       `UPDATE kiosk_orders SET kitchen_status = ? WHERE reservation_id = ?`, 
-      [status.toLowerCase(), reservationId]
+      [cleanStatus, reservationId]
     );
-  },
+},
 
   // 9. Get pre-reserved items (for initial kiosk load)
   getPreReservedItems: async (reservationId) => {
