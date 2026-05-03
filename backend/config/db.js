@@ -7,18 +7,17 @@ const pool = mysql.createPool({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   port: process.env.DB_PORT,
+  // --- THIS SECTION FIXES THE MALFORMED PACKET ---
   ssl: {
-    rejectUnauthorized: false, // Required for Render -> Railway
+    rejectUnauthorized: false, 
   },
-  charset: 'utf8mb4',
-  waitForConnections: true,
-  connectionLimit: 10,
   enableKeepAlive: true,
   keepAliveInitialDelay: 10000,
-  connectTimeout: 30000,
-}).on('connection', (connection) => {
-    // This handles the Group By error we fixed earlier
-    connection.query("SET SESSION sql_mode=(SELECT REPLACE(@@sql_mode,'ONLY_FULL_GROUP_BY',''))");
+  connectTimeout: 60000, // Give it 60 seconds (useful for file uploads)
+  // ----------------------------------------------
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
 });
 
 module.exports = pool;
