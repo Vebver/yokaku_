@@ -1,10 +1,24 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  PlusSquare, Drumstick, CupSoda, Check, Bell, AlertCircle, Star,
-  ShoppingBag, CheckCircle, ChevronUp, ChevronDown, Flame, Wallet,
-  Infinity as InfinityIcon, Pizza, Beef, Package, Utensils, Soup,
-  Salad, Clock, User
+  PlusSquare,
+  Drumstick,
+  CupSoda,
+  Check,
+  Bell,
+  Star,
+  ShoppingBag,
+  CheckCircle,
+  Flame,
+  Wallet,
+  Infinity as InfinityIcon,
+  Pizza,
+  Beef,
+  Package,
+  Utensils,
+  Soup,
+  Salad,
+  Clock,
 } from "lucide-react";
 import "../../Style/KioskReservationMenu.css";
 import ReservationOrderModal from "./ReservationOrderModal";
@@ -52,11 +66,19 @@ const KioskMenu = () => {
 
   const [showEndModal, setShowEndModal] = useState(false);
   const [showOrderSuccessModal, setShowOrderSuccessModal] = useState(false);
-  const [showTypeModal, setShowTypeModal] = useState(false); 
-  const [showTablePicker, setShowTablePicker] = useState(false); 
-  const [availableTables, setAvailableTables] = useState([]); 
+  const [showTypeModal, setShowTypeModal] = useState(false);
+  const [showTablePicker, setShowTablePicker] = useState(false);
+  const [availableTables, setAvailableTables] = useState([]);
 
-  // --- 1. CONSOLIDATED END SESSION LOGIC ---
+  // --- 1. RESET ALL STATES ON MOUNT (Ensures menu is clickable) ---
+  useEffect(() => {
+    setIsModalOpen(false);
+    setShowTypeModal(false);
+    setShowTablePicker(false);
+    setShowEndModal(false);
+  }, []);
+
+  // --- 2. CONSOLIDATED FINISH LOGIC ---
   const handleEndSession = async () => {
     const activeTable = localStorage.getItem(SAVED_TABLE_ID);
     const activeResId = localStorage.getItem(SAVED_RES_ID);
@@ -65,26 +87,31 @@ const KioskMenu = () => {
       try {
         await axios.post(`${API_BASE}/orders/finish`, {
           table_id: activeTable,
-          reservation_id: activeResId
+          reservation_id: activeResId,
         });
-        console.log("✅ Table released on server");
       } catch (err) {
         console.error("❌ Failed to release table:", err);
       }
     }
 
     if (timerRef.current) clearInterval(timerRef.current);
-    localStorage.clear(); 
+    localStorage.removeItem("kiosk_active_table_id");
+    localStorage.removeItem("kiosk_active_res_id");
+    localStorage.removeItem("kiosk_walkin_timer_end");
     setIsTimerRunning(false);
     setShowEndModal(false);
-    window.location.href = "/kiosk-selection"; 
+
+    // Use navigate for a cleaner transition or window.location for total reset
+    window.location.href = "/kiosk-selection";
   };
 
-  // --- 2. TIMER PERSISTENCE ---
+  // --- 3. TIMER LOGIC ---
   useEffect(() => {
     const savedEndTime = localStorage.getItem(TIMER_KEY);
     if (savedEndTime) {
-      const remaining = Math.floor((parseInt(savedEndTime) - Date.now()) / 1000);
+      const remaining = Math.floor(
+        (parseInt(savedEndTime) - Date.now()) / 1000,
+      );
       if (remaining > 0) {
         setTimeLeft(remaining);
         setIsTimerRunning(true);
@@ -98,16 +125,23 @@ const KioskMenu = () => {
     if (isTimerRunning) {
       timerRef.current = setInterval(() => {
         const savedEndTime = localStorage.getItem(TIMER_KEY);
-        if (!savedEndTime) { handleEndSession(); return; }
-        const remaining = Math.floor((parseInt(savedEndTime) - Date.now()) / 1000);
+        if (!savedEndTime) {
+          handleEndSession();
+          return;
+        }
+        const remaining = Math.floor(
+          (parseInt(savedEndTime) - Date.now()) / 1000,
+        );
         if (remaining <= 0) handleEndSession();
         else setTimeLeft(remaining);
       }, 1000);
     }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
   }, [isTimerRunning]);
 
-  // --- 3. FETCH MENU ---
+  // --- 4. FETCH MENU ---
   useEffect(() => {
     const fetchMenu = async () => {
       try {
@@ -133,9 +167,11 @@ const KioskMenu = () => {
           });
           return acc;
         }, {});
-        
+
         setMenuData(grouped);
-        const firstVisibleCat = Object.keys(grouped).find(cat => !HIDDEN_CATEGORIES.includes(cat));
+        const firstVisibleCat = Object.keys(grouped).find(
+          (cat) => !HIDDEN_CATEGORIES.includes(cat),
+        );
         if (firstVisibleCat) setActiveCategory(firstVisibleCat);
         setLoading(false);
       } catch (e) {
@@ -150,7 +186,9 @@ const KioskMenu = () => {
       const exists = prev.find((i) => i.id === itemWithQty.id);
       if (exists) {
         return prev.map((i) =>
-          i.id === itemWithQty.id ? { ...i, quantity: i.quantity + itemWithQty.quantity } : i
+          i.id === itemWithQty.id
+            ? { ...i, quantity: i.quantity + itemWithQty.quantity }
+            : i,
         );
       }
       return [...prev, itemWithQty];
@@ -160,9 +198,9 @@ const KioskMenu = () => {
   const handlePlaceOrder = () => {
     const existingTable = localStorage.getItem(SAVED_TABLE_ID);
     if (existingTable) {
-        submitOrderToDatabase(existingTable === "takeout" ? null : existingTable);
+      submitOrderToDatabase(existingTable === "takeout" ? null : existingTable);
     } else {
-        setShowTypeModal(true); 
+      setShowTypeModal(true);
     }
   };
 
@@ -179,7 +217,8 @@ const KioskMenu = () => {
 
   const submitOrderToDatabase = async (tableId = null) => {
     try {
-      const dynamicResId = localStorage.getItem(SAVED_RES_ID) || `WALK-${Date.now()}`;
+      const dynamicResId =
+        localStorage.getItem(SAVED_RES_ID) || `WALK-${Date.now()}`;
       const response = await fetch(`${API_BASE}/orders/place`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -210,7 +249,7 @@ const KioskMenu = () => {
         setShowOrderSuccessModal(true);
       }
     } catch (error) {
-      alert("Connection error.");
+      alert("Order error.");
     }
   };
 
@@ -225,22 +264,37 @@ const KioskMenu = () => {
 
   return (
     <div className="res-kiosk-container">
+      {/* HEADER */}
       <div className="kiosk-timer-wrapper" style={{ zIndex: 5000 }}>
         <div className="header-id-section">
           <ShoppingBag size={20} color="#ffcc00" />
           <div className="id-details">
             <span className="id-label">MODE</span>
             <span className="id-value">
-                {localStorage.getItem(SAVED_TABLE_ID) === "takeout" ? "TAKE-OUT" : 
-                 localStorage.getItem(SAVED_TABLE_ID) ? `TABLE ${localStorage.getItem(SAVED_TABLE_ID)}` : "WALK-IN GUEST"}
+              {localStorage.getItem(SAVED_TABLE_ID) === "takeout"
+                ? "TAKE-OUT"
+                : localStorage.getItem(SAVED_TABLE_ID)
+                  ? `TABLE ${localStorage.getItem(SAVED_TABLE_ID)}`
+                  : "WALK-IN GUEST"}
             </span>
           </div>
         </div>
         <div className="timer-box">
           <Clock size={20} color="#ffcc00" />
           <span className="timer-text">{formatTime(timeLeft)}</span>
-          <button className="finish-session-header-btn" onClick={() => setShowEndModal(true)}
-            style={{ background: "#ffcc00", border: "none", color: "#000", padding: "5px 15px", borderRadius: "5px", marginLeft: "12px", fontWeight: "bold" }}>
+          <button
+            className="finish-session-header-btn"
+            onClick={() => setShowEndModal(true)}
+            style={{
+              background: "#ffcc00",
+              border: "none",
+              color: "#000",
+              padding: "5px 15px",
+              borderRadius: "5px",
+              marginLeft: "12px",
+              fontWeight: "bold",
+            }}
+          >
             FINISH
           </button>
         </div>
@@ -248,93 +302,225 @@ const KioskMenu = () => {
 
       <div className="res-main-layout">
         <aside className="res-sidebar">
-          <div className="res-brand"><h1>HANGOUT</h1><p>Resto Bar</p></div>
+          <div className="res-brand">
+            <h1>HANGOUT</h1>
+            <p>Resto Bar</p>
+          </div>
           <div className="res-category-list">
-            <div className="res-cat-scroll-wrapper">
-              {Object.keys(menuData).filter(cat => !HIDDEN_CATEGORIES.includes(cat)).map((cat) => (
-                <button key={cat} className={`res-cat-btn ${activeCategory === cat ? "res-active" : ""}`} onClick={() => setActiveCategory(cat)}>
-                  <div className="res-cat-icon-placeholder">{categoryIcons[cat] || <Star size={20} />}</div>
+            {Object.keys(menuData)
+              .filter((cat) => !HIDDEN_CATEGORIES.includes(cat))
+              .map((cat) => (
+                <button
+                  key={cat}
+                  className={`res-cat-btn ${activeCategory === cat ? "res-active" : ""}`}
+                  onClick={() => setActiveCategory(cat)}
+                >
+                  <div className="res-cat-icon-placeholder">
+                    {categoryIcons[cat] || <Star size={20} />}
+                  </div>
                   <span>{cat}</span>
                 </button>
               ))}
-            </div>
           </div>
-          <button className="res-assist-btn" onClick={() => (window.location.href = "/kiosk-selection")}><Bell size={18} /><span>Assist Me</span></button>
         </aside>
 
         <main className="res-content-area">
           <div className="res-grid-container">
             {(menuData[activeCategory] || []).map((item) => (
-              <div key={item.id} className={`res-food-card ${selectedCard === item.id ? "res-selected" : ""}`}
-                onClick={() => { setSelectedItem(item); setIsModalOpen(true); setSelectedCard(item.id); }}>
+              <div
+                key={item.id}
+                className={`res-food-card ${selectedCard === item.id ? "res-selected" : ""}`}
+                onClick={() => {
+                  setSelectedItem(item);
+                  setIsModalOpen(true);
+                  setSelectedCard(item.id);
+                }}
+              >
                 <div className="res-card-image-container">
-                  <img src={item.image} alt={item.name} className="res-food-img" onError={(e) => { e.target.src = "https://via.placeholder.com/150"; }} />
+                  <img
+                    src={item.image}
+                    alt={item.name}
+                    className="res-food-img"
+                    onError={(e) => {
+                      e.target.src = "https://via.placeholder.com/150";
+                    }}
+                  />
                 </div>
                 <div className="res-card-info">
                   <h4 className="res-food-label">{item.name}</h4>
-                  <p style={{ color: "#ffcc00", fontWeight: "bold" }}>₱{item.price}</p>
+                  <p style={{ color: "#ffcc00", fontWeight: "bold" }}>
+                    ₱{item.price}
+                  </p>
                 </div>
               </div>
             ))}
           </div>
         </main>
-        <OrderSummary cart={cart} onRemoveItem={(id) => setCart(cart.filter((i) => i.id !== id))} />
+        <OrderSummary
+          cart={cart}
+          onRemoveItem={(id) => setCart(cart.filter((i) => i.id !== id))}
+        />
       </div>
 
       <footer className="res-bottom-bar">
-        <button className="res-btn-view-all" onClick={() => (window.location.href = "/kiosk-selection")}>Back</button>
+        <button
+          className="res-btn-view-all"
+          onClick={() => (window.location.href = "/kiosk-selection")}
+        >
+          Back
+        </button>
         <div className="res-action-btns">
-          <button className="res-btn-cancel" onClick={() => setCart([])}>Clear Tray</button>
-          <button className="res-btn-view" disabled={cart.length === 0} onClick={handlePlaceOrder}>
+          <button className="res-btn-cancel" onClick={() => setCart([])}>
+            Clear Tray
+          </button>
+          <button
+            className="res-btn-view"
+            disabled={cart.length === 0}
+            onClick={handlePlaceOrder}
+          >
             {localStorage.getItem(SAVED_TABLE_ID) ? "Add Items" : "Place Order"}
           </button>
         </div>
       </footer>
 
-      <PortalModal isOpen={showEndModal} onClose={() => setShowEndModal(false)} onConfirm={handleEndSession} />
-      
+      {/* MODALS */}
+      <PortalModal
+        isOpen={showEndModal}
+        onClose={() => setShowEndModal(false)}
+        onConfirm={handleEndSession}
+      />
+
       {showTypeModal && (
         <div className="res-modal-overlay" style={{ zIndex: 6000 }}>
           <div className="res-modal-card">
-            <h2 style={{ color: "#ffcc00", marginBottom: "20px" }}>Order Mode</h2>
-            <button className="res-modal-btn-primary" onClick={handleDineInSelection} style={{marginBottom:'10px'}}>DINE-IN</button>
-            <button className="res-btn-view" onClick={() => submitOrderToDatabase(null)} style={{background:'#444', marginBottom:'10px'}}>TAKE-OUT</button>
-            <button className="res-btn-cancel" onClick={() => setShowTypeModal(false)}>Cancel</button>
+            <h2 style={{ color: "#ffcc00", marginBottom: "20px" }}>
+              Order Mode
+            </h2>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "15px",
+                width: "100%",
+              }}
+            >
+              <button
+                className="res-modal-btn-primary"
+                onClick={handleDineInSelection}
+              >
+                DINE-IN
+              </button>
+              <button
+                className="res-btn-view"
+                onClick={() => submitOrderToDatabase(null)}
+                style={{ background: "#444" }}
+              >
+                TAKE-OUT
+              </button>
+              <button
+                className="res-btn-cancel"
+                onClick={() => setShowTypeModal(false)}
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {isModalOpen && (
-        <ReservationOrderModal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setSelectedCard(null); }}
-          item={selectedItem} onAdd={addToOrder} allProducts={menuData} />
+        <ReservationOrderModal
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            setSelectedCard(null);
+          }}
+          item={selectedItem}
+          onAdd={addToOrder}
+          allProducts={menuData}
+        />
       )}
 
       {showOrderSuccessModal && (
-        <div className="res-modal-overlay" style={{ zIndex: 100000, display: "flex" }} onClick={() => setShowOrderSuccessModal(false)}>
-          <div className="res-modal-card res-fade-in-scale" style={{ textAlign: "center" }}>
-            <CheckCircle size={60} color="#ffcc00" style={{ margin: "0 auto 20px" }} />
+        <div
+          className="res-modal-overlay"
+          style={{ zIndex: 100000, display: "flex" }}
+          onClick={() => setShowOrderSuccessModal(false)}
+        >
+          <div
+            className="res-modal-card res-fade-in-scale"
+            style={{ textAlign: "center" }}
+          >
+            <CheckCircle
+              size={60}
+              color="#ffcc00"
+              style={{ margin: "0 auto 20px" }}
+            />
             <h2 style={{ color: "#ffcc00" }}>Order Sent!</h2>
-            <button className="res-modal-btn-primary" onClick={() => setShowOrderSuccessModal(false)}>OK</button>
+            <button
+              className="res-modal-btn-primary"
+              onClick={() => setShowOrderSuccessModal(false)}
+            >
+              OK
+            </button>
           </div>
         </div>
       )}
 
       {showTablePicker && (
         <div className="res-modal-overlay" style={{ zIndex: 6000 }}>
-          <div className="res-modal-card" style={{ maxWidth: "600px", width: "90%" }}>
+          <div
+            className="res-modal-card"
+            style={{ maxWidth: "600px", width: "90%" }}
+          >
             <h2 style={{ color: "#ffcc00" }}>Select a Table</h2>
-            <div className="table-grid-kiosk" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "10px", margin: "20px 0" }}>
+            <div
+              className="table-grid-kiosk"
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(4, 1fr)",
+                gap: "10px",
+                margin: "20px 0",
+              }}
+            >
               {availableTables.map((table) => {
-                const isOccupied = table.status === "occupied";
+                // --- FIX: Use bridge_status from your backend query ---
+                const status = table.bridge_status?.toLowerCase();
+
+                // A table is FULL if the bridge status is 'confirmed' or 'seated'
+                const isOccupied =
+                  status === "confirmed" || status === "seated";
+                // ------------------------------------------------------
+
                 return (
-                  <button key={table.table_id} disabled={isOccupied} onClick={() => submitOrderToDatabase(table.table_id)}
-                    style={{ padding: "20px 10px", borderRadius: "8px", border: "none", background: isOccupied ? "#333" : "#ffcc00", color: isOccupied ? "#666" : "#000", fontWeight: "bold" }}>
-                    {table.table_number}<div style={{ fontSize: "10px" }}>{isOccupied ? "FULL" : "OPEN"}</div>
+                  <button
+                    key={table.table_id}
+                    disabled={isOccupied}
+                    onClick={() => submitOrderToDatabase(table.table_id)}
+                    style={{
+                      padding: "20px 10px",
+                      borderRadius: "8px",
+                      border: "none",
+                      background: isOccupied ? "#333" : "#ffcc00", // Grey if full, Yellow if open
+                      color: isOccupied ? "#666" : "#000",
+                      fontWeight: "bold",
+                      cursor: isOccupied ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    {table.table_number}
+                    <div style={{ fontSize: "10px" }}>
+                      {isOccupied ? "FULL" : "OPEN"}
+                    </div>
                   </button>
                 );
               })}
             </div>
-            <button className="res-btn-cancel" onClick={() => setShowTablePicker(false)}>Back</button>
+            <button
+              className="res-btn-cancel"
+              onClick={() => setShowTablePicker(false)}
+            >
+              Back
+            </button>
           </div>
         </div>
       )}
