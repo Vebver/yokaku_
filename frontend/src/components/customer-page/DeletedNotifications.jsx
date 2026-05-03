@@ -3,6 +3,8 @@ import axios from "axios";
 import { RotateCcw, Trash2, X } from "lucide-react";
 import "../../Style/Notifications.css";
 
+const API_BASE = "https://yokaku-backend.onrender.com";
+
 const DeletedNotifications = ({ onClose, onRestore }) => {
   const [deletedNotifications, setDeletedNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -11,6 +13,21 @@ const DeletedNotifications = ({ onClose, onRestore }) => {
     useState(null);
   const [showConfirmPermanentDelete, setShowConfirmPermanentDelete] =
     useState(false);
+
+  // Helper function to safely get array from response
+  const getNotificationsArray = (data) => {
+    if (Array.isArray(data)) {
+      return data;
+    }
+    if (data && Array.isArray(data.data)) {
+      return data.data;
+    }
+    if (data && Array.isArray(data.notifications)) {
+      return data.notifications;
+    }
+    console.error("Unexpected data format:", data);
+    return [];
+  };
 
   // Define fetchDeletedNotifications with useCallback to prevent recreation
   const fetchDeletedNotifications = useCallback(async () => {
@@ -23,15 +40,18 @@ const DeletedNotifications = ({ onClose, onRestore }) => {
       }
 
       console.log("Fetching deleted notifications...");
-      const res = await axios.get("/api/notifications/deleted", {
+      const res = await axios.get(`${API_BASE}/api/notifications/deleted`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       console.log("Deleted notifications response:", res.data);
-      setDeletedNotifications(res.data);
+
+      // Safely get the array from response
+      const notificationsArray = getNotificationsArray(res.data);
+      setDeletedNotifications(notificationsArray);
 
       // Calculate initial days left
       const initialDays = {};
-      res.data.forEach((notif) => {
+      notificationsArray.forEach((notif) => {
         if (notif.deleted_at) {
           const deletedDate = new Date(notif.deleted_at);
           const now = new Date();
@@ -45,6 +65,7 @@ const DeletedNotifications = ({ onClose, onRestore }) => {
       setDaysLeft(initialDays);
     } catch (err) {
       console.error("Error fetching deleted notifications:", err);
+      setDeletedNotifications([]);
     } finally {
       setLoading(false);
     }
@@ -82,7 +103,7 @@ const DeletedNotifications = ({ onClose, onRestore }) => {
     try {
       const token = localStorage.getItem("token");
       await axios.put(
-        `/api/notifications/${id}/restore`,
+        `${API_BASE}/api/notifications/${id}/restore`,
         {},
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -108,7 +129,7 @@ const DeletedNotifications = ({ onClose, onRestore }) => {
       );
 
       await axios.delete(
-        `/api/notifications/${notificationToDeletePermanently}/permanent`,
+        `${API_BASE}/api/notifications/${notificationToDeletePermanently}/permanent`,
         {
           headers: { Authorization: `Bearer ${token}` },
         },
