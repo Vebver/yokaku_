@@ -5,6 +5,10 @@ const nodemailer = require("nodemailer");
 const rateLimit = require("express-rate-limit");
 const crypto = require("crypto");
 
+// In-memory OTP store (better than app.locals for production)
+// This stores OTPs in memory. For production with multiple instances, use Redis.
+const otpStore = new Map();
+
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || "smtp.gmail.com",
   port: process.env.SMTP_PORT || 587,
@@ -27,6 +31,16 @@ const sendOTP = async (email, otp) => {
     html: `<h2>Your Hangout OTP</h2><p style="font-size: 24px; font-weight: bold;">${otp}</p><p>Valid for 5 minutes.</p>`,
   });
 };
+
+// Clean up expired OTPs periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [email, data] of otpStore.entries()) {
+    if (data.expires < now) {
+      otpStore.delete(email);
+    }
+  }
+}, 60000); // Run every minute
 
 const authController = {
   async login(req, res) {
@@ -173,18 +187,20 @@ const authController = {
       }
 
       const otp = generateOTP();
-      req.app.locals.pendingOTPs = req.app.locals.pendingOTPs || {};
-      req.app.locals.pendingOTPs[email] = {
+
+      // Store OTP in the Map instead of app.locals
+      otpStore.set(email, {
         firstName,
         lastName,
         password,
         otp,
         expires: Date.now() + 5 * 60 * 1000,
-      };
+      });
 
       await sendOTP(email, otp);
       res.json({ message: "OTP sent to email", email });
     } catch (error) {
+      console.error("Signup Error:", error);
       res.status(500).json({ error: error.message });
     }
   },
@@ -192,7 +208,7 @@ const authController = {
   async verifyOTP(req, res) {
     try {
       const { email, otp } = req.body;
-      const pending = req.app.locals.pendingOTPs?.[email];
+      const pending = otpStore.get(email);
 
       if (!pending || pending.expires < Date.now() || pending.otp !== otp) {
         return res.status(400).json({ error: "Invalid or expired OTP" });
@@ -205,7 +221,7 @@ const authController = {
         pending.lastName,
       );
 
-      delete req.app.locals.pendingOTPs[email];
+      otpStore.delete(email);
 
       const token = jwt.sign(
         { userId, role: "customer" },
@@ -224,6 +240,7 @@ const authController = {
         message: "Account created successfully",
       });
     } catch (error) {
+      console.error("Verify OTP Error:", error);
       res.status(500).json({ error: error.message });
     }
   },
@@ -235,11 +252,10 @@ const authController = {
 
       const otp = generateOTP();
 
-      req.app.locals.pendingOTPs = req.app.locals.pendingOTPs || {};
-      req.app.locals.pendingOTPs[email] = {
+      otpStore.set(email, {
         otp,
         expires: Date.now() + 5 * 60 * 1000,
-      };
+      });
 
       await sendOTP(email, otp);
       res.json({ message: "OTP sent to email successfully" });
@@ -252,15 +268,16 @@ const authController = {
   async verifyReservationOTP(req, res) {
     try {
       const { email, otp } = req.body;
-      const pending = req.app.locals.pendingOTPs?.[email];
+      const pending = otpStore.get(email);
 
       if (!pending || pending.expires < Date.now() || pending.otp !== otp) {
         return res.status(400).json({ error: "Invalid or expired OTP" });
       }
 
-      delete req.app.locals.pendingOTPs[email];
+      otpStore.delete(email);
       res.json({ success: true, message: "OTP verified" });
     } catch (error) {
+      console.error("Verify Reservation OTP Error:", error);
       res.status(500).json({ error: error.message });
     }
   },
