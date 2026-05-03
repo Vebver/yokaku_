@@ -172,3 +172,77 @@
   border-radius: 5px;
   margin-bottom: 10px;
 }
+
+/* Honor X9c and similar devices - proper mobile breakpoints */
+@media (max-width: 768px) {
+  .featured-menu {
+    padding: 2rem 0.5rem;
+  }
+
+  .featured-menu h2 {
+    font-size: 1.7rem;
+  }
+
+  .featured-menu .carousel-container {
+    width: 100%;
+    padding: 0 8px;
+    margin: 0 auto 40px auto;
+  }
+
+  .menu-card {
+    padding: 12px;
+    width: 95%;
+    margin: 0 auto;
+  }
+
+  .menu-card img {
+    height: 160px;
+    width: 100%;
+    object-fit: cover;
+  }
+
+  .menu-card span {
+    font-size: 0.9rem;
+  }
+
+  .menu-card small {
+    font-size: 0.85rem;
+  }
+
+  .featured-menu .slick-dots {
+    bottom: -30px;
+  }
+
+  .featured-menu .slick-dots li button:before {
+    font-size: 10px;
+  }
+
+  .featured-menu .all-menu-btn {
+    padding: 0.5rem 1.2rem;
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+  }
+}
+
+/* Small phones and Honor X9c specific */
+@media (max-width: 480px) {
+  .featured-menu {
+    padding: 1.5rem 0.3rem;
+  }
+
+  .featured-menu h2 {
+    font-size: 1.4rem;
+  }
+
+  .menu-card img {
+    height: 140px;
+  }
+
+  .menu-card span {
+    font-size: 0.85rem;
+  }
+
+  .featured-menu .carousel-container {
+    padding: 0 5px;
+  }
+}

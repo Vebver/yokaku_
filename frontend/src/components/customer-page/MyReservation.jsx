@@ -13,7 +13,7 @@ import {
 import TermsModal from "../TermsModal";
 import "../../Style/MyReservation.css";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const API_BASE = "https://yokaku-backend.onrender.com/api";
 
 const MyReservation = () => {
   const [reservations, setReservations] = useState([]);
@@ -48,12 +48,38 @@ const MyReservation = () => {
       const token = localStorage.getItem("token");
       const userId = localStorage.getItem("userId");
 
-      const response = await axios.get(`/api/reservations/user/${userId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setReservations(response.data);
+      if (!userId) {
+        console.error("No user ID found");
+        setLoading(false);
+        return;
+      }
+
+      const response = await axios.get(
+        `${API_BASE}/reservations/user/${userId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+
+      // Safely extract array from response
+      let reservationsArray = [];
+      if (Array.isArray(response.data)) {
+        reservationsArray = response.data;
+      } else if (response.data && Array.isArray(response.data.data)) {
+        reservationsArray = response.data.data;
+      } else if (response.data && Array.isArray(response.data.reservations)) {
+        reservationsArray = response.data.reservations;
+      } else if (response.data && typeof response.data === "object") {
+        // If it's a single object, wrap it in an array
+        if (response.data.reservation_id) {
+          reservationsArray = [response.data];
+        }
+      }
+
+      setReservations(reservationsArray);
     } catch (error) {
       console.error("Error fetching reservations:", error);
+      setReservations([]);
     } finally {
       setLoading(false);
     }
@@ -128,7 +154,7 @@ const MyReservation = () => {
     try {
       const token = localStorage.getItem("token");
       await axios.put(
-        `/api/reservations/${selectedReservation.reservation_id}/status`,
+        `${API_BASE}/reservations/${selectedReservation.reservation_id}/status`,
         {
           status: "Cancelled",
           cancellation_reason: finalReason,

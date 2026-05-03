@@ -56,7 +56,7 @@ const Notifications = () => {
   const fetchNotifications = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.get(`${API_BASE}/api/notifications`, {
+      const res = await axios.get(`${API_BASE}/notifications`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setNotifications(res.data);
@@ -70,12 +70,9 @@ const Notifications = () => {
   const fetchUnreadCount = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.get(
-        `${API_BASE}/api/notifications/unread-count`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
+      const res = await axios.get(`${API_BASE}/notifications/unread-count`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       setUnreadCount(res.data.unreadCount);
     } catch (err) {
       console.error("Error fetching unread count", err);
@@ -86,7 +83,7 @@ const Notifications = () => {
     try {
       const token = localStorage.getItem("token");
       await axios.put(
-        `${API_BASE}/api/notifications/${id}/read`,
+        `${API_BASE}/notifications/${id}/read`,
         {},
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -107,7 +104,7 @@ const Notifications = () => {
     try {
       const token = localStorage.getItem("token");
       await axios.put(
-        `${API_BASE}/api/notifications/read-all`,
+        `${API_BASE}/notifications/read-all`,
         {},
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -126,12 +123,9 @@ const Notifications = () => {
 
     try {
       const token = localStorage.getItem("token");
-      await axios.delete(
-        `${API_BASE}/api/notifications/${notificationToDelete}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
+      await axios.delete(`${API_BASE}/notifications/${notificationToDelete}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       setNotifications(
         notifications.filter((n) => n.notification_id !== notificationToDelete),
       );
@@ -155,7 +149,7 @@ const Notifications = () => {
     try {
       const token = localStorage.getItem("token");
       const response = await axios.get(
-        `${API_BASE}/api/reservations/${reservationId}`,
+        `${API_BASE}/reservations/${reservationId}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         },

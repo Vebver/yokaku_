@@ -1,6 +1,6 @@
 /* Container styling */
 .full-menu-page {
-  padding: 100px 5% 50px 5%; 
+  padding: 20px 5% 50px 5%;
   background-color: #0f0f0f;
   color: #ffffff;
   min-height: 100vh;
@@ -13,7 +13,7 @@
   gap: 8px;
   background: none;
   border: none;
-  color: #ffe7e7; /* Matches your text color */
+  color: #ffe7e7;
   cursor: pointer;
   font-weight: 600;
   font-size: 16px;
@@ -24,8 +24,8 @@
 }
 
 .menu-back-button:hover {
-  color: #ffcc00; /* Changes to your orange accent on hover */
-  transform: translateX(-5px); /* Subtle movement to the left */
+  color: #ffcc00;
+  transform: translateX(-5px);
 }
 
 /* Header */
@@ -33,21 +33,21 @@
   font-size: 3rem;
   font-weight: 800;
   margin-top: 0;
-  margin-bottom: 10px;
+  margin-bottom: 30px;
   letter-spacing: 3px;
   color: #fff;
   text-transform: uppercase;
 }
 
-/* Category Filter Bar */
+/* Category Filter Bar - Horizontal Scroll */
 .category-bar {
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 15px;
-  margin: 40px auto;
+  margin: 20px auto 40px auto;
   flex-wrap: wrap;
-  max-width: 1000px;
+  max-width: 1200px;
 }
 
 .cat-btn {
@@ -78,7 +78,7 @@
 /* Compact Menu Grid */
 .menu-grid-compact {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 25px;
   margin-top: 20px;
 }
@@ -154,33 +154,50 @@
 }
 
 /* Responsive Adjustments */
+@media (max-width: 1024px) {
+  .menu-grid-compact {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 20px;
+  }
+}
+
 @media (max-width: 768px) {
+  .full-menu-page {
+    padding: 15px 4% 40px 4%;
+  }
+
+  .menu-back-button {
+    margin-top: 0;
+  }
+
   .full-menu-page h1 {
     font-size: 2rem;
-    margin-top: 40px;
+    margin-bottom: 20px;
   }
 
-  .back-btn {
-    top: 80px;
-    right: 5%;
-    left: auto;
-    padding: 6px 12px;
-    font-size: 0.8rem;
-    transform: translateX(-50%);
-  }
-
+  /* Horizontal scrolling for category bar on mobile */
   .category-bar {
-    gap: 10px;
-    padding: 0 10px;
+    display: flex;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 0 5px 10px 5px;
+    margin: 15px 0 25px 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex-wrap: nowrap;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
   }
 
   .cat-btn {
-    padding: 8px 18px;
-    font-size: 0.8rem;
+    padding: 8px 20px;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 
   .menu-grid-compact {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: 15px;
   }
 
@@ -190,6 +207,44 @@
 
   .small-card-info h4 {
     font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .full-menu-page {
+    padding: 10px 3% 30px 3%;
+  }
+
+  .full-menu-page h1 {
+    font-size: 1.6rem;
+    margin-bottom: 15px;
+  }
+
+  .category-bar {
+    gap: 8px;
+    margin: 10px 0 20px 0;
+  }
+
+  .cat-btn {
+    padding: 6px 16px;
+    font-size: 0.75rem;
+  }
+
+  .menu-grid-compact {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+  }
+
+  .img-container {
+    height: 100px;
+  }
+
+  .small-card-info h4 {
+    font-size: 0.8rem;
+  }
+
+  .small-price {
+    font-size: 0.85rem;
   }
 }
 

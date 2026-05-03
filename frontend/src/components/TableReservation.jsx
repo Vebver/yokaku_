@@ -23,6 +23,8 @@ import {
   Heart,
   Music,
 } from "lucide-react";
+// import DatePicker from "react-datepicker";
+// import "react-datepicker/dist/react-datepicker.css";
 import "../Style/TableReservation.css";
 import PackageModal from "./PackageModal";
 import ReservationSummary from "./ReservationSummary";
@@ -208,9 +210,8 @@ export default function TableReservation({ onClose, onSuccess }) {
     terms: false,
   });
 
-  const todayStr = new Date(new Date() - new Date().getTimezoneOffset() * 60000)
-    .toISOString()
-    .split("T")[0];
+  // Fixed: Use toLocaleDateString to avoid timezone issues
+  const todayStr = new Date().toLocaleDateString("en-CA");
 
   // --- API DATA ---
   useEffect(() => {
@@ -457,23 +458,23 @@ export default function TableReservation({ onClose, onSuccess }) {
   }, [selectedId, linkedIds, primaryTable]);
 
   const orderSummary = useMemo(() => {
-  // 1. Calculate the raw total
-  const rawTotal = selectedItems.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0,
-  );
+    // 1. Calculate the raw total
+    const rawTotal = selectedItems.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0,
+    );
 
-  // 2. Round everything to 2 decimal places to stop the "Malformed Packet" error
-  const total = Math.round(rawTotal * 100) / 100;
-  const downpayment = Math.round((total * 0.2) * 100) / 100;
-  const balance = Math.round((total * 0.8) * 100) / 100;
+    // 2. Round everything to 2 decimal places to stop the "Malformed Packet" error
+    const total = Math.round(rawTotal * 100) / 100;
+    const downpayment = Math.round(total * 0.2 * 100) / 100;
+    const balance = Math.round(total * 0.8 * 100) / 100;
 
-  return {
-    totalOrderPrice: total,       // Will be 399.00
-    downpayment: downpayment,     // Will be 79.80
-    balance: balance,             // Will be 319.20
-  };
-}, [selectedItems]);
+    return {
+      totalOrderPrice: total, // Will be 399.00
+      downpayment: downpayment, // Will be 79.80
+      balance: balance, // Will be 319.20
+    };
+  }, [selectedItems]);
 
   const tableIdsArray = useMemo(() => {
     return [selectedId, ...linkedIds].filter((id) => id !== null);
@@ -799,22 +800,22 @@ export default function TableReservation({ onClose, onSuccess }) {
               <label>
                 <Calendar size={12} /> DATE
               </label>
-              <input
-                type="date"
-                name="date"
-                value={form.date}
-                min={todayStr}
-                onChange={(e) => {
-                  // 1. Check if the date is blocked first
-                  const isBlocked = handleDateSelection(e);
-
-                  // 2. If it's NOT blocked, reset the tables
-                  if (!isBlocked) {
-                    setSelectedId(null);
-                    setLinkedIds([]);
-                  }
-                }}
-              />
+              <div className="date-input-wrapper">
+                <input
+                  type="date"
+                  name="date"
+                  value={form.date}
+                  min={todayStr}
+                  onChange={(e) => {
+                    const isBlocked = handleDateSelection(e);
+                    if (!isBlocked) {
+                      setSelectedId(null);
+                      setLinkedIds([]);
+                    }
+                  }}
+                />
+                <Calendar size={16} className="date-input-icon" />
+              </div>
             </div>
 
             {form.date && selectedId && (

@@ -303,6 +303,7 @@ const NavbarWrapper = ({ onLoginClick, isLoggedIn, onLogout, userRole }) => {
     "/kitchen-page",
     "/tablereservation",
     "/reset-password",
+    "/menu",
   ];
 
   if (hiddenPaths.some((path) => location.pathname.startsWith(path))) {
