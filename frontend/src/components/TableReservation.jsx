@@ -805,8 +805,12 @@ export default function TableReservation({ onClose, onSuccess }) {
                 name="date"
                 value={form.date}
                 min={todayStr}
-                readOnly
-                onKeyDown={(e) => e.preventDefault()}
+                onKeyDown={(e) => {
+                  // Prevent typing but allow the calendar picker
+                  if (e.key !== "Enter" && e.key !== " " && e.key !== "Tab") {
+                    e.preventDefault();
+                  }
+                }}
                 onPaste={(e) => e.preventDefault()}
                 onChange={(e) => {
                   const isBlocked = handleDateSelection(e);
