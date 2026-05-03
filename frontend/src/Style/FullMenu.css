@@ -166,19 +166,29 @@
 
   .full-menu-page h1 {
     font-size: 2rem;
-    margin-top: 20px;
+    margin-top: 10px;
     margin-bottom: 0;
   }
 
+  /* Fix for category bar - horizontal scrolling instead of wrapping */
   .category-bar {
-    gap: 10px;
-    padding: 0 10px;
-    margin: 20px auto;
+    display: flex;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 0 5px;
+    margin: 20px 0;
+    overflow-x: auto;
+    white-space: nowrap;
+    flex-wrap: nowrap;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
   }
 
   .cat-btn {
-    padding: 8px 18px;
-    font-size: 0.8rem;
+    padding: 8px 20px;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 
   .menu-grid-compact {
@@ -191,6 +201,49 @@
   }
 
   .small-card-info h4 {
+    font-size: 0.9rem;
+  }
+}
+
+/* For extra small phones */
+@media (max-width: 480px) {
+  .full-menu-page {
+    padding: 0 3% 30px 3%;
+  }
+
+  .menu-back-button {
+    margin-top: 10px;
+  }
+
+  .full-menu-page h1 {
+    font-size: 1.8rem;
+    margin-top: 5px;
+  }
+
+  .category-bar {
+    gap: 8px;
+    margin: 15px 0;
+  }
+
+  .cat-btn {
+    padding: 6px 16px;
+    font-size: 0.8rem;
+  }
+
+  .menu-grid-compact {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+  }
+
+  .img-container {
+    height: 100px;
+  }
+
+  .small-card-info h4 {
+    font-size: 0.85rem;
+  }
+
+  .small-price {
     font-size: 0.9rem;
   }
 }
