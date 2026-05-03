@@ -124,10 +124,14 @@ const MenuModal = ({
 
   const clearTray = () => setTray({});
 
-  const totalPrice = Object.values(tray).reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0,
-  );
+  // This wraps your calculation and forces it to stay at 2 decimal places
+  const totalPrice =
+    Math.round(
+      Object.values(tray).reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0,
+      ) * 100,
+    ) / 100;
 
   if (!isOpen) return null;
 
