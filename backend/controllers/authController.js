@@ -9,6 +9,7 @@ const crypto = require("crypto");
 // This stores OTPs in memory. For production with multiple instances, use Redis.
 const otpStore = new Map();
 
+// Configure transporter with IPv4 fix for Render
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || "smtp.gmail.com",
   port: process.env.SMTP_PORT || 587,
@@ -17,6 +18,11 @@ const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
+  // Force IPv4 to fix ENETUNREACH error on Render
+  family: 4,
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 10000,
 });
 
 const generateOTP = () =>
