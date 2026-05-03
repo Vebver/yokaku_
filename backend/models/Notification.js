@@ -15,7 +15,7 @@ const Notification = {
 
     const sql = `
       INSERT INTO notifications (user_id, reservation_id, title, message, type, is_read, created_at) 
-      VALUES (?, ?, ?, ?, ?, 0, NOW())
+      VALUES (?, ?, ?, ?, 'reservation', 0, NOW())
     `;
 
     const values = [
