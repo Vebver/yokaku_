@@ -37,7 +37,7 @@ const io = new Server(server, {
     origin: [
       "http://localhost:5173",
       "http://127.0.0.1:5173",
-      "https://yokaku-drab.vercel.app",
+      "https://yokaku-tau.vercel.app",
     ],
     methods: ["GET", "POST"],
     credentials: true,
@@ -95,7 +95,7 @@ app.use(
     origin: [
       "http://localhost:5173",
       "http://127.0.0.1:5173",
-      "https://yokaku-drab.vercel.app",
+      "https://yokaku-tau.vercel.app",
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
