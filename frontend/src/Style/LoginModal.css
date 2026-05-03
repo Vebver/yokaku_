@@ -177,6 +177,7 @@
     transform 0.2s,
     background 0.2s;
   margin-top: 12px;
+  margin-bottom: 12px;
 }
 
 .submit-btn:hover:not(:disabled) {
@@ -198,6 +199,114 @@
   font-family: "Inter", sans-serif;
   margin-bottom: 20px;
   line-height: 1.5;
+}
+
+/* Verify Email Container */
+.verify-wrapper {
+  text-align: center;
+  width: 100%;
+}
+
+.verify-title {
+  font-size: 24px;
+  font-weight: 800;
+  margin-bottom: 10px;
+  color: #ffcc00;
+  text-transform: uppercase;
+  font-family: "Arial Black", "Inter", sans-serif;
+}
+
+.verify-desc {
+  color: #555;
+  font-size: 14px;
+  font-family: "Inter", sans-serif;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.user-email {
+  color: #d4ac0d;
+  font-weight: bold;
+  word-break: break-all;
+}
+
+.otp-container {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin: 20px 0;
+  width: 100%;
+}
+
+.otp-input {
+  width: 50px;
+  height: 55px;
+  background: #f9f9f9;
+  border: 1.5px solid #ddd;
+  border-radius: 12px;
+  color: #333;
+  text-align: center;
+  font-size: 22px;
+  font-weight: bold;
+  font-family: "Inter", sans-serif;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.otp-input:focus {
+  border-color: #ffcc00;
+  box-shadow: 0 0 8px rgba(255, 204, 0, 0.2);
+}
+
+.verify-footer {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 14px;
+  color: #666;
+  text-align: center;
+}
+
+.timer-text {
+  color: #888;
+  font-size: 13px;
+  margin: 0;
+}
+
+.resend-btn {
+  background: none;
+  border: none;
+  color: #d4ac0d;
+  font-weight: bold;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0;
+  transition: color 0.2s;
+}
+
+.resend-btn:hover {
+  color: #000;
+  text-decoration: underline;
+}
+
+.verify-wrapper .submit-btn {
+  margin-top: 10px;
+  margin-bottom: 10px;
+  width: 100%;
+}
+
+.verify-wrapper .link-btn {
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  font-size: 13px;
+  transition: color 0.2s;
+}
+
+.verify-wrapper .link-btn:hover {
+  color: #ffcc00;
 }
 
 .user-email {
