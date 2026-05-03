@@ -1,88 +1,113 @@
 // backend/controllers/orderController.js
-const db = require("../config/db");
+const db = require("../config/db"); // Needed only for the transaction connection
 const Order = require("../models/Order");
 
 const orderController = {
-  // 1. Get items chosen during the initial reservation booking
+  // 1. Update the status of an order (Kitchen Buttons)
+  updateOrderStatus: async (req, res) => {
+    try {
+      const { id } = req.params; // reservation_id
+      const { status } = req.body;
+
+      // Convert 'preparing' -> 'Preparing' to match your DB strings
+      const dbStatus = status.charAt(0).toUpperCase() + status.slice(1);
+
+      // CALLING MODEL METHOD
+      await Order.updateStatus(id, dbStatus);
+
+      res.status(200).json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+
+  // 2. Get items chosen during the initial reservation booking
   getReservedItems: async (req, res) => {
     try {
       const { id } = req.params;
-
-      // Handle cases where there is no reservation (Walk-ins)
       if (!id || id === "WALKIN" || id === "GUEST") {
         return res.status(200).json([]);
       }
 
+      // CALLING MODEL METHOD
       const items = await Order.getPreReservedItems(id);
       res.status(200).json(items);
     } catch (error) {
-      console.error("Controller Error (getReservedItems):", error);
       res.status(500).json({ error: "Failed to fetch pre-reserved items" });
     }
   },
 
-  // 2. Place a new order from the Kiosk (handles session, tables, inventory)
-  placeOrder: async (req, res) => {
-    // NEW: Expect 'table_id' from the frontend if they are Dine-in
+  // 3. Place a new order from the Kiosk
+placeOrder: async (req, res) => {
     const { reservation_id, table_id, items } = req.body;
-    console.log("--- NEW ORDER RECEIVED ---");
-    console.log("ID:", reservation_id, "Table:", table_id);
-    console.log("Items:", items);
     const conn = await db.getConnection();
 
     try {
       await conn.beginTransaction();
 
-      // --- STEP 1: CREATE THE SESSION (The Bill) ---
-      // This creates the record in the 'reservations' table so the Admin can see the bill
-      await Order.createWalkinSession(conn, reservation_id);
+      // --- STEP 1: CHECK IF SESSION ALREADY EXISTS ---
+      const [existing] = await conn.execute(
+        "SELECT reservation_id FROM reservations WHERE reservation_id = ?",
+        [reservation_id]
+      );
 
-      // --- STEP 2: LINK TO TABLE (Turn Dashboard RED) ---
-      // If the customer chose a table, link it and update status to 'occupied'
-      if (table_id) {
-        await Order.linkTableToSession(conn, reservation_id, table_id);
+      if (existing.length === 0) {
+        // This is a NEW session (First order)
+        console.log("🆕 Creating new session for:", reservation_id);
+        await Order.createWalkinSession(conn, reservation_id);
+
+        if (table_id) {
+          await Order.linkTableToSession(conn, reservation_id, table_id);
+        }
+      } else {
+        // This is an EXISTING session (Add to order)
+        console.log("➕ Adding items to existing session:", reservation_id);
       }
 
-      // --- STEP 3: PROCESS ITEMS (Stock Check & Entry) ---
+      // --- STEP 2: PROCESS ITEMS (Always runs) ---
       for (const item of items) {
-        // A. Get Ingredients (Recipe)
+        // Stock check logic...
         const ingredients = await Order.getIngredients(conn, item.item_id);
-
         for (const ing of ingredients) {
-          const totalAmountNeeded = ing.quantity_required * item.quantity;
-
-          // B. Check Stock Availability
+          const totalNeeded = ing.quantity_required * item.quantity;
           const stock = await Order.checkStock(conn, ing.inventory_id);
-
-          if (!stock || stock.quantity < totalAmountNeeded) {
-            throw new Error(
-              `Insufficient stock for ${stock ? stock.item_name : "ingredient"}`,
-            );
+          if (!stock || stock.quantity < totalNeeded) {
+             throw new Error(`Insufficient stock for ${stock?.item_name || 'ingredient'}`);
           }
-
-          // C. Reduce Inventory
-          await Order.updateInventory(
-            conn,
-            ing.inventory_id,
-            totalAmountNeeded,
-          );
+          await Order.updateInventory(conn, ing.inventory_id, totalNeeded);
         }
 
-        // D. Save Order Record in kiosk_orders
-        // NEW: Pass customizations (Flavor, Drink, etc.) to the model
+        // Save items to kiosk_orders
+        let finalCustoms = item.customizations;
+        if (finalCustoms && typeof finalCustoms !== 'string') {
+            finalCustoms = JSON.stringify(finalCustoms);
+        }
+
         await Order.createOrderEntry(
           conn,
           reservation_id,
           item.item_id,
           item.quantity,
-          item.customizations, // Passed from the PackageModal
+          finalCustoms
         );
       }
 
       await conn.commit();
-      res
-        .status(201)
-        .json({ success: true, message: "Order placed successfully!" });
+      
+      // --- STEP 3: SOCKET EMIT (So kitchen sees the extra items) ---
+      const io = req.app.get("io");
+      if (io) {
+        io.emit("new_order", {
+          id: reservation_id + "-" + Date.now(), // Unique ID for kitchen card
+          table: table_id || "Walk-in",
+          status: "pending",
+          timestamp: new Date(),
+          items: items // Note: Ideally, you should fetch names here like we did before
+        });
+      }
+
+      res.status(201).json({ success: true, message: "Order updated successfully!" });
+
     } catch (error) {
       await conn.rollback();
       console.error("Order Transaction Error:", error.message);
