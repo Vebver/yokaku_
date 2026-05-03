@@ -423,6 +423,6 @@ const KioskMenu = () => {
       )}
     </div>
   );
-};
+}};
 
 export default KioskMenu;
