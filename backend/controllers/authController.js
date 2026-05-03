@@ -5,30 +5,34 @@ const nodemailer = require("nodemailer");
 const rateLimit = require("express-rate-limit");
 const crypto = require("crypto");
 
-// In-memory OTP store (better than app.locals for production)
-// This stores OTPs in memory. For production with multiple instances, use Redis.
+// In-memory OTP store
 const otpStore = new Map();
-
-// Configure transporter with IPv4 fix for Render
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || "smtp.gmail.com",
-  port: process.env.SMTP_PORT || 587,
-  secure: false,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-  // Force IPv4 to fix ENETUNREACH error on Render
-  family: 4,
-  connectionTimeout: 10000,
-  greetingTimeout: 10000,
-  socketTimeout: 10000,
-});
 
 const generateOTP = () =>
   Math.floor(100000 + Math.random() * 900000).toString();
 
+// Email sending is TEMPORARILY DISABLED for Render deployment
+// Will re-enable once SMTP issue is resolved
 const sendOTP = async (email, otp) => {
+  // Skip actual email sending - just log
+  console.log(`========================================`);
+  console.log(`📧 EMAIL WOULD BE SENT TO: ${email}`);
+  console.log(`🔑 OTP CODE: ${otp}`);
+  console.log(`⏰ Valid for 5 minutes`);
+  console.log(`========================================`);
+
+  // For production, uncomment below when SMTP works
+  /*
+  const transporter = nodemailer.createTransport({
+    host: "smtp.gmail.com",
+    port: 587,
+    secure: false,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+  
   await transporter.sendMail({
     from: process.env.SMTP_USER,
     to: email,
@@ -36,6 +40,7 @@ const sendOTP = async (email, otp) => {
     text: `Your OTP is ${otp}. Valid for 5 mins.`,
     html: `<h2>Your Hangout OTP</h2><p style="font-size: 24px; font-weight: bold;">${otp}</p><p>Valid for 5 minutes.</p>`,
   });
+  */
 };
 
 // Clean up expired OTPs periodically
@@ -46,7 +51,7 @@ setInterval(() => {
       otpStore.delete(email);
     }
   }
-}, 60000); // Run every minute
+}, 60000);
 
 const authController = {
   async login(req, res) {
@@ -80,11 +85,11 @@ const authController = {
         },
       });
     } catch (error) {
+      console.error("Login Error:", error);
       res.status(500).json({ error: error.message });
     }
   },
 
-  // 1. FORGOT PASSWORD - Generate token and send email
   async forgotPassword(req, res) {
     try {
       const { email } = req.body;
@@ -95,37 +100,24 @@ const authController = {
       }
 
       const resetToken = crypto.randomBytes(20).toString("hex");
-      const resetExpires = Date.now() + 3600000; // 1 hour
+      const resetExpires = Date.now() + 3600000;
 
-      // Update DB with token
       await User.update(user.user_id, {
         reset_password_token: resetToken,
         reset_password_expires: resetExpires,
       });
 
-      // Match this to your frontend port (3000 or 5173)
-      const resetUrl = `http://localhost:5173/reset-password/${resetToken}`;
+      console.log(`Password reset token for ${email}: ${resetToken}`);
 
-      await transporter.sendMail({
-        from: process.env.SMTP_USER,
-        to: email,
-        subject: "Password Reset Link",
-        html: `
-        <h2>Password Reset Request</h2>
-        <p>You requested to reset your password. Please click the link below to proceed:</p>
-        <a href="${resetUrl}" style="background: #ffd400; color: black; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">Reset My Password</a>
-        <p>This link will expire in 1 hour.</p>
-      `,
+      res.json({
+        message: "Reset link would be sent to email (email disabled for now)",
       });
-
-      res.json({ message: "Reset link sent to email" });
     } catch (error) {
       console.error("Forgot Password Error:", error);
-      res.status(500).json({ error: "Failed to send email." });
+      res.status(500).json({ error: "Failed to process request." });
     }
   },
 
-  // 2. RESET PASSWORD FINAL - Missing function that was causing your error
   async resetPasswordFinal(req, res) {
     try {
       const { token, newPassword } = req.body;
@@ -153,11 +145,11 @@ const authController = {
 
       res.json({ message: "Password updated successfully" });
     } catch (error) {
+      console.error("Reset Password Final Error:", error);
       res.status(500).json({ error: error.message });
     }
   },
 
-  // 3. RESET PASSWORD - For logged in users
   async resetPassword(req, res) {
     try {
       const { email, currentPassword, newPassword } = req.body;
@@ -179,6 +171,7 @@ const authController = {
 
       res.json({ message: "Password updated successfully" });
     } catch (error) {
+      console.error("Reset Password Error:", error);
       res.status(500).json({ error: error.message });
     }
   },
@@ -194,7 +187,7 @@ const authController = {
 
       const otp = generateOTP();
 
-      // Store OTP in the Map instead of app.locals
+      // Store OTP
       otpStore.set(email, {
         firstName,
         lastName,
@@ -203,7 +196,20 @@ const authController = {
         expires: Date.now() + 5 * 60 * 1000,
       });
 
-      await sendOTP(email, otp);
+      // Log OTP to console - check Render logs
+      console.log(`========================================`);
+      console.log(`✅ SIGNUP ATTEMPT FOR: ${email}`);
+      console.log(`🔑 YOUR OTP CODE IS: ${otp}`);
+      console.log(`⏰ Valid for 5 minutes`);
+      console.log(`========================================`);
+
+      // Try to send email but don't fail
+      try {
+        await sendOTP(email, otp);
+      } catch (emailError) {
+        console.log(`Email sending skipped: ${emailError.message}`);
+      }
+
       res.json({ message: "OTP sent to email", email });
     } catch (error) {
       console.error("Signup Error:", error);
@@ -215,6 +221,10 @@ const authController = {
     try {
       const { email, otp } = req.body;
       const pending = otpStore.get(email);
+
+      console.log(
+        `Verifying OTP for ${email}: provided OTP = ${otp}, stored OTP = ${pending?.otp}`,
+      );
 
       if (!pending || pending.expires < Date.now() || pending.otp !== otp) {
         return res.status(400).json({ error: "Invalid or expired OTP" });
@@ -234,6 +244,7 @@ const authController = {
         process.env.JWT_SECRET,
         { expiresIn: "24h" },
       );
+
       res.json({
         token,
         user: {
@@ -263,8 +274,11 @@ const authController = {
         expires: Date.now() + 5 * 60 * 1000,
       });
 
-      await sendOTP(email, otp);
-      res.json({ message: "OTP sent to email successfully" });
+      console.log(`Reservation OTP for ${email}: ${otp}`);
+
+      res.json({
+        message: "OTP would be sent to email (email disabled for testing)",
+      });
     } catch (error) {
       console.error("OTP Send Error:", error);
       res.status(500).json({ error: "Failed to send email" });
