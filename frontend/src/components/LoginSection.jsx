@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import VerifyEmail from "./VerifyEmail";
 import "../Style/LoginModal.css";
-import api from "../api"
+import api from "../api";
 
 function LoginSection({ onClose }) {
   const [view, setView] = useState("login"); // 'login', 'signup', 'verify', 'forgot', 'reset'
@@ -116,6 +116,7 @@ function LoginSection({ onClose }) {
   };
 
   const handleVerifyOTP = async (code) => {
+    setLoading(true);
     try {
       const res = await api.post("/auth/verify-otp", {
         email,
@@ -132,8 +133,18 @@ function LoginSection({ onClose }) {
       onClose();
     } catch (err) {
       alert("Verification failed");
+    } finally {
+      setLoading(false);
     }
   };
+
+  // Loading Spinner Component
+  const LoadingSpinner = () => (
+    <div className="login-loading-spinner">
+      <div className="spinner"></div>
+      <p>Processing...</p>
+    </div>
+  );
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -142,174 +153,186 @@ function LoginSection({ onClose }) {
           &times;
         </button>
 
-        <div key={view} className="fade-in">
-          {view === "verify" ? (
-            <VerifyEmail
-              email={email}
-              onVerify={handleVerifyOTP}
-              onBack={() => setView("signup")}
-              onResend={() => {}}
-            />
-          ) : view === "forgot" ? (
-            <>
-              <h2>FORGOT PASSWORD</h2>
-              <form onSubmit={handleForgotPasswordSubmit}>
-                <label className="form-label">Email Address</label>
-                <input
-                  type="email"
-                  placeholder="Enter your email"
-                  className="login-input"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-                {error && <p className="password-warning">{error}</p>}
-                <button type="submit" className="submit-btn" disabled={loading}>
-                  {loading ? "SENDING..." : "SEND RESET LINK"}
-                </button>
-                <button
-                  type="button"
-                  className="link-btn"
-                  onClick={() => setView("login")}
-                >
-                  Back to Login
-                </button>
-              </form>
-            </>
-          ) : (
-            <>
-              <h2>{view === "login" ? "LOGIN" : "SIGN UP"}</h2>
-              <form
-                onSubmit={
-                  view === "login" ? handleLoginSubmit : handleSignUpSubmit
-                }
-              >
-                {view === "signup" && (
-                  <>
-                    <label className="form-label">First Name</label>
-                    <input
-                      type="text"
-                      placeholder="Enter your first name"
-                      className="login-input"
-                      value={firstName}
-                      onChange={(e) =>
-                        setFirstName(e.target.value.replace(/[^a-zA-Z\s]/g, ""))
-                      }
-                      required
-                    />
-
-                    <label className="form-label">Last Name</label>
-                    <input
-                      type="text"
-                      placeholder="Enter your last name"
-                      className="login-input"
-                      value={lastName}
-                      onChange={(e) =>
-                        setLastName(e.target.value.replace(/[^a-zA-Z\s]/g, ""))
-                      }
-                      required
-                    />
-                  </>
-                )}
-
-                <label className="form-label">Email Address</label>
-                <input
-                  type="email"
-                  placeholder="Enter your email"
-                  className="login-input"
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    setError("");
-                  }}
-                  required
-                />
-
-                {/* PASSWORD FIELD */}
-                <label className="form-label">Password</label>
-                <div className="password-container">
+        {loading ? (
+          <LoadingSpinner />
+        ) : (
+          <div key={view} className="fade-in">
+            {view === "verify" ? (
+              <VerifyEmail
+                email={email}
+                onVerify={handleVerifyOTP}
+                onBack={() => setView("signup")}
+                onResend={() => {}}
+              />
+            ) : view === "forgot" ? (
+              <>
+                <h2>FORGOT PASSWORD</h2>
+                <form onSubmit={handleForgotPasswordSubmit}>
+                  <label className="form-label">Email Address</label>
                   <input
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Enter your password"
+                    type="email"
+                    placeholder="Enter your email"
                     className="login-input"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     required
                   />
-                  <EyeIcon
-                    visible={showPassword}
-                    toggle={() => setShowPassword(!showPassword)}
-                  />
-                </div>
-
-                {view === "login" && (
-                  <div className="forgot-password-container">
-                    <button
-                      type="button"
-                      className="forgot-password-link"
-                      onClick={() => setView("forgot")}
-                    >
-                      Forgot Password?
-                    </button>
-                  </div>
-                )}
-
-                {/* CONFIRM PASSWORD FIELD */}
-                {view === "signup" && (
-                  <>
-                    <label className="form-label">Confirm Password</label>
-                    <div className="password-container">
-                      <input
-                        type={showConfirmPassword ? "text" : "password"}
-                        placeholder="Confirm your password"
-                        className="login-input"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        required
-                      />
-                      <EyeIcon
-                        visible={showConfirmPassword}
-                        toggle={() =>
-                          setShowConfirmPassword(!showConfirmPassword)
-                        }
-                      />
-                    </div>
-                  </>
-                )}
-
-                {error && <p className="password-warning">{error}</p>}
-
-                <button
-                  type="submit"
-                  className="submit-btn"
-                  disabled={loading || error === "Email already in use"}
-                >
-                  {loading
-                    ? "PROCESSING..."
-                    : view === "login"
-                      ? "SUBMIT"
-                      : "CREATE ACCOUNT"}
-                </button>
-
-                <p className="signup-text">
-                  {view === "login"
-                    ? "Don't have an account? "
-                    : "Already have an account? "}
+                  {error && <p className="password-warning">{error}</p>}
+                  <button
+                    type="submit"
+                    className="submit-btn"
+                    disabled={loading}
+                  >
+                    {loading ? "SENDING..." : "SEND RESET LINK"}
+                  </button>
                   <button
                     type="button"
                     className="link-btn"
-                    onClick={() => {
-                      setView(view === "login" ? "signup" : "login");
+                    onClick={() => setView("login")}
+                  >
+                    Back to Login
+                  </button>
+                </form>
+              </>
+            ) : (
+              <>
+                <h2>{view === "login" ? "LOGIN" : "SIGN UP"}</h2>
+                <form
+                  onSubmit={
+                    view === "login" ? handleLoginSubmit : handleSignUpSubmit
+                  }
+                >
+                  {view === "signup" && (
+                    <>
+                      <label className="form-label">First Name</label>
+                      <input
+                        type="text"
+                        placeholder="Enter your first name"
+                        className="login-input"
+                        value={firstName}
+                        onChange={(e) =>
+                          setFirstName(
+                            e.target.value.replace(/[^a-zA-Z\s]/g, ""),
+                          )
+                        }
+                        required
+                      />
+
+                      <label className="form-label">Last Name</label>
+                      <input
+                        type="text"
+                        placeholder="Enter your last name"
+                        className="login-input"
+                        value={lastName}
+                        onChange={(e) =>
+                          setLastName(
+                            e.target.value.replace(/[^a-zA-Z\s]/g, ""),
+                          )
+                        }
+                        required
+                      />
+                    </>
+                  )}
+
+                  <label className="form-label">Email Address</label>
+                  <input
+                    type="email"
+                    placeholder="Enter your email"
+                    className="login-input"
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
                       setError("");
                     }}
+                    required
+                  />
+
+                  {/* PASSWORD FIELD */}
+                  <label className="form-label">Password</label>
+                  <div className="password-container">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Enter your password"
+                      className="login-input"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                    <EyeIcon
+                      visible={showPassword}
+                      toggle={() => setShowPassword(!showPassword)}
+                    />
+                  </div>
+
+                  {view === "login" && (
+                    <div className="forgot-password-container">
+                      <button
+                        type="button"
+                        className="forgot-password-link"
+                        onClick={() => setView("forgot")}
+                      >
+                        Forgot Password?
+                      </button>
+                    </div>
+                  )}
+
+                  {/* CONFIRM PASSWORD FIELD */}
+                  {view === "signup" && (
+                    <>
+                      <label className="form-label">Confirm Password</label>
+                      <div className="password-container">
+                        <input
+                          type={showConfirmPassword ? "text" : "password"}
+                          placeholder="Confirm your password"
+                          className="login-input"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          required
+                        />
+                        <EyeIcon
+                          visible={showConfirmPassword}
+                          toggle={() =>
+                            setShowConfirmPassword(!showConfirmPassword)
+                          }
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {error && <p className="password-warning">{error}</p>}
+
+                  <button
+                    type="submit"
+                    className="submit-btn"
+                    disabled={loading || error === "Email already in use"}
                   >
-                    {view === "login" ? "Sign up" : "Back to Sign In"}
+                    {loading
+                      ? "PROCESSING..."
+                      : view === "login"
+                        ? "SUBMIT"
+                        : "CREATE ACCOUNT"}
                   </button>
-                </p>
-              </form>
-            </>
-          )}
-        </div>
+
+                  <p className="signup-text">
+                    {view === "login"
+                      ? "Don't have an account? "
+                      : "Already have an account? "}
+                    <button
+                      type="button"
+                      className="link-btn"
+                      onClick={() => {
+                        setView(view === "login" ? "signup" : "login");
+                        setError("");
+                      }}
+                    >
+                      {view === "login" ? "Sign up" : "Back to Sign In"}
+                    </button>
+                  </p>
+                </form>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
