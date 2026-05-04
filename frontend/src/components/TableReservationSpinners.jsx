@@ -18,3 +18,12 @@ export const DateLoadingSpinner = () => (
     </div>
   </div>
 );
+
+export const FormLoadingSpinner = () => (
+  <div className="form-loading-container">
+    <div className="form-loading-spinner">
+      <div className="spinner"></div>
+      <p>Loading reservation form...</p>
+    </div>
+  </div>
+);

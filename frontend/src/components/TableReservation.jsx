@@ -33,7 +33,11 @@ import {
   getStatusDisplayText,
   isReservationOngoing,
 } from "./TableReservationUtils";
-import { LoadingSpinner, DateLoadingSpinner } from "./TableReservationSpinners";
+import {
+  LoadingSpinner,
+  DateLoadingSpinner,
+  FormLoadingSpinner,
+} from "./TableReservationSpinners";
 import { useSocket, useAddressData } from "./TableReservationHooks";
 
 const API_BASE = "https://yokaku-backend.onrender.com/api";
@@ -48,6 +52,7 @@ export default function TableReservation({ onClose, onSuccess }) {
   const [blockedDates, setBlockedDates] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDateLoading, setIsDateLoading] = useState(false);
+  const [isFormLoading, setIsFormLoading] = useState(true); // New state for form loading
   const [tableSchedules, setTableSchedules] = useState({});
   const [data, setData] = useState({ occupied: {}, schedule: [] });
 
@@ -83,6 +88,16 @@ export default function TableReservation({ onClose, onSuccess }) {
   const { addressData, fetchBarangays } = useAddressData();
 
   const todayStr = new Date().toLocaleDateString("en-CA");
+
+  // Simulate initial loading of the form
+  useEffect(() => {
+    // Show loading spinner for 1 second when component mounts
+    const timer = setTimeout(() => {
+      setIsFormLoading(false);
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   // Fetch barangays when municipality changes
   useEffect(() => {
@@ -539,9 +554,24 @@ export default function TableReservation({ onClose, onSuccess }) {
 
   const availableTablesForLinking = getAvailableTablesForLinking();
 
+  // Show form loading spinner while initializing
+  if (isFormLoading) {
+    return (
+      <div className="floor-plan-wrapper">
+        <button className="page-back-btn" onClick={onClose}>
+          <ArrowLeft size={18} /> <span>Back</span>
+        </button>
+        <FormLoadingSpinner />
+      </div>
+    );
+  }
+
   return (
     <div className={`floor-plan-wrapper ${!form.date ? "init-state" : ""}`}>
+      {/* Loading Spinner Overlay for Booking */}
       {isProcessing && <LoadingSpinner />}
+
+      {/* Date Loading Spinner */}
       {isDateLoading && <DateLoadingSpinner />}
 
       <button className="page-back-btn" onClick={onClose}>
@@ -696,6 +726,7 @@ export default function TableReservation({ onClose, onSuccess }) {
                     }
                   />
                 </div>
+
                 <div className="input-group">
                   <label>
                     <Mail size={12} /> EMAIL ADDRESS
@@ -802,6 +833,7 @@ export default function TableReservation({ onClose, onSuccess }) {
                   </div>
                 </div>
 
+                {/* OCCASION DROPDOWN FIELD */}
                 <div className="input-group">
                   <label style={{ display: "block", marginBottom: "8px" }}>
                     <PartyPopper size={12} /> OCCASION
@@ -828,6 +860,7 @@ export default function TableReservation({ onClose, onSuccess }) {
                       </option>
                     ))}
                   </select>
+
                   {form.occasion === "Other" && (
                     <input
                       type="text"
@@ -848,11 +881,13 @@ export default function TableReservation({ onClose, onSuccess }) {
                       }}
                     />
                   )}
+
                   <small className="input-hint">
                     Let us know if you're celebrating a special occasion
                   </small>
                 </div>
 
+                {/* ALLERGY DROPDOWN FIELD */}
                 <div className="input-group">
                   <label style={{ display: "block", marginBottom: "8px" }}>
                     <AlertCircle size={12} /> ALLERGIES / DIETARY RESTRICTIONS
@@ -879,6 +914,7 @@ export default function TableReservation({ onClose, onSuccess }) {
                       </option>
                     ))}
                   </select>
+
                   {form.allergy === "Other" && (
                     <input
                       type="text"
@@ -899,6 +935,7 @@ export default function TableReservation({ onClose, onSuccess }) {
                       }}
                     />
                   )}
+
                   <small className="input-hint">
                     Please select any food allergies or dietary restrictions
                   </small>
@@ -1002,6 +1039,7 @@ export default function TableReservation({ onClose, onSuccess }) {
                 <LinkIcon size={18} style={{ marginRight: "10px" }} />{" "}
                 {isLinkMode ? "Finish Linking" : "Link Tables"}
               </button>
+
               {isLinkMode && form.startTime && form.endTime && (
                 <div
                   style={{
