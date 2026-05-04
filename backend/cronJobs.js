@@ -3,6 +3,15 @@ const cron = require("node-cron");
 const db = require("./config/db");
 const Notification = require("./models/Notification");
 
+// Helper function to format time for comparison
+const formatTimeForDB = (timeStr) => {
+  // Convert HH:MM to HH:MM:SS for database TIME comparison
+  if (timeStr && timeStr.length === 5) {
+    return `${timeStr}:00`;
+  }
+  return timeStr;
+};
+
 // Run every minute to check for ongoing and expired reservations
 const startCronJobs = () => {
   console.log("🕐 Starting reservation status cron job...");
@@ -10,7 +19,8 @@ const startCronJobs = () => {
   cron.schedule("* * * * *", async () => {
     try {
       const now = new Date();
-      const currentTime = now.toTimeString().slice(0, 5);
+      const currentTime = now.toTimeString().slice(0, 5); // HH:MM
+      const currentTimeWithSeconds = formatTimeForDB(currentTime); // HH:MM:SS
       const currentDate = now.toISOString().split("T")[0];
 
       console.log(`⏰ Running cron job at ${currentDate} ${currentTime}`);
@@ -27,8 +37,8 @@ const startCronJobs = () => {
 
       const [seatedResult] = await db.execute(updateToSeated, [
         currentDate,
-        currentTime,
-        currentTime,
+        currentTimeWithSeconds,
+        currentTimeWithSeconds,
       ]);
 
       // 2. Update Seated to Completed when current time is past end time
@@ -42,7 +52,7 @@ const startCronJobs = () => {
 
       const [seatedToCompletedResult] = await db.execute(
         updateSeatedToCompleted,
-        [currentDate, currentTime],
+        [currentDate, currentTimeWithSeconds],
       );
 
       // 3. Update Confirmed/Pending to Completed when end time has passed (expired)
@@ -56,7 +66,7 @@ const startCronJobs = () => {
 
       const [expiredResult] = await db.execute(updateExpiredToCompleted, [
         currentDate,
-        currentTime,
+        currentTimeWithSeconds,
       ]);
 
       // 4. Update any reservations from past dates to Completed
@@ -64,7 +74,7 @@ const startCronJobs = () => {
         UPDATE reservations 
         SET status = 'Completed' 
         WHERE reservation_date < ?
-        AND status NOT IN ('Completed', 'Done', 'Rejected')
+        AND status NOT IN ('Completed', 'Done', 'Rejected', 'Cancelled')
       `;
 
       const [pastDatesResult] = await db.execute(updatePastDates, [
