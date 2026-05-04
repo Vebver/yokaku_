@@ -57,14 +57,14 @@ function FeaturedMenu({ onLoginClick }) {
     return `${BASE_URL}/uploads/${imagePath}`;
   };
 
-  // Handle card click - redirect to login if not logged in, otherwise go to menu
+  // Handle card click - redirect to login if not logged in, otherwise go to Table Reservation
   const handleCardClick = (item) => {
     if (!isLoggedIn) {
       if (onLoginClick) {
         onLoginClick();
       }
     } else {
-      navigate("/menu");
+      navigate("/tablereservation");
     }
   };
 
@@ -95,7 +95,7 @@ function FeaturedMenu({ onLoginClick }) {
                   className="card-order-btn"
                   onClick={() => handleCardClick(item)}
                 >
-                  {isLoggedIn ? "Order Now" : "Login to Order"}
+                  {isLoggedIn ? "Reserve a Table" : "Login to Reserve"}
                 </button>
               </div>
             </div>
