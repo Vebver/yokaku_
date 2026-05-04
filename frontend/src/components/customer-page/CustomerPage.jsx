@@ -13,6 +13,8 @@ import ExistingModal from "../ExistingModal";
 import axios from "axios";
 import "../../Style/App.css";
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+
 // Receive props passed from App.jsx
 function CustomerPage({ isLoggedIn, onLoginClick, onReserveClick, onSuccess }) {
   const [showExistingModal, setShowExistingModal] = useState(false);
@@ -26,12 +28,12 @@ function CustomerPage({ isLoggedIn, onLoginClick, onReserveClick, onSuccess }) {
     try {
       setChecking(true);
       const response = await axios.get(
-        `/api/reservations/check-active/${userId}`,
+        `${API_BASE}/reservations/check-active/${userId}`,
       );
 
       if (response.data.hasActive) {
         const detailsRes = await axios.get(
-          `/api/reservations/user-active/${userId}`,
+          `${API_BASE}/reservations/user-active/${userId}`,
         );
         setExistingReservation(detailsRes.data);
         setShowExistingModal(true);
