@@ -29,8 +29,10 @@ import "../Style/TableReservation.css";
 import PackageModal from "./PackageModal";
 import ReservationSummary from "./ReservationSummary";
 import TermsModal from "./TermsModal";
+import io from "socket.io-client";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const API_BASE = "https://yokaku-backend.onrender.com/api";
+
 const TABLES_DATA = [
   { id: 1, label: "Table 1", seats: 5, status: "available" },
   { id: 2, label: "Table 2", seats: 2, status: "available" },
@@ -167,15 +169,52 @@ const getStatusDisplayText = (reservation) => {
   return status.toUpperCase();
 };
 
+// Loading Spinner Component
+const LoadingSpinner = () => (
+  <div className="reservation-loading-overlay">
+    <div className="reservation-loading-spinner">
+      <div className="spinner"></div>
+      <p>Processing your reservation...</p>
+    </div>
+  </div>
+);
+
 export default function TableReservation({ onClose, onSuccess }) {
   const [selectedId, setSelectedId] = useState(null);
   const [linkedIds, setLinkedIds] = useState([]);
   const [selectedItems, setSelectedItems] = useState([]);
   const [isLinkMode, setIsLinkMode] = useState(false);
   const [showOngoingWarning, setShowOngoingWarning] = useState(null);
-  const [paymentMethod, setPaymentMethod] = useState(null); // Add this line
+  const [paymentMethod, setPaymentMethod] = useState(null);
   const [blockedDates, setBlockedDates] = useState([]);
-  const [existingReservation, setExistingReservation] = useState(null); // Add this
+  const [existingReservation, setExistingReservation] = useState(null);
+  // Socket connection for notifications
+  const [socket, setSocket] = useState(null);
+  // Loading state for spinner
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const userId = localStorage.getItem("userId");
+
+    if (token && userId) {
+      const SOCKET_URL = "https://yokaku-backend.onrender.com";
+      const newSocket = io(SOCKET_URL, {
+        transports: ["websocket", "polling"],
+      });
+
+      newSocket.on("connect", () => {
+        console.log("Socket connected for reservation");
+        newSocket.emit("join_user", userId);
+      });
+
+      setSocket(newSocket);
+
+      return () => {
+        if (newSocket) newSocket.close();
+      };
+    }
+  }, []);
 
   const [form, setForm] = useState({
     date: "",
@@ -231,17 +270,16 @@ export default function TableReservation({ onClose, onSuccess }) {
   useEffect(() => {
     const checkExisting = async () => {
       const userId = localStorage.getItem("userId");
-      const token = localStorage.getItem("token"); // Get the token
+      const token = localStorage.getItem("token");
 
       if (!userId || userId === "null") return;
 
       try {
         const res = await axios.get(
           `${API_BASE}/reservations/check-active/${userId}`,
-          { headers: { Authorization: `Bearer ${token}` } }, // SEND THE TOKEN
+          { headers: { Authorization: `Bearer ${token}` } },
         );
 
-        // Now that we fixed the backend format, this line will work!
         if (res.data.hasActive) {
           setExistingReservation(res.data.reservation);
           setUi((prev) => ({ ...prev, showExistingModal: true }));
@@ -366,14 +404,13 @@ export default function TableReservation({ onClose, onSuccess }) {
       .then((res) => {
         if (Array.isArray(res.data)) {
           const formatted = res.data.map((h) => {
-            // Convert to local date string to avoid timezone shifts
             const d = new Date(h.block_date);
             const year = d.getFullYear();
             const month = String(d.getMonth() + 1).padStart(2, "0");
             const day = String(d.getDate()).padStart(2, "0");
             return `${year}-${month}-${day}`;
           });
-          console.log("Verified Blocked Dates:", formatted); // CHECK YOUR CONSOLE
+          console.log("Verified Blocked Dates:", formatted);
           setBlockedDates(formatted);
         }
       })
@@ -399,14 +436,10 @@ export default function TableReservation({ onClose, onSuccess }) {
     if (blockedDates.includes(selectedDate)) {
       alert("We are sorry, but the restaurant is closed on this date.");
 
-      // 1. Clear the state so it can't be submitted
       setForm((prev) => ({ ...prev, date: "" }));
-
-      // 2. Clear the visual input
       e.target.value = "";
       return true;
     } else {
-      // 3. Date is okay, update the state normally
       handleInputChange(e);
       return false;
     }
@@ -458,21 +491,19 @@ export default function TableReservation({ onClose, onSuccess }) {
   }, [selectedId, linkedIds, primaryTable]);
 
   const orderSummary = useMemo(() => {
-    // 1. Calculate the raw total
     const rawTotal = selectedItems.reduce(
       (sum, item) => sum + item.price * item.quantity,
       0,
     );
 
-    // 2. Round everything to 2 decimal places to stop the "Malformed Packet" error
     const total = Math.round(rawTotal * 100) / 100;
     const downpayment = Math.round(total * 0.2 * 100) / 100;
     const balance = Math.round(total * 0.8 * 100) / 100;
 
     return {
-      totalOrderPrice: total, // Will be 399.00
-      downpayment: downpayment, // Will be 79.80
-      balance: balance, // Will be 319.20
+      totalOrderPrice: total,
+      downpayment: downpayment,
+      balance: balance,
     };
   }, [selectedItems]);
 
@@ -558,24 +589,19 @@ export default function TableReservation({ onClose, onSuccess }) {
   const availableStartTimeOptions = useMemo(() => {
     let filtered = timeOptions;
 
-    // Filter out past times for today
     if (form.date === todayStr) {
       const thresh = new Date().getHours() * 60 + new Date().getMinutes() + 15;
       filtered = filtered.filter((t) => timeToMin(t) >= thresh);
     }
 
-    // Filter out times that conflict with existing reservations
     return filtered.filter((startTime) => {
       const startM = timeToMin(startTime);
-      // Need at least 1 hour duration
       const endM = startM + 60;
 
-      // Check if this time slot conflicts with any existing reservation
       return !data.schedule.some((reservation) => {
         const resStartM = timeToMin(reservation.startTime);
         const resEndM = timeToMin(reservation.endTime);
 
-        // Check for overlap: new slot overlaps with existing reservation
         return startM < resEndM && endM > resStartM;
       });
     });
@@ -588,16 +614,12 @@ export default function TableReservation({ onClose, onSuccess }) {
 
     return timeOptions.filter((endTime) => {
       const endM = timeToMin(endTime);
-      // Must be at least 1 hour after start
       if (endM < startM + 60) return false;
 
-      // Check if this end time creates a conflict
       return !data.schedule.some((reservation) => {
         const resStartM = timeToMin(reservation.startTime);
         const resEndM = timeToMin(reservation.endTime);
 
-        // The new reservation would be from startM to endM
-        // Check if this overlaps with existing reservation
         return startM < resEndM && endM > resStartM;
       });
     });
@@ -719,7 +741,7 @@ export default function TableReservation({ onClose, onSuccess }) {
   };
 
   const confirmBooking = async (file, method) => {
-    // <--- Accept method here
+    setIsProcessing(true);
     setUi((p) => ({ ...p, loading: true }));
 
     try {
@@ -746,7 +768,6 @@ export default function TableReservation({ onClose, onSuccess }) {
         amount: orderSummary.downpayment,
         paymentMethod: method || paymentMethod || "Maya",
         tableIds: JSON.stringify(tableIdsArray),
-        // THIS IS THE CRITICAL LINE: it contains your flavors/drinks!
         selectedItems: JSON.stringify(selectedItems),
         status: "Confirmed",
         brgyCode: form.brgy,
@@ -763,6 +784,21 @@ export default function TableReservation({ onClose, onSuccess }) {
       });
 
       const res = await axios.post(`${API_BASE}/reservations/table`, payload);
+
+      // Emit notification for new reservation
+      if (socket) {
+        const reservationData = {
+          id: res.data.id,
+          userId: userId,
+          date: form.date,
+          time: form.startTime,
+          guests: totalSeats,
+          packageName: productDisplayName,
+        };
+        socket.emit("new_reservation", reservationData);
+        console.log("New reservation notification sent:", reservationData);
+      }
+
       onSuccess(res.data.id);
     } catch (e) {
       console.error("Booking Error:", e.response?.data || e.message);
@@ -772,6 +808,7 @@ export default function TableReservation({ onClose, onSuccess }) {
       );
     } finally {
       setUi((p) => ({ ...p, loading: false }));
+      setIsProcessing(false);
     }
   };
 
@@ -779,6 +816,9 @@ export default function TableReservation({ onClose, onSuccess }) {
 
   return (
     <div className={`floor-plan-wrapper ${!form.date ? "init-state" : ""}`}>
+      {/* Loading Spinner Overlay */}
+      {isProcessing && <LoadingSpinner />}
+
       <button className="page-back-btn" onClick={onClose}>
         <ArrowLeft size={18} /> <span>Back</span>
       </button>
