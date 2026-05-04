@@ -1,183 +1,47 @@
+// TableReservation.jsx
 import React, { useState, useMemo, useEffect } from "react";
 import axios from "axios";
 import {
-  UtensilsCrossed,
   ArrowLeft,
-  X,
   Calendar,
   Clock,
-  Info,
   MapPin,
   Pencil,
   Layers,
   Baby,
-  ChevronRight,
   Armchair,
   Mail,
   Phone,
   Link as LinkIcon,
   AlertCircle,
   PartyPopper,
-  Cake,
-  GlassWater,
-  Heart,
-  Music,
 } from "lucide-react";
-// import DatePicker from "react-datepicker";
-// import "react-datepicker/dist/react-datepicker.css";
 import "../Style/TableReservation.css";
 import PackageModal from "./PackageModal";
 import ReservationSummary from "./ReservationSummary";
 import TermsModal from "./TermsModal";
-import io from "socket.io-client";
+import {
+  TABLES_DATA,
+  ALLERGY_OPTIONS,
+  OCCASION_OPTIONS,
+} from "./TableReservationConstants";
+import {
+  sanitizeStringInput,
+  timeToMin,
+  formatTime,
+  getScheduleItemClass,
+  getStatusDisplayText,
+  isReservationOngoing,
+} from "./TableReservationUtils";
+import { LoadingSpinner, DateLoadingSpinner } from "./TableReservationSpinners";
+import ActiveReservationBlock from "./TableReservationActiveBlock";
+import {
+  useSocket,
+  useAddressData,
+  useActiveReservation,
+} from "./TableReservationHooks";
 
 const API_BASE = "https://yokaku-backend.onrender.com/api";
-
-const TABLES_DATA = [
-  { id: 1, label: "Table 1", seats: 5, status: "available" },
-  { id: 2, label: "Table 2", seats: 2, status: "available" },
-  { id: 3, label: "Table 3", seats: 4, status: "available" },
-  { id: 4, label: "Table 4", seats: 4, status: "available" },
-  { id: 5, label: "Table 5", seats: 4, status: "available" },
-  { id: 6, label: "Table 6", seats: 4, status: "available" },
-  { id: 7, label: "Table 7", seats: 4, status: "available" },
-  { id: 8, label: "Table 8", seats: 4, status: "available" },
-  { id: 9, label: "Table 9", seats: 4, status: "available" },
-  { id: 10, label: "Table 10", seats: 3, status: "available" },
-];
-
-// Allergy options
-const ALLERGY_OPTIONS = [
-  "None",
-  "Nuts",
-  "Shellfish",
-  "Dairy",
-  "Eggs",
-  "Soy",
-  "Wheat/Gluten",
-  "Fish",
-  "Sesame",
-  "Other",
-];
-
-// Occasion options
-const OCCASION_OPTIONS = [
-  "Casual Dining",
-  "Birthday",
-  "Anniversary",
-  "Date Night",
-  "Family Gathering",
-  "Business Meeting",
-  "Graduation",
-  "Wedding Reception",
-  "Reunion",
-  "Holiday Celebration",
-  "Other",
-];
-
-// Helper function to sanitize input (letters, spaces, and basic punctuation only)
-const sanitizeStringInput = (value) => {
-  return value.replace(/[^a-zA-Z\s\-'\.]/g, "");
-};
-
-// --- UTILITIES ---
-const timeToMin = (t) => {
-  if (!t) return 0;
-  const [time, period] = t.split(" ");
-  let [h, m] = time.split(":").map(Number);
-  if (period === "PM" && h !== 12) h += 12;
-  if (period === "AM" && h === 12) h = 0;
-  return h * 60 + m;
-};
-
-const formatTime = (timeStr) => {
-  if (!timeStr || timeStr.includes("AM") || timeStr.includes("PM"))
-    return timeStr || "";
-  const parts = timeStr.split(":");
-  let hours = parseInt(parts[0], 10);
-  const ampm = hours >= 12 ? "PM" : "AM";
-  return `${hours % 12 || 12}:${parts[1]} ${ampm}`;
-};
-
-// Helper function to check if a reservation is ongoing based on current time
-const isReservationOngoing = (startTime, endTime) => {
-  if (!startTime || !endTime) return false;
-
-  const now = new Date();
-  const currentTime = now.getHours() * 60 + now.getMinutes();
-
-  const startM = timeToMin(startTime);
-  const endM = timeToMin(endTime);
-
-  return currentTime >= startM && currentTime <= endM;
-};
-
-// Helper function to check if a reservation is completed (should be hidden)
-const isReservationCompleted = (reservation, selectedDate) => {
-  const now = new Date();
-  const currentTime = now.getHours() * 60 + now.getMinutes();
-  const currentDate = now.toISOString().split("T")[0];
-
-  if (reservation.status === "Done" || reservation.status === "Completed") {
-    return true;
-  }
-
-  if (selectedDate === currentDate) {
-    const endM = timeToMin(reservation.endTime);
-    if (currentTime > endM) {
-      return true;
-    }
-  }
-
-  if (selectedDate < currentDate) {
-    return true;
-  }
-
-  return false;
-};
-
-// Helper function to get schedule item class based on status and time
-const getScheduleItemClass = (reservation) => {
-  let status = reservation.status;
-
-  if (
-    (status === "Confirmed" || status === "Pending") &&
-    isReservationOngoing(reservation.startTime, reservation.endTime)
-  ) {
-    return "ongoing";
-  }
-
-  if (status === "Seated") return "ongoing";
-  if (status === "Confirmed" || status === "Pending") return "reserved";
-  return "";
-};
-
-// Helper function to get status display text with real-time checking
-const getStatusDisplayText = (reservation) => {
-  let status = reservation.status;
-
-  if (
-    (status === "Confirmed" || status === "Pending") &&
-    isReservationOngoing(reservation.startTime, reservation.endTime)
-  ) {
-    return "ONGOING";
-  }
-
-  if (status === "Seated") return "ONGOING";
-  if (status === "Confirmed") return "CONFIRMED";
-  if (status === "Pending") return "PENDING";
-  return status.toUpperCase();
-};
-
-// Loading Spinner Component
-const LoadingSpinner = () => (
-  <div className="reservation-loading-overlay">
-    <div className="reservation-loading-spinner">
-      <div className="spinner"></div>
-      <p>Processing your reservation...</p>
-    </div>
-  </div>
-);
 
 export default function TableReservation({ onClose, onSuccess }) {
   const [selectedId, setSelectedId] = useState(null);
@@ -187,34 +51,10 @@ export default function TableReservation({ onClose, onSuccess }) {
   const [showOngoingWarning, setShowOngoingWarning] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState(null);
   const [blockedDates, setBlockedDates] = useState([]);
-  const [existingReservation, setExistingReservation] = useState(null);
-  // Socket connection for notifications
-  const [socket, setSocket] = useState(null);
-  // Loading state for spinner
   const [isProcessing, setIsProcessing] = useState(false);
-
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    const userId = localStorage.getItem("userId");
-
-    if (token && userId) {
-      const SOCKET_URL = "https://yokaku-backend.onrender.com";
-      const newSocket = io(SOCKET_URL, {
-        transports: ["websocket", "polling"],
-      });
-
-      newSocket.on("connect", () => {
-        console.log("Socket connected for reservation");
-        newSocket.emit("join_user", userId);
-      });
-
-      setSocket(newSocket);
-
-      return () => {
-        if (newSocket) newSocket.close();
-      };
-    }
-  }, []);
+  const [isDateLoading, setIsDateLoading] = useState(false);
+  const [tableSchedules, setTableSchedules] = useState({});
+  const [data, setData] = useState({ occupied: {}, schedule: [] });
 
   const [form, setForm] = useState({
     date: "",
@@ -228,10 +68,7 @@ export default function TableReservation({ onClose, onSuccess }) {
     occasion: "",
     customOccasion: "",
   });
-  const [addressData, setAddressData] = useState({
-    municipalities: [],
-    barangays: [],
-  });
+
   const [user, setUser] = useState({
     firstName: localStorage.getItem("firstName") || "",
     lastName: localStorage.getItem("lastName") || "",
@@ -239,8 +76,6 @@ export default function TableReservation({ onClose, onSuccess }) {
     phone: "09",
   });
 
-  const [data, setData] = useState({ occupied: {}, schedule: [] });
-  const [tableSchedules, setTableSchedules] = useState({});
   const [ui, setUi] = useState({
     loading: false,
     editing: false,
@@ -249,155 +84,48 @@ export default function TableReservation({ onClose, onSuccess }) {
     terms: false,
   });
 
-  // Fixed: Use toLocaleDateString to avoid timezone issues
+  const socket = useSocket();
+  const { addressData, fetchBarangays } = useAddressData();
+  const { hasActiveReservationBlock, activeReservationDetails } =
+    useActiveReservation();
+
   const todayStr = new Date().toLocaleDateString("en-CA");
 
-  // --- API DATA ---
-  useEffect(() => {
-    axios
-      .get(`${API_BASE}/address/municipalities`)
-      .then((res) =>
-        setAddressData((prev) => ({
-          ...prev,
-          municipalities: Array.isArray(res.data)
-            ? res.data
-            : res.data.data || [],
-        })),
-      )
-      .catch(console.error);
-  }, []);
-
-  useEffect(() => {
-    const checkExisting = async () => {
-      const userId = localStorage.getItem("userId");
-      const token = localStorage.getItem("token");
-
-      if (!userId || userId === "null") return;
-
-      try {
-        const res = await axios.get(
-          `${API_BASE}/reservations/check-active/${userId}`,
-          { headers: { Authorization: `Bearer ${token}` } },
-        );
-
-        if (res.data.hasActive) {
-          setExistingReservation(res.data.reservation);
-          setUi((prev) => ({ ...prev, showExistingModal: true }));
-        }
-      } catch (err) {
-        console.error("Check active error:", err);
-      }
-    };
-
-    checkExisting();
-  }, []);
-
+  // Fetch barangays when municipality changes
   useEffect(() => {
     if (form.muni) {
-      axios
-        .get(`${API_BASE}/address/barangays/${form.muni}`)
-        .then((res) =>
-          setAddressData((prev) => ({
-            ...prev,
-            barangays: Array.isArray(res.data) ? res.data : [],
-          })),
-        )
-        .catch(console.error);
+      fetchBarangays(form.muni);
     }
-  }, [form.muni]);
+  }, [form.muni, fetchBarangays]);
 
   // Fetch schedules for all tables when date changes
   useEffect(() => {
     const fetchAllTableSchedules = async () => {
       if (!form.date) return;
-
+      setIsDateLoading(true);
       const schedules = {};
       for (const table of TABLES_DATA) {
         try {
           const response = await axios.get(
             `${API_BASE}/reservations/table-schedule`,
             {
-              params: {
-                tableId: table.id,
-                date: form.date,
-              },
+              params: { tableId: table.id, date: form.date },
             },
           );
           schedules[table.id] = Array.isArray(response.data)
-            ? response.data.filter((r) => !isReservationCompleted(r, form.date))
+            ? response.data
             : [];
         } catch (error) {
-          console.warn(`Error fetching schedule for table ${table.id}:`, error);
           schedules[table.id] = [];
         }
       }
       setTableSchedules(schedules);
+      setIsDateLoading(false);
     };
-
     fetchAllTableSchedules();
   }, [form.date]);
 
-  // REAL-TIME POLLING
-  useEffect(() => {
-    const poll = async () => {
-      if (!form.date) return;
-      try {
-        const statRes = await axios.get(
-          `${API_BASE}/reservations/table-statuses`,
-          {
-            params: {
-              date: form.date,
-              startTime: form.startTime || "00:00",
-              endTime: form.endTime || "23:59",
-            },
-          },
-        );
-
-        let schedRes = { data: [] };
-        if (selectedId && form.date) {
-          try {
-            schedRes = await axios.get(
-              `${API_BASE}/reservations/table-schedule`,
-              {
-                params: {
-                  tableId: selectedId,
-                  date: form.date,
-                },
-              },
-            );
-          } catch (error) {
-            schedRes = { data: [] };
-          }
-        }
-
-        const processedSchedule = (schedRes.data || [])
-          .filter((res) => !isReservationCompleted(res, form.date))
-          .map((res) => {
-            const processed = { ...res };
-            if (
-              (processed.status === "Confirmed" ||
-                processed.status === "Pending") &&
-              isReservationOngoing(processed.startTime, processed.endTime)
-            ) {
-              processed.status = "Ongoing";
-            }
-            return processed;
-          });
-
-        setData({
-          occupied: statRes.data || {},
-          schedule: processedSchedule,
-        });
-      } catch (e) {
-        console.error("Polling error:", e);
-      }
-    };
-
-    poll();
-    const pollInterval = setInterval(poll, 10000);
-    return () => clearInterval(pollInterval);
-  }, [form.date, form.startTime, form.endTime, selectedId]);
-  //BLOCKED DATES
+  // Fetch blocked dates
   useEffect(() => {
     axios
       .get(`${API_BASE}/admin/blocked-dates`)
@@ -405,46 +133,24 @@ export default function TableReservation({ onClose, onSuccess }) {
         if (Array.isArray(res.data)) {
           const formatted = res.data.map((h) => {
             const d = new Date(h.block_date);
-            const year = d.getFullYear();
-            const month = String(d.getMonth() + 1).padStart(2, "0");
-            const day = String(d.getDate()).padStart(2, "0");
-            return `${year}-${month}-${day}`;
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
           });
-          console.log("Verified Blocked Dates:", formatted);
           setBlockedDates(formatted);
         }
       })
-      .catch((err) => console.error("Error fetching blocked dates", err));
+      .catch(console.error);
   }, []);
 
-  // --- CALCULATIONS ---
   const primaryTable = useMemo(
     () => TABLES_DATA.find((t) => t.id === selectedId),
     [selectedId],
   );
 
-  const hasActiveReservation = (tableId) => {
+  const hasActiveReservationForTable = (tableId) => {
     const schedule = tableSchedules[tableId] || [];
     return schedule.length > 0;
   };
 
-  const handleDateSelection = (e) => {
-    const selectedDate = e.target.value;
-    console.log("User selected:", selectedDate);
-    console.log("Checking against:", blockedDates);
-
-    if (blockedDates.includes(selectedDate)) {
-      alert("We are sorry, but the restaurant is closed on this date.");
-
-      setForm((prev) => ({ ...prev, date: "" }));
-      e.target.value = "";
-      return true;
-    } else {
-      handleInputChange(e);
-      return false;
-    }
-  };
-  // Check if a table has ongoing reservation
   const hasOngoingReservation = (tableId) => {
     const schedule = tableSchedules[tableId] || [];
     return schedule.some((r) => {
@@ -462,15 +168,26 @@ export default function TableReservation({ onClose, onSuccess }) {
     const schedule = tableSchedules[tableId] || [];
     const startM = timeToMin(startTime);
     const endM = timeToMin(endTime);
+    return !schedule.some(
+      (r) => startM < timeToMin(r.endTime) && endM > timeToMin(r.startTime),
+    );
+  };
 
-    return !schedule.some((r) => {
-      return startM < timeToMin(r.endTime) && endM > timeToMin(r.startTime);
-    });
+  const handleDateSelection = (e) => {
+    const selectedDate = e.target.value;
+    if (blockedDates.includes(selectedDate)) {
+      alert("We are sorry, but the restaurant is closed on this date.");
+      setForm((prev) => ({ ...prev, date: "" }));
+      e.target.value = "";
+      return true;
+    } else {
+      handleInputChange(e);
+      return false;
+    }
   };
 
   const getAvailableTablesForLinking = () => {
     if (!form.startTime || !form.endTime) return [];
-
     return TABLES_DATA.filter(
       (table) =>
         table.id !== selectedId &&
@@ -495,21 +212,18 @@ export default function TableReservation({ onClose, onSuccess }) {
       (sum, item) => sum + item.price * item.quantity,
       0,
     );
-
     const total = Math.round(rawTotal * 100) / 100;
-    const downpayment = Math.round(total * 0.2 * 100) / 100;
-    const balance = Math.round(total * 0.8 * 100) / 100;
-
     return {
       totalOrderPrice: total,
-      downpayment: downpayment,
-      balance: balance,
+      downpayment: Math.round(total * 0.2 * 100) / 100,
+      balance: Math.round(total * 0.8 * 100) / 100,
     };
   }, [selectedItems]);
 
-  const tableIdsArray = useMemo(() => {
-    return [selectedId, ...linkedIds].filter((id) => id !== null);
-  }, [selectedId, linkedIds]);
+  const tableIdsArray = useMemo(
+    () => [selectedId, ...linkedIds].filter((id) => id !== null),
+    [selectedId, linkedIds],
+  );
 
   const productDisplayName = useMemo(() => {
     if (selectedItems.length === 0) return "Table Reservation";
@@ -518,21 +232,19 @@ export default function TableReservation({ onClose, onSuccess }) {
   }, [selectedItems]);
 
   const getFinalAllergy = useMemo(() => {
-    if (form.allergy === "Other" && form.customAllergy) {
+    if (form.allergy === "Other" && form.customAllergy)
       return `Other: ${form.customAllergy}`;
-    }
     return form.allergy || "None";
   }, [form.allergy, form.customAllergy]);
 
   const getFinalOccasion = useMemo(() => {
-    if (form.occasion === "Other" && form.customOccasion) {
+    if (form.occasion === "Other" && form.customOccasion)
       return `Other: ${form.customOccasion}`;
-    }
     return form.occasion || "Casual Dining";
   }, [form.occasion, form.customOccasion]);
 
-  const fullReservationData = useMemo(() => {
-    return {
+  const fullReservationData = useMemo(
+    () => ({
       ...user,
       ...form,
       userId: localStorage.getItem("userId"),
@@ -555,20 +267,21 @@ export default function TableReservation({ onClose, onSuccess }) {
         addressData.barangays.find((b) => b.code === form.brgy)?.name || "",
       allergy: getFinalAllergy,
       occasion: getFinalOccasion,
-    };
-  }, [
-    user,
-    form,
-    totalSeats,
-    primaryTable,
-    linkedIds,
-    selectedItems,
-    orderSummary,
-    paymentMethod,
-    addressData,
-    getFinalAllergy,
-    getFinalOccasion,
-  ]);
+    }),
+    [
+      user,
+      form,
+      totalSeats,
+      primaryTable,
+      linkedIds,
+      selectedItems,
+      orderSummary,
+      paymentMethod,
+      addressData,
+      getFinalAllergy,
+      getFinalOccasion,
+    ],
+  );
 
   const timeOptions = useMemo(() => {
     const opts = [];
@@ -585,47 +298,38 @@ export default function TableReservation({ onClose, onSuccess }) {
     return opts;
   }, []);
 
-  // FIXED: availableStartTimeOptions - properly filters overlapping reservations
   const availableStartTimeOptions = useMemo(() => {
     let filtered = timeOptions;
-
     if (form.date === todayStr) {
       const thresh = new Date().getHours() * 60 + new Date().getMinutes() + 15;
       filtered = filtered.filter((t) => timeToMin(t) >= thresh);
     }
-
     return filtered.filter((startTime) => {
       const startM = timeToMin(startTime);
       const endM = startM + 60;
-
       return !data.schedule.some((reservation) => {
         const resStartM = timeToMin(reservation.startTime);
         const resEndM = timeToMin(reservation.endTime);
-
         return startM < resEndM && endM > resStartM;
       });
     });
   }, [timeOptions, data.schedule, form.date, todayStr]);
 
-  // FIXED: filteredEndTimeOptions - properly filters based on conflicts
   const filteredEndTimeOptions = useMemo(() => {
     if (!form.startTime) return [];
     const startM = timeToMin(form.startTime);
-
     return timeOptions.filter((endTime) => {
       const endM = timeToMin(endTime);
       if (endM < startM + 60) return false;
-
       return !data.schedule.some((reservation) => {
         const resStartM = timeToMin(reservation.startTime);
         const resEndM = timeToMin(reservation.endTime);
-
         return startM < resEndM && endM > resStartM;
       });
     });
   }, [form.startTime, timeOptions, data.schedule]);
 
-  // --- FIELD VALIDATION ---
+  // Validation
   const isFirstNameValid = user.firstName && user.firstName.trim().length > 0;
   const isLastNameValid = user.lastName && user.lastName.trim().length > 0;
   const isEmailValid = /^\S+@\S+\.\S+$/.test(user.email);
@@ -649,6 +353,7 @@ export default function TableReservation({ onClose, onSuccess }) {
   });
 
   const isFormInvalid = useMemo(() => {
+    if (hasActiveReservationBlock) return true;
     return (
       !selectedId ||
       !isFirstNameValid ||
@@ -678,12 +383,11 @@ export default function TableReservation({ onClose, onSuccess }) {
     isMuniValid,
     isBrgyValid,
     hasNoConflict,
+    hasActiveReservationBlock,
   ]);
 
-  // --- HANDLERS ---
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-
     if (name === "phone") {
       let val = value.replace(/\D/g, "");
       if (!val.startsWith("09")) val = "09";
@@ -699,36 +403,27 @@ export default function TableReservation({ onClose, onSuccess }) {
   };
 
   const onTableClick = (table) => {
-    if (table.status === "maintenance") {
+    if (hasActiveReservationBlock) {
       alert(
-        "This table is currently under maintenance and cannot be reserved.",
+        "You have an ongoing reservation. You cannot reserve another table.",
       );
       return;
     }
-
-    const hasActive = hasActiveReservation(table.id);
-    const hasOngoing = hasOngoingReservation(table.id);
-
-    if (hasOngoing && !isLinkMode) {
-      setShowOngoingWarning(table.id);
-      setTimeout(() => setShowOngoingWarning(null), 3000);
+    if (table.status === "maintenance") {
+      alert("This table is currently under maintenance.");
+      return;
     }
 
     if (isLinkMode) {
       if (table.id === selectedId) return;
-
       if (!form.startTime || !form.endTime) {
         alert("Please select start time and end time first");
         return;
       }
-
       if (!isTableAvailableForTime(table.id, form.startTime, form.endTime)) {
-        alert(
-          `This table has a reservation during the selected time slot. Please choose a different time or another table.`,
-        );
+        alert("This table has a reservation during the selected time slot.");
         return;
       }
-
       setLinkedIds((prev) =>
         prev.includes(table.id)
           ? prev.filter((id) => id !== table.id)
@@ -741,6 +436,11 @@ export default function TableReservation({ onClose, onSuccess }) {
   };
 
   const confirmBooking = async (file, method) => {
+    if (hasActiveReservationBlock) {
+      alert("You have an ongoing reservation.");
+      return;
+    }
+
     setIsProcessing(true);
     setUi((p) => ({ ...p, loading: true }));
 
@@ -752,7 +452,6 @@ export default function TableReservation({ onClose, onSuccess }) {
         form.allergy === "Other" && form.customAllergy
           ? `Other: ${form.customAllergy}`
           : form.allergy || "None";
-
       const finalOccasion =
         form.occasion === "Other" && form.customOccasion
           ? `Other: ${form.customOccasion}`
@@ -776,36 +475,27 @@ export default function TableReservation({ onClose, onSuccess }) {
       };
 
       if (file) payload.append("receipt", file);
-
       Object.entries(submission).forEach(([k, v]) => {
-        if (v !== undefined && v !== null) {
-          payload.append(k, v);
-        }
+        if (v !== undefined && v !== null) payload.append(k, v);
       });
 
       const res = await axios.post(`${API_BASE}/reservations/table`, payload);
 
-      // Emit notification for new reservation
       if (socket) {
-        const reservationData = {
+        socket.emit("new_reservation", {
           id: res.data.id,
           userId: userId,
           date: form.date,
           time: form.startTime,
           guests: totalSeats,
           packageName: productDisplayName,
-        };
-        socket.emit("new_reservation", reservationData);
-        console.log("New reservation notification sent:", reservationData);
+        });
       }
 
       onSuccess(res.data.id);
     } catch (e) {
       console.error("Booking Error:", e.response?.data || e.message);
-      alert(
-        e.response?.data?.message ||
-          "Table Selection Error: One of the selected tables does not exist in the database or is already booked.",
-      );
+      alert(e.response?.data?.message || "Table Selection Error.");
     } finally {
       setUi((p) => ({ ...p, loading: false }));
       setIsProcessing(false);
@@ -814,10 +504,19 @@ export default function TableReservation({ onClose, onSuccess }) {
 
   const availableTablesForLinking = getAvailableTablesForLinking();
 
+  if (hasActiveReservationBlock && activeReservationDetails) {
+    return (
+      <ActiveReservationBlock
+        activeReservationDetails={activeReservationDetails}
+        onClose={onClose}
+      />
+    );
+  }
+
   return (
     <div className={`floor-plan-wrapper ${!form.date ? "init-state" : ""}`}>
-      {/* Loading Spinner Overlay */}
       {isProcessing && <LoadingSpinner />}
+      {isDateLoading && <DateLoadingSpinner />}
 
       <button className="page-back-btn" onClick={onClose}>
         <ArrowLeft size={18} /> <span>Back</span>
@@ -916,8 +615,8 @@ export default function TableReservation({ onClose, onSuccess }) {
                       <Clock size={12} /> END
                     </label>
                     <select
-                      className="res-input-dropdown"
                       name="endTime"
+                      className="res-input-dropdown"
                       value={form.endTime}
                       onChange={(e) => {
                         handleInputChange(e);
@@ -957,6 +656,7 @@ export default function TableReservation({ onClose, onSuccess }) {
                     }
                   />
                 </div>
+
                 <div className="input-group">
                   <label>LAST NAME</label>
                   <input
@@ -983,6 +683,7 @@ export default function TableReservation({ onClose, onSuccess }) {
                     className={!isEmailValid && user.email ? "input-error" : ""}
                   />
                 </div>
+
                 <div className="input-group">
                   <label>
                     <Phone size={12} /> CONTACT
@@ -1000,6 +701,7 @@ export default function TableReservation({ onClose, onSuccess }) {
                     Must be 11 digits starting with 09
                   </small>
                 </div>
+
                 <div className="input-row">
                   <div className="input-group">
                     <label>
@@ -1039,6 +741,7 @@ export default function TableReservation({ onClose, onSuccess }) {
                     </select>
                   </div>
                 </div>
+
                 <div className="input-group">
                   <label>GUESTS</label>
                   <input
@@ -1052,6 +755,7 @@ export default function TableReservation({ onClose, onSuccess }) {
                     }}
                   />
                 </div>
+
                 <div className="input-group">
                   <label style={{ display: "block", marginBottom: "8px" }}>
                     <Baby size={12} /> HIGH CHAIR NEEDED?
@@ -1072,7 +776,6 @@ export default function TableReservation({ onClose, onSuccess }) {
                   </div>
                 </div>
 
-                {/* OCCASION DROPDOWN FIELD */}
                 <div className="input-group">
                   <label style={{ display: "block", marginBottom: "8px" }}>
                     <PartyPopper size={12} /> OCCASION
@@ -1099,13 +802,12 @@ export default function TableReservation({ onClose, onSuccess }) {
                       </option>
                     ))}
                   </select>
-
                   {form.occasion === "Other" && (
                     <input
                       type="text"
                       name="customOccasion"
                       className="custom-occasion-input"
-                      placeholder="Please specify your occasion (e.g., Surprise Party, etc.)"
+                      placeholder="Please specify your occasion"
                       value={form.customOccasion}
                       onChange={handleInputChange}
                       style={{
@@ -1120,13 +822,11 @@ export default function TableReservation({ onClose, onSuccess }) {
                       }}
                     />
                   )}
-
                   <small className="input-hint">
                     Let us know if you're celebrating a special occasion
                   </small>
                 </div>
 
-                {/* ALLERGY DROPDOWN FIELD */}
                 <div className="input-group">
                   <label style={{ display: "block", marginBottom: "8px" }}>
                     <AlertCircle size={12} /> ALLERGIES / DIETARY RESTRICTIONS
@@ -1153,13 +853,12 @@ export default function TableReservation({ onClose, onSuccess }) {
                       </option>
                     ))}
                   </select>
-
                   {form.allergy === "Other" && (
                     <input
                       type="text"
                       name="customAllergy"
                       className="custom-allergy-input"
-                      placeholder="Please specify your allergy (e.g., Peanuts, Strawberries, etc.)"
+                      placeholder="Please specify your allergy"
                       value={form.customAllergy}
                       onChange={handleInputChange}
                       style={{
@@ -1174,7 +873,6 @@ export default function TableReservation({ onClose, onSuccess }) {
                       }}
                     />
                   )}
-
                   <small className="input-hint">
                     Please select any food allergies or dietary restrictions
                   </small>
@@ -1233,6 +931,7 @@ export default function TableReservation({ onClose, onSuccess }) {
                     </div>
                   )}
                 </div>
+
                 <button
                   className={`btn-confirm ${isFormInvalid ? "btn-disabled" : ""}`}
                   onClick={() => setUi((p) => ({ ...p, terms: true }))}
@@ -1277,7 +976,6 @@ export default function TableReservation({ onClose, onSuccess }) {
                 <LinkIcon size={18} style={{ marginRight: "10px" }} />{" "}
                 {isLinkMode ? "Finish Linking" : "Link Tables"}
               </button>
-
               {isLinkMode && form.startTime && form.endTime && (
                 <div
                   style={{
@@ -1300,9 +998,10 @@ export default function TableReservation({ onClose, onSuccess }) {
               )}
             </div>
           )}
+
           <div className="table-selection-grid">
             {TABLES_DATA.map((t) => {
-              const hasAnyReservation = hasActiveReservation(t.id);
+              const hasAnyReservation = hasActiveReservationForTable(t.id);
               const hasOngoing = hasOngoingReservation(t.id);
               const isSelected = selectedId === t.id;
               const isLinked = linkedIds.includes(t.id);
@@ -1310,28 +1009,17 @@ export default function TableReservation({ onClose, onSuccess }) {
               const isMaintenance = t.status === "maintenance";
 
               let cardCls = "";
-              if (isSelected) {
-                cardCls = "selected";
-              } else if (isLinked) {
-                cardCls = "linked";
-              } else if (isMaintenance) {
-                cardCls = "maintenance";
-              } else if (hasOngoing && !isLinkMode) {
-                cardCls = "occupied";
-              } else if (hasAnyReservation && !isLinkMode) {
-                cardCls = "reserved";
-              } else {
-                cardCls = "available";
-              }
+              if (isSelected) cardCls = "selected";
+              else if (isLinked) cardCls = "linked";
+              else if (isMaintenance) cardCls = "maintenance";
+              else if (hasOngoing && !isLinkMode) cardCls = "occupied";
+              else if (hasAnyReservation && !isLinkMode) cardCls = "reserved";
+              else cardCls = "available";
 
               let dotCls = "available";
-              if (isMaintenance) {
-                dotCls = "maintenance";
-              } else if (hasOngoing) {
-                dotCls = "occupied";
-              } else if (hasAnyReservation) {
-                dotCls = "reserved";
-              }
+              if (isMaintenance) dotCls = "maintenance";
+              else if (hasOngoing) dotCls = "occupied";
+              else if (hasAnyReservation) dotCls = "reserved";
 
               return (
                 <div
@@ -1385,6 +1073,7 @@ export default function TableReservation({ onClose, onSuccess }) {
               );
             })}
           </div>
+
           <div className="floor-legend-horizontal">
             <div className="legend-item">
               <span className="dot available"></span> Available
