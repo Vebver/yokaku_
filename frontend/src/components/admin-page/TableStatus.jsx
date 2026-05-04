@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../../api"
 import { Plus, Armchair } from "lucide-react"; // Added icons
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 const TableStatus = () => {
@@ -25,7 +25,7 @@ const TableStatus = () => {
     setLoadingBill(true);
 
     try {
-      const res = await axios.get(
+      const res = await api.get(
         `${API_BASE}/reservations/${reservationId}/items`,
       );
       setBillItems(res.data);
@@ -43,10 +43,11 @@ const TableStatus = () => {
 
   // Fetch Tables from Backend
   const fetchTables = async () => {
+     console.log("DEBUG: Token in localStorage is:", localStorage.getItem("token"));
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
-      const res = await axios.get("/api/admin/table-status", {
+      const res = await api.get("/admin/table-status", {
         headers: { Authorization: `Bearer ${token}` },
       });
       setTables(res.data);
@@ -59,7 +60,7 @@ const TableStatus = () => {
 
   useEffect(() => {
     fetchTables();
-    const interval = setInterval(fetchTables, 60000);
+    const interval = setInterval(fetchTables, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -69,7 +70,7 @@ const TableStatus = () => {
     try {
       setUpdating(true);
       const token = localStorage.getItem("token");
-      await axios.post("/api/admin/add-table", newTableData, {
+      await api.post("/admin/add-table", newTableData, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setShowAddModal(false);
@@ -89,8 +90,8 @@ const TableStatus = () => {
     try {
       setUpdating(true);
       const token = localStorage.getItem("token");
-      await axios.post(
-        `/api/admin/walk-in/${selectedTable.table_id}`,
+      await api.post(
+        `/admin/walk-in/${selectedTable.table_id}`,
         { customerName: guestName },
         { headers: { Authorization: `Bearer ${token}` } },
       );
@@ -113,7 +114,7 @@ const TableStatus = () => {
       const token = localStorage.getItem("token");
 
       // Ensure you use 'reservationId' here to match the parameter name above
-      await axios.put(
+      await api.put(
         `${API_BASE}/reservations/${reservationId}/status`,
         { status: "Seated" },
         { headers: { Authorization: `Bearer ${token}` } },
@@ -134,8 +135,8 @@ const TableStatus = () => {
     try {
       setUpdating(true);
       const token = localStorage.getItem("token");
-      await axios.put(
-        `/api/admin/checkout/${tableId}`,
+      await api.put(
+        `/admin/checkout/${tableId}`,
         {},
         {
           headers: { Authorization: `Bearer ${token}` },

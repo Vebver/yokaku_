@@ -17,6 +17,10 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
+  connectionLimit: 10,
+  enableKeepAlive: true,
+}).on('connection', (connection) => {
+    connection.query("SET SESSION sql_mode=(SELECT REPLACE(@@sql_mode,'ONLY_FULL_GROUP_BY',''))");
 });
 
 // --- DO NOT FORGET THIS PART ---

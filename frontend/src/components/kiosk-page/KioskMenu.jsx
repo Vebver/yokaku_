@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react"; // Added useRef
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   PlusSquare,
@@ -6,12 +6,9 @@ import {
   CupSoda,
   Check,
   Bell,
-  AlertCircle,
   Star,
   ShoppingBag,
   CheckCircle,
-  ChevronUp,
-  ChevronDown,
   Flame,
   Wallet,
   Infinity as InfinityIcon,
@@ -22,16 +19,17 @@ import {
   Soup,
   Salad,
   Clock,
-  User,
 } from "lucide-react";
 import "../../Style/KioskReservationMenu.css";
 import ReservationOrderModal from "./ReservationOrderModal";
 import OrderSummary from "./OrderSummary";
 import PortalModal from "./PortalModal";
-import axios from "axios"; // <--- Add this line // Import the Portal component
+import axios from "axios";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 const BASE_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
+
+const HIDDEN_CATEGORIES = ["Chicken Wings", "Beverages", "Drinks", "Chicken"];
 
 const categoryIcons = {
   "Best Seller": <Flame />,
@@ -50,10 +48,11 @@ const categoryIcons = {
 
 const KioskMenu = () => {
   const navigate = useNavigate();
-  const timerRef = useRef(null); // Added for strict timer control
+  const timerRef = useRef(null);
   const TIMER_KEY = "kiosk_walkin_timer_end";
+  const SAVED_TABLE_ID = "kiosk_active_table_id";
+  const SAVED_RES_ID = "kiosk_active_res_id";
 
-  // --- STATE ---
   const [menuData, setMenuData] = useState({});
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("");
@@ -62,29 +61,51 @@ const KioskMenu = () => {
   const [selectedItem, setSelectedItem] = useState(null);
   const [cart, setCart] = useState([]);
 
-  // Timer States (1:30:00 = 5400s)
   const [timeLeft, setTimeLeft] = useState(5400);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
 
-  // Modal States
-  const [showCancelModal, setShowCancelModal] = useState(false);
   const [showEndModal, setShowEndModal] = useState(false);
   const [showOrderSuccessModal, setShowOrderSuccessModal] = useState(false);
+  const [showTypeModal, setShowTypeModal] = useState(false);
+  const [showTablePicker, setShowTablePicker] = useState(false);
+  const [availableTables, setAvailableTables] = useState([]);
 
-  const [showTypeModal, setShowTypeModal] = useState(false); // For Dine-in vs Take-out
-  const [showTablePicker, setShowTablePicker] = useState(false); // For Selecting Table
-  const [availableTables, setAvailableTables] = useState([]); // Real-time tables
+  // --- 1. RESET ALL STATES ON MOUNT (Ensures menu is clickable) ---
+  useEffect(() => {
+    setIsModalOpen(false);
+    setShowTypeModal(false);
+    setShowTablePicker(false);
+    setShowEndModal(false);
+  }, []);
 
-  // --- 1. NUCLEAR STOP (Kiosk Reset) ---
-  const handleEndSession = () => {
+  // --- 2. CONSOLIDATED FINISH LOGIC ---
+  const handleEndSession = async () => {
+    const activeTable = localStorage.getItem(SAVED_TABLE_ID);
+    const activeResId = localStorage.getItem(SAVED_RES_ID);
+
+    if (activeTable && activeTable !== "takeout" && activeResId) {
+      try {
+        await axios.post(`${API_BASE}/orders/finish`, {
+          table_id: activeTable,
+          reservation_id: activeResId,
+        });
+      } catch (err) {
+        console.error("❌ Failed to release table:", err);
+      }
+    }
+
     if (timerRef.current) clearInterval(timerRef.current);
-    localStorage.clear(); // Clear all kiosk data
+    localStorage.removeItem("kiosk_active_table_id");
+    localStorage.removeItem("kiosk_active_res_id");
+    localStorage.removeItem("kiosk_walkin_timer_end");
     setIsTimerRunning(false);
     setShowEndModal(false);
-    window.location.href = "/kiosk-selection"; // Hard refresh to kill all JS memory
+
+    // Use navigate for a cleaner transition or window.location for total reset
+    window.location.href = "/kiosk-selection";
   };
 
-  // --- 2. TIMER PERSISTENCE & TICK ---
+  // --- 3. TIMER LOGIC ---
   useEffect(() => {
     const savedEndTime = localStorage.getItem(TIMER_KEY);
     if (savedEndTime) {
@@ -111,11 +132,8 @@ const KioskMenu = () => {
         const remaining = Math.floor(
           (parseInt(savedEndTime) - Date.now()) / 1000,
         );
-        if (remaining <= 0) {
-          handleEndSession();
-        } else {
-          setTimeLeft(remaining);
-        }
+        if (remaining <= 0) handleEndSession();
+        else setTimeLeft(remaining);
       }, 1000);
     }
     return () => {
@@ -123,7 +141,7 @@ const KioskMenu = () => {
     };
   }, [isTimerRunning]);
 
-  // --- 3. FETCH MENU (Fixed Image Paths) ---
+  // --- 4. FETCH MENU ---
   useEffect(() => {
     const fetchMenu = async () => {
       try {
@@ -133,7 +151,6 @@ const KioskMenu = () => {
           const cat = item.category_name || "General";
           if (!acc[cat]) acc[cat] = [];
 
-          // Construct absolute URL for images
           const fullImage = item.image_url
             ? item.image_url.startsWith("http")
               ? item.image_url
@@ -150,12 +167,14 @@ const KioskMenu = () => {
           });
           return acc;
         }, {});
+
         setMenuData(grouped);
-        const keys = Object.keys(grouped);
-        if (keys.length > 0) setActiveCategory(keys[0]);
+        const firstVisibleCat = Object.keys(grouped).find(
+          (cat) => !HIDDEN_CATEGORIES.includes(cat),
+        );
+        if (firstVisibleCat) setActiveCategory(firstVisibleCat);
         setLoading(false);
       } catch (e) {
-        console.error(e);
         setLoading(false);
       }
     };
@@ -177,28 +196,29 @@ const KioskMenu = () => {
   };
 
   const handlePlaceOrder = () => {
-    setShowTypeModal(true); // Open Choice Modal
+    const existingTable = localStorage.getItem(SAVED_TABLE_ID);
+    if (existingTable) {
+      submitOrderToDatabase(existingTable === "takeout" ? null : existingTable);
+    } else {
+      setShowTypeModal(true);
+    }
   };
 
-  // STEP 2: User clicks "Dine-in"
-  // STEP 2: User clicks "Dine-in"
   const handleDineInSelection = async () => {
     setShowTypeModal(false);
     try {
-      // Fetch latest table statuses from port 5000
       const res = await axios.get(`${API_BASE}/admin/getTable`);
       setAvailableTables(res.data);
       setShowTablePicker(true);
     } catch (err) {
-      console.error("Fetch tables error:", err);
-      alert("Could not load tables. Please check if the server is running.");
+      alert("Could not load tables.");
     }
   };
 
-  // STEP 3: Final Submission
   const submitOrderToDatabase = async (tableId = null) => {
     try {
-      const dynamicResId = `WALK-${Date.now()}`;
+      const dynamicResId =
+        localStorage.getItem(SAVED_RES_ID) || `WALK-${Date.now()}`;
       const response = await fetch(`${API_BASE}/orders/place`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -208,15 +228,15 @@ const KioskMenu = () => {
           items: cart.map((item) => ({
             item_id: item.id,
             quantity: item.quantity,
-            customizations: item.customizations || null, // IMPORTANT: Includes flavors/drinks
+            customizations: item.customizations || null,
           })),
         }),
       });
 
-      const result = await response.json();
-
       if (response.ok) {
-        // START THE TIMER (For Unli-wings session)
+        localStorage.setItem(SAVED_TABLE_ID, tableId || "takeout");
+        localStorage.setItem(SAVED_RES_ID, dynamicResId);
+
         if (!localStorage.getItem(TIMER_KEY)) {
           const endTime = Date.now() + 5400 * 1000;
           localStorage.setItem(TIMER_KEY, endTime.toString());
@@ -227,61 +247,57 @@ const KioskMenu = () => {
         setShowTablePicker(false);
         setShowTypeModal(false);
         setShowOrderSuccessModal(true);
-      } else {
-        alert("Order Error: " + (result.error || "Unknown error"));
       }
     } catch (error) {
-      console.error("Order failed:", error);
-      alert("Connection error. Please try again.");
+      alert("Order error.");
     }
   };
 
   const formatTime = (seconds) => {
-    if (seconds <= 0) return "0:00:00";
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     const s = seconds % 60;
     return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
-  if (loading)
-    return <div className="loading-container">Loading Kiosk Menu...</div>;
+  if (loading) return <div className="loading-container">Loading...</div>;
 
   return (
     <div className="res-kiosk-container">
-      {/* 1. HEADER (Timer & ID) */}
+      {/* HEADER */}
       <div className="kiosk-timer-wrapper" style={{ zIndex: 5000 }}>
         <div className="header-id-section">
           <ShoppingBag size={20} color="#ffcc00" />
           <div className="id-details">
             <span className="id-label">MODE</span>
-            <span className="id-value">WALK-IN GUEST</span>
+            <span className="id-value">
+              {localStorage.getItem(SAVED_TABLE_ID) === "takeout"
+                ? "TAKE-OUT"
+                : localStorage.getItem(SAVED_TABLE_ID)
+                  ? `TABLE ${localStorage.getItem(SAVED_TABLE_ID)}`
+                  : "WALK-IN GUEST"}
+            </span>
           </div>
         </div>
-
-        <div className="timer-box" style={{ pointerEvents: "auto" }}>
+        <div className="timer-box">
           <Clock size={20} color="#ffcc00" />
           <span className="timer-text">{formatTime(timeLeft)}</span>
-          {(isTimerRunning || localStorage.getItem(TIMER_KEY)) && (
-            <button
-              className="finish-session-header-btn"
-              onPointerDown={() => setShowEndModal(true)} // onPointerDown for instant kiosk response
-              style={{
-                background: "#ffcc00",
-                border: "none",
-                color: "#000",
-                padding: "5px 15px",
-                borderRadius: "5px",
-                marginLeft: "12px",
-                fontWeight: "bold",
-                cursor: "pointer",
-              }}
-            >
-              FINISH
-            </button>
-          )}
+          <button
+            className="finish-session-header-btn"
+            onClick={() => setShowEndModal(true)}
+            style={{
+              background: "#ffcc00",
+              border: "none",
+              color: "#000",
+              padding: "5px 15px",
+              borderRadius: "5px",
+              marginLeft: "12px",
+              fontWeight: "bold",
+            }}
+          >
+            FINISH
+          </button>
         </div>
-        <div className="header-right-spacer"></div>
       </div>
 
       <div className="res-main-layout">
@@ -291,8 +307,9 @@ const KioskMenu = () => {
             <p>Resto Bar</p>
           </div>
           <div className="res-category-list">
-            <div className="res-cat-scroll-wrapper">
-              {Object.keys(menuData).map((cat) => (
+            {Object.keys(menuData)
+              .filter((cat) => !HIDDEN_CATEGORIES.includes(cat))
+              .map((cat) => (
                 <button
                   key={cat}
                   className={`res-cat-btn ${activeCategory === cat ? "res-active" : ""}`}
@@ -304,15 +321,7 @@ const KioskMenu = () => {
                   <span>{cat}</span>
                 </button>
               ))}
-            </div>
           </div>
-          <button
-            className="res-assist-btn"
-            onClick={() => (window.location.href = "/kiosk-selection")}
-          >
-            <Bell size={18} />
-            <span>Assist Me</span>
-          </button>
         </aside>
 
         <main className="res-content-area">
@@ -347,7 +356,6 @@ const KioskMenu = () => {
             ))}
           </div>
         </main>
-
         <OrderSummary
           cart={cart}
           onRemoveItem={(id) => setCart(cart.filter((i) => i.id !== id))}
@@ -370,17 +378,18 @@ const KioskMenu = () => {
             disabled={cart.length === 0}
             onClick={handlePlaceOrder}
           >
-            Place Order
+            {localStorage.getItem(SAVED_TABLE_ID) ? "Add Items" : "Place Order"}
           </button>
         </div>
       </footer>
 
-      {/* --- PORTAL MODAL (Attached to document.body) --- */}
+      {/* MODALS */}
       <PortalModal
         isOpen={showEndModal}
         onClose={() => setShowEndModal(false)}
         onConfirm={handleEndSession}
       />
+
       {showTypeModal && (
         <div className="res-modal-overlay" style={{ zIndex: 6000 }}>
           <div className="res-modal-card">
@@ -388,21 +397,25 @@ const KioskMenu = () => {
               Order Mode
             </h2>
             <div
-              className="res-action-btns"
-              style={{ flexDirection: "column", gap: "15px" }}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "15px",
+                width: "100%",
+              }}
             >
               <button
                 className="res-modal-btn-primary"
                 onClick={handleDineInSelection}
               >
-                DINE-IN (Eat Here)
+                DINE-IN
               </button>
               <button
                 className="res-btn-view"
-                style={{ background: "#444" }}
                 onClick={() => submitOrderToDatabase(null)}
+                style={{ background: "#444" }}
               >
-                TAKE-OUT (To-go)
+                TAKE-OUT
               </button>
               <button
                 className="res-btn-cancel"
@@ -415,7 +428,6 @@ const KioskMenu = () => {
         </div>
       )}
 
-      {/* Item Details Modal */}
       {isModalOpen && (
         <ReservationOrderModal
           isOpen={isModalOpen}
@@ -425,10 +437,10 @@ const KioskMenu = () => {
           }}
           item={selectedItem}
           onAdd={addToOrder}
+          allProducts={menuData}
         />
       )}
 
-      {/* Success Overlay */}
       {showOrderSuccessModal && (
         <div
           className="res-modal-overlay"
@@ -454,6 +466,7 @@ const KioskMenu = () => {
           </div>
         </div>
       )}
+
       {showTablePicker && (
         <div className="res-modal-overlay" style={{ zIndex: 6000 }}>
           <div
@@ -471,9 +484,14 @@ const KioskMenu = () => {
               }}
             >
               {availableTables.map((table) => {
+                // --- FIX: Use bridge_status from your backend query ---
+                const status = table.bridge_status?.toLowerCase();
+
+                // A table is FULL if the bridge status is 'confirmed' or 'seated'
                 const isOccupied =
-                  table.bridge_status === "seated" ||
-                  table.bridge_status === "confirmed";
+                  status === "confirmed" || status === "seated";
+                // ------------------------------------------------------
+
                 return (
                   <button
                     key={table.table_id}
@@ -483,7 +501,7 @@ const KioskMenu = () => {
                       padding: "20px 10px",
                       borderRadius: "8px",
                       border: "none",
-                      background: isOccupied ? "#333" : "#ffcc00",
+                      background: isOccupied ? "#333" : "#ffcc00", // Grey if full, Yellow if open
                       color: isOccupied ? "#666" : "#000",
                       fontWeight: "bold",
                       cursor: isOccupied ? "not-allowed" : "pointer",
