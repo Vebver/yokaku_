@@ -9,10 +9,11 @@ import "../Style/FeaturedMenu.css";
 const API_BASE = import.meta.env.VITE_API_URL;
 const BASE_URL = import.meta.env.VITE_SOCKET_URL;
 
-function FeaturedMenu() {
+function FeaturedMenu({ onLoginClick }) {
   const [featuredItems, setFeaturedItems] = useState([]);
   const [slidesToShow, setSlidesToShow] = useState(1); // Start with mobile default
   const navigate = useNavigate();
+  const isLoggedIn = !!localStorage.getItem("token");
 
   // Function to determine slides based on screen width
   const getSlidesToShow = () => {
@@ -56,6 +57,17 @@ function FeaturedMenu() {
     return `${BASE_URL}/uploads/${imagePath}`;
   };
 
+  // Handle card click - redirect to login if not logged in, otherwise go to menu
+  const handleCardClick = (item) => {
+    if (!isLoggedIn) {
+      if (onLoginClick) {
+        onLoginClick();
+      }
+    } else {
+      navigate("/menu");
+    }
+  };
+
   const settings = {
     dots: true,
     arrows: slidesToShow > 1, // Only show arrows if more than 1 slide
@@ -79,6 +91,12 @@ function FeaturedMenu() {
                 <img src={getImageUrl(item.image_url)} alt={item.name} />
                 <span>{item.name}</span>
                 <small>₱{item.price}</small>
+                <button
+                  className="card-order-btn"
+                  onClick={() => handleCardClick(item)}
+                >
+                  {isLoggedIn ? "Order Now" : "Login to Order"}
+                </button>
               </div>
             </div>
           ))}

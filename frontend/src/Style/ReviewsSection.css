@@ -1,7 +1,8 @@
+/* Reviews Section Styles */
 .reviews {
   padding: 3rem 2rem 4rem;
   text-align: center;
-  background-color: #fdfbf0 !important;
+  background-color: #fdfbf0;
 }
 
 .reviews h2 {
@@ -19,10 +20,10 @@
   text-shadow: 2px 2px 3px rgba(166, 131, 0, 0.3);
 }
 
-/* Unique wrapper for the Slider to avoid clashing with Featured Menu */
+/* Unique wrapper for the Slider */
 .reviews-slick-container {
-  width: 30%;
-  max-width: 1100px; /* Wider to allow for 2 cards side-by-side on desktop */
+  width: 60%;
+  max-width: 900px;
   margin: 0 auto;
   padding: 20px 0 50px 0;
 }
@@ -37,16 +38,19 @@
   background-color: white;
   border-radius: 15px;
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
-  padding: 2.5rem 1.5rem;
+  padding: 2rem 1.5rem;
   text-align: center;
   display: flex !important;
   flex-direction: column;
   align-items: center;
   border: 1px solid #f0f0f0;
-  min-height: 120px; /* Keeps cards uniform in height */
   transition: transform 0.3s ease;
 }
 
+.reviews-slick-container .review-card:hover {
+  transform: translateY(-5px);
+}
+
 .reviews-slick-container .review-avatar {
   width: 60px;
   height: 60px;
@@ -59,6 +63,15 @@
   font-weight: 800;
   font-size: 1.2rem;
   margin-bottom: 1rem;
+}
+
+.reviews-slick-container .stars {
+  margin-bottom: 1rem;
+}
+
+.reviews-slick-container .star {
+  font-size: 1.2rem;
+  color: #ccc;
 }
 
 .reviews-slick-container .star.filled {
@@ -94,11 +107,16 @@
   transition: 0.3s;
 }
 
+.write-review-btn:hover {
+  background-color: #e6b800;
+  transform: scale(1.05);
+}
+
 .review-input-container {
   background: #222;
   padding: 25px;
   border-radius: 15px;
-  max-width: 600px;
+  max-width: 500px;
   margin: 0 auto 40px auto;
   border: 1px solid #ffcc00;
 }
@@ -107,10 +125,17 @@
   font-size: 30px;
   margin-bottom: 15px;
 }
+
 .star-clickable {
   cursor: pointer;
   color: #444;
+  transition: color 0.2s;
 }
+
+.star-clickable:hover {
+  color: #ffcc00;
+}
+
 .star-clickable.filled {
   color: #ffcc00;
 }
@@ -125,172 +150,12 @@
   border-radius: 10px;
   margin-bottom: 15px;
   font-family: inherit;
+  resize: vertical;
 }
 
-.form-actions {
-  display: flex;
-  gap: 15px;
-  justify-content: center;
-}
-
-.rev-submit-btn {
-  background: #ffcc00;
-  color: black;
-  border: none;
-  font-weight: 800;
-  padding: 10px 20px;
-  border-radius: 8px;
-  cursor: pointer;
-}
-.rev-cancel-btn {
-  background: transparent;
-  color: white;
-  border: 1px solid #555;
-  font-weight: 800;
-  padding: 10px 20px;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-/* FIX SLICK DOTS COLOR - Only for Reviews */
-.reviews-slick-container .slick-dots li button:before {
-  color: #ffcc00 !important;
-}
-
-.reviews-slick-container .slick-dots li.slick-active button:before {
-  color: #ffcc00 !important;
-}
-
-/* FIX SLICK ARROWS - Only for Reviews */
-.reviews-slick-container .slick-prev:before,
-.reviews-slick-container .slick-next:before {
-  color: #ffcc00;
-}
-.reviews {
-  padding: 3rem 2rem 4rem;
-  text-align: center;
-  background-color: white;
-}
-
-.reviews h2 {
-  font-weight: 900;
-  font-size: 1.7rem;
-  margin-bottom: 0.2rem;
-  color: #000;
-}
-
-.reviews h3 {
-  font-weight: 700;
-  font-size: 1.3rem;
-  margin-bottom: 2rem;
-  color: #ffd400;
-  text-shadow: 2px 2px 3px rgba(166, 131, 0, 0.3);
-}
-
-/* Unique wrapper for the Slider to avoid clashing with Featured Menu */
-.reviews-slick-container {
-  max-width: 600px;
-  margin: 0 auto;
-  padding: 20px 0 40px 0;
-}
-
-/* Scoped card styles */
-.reviews-slick-container .review-slide-wrapper {
-  padding: 15px;
+.review-input-container textarea:focus {
   outline: none;
-}
-
-.reviews-slick-container .review-card {
-  background-color: white;
-  border-radius: 15px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
-  padding: 2rem;
-  text-align: center;
-  margin: 0 auto;
-  display: flex !important;
-  flex-direction: column;
-  align-items: center;
-  border: 1px solid #eee;
-}
-
-.reviews-slick-container .review-avatar {
-  width: 60px;
-  height: 60px;
-  background-color: #ffcc00;
-  color: black;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  font-size: 1.2rem;
-  margin-bottom: 1rem;
-}
-
-.reviews-slick-container .star.filled {
-  color: #ffcc00;
-}
-
-.reviews-slick-container .review-text {
-  font-style: italic;
-  font-size: 1rem;
-  color: #555;
-  margin-bottom: 1.5rem;
-  line-height: 1.6;
-}
-
-.reviews-slick-container .review-author {
-  font-weight: 700;
-  color: #222;
-  border-top: 1px solid #eee;
-  padding-top: 10px;
-  width: 100%;
-}
-
-/* Write Review UI */
-.write-review-btn {
-  background-color: #ffcc00;
-  color: black;
-  border: none;
-  padding: 12px 35px;
-  font-weight: 900;
-  border-radius: 50px;
-  cursor: pointer;
-  margin-bottom: 30px;
-  transition: 0.3s;
-}
-
-.review-input-container {
-  background: #222;
-  padding: 25px;
-  border-radius: 15px;
-  max-width: 600px;
-  margin: 0 auto 40px auto;
-  border: 1px solid #ffcc00;
-}
-
-.star-rating-input {
-  font-size: 30px;
-  margin-bottom: 15px;
-}
-.star-clickable {
-  cursor: pointer;
-  color: #444;
-}
-.star-clickable.filled {
-  color: #ffcc00;
-}
-
-.review-input-container textarea {
-  width: 100%;
-  height: 100px;
-  background: #111;
-  color: white;
-  border: 1px solid #333;
-  padding: 15px;
-  border-radius: 10px;
-  margin-bottom: 15px;
-  font-family: inherit;
+  border-color: #ffcc00;
 }
 
 .form-actions {
@@ -307,7 +172,14 @@
   padding: 10px 20px;
   border-radius: 8px;
   cursor: pointer;
+  transition: 0.2s;
 }
+
+.rev-submit-btn:hover {
+  background: #e6b800;
+  transform: translateY(-2px);
+}
+
 .rev-cancel-btn {
   background: transparent;
   color: white;
@@ -316,25 +188,85 @@
   padding: 10px 20px;
   border-radius: 8px;
   cursor: pointer;
+  transition: 0.2s;
 }
 
-/* FIX SLICK DOTS COLOR - Only for Reviews */
+.rev-cancel-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: #ffcc00;
+}
+
+/* Slick Dots Colors */
+.reviews-slick-container .slick-dots {
+  bottom: -25px;
+}
+
 .reviews-slick-container .slick-dots li button:before {
   color: #ffcc00 !important;
+  font-size: 12px;
+  opacity: 0.5;
 }
 
 .reviews-slick-container .slick-dots li.slick-active button:before {
   color: #ffcc00 !important;
+  opacity: 1;
 }
 
-/* FIX SLICK ARROWS - Only for Reviews */
+/* Slick Arrows */
+.reviews-slick-container .slick-prev,
+.reviews-slick-container .slick-next {
+  z-index: 1;
+}
+
+.reviews-slick-container .slick-prev {
+  left: -40px;
+}
+
+.reviews-slick-container .slick-next {
+  right: -40px;
+}
+
 .reviews-slick-container .slick-prev:before,
 .reviews-slick-container .slick-next:before {
   color: #ffcc00;
+  font-size: 30px;
+  opacity: 0.7;
 }
-@media (max-width: 768px) {
+
+.reviews-slick-container .slick-prev:hover:before,
+.reviews-slick-container .slick-next:hover:before {
+  opacity: 1;
+}
+
+/* ============================================ */
+/* RESPONSIVE STYLES */
+/* ============================================ */
+
+/* Tablet (768px - 1024px) */
+@media (max-width: 1024px) {
   .reviews-slick-container {
-    max-width: 400px; /* Keep mobile view narrow and clean */
+    width: 75%;
+    max-width: 700px;
+  }
+
+  .reviews-slick-container .slick-prev {
+    left: -30px;
+  }
+
+  .reviews-slick-container .slick-next {
+    right: -30px;
+  }
+
+  .reviews-slick-container .slick-prev:before,
+  .reviews-slick-container .slick-next:before {
+    font-size: 25px;
+  }
+}
+
+/* Mobile Landscape (576px - 768px) */
+@media (max-width: 768px) {
+  .reviews {
+    padding: 2rem 1rem 3rem;
   }
 
   .reviews h2 {
@@ -343,27 +275,170 @@
 
   .reviews h3 {
     font-size: 1.1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .reviews-slick-container {
+    width: 85%;
+    padding: 10px 0 40px 0;
   }
 
   .reviews-slick-container .review-card {
     padding: 1.5rem;
-    min-height: 280px;
+  }
+
+  .reviews-slick-container .review-avatar {
+    width: 50px;
+    height: 50px;
+    font-size: 1rem;
   }
 
   .reviews-slick-container .review-text {
     font-size: 0.9rem;
   }
+
+  .reviews-slick-container .slick-prev,
+  .reviews-slick-container .slick-next {
+    display: none !important;
+  }
+
+  .write-review-btn {
+    padding: 10px 25px;
+    font-size: 0.9rem;
+  }
+
+  .review-input-container {
+    max-width: 90%;
+    padding: 20px;
+  }
+
+  .star-rating-input {
+    font-size: 25px;
+  }
 }
 
-/* --- SLICK ARROW POSITIONING --- */
-.reviews-slick-container .slick-prev {
-  left: -35px;
-}
-.reviews-slick-container .slick-next {
-  right: -35px;
+/* Mobile Portrait (up to 575px) */
+@media (max-width: 575px) {
+  .reviews {
+    padding: 1.5rem 0.8rem 2.5rem;
+  }
+
+  .reviews h2 {
+    font-size: 1.3rem;
+  }
+
+  .reviews h3 {
+    font-size: 1rem;
+  }
+
+  .reviews-slick-container {
+    width: 95%;
+    padding: 5px 0 35px 0;
+  }
+
+  .reviews-slick-container .review-slide-wrapper {
+    padding: 10px;
+  }
+
+  .reviews-slick-container .review-card {
+    padding: 1.2rem;
+  }
+
+  .reviews-slick-container .review-avatar {
+    width: 45px;
+    height: 45px;
+    font-size: 0.9rem;
+  }
+
+  .reviews-slick-container .star {
+    font-size: 1rem;
+  }
+
+  .reviews-slick-container .review-text {
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+  }
+
+  .reviews-slick-container .review-author {
+    font-size: 0.85rem;
+  }
+
+  .write-review-btn {
+    padding: 8px 20px;
+    font-size: 0.85rem;
+    margin-bottom: 20px;
+  }
+
+  .review-input-container {
+    padding: 15px;
+  }
+
+  .star-rating-input {
+    font-size: 22px;
+  }
+
+  .review-input-container textarea {
+    height: 80px;
+    padding: 10px;
+    font-size: 0.85rem;
+  }
+
+  .rev-submit-btn,
+  .rev-cancel-btn {
+    padding: 8px 16px;
+    font-size: 0.85rem;
+  }
+
+  .form-actions {
+    gap: 10px;
+  }
 }
 
-/* Fix for slick dots spacing */
-.reviews-slick-container .slick-dots {
-  bottom: -10px;
+/* Small phones (up to 375px) */
+@media (max-width: 375px) {
+  .reviews h2 {
+    font-size: 1.2rem;
+  }
+
+  .reviews h3 {
+    font-size: 0.9rem;
+  }
+
+  .reviews-slick-container .review-card {
+    padding: 1rem;
+  }
+
+  .reviews-slick-container .review-avatar {
+    width: 40px;
+    height: 40px;
+    font-size: 0.8rem;
+  }
+
+  .reviews-slick-container .star {
+    font-size: 0.9rem;
+  }
+
+  .reviews-slick-container .review-text {
+    font-size: 0.8rem;
+  }
+
+  .star-rating-input {
+    font-size: 20px;
+  }
+}
+
+/* Animation */
+.fade-in {
+  animation: fadeIn 0.4s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

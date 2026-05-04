@@ -246,3 +246,41 @@
     padding: 0 5px;
   }
 }
+
+/* ============================================ */
+/* CARD ORDER BUTTON STYLES                    */
+/* ============================================ */
+.featured-menu .menu-card .card-order-btn {
+  margin-top: 12px;
+  padding: 8px 16px;
+  background-color: #ffcc00;
+  color: #000;
+  border: none;
+  border-radius: 25px;
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: 100%;
+}
+
+.featured-menu .menu-card .card-order-btn:hover {
+  background-color: #000;
+  color: #ffcc00;
+  transform: translateY(-2px);
+}
+
+/* Mobile responsive for button */
+@media (max-width: 768px) {
+  .featured-menu .menu-card .card-order-btn {
+    padding: 6px 12px;
+    font-size: 0.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .featured-menu .menu-card .card-order-btn {
+    padding: 5px 10px;
+    font-size: 0.7rem;
+  }
+}
