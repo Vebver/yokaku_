@@ -865,15 +865,21 @@
 /* ============================================ */
 /* STRONGER ONGOING SCHEDULE ITEM STYLES       */
 /* ============================================ */
-.schedule-item-3d.ongoing {
-  background: #ffe6e6 !important;
-  border-left: 4px solid #e63946 !important;
-  border-radius: 8px;
+/* ============================================ */
+/* STRONGER ONGOING SCHEDULE ITEM STYLES       */
+/* ============================================ */
+.schedule-item-3d.ongoing,
+.schedule-item-3d.ongoing.reserved,
+.schedule-item-3d.ongoing.occupied {
+  background: #e63946 !important;
+  background-color: #e63946 !important;
+  border-left: 4px solid #ffcc00 !important;
+  border-radius: 8px !important;
 }
 
 .schedule-item-3d.ongoing .schedule-status {
-  background: #e63946 !important;
-  color: white !important;
+  background: white !important;
+  color: #e63946 !important;
   padding: 4px 12px;
   border-radius: 20px;
   font-size: 10px;
@@ -881,12 +887,17 @@
 }
 
 .schedule-item-3d.ongoing .schedule-time {
-  color: #e63946;
+  color: white !important;
   font-weight: bold;
 }
 
 .schedule-item-3d.ongoing svg {
-  color: #e63946;
+  color: white !important;
+}
+
+.schedule-item-3d.ongoing .schedule-status::before {
+  content: "🔴 ";
+  animation: none !important;
 }
 
 /* Form Loading Spinner */
