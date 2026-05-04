@@ -34,12 +34,7 @@ import {
   isReservationOngoing,
 } from "./TableReservationUtils";
 import { LoadingSpinner, DateLoadingSpinner } from "./TableReservationSpinners";
-import ActiveReservationBlock from "./TableReservationActiveBlock";
-import {
-  useSocket,
-  useAddressData,
-  useActiveReservation,
-} from "./TableReservationHooks";
+import { useSocket, useAddressData } from "./TableReservationHooks";
 
 const API_BASE = "https://yokaku-backend.onrender.com/api";
 
@@ -86,8 +81,6 @@ export default function TableReservation({ onClose, onSuccess }) {
 
   const socket = useSocket();
   const { addressData, fetchBarangays } = useAddressData();
-  const { hasActiveReservationBlock, activeReservationDetails } =
-    useActiveReservation();
 
   const todayStr = new Date().toLocaleDateString("en-CA");
 
@@ -140,6 +133,61 @@ export default function TableReservation({ onClose, onSuccess }) {
       })
       .catch(console.error);
   }, []);
+
+  // REAL-TIME POLLING
+  useEffect(() => {
+    const poll = async () => {
+      if (!form.date) return;
+      try {
+        const statRes = await axios.get(
+          `${API_BASE}/reservations/table-statuses`,
+          {
+            params: {
+              date: form.date,
+              startTime: form.startTime || "00:00",
+              endTime: form.endTime || "23:59",
+            },
+          },
+        );
+
+        let schedRes = { data: [] };
+        if (selectedId && form.date) {
+          try {
+            schedRes = await axios.get(
+              `${API_BASE}/reservations/table-schedule`,
+              {
+                params: { tableId: selectedId, date: form.date },
+              },
+            );
+          } catch (error) {
+            schedRes = { data: [] };
+          }
+        }
+
+        const processedSchedule = (schedRes.data || [])
+          .filter((res) => res.status !== "Done" && res.status !== "Completed")
+          .map((res) => {
+            const processed = { ...res };
+            if (
+              (processed.status === "Confirmed" ||
+                processed.status === "Pending") &&
+              isReservationOngoing(processed.startTime, processed.endTime)
+            ) {
+              processed.status = "Ongoing";
+            }
+            return processed;
+          });
+
+        setData({ occupied: statRes.data || {}, schedule: processedSchedule });
+      } catch (e) {
+        console.error("Polling error:", e);
+      }
+    };
+
+    poll();
+    const pollInterval = setInterval(poll, 10000);
+    return () => clearInterval(pollInterval);
+  }, [form.date, form.startTime, form.endTime, selectedId]);
 
   const primaryTable = useMemo(
     () => TABLES_DATA.find((t) => t.id === selectedId),
@@ -353,7 +401,6 @@ export default function TableReservation({ onClose, onSuccess }) {
   });
 
   const isFormInvalid = useMemo(() => {
-    if (hasActiveReservationBlock) return true;
     return (
       !selectedId ||
       !isFirstNameValid ||
@@ -383,7 +430,6 @@ export default function TableReservation({ onClose, onSuccess }) {
     isMuniValid,
     isBrgyValid,
     hasNoConflict,
-    hasActiveReservationBlock,
   ]);
 
   const handleInputChange = (e) => {
@@ -403,12 +449,6 @@ export default function TableReservation({ onClose, onSuccess }) {
   };
 
   const onTableClick = (table) => {
-    if (hasActiveReservationBlock) {
-      alert(
-        "You have an ongoing reservation. You cannot reserve another table.",
-      );
-      return;
-    }
     if (table.status === "maintenance") {
       alert("This table is currently under maintenance.");
       return;
@@ -436,11 +476,6 @@ export default function TableReservation({ onClose, onSuccess }) {
   };
 
   const confirmBooking = async (file, method) => {
-    if (hasActiveReservationBlock) {
-      alert("You have an ongoing reservation.");
-      return;
-    }
-
     setIsProcessing(true);
     setUi((p) => ({ ...p, loading: true }));
 
@@ -503,15 +538,6 @@ export default function TableReservation({ onClose, onSuccess }) {
   };
 
   const availableTablesForLinking = getAvailableTablesForLinking();
-
-  if (hasActiveReservationBlock && activeReservationDetails) {
-    return (
-      <ActiveReservationBlock
-        activeReservationDetails={activeReservationDetails}
-        onClose={onClose}
-      />
-    );
-  }
 
   return (
     <div className={`floor-plan-wrapper ${!form.date ? "init-state" : ""}`}>

@@ -20,7 +20,7 @@ function HeroSection({ onLoginClick, onReserveClick, isLoggedIn }) {
       console.log("🔍 Checking active reservation for user:", userId);
 
       const response = await axios.get(
-        `/api/reservations/check-active/${userId}`,
+        `${API_BASE}/reservations/check-active/${userId}`,
       );
       console.log("🔍 Response:", response.data);
 
@@ -28,7 +28,7 @@ function HeroSection({ onLoginClick, onReserveClick, isLoggedIn }) {
         // Fetch full reservation details
         const token = localStorage.getItem("token");
         const detailsRes = await axios.get(
-          `/api/reservations/user-active/${userId}`,
+          `${API_BASE}/reservations/user-active/${userId}`,
           {
             headers: { Authorization: `Bearer ${token}` },
           },
