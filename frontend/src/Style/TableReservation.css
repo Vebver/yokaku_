@@ -861,3 +861,30 @@
     margin-top: 20px;
   }
 }
+
+/* ============================================ */
+/* STRONGER ONGOING SCHEDULE ITEM STYLES       */
+/* ============================================ */
+.schedule-item-3d.ongoing {
+  background: #ffe6e6 !important;
+  border-left: 4px solid #e63946 !important;
+  border-radius: 8px;
+}
+
+.schedule-item-3d.ongoing .schedule-status {
+  background: #e63946 !important;
+  color: white !important;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+.schedule-item-3d.ongoing .schedule-time {
+  color: #e63946;
+  font-weight: bold;
+}
+
+.schedule-item-3d.ongoing svg {
+  color: #e63946;
+}
