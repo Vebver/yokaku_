@@ -37,6 +37,20 @@ router.get(
 // Get all reservations for a specific user
 router.get("/user/:userId", protect, reservationController.getUserReservations);
 
+// Get user's cancellation count
+router.get(
+  "/user/:userId/cancellation-count",
+  protect,
+  reservationController.getCancellationCount,
+);
+
+// Record cancellation (increment count)
+router.post(
+  "/record-cancellation",
+  protect,
+  reservationController.recordCancellation,
+);
+
 // Get all reservations (admin only)
 router.get("/", protect, adminOnly, reservationController.getReservations);
 

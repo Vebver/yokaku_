@@ -66,10 +66,28 @@ class User {
   static async create(email, password, firstName, lastName) {
     const hashedPassword = await bcrypt.hash(password, 12);
     const [result] = await pool.execute(
-      'INSERT INTO users (first_name, last_name, email, password_hash, role) VALUES (?, ?, ?, ?, "customer")',
+      'INSERT INTO users (first_name, last_name, email, password_hash, role, cancellation_count) VALUES (?, ?, ?, ?, "customer", 0)',
       [firstName, lastName, email, hashedPassword],
     );
     return result.insertId;
+  }
+
+  // Get user's cancellation count
+  static async getCancellationCount(userId) {
+    const [rows] = await pool.query(
+      "SELECT cancellation_count FROM users WHERE user_id = ?",
+      [userId],
+    );
+    return rows[0]?.cancellation_count || 0;
+  }
+
+  // Increment user's cancellation count
+  static async incrementCancellationCount(userId) {
+    const [result] = await pool.execute(
+      "UPDATE users SET cancellation_count = cancellation_count + 1 WHERE user_id = ?",
+      [userId],
+    );
+    return result.affectedRows > 0;
   }
 
   static get pool() {

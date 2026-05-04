@@ -1,6 +1,7 @@
 const axios = require("axios"); // For PayMongo API calls
 const db = require("../config/db");
 const Reservation = require("../models/Reservation");
+const User = require("../models/User"); // Add this import
 
 const formatTimeTo24h = (timeStr) => {
   if (!timeStr) return null;
@@ -131,8 +132,8 @@ const reservationController = {
 
   // Check if user has active reservation (considering current time)
   checkUserActive: async (req, res) => {
-  try {
-    const { userId } = req.params;
+    try {
+      const { userId } = req.params;
 
       const now = new Date();
       const currentTime = now.toTimeString().slice(0, 5); // Format: HH:MM
@@ -169,6 +170,30 @@ const reservationController = {
       res.json({ hasActive: rows.length > 0 });
     } catch (error) {
       console.error("Error checking active reservation:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+
+  // Get user's cancellation count
+  getCancellationCount: async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const count = await User.getCancellationCount(userId);
+      res.json({ cancellationCount: count });
+    } catch (error) {
+      console.error("Error fetching cancellation count:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+
+  // Record cancellation (increment count)
+  recordCancellation: async (req, res) => {
+    try {
+      const { userId } = req.body;
+      await User.incrementCancellationCount(userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error recording cancellation:", error);
       res.status(500).json({ error: error.message });
     }
   },
@@ -276,7 +301,6 @@ const reservationController = {
     }
   },
 
-  // Get all reservations for a user (for My Reservations page)
   // Get all reservations for a user (for My Reservations page) - Only active/ongoing
   getUserReservations: async (req, res) => {
     try {
@@ -445,7 +469,11 @@ const reservationController = {
         paymentStatus: body.paymentStatus,
         paymentMethod: body.paymentMethod,
       };
-      console.log("📦 Data size being sent:", reservationData.selectedItems.length, "chars");
+      console.log(
+        "📦 Data size being sent:",
+        reservationData.selectedItems.length,
+        "chars",
+      );
 
       console.log(
         "🔍 Creating reservation with userId:",
@@ -486,11 +514,9 @@ const reservationController = {
     }
   },
 
-  // controllers/reservationController.js
-
-   updateStatus: async (req, res) => {
+  updateStatus: async (req, res) => {
     try {
-      const { id } = req.params; // This is the reservation_id from URL
+      const { id } = req.params;
       const { status } = req.body;
 
       if (!id) {
@@ -503,17 +529,17 @@ const reservationController = {
       await Reservation.updateStatus(id, status);
 
       // 2. Update the bridge table so the Table Status dashboard turns RED
-      // Note: check your table name, is it reservation_tables or reservation_table?
-      const bridgeStatus = status.toLowerCase(); // "Seated" -> "seated"
-      
-      const sql = "UPDATE reservation_tables SET status = ? WHERE reservation_id = ?";
+      const bridgeStatus = status.toLowerCase();
+
+      const sql =
+        "UPDATE reservation_tables SET status = ? WHERE reservation_id = ?";
       const [result] = await db.execute(sql, [bridgeStatus, id]);
 
       console.log("Bridge table update result:", result.affectedRows);
 
       res.json({ success: true, message: `Status updated to ${status}` });
     } catch (error) {
-      console.error("BACKEND CRASH ERROR:", error); // Look at your VS Code terminal for this!
+      console.error("BACKEND CRASH ERROR:", error);
       res.status(500).json({ error: error.message });
     }
   },

@@ -28,6 +28,11 @@ const MyReservation = () => {
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [showTermsFromCancel, setShowTermsFromCancel] = useState(false);
 
+  // New state for cancellation limit
+  const [cancellationsLeft, setCancellationsLeft] = useState(3);
+  const [showLimitWarning, setShowLimitWarning] = useState(false);
+  const MAX_CANCELLATIONS = 3;
+
   const cancelReasons = [
     "Change of plans",
     "Schedule conflict",
@@ -41,7 +46,30 @@ const MyReservation = () => {
 
   useEffect(() => {
     fetchUserReservations();
+    fetchCancellationCount();
   }, []);
+
+  // Fetch user's cancellation count
+  const fetchCancellationCount = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const userId = localStorage.getItem("userId");
+
+      if (!userId) return;
+
+      const response = await axios.get(
+        `${API_BASE}/reservations/user/${userId}/cancellation-count`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+
+      const count = response.data.cancellationCount || 0;
+      setCancellationsLeft(Math.max(0, MAX_CANCELLATIONS - count));
+    } catch (error) {
+      console.error("Error fetching cancellation count:", error);
+    }
+  };
 
   const fetchUserReservations = async () => {
     try {
@@ -101,6 +129,12 @@ const MyReservation = () => {
   };
 
   const handleCancelClick = () => {
+    // Check if user has reached cancellation limit
+    if (cancellationsLeft <= 0) {
+      setShowLimitWarning(true);
+      return;
+    }
+
     setCancelReason("");
     setCancelReasonText("");
     setSelectedCancelReason("");
@@ -114,6 +148,7 @@ const MyReservation = () => {
     setCancelReasonText("");
     setSelectedCancelReason("");
     setAgreeToTerms(false);
+    setShowLimitWarning(false);
   };
 
   const handleOpenTermsModal = () => {
@@ -153,6 +188,9 @@ const MyReservation = () => {
   const handleProceedToCancellation = async (finalReason) => {
     try {
       const token = localStorage.getItem("token");
+      const userId = localStorage.getItem("userId");
+
+      // Cancel the reservation
       await axios.put(
         `${API_BASE}/reservations/${selectedReservation.reservation_id}/status`,
         {
@@ -165,9 +203,28 @@ const MyReservation = () => {
         },
       );
 
-      alert(`Reservation cancelled successfully.\nReason: ${finalReason}`);
+      // Record cancellation (increment count)
+      await axios.post(
+        `${API_BASE}/reservations/record-cancellation`,
+        { userId },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+
+      const newCancellationsLeft = cancellationsLeft - 1;
+      let warningMessage = `Reservation cancelled successfully.\nReason: ${finalReason}\n\n`;
+
+      if (newCancellationsLeft === 0) {
+        warningMessage += `⚠️ WARNING: You have reached your cancellation limit (${MAX_CANCELLATIONS}/3). You can no longer cancel any future reservations.`;
+      } else {
+        warningMessage += `ℹ️ You have ${newCancellationsLeft} cancellation${newCancellationsLeft !== 1 ? "s" : ""} left out of ${MAX_CANCELLATIONS}.`;
+      }
+
+      alert(warningMessage);
 
       await fetchUserReservations();
+      await fetchCancellationCount();
       handleCloseCancelModal();
       closeModal();
     } catch (error) {
@@ -220,6 +277,14 @@ const MyReservation = () => {
           <div className="my-reservation-header">
             <h1>My Reservations</h1>
             <p>View and manage your upcoming table reservations</p>
+            {/* Display cancellation limit info */}
+            <div className="cancellation-info">
+              <span
+                className={`cancellation-badge ${cancellationsLeft === 0 ? "limit-reached" : ""}`}
+              >
+                📋 {cancellationsLeft} / {MAX_CANCELLATIONS} cancellations left
+              </span>
+            </div>
           </div>
 
           <div className="reservations-list">
@@ -455,6 +520,11 @@ const MyReservation = () => {
                 <button
                   className="cancel-reservation-btn"
                   onClick={handleCancelClick}
+                  disabled={cancellationsLeft === 0}
+                  style={{
+                    opacity: cancellationsLeft === 0 ? 0.5 : 1,
+                    cursor: cancellationsLeft === 0 ? "not-allowed" : "pointer",
+                  }}
                 >
                   <AlertCircle size={16} />
                   Cancel Reservation
@@ -465,6 +535,51 @@ const MyReservation = () => {
                 >
                   <Edit size={16} />
                   Update Reservation
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Limit Warning Modal */}
+        {showLimitWarning && (
+          <div
+            className="cancel-modal-overlay"
+            onClick={handleCloseCancelModal}
+          >
+            <div className="cancel-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="cancel-modal-header">
+                <h3>Cancellation Limit Reached</h3>
+                <button
+                  className="cancel-modal-close"
+                  onClick={handleCloseCancelModal}
+                >
+                  <X size={24} />
+                </button>
+              </div>
+              <div className="cancel-modal-body">
+                <div className="limit-warning-icon">⚠️</div>
+                <p className="limit-warning-message">
+                  You have reached the maximum number of cancellations (
+                  {MAX_CANCELLATIONS}/3).
+                </p>
+                <p className="limit-warning-message">
+                  You can no longer cancel any future reservations.
+                </p>
+                <div className="cancel-warning">
+                  <AlertCircle size={16} />
+                  <span>
+                    Please contact the restaurant directly if you need to make
+                    changes.
+                  </span>
+                </div>
+              </div>
+              <div className="cancel-modal-footer">
+                <button
+                  className="cancel-modal-back-btn"
+                  onClick={handleCloseCancelModal}
+                >
+                  Close
                 </button>
               </div>
             </div>
@@ -489,6 +604,12 @@ const MyReservation = () => {
               </div>
 
               <div className="cancel-modal-body">
+                <div className="cancellation-warning-banner">
+                  ⚠️ You have {cancellationsLeft} cancellation
+                  {cancellationsLeft !== 1 ? "s" : ""} left (Max{" "}
+                  {MAX_CANCELLATIONS})
+                </div>
+
                 <p className="cancel-modal-message">
                   Please tell us why you're cancelling this reservation. This
                   helps us improve our service.
