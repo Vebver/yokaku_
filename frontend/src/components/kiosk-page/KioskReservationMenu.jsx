@@ -45,6 +45,7 @@ const KioskReservationMenu = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [cart, setOrderCart] = useState([]);
+  const [allProductsLookup, setAllProductsLookup] = useState({});
 
   const [timeLeft, setTimeLeft] = useState(5400);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
@@ -55,6 +56,7 @@ const KioskReservationMenu = () => {
     window.location.href = "/kiosk-selection";
   };
 
+  
   useEffect(() => {
     if (isTimerRunning) {
       timerRef.current = setInterval(() => {
@@ -83,11 +85,9 @@ const KioskReservationMenu = () => {
 
     const fetchData = async () => {
       try {
-        // 1. Fetch All Products
         const prodRes = await fetch(`${API_BASE}/products`);
         const allProducts = await prodRes.json();
 
-        // 2. Fetch User's Reserved Items (Items chosen during booking)
         const resItemsRes = await fetch(
           `${API_BASE}/orders/reservation-items/${reservationId}`,
         );
@@ -95,19 +95,44 @@ const KioskReservationMenu = () => {
 
         const grouped = {};
 
-        // 3. Add "My Reserved Items" category at the TOP if items exist
+        // 1. Organize ALL products by category for the Modal to use
+        const productLookup = {};
+        allProducts.forEach((p) => {
+          const cat = p.category_name || "Uncategorized";
+          if (!productLookup[cat]) productLookup[cat] = [];
+          productLookup[cat].push({
+            id: p.item_id,
+            name: p.name,
+            price: p.price,
+            image: p.image_url,
+          });
+        });
+
+        // 2. Map "My Reserved Items" and parse their saved customizations
         if (reservedItems.length > 0) {
-          grouped["My Reserved Items"] = reservedItems.map((item) => ({
-            id: item.item_id,
-            name: item.name,
-            price: item.price,
-            image: item.image_url.startsWith("http")
-              ? item.image_url
-              : `${BASE_URL}${item.image_url.startsWith("/") ? "" : "/"}${item.image_url}`,
-          }));
+          grouped["My Reserved Items"] = reservedItems.map((item) => {
+            let savedCustoms = item.customizations;
+            if (typeof savedCustoms === "string") {
+              try {
+                savedCustoms = JSON.parse(savedCustoms);
+              } catch (e) {
+                savedCustoms = null;
+              }
+            }
+
+            return {
+              id: item.item_id,
+              name: item.name,
+              price: item.price,
+              customizations: savedCustoms, // <--- SAVED DATA FROM WEBSITE
+              image: item.image_url.startsWith("http")
+                ? item.image_url
+                : `${BASE_URL}${item.image_url.startsWith("/") ? "" : "/"}${item.image_url}`,
+            };
+          });
         }
 
-        // 4. Group all other products
+        // 3. Group other products as normal
         allProducts.forEach((item) => {
           const cat = item.category_name || "Uncategorized";
           if (!grouped[cat]) grouped[cat] = [];
@@ -120,15 +145,19 @@ const KioskReservationMenu = () => {
             name: item.name,
             price: item.price,
             image: finalImg,
+            category: cat,
           });
         });
 
         setMenuData(grouped);
+        // Important: Keep productLookup for the modal
+        setAllProductsLookup(productLookup);
+
         const cats = Object.keys(grouped);
-        if (cats.length > 0) setActiveCategory(cats[0]); // Defaults to "My Reserved Items"
+        if (cats.length > 0) setActiveCategory(cats[0]);
         setLoading(false);
       } catch (err) {
-        console.error("Data Fetch Error:", err);
+        console.error(err);
         setLoading(false);
       }
     };
@@ -396,6 +425,7 @@ const KioskReservationMenu = () => {
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           item={selectedItem}
+          allProducts={allProductsLookup}
           onAdd={(item) => setOrderCart([...cart, item])}
         />
       )}

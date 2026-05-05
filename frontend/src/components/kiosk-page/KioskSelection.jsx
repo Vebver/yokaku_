@@ -13,12 +13,23 @@ const KioskSelection = () => {
     return "Good Evening!";
   };
 
-  const handleSelection = (type) => {
+const handleSelection = (type) => {
     if (type === 'menu') {
-      // Directs to the ordering/menu page
+      // MODE: WALK-IN 
+      // 1. Clear any old reservation data to prevent errors
+      localStorage.removeItem("resId"); 
+      
+      // 2. Mark this session as a Walk-in
+      localStorage.setItem("kiosk_mode", "walkin");
+      
+      // 3. Directs to the ordering page
       navigate('/kiosk-selection/kiosk-menu'); 
     } else if (type === 'reservation') {
-      // Directs to the table reservation flow
+      // MODE: PRE-BOOKED RESERVATION
+      // We don't set the resId yet; the next page (Scanner/Input) will handle that
+      localStorage.setItem("kiosk_mode", "reservation");
+      
+      // 4. Directs to the scanner/ID entry page
       navigate('/kiosk-selection/kiosk-reservation'); 
     }
   };

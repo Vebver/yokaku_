@@ -16,30 +16,39 @@ const KioskReservation = () => {
   const scannerRef = useRef(null);
 
   // --- NEW: FUNCTION TO VALIDATE ID WITH DATABASE ---
-  const validateAndProceed = async (id) => {
-    setLoading(true);
-    setError("");
-    try {
-      // Adjust URL/Port to match your backend index.js
-      const response = await fetch(`${API_BASE}/reservations/${id}`);
-      const data = await response.json();
+ const validateAndProceed = async (id) => {
+  setLoading(true);
+  setError("");
+  try {
+    // We try to get the token, but if it's a public kiosk, it might be null
+    const token = localStorage.getItem("token");
 
-      if (response.ok) {
-        localStorage.setItem("resId", id); // Save valid ID to memory
-        navigate("/kiosk-selection/kiosk-reservation-menu");
-      } else {
-        setError(
-          data.message || "Reservation not found. Please check your ID.",
-        );
-        if (isScanning) stopScanner();
+    const response = await fetch(`${API_BASE}/reservations/${id}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token && { "Authorization": `Bearer ${token}` }) // Only add if token exists
       }
-    } catch (err) {
-      setError("Server connection failed. Please try again later.");
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      // SUCCESS: Save the valid reservation ID
+      localStorage.setItem("resId", id);
+      localStorage.setItem("kiosk_mode", "reservation"); // Mark mode
+      navigate("/kiosk-selection/kiosk-reservation-menu");
+    } else {
+      setError(data.message || "Reservation not found. Please check your ID.");
       if (isScanning) stopScanner();
-    } finally {
-      setLoading(false);
     }
-  };
+  } catch (err) {
+    setError("Server connection failed. Please try again later.");
+    if (isScanning) stopScanner();
+  } finally {
+    setLoading(false);
+  }
+};
 
   const startScanner = async () => {
     setError("");
