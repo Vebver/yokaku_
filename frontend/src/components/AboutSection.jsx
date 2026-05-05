@@ -6,7 +6,7 @@ function AboutSection({ onLoginClick }) {
 
   return (
     <>
-      <section className="about-us" id="about-section">
+      <hr></hr>
         <div className="container">
           <div className="about-header">
             <span className="subtitle">OUR STORY</span>
@@ -98,7 +98,6 @@ function AboutSection({ onLoginClick }) {
             </div>
           </div>
         </div>
-      </section>
 
       {/* Modal Lightbox */}
       {selectedImage && (

@@ -95,7 +95,7 @@ function FeaturedMenu({ onLoginClick }) {
                   className="card-order-btn"
                   onClick={() => handleCardClick(item)}
                 >
-                  {isLoggedIn ? "Reserve a Table" : "Login to Reserve"}
+                  {isLoggedIn ? "Reserve a Table" : "Reserve now"}
                 </button>
               </div>
             </div>

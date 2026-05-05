@@ -1,7 +1,16 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
-import { User, Loader2, CheckCircle2, Trash2 } from "lucide-react";
+import {
+  User,
+  Loader2,
+  CheckCircle2,
+  Trash2,
+  Image as ImageIcon,
+} from "lucide-react";
+
 const API_BASE = "https://yokaku-backend.onrender.com/api";
+const BASE_URL = "https://yokaku-backend.onrender.com"; // Base URL for images
+
 const Billing = () => {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -31,7 +40,6 @@ const Billing = () => {
     setOrderItems([]);
     setLoadingItems(true);
     try {
-      // Fetches items from either kiosk_orders or reservation_items automatically via the Model fix
       const res = await axios.get(
         `${API_BASE}/reservations/${p.reservation_id}/items`,
       );
@@ -62,7 +70,6 @@ const Billing = () => {
     }
   };
 
-  // The calculated sum of items currently in the drawer
   const calculateItemsSum = () => {
     return orderItems.reduce(
       (sum, item) => sum + item.quantity * item.price,
@@ -192,7 +199,51 @@ const Billing = () => {
                 </div>
               </div>
 
-              {/* Order Details Box (With Customizations) */}
+              {/* NEW: PROOF OF PAYMENT SECTION */}
+              <div className="card border-0 shadow-sm mb-3">
+                <div className="card-body">
+                  <label className="small fw-bold text-muted text-uppercase mb-2 d-block">
+                    Proof of Payment
+                  </label>
+                  {selectedPayment.receipt_path ? (
+                    <div className="text-center">
+                      <a
+                        href={
+                          selectedPayment.receipt_path.startsWith("http")
+                            ? selectedPayment.receipt_path
+                            : `${BASE_URL}/uploads/${selectedPayment.receipt_path.replace("/uploads/", "")}`
+                        }
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <img
+                          src={
+                            selectedPayment.receipt_path.startsWith("http")
+                              ? selectedPayment.receipt_path
+                              : `${BASE_URL}/uploads/${selectedPayment.receipt_path.replace("/uploads/", "")}`
+                          }
+                          alt="Payment Proof"
+                          className="img-fluid rounded border"
+                          style={{ maxHeight: "300px" }}
+                          onError={(e) => {
+                            // Fallback if the URL is still malformed
+                            e.target.src =
+                              "https://placehold.co/300?text=Error+Loading+Image";
+                          }}
+                        />
+                      </a>
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 bg-light rounded">
+                      <p className="text-muted small mb-0">
+                        No image proof uploaded
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Order Details Box */}
               <div className="card border-0 shadow-sm mb-3">
                 <div className="card-body">
                   <label className="small fw-bold text-muted text-uppercase mb-3 d-block">
@@ -228,6 +279,7 @@ const Billing = () => {
                                 ₱{(item.quantity * item.price).toLocaleString()}
                               </span>
                             </div>
+                            {/* ... Customizations UI remains same ... */}
                             {customs && (
                               <div className="mt-1 ps-2 border-start border-2 border-warning-subtle small text-muted">
                                 {customs.flavor && (
@@ -264,7 +316,7 @@ const Billing = () => {
                 </div>
               </div>
 
-              {/* CLEANED UP Payment Summary Box */}
+              {/* Payment Summary Box */}
               <div className="card border-0 shadow-sm mb-4">
                 <div className="card-body">
                   <label className="small fw-bold text-muted text-uppercase mb-3 d-block">

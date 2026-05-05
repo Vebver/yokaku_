@@ -75,6 +75,7 @@ function ReviewsSection() {
 
   return (
     <section className="reviews" id="feedbacks-section">
+      <hr></hr>
       <h2>REVIEWS</h2>
       <h3>WHAT OUR CUSTOMERS HAVE TO SAY...</h3>
 

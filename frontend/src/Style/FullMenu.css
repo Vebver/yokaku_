@@ -152,6 +152,23 @@
   font-size: 1.5rem;
   letter-spacing: 2px;
 }
+/* Add this to your FullMenu.css */
+.order-now-button {
+  margin-top: 10px;
+  background-color: #ffcc00; /* Example color */
+  color: 161616;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: background 0.3s ease;
+}
+
+.order-now-button:hover {
+  background-color: #161616;
+  color:#ffcc00;
+}
 
 /* Responsive Adjustments */
 @media (max-width: 1024px) {

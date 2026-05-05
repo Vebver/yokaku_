@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react"; // Import the icon
+import { ArrowLeft } from "lucide-react"; 
 import "../Style/FullMenu.css";
 
 const API_BASE = "https://yokaku-backend.onrender.com/api";
@@ -12,30 +12,44 @@ function FullMenu() {
   const [items, setItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [activeCategory, setActiveCategory] = useState("All");
+  const [activeCategory, setActiveCategory] = useState("");
   const [loading, setLoading] = useState(true);
+
+  // Define categories to exclude
+  const excludedCategories = ["Chicken", "Drinks"];
 
   useEffect(() => {
     const fetchAllItems = async () => {
       try {
         const res = await axios.get(`${API_BASE}/products`);
-        setItems(res.data);
-        setFilteredItems(res.data);
+        
+        // 1. Filter out the items belonging to excluded categories
+        const filteredData = res.data.filter(
+          (item) => !excludedCategories.includes(item.category_name)
+        );
 
+        setItems(filteredData);
+
+        // 2. Extract unique category names, excluding the unwanted ones
         const uniqueNames = [
-          ...new Set(res.data.map((item) => item.category_name)),
+          ...new Set(filteredData.map((item) => item.category_name)),
         ].filter(Boolean);
 
         setCategories([...uniqueNames, "All"]);
 
+        // 3. Set the first available category as default
         if (uniqueNames.length > 0) {
           const firstCat = uniqueNames[0];
           setActiveCategory(firstCat);
-          const initialFiltered = res.data.filter(
-            (item) => item.category_name === firstCat,
+          const initialFiltered = filteredData.filter(
+            (item) => item.category_name === firstCat
           );
           setFilteredItems(initialFiltered);
+        } else {
+          setFilteredItems(filteredData);
+          setActiveCategory("All");
         }
+
         setLoading(false);
       } catch (err) {
         console.error("Error loading menu:", err);
@@ -53,6 +67,12 @@ function FullMenu() {
       const filtered = items.filter((item) => item.category_name === name);
       setFilteredItems(filtered);
     }
+  };
+
+  const handleOrderNow = (item) => {
+    // Add your ordering logic here (e.g., navigate to checkout or add to cart)
+    console.log("Ordering item:", item.name);
+    // Example: navigate(`/order/${item.id}`);
   };
 
   if (loading) return <div className="loading">Loading Menu...</div>;
@@ -95,6 +115,13 @@ function FullMenu() {
             <div className="small-card-info">
               <h4>{item.name}</h4>
               <span className="small-price">₱{item.price}</span>
+              {/* ORDER NOW BUTTON */}
+              <button 
+                className="order-now-button" 
+                onClick={() => handleOrderNow(item)}
+              >
+                Order Now
+              </button>
             </div>
           </div>
         ))}
