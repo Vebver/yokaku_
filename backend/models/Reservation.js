@@ -29,19 +29,19 @@ const Reservation = {
   // --- EXISTING METHODS ---
   // models/Reservation.js
 
-checkActiveByUserId: async (userId) => {
-  // CHANGE: Remove 'Seated' from this query.
-  // Now, if a user is already 'Seated', this returns false, 
-  // allowing them to create a new reservation.
-  const sql = `
+  checkActiveByUserId: async (userId) => {
+    // CHANGE: Remove 'Seated' from this query.
+    // Now, if a user is already 'Seated', this returns false,
+    // allowing them to create a new reservation.
+    const sql = `
     SELECT reservation_id FROM reservations 
     WHERE user_id = ? 
     AND status IN ('Pending', 'Confirmed', 'Seated') 
     LIMIT 1
   `;
-  const [rows] = await db.execute(sql, [userId]);
-  return rows.length > 0;
-},
+    const [rows] = await db.execute(sql, [userId]);
+    return rows.length > 0;
+  },
 
   getSlotsByTableAndDate: async (date, tableId) => {
     const sql = `SELECT r.reservation_time FROM reservations r JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id WHERE r.reservation_date = ? AND rt.table_id = ? AND r.status != 'Rejected'`;
@@ -84,8 +84,8 @@ checkActiveByUserId: async (userId) => {
     return rows;
   },
 
- getItemsByReservationId: async (reservationId) => {
-  const sql = `
+  getItemsByReservationId: async (reservationId) => {
+    const sql = `
     /* 1. Get items from Website Bookings */
     SELECT 
       mi.name, 
@@ -122,28 +122,29 @@ checkActiveByUserId: async (userId) => {
     AND NOT EXISTS (SELECT 1 FROM kiosk_orders WHERE reservation_id = ?)
   `;
 
-  // Note: We now need to pass the ID 5 times because there are 5 '?'
-  const [rows] = await db.execute(sql, [
-    reservationId, 
-    reservationId, 
-    reservationId, 
-    reservationId, 
-    reservationId
-  ]);
-  return rows;
-},
+    // Note: We now need to pass the ID 5 times because there are 5 '?'
+    const [rows] = await db.execute(sql, [
+      reservationId,
+      reservationId,
+      reservationId,
+      reservationId,
+      reservationId,
+    ]);
+    return rows;
+  },
 
-create: async (data) => {
+  create: async (data) => {
     const conn = await db.getConnection();
     try {
       await conn.beginTransaction();
-      
+
       // Ensure we are using the Rounded values from the start
-      const customId = generateRandomId(); 
+      const customId = generateRandomId();
 
       // 1. Insert Main Reservation
       const resQuery = `INSERT INTO reservations (reservation_id, user_id, first_name, last_name, email, phone, reservation_date, reservation_time, end_time, num_guests, package_name, status, receipt_path, brgy_code, allergy) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
+      // Inside Reservation.create ...
       const resValues = [
         customId,
         data.userId && data.userId !== "null" ? data.userId : null,
@@ -156,46 +157,56 @@ create: async (data) => {
         data.endTime || null,
         data.guests || 0,
         data.packageName || "Table Reservation",
-        data.status || "Confirmed",
+        "Confirmed", // <--- FORCE THIS TO 'Confirmed' instead of data.status
         data.receiptPath || null,
         data.brgyCode || null,
         data.allergy || "None",
       ];
-      
+
       // Use query for better stability over cross-cloud networks
       await conn.query(resQuery, resValues);
 
       // 2. Insert Tables
       let tableIdsArray = data.tableIds || [];
-      if (typeof tableIdsArray === "string") tableIdsArray = JSON.parse(tableIdsArray);
+      if (typeof tableIdsArray === "string")
+        tableIdsArray = JSON.parse(tableIdsArray);
 
       if (Array.isArray(tableIdsArray) && tableIdsArray.length > 0) {
-        const tableLinkQuery = "INSERT INTO reservation_tables (reservation_id, table_id, customer_name, status, check_in_time) VALUES (?, ?, ?, 'confirmed', NOW())";
+        const tableLinkQuery =
+          "INSERT INTO reservation_tables (reservation_id, table_id, customer_name, status, check_in_time) VALUES (?, ?, ?, 'confirmed', NOW())";
         for (const tid of tableIdsArray) {
           const cleanTid = parseInt(tid);
           if (!isNaN(cleanTid)) {
             // query is faster and more stable for loops
-            await conn.query(tableLinkQuery, [customId, cleanTid, `${data.firstName} ${data.lastName}`]);
+            await conn.query(tableLinkQuery, [
+              customId,
+              cleanTid,
+              `${data.firstName} ${data.lastName}`,
+            ]);
           }
         }
       }
 
       // 3. Insert Items
       let itemsToProcess = data.selectedItems || [];
-      if (typeof itemsToProcess === "string") itemsToProcess = JSON.parse(itemsToProcess);
+      if (typeof itemsToProcess === "string")
+        itemsToProcess = JSON.parse(itemsToProcess);
 
       if (itemsToProcess.length > 0) {
         const itemQuery = `INSERT INTO reservation_items (reservation_id, product_id, quantity, price, customizations) VALUES (?, ?, ?, ?, ?)`;
         for (const item of itemsToProcess) {
-          const cleanPrice = Math.round(parseFloat(item.price || 0) * 100) / 100;
-          const customs = item.customizations ? JSON.stringify(item.customizations) : null;
-          
+          const cleanPrice =
+            Math.round(parseFloat(item.price || 0) * 100) / 100;
+          const customs = item.customizations
+            ? JSON.stringify(item.customizations)
+            : null;
+
           await conn.query(itemQuery, [
             customId,
             item.item_id || item.id,
             item.quantity,
             cleanPrice,
-            customs
+            customs,
           ]);
         }
       }
@@ -203,7 +214,9 @@ create: async (data) => {
       // 4. Insert Payment
       const paymentQuery = `INSERT INTO payments (reservation_id, amount, total_bill, payment_method, payment_status, paid_at) VALUES (?, ?, ?, ?, ?, NOW())`;
       const cleanAmount = Math.round(parseFloat(data.amount || 0) * 100) / 100;
-      const cleanTotal = Math.round(parseFloat(data.totalAmount || data.amount || 0) * 100) / 100;
+      const cleanTotal =
+        Math.round(parseFloat(data.totalAmount || data.amount || 0) * 100) /
+        100;
 
       await conn.query(paymentQuery, [
         customId,
@@ -215,17 +228,17 @@ create: async (data) => {
 
       // 5. Final Notification (Optional: Wrap in try/catch so it doesn't kill the whole booking)
       try {
-          if (data.userId && data.userId !== "null") {
-            await Notification.create(conn, {
-              userId: data.userId,
-              reservationId: customId,
-              title: "Reservation Confirmed",
-              message: `Your reservation for ${data.guests} guest(s) has been confirmed.`,
-              type: "info", // Matching your ENUM fix!
-            });
-          }
+        if (data.userId && data.userId !== "null") {
+          await Notification.create(conn, {
+            userId: data.userId,
+            reservationId: customId,
+            title: "Reservation Confirmed",
+            message: `Your reservation for ${data.guests} guest(s) has been confirmed.`,
+            type: "info", // Matching your ENUM fix!
+          });
+        }
       } catch (notifErr) {
-          console.warn("Notification failed, but booking was saved.");
+        console.warn("Notification failed, but booking was saved.");
       }
 
       await conn.commit();
@@ -237,7 +250,7 @@ create: async (data) => {
     } finally {
       conn.release();
     }
-},
+  },
 
   getAll: async () => {
     const sql = `SELECT r.*, p.payment_status, p.amount, CONCAT(b.brgy_name, ', ', m.muni_name) AS full_address, GROUP_CONCAT(DISTINCT t.table_number SEPARATOR ' + ') AS assigned_tables FROM reservations r LEFT JOIN payments p ON r.reservation_id = p.reservation_id LEFT JOIN barangays b ON r.brgy_code = b.brgy_code LEFT JOIN municipalities m ON b.muni_code = m.muni_code LEFT JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id LEFT JOIN tables t ON rt.table_id = t.table_id GROUP BY r.reservation_id ORDER BY r.created_at DESC`;
@@ -251,12 +264,31 @@ create: async (data) => {
     return rows[0];
   },
 
-  updateStatus: async (id, status) => {
-    await db.execute(
-      "UPDATE reservations SET status = ? WHERE reservation_id = ?",
-      [status, id],
-    );
-    await TableStatus.updateTableStatusByReservation(id, status);
+updateStatus: async (id, status) => {
+    const conn = await db.getConnection();
+    try {
+      await conn.beginTransaction();
+
+      // 1. Update the main reservation status
+      await conn.execute(
+        "UPDATE reservations SET status = ? WHERE reservation_id = ?",
+        [status, id]
+      );
+
+      // 2. Update the bridge table status
+      // This is what makes the Table Grid UI update!
+      await conn.execute(
+        "UPDATE reservation_tables SET status = ? WHERE reservation_id = ?",
+        [status.toLowerCase(), id] // .toLowerCase() because bridge uses 'seated'/'confirmed'
+      );
+
+      await conn.commit();
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
   },
 
   delete: async (id) => {

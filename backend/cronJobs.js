@@ -1,116 +1,82 @@
-// backend/cronJobs.js
 const cron = require("node-cron");
 const db = require("./config/db");
 const Notification = require("./models/Notification");
 
-// Helper function to format time for comparison
-const formatTimeForDB = (timeStr) => {
-  // Convert HH:MM to HH:MM:SS for database TIME comparison
-  if (timeStr && timeStr.length === 5) {
-    return `${timeStr}:00`;
-  }
-  return timeStr;
-};
-
-// Run every minute to check for ongoing and expired reservations
 const startCronJobs = () => {
-  console.log("🕐 Starting reservation status cron job...");
+  console.log("Starting synchronized reservation cron job...");
 
   cron.schedule("* * * * *", async () => {
+    const conn = await db.getConnection();
     try {
+      await conn.beginTransaction();
+
       const now = new Date();
-      const currentTime = now.toTimeString().slice(0, 5); // HH:MM
-      const currentTimeWithSeconds = formatTimeForDB(currentTime); // HH:MM:SS
+      const currentTime = now.toTimeString().slice(0, 8); // HH:MM:SS
       const currentDate = now.toISOString().split("T")[0];
 
-      console.log(`⏰ Running cron job at ${currentDate} ${currentTime}`);
+      // --- 1. SEATED SYNC ---
+      // Update main table AND bridge table to 'Seated'
+      await conn.execute(`
+        UPDATE reservations r
+        JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
+        SET r.status = 'Seated', rt.status = 'seated'
+        WHERE r.reservation_date = ? 
+        AND r.status = 'Confirmed'
+        AND r.reservation_time <= ?
+        AND r.end_time >= ?
+      `, [currentDate, currentTime, currentTime]);
 
-      // 1. Update Confirmed/Pending to Seated when current time is between start and end
-      const updateToSeated = `
-        UPDATE reservations 
-        SET status = 'Seated' 
-        WHERE reservation_date = ? 
-        AND status IN ('Confirmed', 'Pending')
-        AND reservation_time <= ?
-        AND end_time >= ?
-      `;
 
-      const [seatedResult] = await db.execute(updateToSeated, [
-        currentDate,
-        currentTimeWithSeconds,
-        currentTimeWithSeconds,
-      ]);
+      // --- 2. COMPLETED SYNC (Current Date) ---
+      // Get IDs of reservations ending now to clear the master 'tables' table
+      const [toComplete] = await conn.execute(`
+        SELECT rt.table_id, r.reservation_id 
+        FROM reservations r
+        JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
+        WHERE r.reservation_date = ? AND r.status = 'Seated' AND r.end_time < ?
+      `, [currentDate, currentTime]);
 
-      // 2. Update Seated to Completed when current time is past end time
-      const updateSeatedToCompleted = `
-        UPDATE reservations 
-        SET status = 'Completed' 
-        WHERE reservation_date = ? 
-        AND status = 'Seated'
-        AND end_time < ?
-      `;
+      if (toComplete.length > 0) {
+        const resIds = toComplete.map(i => i.reservation_id);
+        const tableIds = toComplete.map(i => i.table_id);
 
-      const [seatedToCompletedResult] = await db.execute(
-        updateSeatedToCompleted,
-        [currentDate, currentTimeWithSeconds],
-      );
-
-      // 3. Update Confirmed/Pending to Completed when end time has passed (expired)
-      const updateExpiredToCompleted = `
-        UPDATE reservations 
-        SET status = 'Completed' 
-        WHERE reservation_date = ? 
-        AND status IN ('Confirmed', 'Pending')
-        AND end_time < ?
-      `;
-
-      const [expiredResult] = await db.execute(updateExpiredToCompleted, [
-        currentDate,
-        currentTimeWithSeconds,
-      ]);
-
-      // 4. Update any reservations from past dates to Completed
-      const updatePastDates = `
-        UPDATE reservations 
-        SET status = 'Completed' 
-        WHERE reservation_date < ?
-        AND status NOT IN ('Completed', 'Done', 'Rejected', 'Cancelled')
-      `;
-
-      const [pastDatesResult] = await db.execute(updatePastDates, [
-        currentDate,
-      ]);
-
-      // 5. Permanently delete notifications that have been in trash for more than 30 days
-      const deletedCount = await Notification.permanentlyDeleteExpired();
-
-      if (deletedCount > 0) {
-        console.log(
-          `✅ Permanently deleted ${deletedCount} old notifications from trash`,
-        );
+        // Mark main and bridge as completed
+        await conn.query("UPDATE reservations SET status = 'Completed' WHERE reservation_id IN (?)", [resIds]);
+        await conn.query("UPDATE reservation_tables SET status = 'completed' WHERE reservation_id IN (?)", [resIds]);
+        
+        // CRITICAL: Make the physical tables available again in the grid
+        await conn.query("UPDATE tables SET status = 'available', available_seats = capacity WHERE table_id IN (?)", [tableIds]);
       }
 
-      // Log results if any changes were made
-      if (
-        seatedResult.affectedRows > 0 ||
-        seatedToCompletedResult.affectedRows > 0 ||
-        expiredResult.affectedRows > 0 ||
-        pastDatesResult.affectedRows > 0
-      ) {
-        console.log(
-          `✅ [${new Date().toLocaleTimeString()}] Updated: 
-            - ${seatedResult.affectedRows} to Seated
-            - ${seatedToCompletedResult.affectedRows} Seated to Completed
-            - ${expiredResult.affectedRows} expired to Completed
-            - ${pastDatesResult.affectedRows} past dates to Completed`,
-        );
+      // --- 3. PAST DATES CLEANUP ---
+      // Clean up anything left from yesterday
+      const [pastReservations] = await conn.execute(`
+        SELECT rt.table_id, r.reservation_id 
+        FROM reservations r
+        JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
+        WHERE r.reservation_date < ? AND r.status NOT IN ('Completed', 'Rejected', 'Cancelled')
+      `, [currentDate]);
+
+      if (pastReservations.length > 0) {
+        const pResIds = pastReservations.map(i => i.reservation_id);
+        const pTableIds = pastReservations.map(i => i.table_id);
+
+        await conn.query("UPDATE reservations SET status = 'Completed' WHERE reservation_id IN (?)", [pResIds]);
+        await conn.query("UPDATE reservation_tables SET status = 'completed' WHERE reservation_id IN (?)", [pResIds]);
+        await conn.query("UPDATE tables SET status = 'available', available_seats = capacity WHERE table_id IN (?)", [pTableIds]);
       }
+
+      // 4. Notification Cleanup
+      await Notification.permanentlyDeleteExpired();
+
+      await conn.commit();
     } catch (error) {
-      console.error("❌ Cron job error:", error);
+      await conn.rollback();
+      console.error("❌ Cron sync error:", error);
+    } finally {
+      conn.release();
     }
   });
-
-  console.log("✅ Reservation status cron job started (runs every minute)");
 };
 
 module.exports = startCronJobs;
