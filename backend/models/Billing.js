@@ -8,7 +8,7 @@ const Billing = {
         r.first_name, 
         r.last_name, 
         r.reservation_date, 
-        REPLACE(r.receipt_path, '/uploads/', '') AS receipt_path 
+        r.receipt_path  -- Get the raw path from the reservations table
       FROM payments p
       JOIN reservations r ON p.reservation_id = r.reservation_id
       ORDER BY p.paid_at DESC
@@ -16,7 +16,6 @@ const Billing = {
     const [rows] = await db.execute(sql);
     return rows;
   },
-
   updateStatus: async (id, status) => {
     try {
       let sql;

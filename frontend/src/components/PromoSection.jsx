@@ -12,6 +12,7 @@ function PromoSection() {
 
   return (
     <>
+    <hr></hr>
       <section className="promos" id="promos-section">
         <h2>DON'T MISS OUR <span className="highlight">EXCLUSIVE PROMOS</span></h2>
         <div className="promo-images">
