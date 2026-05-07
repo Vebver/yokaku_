@@ -11,12 +11,11 @@ import ReservationOrderModal from "./ReservationOrderModal";
 import OrderSummary from "./OrderSummary";
 import PortalModal from "./PortalModal";
 import axios from "axios";
+import alertMusicFile from "../../assets/alert-sound.mp3"; 
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 const BASE_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
 const HIDDEN_CATEGORIES = ["Chicken Wings", "Beverages", "Drinks", "Chicken"];
-const ALERT_SOUND = "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3";
-
 const categoryIcons = {
   "Best Seller": <Flame />, "Budget Meals": <Wallet />, Unlimited: <InfinityIcon />,
   Pizzas: <Pizza />, Burgers: <Beef />, Bundle: <Package />, Extra: <PlusSquare />,
@@ -27,7 +26,7 @@ const categoryIcons = {
 const KioskMenu = () => {
   const navigate = useNavigate();
   const timerRef = useRef(null);
-  const audioRef = useRef(new Audio(ALERT_SOUND));
+  const audioRef = useRef(new Audio(alertMusicFile));
   const TIMER_KEY = "kiosk_walkin_timer_end";
   const SAVED_TABLE_ID = "kiosk_active_table_id";
   const SAVED_RES_ID = "kiosk_active_res_id";
@@ -55,6 +54,19 @@ const KioskMenu = () => {
   const [selectedDrink, setSelectedDrink] = useState("");
   const [isRefillMode, setIsRefillMode] = useState(false);
 
+
+
+   const unlockAudio = () => {
+    if (audioRef.current) {
+      // Play and immediately pause to "prime" the audio engine
+      audioRef.current.play()
+        .then(() => {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+        })
+        .catch(e => console.log("Audio priming..."));
+    }
+  };
   // --- 1. SMARTER BILL FETCHING ---
   const fetchCurrentBill = async () => {
     const resId = localStorage.getItem(SAVED_RES_ID);
@@ -135,15 +147,19 @@ const KioskMenu = () => {
     }
   }, []);
 
-  useEffect(() => {
+useEffect(() => {
     if (isTimerRunning) {
       timerRef.current = setInterval(() => {
         const savedEndTime = localStorage.getItem(TIMER_KEY);
         const remaining = Math.floor((parseInt(savedEndTime) - Date.now()) / 1000);
+        
+        // 30 MINUTE ALERT
         if (remaining === 1800) {
             console.log("🔔 [ALERT] 30 MINS LEFT");
-            audioRef.current.play().catch(e => console.log("Audio blocked"));
+            audioRef.current.currentTime = 0; // Reset to start
+            audioRef.current.play().catch(e => console.error("Audio blocked by browser. User must interact with screen first.", e));
         }
+        
         if (remaining <= 0) handleEndSession();
         else setTimeLeft(remaining);
       }, 1000);
@@ -178,6 +194,7 @@ const KioskMenu = () => {
   };
 
   const handleItemClick = (item) => {
+    unlockAudio();
     if (item.category === "Hangout Bundle" || item.name.toLowerCase().includes("bundle")) {
       setSelectedItem(item); setSelectedFlavors([]); setSelectedDrink(""); setIsRefillMode(false); setShowFlavorModal(true);
     } else { setSelectedItem(item); setIsModalOpen(true); }
