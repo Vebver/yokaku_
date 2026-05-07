@@ -26,10 +26,8 @@ export const isReservationOngoing = (startTime, endTime) => {
   const now = new Date();
   const currentTime = now.getHours() * 60 + now.getMinutes();
 
-  // Handle both time formats
   let startM, endM;
 
-  // Check if time is in 24-hour format (e.g., "17:15:00")
   if (
     startTime.includes(":") &&
     !startTime.includes("AM") &&
@@ -40,7 +38,6 @@ export const isReservationOngoing = (startTime, endTime) => {
     const [endHour, endMinute] = endTime.split(":");
     endM = parseInt(endHour) * 60 + parseInt(endMinute);
   } else {
-    // 12-hour format with AM/PM
     const [startHour, startMinute] = startTime.split(" ")[0].split(":");
     const startPeriod = startTime.split(" ")[1];
     let startHour24 = parseInt(startHour);
@@ -56,14 +53,7 @@ export const isReservationOngoing = (startTime, endTime) => {
     endM = endHour24 * 60 + parseInt(endMinute);
   }
 
-  const isOngoing = currentTime >= startM && currentTime <= endM;
-
-  // Debug log - remove after fixing
-  console.log(
-    `[isReservationOngoing] start: ${startTime}, end: ${endTime}, current: ${currentTime}, startM: ${startM}, endM: ${endM}, ongoing: ${isOngoing}`,
-  );
-
-  return isOngoing;
+  return currentTime >= startM && currentTime <= endM;
 };
 
 export const isReservationCompleted = (reservation, selectedDate) => {
@@ -89,33 +79,40 @@ export const isReservationCompleted = (reservation, selectedDate) => {
   return false;
 };
 
+// FIXED: getScheduleItemClass - returns "ongoing" for red, "reserved" for yellow
 export const getScheduleItemClass = (reservation) => {
   let status = reservation.status;
-
-  // Debug log - remove after fixing
-  console.log(
-    `[getScheduleItemClass] ID: ${reservation.reservation_id}, status: ${status}, startTime: ${reservation.startTime}, endTime: ${reservation.endTime}, isOngoing: ${isReservationOngoing(reservation.startTime, reservation.endTime)}`,
+  const isOngoingNow = isReservationOngoing(
+    reservation.startTime,
+    reservation.endTime,
   );
 
-  if (
-    (status === "Confirmed" || status === "Pending") &&
-    isReservationOngoing(reservation.startTime, reservation.endTime)
-  ) {
+  // If it's ongoing (time is between start and end) -> RED
+  if ((status === "Confirmed" || status === "Pending") && isOngoingNow) {
     return "ongoing";
   }
 
-  if (status === "Seated") return "ongoing";
-  if (status === "Confirmed" || status === "Pending") return "reserved";
+  // If status is Seated -> RED
+  if (status === "Seated") {
+    return "ongoing";
+  }
+
+  // If status is Confirmed or Pending (not ongoing) -> YELLOW
+  if (status === "Confirmed" || status === "Pending") {
+    return "reserved";
+  }
+
   return "";
 };
 
 export const getStatusDisplayText = (reservation) => {
   let status = reservation.status;
+  const isOngoingNow = isReservationOngoing(
+    reservation.startTime,
+    reservation.endTime,
+  );
 
-  if (
-    (status === "Confirmed" || status === "Pending") &&
-    isReservationOngoing(reservation.startTime, reservation.endTime)
-  ) {
+  if ((status === "Confirmed" || status === "Pending") && isOngoingNow) {
     return "ONGOING";
   }
 

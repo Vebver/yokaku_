@@ -58,7 +58,20 @@ function CustomerNavbar() {
         const res = await axios.get(`${API_BASE}/notifications`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const unread = res.data.some((n) => !n.is_read);
+
+        // FIX: Handle both array and object responses
+        let notificationsArray = [];
+        if (Array.isArray(res.data)) {
+          notificationsArray = res.data;
+        } else if (res.data && Array.isArray(res.data.data)) {
+          notificationsArray = res.data.data;
+        } else if (res.data && Array.isArray(res.data.notifications)) {
+          notificationsArray = res.data.notifications;
+        } else {
+          notificationsArray = [];
+        }
+
+        const unread = notificationsArray.some((n) => !n.is_read);
         setHasUnread(unread);
       } catch (error) {
         console.error("Error checking notifications:", error);

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import "../Style/LoginModal.css"; // Reuse your styles
-const API_BASE = "https://yokaku-backend.onrender.com/api";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 function ResetPasswordPage() {
   const { token } = useParams();
   const navigate = useNavigate();

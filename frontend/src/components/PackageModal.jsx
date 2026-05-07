@@ -12,8 +12,8 @@ import {
 } from "lucide-react";
 import "../Style/PackageModal.css";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-const BASE_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
+const API_BASE = "https://yokaku-backend.onrender.com/api";
+const BASE_URL = "https://yokaku-backend.onrender.com";
 
 const getImageUrl = (imagePath) => {
   if (!imagePath) return null;
@@ -511,7 +511,7 @@ const PackageModal = ({
                               Spice: {item.customizations.spiceLevel}
                             </small>
 
-                            {item.customizations.specialInstructions  && (
+                            {item.customizations.specialInstructions && (
                               <small>
                                 Note: {item.customizations.specialInstructions}
                               </small>

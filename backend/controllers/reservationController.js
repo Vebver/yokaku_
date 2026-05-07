@@ -1,11 +1,8 @@
-const axios = require("axios"); // For PayMongo API calls (future use)
 const Reservation = require("../models/Reservation");
 const User = require("../models/User");
 
 /**
- * UTILITY HELPERS 
- * These stay in the controller to handle formatting between the 
- * Frontend (AM/PM) and the Backend/DB (24h).
+ * UTILITY HELPERS
  */
 const formatTimeTo24h = (timeStr) => {
   if (!timeStr) return null;
@@ -17,8 +14,7 @@ const formatTimeTo24h = (timeStr) => {
 };
 
 const reservationController = {
-  
-  // 1. Triggered by Cron or Admin to sync physical table colors with time
+  // ==================== CRON & STATUS ====================
   updateOngoingReservations: async (req, res) => {
     try {
       const results = await Reservation.syncAllStatuses();
@@ -31,19 +27,81 @@ const reservationController = {
     }
   },
 
-  // 2. Check if a user has an active booking (to prevent double booking)
+  // ==================== USER RESERVATIONS ====================
   checkUserActive: async (req, res) => {
     try {
-      const { userId } = req.params;
-      const hasActive = await Reservation.checkActiveByUserId(userId);
+      const hasActive = await Reservation.checkActiveByUserId(
+        req.params.userId,
+      );
       res.json({ hasActive });
     } catch (error) {
-      console.error("Error checking active reservation:", error);
       res.status(500).json({ error: error.message });
     }
   },
 
-  // 3. User cancellation logic
+  getUserActiveReservation: async (req, res) => {
+    try {
+      const reservation = await Reservation.findActiveDetailsByUserId(
+        req.params.userId,
+      );
+      res.json(reservation || null);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+
+  getUserReservations: async (req, res) => {
+    try {
+      const rows = await Reservation.findAllActiveByUserId(req.params.userId);
+      res.json(rows);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+
+  // ==================== TABLE AVAILABILITY ====================
+  checkAvailability: async (req, res) => {
+    try {
+      const { date, tableId } = req.query;
+      if (!date || !tableId)
+        return res.status(400).json({ error: "Missing params" });
+      const bookedSlots = await Reservation.getSlotsByTableAndDate(
+        date,
+        tableId,
+      );
+      res.json({ bookedSlots });
+    } catch (error) {
+      res.status(500).json({ error: "Server error" });
+    }
+  },
+
+  getSpecificTableSchedule: async (req, res) => {
+    try {
+      const rows = await Reservation.getSpecificTableSchedule(
+        req.query.tableId,
+        req.query.date,
+      );
+      res.json(rows);
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
+  },
+
+  getTableStatuses: async (req, res) => {
+    try {
+      const { date, startTime, endTime } = req.query;
+      const statusMap = await Reservation.getTableOccupancyMap(
+        date,
+        startTime,
+        endTime,
+      );
+      res.json(statusMap);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+
+  // ==================== CANCELLATIONS ====================
   getCancellationCount: async (req, res) => {
     try {
       const count = await User.getCancellationCount(req.params.userId);
@@ -62,30 +120,7 @@ const reservationController = {
     }
   },
 
-  // 4. Booking Availability logic
-  checkAvailability: async (req, res) => {
-    try {
-      const { date, tableId } = req.query;
-      if (!date || !tableId) return res.status(400).json({ error: "Missing params" });
-      
-      const bookedSlots = await Reservation.getSlotsByTableAndDate(date, tableId);
-      res.json({ bookedSlots });
-    } catch (error) {
-      res.status(500).json({ error: "Server error" });
-    }
-  },
-
-  getSpecificTableSchedule: async (req, res) => {
-    try {
-      const { tableId, date } = req.query;
-      const rows = await Reservation.getSpecificTableSchedule(tableId, date);
-      res.json(rows);
-    } catch (error) {
-      res.status(400).json({ error: error.message });
-    }
-  },
-
-  // 5. Get all items (food/drinks) for a specific reservation
+  // ==================== RESERVATION ITEMS ====================
   getReservationItems: async (req, res) => {
     try {
       const items = await Reservation.getItemsByReservationId(req.params.id);
@@ -95,47 +130,19 @@ const reservationController = {
     }
   },
 
-  // 6. Get data for the "Current Reservation" card on Customer Side
-  getUserActiveReservation: async (req, res) => {
-    try {
-      const reservation = await Reservation.findActiveDetailsByUserId(req.params.userId);
-      res.json(reservation || null);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  },
-
-  // 7. Get history of all active/future bookings for a user
-  getUserReservations: async (req, res) => {
-    try {
-      const rows = await Reservation.findAllActiveByUserId(req.params.userId);
-      res.json(rows);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  },
-
-  // 8. Dashboard Grid logic (Which tables are green/red/yellow)
-  getTableStatuses: async (req, res) => {
-    try {
-      const { date, startTime, endTime } = req.query;
-      const statusMap = await Reservation.getTableOccupancyMap(date, startTime, endTime);
-      res.json(statusMap);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  },
-
-  // 9. Process the reservation from the Website
+  // ==================== CREATE RESERVATION ====================
   createReservation: async (req, res) => {
     try {
       const body = req.body;
+      const items =
+        typeof body.selectedItems === "string"
+          ? JSON.parse(body.selectedItems)
+          : body.selectedItems || [];
+      const tableIdsArray =
+        typeof body.tableIds === "string"
+          ? JSON.parse(body.tableIds)
+          : body.tableIds || [];
 
-      // Parse JSON strings sent from FormData
-      const items = typeof body.selectedItems === "string" ? JSON.parse(body.selectedItems) : body.selectedItems || [];
-      const tableIdsArray = typeof body.tableIds === "string" ? JSON.parse(body.tableIds) : body.tableIds || [];
-
-      // Calculate end time based on duration (default 2h)
       const startDateTime = new Date(`${body.date} ${body.startTime}`);
       const durationHours = parseInt(body.durationHours) || 2;
       const endDateTime = new Date(startDateTime);
@@ -144,7 +151,6 @@ const reservationController = {
       const dbStart = startDateTime.toTimeString().split(" ")[0];
       const dbEnd = endDateTime.toTimeString().split(" ")[0];
 
-      // Assemble naming logic
       let finalPackageName = body.packageName;
       if (!finalPackageName || finalPackageName === "Table Reservation") {
         if (items.length > 0) {
@@ -163,7 +169,7 @@ const reservationController = {
         packageName: finalPackageName,
         tableIds: tableIdsArray,
         selectedItems: items,
-        receiptPath: req.file ? req.file.filename : null, // From Multer
+        receiptPath: req.file ? req.file.filename : null,
       };
 
       const newId = await Reservation.create(reservationData);
@@ -174,7 +180,7 @@ const reservationController = {
     }
   },
 
-  // 10. Admin List view
+  // ==================== ADMIN FUNCTIONS ====================
   getReservations: async (req, res) => {
     try {
       const data = await Reservation.getAll();
@@ -184,16 +190,13 @@ const reservationController = {
     }
   },
 
-  // 11. Atomic status update (The fix for your 500 error)
   updateStatus: async (req, res) => {
     try {
       const { id } = req.params;
       const { status } = req.body;
-      if (!id) return res.status(400).json({ error: "Reservation ID is required" });
-
-      // Calls the Transactional update in the Model
+      if (!id)
+        return res.status(400).json({ error: "Reservation ID is required" });
       await Reservation.updateStatus(id, status);
-
       res.json({ success: true, message: `Status updated to ${status}` });
     } catch (error) {
       console.error("Update status error:", error);
@@ -210,7 +213,6 @@ const reservationController = {
     }
   },
 
-  // 12. Finder for specific IDs (e.g. searching/modals)
   checkReservationId: async (req, res) => {
     try {
       const reservation = await Reservation.findById(req.params.id);

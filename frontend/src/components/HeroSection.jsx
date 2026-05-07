@@ -3,7 +3,7 @@ import axios from "axios";
 import ExistingModal from "./ExistingModal";
 import "../Style/HeroSection.css";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const API_BASE = "https://yokaku-backend.onrender.com/api";
 
 function HeroSection({ onLoginClick, onReserveClick, isLoggedIn }) {
   const [showExistingModal, setShowExistingModal] = useState(false);

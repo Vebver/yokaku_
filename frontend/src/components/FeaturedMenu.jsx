@@ -6,8 +6,8 @@ import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
 import "../Style/FeaturedMenu.css";
 
-const API_BASE = import.meta.env.VITE_API_URL;
-const BASE_URL = import.meta.env.VITE_SOCKET_URL;
+const API_BASE = "https://yokaku-backend.onrender.com/api";
+const BASE_URL = "https://yokaku-backend.onrender.com";
 
 function FeaturedMenu({ onLoginClick }) {
   const [featuredItems, setFeaturedItems] = useState([]);
@@ -28,9 +28,20 @@ function FeaturedMenu({ onLoginClick }) {
     const fetchFeatured = async () => {
       try {
         const res = await axios.get(`${API_BASE}/products/featured`);
-        setFeaturedItems(res.data);
+        // Handle both array and object responses
+        if (Array.isArray(res.data)) {
+          setFeaturedItems(res.data);
+        } else if (res.data && Array.isArray(res.data.data)) {
+          setFeaturedItems(res.data.data);
+        } else if (res.data && typeof res.data === "object") {
+          // If it's a single object, wrap it in an array
+          setFeaturedItems([res.data]);
+        } else {
+          setFeaturedItems([]);
+        }
       } catch (err) {
         console.error(err);
+        setFeaturedItems([]);
       }
     };
     fetchFeatured();

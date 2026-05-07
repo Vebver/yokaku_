@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-const API_BASE = "https://yokaku-backend.onrender.com/api";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 const AccountManagement = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);

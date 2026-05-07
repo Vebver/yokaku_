@@ -4,7 +4,7 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "../../Style/CustomerProfile.css";
 import CustomerProfileEdit from "./CustomerProfileEdit";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const API_BASE = "https://yokaku-backend.onrender.com/api";
 
 const CustomerProfile = () => {
   const [userData, setUserData] = useState(null);
@@ -28,7 +28,7 @@ const CustomerProfile = () => {
 
         // 2. Send the request to /api/profile
 
-        const response = await axios.get(`api/profile`, {
+        const response = await axios.get(`${API_BASE}/profile`, {
           headers: {
             Authorization: `Bearer ${token}`, // 3. This is the key part!
           },
@@ -53,7 +53,7 @@ const CustomerProfile = () => {
       const token = localStorage.getItem("token");
 
       // 1. Send request
-      const response = await axios.put("api/profile", updatedData, {
+      const response = await axios.put(`${API_BASE}/profile`, updatedData, {
         headers: { Authorization: `Bearer ${token}` },
       });
 

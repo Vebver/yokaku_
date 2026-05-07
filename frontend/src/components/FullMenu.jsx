@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react"; 
+import { ArrowLeft } from "lucide-react";
 import "../Style/FullMenu.css";
 
 const API_BASE = "https://yokaku-backend.onrender.com/api";
@@ -22,10 +22,10 @@ function FullMenu() {
     const fetchAllItems = async () => {
       try {
         const res = await axios.get(`${API_BASE}/products`);
-        
+
         // 1. Filter out the items belonging to excluded categories
         const filteredData = res.data.filter(
-          (item) => !excludedCategories.includes(item.category_name)
+          (item) => !excludedCategories.includes(item.category_name),
         );
 
         setItems(filteredData);
@@ -42,7 +42,7 @@ function FullMenu() {
           const firstCat = uniqueNames[0];
           setActiveCategory(firstCat);
           const initialFiltered = filteredData.filter(
-            (item) => item.category_name === firstCat
+            (item) => item.category_name === firstCat,
           );
           setFilteredItems(initialFiltered);
         } else {
@@ -116,8 +116,8 @@ function FullMenu() {
               <h4>{item.name}</h4>
               <span className="small-price">₱{item.price}</span>
               {/* ORDER NOW BUTTON */}
-              <button 
-                className="order-now-button" 
+              <button
+                className="order-now-button"
                 onClick={() => handleOrderNow(item)}
               >
                 Order Now

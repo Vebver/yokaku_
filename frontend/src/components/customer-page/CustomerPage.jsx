@@ -13,7 +13,7 @@ import ExistingModal from "../ExistingModal";
 import axios from "axios";
 import "../../Style/App.css";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const API_BASE = "https://yokaku-backend.onrender.com/api";
 
 // Receive props passed from App.jsx
 function CustomerPage({ isLoggedIn, onLoginClick, onReserveClick, onSuccess }) {

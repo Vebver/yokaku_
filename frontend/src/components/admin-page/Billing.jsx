@@ -8,8 +8,8 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 
-const API_BASE = "https://yokaku-backend.onrender.com/api";
-const BASE_URL = "https://yokaku-backend.onrender.com"; // Base URL for images
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const BASE_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000"; // Base URL for images
 
 const Billing = () => {
   const [payments, setPayments] = useState([]);

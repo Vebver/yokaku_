@@ -28,7 +28,7 @@ import KioskMenu from "./components/kiosk-page/KioskMenu.jsx";
 import KioskReservation from "./components/kiosk-page/KioskReservation.jsx";
 import KioskReservationMenu from "./components/kiosk-page/KioskReservationMenu.jsx";
 import KitchenPage from "./components/kitchen-page/KitchenPage.jsx";
-import TableReservation from "./components/TableReservation.jsx";
+import TableReservation from "./components/ReservationSteps.jsx";
 import TermsModal from "./components/TermsModal";
 import ResetPasswordPage from "./components/ResetPasswordPage";
 import MyReservation from "./components/customer-page/MyReservation";

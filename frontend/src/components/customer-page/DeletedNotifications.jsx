@@ -3,7 +3,7 @@ import axios from "axios";
 import { RotateCcw, Trash2, X } from "lucide-react";
 import "../../Style/Notifications.css";
 
-const API_BASE = "https://yokaku-backend.onrender.com";
+const API_BASE = "https://yokaku-backend.onrender.com/api";
 
 const DeletedNotifications = ({ onClose, onRestore }) => {
   const [deletedNotifications, setDeletedNotifications] = useState([]);
@@ -40,7 +40,7 @@ const DeletedNotifications = ({ onClose, onRestore }) => {
       }
 
       console.log("Fetching deleted notifications...");
-      const res = await axios.get(`${API_BASE}/api/notifications/deleted`, {
+      const res = await axios.get(`${API_BASE}/notifications/deleted`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       console.log("Deleted notifications response:", res.data);
@@ -103,7 +103,7 @@ const DeletedNotifications = ({ onClose, onRestore }) => {
     try {
       const token = localStorage.getItem("token");
       await axios.put(
-        `${API_BASE}/api/notifications/${id}/restore`,
+        `${API_BASE}/notifications/${id}/restore`,
         {},
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -129,7 +129,7 @@ const DeletedNotifications = ({ onClose, onRestore }) => {
       );
 
       await axios.delete(
-        `${API_BASE}/api/notifications/${notificationToDeletePermanently}/permanent`,
+        `${API_BASE}/notifications/${notificationToDeletePermanently}/permanent`,
         {
           headers: { Authorization: `Bearer ${token}` },
         },

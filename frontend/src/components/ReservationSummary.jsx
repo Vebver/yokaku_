@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import "../Style/ReservationSummary.css";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const API_BASE = "https://yokaku-backend.onrender.com/api";
 
 const ReservationSummary = ({
   isOpen,
