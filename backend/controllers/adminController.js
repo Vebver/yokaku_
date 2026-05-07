@@ -21,6 +21,14 @@ const adminController = {
       res.status(500).json({ error: error.message });
     }
   },
+  getTodaySchedule: async (req, res) => {
+  try {
+    const schedule = await TableStatus.getTodaySchedule();
+    res.json(schedule);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+},
   updateUserRole: async (req, res) => {
     try {
       const { userId } = req.params;
