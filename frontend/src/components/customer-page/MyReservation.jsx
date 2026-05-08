@@ -27,6 +27,9 @@ const MyReservation = () => {
   const [selectedCancelReason, setSelectedCancelReason] = useState("");
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [showTermsFromCancel, setShowTermsFromCancel] = useState(false);
+  const [noShowCount, setNoShowCount] = useState(0);
+  const [cancellationCount, setCancellationCount] = useState(0);
+  const MAX_STRIKES = 3;
 
   // New state for cancellation limit
   const [cancellationsLeft, setCancellationsLeft] = useState(3);
@@ -49,6 +52,30 @@ const MyReservation = () => {
     fetchCancellationCount();
   }, []);
 
+  const fetchUserStats = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const userId = localStorage.getItem("userId");
+      if (!userId) return;
+
+      // Fetch the user's strike stats from your new backend logic
+      const response = await axios.get(
+        `${API_BASE}/reservations/user/${userId}/stats`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+
+      const { cancellations, noShows } = response.data;
+      setCancellationCount(cancellations);
+      setNoShowCount(noShows);
+
+      const totalStrikes = cancellations + noShows;
+      setCancellationsLeft(Math.max(0, MAX_STRIKES - totalStrikes));
+    } catch (error) {
+      console.error("Error fetching stats:", error);
+    }
+  };
   // Fetch user's cancellation count
   const fetchCancellationCount = async () => {
     try {
@@ -277,12 +304,23 @@ const MyReservation = () => {
           <div className="my-reservation-header">
             <h1>My Reservations</h1>
             <p>View and manage your upcoming table reservations</p>
-            {/* Display cancellation limit info */}
-            <div className="cancellation-info">
+
+            <div
+              className="strike-summary"
+              style={{ display: "flex", gap: "10px", marginTop: "10px" }}
+            >
               <span
-                className={`cancellation-badge ${cancellationsLeft === 0 ? "limit-reached" : ""}`}
+                className={`badge ${cancellationCount >= 3 ? "bg-danger" : "bg-warning"}`}
               >
-                📋 {cancellationsLeft} / {MAX_CANCELLATIONS} cancellations left
+                Cancellations: {cancellationCount}
+              </span>
+              <span
+                className={`badge ${noShowCount >= 1 ? "bg-danger" : "bg-secondary"}`}
+              >
+                No-Shows: {noShowCount}
+              </span>
+              <span className="badge bg-dark">
+                Strikes Left: {cancellationsLeft} / {MAX_STRIKES}
               </span>
             </div>
           </div>

@@ -19,7 +19,47 @@ const AccountManagement = () => {
     return () =>
       document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, []);
-
+  // NO SHOWS
+  const resetNoShows = async (userId) => {
+    if (!window.confirm("Reset no-show strikes for this user?")) return;
+    try {
+      const token = localStorage.getItem("token");
+      await axios.put(
+        `${API_BASE}/admin/users/${userId}/reset-no-shows`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      setUsers(
+        users.map((u) =>
+          u.user_id === userId ? { ...u, no_show_count: 0 } : u,
+        ),
+      );
+      setStatus({ type: "success", msg: "No-show strikes cleared." });
+    } catch (err) {
+      setStatus({ type: "danger", msg: "Failed to reset strikes." });
+    }
+  };
+  // RESET STRIKES
+  const resetStrikes = async (userId) => {
+    if (!window.confirm("Reset strikes for this user?")) return;
+    try {
+      const token = localStorage.getItem("token");
+      // This calls a route we need to make sure exists in your backend
+      await axios.put(
+        `${API_BASE}/admin/users/${userId}/reset-strikes`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      fetchUsers(); // Refresh the list
+      alert("User has been unblocked!");
+    } catch (err) {
+      alert("Failed to reset strikes.");
+    }
+  };
   const fetchUsers = async () => {
     try {
       setLoading(true);
@@ -93,45 +133,6 @@ const AccountManagement = () => {
       style={{ backgroundColor: "#f8f9fa", minHeight: "100vh" }}
     >
       {/* HEADER SECTION - Outside the card */}
-      <div className="d-flex justify-content-between align-items-start mb-5">
-        <div>
-          <h1 className="fw-bold mb-0 text-dark" style={{ fontSize: "2.5rem" }}>
-            Account Management
-          </h1>
-          <p className="text-muted small">
-            Verify user privileges and manage administrative access
-          </p>
-        </div>
-        <div className="d-flex gap-3">
-          <input
-            type="text"
-            className="form-control form-control-sm border-0 shadow-sm"
-            placeholder="Search users..."
-            style={{ width: "250px" }}
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-              setCurrentPage(1);
-            }}
-          />
-          <button
-            onClick={fetchUsers}
-            disabled={loading}
-            className="btn btn-dark px-4 fw-bold"
-            style={{ backgroundColor: "#212529", borderRadius: "8px" }}
-          >
-            {loading ? "Refreshing..." : "Refresh Data"}
-          </button>
-        </div>
-      </div>
-
-      {status.msg && (
-        <div className={`alert alert-${status.type} shadow-sm border-0 mb-4`}>
-          {status.msg}
-        </div>
-      )}
-
-      {/* DATA SECTION */}
       <div
         className="card shadow-sm border-0 overflow-hidden"
         style={{ borderRadius: "0px" }}
@@ -140,34 +141,15 @@ const AccountManagement = () => {
           <table className="table table-hover align-middle mb-0 bg-white">
             <thead className="border-bottom">
               <tr style={{ height: "60px" }}>
-                <th
-                  className="ps-4 small fw-bold text-uppercase"
-                  style={{ letterSpacing: "0.5px" }}
-                >
-                  Avatar
-                </th>
-                <th
-                  className="small fw-bold text-uppercase"
-                  style={{ letterSpacing: "0.5px" }}
-                >
-                  User & ID
-                </th>
-                <th
-                  className="small fw-bold text-uppercase"
-                  style={{ letterSpacing: "0.5px" }}
-                >
-                  Email Address
-                </th>
-                <th
-                  className="small fw-bold text-uppercase"
-                  style={{ letterSpacing: "0.5px" }}
-                >
-                  Status
-                </th>
-                <th
-                  className="text-end pe-4 small fw-bold text-uppercase"
-                  style={{ letterSpacing: "0.5px" }}
-                >
+                <th className="ps-4 small fw-bold text-uppercase">Avatar</th>
+                <th className="small fw-bold text-uppercase">User & ID</th>
+                <th className="small fw-bold text-uppercase">Email Address</th>
+                <th className="small fw-bold text-uppercase">
+                  Strikes (No-Shows)
+                </th>{" "}
+                {/* NEW COLUMN */}
+                <th className="small fw-bold text-uppercase">Status</th>
+                <th className="text-end pe-4 small fw-bold text-uppercase">
                   Actions
                 </th>
               </tr>
@@ -177,7 +159,7 @@ const AccountManagement = () => {
                 <tr key={user.user_id} style={{ height: "80px" }}>
                   <td className="ps-4">
                     <img
-                      src={`https://ui-avatars.com/api/?name=${user.first_name}+${user.last_name}&background=f8f9fa&color=333`}
+                      src={`https://ui-avatars.com/api/?name=${user.first_name}+${user.last_name}&background=${user.no_show_count >= 3 ? "ff0000" : "f8f9fa"}&color=${user.no_show_count >= 3 ? "fff" : "333"}`}
                       alt="Avatar"
                       className="rounded shadow-sm border"
                       width="45"
@@ -188,12 +170,31 @@ const AccountManagement = () => {
                     <div className="fw-bold text-dark">
                       {user.first_name} {user.last_name}
                     </div>
-                    <div
-                      className="text-muted x-small"
-                      style={{ fontSize: "0.75rem" }}
-                    ></div>
+                    {user.no_show_count >= 3 && (
+                      <small className="text-danger fw-bold">BLACKLISTED</small>
+                    )}
                   </td>
                   <td className="text-muted fw-medium">{user.email}</td>
+
+                  {/* NO SHOW COUNT COLUMN */}
+                  <td>
+                    <span
+                      className={`fw-bold ${user.no_show_count >= 3 ? "text-danger" : "text-dark"}`}
+                    >
+                      {user.no_show_count || 0} / 3
+                    </span>
+                    <div
+                      className="progress mt-1"
+                      style={{ height: "4px", width: "60px" }}
+                    >
+                      <div
+                        className={`progress-bar ${user.no_show_count >= 3 ? "bg-danger" : "bg-warning"}`}
+                        role="progressbar"
+                        style={{ width: `${(user.no_show_count / 3) * 100}%` }}
+                      ></div>
+                    </div>
+                  </td>
+
                   <td>
                     <span
                       className="badge rounded-pill px-3 py-2"
@@ -202,25 +203,29 @@ const AccountManagement = () => {
                           user.role === "admin" ? "#fff3cd" : "#e9ecef",
                         color: user.role === "admin" ? "#856404" : "#495057",
                         fontSize: "0.7rem",
-                        letterSpacing: "0.5px",
                       }}
                     >
                       {user.role === "admin" ? "ADMIN" : "USER"}
                     </span>
                   </td>
                   <td className="text-end pe-4">
-                    <button
-                      onClick={() => toggleAdmin(user.user_id, user.role)}
-                      disabled={updatingUserId === user.user_id}
-                      className="btn btn-outline-dark btn-sm fw-bold px-3 py-2"
-                      style={{ borderRadius: "6px", fontSize: "0.85rem" }}
-                    >
-                      {updatingUserId === user.user_id
-                        ? "..."
-                        : user.role === "admin"
-                          ? "Remove Admin"
-                          : "Make Admin"}
-                    </button>
+                    <div className="d-flex gap-2 justify-content-end">
+                      {/* REMOVE the "user.no_show_count > 0" check here */}
+                      <button
+                        onClick={() => resetNoShows(user.user_id)}
+                        className="btn btn-outline-danger btn-sm px-2"
+                      >
+                        Reset Strikes
+                      </button>
+
+                      <button
+                        onClick={() => toggleAdmin(user.user_id, user.role)}
+                        disabled={updatingUserId === user.user_id}
+                        className="btn btn-dark btn-sm fw-bold px-3"
+                      >
+                        {user.role === "admin" ? "Remove Admin" : "Make Admin"}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

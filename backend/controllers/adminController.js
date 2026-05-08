@@ -118,6 +118,12 @@ const adminController = {
       res.status(500).json({ success: false, error: error.message });
     }
   },
+  resetNoShows: async (req, res) => {
+  const { userId } = req.params;
+  // Mark all 'no-show' reservations as 'cancelled' so they don't count towards strikes
+  await db.query("UPDATE reservations SET status = 'cancelled' WHERE user_id = ? AND status = 'no-show'", [userId]);
+  res.json({ message: "No-show strikes reset." });
+}
 };
 
 module.exports = adminController;

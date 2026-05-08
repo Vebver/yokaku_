@@ -266,6 +266,13 @@ const Reservation = {
       conn.release();
     }
   },
+  // counting customers no show
+   countNoShows: async (userId) => {
+    if (!userId || userId === "null") return 0;
+    const sql = `SELECT COUNT(*) as count FROM reservations WHERE user_id = ? AND status = 'no-show'`;
+    const [rows] = await db.execute(sql, [userId]);
+    return rows[0].count;
+  },
 
   getAll: async () => {
     const sql = `SELECT r.*, p.payment_status, p.amount, GROUP_CONCAT(DISTINCT t.table_number SEPARATOR ' + ') AS assigned_tables FROM reservations r LEFT JOIN payments p ON r.reservation_id = p.reservation_id LEFT JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id LEFT JOIN tables t ON rt.table_id = t.table_id GROUP BY r.reservation_id ORDER BY r.created_at DESC`;

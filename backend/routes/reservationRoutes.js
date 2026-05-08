@@ -34,7 +34,6 @@ router.get("/", protect, adminOnly, reservationController.getReservations);
 router.put(
   "/:id/status",
   protect,
-  adminOnly,
   reservationController.updateStatus,
 );
 router.delete(
