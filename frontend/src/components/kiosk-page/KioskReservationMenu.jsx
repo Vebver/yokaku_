@@ -18,6 +18,7 @@ import ReservationOrderModal from "./ReservationOrderModal";
 import OrderSummary from "./OrderSummary";
 import { io } from "socket.io-client";
 import PortalModal from "./PortalModal";
+import alertMusicFile from "../../assets/alert-sound.mp3";
 
 const BASE_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
@@ -25,6 +26,7 @@ const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 let socket;
 
+ //AUDIO
 const categoryIcons = {
   "My Reserved Items": <PackageSearch color="#ffcc00" />,
   "Chicken Wings": <Drumstick />,
@@ -49,6 +51,7 @@ const KioskReservationMenu = () => {
 
   const [timeLeft, setTimeLeft] = useState(5400);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const audioRef = useRef(new Audio(alertMusicFile));
 
   const stopAndClearEverything = () => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -56,7 +59,15 @@ const KioskReservationMenu = () => {
     window.location.href = "/kiosk-selection";
   };
 
-  
+   const unlockAudio = () => {
+    audioRef.current
+      .play()
+      .then(() => {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      })
+      .catch(() => {}); // Ignore errors
+  };
   useEffect(() => {
     if (isTimerRunning) {
       timerRef.current = setInterval(() => {
@@ -68,6 +79,11 @@ const KioskReservationMenu = () => {
         const remaining = Math.floor(
           (parseInt(savedEndTime) - Date.now()) / 1000,
         );
+        if (remaining === 1800) { 
+            console.log("🔔 [ALERT] 30 MINS LEFT");
+            audioRef.current.currentTime = 0; 
+            audioRef.current.play().catch(e => console.log("Audio blocked"));
+        }
         if (remaining <= 0) {
           stopAndClearEverything();
         } else {
@@ -189,6 +205,7 @@ const KioskReservationMenu = () => {
   };
 
   const handleSendRequest = async () => {
+    unlockAudio();
     if (cart.length > 0) {
       try {
         const response = await fetch(`${API_BASE}/orders/place`, {
@@ -334,6 +351,7 @@ const KioskReservationMenu = () => {
                 key={item.id}
                 className="res-food-card"
                 onClick={() => {
+                  unlockAudio();
                   setSelectedItem(item);
                   setIsModalOpen(true);
                 }}

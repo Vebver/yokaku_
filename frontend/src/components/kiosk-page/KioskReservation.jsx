@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { QrCode, ArrowLeft, X, Loader2, AlertCircle } from "lucide-react"; // Added icons for feedback
 import { Html5Qrcode } from "html5-qrcode";
 import "../../Style/KioskReservation.css";
-import alertMusicFile from "../../assets/alert-sound.mp3";
 
 const BASE_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
@@ -15,21 +14,10 @@ const KioskReservation = () => {
   const [loading, setLoading] = useState(false); // New state for API check
   const [error, setError] = useState(""); // New state for error messages
   const scannerRef = useRef(null);
-  const audioRef = useRef(new Audio(alertMusicFile));
 
-  //AUDIO
-  const unlockAudio = () => {
-    audioRef.current
-      .play()
-      .then(() => {
-        audioRef.current.pause();
-        audioRef.current.currentTime = 0;
-      })
-      .catch(() => {}); // Ignore errors
-  };
+
   // --- NEW: FUNCTION TO VALIDATE ID WITH DATABASE ---
   const validateAndProceed = async (id) => {
-    unlockAudi();
     setLoading(true);
     setError("");
     try {

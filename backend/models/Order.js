@@ -39,8 +39,8 @@ const Order = {
   createOrderEntry: async (conn, reservationId, itemId, quantity, customizations) => {
     const query = `
       INSERT INTO kiosk_orders 
-      (reservation_id, item_id, quantity, kitchen_status, customizations) 
-      VALUES (?, ?, ?, 'pending', ?)`;
+      (reservation_id, item_id, quantity, kitchen_status, customizations, is_refill) 
+      VALUES (?, ?, ?, ?, ?,?)`;
     const customData = customizations ? JSON.stringify(customizations) : null;
     return await conn.execute(query, [reservationId, itemId, quantity, customData]);
   },
