@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { QrCode, ArrowLeft, X, Loader2, AlertCircle } from "lucide-react"; // Added icons for feedback
 import { Html5Qrcode } from "html5-qrcode";
 import "../../Style/KioskReservation.css";
+import alertMusicFile from "../../assets/alert-sound.mp3";
 
 const BASE_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
@@ -14,41 +15,55 @@ const KioskReservation = () => {
   const [loading, setLoading] = useState(false); // New state for API check
   const [error, setError] = useState(""); // New state for error messages
   const scannerRef = useRef(null);
+  const audioRef = useRef(new Audio(alertMusicFile));
 
+  //AUDIO
+  const unlockAudio = () => {
+    audioRef.current
+      .play()
+      .then(() => {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      })
+      .catch(() => {}); // Ignore errors
+  };
   // --- NEW: FUNCTION TO VALIDATE ID WITH DATABASE ---
- const validateAndProceed = async (id) => {
-  setLoading(true);
-  setError("");
-  try {
-    // We try to get the token, but if it's a public kiosk, it might be null
-    const token = localStorage.getItem("token");
+  const validateAndProceed = async (id) => {
+    unlockAudi();
+    setLoading(true);
+    setError("");
+    try {
+      // We try to get the token, but if it's a public kiosk, it might be null
+      const token = localStorage.getItem("token");
 
-    const response = await fetch(`${API_BASE}/reservations/${id}`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token && { "Authorization": `Bearer ${token}` }) // Only add if token exists
+      const response = await fetch(`${API_BASE}/reservations/${id}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }), // Only add if token exists
+        },
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // SUCCESS: Save the valid reservation ID
+        localStorage.setItem("resId", id);
+        localStorage.setItem("kiosk_mode", "reservation"); // Mark mode
+        navigate("/kiosk-selection/kiosk-reservation-menu");
+      } else {
+        setError(
+          data.message || "Reservation not found. Please check your ID.",
+        );
+        if (isScanning) stopScanner();
       }
-    });
-
-    const data = await response.json();
-
-    if (response.ok) {
-      // SUCCESS: Save the valid reservation ID
-      localStorage.setItem("resId", id);
-      localStorage.setItem("kiosk_mode", "reservation"); // Mark mode
-      navigate("/kiosk-selection/kiosk-reservation-menu");
-    } else {
-      setError(data.message || "Reservation not found. Please check your ID.");
+    } catch (err) {
+      setError("Server connection failed. Please try again later.");
       if (isScanning) stopScanner();
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    setError("Server connection failed. Please try again later.");
-    if (isScanning) stopScanner();
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const startScanner = async () => {
     setError("");
