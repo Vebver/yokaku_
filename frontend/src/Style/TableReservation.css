@@ -1329,6 +1329,43 @@ select:disabled {
   background-color: #f5f5f5 !important;
 }
 
+/* Package Summary with Down Payment */
+.package-summary {
+  margin-top: 20px;
+  background: #f8f9fa;
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.package-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.package-total {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 2px solid #ffcc00;
+  text-align: right;
+}
+
+.package-downpayment {
+  margin-top: 10px;
+  padding-top: 10px;
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px dashed #ddd;
+}
+
+.package-balance {
+  margin-top: 8px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
 @keyframes fadeInStep {
   from {
     opacity: 0;
