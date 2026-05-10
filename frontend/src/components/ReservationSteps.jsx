@@ -1097,7 +1097,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           </div>
         );
 
-      case 3:
+      case 3: // Choose Package
         return (
           <div className="step-content step-package">
             <button
@@ -1124,6 +1124,21 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   <strong>
                     Total: ₱{orderSummary.totalOrderPrice.toFixed(2)}
                   </strong>
+                </div>
+                {/* RESTORED: Down payment information */}
+                <div className="package-downpayment">
+                  <span style={{ color: "#f38d31", fontWeight: "800" }}>
+                    Downpayment (20%):
+                  </span>
+                  <strong style={{ color: "#f38d31" }}>
+                    ₱{orderSummary.downpayment.toFixed(2)}
+                  </strong>
+                </div>
+                <div className="package-balance">
+                  <span style={{ color: "#666" }}>
+                    Remaining Balance (80%):
+                  </span>
+                  <strong>₱{orderSummary.balance.toFixed(2)}</strong>
                 </div>
               </div>
             )}
