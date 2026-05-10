@@ -32,6 +32,7 @@ import TableReservation from "./components/ReservationSteps.jsx";
 import TermsModal from "./components/TermsModal";
 import ResetPasswordPage from "./components/ResetPasswordPage";
 import MyReservation from "./components/customer-page/MyReservation";
+import Cashier from "./components/cashier/Cashier.jsx"
 
 import "./Style/App.css";
 // 1. MAIN APP COMPONENT
@@ -242,6 +243,17 @@ function AppContent() {
               <Navigate to="/" replace />
             )
           }
+        />
+        {/* Cashier Page */}
+         <Route 
+          path="/cashier/dashboard" 
+          element={
+            isLoggedIn && (userRole === "cashier" || userRole === "admin") ? (
+              <Cashier />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          } 
         />
       </Routes>
 
