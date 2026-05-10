@@ -16,6 +16,7 @@ import alertMusicFile from "../../assets/alert-sound.mp3";
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 const BASE_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
 const HIDDEN_CATEGORIES = ["Chicken Wings", "Beverages", "Drinks", "Chicken"];
+
 const categoryIcons = {
   "Best Seller": <Flame />, "Budget Meals": <Wallet />, Unlimited: <InfinityIcon />,
   Pizzas: <Pizza />, Burgers: <Beef />, Bundle: <Package />, Extra: <PlusSquare />,
@@ -27,9 +28,11 @@ const KioskMenu = () => {
   const navigate = useNavigate();
   const timerRef = useRef(null);
   const audioRef = useRef(new Audio(alertMusicFile));
+  
   const TIMER_KEY = "kiosk_walkin_timer_end";
   const SAVED_TABLE_ID = "kiosk_active_table_id";
   const SAVED_RES_ID = "kiosk_active_res_id";
+  const OFFLINE_QUEUE_KEY = "kiosk_offline_orders";
 
   const [menuData, setMenuData] = useState({});
   const [loading, setLoading] = useState(true);
@@ -53,36 +56,168 @@ const KioskMenu = () => {
   const [selectedFlavors, setSelectedFlavors] = useState([]);
   const [selectedDrink, setSelectedDrink] = useState("");
   const [isRefillMode, setIsRefillMode] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
+  // --- ONLINE/OFFLINE MONITOR ---
+  useEffect(() => {
+    const handleStatus = () => {
+      setIsOnline(navigator.onLine);
+      if (navigator.onLine) syncOfflineOrders();
+    };
+    window.addEventListener("online", handleStatus);
+    window.addEventListener("offline", handleStatus);
+    return () => {
+      window.removeEventListener("online", handleStatus);
+      window.removeEventListener("offline", handleStatus);
+    };
+  }, []);
 
+  // --- SYNC OFFLINE ORDERS ---
+  const syncOfflineOrders = async () => {
+    const queue = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || "[]");
+    if (queue.length === 0) return;
 
-   const unlockAudio = () => {
-    if (audioRef.current) {
-      // Play and immediately pause to "prime" the audio engine
-      audioRef.current.play()
-        .then(() => {
-          audioRef.current.pause();
-          audioRef.current.currentTime = 0;
-        })
-        .catch(e => console.log("Audio priming..."));
+    for (const order of queue) {
+      try {
+        await axios.post(`${API_BASE}/orders/place`, order);
+      } catch (err) { console.error("Sync failed", err); }
+    }
+    localStorage.removeItem(OFFLINE_QUEUE_KEY);
+    alert("Reconnected: Orders synced with Kitchen.");
+  };
+
+  // --- FETCH MENU WITH DUAL IMAGE PATHS ---
+  useEffect(() => {
+    const fetchMenu = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/products`);
+        const data = await response.json();
+        localStorage.setItem("kiosk_cached_menu", JSON.stringify(data));
+        processMenu(data);
+      } catch (e) {
+        const cached = localStorage.getItem("kiosk_cached_menu");
+        if (cached) processMenu(JSON.parse(cached));
+      } finally { setLoading(false); }
+    };
+
+    const processMenu = (data) => {
+      const grouped = data.reduce((acc, item) => {
+        const cat = item.category_name || "General";
+        if (!acc[cat]) acc[cat] = [];
+
+        /** 
+         * USER SCHEMA LOGIC:
+         * item.image_url = /uploads/abc.jpg (LOCAL)
+         * item.local_path = https://cloudinary.com/xyz (CLOUDINARY)
+         */
+        const targetPath = (navigator.onLine && item.local_path) 
+          ? item.local_path // Online? Use Cloudinary (local_path)
+          : item.image_url;  // Offline? Use Local (/uploads/...)
+
+        const fullImage = targetPath?.startsWith("http") 
+          ? targetPath 
+          : `${BASE_URL}${targetPath?.startsWith("/") ? "" : "/"}${targetPath}`;
+
+        acc[cat].push({ 
+            id: item.item_id, 
+            name: item.name, 
+            image: fullImage, 
+            description: item.description, 
+            price: item.price, 
+            category: cat 
+        });
+        return acc;
+      }, {});
+
+      setMenuData(grouped);
+      setDynamicFlavors((grouped["Chicken"] || []).map((i) => i.name));
+      setDynamicDrinks([...(grouped["Beverages"] || []), ...(grouped["Drinks"] || [])].map((i) => i.name));
+      const firstVisibleCat = Object.keys(grouped).find((cat) => !HIDDEN_CATEGORIES.includes(cat));
+      if (firstVisibleCat) setActiveCategory(firstVisibleCat);
+    };
+
+    fetchMenu();
+    if (localStorage.getItem(SAVED_RES_ID)) fetchCurrentBill();
+  }, []);
+
+  // --- OFFLINE ORDER QUEUEING ---
+  const submitOrderToDatabase = async (tableId = null, itemsToSubmit = cart) => {
+    const dynamicResId = localStorage.getItem(SAVED_RES_ID) || `WALK-${Date.now()}`;
+    const orderData = {
+      reservation_id: dynamicResId,
+      table_id: tableId,
+      items: itemsToSubmit.map((i) => ({
+        item_id: i.id,
+        quantity: i.quantity,
+        customizations: i.customizations,
+        is_refill: i.price === 0,
+      })),
+    };
+
+    if (!navigator.onLine) {
+      const queue = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || "[]");
+      queue.push(orderData);
+      localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
+      finalizeOrderLocally(itemsToSubmit, tableId, dynamicResId);
+      alert("Offline: Order saved locally. It will reach the kitchen once Wi-Fi returns.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/orders/place`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(orderData),
+      });
+      if (response.ok) finalizeOrderLocally(itemsToSubmit, tableId, dynamicResId);
+    } catch (error) {
+       const queue = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || "[]");
+       queue.push(orderData);
+       localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
+       finalizeOrderLocally(itemsToSubmit, tableId, dynamicResId);
     }
   };
-  // --- 1. SMARTER BILL FETCHING ---
+
+  const finalizeOrderLocally = (itemsToSubmit, tableId, dynamicResId) => {
+    const newItems = itemsToSubmit.map((i) => ({ name: i.name, price: i.price || 0, quantity: i.quantity, customizations: i.customizations }));
+    setBillItems((prev) => [...prev, ...newItems]);
+    
+    const bundleItem = itemsToSubmit.find((i) => i.name?.toLowerCase().includes("bundle"));
+    if (bundleItem) {
+      localStorage.setItem("kiosk_active_bundle_id", bundleItem.id);
+      localStorage.setItem("kiosk_active_bundle_name", bundleItem.name);
+    }
+
+    localStorage.setItem(SAVED_TABLE_ID, tableId || "takeout");
+    localStorage.setItem(SAVED_RES_ID, dynamicResId);
+    
+    if (!localStorage.getItem(TIMER_KEY)) {
+      localStorage.setItem(TIMER_KEY, (Date.now() + 1860 * 1000).toString());
+      setIsTimerRunning(true);
+    }
+    setCart([]);
+    setShowTablePicker(false);
+    setShowTypeModal(false);
+    setShowSessionModal(true);
+  };
+
+  const unlockAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.play().then(() => {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+      }).catch(() => {});
+    }
+  };
+
   const fetchCurrentBill = async () => {
     const resId = localStorage.getItem(SAVED_RES_ID);
     if (!resId) return [];
     try {
       const res = await axios.get(`${API_BASE}/orders/reservation-items/${resId}`);
-      // ONLY update state if the DB actually has items. 
-      // This prevents the screen from going back to 0 while the DB is saving.
-      if (res.data && res.data.length > 0) {
-        setBillItems(res.data);
-      }
+      if (res.data?.length > 0) setBillItems(res.data);
       return res.data;
-    } catch (err) {
-      console.error("Error fetching bill", err);
-      return [];
-    }
+    } catch (err) { return []; }
   };
 
   const handleDineInSelection = async () => {
@@ -97,7 +232,7 @@ const KioskMenu = () => {
   const handleEndSession = async () => {
     const activeTable = localStorage.getItem(SAVED_TABLE_ID);
     const activeResId = localStorage.getItem(SAVED_RES_ID);
-    if (activeTable && activeTable !== "takeout" && activeResId) {
+    if (activeTable && activeTable !== "takeout" && activeResId && navigator.onLine) {
       try { await axios.post(`${API_BASE}/orders/finish`, { table_id: activeTable, reservation_id: activeResId }); } 
       catch (err) { console.error(err); }
     }
@@ -107,36 +242,8 @@ const KioskMenu = () => {
     localStorage.removeItem(SAVED_TABLE_ID);
     localStorage.removeItem(SAVED_RES_ID);
     localStorage.removeItem(TIMER_KEY);
-    setIsTimerRunning(false);
-    setShowEndModal(false);
     window.location.href = "/kiosk-selection";
   };
-
-  useEffect(() => {
-    const fetchMenu = async () => {
-      try {
-        const response = await fetch(`${API_BASE}/products`);
-        const data = await response.json();
-        const grouped = data.reduce((acc, item) => {
-          const cat = item.category_name || "General";
-          if (!acc[cat]) acc[cat] = [];
-          const fullImage = item.image_url?.startsWith("http") ? item.image_url : `${BASE_URL}${item.image_url?.startsWith("/") ? "" : "/"}${item.image_url}`;
-          acc[cat].push({ id: item.item_id, name: item.name, image: fullImage, description: item.description, price: item.price, category: cat });
-          return acc;
-        }, {});
-        setMenuData(grouped);
-        setDynamicFlavors((grouped["Chicken"] || []).map((i) => i.name));
-        setDynamicDrinks([...(grouped["Beverages"] || []), ...(grouped["Drinks"] || [])].map((i) => i.name));
-        const firstVisibleCat = Object.keys(grouped).find((cat) => !HIDDEN_CATEGORIES.includes(cat));
-        if (firstVisibleCat) setActiveCategory(firstVisibleCat);
-        setLoading(false);
-      } catch (e) { setLoading(false); }
-    };
-    fetchMenu();
-    if (localStorage.getItem(SAVED_RES_ID)) fetchCurrentBill();
-  }, []);
-
-  const hasActiveBundle = billItems.some(i => (i.name || i.item_name || "").toLowerCase().includes("bundle"));
 
   useEffect(() => {
     const savedEndTime = localStorage.getItem(TIMER_KEY);
@@ -147,24 +254,17 @@ const KioskMenu = () => {
     }
   }, []);
 
-useEffect(() => {
+  useEffect(() => {
     if (isTimerRunning) {
       timerRef.current = setInterval(() => {
         const savedEndTime = localStorage.getItem(TIMER_KEY);
         const remaining = Math.floor((parseInt(savedEndTime) - Date.now()) / 1000);
-        
-        // 30 MINUTE ALERT
-        if (remaining === 1800) {
-            console.log("🔔 [ALERT] 30 MINS LEFT");
-            audioRef.current.currentTime = 0; // Reset to start
-            audioRef.current.play().catch(e => console.error("Audio blocked by browser. User must interact with screen first.", e));
-        }
-        
+        if (remaining === 1800) audioRef.current.play().catch(() => {});
         if (remaining <= 0) handleEndSession();
         else setTimeLeft(remaining);
       }, 1000);
     }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    return () => clearInterval(timerRef.current);
   }, [isTimerRunning]);
 
   const confirmFlavors = () => {
@@ -201,51 +301,25 @@ useEffect(() => {
     setSelectedCard(item.id);
   };
 
-  const submitOrderToDatabase = async (tableId = null, itemsToSubmit = cart) => {
-    try {
-      const isNewSession = !localStorage.getItem(SAVED_RES_ID);
-      const dynamicResId = localStorage.getItem(SAVED_RES_ID) || `WALK-${Date.now()}`;
-      const response = await fetch(`${API_BASE}/orders/place`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          reservation_id: dynamicResId, table_id: tableId,
-          items: itemsToSubmit.map((i) => ({ item_id: i.id, quantity: i.quantity, customizations: i.customizations, is_refill: i.price === 0 })),
-        }),
-      });
-
-      if (response.ok) {
-        // OPTIMISTIC BILL UPDATE (Prevents 0.00 flicker)
-        const newItems = itemsToSubmit.map((i) => ({ name: i.name, price: i.price || 0, quantity: i.quantity, customizations: i.customizations }));
-        setBillItems((prev) => [...prev, ...newItems]);
-
-        const bundleItem = itemsToSubmit.find((i) => i.name?.toLowerCase().includes("bundle"));
-        if (bundleItem) {
-          localStorage.setItem("kiosk_active_bundle_id", bundleItem.id);
-          localStorage.setItem("kiosk_active_bundle_name", bundleItem.name);
-        }
-        localStorage.setItem(SAVED_TABLE_ID, tableId || "takeout");
-        localStorage.setItem(SAVED_RES_ID, dynamicResId);
-        if (isNewSession) {
-          localStorage.setItem(TIMER_KEY, (Date.now() + 1860 * 1000).toString());
-          setIsTimerRunning(true);
-        }
-        setCart([]); setShowTablePicker(false); setShowTypeModal(false); setShowSessionModal(true);
-      }
-    } catch (error) { alert("Connection error."); }
-  };
-
   const formatTime = (seconds) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
     return `${m}:${s.toString().padStart(2, "0")}`;
   };
 
+  const hasActiveBundle = billItems.some((i) => (i.name || i.item_name || "").toLowerCase().includes("bundle"));
+
   if (loading) return <div className="loading-container">Loading Menu...</div>;
 
   return (
     <div className="res-kiosk-container">
-      {/* HEADER - HIGH VISIBILITY COLORS */}
+      {/* OFFLINE INDICATOR BAR */}
+      {!isOnline && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, background: '#ff4444', color: '#fff', textAlign: 'center', zIndex: 10001, fontSize: '12px', padding: '2px', fontWeight: 'bold' }}>
+          OFFLINE: ORDERS WILL BE QUEUED
+        </div>
+      )}
+
       <div className="kiosk-timer-wrapper" style={{ zIndex: 5000 }}>
         <div className="header-id-section" style={{ background: "#222", border: "2px solid #ffcc00", padding: "10px 15px", borderRadius: "10px" }}>
           <ShoppingBag size={20} color="#ffcc00" />
@@ -318,7 +392,7 @@ useEffect(() => {
         </div>
       </footer>
 
-      {/* MODALS */}
+      {/* MODALS (Design Unchanged) */}
       {showFlavorModal && (
         <div className="res-modal-overlay" style={{ zIndex: 9000 }}>
           <div className="res-modal-card" style={{ maxWidth: "600px", width: "95%", maxHeight: "90vh", overflowY: "auto" }}>

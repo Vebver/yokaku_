@@ -78,9 +78,12 @@ function Product() {
     });
   };
 
-  const handleFileChange = (e) => {
-    setNewItem({ ...newItem, image: e.target.files[0] });
-  };
+ const handleFileChange = (e) => {
+  const file = e.target.files[0];
+  if (file) {
+    setNewItem({ ...newItem, image: file });
+  }
+};
 
   const openEditDrawer = (item) => {
     setIsEditing(true);
@@ -90,9 +93,12 @@ function Product() {
       description: item.description,
       price: item.price,
       category_id: item.category_id,
-      image: null,
+      image: null, // New file to upload
       is_available: item.is_available,
       is_featured: item.is_featured,
+      // Add these so the preview helper works
+      image_url: item.image_url,
+      local_path: item.local_path,
     });
   };
 
@@ -149,6 +155,19 @@ function Product() {
     } catch (err) {
       alert("Error.");
     }
+  };
+  // Helper to determine image source
+  const getImageUrl = (item, BASE_URL) => {
+    // We prioritize the local_path for the Admin table to ensure it exists for the Kiosk
+    // But we fallback to image_url (Cloudinary) if local is missing
+    const path = item.local_path || item.image_url;
+
+    if (!path) return "https://via.placeholder.com/45";
+    if (path.startsWith("http")) return path;
+
+    // Ensure there is a slash between BASE_URL and path
+    const separator = path.startsWith("/") ? "" : "/";
+    return `${BASE_URL}${separator}${path}`;
   };
 
   if (loading)
@@ -275,16 +294,15 @@ function Product() {
                   <td className="ps-4">
                     <div className="d-flex align-items-center">
                       <img
-                        src={
-                          item.image_url
-                            ? `${BASE_URL}${item.image_url}`
-                            : "https://via.placeholder.com/45"
-                        }
+                        src={getImageUrl(item, BASE_URL)}
                         alt={item.name}
                         className="rounded shadow-sm border me-3"
                         width="45"
                         height="45"
                         style={{ objectFit: "cover" }}
+                        onError={(e) =>
+                          (e.target.src = "https://via.placeholder.com/45")
+                        }
                       />
                       <div>
                         <div className="fw-bold text-dark">{item.name}</div>
@@ -459,6 +477,38 @@ function Product() {
                   required
                 />
               </div>
+            </div>
+            <div className="mb-3">
+              <label className="form-label small fw-bold text-dark">
+                {newItem.image ? "New Image Preview" : "Current Image"}
+              </label>
+              <div className="mb-2">
+                <img
+                  src={getImageUrl(newItem, BASE_URL)}
+                  alt="Preview"
+                  className="img-thumbnail shadow-sm"
+                  style={{
+                    height: "120px",
+                    width: "120px",
+                    objectFit: "cover",
+                    borderRadius: "8px",
+                  }}
+                  onError={(e) =>
+                    (e.target.src = "https://via.placeholder.com/120")
+                  }
+                />
+              </div>
+
+              <label className="form-label small fw-bold text-dark">
+                {isEditing ? "Change Image (Optional)" : "Upload Image"}
+              </label>
+              <input
+                type="file"
+                className="form-control"
+                accept="image/*"
+                onChange={handleFileChange} // This will trigger the preview update
+                required={!isEditing}
+              />
             </div>
             <div className="mb-3">
               <label className="form-label small fw-bold text-dark">
