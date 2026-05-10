@@ -1,13 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
-import {
-  Star,
-  Trash2,
-  Edit3,
-  Search,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
+import { Star, Trash2, Edit3, Search, ChevronLeft, ChevronRight } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 const BASE_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
@@ -45,7 +38,7 @@ function Product() {
       setCategories(catRes.data);
       const menuRes = await axios.get(`${API_BASE}/products`);
       
-      // SORT: Newest items first (by ID descending)
+      // SORT: Newest items first
       const sortedData = menuRes.data.sort((a, b) => b.item_id - a.item_id);
       setMenuItems(sortedData);
 
@@ -101,8 +94,8 @@ function Product() {
       image: null,
       is_available: item.is_available,
       is_featured: item.is_featured,
-      image_url: item.image_url,
-      local_path: item.local_path,
+      image_url: item.image_url, // local column
+      local_path: item.local_path, // cloudinary column
     });
   };
 
@@ -123,9 +116,19 @@ function Product() {
   const handleAddOrUpdateMenuItem = async (e) => {
     e.preventDefault();
     const formData = new FormData();
-    Object.keys(newItem).forEach((key) => {
-      if (newItem[key] !== null) formData.append(key, newItem[key]);
-    });
+    
+    // Convert state to FormData
+    formData.append("name", newItem.name);
+    formData.append("description", newItem.description);
+    formData.append("price", newItem.price);
+    formData.append("category_id", newItem.category_id);
+    formData.append("is_available", newItem.is_available);
+    formData.append("is_featured", newItem.is_featured);
+    
+    if (newItem.image) {
+      formData.append("image", newItem.image); // Field name must match backend
+    }
+
     try {
       if (isEditing) {
         await axios.put(`${API_BASE}/products/${editId}`, formData);
@@ -137,7 +140,7 @@ function Product() {
       fetchData();
       resetForm();
       if (closeBtnRef.current) closeBtnRef.current.click();
-      setCurrentPage(1); // Go to first page to see the new item
+      setCurrentPage(1); 
     } catch (err) {
       alert("Error saving item.");
     }
@@ -166,22 +169,22 @@ function Product() {
     }
   };
 
- const getImageUrl = (item, BASE_URL) => {
-  if (item.image instanceof File) {
-    return URL.createObjectURL(item.image);
-  }
+  const getImageUrl = (item, BASE_URL) => {
+    // 1. If user just selected a new file, show immediate preview
+    if (item.image instanceof File) {
+      return URL.createObjectURL(item.image);
+    }
 
-  // Swap these based on your DB logic: 
-  // We want the Cloudinary one (local_path) first, 
-  // then the Local one (image_url)
-  const path = item.local_path || item.image_url;
+    // 2. Priority: Cloudinary (local_path) then Local (image_url)
+    const path = item.local_path || item.image_url;
 
-  if (!path) return "/no-image.png"; // Use local file instead of via.placeholder
-  if (path.startsWith("http")) return path;
+    if (!path) return "https://placehold.co/150?text=No+Image";
+    if (path.startsWith("http")) return path;
 
-  const separator = path.startsWith("/") ? "" : "/";
-  return `${BASE_URL}${separator}${path}`;
-};
+    const separator = path.startsWith("/") ? "" : "/";
+    return `${BASE_URL}${separator}${path}`;
+  };
+
   if (loading) return <div className="p-5 text-center text-dark">Loading...</div>;
 
   return (
@@ -204,7 +207,7 @@ function Product() {
         `}
       </style>
 
-      {/* HEADER & SEARCH */}
+      {/* HEADER */}
       <div className="d-flex justify-content-between align-items-center mb-4 gap-3">
         <div>
           <h2 className="fw-bold mb-0">Menu Management</h2>
@@ -219,7 +222,7 @@ function Product() {
             <input
               type="text"
               className="form-control"
-              placeholder="Search dishes or categories..."
+              placeholder="Search dishes..."
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
@@ -265,7 +268,7 @@ function Product() {
                         width="45"
                         height="45"
                         style={{ objectFit: "cover" }}
-                        onError={(e) => (e.target.src = "https://via.placeholder.com/45")}
+                        onError={(e) => (e.target.src = "https://placehold.co/45?text=ERR")}
                       />
                       <div>
                         <div className="fw-bold text-dark">{item.name}</div>
@@ -321,11 +324,11 @@ function Product() {
           <form onSubmit={handleAddOrUpdateMenuItem}>
             <div className="mb-3">
               <label className="form-label small fw-bold text-dark">Dish Name</label>
-              <input type="text" name="name" className="form-control border w-100 px-2" value={newItem.name} onChange={handleInputChange} required />
+              <input type="text" name="name" className="form-control border px-2" value={newItem.name} onChange={handleInputChange} required />
             </div>
             <div className="mb-3">
               <label className="form-label small fw-bold text-dark">Description</label>
-              <textarea name="description" className="form-control border w-100 px-2" rows="3" value={newItem.description} onChange={handleInputChange}></textarea>
+              <textarea name="description" className="form-control border px-2" rows="3" value={newItem.description} onChange={handleInputChange}></textarea>
             </div>
             <div className="row">
               <div className="col-md-6 mb-3">
@@ -342,13 +345,13 @@ function Product() {
             
             <div className="mb-3">
               <label className="form-label small fw-bold text-dark">{newItem.image ? "New Image Preview" : "Current Image"}</label>
-              <div className="mb-2">
+              <div className="mb-2 text-center bg-light p-3 rounded border">
                 <img
                   src={getImageUrl(newItem, BASE_URL)}
                   alt="Preview"
                   className="img-thumbnail shadow-sm"
-                  style={{ height: "120px", width: "120px", objectFit: "cover", borderRadius: "8px" }}
-                  onError={(e) => (e.target.src = "https://via.placeholder.com/120")}
+                  style={{ height: "150px", width: "150px", objectFit: "cover", borderRadius: "8px" }}
+                  onError={(e) => (e.target.src = "https://placehold.co/150?text=No+Image")}
                 />
               </div>
               <label className="form-label small fw-bold text-dark">{isEditing ? "Change Image (Optional)" : "Upload Image"}</label>
@@ -356,7 +359,7 @@ function Product() {
             </div>
 
             <div className="d-grid gap-2 mt-4">
-              <button type="submit" className="btn btn-primary py-2 fw-bold">{isEditing ? "Save Changes" : "Add to Menu"}</button>
+              <button type="submit" className="btn btn-primary py-3 fw-bold">{isEditing ? "Save Changes" : "Add to Menu"}</button>
             </div>
           </form>
         </div>
