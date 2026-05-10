@@ -92,11 +92,18 @@ export default function ReservationSteps({ onClose, onSuccess }) {
 
   const [ui, setUi] = useState({
     loading: false,
-    editing: false,
+    editingFirstName: false,
+    editingLastName: false,
     menu: false,
     summary: false,
     terms: false,
   });
+
+  // Validation flags
+  const isFirstNameValid = user.firstName && user.firstName.trim().length > 0;
+  const isLastNameValid = user.lastName && user.lastName.trim().length > 0;
+  const isEmailValid = /^\S+@\S+\.\S+$/.test(user.email);
+  const isPhoneValid = user.phone.length === 11 && user.phone.startsWith("09");
 
   // ============ STEP TRACKING ============
   const [currentStep, setCurrentStep] = useState(0);
@@ -144,7 +151,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           if (!form.startTime || !form.endTime) return false;
           const s = timeToMin(form.startTime);
           const e = timeToMin(form.endTime);
-          return e - s >= 30; // Changed from 60 to 30 minutes
+          return e - s >= 30;
         })();
         const hasNoConflict = !data.schedule.some((r) => {
           const s = timeToMin(form.startTime);
@@ -159,13 +166,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           hasNoConflict
         );
       case 2:
-        const isFirstNameValid =
-          user.firstName && user.firstName.trim().length > 0;
-        const isLastNameValid =
-          user.lastName && user.lastName.trim().length > 0;
-        const isEmailValid = /^\S+@\S+\.\S+$/.test(user.email);
-        const isPhoneValid =
-          user.phone.length === 11 && user.phone.startsWith("09");
         const isMuniValid = form.muni && form.muni !== "";
         const isBrgyValid = form.brgy && form.brgy !== "";
         return (
@@ -482,10 +482,9 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       const thresh = new Date().getHours() * 60 + new Date().getMinutes() + 15;
       filtered = filtered.filter((t) => timeToMin(t) >= thresh);
     }
-    // Remove start times that would end after 10:30 PM (need at least 30 minutes)
     filtered = filtered.filter((startTime) => {
       const startM = timeToMin(startTime);
-      const minEndM = startM + 30; // Changed from 60 to 30 minutes
+      const minEndM = startM + 30;
       return minEndM <= maxEndTimeMinutes;
     });
     if (selectedId) {
@@ -506,18 +505,18 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   const filteredEndTimeOptions = useMemo(() => {
     if (!form.startTime) return [];
     const startM = timeToMin(form.startTime);
-    const absoluteMaxEnd = Math.min(maxEndTimeMinutes, startM + 180); // Max 3 hours, but not past 10:30 PM
+    const absoluteMaxEnd = Math.min(maxEndTimeMinutes, startM + 180);
 
     if (!selectedId) {
       return timeOptions.filter((endTime) => {
         const endM = timeToMin(endTime);
-        return endM >= startM + 30 && endM <= absoluteMaxEnd; // Changed from 60 to 30 minutes
+        return endM >= startM + 30 && endM <= absoluteMaxEnd;
       });
     }
     const schedule = tableSchedules[selectedId] || [];
     return timeOptions.filter((endTime) => {
       const endM = timeToMin(endTime);
-      if (endM < startM + 30) return false; // Changed from 60 to 30 minutes
+      if (endM < startM + 30) return false;
       if (endM > absoluteMaxEnd) return false;
       return !schedule.some((reservation) => {
         const resStartM = timeToMin(reservation.startTime);
@@ -891,26 +890,60 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         return (
           <div className="step-content step-details">
             <div className="reservation-form-grid">
-              <div className="input-row">
-                <div className="input-group">
+              {/* FIRST NAME with Pencil Icon */}
+              <div className="input-group">
+                <div className="label-with-icon">
                   <label>FIRST NAME</label>
-                  <input
-                    type="text"
-                    name="firstName"
-                    value={user.firstName}
-                    onChange={handleInputChange}
+                  <Pencil
+                    size={16}
+                    className={`edit-toggle-icon ${ui.editingFirstName ? "active" : ""}`}
+                    onClick={() =>
+                      setUi((p) => ({
+                        ...p,
+                        editingFirstName: !p.editingFirstName,
+                      }))
+                    }
                   />
                 </div>
-                <div className="input-group">
-                  <label>LAST NAME</label>
-                  <input
-                    type="text"
-                    name="lastName"
-                    value={user.lastName}
-                    onChange={handleInputChange}
-                  />
-                </div>
+                <input
+                  type="text"
+                  name="firstName"
+                  value={user.firstName}
+                  onChange={handleInputChange}
+                  disabled={!ui.editingFirstName}
+                  className={
+                    !isFirstNameValid && user.firstName ? "input-error" : ""
+                  }
+                />
               </div>
+
+              {/* LAST NAME with Pencil Icon */}
+              <div className="input-group">
+                <div className="label-with-icon">
+                  <label>LAST NAME</label>
+                  <Pencil
+                    size={16}
+                    className={`edit-toggle-icon ${ui.editingLastName ? "active" : ""}`}
+                    onClick={() =>
+                      setUi((p) => ({
+                        ...p,
+                        editingLastName: !p.editingLastName,
+                      }))
+                    }
+                  />
+                </div>
+                <input
+                  type="text"
+                  name="lastName"
+                  value={user.lastName}
+                  onChange={handleInputChange}
+                  disabled={!ui.editingLastName}
+                  className={
+                    !isLastNameValid && user.lastName ? "input-error" : ""
+                  }
+                />
+              </div>
+
               <div className="input-group">
                 <label>
                   <Mail size={12} /> EMAIL
@@ -919,9 +952,11 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   type="email"
                   name="email"
                   value={user.email}
-                  onChange={handleInputChange}
+                  disabled
+                  className={!isEmailValid && user.email ? "input-error" : ""}
                 />
               </div>
+
               <div className="input-group">
                 <label>
                   <Phone size={12} /> CONTACT
@@ -931,9 +966,13 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   name="phone"
                   value={user.phone}
                   onChange={handleInputChange}
+                  className={
+                    !isPhoneValid && user.phone !== "09" ? "input-error" : ""
+                  }
                 />
                 <small className="input-hint">11 digits starting with 09</small>
               </div>
+
               <div className="input-row">
                 <div className="input-group">
                   <label>
@@ -973,10 +1012,12 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   </select>
                 </div>
               </div>
+
               <div className="input-group">
                 <label>GUESTS</label>
                 <input type="text" value={totalSeats} readOnly />
               </div>
+
               <div className="input-group">
                 <label>
                   <Baby size={12} /> HIGH CHAIR NEEDED?
@@ -996,6 +1037,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   ))}
                 </div>
               </div>
+
               <div className="input-group">
                 <label>
                   <PartyPopper size={12} /> OCCASION
@@ -1023,6 +1065,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   />
                 )}
               </div>
+
               <div className="input-group">
                 <label>
                   <AlertCircle size={12} /> ALLERGIES
