@@ -1,5 +1,6 @@
 const { get } = require("node:http");
 const Product = require("../models/Product");
+const cloudinary = require('cloudinary').v2;
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_NAME,
@@ -70,11 +71,20 @@ const productController = {
 
     // 3. Upload the same file to Cloudinary (For Online Reservations)
     if (req.file) {
-      // req.file.path is the physical location on your server's disk
-      const result = await cloudinary.uploader.upload(req.file.path, {
-        folder: "restaurant_products",
-      });
-      cloudinary_url = result.secure_url; // This is the https:// link
+     try {
+        console.log("Attempting Cloudinary Upload for:", req.file.path);
+        
+        // Use the file that Multer just saved to your hard drive
+        const result = await cloudinary.uploader.upload(req.file.path, {
+            folder: "restaurant_products",
+        });
+
+        console.log("Cloudinary Upload Success!");
+        cloudinary_url = result.secure_url; // This starts with https://
+    } catch (uploadError) {
+        console.error("Cloudinary Upload FAILED:", uploadError);
+        // Even if Cloudinary fails, we still have the local image
+    }
     }
 
     // 4. Save everything to the Database
