@@ -18,7 +18,6 @@ const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 let socket;
 
- //AUDIO
 const categoryIcons = {
   "My Reserved Items": <PackageSearch color="#ffcc00" />,
   "Chicken Wings": <Drumstick />,
@@ -46,7 +45,7 @@ const KioskReservationMenu = () => {
   const audioRef = useRef(new Audio(alertMusicFile));
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
-  // --- 1. MONITOR ONLINE STATUS ---
+  // --- MONITOR ONLINE STATUS ---
   useEffect(() => {
     const handleStatus = () => {
       setIsOnline(navigator.onLine);
@@ -60,7 +59,7 @@ const KioskReservationMenu = () => {
     };
   }, []);
 
-  // --- 2. SYNC QUEUED ORDERS ---
+  // --- SYNC QUEUED ORDERS ---
   const syncOfflineOrders = async () => {
     const queue = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || "[]");
     if (queue.length === 0) return;
@@ -80,41 +79,36 @@ const KioskReservationMenu = () => {
     window.location.href = "/kiosk-selection";
   };
 
-   const unlockAudio = () => {
-    audioRef.current
-      .play()
-      .then(() => {
+  const unlockAudio = () => {
+    audioRef.current.play().then(() => {
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
-      })
-      .catch(() => {}); // Ignore errors
+      }).catch(() => {});
   };
+
+  // --- TIMER LOGIC ---
   useEffect(() => {
     if (isTimerRunning) {
       timerRef.current = setInterval(() => {
         const savedEndTime = localStorage.getItem(TIMER_SESSION_KEY);
-        if (!savedEndTime) {
-          stopAndClearEverything();
-          return;
-        }
-        const remaining = Math.floor(
-          (parseInt(savedEndTime) - Date.now()) / 1000,
-        );
+        if (!savedEndTime) { stopAndClearEverything(); return; }
+        
+        const remaining = Math.floor((parseInt(savedEndTime) - Date.now()) / 1000);
+        
+        // 30 MINUTE ALERT
         if (remaining === 1800) { 
-            console.log("🔔 [ALERT] 30 MINS LEFT");
             audioRef.current.currentTime = 0; 
             audioRef.current.play().catch(e => console.log("Audio blocked"));
         }
-        if (remaining <= 0) {
-          stopAndClearEverything();
-        } else {
-          setTimeLeft(remaining);
-        }
+
+        if (remaining <= 0) stopAndClearEverything();
+        else setTimeLeft(remaining);
       }, 1000);
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [isTimerRunning]);
 
+  // --- DATA FETCHING ---
   useEffect(() => {
     socket = io(SOCKET_URL);
 
@@ -122,13 +116,10 @@ const KioskReservationMenu = () => {
       try {
         const prodRes = await fetch(`${API_BASE}/products`);
         const allProducts = await prodRes.json();
-
         const resItemsRes = await fetch(`${API_BASE}/orders/reservation-items/${reservationId}`);
         const reservedItems = await resItemsRes.json();
 
-        const menuPayload = { allProducts, reservedItems };
-        localStorage.setItem("kiosk_res_cached_menu", JSON.stringify(menuPayload));
-        
+        localStorage.setItem("kiosk_res_cached_menu", JSON.stringify({ allProducts, reservedItems }));
         processMenu(allProducts, reservedItems);
       } catch (err) {
         const cached = localStorage.getItem("kiosk_res_cached_menu");
@@ -155,39 +146,19 @@ const KioskReservationMenu = () => {
           if (typeof savedCustoms === "string") {
             try { savedCustoms = JSON.parse(savedCustoms); } catch (e) { savedCustoms = null; }
           }
-
-          // DUAL IMAGE LOGIC (item.image_url = local, item.local_path = cloudinary)
+          // Online -> Cloudinary (local_path) | Offline -> Local (image_url)
           const targetPath = (navigator.onLine && item.local_path) ? item.local_path : item.image_url;
-          const finalImg = targetPath?.startsWith("http") 
-            ? targetPath 
-            : `${BASE_URL}${targetPath?.startsWith("/") ? "" : "/"}${targetPath}`;
-
-          return {
-            id: item.item_id,
-            name: item.name,
-            price: item.price,
-            customizations: savedCustoms,
-            image: finalImg,
-          };
+          const finalImg = targetPath?.startsWith("http") ? targetPath : `${BASE_URL}${targetPath?.startsWith("/") ? "" : "/"}${targetPath}`;
+          return { id: item.item_id, name: item.name, price: item.price, customizations: savedCustoms, image: finalImg };
         });
       }
 
       allProducts.forEach((item) => {
         const cat = item.category_name || "Uncategorized";
         if (!grouped[cat]) grouped[cat] = [];
-        
         const targetPath = (navigator.onLine && item.local_path) ? item.local_path : item.image_url;
-        const finalImg = targetPath?.startsWith("http") 
-          ? targetPath 
-          : `${BASE_URL}${targetPath?.startsWith("/") ? "" : "/"}${targetPath}`;
-
-        grouped[cat].push({
-          id: item.item_id,
-          name: item.name,
-          price: item.price,
-          image: finalImg,
-          category: cat,
-        });
+        const finalImg = targetPath?.startsWith("http") ? targetPath : `${BASE_URL}${targetPath?.startsWith("/") ? "" : "/"}${targetPath}`;
+        grouped[cat].push({ id: item.item_id, name: item.name, price: item.price, image: finalImg, category: cat });
       });
 
       setMenuData(grouped);
@@ -203,30 +174,13 @@ const KioskReservationMenu = () => {
       const remaining = Math.floor((parseInt(savedEndTime) - Date.now()) / 1000);
       if (remaining > 0) { setTimeLeft(remaining); setIsTimerRunning(true); }
     }
-
     return () => { if (socket) socket.disconnect(); };
   }, [reservationId]);
 
-  const formatTime = (seconds) => {
-    if (seconds <= 0) return "0:00:00";
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
-  };
-
+  // --- ORDER SUBMISSION ---
   const handleSendRequest = async () => {
     unlockAudio();
-    if (cart.length > 0) {
-      try {
-        const response = await fetch(`${API_BASE}/orders/place`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            reservation_id: reservationId,
-            items: cart.map((i) => ({ item_id: i.id, quantity: i.quantity })),
-          }),
-        });
+    if (cart.length === 0) return;
 
     const orderData = {
       reservation_id: reservationId,
@@ -237,10 +191,9 @@ const KioskReservationMenu = () => {
         const queue = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || "[]");
         queue.push(orderData);
         localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
-        
         setOrderCart([]);
         setShowSuccessModal(true);
-        alert("System Offline: Order saved and will be sent when connection returns.");
+        alert("Offline: Order saved locally. It will sync when Wi-Fi returns.");
         return;
     }
 
@@ -252,19 +205,12 @@ const KioskReservationMenu = () => {
       });
 
       if (response.ok) {
-        if (socket) {
-            socket.emit("send_order", {
-                table: reservationId,
-                items: cart.map((i) => ({ name: i.name, qty: i.quantity })),
-            });
-        }
-
+        if (socket) socket.emit("send_order", { table: reservationId, items: cart.map((i) => ({ name: i.name, qty: i.quantity })) });
         if (!localStorage.getItem(TIMER_SESSION_KEY)) {
           const endTime = (Date.now() + 5400 * 1000).toString();
           localStorage.setItem(TIMER_SESSION_KEY, endTime);
           setIsTimerRunning(true);
         }
-
         setOrderCart([]);
         setShowSuccessModal(true);
       } else {
@@ -280,15 +226,22 @@ const KioskReservationMenu = () => {
     }
   };
 
+  const formatTime = (seconds) => {
+    if (seconds <= 0) return "0:00:00";
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  };
+
   if (loading) return <div className="loading-container">Loading Kiosk...</div>;
 
   return (
     <div className="res-kiosk-container" style={{ position: "relative", width: "100vw", height: "100vh", overflow: "hidden" }}>
       
-      {/* OFFLINE INDICATOR */}
       {!isOnline && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, background: '#ff4444', color: '#fff', textAlign: 'center', zIndex: 10001, fontSize: '12px', fontWeight: 'bold', padding: '2px' }}>
-          OFFLINE MODE - MENU LOADED FROM CACHE
+          OFFLINE MODE - USING CACHED IMAGES
         </div>
       )}
 
@@ -336,15 +289,7 @@ const KioskReservationMenu = () => {
         <main className="res-content-area" style={{ flex: 1, overflowY: "auto" }}>
           <div className="res-grid-container">
             {menuData[activeCategory]?.map((item) => (
-              <div
-                key={item.id}
-                className="res-food-card"
-                onClick={() => {
-                  unlockAudio();
-                  setSelectedItem(item);
-                  setIsModalOpen(true);
-                }}
-              >
+              <div key={item.id} className="res-food-card" onClick={() => { unlockAudio(); setSelectedItem(item); setIsModalOpen(true); }}>
                 <div className="res-card-image-container">
                   <img src={item.image} alt={item.name} className="res-food-img" onError={(e) => { e.target.src = "https://via.placeholder.com/150"; }} />
                 </div>
