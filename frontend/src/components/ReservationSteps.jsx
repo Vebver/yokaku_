@@ -51,12 +51,12 @@ const STEPS = [
   "Select Table & Time",
   "Your Details",
   "Choose Package",
-  "Terms",
   "Summary",
 ];
 
 export default function ReservationSteps({ onClose, onSuccess }) {
   // ============ STATE ============
+  const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [linkedIds, setLinkedIds] = useState([]);
   const [selectedItems, setSelectedItems] = useState([]);
@@ -177,9 +177,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           isBrgyValid
         );
       case 3:
-        return selectedItems.length > 0;
+        return selectedItems.length > 0 && agreeToTerms;
       case 4:
-      case 5:
         return true;
       default:
         return true;
@@ -203,7 +202,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     if (currentStep === 2 && validateCurrentStep()) {
       markStepCompleted(2);
     }
-    if (currentStep === 3 && selectedItems.length > 0) {
+    if (currentStep === 3 && selectedItems.length > 0 && agreeToTerms) {
       markStepCompleted(3);
     }
   }, [
@@ -213,6 +212,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     form.endTime,
     selectedId,
     selectedItems,
+    agreeToTerms,
     blockedDates,
   ]);
 
@@ -463,7 +463,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     const opts = [];
     for (let h = 10; h <= 22; h++) {
       for (let m = 0; m < 60; m += 15) {
-        if (h === 22 && m > 0) break;
+        if (h === 22 && m > 30) break;
         const hour12 = h % 12 || 12;
         const period = h < 12 ? "AM" : "PM";
         opts.push(
@@ -474,7 +474,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     return opts;
   }, []);
 
-  const maxEndTimeMinutes = 22 * 60 + 30; // 10:30 PM
+  const maxEndTimeMinutes = 22 * 60 + 30;
 
   const availableStartTimeOptions = useMemo(() => {
     let filtered = timeOptions;
@@ -484,6 +484,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     }
     filtered = filtered.filter((startTime) => {
       const startM = timeToMin(startTime);
+      if (startM > 22 * 60) return false;
       const minEndM = startM + 30;
       return minEndM <= maxEndTimeMinutes;
     });
@@ -505,6 +506,17 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   const filteredEndTimeOptions = useMemo(() => {
     if (!form.startTime) return [];
     const startM = timeToMin(form.startTime);
+
+    if (startM >= 21 * 60 + 30) {
+      if (maxEndTimeMinutes >= startM + 30) {
+        const tenThirtyPM = timeOptions.find(
+          (t) => t.includes("10:30") && t.includes("PM"),
+        );
+        return tenThirtyPM ? [tenThirtyPM] : [];
+      }
+      return [];
+    }
+
     const absoluteMaxEnd = Math.min(maxEndTimeMinutes, startM + 180);
 
     if (!selectedId) {
@@ -890,7 +902,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         return (
           <div className="step-content step-details">
             <div className="reservation-form-grid">
-              {/* FIRST NAME with Pencil Icon */}
               <div className="input-group">
                 <div className="label-with-icon">
                   <label>FIRST NAME</label>
@@ -917,7 +928,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                 />
               </div>
 
-              {/* LAST NAME with Pencil Icon */}
               <div className="input-group">
                 <div className="label-with-icon">
                   <label>LAST NAME</label>
@@ -1125,7 +1135,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     Total: ₱{orderSummary.totalOrderPrice.toFixed(2)}
                   </strong>
                 </div>
-                {/* RESTORED: Down payment information */}
                 <div className="package-downpayment">
                   <span style={{ color: "#f38d31", fontWeight: "800" }}>
                     Downpayment (20%):
@@ -1140,33 +1149,37 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   </span>
                   <strong>₱{orderSummary.balance.toFixed(2)}</strong>
                 </div>
+
+                <div className="terms-checkbox-wrapper">
+                  <label className="terms-checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={agreeToTerms}
+                      onChange={(e) => setAgreeToTerms(e.target.checked)}
+                    />
+                    <span>
+                      I have read and agree to the{" "}
+                      <button
+                        type="button"
+                        className="terms-link-btn"
+                        onClick={() => setUi((p) => ({ ...p, terms: true }))}
+                      >
+                        Terms and Conditions
+                      </button>
+                    </span>
+                  </label>
+                </div>
               </div>
             )}
           </div>
         );
 
-      case 4:
-        return (
-          <div className="step-content step-terms">
-            <div className="terms-preview">
-              <h3>Terms and Conditions</h3>
-              <p>By proceeding, you agree to our terms and conditions...</p>
-              <button
-                className="btn-link-mode"
-                onClick={() => setUi((p) => ({ ...p, terms: true }))}
-              >
-                View Full Terms
-              </button>
-            </div>
-          </div>
-        );
-
-      case 5:
+      case 4: // Summary
         return (
           <div className="step-content step-summary">
             <ReservationSummary
               isOpen={true}
-              onClose={() => {}}
+              onClose={onClose}
               orderSummary={orderSummary}
               reservationData={fullReservationData}
               onConfirm={confirmBooking}
