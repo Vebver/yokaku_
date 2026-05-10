@@ -1,5 +1,6 @@
 const Reservation = require("../models/Reservation");
 const User = require("../models/User");
+const db = require("../config/db"); // Add this for direct database queries
 
 /**
  * UTILITY HELPERS
@@ -104,18 +105,33 @@ const reservationController = {
   // ==================== CANCELLATIONS ====================
   getCancellationCount: async (req, res) => {
     try {
-      const count = await User.getCancellationCount(req.params.userId);
-      res.json({ cancellationCount: count });
+      const { userId } = req.params;
+      const [rows] = await db.execute(
+        "SELECT cancellation_count, last_cancellation_time FROM users WHERE user_id = ?",
+        [userId],
+      );
+      res.json({
+        cancellationCount: rows[0]?.cancellation_count || 0,
+        lastCancellationTime: rows[0]?.last_cancellation_time || null,
+      });
     } catch (error) {
+      console.error("Error fetching cancellation count:", error);
       res.status(500).json({ error: error.message });
     }
   },
 
   recordCancellation: async (req, res) => {
     try {
-      await User.incrementCancellationCount(req.body.userId);
+      const { userId } = req.body;
+      await User.incrementCancellationCount(userId);
+      // Update last cancellation time
+      await db.execute(
+        "UPDATE users SET last_cancellation_time = NOW() WHERE user_id = ?",
+        [userId],
+      );
       res.json({ success: true });
     } catch (error) {
+      console.error("Error recording cancellation:", error);
       res.status(500).json({ error: error.message });
     }
   },
@@ -203,51 +219,56 @@ const reservationController = {
     }
   },
 
-updateStatus: async (req, res) => {
-  console.log("HIT THE STATUS UPDATE ROUTE!");
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
-    const currentUser = req.user; // This comes from your 'protect' middleware
+  updateStatus: async (req, res) => {
+    console.log("HIT THE STATUS UPDATE ROUTE!");
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+      const currentUser = req.user; // This comes from your 'protect' middleware
 
-    // 1. Find the reservation
-    const reservation = await Reservation.findById(id);
-    if (!reservation) return res.status(404).json({ error: "Not found" });
+      // 1. Find the reservation
+      const reservation = await Reservation.findById(id);
+      if (!reservation) return res.status(404).json({ error: "Not found" });
 
-    // 2. SECURITY CHECK
-    const isOwner = reservation.user_id === currentUser.userId;
-    const isAdmin = currentUser.role === 'admin';
+      // 2. SECURITY CHECK
+      const isOwner = reservation.user_id === currentUser.userId;
+      const isAdmin = currentUser.role === "admin";
 
-    // If the user is a CUSTOMER
-    if (!isAdmin) {
-      // Rule A: They can only update their OWN reservation
-      if (!isOwner) {
-        return res.status(403).json({ error: "You do not own this reservation." });
+      // If the user is a CUSTOMER
+      if (!isAdmin) {
+        // Rule A: They can only update their OWN reservation
+        if (!isOwner) {
+          return res
+            .status(403)
+            .json({ error: "You do not own this reservation." });
+        }
+
+        // Rule B: They can ONLY change the status to 'Cancelled'
+        // They are NOT allowed to set it to 'Seated' or 'Confirmed'
+        if (status.toLowerCase() !== "cancelled") {
+          return res
+            .status(403)
+            .json({ error: "Customers can only cancel reservations." });
+        }
       }
 
-      // Rule B: They can ONLY change the status to 'Cancelled'
-      // They are NOT allowed to set it to 'Seated' or 'Confirmed'
+      // 3. BLACKLIST CHECK (Only if they are trying to do something OTHER than cancel)
       if (status.toLowerCase() !== "cancelled") {
-        return res.status(403).json({ error: "Customers can only cancel reservations." });
+        const noShowCount = await Reservation.countNoShows(reservation.user_id);
+        if (noShowCount >= 3) {
+          return res
+            .status(403)
+            .json({ error: "Account restricted due to no-shows." });
+        }
       }
+
+      // 4. If Admin OR (Owner + Cancelling), proceed!
+      await Reservation.updateStatus(id, status);
+      res.json({ success: true, message: "Status updated." });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
     }
-
-    // 3. BLACKLIST CHECK (Only if they are trying to do something OTHER than cancel)
-    if (status.toLowerCase() !== "cancelled") {
-      const noShowCount = await Reservation.countNoShows(reservation.user_id);
-      if (noShowCount >= 3) {
-        return res.status(403).json({ error: "Account restricted due to no-shows." });
-      }
-    }
-
-    // 4. If Admin OR (Owner + Cancelling), proceed!
-    await Reservation.updateStatus(id, status);
-    res.json({ success: true, message: "Status updated." });
-
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-},
+  },
 
   deleteReservation: async (req, res) => {
     try {
