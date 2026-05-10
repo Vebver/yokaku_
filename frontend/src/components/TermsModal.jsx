@@ -70,8 +70,8 @@ const TermsModal = ({ isOpen, onAccept, onClose }) => {
           </p>
           <p>
             <strong>2. Late Arrival:</strong> Tables will be held for a maximum
-            of 15 minutes past the reserved time. After 15 minutes, the
-            reservation may be cancelled.
+            of 1 hour past the reserved time. After 1 hour, the reservation may
+            be cancelled.
           </p>
           <p>
             <strong>3. Payment Rules:</strong> For packages, a down payment may
@@ -87,8 +87,9 @@ const TermsModal = ({ isOpen, onAccept, onClose }) => {
             refuse service to anyone violating establishment policies.
           </p>
           <p>
-            <strong>6. No Refund Policy:</strong> Downpayments are
-            non-refundable for no-shows or late cancellations.
+            <strong>6. No Refund Policy:</strong> Down payments are
+            non-refundable for cancellations made less than 3 days before
+            reservation time.
           </p>
         </div>
 

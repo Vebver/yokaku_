@@ -1,5 +1,6 @@
 const Reservation = require("../models/Reservation");
 const User = require("../models/User");
+const db = require("../config/db"); // Add this for direct database queries
 
 /**
  * UTILITY HELPERS
@@ -104,18 +105,33 @@ const reservationController = {
   // ==================== CANCELLATIONS ====================
   getCancellationCount: async (req, res) => {
     try {
-      const count = await User.getCancellationCount(req.params.userId);
-      res.json({ cancellationCount: count });
+      const { userId } = req.params;
+      const [rows] = await db.execute(
+        "SELECT cancellation_count, last_cancellation_time FROM users WHERE user_id = ?",
+        [userId],
+      );
+      res.json({
+        cancellationCount: rows[0]?.cancellation_count || 0,
+        lastCancellationTime: rows[0]?.last_cancellation_time || null,
+      });
     } catch (error) {
+      console.error("Error fetching cancellation count:", error);
       res.status(500).json({ error: error.message });
     }
   },
 
   recordCancellation: async (req, res) => {
     try {
-      await User.incrementCancellationCount(req.body.userId);
+      const { userId } = req.body;
+      await User.incrementCancellationCount(userId);
+      // Update last cancellation time
+      await db.execute(
+        "UPDATE users SET last_cancellation_time = NOW() WHERE user_id = ?",
+        [userId],
+      );
       res.json({ success: true });
     } catch (error) {
+      console.error("Error recording cancellation:", error);
       res.status(500).json({ error: error.message });
     }
   },
