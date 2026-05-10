@@ -770,6 +770,36 @@
   font-size: 16px;
 }
 
+/* Button spinner for loading state */
+.btn-spinner-small {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  margin-right: 8px;
+}
+
+.cancel-modal-confirm-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* Cooldown timer text */
+.cooldown-timer {
+  color: #f38d31;
+  font-weight: bold;
+}
+
+/* Disabled button cursor */
+.cancel-reservation-btn:disabled {
+  cursor: not-allowed !important;
+}
+
 /* Animations */
 @keyframes slideUp {
   from {

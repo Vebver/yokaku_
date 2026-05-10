@@ -30,11 +30,15 @@ const MyReservation = () => {
   const [noShowCount, setNoShowCount] = useState(0);
   const [cancellationCount, setCancellationCount] = useState(0);
   const MAX_STRIKES = 3;
+  const [isCancelling, setIsCancelling] = useState(false); // Loading state for cancel button
 
   // New state for cancellation limit
   const [cancellationsLeft, setCancellationsLeft] = useState(3);
   const [showLimitWarning, setShowLimitWarning] = useState(false);
+  const [cooldownTimeLeft, setCooldownTimeLeft] = useState(0); // Cooldown timer in seconds
   const MAX_CANCELLATIONS = 3;
+  const COOLDOWN_HOURS = 24;
+  const COOLDOWN_SECONDS = COOLDOWN_HOURS * 60 * 60;
 
   const cancelReasons = [
     "Change of plans",
@@ -52,31 +56,25 @@ const MyReservation = () => {
     fetchCancellationCount();
   }, []);
 
-  const fetchUserStats = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const userId = localStorage.getItem("userId");
-      if (!userId) return;
-
-      // Fetch the user's strike stats from your new backend logic
-      const response = await axios.get(
-        `${API_BASE}/reservations/user/${userId}/stats`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
-
-      const { cancellations, noShows } = response.data;
-      setCancellationCount(cancellations);
-      setNoShowCount(noShows);
-
-      const totalStrikes = cancellations + noShows;
-      setCancellationsLeft(Math.max(0, MAX_STRIKES - totalStrikes));
-    } catch (error) {
-      console.error("Error fetching stats:", error);
+  // Check cooldown timer every second
+  useEffect(() => {
+    let timer;
+    if (cooldownTimeLeft > 0) {
+      timer = setInterval(() => {
+        setCooldownTimeLeft((prev) => {
+          if (prev <= 1) {
+            // Cooldown finished, refresh cancellation count
+            fetchCancellationCount();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
     }
-  };
-  // Fetch user's cancellation count
+    return () => clearInterval(timer);
+  }, [cooldownTimeLeft]);
+
+  // Fetch user's cancellation count with cooldown check
   const fetchCancellationCount = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -92,7 +90,26 @@ const MyReservation = () => {
       );
 
       const count = response.data.cancellationCount || 0;
-      setCancellationsLeft(Math.max(0, MAX_CANCELLATIONS - count));
+      const lastCancellationTime = response.data.lastCancellationTime;
+      const cancellationsLeftValue = Math.max(0, MAX_CANCELLATIONS - count);
+
+      setCancellationsLeft(cancellationsLeftValue);
+
+      // Check if user has reached limit and calculate cooldown
+      if (cancellationsLeftValue === 0 && lastCancellationTime) {
+        const lastTime = new Date(lastCancellationTime).getTime();
+        const now = Date.now();
+        const elapsedSeconds = Math.floor((now - lastTime) / 1000);
+        const remainingSeconds = Math.max(0, COOLDOWN_SECONDS - elapsedSeconds);
+
+        if (remainingSeconds > 0) {
+          setCooldownTimeLeft(remainingSeconds);
+        } else {
+          setCooldownTimeLeft(0);
+        }
+      } else {
+        setCooldownTimeLeft(0);
+      }
     } catch (error) {
       console.error("Error fetching cancellation count:", error);
     }
@@ -116,7 +133,6 @@ const MyReservation = () => {
         },
       );
 
-      // Safely extract array from response
       let reservationsArray = [];
       if (Array.isArray(response.data)) {
         reservationsArray = response.data;
@@ -125,7 +141,6 @@ const MyReservation = () => {
       } else if (response.data && Array.isArray(response.data.reservations)) {
         reservationsArray = response.data.reservations;
       } else if (response.data && typeof response.data === "object") {
-        // If it's a single object, wrap it in an array
         if (response.data.reservation_id) {
           reservationsArray = [response.data];
         }
@@ -162,6 +177,14 @@ const MyReservation = () => {
       return;
     }
 
+    // Check if on cooldown
+    if (cooldownTimeLeft > 0) {
+      alert(
+        `You need to wait ${formatCooldownTime(cooldownTimeLeft)} before you can cancel another reservation.`,
+      );
+      return;
+    }
+
     setCancelReason("");
     setCancelReasonText("");
     setSelectedCancelReason("");
@@ -194,6 +217,20 @@ const MyReservation = () => {
     setShowTermsFromCancel(false);
   };
 
+  // Format cooldown time from seconds to readable format
+  const formatCooldownTime = (seconds) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    } else if (minutes > 0) {
+      return `${minutes}m ${secs}s`;
+    }
+    return `${secs}s`;
+  };
+
   // Check if confirm button should be disabled
   const isConfirmDisabled = () => {
     const finalReason =
@@ -201,18 +238,20 @@ const MyReservation = () => {
     if (!finalReason) return true;
     if (!agreeToTerms) return true;
     if (cancelReason === "Other" && !cancelReasonText.trim()) return true;
+    if (isCancelling) return true; // Prevent during cancellation
     return false;
   };
 
   const handleConfirmCancellation = () => {
     if (isConfirmDisabled()) return;
-
-    const finalReason =
-      cancelReason === "Other" ? cancelReasonText : cancelReason;
-    handleProceedToCancellation(finalReason);
+    handleProceedToCancellation(
+      cancelReason === "Other" ? cancelReasonText : cancelReason,
+    );
   };
 
   const handleProceedToCancellation = async (finalReason) => {
+    setIsCancelling(true); // Set loading state
+
     try {
       const token = localStorage.getItem("token");
       const userId = localStorage.getItem("userId");
@@ -243,7 +282,7 @@ const MyReservation = () => {
       let warningMessage = `Reservation cancelled successfully.\nReason: ${finalReason}\n\n`;
 
       if (newCancellationsLeft === 0) {
-        warningMessage += `⚠️ WARNING: You have reached your cancellation limit (${MAX_CANCELLATIONS}/3). You can no longer cancel any future reservations.`;
+        warningMessage += `⚠️ WARNING: You have reached your cancellation limit (${MAX_CANCELLATIONS}/3). You will regain 1 cancellation after ${COOLDOWN_HOURS} hours.`;
       } else {
         warningMessage += `ℹ️ You have ${newCancellationsLeft} cancellation${newCancellationsLeft !== 1 ? "s" : ""} left out of ${MAX_CANCELLATIONS}.`;
       }
@@ -257,6 +296,8 @@ const MyReservation = () => {
     } catch (error) {
       console.error("Error cancelling reservation:", error);
       alert("Failed to cancel reservation. Please try again.");
+    } finally {
+      setIsCancelling(false); // Reset loading state
     }
   };
 
@@ -312,15 +353,14 @@ const MyReservation = () => {
               <span
                 className={`badge ${cancellationCount >= 3 ? "bg-danger" : "bg-warning"}`}
               >
-                Cancellations: {cancellationCount}
-              </span>
-              <span
-                className={`badge ${noShowCount >= 1 ? "bg-danger" : "bg-secondary"}`}
-              >
-                No-Shows: {noShowCount}
-              </span>
-              <span className="badge bg-dark">
-                Strikes Left: {cancellationsLeft} / {MAX_STRIKES}
+                {cooldownTimeLeft > 0 ? (
+                  <>⏰ Regains in: {formatCooldownTime(cooldownTimeLeft)}</>
+                ) : (
+                  <>
+                    📋 {cancellationsLeft} / {MAX_CANCELLATIONS} cancellations
+                    left
+                  </>
+                )}
               </span>
             </div>
           </div>
@@ -558,10 +598,14 @@ const MyReservation = () => {
                 <button
                   className="cancel-reservation-btn"
                   onClick={handleCancelClick}
-                  disabled={cancellationsLeft === 0}
+                  disabled={cancellationsLeft === 0 || cooldownTimeLeft > 0}
                   style={{
-                    opacity: cancellationsLeft === 0 ? 0.5 : 1,
-                    cursor: cancellationsLeft === 0 ? "not-allowed" : "pointer",
+                    opacity:
+                      cancellationsLeft === 0 || cooldownTimeLeft > 0 ? 0.5 : 1,
+                    cursor:
+                      cancellationsLeft === 0 || cooldownTimeLeft > 0
+                        ? "not-allowed"
+                        : "pointer",
                   }}
                 >
                   <AlertCircle size={16} />
@@ -602,8 +646,13 @@ const MyReservation = () => {
                   {MAX_CANCELLATIONS}/3).
                 </p>
                 <p className="limit-warning-message">
-                  You can no longer cancel any future reservations.
+                  You will regain 1 cancellation after {COOLDOWN_HOURS} hours.
                 </p>
+                {cooldownTimeLeft > 0 && (
+                  <p className="limit-warning-message cooldown-timer">
+                    ⏰ Time remaining: {formatCooldownTime(cooldownTimeLeft)}
+                  </p>
+                )}
                 <div className="cancel-warning">
                   <AlertCircle size={16} />
                   <span>
@@ -728,7 +777,14 @@ const MyReservation = () => {
                   onClick={handleConfirmCancellation}
                   disabled={isConfirmDisabled()}
                 >
-                  Confirm
+                  {isCancelling ? (
+                    <>
+                      <span className="btn-spinner-small"></span>
+                      Processing...
+                    </>
+                  ) : (
+                    "Confirm"
+                  )}
                 </button>
               </div>
             </div>

@@ -1272,6 +1272,63 @@
   margin-bottom: 15px;
 }
 
+/* Disabled input field cursor styles */
+.input-group input:disabled,
+.input-group select:disabled,
+.input-group textarea:disabled {
+  cursor: not-allowed !important;
+  background-color: #f5f5f5 !important;
+  opacity: 0.7;
+}
+
+.input-group input:disabled:hover,
+.input-group select:disabled:hover,
+.input-group textarea:disabled:hover {
+  cursor: not-allowed !important;
+}
+
+/* For the pencil icon edit mode */
+.edit-toggle-icon {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.edit-toggle-icon:hover {
+  color: #f38d31;
+  transform: scale(1.1);
+}
+
+.edit-toggle-icon.active {
+  color: #f38d31;
+}
+
+/* When field is disabled, show not-allowed cursor on the entire container */
+.input-group:has(input:disabled) {
+  cursor: not-allowed;
+}
+
+/* For the label with icon section */
+.label-with-icon {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  cursor: default;
+}
+
+/* Disabled select dropdown */
+select:disabled {
+  cursor: not-allowed !important;
+  background-color: #f5f5f5 !important;
+  color: #999 !important;
+}
+
+/* Disabled date input */
+.date-input-wrapper input:disabled {
+  cursor: not-allowed !important;
+  background-color: #f5f5f5 !important;
+}
+
 @keyframes fadeInStep {
   from {
     opacity: 0;
