@@ -1,4 +1,4 @@
-  import React, { useState } from "react";
+import React, { useState } from "react";
 import TableStatus from "../admin-page/TableStatus";
 import Reservations from "../admin-page/Reservation";
 import Billing from "../admin-page/Billing";
@@ -11,15 +11,15 @@ const CashierDashboard = () => {
   const renderContent = () => {
     switch (activeTab) {
       case "tables":
-        return <div>{ <TableStatus />} <Placeholder title="Table Status Map" /> </div>;
+        return <TableStatus />;
       case "reservations":
-        return <div>{ <Reservations />} <Placeholder title="Today's Reservations" /> </div>;
+        return <Reservations />;
       case "billing":
-        return <div>{ <Billing />} <Placeholder title="Billing & Checkout" /> </div>;
+        return <Billing />;
       case "reports":
-        return <div>{<Reports />} <Placeholder title="Daily Sales Report" /> </div>;
+        return <Reports />;
       default:
-        return <Placeholder title="Select an option" />;
+        return <TableStatus />;
     }
   };
 
@@ -37,7 +37,7 @@ const CashierDashboard = () => {
         </div>
       </div>
 
-      {/* NAVIGATION TABS - Styled like the Admin UI */}
+      {/* NAVIGATION TABS */}
       <div className="card border-0 shadow-sm mb-4" style={{ borderRadius: "12px" }}>
         <div className="card-body p-2">
           <ul className="nav nav-pills nav-fill">
