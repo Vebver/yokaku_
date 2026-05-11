@@ -36,13 +36,13 @@ const TableStatus = () => {
     capacity: 4,
   });
 
-  // --- API FETCH: BOTH FLOOR PLAN AND SCHEDULE ---
-   const fetchTables = async () => {
+  // --- API FETCH ---
+  const fetchTables = async () => {
     setLoading(true);
     const token = localStorage.getItem("token");
     const headers = { Authorization: `Bearer ${token}` };
 
-    // 1. Fetch Table Status (The Cards)
+    // 1. Fetch Table Status
     try {
       const resTables = await api.get("/admin/table-status", { headers });
       setTables(resTables.data);
@@ -50,12 +50,11 @@ const TableStatus = () => {
       console.error("❌ Floor Plan Error:", err.response?.data || err.message);
     }
 
-    // 2. Fetch Today Schedule (The Top Bar) - Independent
+    // 2. Fetch Today Schedule
     try {
       const resSchedule = await api.get("/admin/today-schedule", { headers });
       setTodaySchedule(resSchedule.data);
     } catch (err) {
-      // If this fails (404), it won't stop the cards from showing
       console.error("❌ Schedule Bar Error:", err.response?.data || err.message);
     }
 
@@ -64,7 +63,7 @@ const TableStatus = () => {
 
   useEffect(() => {
     fetchTables();
-    const interval = setInterval(fetchTables, 15000); // Auto-refresh every 15 seconds
+    const interval = setInterval(fetchTables, 15000); 
     return () => clearInterval(interval);
   }, []);
 
@@ -107,10 +106,10 @@ const TableStatus = () => {
     try {
       setUpdating(true);
       const token = localStorage.getItem("token");
-      await api.put(
-        `${API_BASE}/reservations/${reservationId}/status`,
+      // Use relative path for api instance
+      await api.put(`/reservations/${reservationId}/status`, 
         { status: "Seated" },
-        { headers: { Authorization: `Bearer ${token}` } },
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       fetchTables();
     } catch (err) {
@@ -162,7 +161,11 @@ const TableStatus = () => {
     setShowBillModal(true);
     setLoadingBill(true);
     try {
-      const res = await api.get(`${API_BASE}/reservations/${reservationId}/items`);
+      const token = localStorage.getItem("token"); // ADDED TOKEN
+      // Use relative path to avoid double URL issues
+      const res = await api.get(`/reservations/${reservationId}/items`, {
+        headers: { Authorization: `Bearer ${token}` } // ATTACHED HEADERS
+      });
       setBillItems(res.data);
     } catch (err) {
       console.error("Error fetching bill", err);
@@ -174,7 +177,7 @@ const TableStatus = () => {
   return (
     <div className="container-fluid px-5 py-4 bg-light min-vh-100">
       
-      {/* --- TOP SCHEDULE BAR: Show all bookings for today --- */}
+      {/* TOP SCHEDULE BAR */}
       <div className="mb-4">
         <div className="bg-white p-3 rounded-4 shadow-sm border-start border-4 border-warning">
           <div className="d-flex align-items-center mb-2">
@@ -186,14 +189,12 @@ const TableStatus = () => {
               todaySchedule.map((res, i) => (
                 <div key={i} className="bg-light px-3 py-2 rounded-3 border small d-inline-block shadow-sm">
                   <span className="fw-bold text-primary">
-                    {/* Safe substring check */}
                     {res.reservation_time ? res.reservation_time.substring(0, 5) : "00:00"}
                   </span>
                   :
                   <span className="mx-2 fw-semibold">
                     {res.first_name} {res.last_name}
                   </span>
-                  {/* table_names comes from the GROUP_CONCAT in the new SQL query */}
                   <span className="badge bg-dark">Table {res.table_names}</span>
                 </div>
               ))
@@ -233,9 +234,9 @@ const TableStatus = () => {
           const isSeated = status === "seated";
           const isReserved = status === "confirmed";
 
-          let statusColor = "#10b981"; // Green
-          if (isSeated) statusColor = "#ef4444"; // Red
-          else if (isReserved) statusColor = "#f59e0b"; // Orange
+          let statusColor = "#10b981"; 
+          if (isSeated) statusColor = "#ef4444"; 
+          else if (isReserved) statusColor = "#f59e0b"; 
 
           return (
             <div key={table.table_id} className="col-12 col-md-4 col-lg-3">
@@ -257,7 +258,6 @@ const TableStatus = () => {
                   </div>
                   <div className="mb-3 text-muted small"><Users size={14} /> {table.capacity} Pax</div>
 
-                  {/* OCCUPANT BOX */}
                   <div className="bg-light rounded-3 p-3 mb-2 border" style={{ minHeight: "80px" }}>
                     {isSeated || isReserved ? (
                       <div>
@@ -273,7 +273,6 @@ const TableStatus = () => {
                     )}
                   </div>
 
-                  {/* NEXT GUEST WARNING */}
                   <div style={{ height: "35px" }}>
                     {table.queue_count > 1 && (
                       <div className="alert alert-info py-1 px-2 border-0 d-flex align-items-center" style={{ fontSize: "0.7rem" }}>
