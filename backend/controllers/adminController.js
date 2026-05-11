@@ -34,19 +34,25 @@ const adminController = {
       const { userId } = req.params;
       const { role } = req.body;
 
-      // Validate role is either 'admin' or 'customer'
-      if (!["admin", "customer", "cashier"].includes(role)) {
-        return res
-          .status(400)
-          .json({ error: "Invalid role. Must be 'admin' or 'customer'." });
+      // 1. FIXED VALIDATION: Added 'cashier' to the allowed list
+      const allowedRoles = ["admin", "customer", "cashier"]; 
+      
+      if (!allowedRoles.includes(role)) {
+        return res.status(400).json({ 
+          error: "Invalid role. Must be 'admin', 'customer', or 'cashier'." 
+        });
       }
 
+      // 2. Update the database
+      // Ensure the Model function is called correctly
       await AccountManagement.updateUserRole(userId, role);
+
       res.json({ message: "User role updated successfully" });
     } catch (error) {
+      console.error("Update Role Error:", error);
       res.status(500).json({ error: error.message });
     }
-  },
+},
   getTable: async (req, res) => {
     try {
       const status = await TableStatus.getTableStatus();
