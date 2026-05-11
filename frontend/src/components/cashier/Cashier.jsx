@@ -87,12 +87,4 @@ const CashierDashboard = () => {
   );
 };
 
-// Temporary placeholder if you haven't imported the components yet
-const Placeholder = ({ title }) => (
-  <div className="text-center py-5">
-    <h4 className="text-muted">{title} Component Goes Here</h4>
-    <p className="text-muted small">Import your existing logic to display here.</p>
-  </div>
-);
-
 export default CashierDashboard;

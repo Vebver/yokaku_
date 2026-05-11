@@ -4,8 +4,8 @@ const Product = {
   create: async (data) => {
     const sql = `
       INSERT INTO menu_items 
-      (category_id, name, description, price, image_url, is_available, is_featured) 
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      (category_id, name, description, price, image_url, is_available, is_featured, local_path) 
+      VALUES (?, ?, ?, ?, ?, ?, ?,?)
     `;
     const values = [
       data.category_id,
@@ -15,6 +15,7 @@ const Product = {
       data.image_url,
       data.is_available,
       data.is_featured,
+      data.local_path,
     ];
     const [result] = await db.execute(sql, values);
     return { item_id: result.insertId, ...data };
@@ -26,43 +27,50 @@ const Product = {
     return true;
   },
   update: async (id, data) => {
+    // --- TINY IMPROVEMENT: DATA CLEANING ---
+    // Ensure numbers are actually numbers before sending to SQL
+    const clean_category = parseInt(data.category_id);
+    const clean_price = parseFloat(data.price) || 0.0;
+    const clean_available = parseInt(data.is_available) === 1 ? 1 : 0;
+    const clean_featured = parseInt(data.is_featured) === 1 ? 1 : 0;
+
     let sql;
     let values;
 
     if (data.image_url) {
-      // If a new image was uploaded
+      // If a new image was uploaded, we update the paths too
       sql = `
         UPDATE menu_items 
-        SET category_id=?, name=?, description=?, price=?, image_url=?, is_available=?, is_featured=? 
+        SET category_id=?, name=?, description=?, price=?, image_url=?, is_available=?, is_featured=?, local_path=?
         WHERE item_id=?`;
       values = [
-        data.category_id,
+        clean_category,
         data.name,
         data.description,
-        data.price,
+        clean_price,
         data.image_url,
-        data.is_available,
-        data.is_featured,
+        clean_available,
+        clean_featured,
+        data.local_path,
         id,
       ];
     } else {
-      // If no new image was uploaded (omit image_url from query)
+      // If no new image was uploaded, we ONLY update the text/status fields
       sql = `
         UPDATE menu_items 
         SET category_id=?, name=?, description=?, price=?, is_available=?, is_featured=? 
         WHERE item_id=?`;
       values = [
-        data.category_id,
+        clean_category,
         data.name,
         data.description,
-        data.price,
-        data.is_available,
-        data.is_featured,
+        clean_price,
+        clean_available,
+        clean_featured,
         id,
       ];
     }
 
-    // Now sql and values are accessible here
     const [result] = await db.execute(sql, values);
     return result;
   },
@@ -85,7 +93,8 @@ const Product = {
       name, 
       description, 
       price, 
-      image_url 
+      image_url,
+      local_path 
     FROM menu_items 
     WHERE is_featured = 1 AND is_available = 1
   `;
