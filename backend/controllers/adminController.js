@@ -35,7 +35,7 @@ const adminController = {
       const { role } = req.body;
 
       // Validate role is either 'admin' or 'customer'
-      if (!["admin", "customer"].includes(role)) {
+      if (!["admin", "customer", "cashier"].includes(role)) {
         return res
           .status(400)
           .json({ error: "Invalid role. Must be 'admin' or 'customer'." });
