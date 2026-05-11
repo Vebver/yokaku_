@@ -243,6 +243,7 @@ const NavbarWrapper = ({ onLoginClick, isLoggedIn, onLogout, userRole }) => {
   // Hide navbar on these pages
   const hiddenPaths = [
     "/admin",
+    "/cashier",
     "/cashier-selection",
     "/kiosk-selection",
     "/kitchen-page",
