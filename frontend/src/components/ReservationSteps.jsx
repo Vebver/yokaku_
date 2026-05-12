@@ -1050,7 +1050,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
 
               <div className="input-group">
                 <label>
-                  <PartyPopper size={12} /> OCCASION
+                  <PartyPopper size={12} /> OCCASION (Optional)
                 </label>
                 <select
                   name="occasion"
@@ -1078,7 +1078,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
 
               <div className="input-group">
                 <label>
-                  <AlertCircle size={12} /> ALLERGIES
+                  <AlertCircle size={12} /> ALLERGIES (Optional)
                 </label>
                 <select
                   name="allergy"
