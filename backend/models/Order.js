@@ -36,13 +36,13 @@ const Order = {
   },
 
   // 4. Record the actual food item order
-  createOrderEntry: async (conn, reservationId, itemId, quantity, customizations) => {
+  createOrderEntry: async (conn, reservationId, itemId, quantity, customizations, isRefill = 0) => {
     const query = `
       INSERT INTO kiosk_orders 
       (reservation_id, item_id, quantity, kitchen_status, customizations, is_refill) 
-      VALUES (?, ?, ?, ?, ?,?)`;
+      VALUES (?, ?, ?, ?, ?, ?)`;
     const customData = customizations ? JSON.stringify(customizations) : null;
-    return await conn.execute(query, [reservationId, itemId, quantity, customData]);
+    return await conn.execute(query, [reservationId, itemId, quantity, 'pending', customData, isRefill]);
   },
 
   // 5. Create the main reservation record for a Walk-in
