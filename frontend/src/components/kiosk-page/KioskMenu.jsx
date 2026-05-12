@@ -250,10 +250,11 @@ const KioskMenu = () => {
   const handleDineInSelection = async () => {
     setShowTypeModal(false);
     try {
-      const res = await axios.get(`${API_BASE}/admin/getTable`);
+      const res = await axios.get(`${API_BASE}/admin/public/getTable`);
       setAvailableTables(res.data);
       setShowTablePicker(true);
     } catch (err) {
+      console.error("Could not load tables:", err);
       alert("Could not load tables.");
     }
   };

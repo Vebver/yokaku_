@@ -11,6 +11,7 @@ router.get('/stats', protect, adminOnly, adminController.getDashboardStats);
 router.get('/reports/financial', protect, adminOnly, adminController.getFinancialOverview);
 router.get('/table-status', protect, adminOnly, adminController.getTable);
 router.get('/getTable', protect, adminOnly, adminController.getTable);
+router.get('/public/getTable', adminController.getTable);
 
 // --- OPERATIONAL ROUTES (Walk-in / Checkout) ---
 router.post('/walk-in/:tableId', protect, adminOnly, adminController.Walkin);
