@@ -201,11 +201,13 @@ const Reservation = {
   create: async (data) => {
     const conn = await db.getConnection();
     try {
-      // 1. Insert into reservations
+      await conn.beginTransaction();
+      const customId = generateRandomId();
+
       const resQuery = `INSERT INTO reservations (reservation_id, user_id, first_name, last_name, email, phone, reservation_date, reservation_time, end_time, num_guests, package_name, status, receipt_path, brgy_code, allergy) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
       await conn.query(resQuery, [
         customId,
-        data.userId === "null" || !data.userId ? null : data.userId,
+        data.userId === "null" ? null : data.userId,
         data.firstName,
         data.lastName,
         data.email,
@@ -221,17 +223,15 @@ const Reservation = {
         data.allergy,
       ]);
 
-      // 2. Insert tables
       if (data.tableIds?.length > 0) {
         for (const tid of data.tableIds) {
           await conn.query(
             "INSERT INTO reservation_tables (reservation_id, table_id, customer_name, status, check_in_time) VALUES (?, ?, ?, 'confirmed', NOW())",
-            [customId, tid, `${data.firstName} ${data.lastName}`]
+            [customId, tid, `${data.firstName} ${data.lastName}`],
           );
         }
       }
 
-      // 3. Insert items
       if (data.selectedItems?.length > 0) {
         for (const item of data.selectedItems) {
           await conn.query(
@@ -242,12 +242,11 @@ const Reservation = {
               item.quantity,
               item.price,
               JSON.stringify(item.customizations),
-            ]
+            ],
           );
         }
       }
 
-      // 4. Insert Payment
       await conn.query(
         "INSERT INTO payments (reservation_id, amount, total_bill, payment_method, payment_status, paid_at) VALUES (?, ?, ?, ?, ?, NOW())",
         [
@@ -256,38 +255,19 @@ const Reservation = {
           data.totalAmount || data.amount,
           data.paymentMethod || "Gcash",
           "pending",
-        ]
+        ],
       );
-
-      // 5. INSERT NOTIFICATION (Added here)
-      // Only insert if there is a valid user_id
-      if (data.userId && data.userId !== "null") {
-        const notifSql = `
-      INSERT INTO notifications (user_id, reservation_id, title, message, type, is_read, created_at) 
-      VALUES (?, ?, ?, ?, 'reservation', 0, NOW())
-    `;
-        await conn.query(notifSql, [
-          data.userId,
-          customId,
-          "Reservation Confirmed",
-          `Your reservation for ${data.date} at ${data.startTime} has been successfully placed.`,
-        ]);
-      }
-
-      // Commit everything
       await conn.commit();
       return customId;
-
     } catch (err) {
       await conn.rollback();
-      console.error("Transaction Error:", err);
       throw err;
     } finally {
       conn.release();
     }
   },
   // counting customers no show
-  countNoShows: async (userId) => {
+   countNoShows: async (userId) => {
     if (!userId || userId === "null") return 0;
     const sql = `SELECT COUNT(*) as count FROM reservations WHERE user_id = ? AND status = 'no-show'`;
     const [rows] = await db.execute(sql, [userId]);
