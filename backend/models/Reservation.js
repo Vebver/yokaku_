@@ -265,7 +265,7 @@ const Reservation = {
       if (data.userId && data.userId !== "null") {
         const notifSql = `
       INSERT INTO notifications (user_id, reservation_id, title, message, type, is_read, created_at) 
-      VALUES (?, ?, ?, ?, 'reservation', 0, NOW())
+      VALUES (?, ?, ?, ?, 'success', 0, NOW())
     `;
         await conn.query(notifSql, [
           data.userId,

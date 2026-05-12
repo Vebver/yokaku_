@@ -23,7 +23,7 @@ const Notification = {
       data.reservationId,
       data.title,
       data.message,
-      data.type || "reservation",
+      data.type || "info",
     ];
 
     const [result] = await conn.execute(sql, values);
@@ -38,7 +38,7 @@ const Notification = {
         reservation_id: data.reservationId,
         title: data.title,
         message: data.message,
-        type: data.type || "reservation",
+        type: data.type || "info",
         is_read: 0,
         created_at: new Date().toISOString(),
       };
