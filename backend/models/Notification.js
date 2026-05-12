@@ -13,10 +13,10 @@ const Notification = {
   create: async (connection, data) => {
     const conn = connection || db;
 
-    const sql = `
-      INSERT INTO notifications (user_id, reservation_id, title, message, type, is_read, created_at) 
-      VALUES (?, ?, ?, ?, 'reservation', 0, NOW())
-    `;
+      const sql = `
+        INSERT INTO notifications (user_id, reservation_id, title, message, type, is_read, created_at) 
+        VALUES (?, ?, ?, ?, 'reservation', 0, NOW())
+      `;
 
     const values = [
       data.userId,
