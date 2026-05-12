@@ -27,13 +27,13 @@ const orderController = {
   try {
     await conn.beginTransaction();
     //COOLDOWN REFILL
-    const hasRefill = items.some(item => item.is_refill === true || item.price === 0);
+    const hasRefill = items.some(item => item.is_refill === true);
 
     if (hasRefill) {
       // Query the database for the last refill for this specific reservation
       const [lastRefill] = await conn.execute(
         `SELECT created_at FROM kiosk_orders 
-         WHERE reservation_id = ? AND (is_refill = 1 OR price = 0)
+         WHERE reservation_id = ? AND is_refill = 1
          ORDER BY created_at DESC LIMIT 1`,
         [reservation_id]
       );
