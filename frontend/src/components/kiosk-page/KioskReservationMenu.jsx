@@ -16,6 +16,13 @@ const BASE_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
+const getImageUrl = (item) => {
+  const imagePath = item?.local_path || item?.image_url;
+  if (!imagePath) return null;
+  if (imagePath.startsWith("http")) return imagePath;
+  return `${BASE_URL}${imagePath.startsWith("/") ? "" : "/"}${imagePath}`;
+};
+
 let socket;
 
 const categoryIcons = {
@@ -30,6 +37,8 @@ const KioskReservationMenu = () => {
   const reservationId = localStorage.getItem("resId") || "GUEST";
   const TIMER_SESSION_KEY = `kiosk_timer_end_${reservationId}`;
   const OFFLINE_QUEUE_KEY = "kiosk_res_offline_orders";
+  const SAVED_BUNDLE_ID = "kiosk_active_bundle_id";
+  const SAVED_BUNDLE_NAME = "kiosk_active_bundle_name";
 
   const [menuData, setMenuData] = useState({});
   const [loading, setLoading] = useState(true);
@@ -137,7 +146,7 @@ const KioskReservationMenu = () => {
       allProducts.forEach((p) => {
         const cat = p.category_name || "Uncategorized";
         if (!productLookup[cat]) productLookup[cat] = [];
-        productLookup[cat].push({ id: p.item_id, name: p.name, price: p.price, image: p.local_path || p.image_url });
+        productLookup[cat].push({ id: p.item_id, name: p.name, price: p.price, image: getImageUrl(p) });
       });
 
       if (reservedItems.length > 0) {
@@ -147,18 +156,14 @@ const KioskReservationMenu = () => {
             try { savedCustoms = JSON.parse(savedCustoms); } catch (e) { savedCustoms = null; }
           }
           // Online -> Cloudinary (local_path) | Offline -> Local (image_url)
-          const targetPath = (navigator.onLine && item.local_path) ? item.local_path : item.image_url;
-          const finalImg = targetPath?.startsWith("http") ? targetPath : `${BASE_URL}${targetPath?.startsWith("/") ? "" : "/"}${targetPath}`;
-          return { id: item.item_id, name: item.name, price: item.price, customizations: savedCustoms, image: finalImg };
+          return { id: item.item_id, name: item.name, price: item.price, customizations: savedCustoms, image: getImageUrl(item) };
         });
       }
 
       allProducts.forEach((item) => {
         const cat = item.category_name || "Uncategorized";
         if (!grouped[cat]) grouped[cat] = [];
-        const targetPath = (navigator.onLine && item.local_path) ? item.local_path : item.image_url;
-        const finalImg = targetPath?.startsWith("http") ? targetPath : `${BASE_URL}${targetPath?.startsWith("/") ? "" : "/"}${targetPath}`;
-        grouped[cat].push({ id: item.item_id, name: item.name, price: item.price, image: finalImg, category: cat });
+        grouped[cat].push({ id: item.item_id, name: item.name, price: item.price, image: getImageUrl(item), category: cat });
       });
 
       setMenuData(grouped);
@@ -206,6 +211,20 @@ const KioskReservationMenu = () => {
 
       if (response.ok) {
         if (socket) socket.emit("send_order", { table: reservationId, items: cart.map((i) => ({ name: i.name, qty: i.quantity })) });
+        const bundleItem = cart.find((item) => {
+          const name = (item.name || "").toLowerCase();
+          const category = (item.category || "").toLowerCase();
+          return (
+            name.includes("bundle") ||
+            name.includes("unlimited") ||
+            category.includes("bundle") ||
+            category.includes("unlimited")
+          );
+        });
+        if (bundleItem) {
+          localStorage.setItem(SAVED_BUNDLE_ID, bundleItem.id);
+          localStorage.setItem(SAVED_BUNDLE_NAME, bundleItem.name);
+        }
         if (!localStorage.getItem(TIMER_SESSION_KEY)) {
           const endTime = (Date.now() + 5400 * 1000).toString();
           localStorage.setItem(TIMER_SESSION_KEY, endTime);
@@ -223,6 +242,59 @@ const KioskReservationMenu = () => {
         localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
         setOrderCart([]);
         setShowSuccessModal(true);
+    }
+  };
+
+  const getActiveBundle = () => {
+    const bundleFromCart = cart.find((item) => {
+      const name = (item.name || "").toLowerCase();
+      const category = (item.category || "").toLowerCase();
+      return (
+        name.includes("bundle") ||
+        name.includes("unlimited") ||
+        category.includes("bundle") ||
+        category.includes("unlimited")
+      );
+    });
+    if (bundleFromCart) return bundleFromCart;
+
+    const savedId = localStorage.getItem(SAVED_BUNDLE_ID);
+    const savedName = localStorage.getItem(SAVED_BUNDLE_NAME);
+    if (savedId) return { id: savedId, item_id: savedId, name: savedName };
+    return null;
+  };
+
+  const handleRefillClick = async () => {
+    const bundle = getActiveBundle();
+    if (!bundle) return alert("Please order a Hangout Bundle or Unlimited first.");
+    if (reservationId === "GUEST") return alert("Reservation session missing. Please return to the kiosk selection.");
+
+    try {
+      const response = await fetch(`${API_BASE}/orders/place`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reservation_id: reservationId,
+          items: [
+            {
+              item_id: bundle.item_id || bundle.id,
+              quantity: 1,
+              customizations: "REFILL",
+              price: 0,
+              is_refill: true,
+            },
+          ],
+        }),
+      });
+
+      const result = await response.json();
+      if (response.ok) {
+        alert("Refill request sent to kitchen!");
+      } else {
+        alert("Refill failed: " + (result.error || result.message || "Server error"));
+      }
+    } catch (err) {
+      alert("Refill failed: " + (err.message || "Server error"));
     }
   };
 
@@ -307,6 +379,9 @@ const KioskReservationMenu = () => {
       <footer className="res-bottom-bar" style={{ zIndex: 4000 }}>
         <button className="res-btn-view-all" onClick={() => (window.location.href = "/kiosk-selection")}>Back</button>
         <div className="res-action-btns">
+          <button className="res-btn-view-all" onClick={handleRefillClick} style={{ background: "#333", color: "#ffcc00", marginRight: "10px" }}>
+            Request Refill
+          </button>
           <button className="res-btn-view" disabled={cart.length === 0} onClick={handleSendRequest} style={{ background: "#ffcc00" }}>Place Order</button>
         </div>
       </footer>

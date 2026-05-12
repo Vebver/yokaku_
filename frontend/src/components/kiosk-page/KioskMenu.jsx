@@ -209,7 +209,16 @@ const KioskMenu = () => {
     const newItems = itemsToSubmit.map((i) => ({ name: i.name, price: i.price || 0, quantity: i.quantity, customizations: i.customizations }));
     setBillItems((prev) => [...prev, ...newItems]);
     
-    const bundleItem = itemsToSubmit.find((i) => i.name?.toLowerCase().includes("bundle"));
+    const bundleItem = itemsToSubmit.find((i) => {
+      const name = (i.name || "").toLowerCase();
+      const category = (i.category || "").toLowerCase();
+      return (
+        name.includes("bundle") ||
+        name.includes("unlimited") ||
+        category.includes("bundle") ||
+        category.includes("unlimited")
+      );
+    });
     if (bundleItem) {
       localStorage.setItem("kiosk_active_bundle_id", bundleItem.id);
       localStorage.setItem("kiosk_active_bundle_name", bundleItem.name);
@@ -313,13 +322,15 @@ const confirmFlavors = async () => {
 
   if (isRefillMode) {
     // --- THIS IS WHERE WE CALL THE BACKEND FOR REFILLS ---
+    const resId = localStorage.getItem(SAVED_RES_ID);
+    if (!resId) return alert("Refill session missing. Please start your order again.");
+
     try {
-      const resId = localStorage.getItem(SAVED_RES_ID);
       const tableId = localStorage.getItem(SAVED_TABLE_ID);
 
       const response = await axios.post(`${API_BASE}/orders/place`, {
         reservation_id: resId,
-        table_id: tableId,
+        table_id: tableId || "takeout",
         items: [{
           item_id: selectedItem.id,
           quantity: 1,
@@ -353,9 +364,10 @@ const confirmFlavors = async () => {
   const latestBill = await fetchCurrentBill();
   
   // Find the bundle in the bill
-  let bundle = latestBill.find((i) =>
-    (i.name || i.item_name || "").toLowerCase().includes("bundle")
-  );
+  let bundle = latestBill.find((i) => {
+    const name = (i.name || i.item_name || "").toLowerCase();
+    return name.includes("bundle") || name.includes("unlimited");
+  });
 
   // If not in bill, check localStorage
   if (!bundle) {
@@ -383,7 +395,12 @@ const confirmFlavors = async () => {
     unlockAudio();
     if (
       item.category === "Hangout Bundle" ||
-      item.name.toLowerCase().includes("bundle")
+      item.category === "Bundle" ||
+      item.category === "Unlimited" ||
+      item.category?.toLowerCase().includes("bundle") ||
+      item.category?.toLowerCase().includes("unlimited") ||
+      item.name.toLowerCase().includes("bundle") ||
+      item.name.toLowerCase().includes("unlimited")
     ) {
       setSelectedItem(item);
       setSelectedFlavors([]);
@@ -403,7 +420,16 @@ const confirmFlavors = async () => {
     return `${m}:${s.toString().padStart(2, "0")}`;
   };
 
-  const hasActiveBundle = billItems.some((i) => (i.name || i.item_name || "").toLowerCase().includes("bundle"));
+  const hasActiveBundle = billItems.some((i) => {
+    const name = (i.name || i.item_name || "").toLowerCase();
+    const category = (i.category || "").toLowerCase();
+    return (
+      name.includes("bundle") ||
+      name.includes("unlimited") ||
+      category.includes("bundle") ||
+      category.includes("unlimited")
+    );
+  });
 
   if (loading) return <div className="loading-container">Loading Menu...</div>;
 
