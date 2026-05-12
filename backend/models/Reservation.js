@@ -201,6 +201,7 @@ const Reservation = {
   create: async (data) => {
     const conn = await db.getConnection();
     try {
+      const customId = generateRandomId();
       // 1. Insert into reservations
       const resQuery = `INSERT INTO reservations (reservation_id, user_id, first_name, last_name, email, phone, reservation_date, reservation_time, end_time, num_guests, package_name, status, receipt_path, brgy_code, allergy) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
       await conn.query(resQuery, [
