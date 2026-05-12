@@ -15,7 +15,9 @@ import "../Style/PackageModal.css";
 const API_BASE = "https://yokaku-backend.onrender.com/api";
 const BASE_URL = "https://yokaku-backend.onrender.com";
 
-const getImageUrl = (imagePath) => {
+const getImageUrl = (item) => {
+  // Prioritize local_path (Cloudinary URL) over image_url
+  const imagePath = item.local_path || item.image_url;
   if (!imagePath) return null;
   if (imagePath.startsWith("http")) return imagePath;
   if (imagePath.startsWith("/uploads/")) return `${BASE_URL}${imagePath}`;
@@ -156,7 +158,7 @@ const PackageModal = ({
       name: selectedItem.name,
       price: Math.round(parseFloat(selectedItem.price) * 100) / 100,
       quantity: itemQuantity,
-      image: selectedItem.image_url,
+      image: selectedItem.local_path || selectedItem.image_url,
       customizations:
         isUnliPackage || selectedItem.name.includes("Unlimited")
           ? customizations
@@ -245,7 +247,7 @@ const PackageModal = ({
                     >
                       <div className="menu-item-image">
                         <img
-                          src={getImageUrl(item.image_url)}
+                          src={getImageUrl(item)}
                           alt={item.name}
                           onError={(e) =>
                             (e.target.src = "https://placehold.co/100")
@@ -303,7 +305,7 @@ const PackageModal = ({
             <div className="item-detail-modal-content">
               <div className="item-detail-modal-image">
                 <img
-                  src={getImageUrl(selectedItem.image_url)}
+                  src={getImageUrl(selectedItem)}
                   alt={selectedItem.name}
                   onError={(e) => (e.target.src = "https://placehold.co/150")}
                 />

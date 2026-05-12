@@ -61,7 +61,8 @@ function FeaturedMenu({ onLoginClick }) {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const getImageUrl = (imagePath) => {
+  const getImageUrl = (item) => {
+    const imagePath = item.local_path || item.image_url;
     if (!imagePath) return null;
     if (imagePath.startsWith("http")) return imagePath;
     if (imagePath.startsWith("/uploads/")) return `${BASE_URL}${imagePath}`;
@@ -99,7 +100,7 @@ function FeaturedMenu({ onLoginClick }) {
           {featuredItems.map((item) => (
             <div key={item.id} className="menu-card-wrapper">
               <div className="menu-card">
-                <img src={getImageUrl(item.image_url)} alt={item.name} />
+                <img src={getImageUrl(item)} alt={item.name} />
                 <span>{item.name}</span>
                 <small>₱{item.price}</small>
                 <button

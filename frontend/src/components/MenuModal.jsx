@@ -178,8 +178,8 @@ const MenuModal = ({
                   <div className="food-image-wrapper">
                     <img
                       src={
-                        item.image_url
-                          ? `${BASE_URL}${item.image_url}`
+                        item.local_path || item.image_url
+                          ? item.local_path || `${BASE_URL}${item.image_url}`
                           : "https://placehold.co/300"
                       }
                       alt={item.name}

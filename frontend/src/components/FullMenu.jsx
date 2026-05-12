@@ -105,7 +105,9 @@ function FullMenu() {
             <div className="img-container">
               <img
                 src={
-                  item.image_url
+                  item.local_path
+                    ? item.local_path
+                    : item.image_url
                     ? `${BASE_URL}${item.image_url}`
                     : "https://placehold.co/150"
                 }

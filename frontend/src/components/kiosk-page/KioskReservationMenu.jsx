@@ -137,7 +137,7 @@ const KioskReservationMenu = () => {
       allProducts.forEach((p) => {
         const cat = p.category_name || "Uncategorized";
         if (!productLookup[cat]) productLookup[cat] = [];
-        productLookup[cat].push({ id: p.item_id, name: p.name, price: p.price, image: p.image_url });
+        productLookup[cat].push({ id: p.item_id, name: p.name, price: p.price, image: p.local_path || p.image_url });
       });
 
       if (reservedItems.length > 0) {
