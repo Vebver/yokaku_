@@ -69,6 +69,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   const [isFormLoading, setIsFormLoading] = useState(true);
   const [tableSchedules, setTableSchedules] = useState({});
   const [data, setData] = useState({ occupied: {}, schedule: [] });
+  const [calendarMonth, setCalendarMonth] = useState(new Date());
 
   const [form, setForm] = useState({
     date: "",
@@ -676,31 +677,174 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       case 0:
         return (
           <div className="step-content step-date">
-            <div className="input-group">
-              <label>
-                <Calendar size={12} /> DATE
-              </label>
-              <div className="date-input-wrapper">
-                <input
-                  type="date"
-                  name="date"
-                  value={form.date}
-                  min={todayStr}
-                  onChange={(e) => {
-                    const isBlocked = handleDateSelection(e);
-                    if (!isBlocked) {
-                      setSelectedId(null);
-                      setLinkedIds([]);
-                      setForm((prev) => ({
-                        ...prev,
-                        startTime: "",
-                        endTime: "",
-                      }));
-                    }
+            <div className="calendar-container">
+              <div className="calendar-header">
+                <button
+                  type="button"
+                  className="calendar-nav-btn"
+                  onClick={() => {
+                    const newDate = new Date(calendarMonth);
+                    newDate.setMonth(newDate.getMonth() - 1);
+                    setCalendarMonth(newDate);
                   }}
-                />
-                <Calendar size={16} className="date-input-icon" />
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <div className="calendar-month-year">
+                  {calendarMonth.toLocaleString("default", {
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </div>
+                <button
+                  type="button"
+                  className="calendar-nav-btn"
+                  onClick={() => {
+                    const newDate = new Date(calendarMonth);
+                    newDate.setMonth(newDate.getMonth() + 1);
+                    setCalendarMonth(newDate);
+                  }}
+                >
+                  <ChevronRight size={18} />
+                </button>
               </div>
+
+              <div className="calendar-weekdays">
+                {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
+                  <div key={day} className="calendar-weekday">
+                    {day}
+                  </div>
+                ))}
+              </div>
+
+              <div className="calendar-days">
+                {(() => {
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+
+                  const year = calendarMonth.getFullYear();
+                  const month = calendarMonth.getMonth();
+
+                  const firstDayOfMonth = new Date(year, month, 1);
+                  const startDayOfWeek = firstDayOfMonth.getDay();
+
+                  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+                  const calendarDays = [];
+
+                  // Previous month days
+                  const prevMonthDays = new Date(year, month, 0).getDate();
+                  for (let i = startDayOfWeek - 1; i >= 0; i--) {
+                    const dayNum = prevMonthDays - i;
+                    const date = new Date(year, month - 1, dayNum);
+                    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+                    calendarDays.push({
+                      day: dayNum,
+                      date: dateStr,
+                      isCurrentMonth: false,
+                      isToday: dateStr === today.toISOString().split("T")[0],
+                      isSelected: form.date === dateStr,
+                      isBlocked: blockedDates.includes(dateStr),
+                      isPast: date < today,
+                    });
+                  }
+
+                  // Current month days
+                  for (let i = 1; i <= daysInMonth; i++) {
+                    const date = new Date(year, month, i);
+                    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+                    calendarDays.push({
+                      day: i,
+                      date: dateStr,
+                      isCurrentMonth: true,
+                      isToday: dateStr === today.toISOString().split("T")[0],
+                      isSelected: form.date === dateStr,
+                      isBlocked: blockedDates.includes(dateStr),
+                      isPast: date < today,
+                    });
+                  }
+
+                  // Next month days
+                  const remainingCells = 42 - calendarDays.length;
+                  for (let i = 1; i <= remainingCells; i++) {
+                    const date = new Date(year, month + 1, i);
+                    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+                    calendarDays.push({
+                      day: i,
+                      date: dateStr,
+                      isCurrentMonth: false,
+                      isToday: dateStr === today.toISOString().split("T")[0],
+                      isSelected: form.date === dateStr,
+                      isBlocked: blockedDates.includes(dateStr),
+                      isPast: date < today,
+                    });
+                  }
+
+                  return calendarDays.map((day, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      className={`calendar-day 
+                        ${day.isSelected ? "selected" : ""} 
+                        ${day.isBlocked ? "blocked" : ""} 
+                        ${day.isToday ? "today" : ""}
+                        ${!day.isCurrentMonth ? "other-month" : ""}
+                        ${day.isPast && !day.isSelected ? "past" : ""}
+                      `}
+                      disabled={
+                        day.isBlocked || (day.isPast && !day.isSelected)
+                      }
+                      onClick={() => {
+                        if (
+                          !day.isBlocked &&
+                          !(day.isPast && !day.isSelected)
+                        ) {
+                          const syntheticEvent = {
+                            target: {
+                              name: "date",
+                              value: day.date,
+                            },
+                          };
+                          const isBlocked = handleDateSelection(syntheticEvent);
+                          if (!isBlocked) {
+                            setSelectedId(null);
+                            setLinkedIds([]);
+                            setForm((prev) => ({
+                              ...prev,
+                              startTime: "",
+                              endTime: "",
+                            }));
+                          }
+                        }
+                      }}
+                    >
+                      <span className="calendar-day-number">{day.day}</span>
+                      {day.isBlocked && (
+                        <span className="calendar-blocked-dot"></span>
+                      )}
+                    </button>
+                  ));
+                })()}
+              </div>
+
+              <input type="hidden" name="date" value={form.date} />
+
+              {blockedDates.length > 0 && (
+                <div className="calendar-legend">
+                  <div className="calendar-legend-item">
+                    <div className="calendar-legend-dot blocked"></div>
+                    <span>Closed</span>
+                  </div>
+                  <div className="calendar-legend-item">
+                    <div className="calendar-legend-dot selected"></div>
+                    <span>Selected</span>
+                  </div>
+                  <div className="calendar-legend-item">
+                    <div className="calendar-legend-dot today"></div>
+                    <span>Today</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         );
