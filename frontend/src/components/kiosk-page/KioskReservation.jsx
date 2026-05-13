@@ -15,40 +15,43 @@ const KioskReservation = () => {
   const [error, setError] = useState(""); // New state for error messages
   const scannerRef = useRef(null);
 
+
   // --- NEW: FUNCTION TO VALIDATE ID WITH DATABASE ---
- const validateAndProceed = async (id) => {
-  setLoading(true);
-  setError("");
-  try {
-    // We try to get the token, but if it's a public kiosk, it might be null
-    const token = localStorage.getItem("token");
+  const validateAndProceed = async (id) => {
+    setLoading(true);
+    setError("");
+    try {
+      // We try to get the token, but if it's a public kiosk, it might be null
+      const token = localStorage.getItem("token");
 
-    const response = await fetch(`${API_BASE}/reservations/${id}`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token && { "Authorization": `Bearer ${token}` }) // Only add if token exists
+      const response = await fetch(`${API_BASE}/reservations/${id}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }), // Only add if token exists
+        },
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // SUCCESS: Save the valid reservation ID
+        localStorage.setItem("resId", id);
+        localStorage.setItem("kiosk_mode", "reservation"); // Mark mode
+        navigate("/kiosk-selection/kiosk-reservation-menu");
+      } else {
+        setError(
+          data.message || "Reservation not found. Please check your ID.",
+        );
+        if (isScanning) stopScanner();
       }
-    });
-
-    const data = await response.json();
-
-    if (response.ok) {
-      // SUCCESS: Save the valid reservation ID
-      localStorage.setItem("resId", id);
-      localStorage.setItem("kiosk_mode", "reservation"); // Mark mode
-      navigate("/kiosk-selection/kiosk-reservation-menu");
-    } else {
-      setError(data.message || "Reservation not found. Please check your ID.");
+    } catch (err) {
+      setError("Server connection failed. Please try again later.");
       if (isScanning) stopScanner();
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    setError("Server connection failed. Please try again later.");
-    if (isScanning) stopScanner();
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const startScanner = async () => {
     setError("");

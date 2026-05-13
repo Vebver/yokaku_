@@ -1,597 +1,409 @@
-  import React, { useState, useEffect } from "react";
-  import api from "../../api"
-  import { Plus, Armchair } from "lucide-react"; // Added icons
-  const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-  const TableStatus = () => {
-    const [tables, setTables] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [updating, setUpdating] = useState(false);
+import React, { useState, useEffect } from "react";
+import api from "../../api";
+import {
+  Plus,
+  Armchair,
+  Trash2,
+  RefreshCw,
+  Clock,
+  Users,
+  User,
+  X,
+  Info,
+} from "lucide-react";
 
-    // Modal States
-    const [showModal, setShowModal] = useState(false);
-    const [showAddModal, setShowAddModal] = useState(false); // For adding new tables
-    const [selectedTable, setSelectedTable] = useState(null);
-    const [guestName, setGuestName] = useState("");
-    const [showBillModal, setShowBillModal] = useState(false);
-    const [billItems, setBillItems] = useState([]);
-    const [loadingBill, setLoadingBill] = useState(false);
-    const [activeTableLabel, setActiveTableLabel] = useState("");
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
-    const handleViewBill = async (reservationId, tableLabel) => {
-      if (!reservationId) return alert("No active session found for this table.");
+const TableStatus = () => {
+  const [tables, setTables] = useState([]);
+  const [todaySchedule, setTodaySchedule] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
+  const [deleteMode, setDeleteMode] = useState(false);
 
-      setActiveTableLabel(tableLabel);
-      setShowBillModal(true);
-      setLoadingBill(true);
+  // Modal States
+  const [showModal, setShowModal] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [selectedTable, setSelectedTable] = useState(null);
+  const [guestName, setGuestName] = useState("");
+  const [showBillModal, setShowBillModal] = useState(false);
+  const [billItems, setBillItems] = useState([]);
+  const [loadingBill, setLoadingBill] = useState(false);
+  const [activeTableLabel, setActiveTableLabel] = useState("");
 
-      try {
-        const res = await api.get(
-          `${API_BASE}/reservations/${reservationId}/items`,
-        );
-        setBillItems(res.data);
-      } catch (err) {
-        console.error("Error fetching bill:", err);
-      } finally {
-        setLoadingBill(false);
-      }
-    };
-    // New Table State
-    const [newTableData, setNewTableData] = useState({
-      table_number: "",
-      capacity: 4,
-    });
+  const [newTableData, setNewTableData] = useState({
+    table_number: "",
+    capacity: 4,
+  });
 
-    // Fetch Tables from Backend
-    const fetchTables = async () => {
-      console.log("DEBUG: Token in localStorage is:", localStorage.getItem("token"));
-      try {
-        setLoading(true);
-        const token = localStorage.getItem("token");
-        const res = await api.get("/admin/table-status", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setTables(res.data);
-      } catch (err) {
-        console.error("Error fetching tables", err);
-      } finally {
-        setLoading(false);
-      }
-    };
+  // --- API FETCH ---
+  const fetchTables = async () => {
+    setLoading(true);
+    const token = localStorage.getItem("token");
+    const headers = { Authorization: `Bearer ${token}` };
 
-    useEffect(() => {
-      fetchTables();
-      const interval = setInterval(fetchTables, 5000);
-      return () => clearInterval(interval);
-    }, []);
+    // 1. Fetch Table Status
+    try {
+      const resTables = await api.get("/admin/table-status", { headers });
+      setTables(resTables.data);
+    } catch (err) {
+      console.error("❌ Floor Plan Error:", err.response?.data || err.message);
+    }
 
-    // Handle Adding a New Table to the Database
-    const handleAddTableSubmit = async (e) => {
-      e.preventDefault();
-      try {
-        setUpdating(true);
-        const token = localStorage.getItem("token");
-        await api.post("/admin/add-table", newTableData, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setShowAddModal(false);
-        setNewTableData({ table_number: "", capacity: 4 });
-        fetchTables(); // Refresh the grid
-      } catch (err) {
-        alert("Failed to add table. Table number might already exist.");
-      } finally {
-        setUpdating(false);
-      }
-    };
+    // 2. Fetch Today Schedule
+    try {
+      const resSchedule = await api.get("/admin/today-schedule", { headers });
+      setTodaySchedule(resSchedule.data);
+    } catch (err) {
+      console.error("❌ Schedule Bar Error:", err.response?.data || err.message);
+    }
 
-    // Handle Walk-in Submission
-    const handleWalkInSubmit = async (e) => {
-      e.preventDefault();
-      if (!guestName) return;
-      try {
-        setUpdating(true);
-        const token = localStorage.getItem("token");
-        await api.post(
-          `/admin/walk-in/${selectedTable.table_id}`,
-          { customerName: guestName },
-          { headers: { Authorization: `Bearer ${token}` } },
-        );
-        setShowModal(false);
-        setGuestName("");
-        fetchTables();
-      } catch (err) {
-        alert("Failed to process walk-in");
-      } finally {
-        setUpdating(false);
-      }
-    };
-
-    const handleMarkAsSeated = async (tableId, reservationId) => {
-      // If you wrote 'resId' here, it will crash because the parameter above is 'reservationId'
-      console.log("Reservation ID is:", reservationId);
-
-      try {
-        setUpdating(true);
-        const token = localStorage.getItem("token");
-
-        // Ensure you use 'reservationId' here to match the parameter name above
-        await api.put(
-          `${API_BASE}/reservations/${reservationId}/status`,
-          { status: "Seated" },
-          { headers: { Authorization: `Bearer ${token}` } },
-        );
-
-        fetchTables(); // Refresh the grid
-      } catch (err) {
-        console.error(err);
-        alert("Update failed");
-      } finally {
-        setUpdating(false);
-      }
-    };
-
-    const handleCheckout = async (e, tableId) => {
-      e.stopPropagation();
-      if (!window.confirm("Are you sure you want to clear this table?")) return;
-      try {
-        setUpdating(true);
-        const token = localStorage.getItem("token");
-        await api.put(
-          `/admin/checkout/${tableId}`,
-          {},
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          },
-        );
-        fetchTables();
-      } catch (err) {
-        alert("Failed to checkout");
-      } finally {
-        setUpdating(false);
-      }
-    };
-
-    const getMinutesElapsed = (startTime) => {
-      if (!startTime) return 0;
-      return Math.floor((new Date() - new Date(startTime)) / 60000);
-    };
-
-    if (loading && tables.length === 0)
-      return (
-        <div className="text-center mt-5 p-5 text-dark">
-          Loading Floor Plan...
-        </div>
-      );
-
-    return (
-      <div className="container-fluid px-5 py-4 bg-light min-vh-100">
-        <div className="d-flex justify-content-between align-items-start mb-5">
-          <div>
-            <h1 className="fw-bold mb-0 text-dark" style={{ fontSize: "2.5rem" }}>
-              Table Management
-            </h1>
-            <p className="text-muted small">
-              Monitor occupancy and manage your restaurant floor
-            </p>
-          </div>
-          <div className="d-flex gap-2">
-            <button
-              className="btn btn-outline-dark px-4 fw-bold shadow-sm"
-              onClick={() => setShowAddModal(true)}
-            >
-              <Plus size={18} className="me-1" /> Add Table
-            </button>
-            <button
-              className="btn btn-dark px-4 fw-bold shadow-sm"
-              onClick={fetchTables}
-              disabled={loading}
-            >
-              {loading ? "Refreshing..." : "Refresh Layout"}
-            </button>
-          </div>
-        </div>
-
-        <div className="row g-4">
-          {tables.map((table) => {
-            const isSeated = table.bridge_status === "seated";
-            const isReserved = table.bridge_status === "confirmed"; // Matches your 'INSERT' logic
-
-            let currentStatus = "AVAILABLE";
-            let statusColor = "#10b981"; // Green
-            let badgeColor = "#ecfdf5";
-            let textColor = "#059669";
-
-            // RED: Physically at the restaurant
-            if (isSeated) {
-              currentStatus = "OCCUPIED";
-              statusColor = "#ef4444";
-              badgeColor = "#fef2f2";
-              textColor = "#dc2626";
-            }
-            // YELLOW: Someone booked it for today, but hasn't arrived yet
-            else if (isReserved) {
-              currentStatus = "RESERVED";
-              statusColor = "#f59e0b";
-              badgeColor = "#fff7ed";
-              textColor = "#d97706";
-            }
-
-            return (
-              <div key={table.table_id} className="col-12 col-md-4 col-lg-3">
-                <div
-                  className="card border-0 shadow-sm h-100 position-relative overflow-hidden hover-card"
-                  style={{
-                    cursor: isSeated || isReserved ? "default" : "pointer",
-                  }}
-                  onClick={() =>
-                    !isSeated &&
-                    !isReserved &&
-                    (setSelectedTable(table), setShowModal(true))
-                  }
-                >
-                  <div
-                    style={{ height: "6px", backgroundColor: statusColor }}
-                  ></div>
-                  <div className="card-body p-4">
-                    <div className="d-flex justify-content-between align-items-start mb-3">
-                      <div>
-                        <h3 className="fw-bold mb-0">
-                          Table {table.table_number}
-                        </h3>
-                        <span className="text-muted small">
-                          {table.capacity} Pax Capacity
-                        </span>
-                      </div>
-                      <span
-                        className="badge rounded-pill px-3 py-2"
-                        style={{
-                          backgroundColor: badgeColor,
-                          color: textColor,
-                          fontSize: "0.65rem",
-                        }}
-                      >
-                        {currentStatus}
-                      </span>
-                    </div>
-                    <div className="mt-4 pt-3 border-top">
-                      {isSeated ? (
-                        <div className="d-flex flex-column gap-2 mt-3">
-                          <button
-                            className="btn btn-sm btn-primary fw-bold"
-                            onClick={() =>
-                              handleViewBill(
-                                table.reservation_id,
-                                table.table_number,
-                              )
-                            }
-                          >
-                            View Bill / Items
-                          </button>
-                          <button
-                            className="btn btn-sm btn-outline-danger fw-bold"
-                            onClick={(e) => handleCheckout(e, table.table_id)}
-                          >
-                            Checkout (Clear Table)
-                          </button>
-                        </div>
-                      ) : isReserved ? (
-                        <button
-                          className="btn btn-sm btn-warning w-100 fw-bold text-white"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            // Check if the property name is 'reservation_id' in your SQL query
-                            if (table.reservation_id) {
-                              handleMarkAsSeated(
-                                table.table_id,
-                                table.reservation_id,
-                              );
-                            } else {
-                              console.error(
-                                "Missing reservation_id for table:",
-                                table,
-                              );
-                              alert("No reservation found for this table.");
-                            }
-                          }}
-                        >
-                          Mark Seated
-                        </button>
-                      ) : (
-                        <div className="text-center py-2 text-muted small fw-bold text-uppercase">
-                          Start Walk-in
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* MODAL: ADD NEW TABLE */}
-        {showAddModal && (
-          <div
-            className="modal show d-block"
-            tabIndex="-1"
-            style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
-          >
-            <div className="modal-dialog modal-dialog-centered">
-              <div className="modal-content border-0 shadow">
-                <div className="modal-header">
-                  <h5 className="modal-title fw-bold">Add New Table</h5>
-                  <button
-                    type="button"
-                    className="btn-close"
-                    onClick={() => setShowAddModal(false)}
-                  ></button>
-                </div>
-                <form onSubmit={handleAddTableSubmit}>
-                  <div className="modal-body py-4">
-                    <div className="mb-3">
-                      <label className="form-label small fw-bold">
-                        Table Number / Label
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        placeholder="e.g. 15 or T-1"
-                        value={newTableData.table_number}
-                        onChange={(e) =>
-                          setNewTableData({
-                            ...newTableData,
-                            table_number: e.target.value,
-                          })
-                        }
-                        required
-                      />
-                    </div>
-                    <div className="mb-3">
-                      <label className="form-label small fw-bold">
-                        Seating Capacity
-                      </label>
-                      <input
-                        type="number"
-                        className="form-control"
-                        value={newTableData.capacity}
-                        onChange={(e) =>
-                          setNewTableData({
-                            ...newTableData,
-                            capacity: e.target.value,
-                          })
-                        }
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div className="modal-footer border-0">
-                    <button
-                      type="button"
-                      className="btn btn-light"
-                      onClick={() => setShowAddModal(false)}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="btn btn-dark"
-                      disabled={updating}
-                    >
-                      Create Table
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* WALK-IN MODAL (Existing) */}
-        {showModal && (
-          <div
-            className="modal show d-block"
-            tabIndex="-1"
-            style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
-          >
-            <div className="modal-dialog modal-dialog-centered">
-              <div className="modal-content border-0 shadow">
-                <div className="modal-header border-0">
-                  <h5 className="modal-title fw-bold">
-                    Walk-in: Table {selectedTable?.table_number}
-                  </h5>
-                  <button
-                    type="button"
-                    className="btn-close"
-                    onClick={() => setShowModal(false)}
-                  ></button>
-                </div>
-                <form onSubmit={handleWalkInSubmit}>
-                  <div className="modal-body py-4">
-                    <label className="form-label small fw-bold">
-                      Customer Name
-                    </label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      value={guestName}
-                      onChange={(e) => setGuestName(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="modal-footer border-0">
-                    <button
-                      type="button"
-                      className="btn btn-light"
-                      onClick={() => setShowModal(false)}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="btn btn-dark"
-                      disabled={updating}
-                    >
-                      Confirm
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <style>{`.hover-card:hover { transform: translateY(-5px); transition: 0.3s; box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important; }`}</style>
-
-        {/* MODAL: VIEW BILL */}
-        {showBillModal && (
-          <div
-            className="modal show d-block"
-            tabIndex="-1"
-            style={{
-              backgroundColor: "rgba(0,0,0,0.6)",
-              backdropFilter: "blur(4px)",
-            }}
-          >
-            <div className="modal-dialog modal-dialog-centered">
-              <div className="modal-content border-0 shadow-lg">
-                <div className="modal-header border-bottom-0 pt-4 px-4">
-                  <div>
-                    <h5 className="modal-title fw-bold fs-4">
-                      Table {activeTableLabel} Bill
-                    </h5>
-                    <span className="text-muted small">
-                      Current running total for this session
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    className="btn-close"
-                    onClick={() => setShowBillModal(false)}
-                  ></button>
-                </div>
-
-                <div className="modal-body px-4">
-                  {loadingBill ? (
-                    <div className="text-center py-5">
-                      <div
-                        className="spinner-border text-primary"
-                        role="status"
-                      ></div>
-                      <p className="mt-2 text-muted">Calculating bill...</p>
-                    </div>
-                  ) : billItems.length > 0 ? (
-                    <div className="bill-container">
-                      <div className="table-responsive">
-                        <table className="table table-borderless align-middle">
-                          <thead className="text-muted small text-uppercase">
-                            <tr>
-                              <th>Item</th>
-                              <th className="text-center">Qty</th>
-                              <th className="text-end">Total</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {billItems.map((item, idx) => {
-                              // Parse customizations (Flavors, Drinks)
-                              const customs = item.customizations
-                                ? typeof item.customizations === "string"
-                                  ? JSON.parse(item.customizations)
-                                  : item.customizations
-                                : null;
-
-                              return (
-                                <tr key={idx} className="border-bottom-light">
-                                  <td className="py-3">
-                                    <div className="fw-bold text-dark">
-                                      {item.name || item.item_name}
-                                    </div>
-                                    {customs && (
-                                      <div
-                                        className="small text-primary"
-                                        style={{ fontSize: "0.75rem" }}
-                                      >
-                                        {customs.flavor && (
-                                          <span>• {customs.flavor} </span>
-                                        )}
-                                        {customs.drink && (
-                                          <span>• {customs.drink} </span>
-                                        )}
-                                      </div>
-                                    )}
-                                  </td>
-                                  <td className="text-center py-3">
-                                    x{item.quantity}
-                                  </td>
-                                  <td className="text-end py-3 fw-bold">
-                                    ₱
-                                    {(item.price * item.quantity).toLocaleString(
-                                      undefined,
-                                      { minimumFractionDigits: 2 },
-                                    )}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      {/* Total Calculation */}
-                      <div className="bg-light rounded-3 p-3 mt-3">
-                        <div className="d-flex justify-content-between align-items-center mb-1 text-muted">
-                          <span>Subtotal</span>
-                          <span>
-                            ₱
-                            {billItems
-                              .reduce((sum, i) => sum + i.price * i.quantity, 0)
-                              .toLocaleString()}
-                          </span>
-                        </div>
-                        <div className="d-flex justify-content-between align-items-center border-top pt-2 mt-2">
-                          <span className="fw-bold fs-5">Amount Due</span>
-                          <span className="fw-bold fs-4 text-success">
-                            ₱
-                            {billItems
-                              .reduce((sum, i) => sum + i.price * i.quantity, 0)
-                              .toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                              })}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center py-5 text-muted">
-                      <Armchair size={48} className="mb-3 opacity-25" />
-                      <p>No items have been ordered yet.</p>
-                    </div>
-                  )}
-                </div>
-
-                <div className="modal-footer border-top-0 pb-4 px-4 gap-2">
-                  <button
-                    className="btn btn-light px-4 fw-bold"
-                    onClick={() => setShowBillModal(false)}
-                  >
-                    Close
-                  </button>
-                  <button
-                    className="btn btn-dark px-4 fw-bold"
-                    onClick={() => {
-                      if (window.confirm("Mark as paid and clear table?")) {
-                        handleCheckout(null, selectedTable?.table_id); // Reuses your existing checkout logic
-                        setShowBillModal(false);
-                      }
-                    }}
-                  >
-                    Mark Paid & Checkout
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    );
+    setLoading(false);
   };
 
-  export default TableStatus;
+  useEffect(() => {
+    fetchTables();
+    const interval = setInterval(fetchTables, 15000); 
+    return () => clearInterval(interval);
+  }, []);
+
+  // --- ACTIONS ---
+  const handleAddTableSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      setUpdating(true);
+      const token = localStorage.getItem("token");
+      await api.post("/admin/add-table", newTableData, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setShowAddModal(false);
+      setNewTableData({ table_number: "", capacity: 4 });
+      fetchTables();
+    } catch (err) {
+      alert("Failed to add table.");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleDeleteTable = async (tableId) => {
+    if (!window.confirm("Delete this table permanently?")) return;
+    try {
+      setUpdating(true);
+      const token = localStorage.getItem("token");
+      await api.delete(`/admin/tables/${tableId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      fetchTables();
+    } catch (err) {
+      alert("Cannot delete table with active reservations.");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleMarkAsSeated = async (tableId, reservationId) => {
+    try {
+      setUpdating(true);
+      const token = localStorage.getItem("token");
+      // Use relative path for api instance
+      await api.put(`/reservations/${reservationId}/status`, 
+        { status: "Seated" },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      fetchTables();
+    } catch (err) {
+      alert("Update failed");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleWalkInSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      setUpdating(true);
+      const token = localStorage.getItem("token");
+      await api.post(
+        `/admin/walk-in/${selectedTable.table_id}`,
+        { customerName: guestName },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      setShowModal(false);
+      setGuestName("");
+      fetchTables();
+    } catch (err) {
+      alert("Failed to process walk-in");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleCheckout = async (tableId) => {
+    if (!tableId) return;
+    try {
+      setUpdating(true);
+      const token = localStorage.getItem("token");
+      await api.put(`/admin/checkout/${tableId}`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      fetchTables();
+    } catch (err) {
+      alert("Checkout failed");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleViewBill = async (reservationId, tableLabel) => {
+    if (!reservationId) return;
+    setActiveTableLabel(tableLabel);
+    setShowBillModal(true);
+    setLoadingBill(true);
+    try {
+      const token = localStorage.getItem("token"); // ADDED TOKEN
+      // Use relative path to avoid double URL issues
+      const res = await api.get(`/reservations/${reservationId}/items`, {
+        headers: { Authorization: `Bearer ${token}` } // ATTACHED HEADERS
+      });
+      setBillItems(res.data);
+    } catch (err) {
+      console.error("Error fetching bill", err);
+    } finally {
+      setLoadingBill(false);
+    }
+  };
+
+  return (
+    <div className="container-fluid px-5 py-4 bg-light min-vh-100">
+      
+      {/* TOP SCHEDULE BAR */}
+      <div className="mb-4">
+        <div className="bg-white p-3 rounded-4 shadow-sm border-start border-4 border-warning">
+          <div className="d-flex align-items-center mb-2">
+            <Info size={18} className="text-warning me-2" />
+            <h6 className="fw-bold mb-0">Today's Reservations Timeline</h6>
+          </div>
+          <div className="d-flex gap-3 overflow-auto pb-2" style={{ whiteSpace: "nowrap" }}>
+            {todaySchedule.length > 0 ? (
+              todaySchedule.map((res, i) => (
+                <div key={i} className="bg-light px-3 py-2 rounded-3 border small d-inline-block shadow-sm">
+                  <span className="fw-bold text-primary">
+                    {res.reservation_time ? res.reservation_time.substring(0, 5) : "00:00"}
+                  </span>
+                  :
+                  <span className="mx-2 fw-semibold">
+                    {res.first_name} {res.last_name}
+                  </span>
+                  <span className="badge bg-dark">Table {res.table_names}</span>
+                </div>
+              ))
+            ) : (
+              <span className="text-muted small">No arrivals scheduled for today.</span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* HEADER SECTION */}
+      <div className="d-flex justify-content-between align-items-center mb-5">
+        <div>
+          <h1 className="fw-bold mb-0 text-dark" style={{ fontSize: "2.5rem" }}>Table Management</h1>
+          <p className="text-muted small">Live floor occupancy and reservation queuing</p>
+        </div>
+        <div className="d-flex gap-2">
+          <button className="btn btn-white border shadow-sm px-3" onClick={fetchTables} disabled={loading}>
+            <RefreshCw size={20} className={loading ? "animate-spin" : ""} />
+          </button>
+          <button 
+            className={`btn ${deleteMode ? "btn-danger" : "btn-outline-danger"} px-4 fw-bold shadow-sm`}
+            onClick={() => setDeleteMode(!deleteMode)}
+          >
+            <Trash2 size={18} className="me-1" /> {deleteMode ? "Exit Delete" : "Remove Table"}
+          </button>
+          <button className="btn btn-dark px-4 fw-bold shadow-sm" onClick={() => setShowAddModal(true)}>
+            <Plus size={18} className="me-1" /> Add Table
+          </button>
+        </div>
+      </div>
+
+      {/* TABLES GRID */}
+      <div className="row g-4">
+        {tables.map((table) => {
+          const status = table.bridge_status?.toLowerCase() || "available";
+          const isSeated = status === "seated";
+          const isReserved = status === "confirmed";
+
+          let statusColor = "#10b981"; 
+          if (isSeated) statusColor = "#ef4444"; 
+          else if (isReserved) statusColor = "#f59e0b"; 
+
+          return (
+            <div key={table.table_id} className="col-12 col-md-4 col-lg-3">
+              <div className={`card border-0 shadow-sm h-100 hover-card ${deleteMode ? "shake border border-danger" : ""}`}>
+                {deleteMode && (
+                  <div className="position-absolute w-100 h-100 d-flex align-items-center justify-content-center bg-white bg-opacity-75" style={{ zIndex: 5, borderRadius: "inherit" }}>
+                    <button className="btn btn-danger btn-lg rounded-circle p-3 shadow" onClick={() => handleDeleteTable(table.table_id)}>
+                      <Trash2 size={24} />
+                    </button>
+                  </div>
+                )}
+                <div style={{ height: "6px", backgroundColor: statusColor }}></div>
+                <div className="card-body p-4">
+                  <div className="d-flex justify-content-between mb-2">
+                    <h3 className="fw-bold mb-0">Table {table.table_number}</h3>
+                    <span className="badge rounded-pill px-3 py-2" style={{ backgroundColor: `${statusColor}15`, color: statusColor, fontSize: "0.65rem" }}>
+                      {status.toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="mb-3 text-muted small"><Users size={14} /> {table.capacity} Pax</div>
+
+                  <div className="bg-light rounded-3 p-3 mb-2 border" style={{ minHeight: "80px" }}>
+                    {isSeated || isReserved ? (
+                      <div>
+                        <div className="fw-bold small text-primary mb-1 text-truncate">
+                          <User size={12} /> {(table.first_name || table.customer_name) ? `${table.first_name || ""} ${table.last_name || ""}`.trim() || table.customer_name : "Registered Guest"}
+                        </div>
+                        <div className="text-muted smaller" style={{ fontSize: "0.7rem" }}>
+                          <Clock size={12} /> {table.reservation_time ? `${table.reservation_time.substring(0, 5)} - ${table.end_time?.substring(0, 5) || ""}` : "Active Session"}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center text-muted py-2 small italic">Available</div>
+                    )}
+                  </div>
+
+                  <div style={{ height: "35px" }}>
+                    {table.queue_count > 1 && (
+                      <div className="alert alert-info py-1 px-2 border-0 d-flex align-items-center" style={{ fontSize: "0.7rem" }}>
+                        <RefreshCw size={12} className="me-2 animate-spin-slow" />
+                        Next: {table.next_reservation_time ? table.next_reservation_time.substring(0, 5) : "Later today"}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-3">
+                    {isSeated ? (
+                      <button className="btn btn-sm btn-primary w-100 fw-bold" onClick={() => { setSelectedTable(table); handleViewBill(table.reservation_id, table.table_number); }}>Manage Bill</button>
+                    ) : isReserved ? (
+                      <button className="btn btn-sm btn-warning w-100 fw-bold text-white" onClick={() => handleMarkAsSeated(table.table_id, table.reservation_id)}>Mark Seated</button>
+                    ) : (
+                      <button className="btn btn-sm btn-outline-dark w-100 fw-bold" onClick={() => { setSelectedTable(table); setShowModal(true); }}>Walk-in</button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* MODAL: ADD TABLE */}
+      {showAddModal && (
+        <div className="modal show d-block" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content border-0 shadow">
+              <div className="modal-header">
+                <h5 className="modal-title fw-bold">New Table</h5>
+                <X className="cursor-pointer" onClick={() => setShowAddModal(false)} />
+              </div>
+              <form onSubmit={handleAddTableSubmit}>
+                <div className="modal-body py-4">
+                  <div className="mb-3">
+                    <label className="form-label small fw-bold">Table Label</label>
+                    <input type="text" className="form-control" value={newTableData.table_number} onChange={(e) => setNewTableData({...newTableData, table_number: e.target.value})} required />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label small fw-bold">Capacity</label>
+                    <input type="number" className="form-control" value={newTableData.capacity} onChange={(e) => setNewTableData({...newTableData, capacity: e.target.value})} required />
+                  </div>
+                </div>
+                <div className="modal-footer border-0">
+                  <button type="submit" className="btn btn-dark w-100 py-2 fw-bold" disabled={updating}>Create Table</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: WALK-IN */}
+      {showModal && (
+        <div className="modal show d-block" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content border-0 shadow">
+              <div className="modal-header">
+                <h5 className="modal-title fw-bold">Walk-in: Table {selectedTable?.table_number}</h5>
+                <X className="cursor-pointer" onClick={() => setShowModal(false)} />
+              </div>
+              <form onSubmit={handleWalkInSubmit}>
+                <div className="modal-body py-4">
+                  <label className="form-label small fw-bold">Customer Name</label>
+                  <input type="text" className="form-control py-2" value={guestName} onChange={(e) => setGuestName(e.target.value)} required placeholder="Enter guest name..." />
+                </div>
+                <div className="modal-footer border-0">
+                  <button type="submit" className="btn btn-dark w-100 py-2 fw-bold" disabled={updating}>Confirm Entry</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: BILLING */}
+      {showBillModal && (
+        <div className="modal show d-block" style={{ backgroundColor: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content border-0 shadow-lg">
+              <div className="modal-header border-0 pt-4 px-4">
+                <h5 className="modal-title fw-bold fs-4">Table {activeTableLabel} Bill</h5>
+                <X className="cursor-pointer" onClick={() => setShowBillModal(false)} />
+              </div>
+              <div className="modal-body px-4">
+                {loadingBill ? <div className="text-center py-5"><div className="spinner-border text-primary"></div></div> :
+                billItems.length > 0 ? (
+                  <div>
+                    <table className="table table-borderless">
+                      <thead><tr className="text-muted small"><th>ITEM</th><th className="text-center">QTY</th><th className="text-end">TOTAL</th></tr></thead>
+                      <tbody>
+                        {billItems.map((item, i) => (
+                          <tr key={i}><td className="fw-bold">{item.name || item.item_name}</td><td className="text-center">x{item.quantity}</td><td className="text-end fw-bold">₱{(item.price * item.quantity).toFixed(2)}</td></tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <div className="bg-light p-3 rounded-3 mt-3">
+                      <div className="d-flex justify-content-between fs-4 fw-bold text-success">
+                        <span>Total Due</span>
+                        <span>₱{billItems.reduce((s, i) => s + (i.price * i.quantity), 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : <div className="text-center py-5 text-muted"><Armchair size={48} className="mb-2 opacity-25"/><p>No orders yet.</p></div>}
+              </div>
+              <div className="modal-footer border-0 pb-4 px-4">
+                <button className="btn btn-danger w-100 py-2 fw-bold" onClick={() => { 
+                    if(window.confirm("Complete Payment & Clear Table?")) {
+                      handleCheckout(selectedTable?.table_id); 
+                      setShowBillModal(false); 
+                    }
+                }}>Complete Payment & Checkout</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        .animate-spin { animation: spin 1s linear infinite; }
+        .animate-spin-slow { animation: spin 3s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .hover-card:hover { transform: translateY(-5px); transition: 0.3s; }
+        .shake { animation: shake 0.5s infinite; }
+        @keyframes shake { 0% { transform: rotate(0deg); } 25% { transform: rotate(0.5deg); } 75% { transform: rotate(-0.5deg); } 100% { transform: rotate(0deg); } }
+        .cursor-pointer { cursor: pointer; }
+      `}</style>
+    </div>
+  );
+};
+
+export default TableStatus;

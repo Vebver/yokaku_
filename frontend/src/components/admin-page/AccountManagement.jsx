@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+
 const AccountManagement = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -12,12 +14,6 @@ const AccountManagement = () => {
 
   useEffect(() => {
     fetchUsers();
-    const handleVisibilityChange = () => {
-      if (!document.hidden) fetchUsers();
-    };
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () =>
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, []);
 
   const fetchUsers = async () => {
@@ -35,32 +31,24 @@ const AccountManagement = () => {
     }
   };
 
-  const toggleAdmin = async (userId, currentRole) => {
-    const actionText =
-      currentRole === "admin"
-        ? "REMOVE admin privileges from"
-        : "GRANT admin privileges to";
-    if (!window.confirm(`Are you sure you want to ${actionText} this user?`))
-      return;
+  const handleRoleChange = async (userId, newRole) => {
+    if (!window.confirm(`Change this user's role to ${newRole.toUpperCase()}?`)) return;
 
     try {
       setUpdatingUserId(userId);
       const token = localStorage.getItem("token");
-      const newRole = currentRole === "admin" ? "customer" : "admin";
 
       await axios.put(
         `${API_BASE}/admin/users/${userId}/update-role`,
         { role: newRole },
-        { headers: { Authorization: `Bearer ${token}` } },
+        { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      setUsers(
-        users.map((u) => (u.user_id === userId ? { ...u, role: newRole } : u)),
-      );
-      setStatus({ type: "success", msg: "User updated successfully!" });
+      setUsers(users.map((u) => (u.user_id === userId ? { ...u, role: newRole } : u)));
+      setStatus({ type: "success", msg: "User role updated successfully!" });
       setTimeout(() => setStatus({ type: "", msg: "" }), 3000);
     } catch (err) {
-      setStatus({ type: "danger", msg: "Failed to update user." });
+      setStatus({ type: "danger", msg: "Failed to update user role." });
     } finally {
       setUpdatingUserId(null);
     }
@@ -69,10 +57,7 @@ const AccountManagement = () => {
   const filteredUsers = users.filter((user) => {
     const fullName = `${user.first_name} ${user.last_name}`.toLowerCase();
     const email = user.email ? user.email.toLowerCase() : "";
-    return (
-      fullName.includes(searchTerm.toLowerCase()) ||
-      email.includes(searchTerm.toLowerCase())
-    );
+    return fullName.includes(searchTerm.toLowerCase()) || email.includes(searchTerm.toLowerCase());
   });
 
   const indexOfLastUser = currentPage * usersPerPage;
@@ -88,88 +73,34 @@ const AccountManagement = () => {
     );
 
   return (
-    <div
-      className="container-fluid px-5 py-4"
-      style={{ backgroundColor: "#f8f9fa", minHeight: "100vh" }}
-    >
-      {/* HEADER SECTION - Outside the card */}
-      <div className="d-flex justify-content-between align-items-start mb-5">
-        <div>
-          <h1 className="fw-bold mb-0 text-dark" style={{ fontSize: "2.5rem" }}>
-            Account Management
-          </h1>
-          <p className="text-muted small">
-            Verify user privileges and manage administrative access
-          </p>
-        </div>
-        <div className="d-flex gap-3">
-          <input
-            type="text"
-            className="form-control form-control-sm border-0 shadow-sm"
-            placeholder="Search users..."
-            style={{ width: "250px" }}
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-              setCurrentPage(1);
-            }}
-          />
-          <button
-            onClick={fetchUsers}
-            disabled={loading}
-            className="btn btn-dark px-4 fw-bold"
-            style={{ backgroundColor: "#212529", borderRadius: "8px" }}
-          >
-            {loading ? "Refreshing..." : "Refresh Data"}
-          </button>
-        </div>
+    <div className="container-fluid px-5 py-4" style={{ backgroundColor: "#f8f9fa", minHeight: "100vh" }}>
+      <div className="mb-4 d-flex justify-content-between align-items-center">
+        <h2 className="fw-bold">User Management</h2>
+        <input
+          type="text"
+          className="form-control w-25"
+          placeholder="Search by name or email..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
       </div>
 
       {status.msg && (
-        <div className={`alert alert-${status.type} shadow-sm border-0 mb-4`}>
+        <div className={`alert alert-${status.type} alert-dismissible fade show`} role="alert">
           {status.msg}
         </div>
       )}
 
-      {/* DATA SECTION */}
-      <div
-        className="card shadow-sm border-0 overflow-hidden"
-        style={{ borderRadius: "0px" }}
-      >
+      <div className="card shadow-sm border-0 overflow-hidden" style={{ borderRadius: "12px" }}>
         <div className="table-responsive">
           <table className="table table-hover align-middle mb-0 bg-white">
-            <thead className="border-bottom">
+            <thead className="bg-light border-bottom">
               <tr style={{ height: "60px" }}>
-                <th
-                  className="ps-4 small fw-bold text-uppercase"
-                  style={{ letterSpacing: "0.5px" }}
-                >
-                  Avatar
-                </th>
-                <th
-                  className="small fw-bold text-uppercase"
-                  style={{ letterSpacing: "0.5px" }}
-                >
-                  User & ID
-                </th>
-                <th
-                  className="small fw-bold text-uppercase"
-                  style={{ letterSpacing: "0.5px" }}
-                >
-                  Email Address
-                </th>
-                <th
-                  className="small fw-bold text-uppercase"
-                  style={{ letterSpacing: "0.5px" }}
-                >
-                  Status
-                </th>
-                <th
-                  className="text-end pe-4 small fw-bold text-uppercase"
-                  style={{ letterSpacing: "0.5px" }}
-                >
-                  Actions
-                </th>
+                <th className="ps-4 small fw-bold text-uppercase">Avatar</th>
+                <th className="small fw-bold text-uppercase">User Name</th>
+                <th className="small fw-bold text-uppercase">Email Address</th>
+                <th className="small fw-bold text-uppercase">Current Role</th>
+                <th className="text-end pe-4 small fw-bold text-uppercase">Change Role</th>
               </tr>
             </thead>
             <tbody>
@@ -177,9 +108,9 @@ const AccountManagement = () => {
                 <tr key={user.user_id} style={{ height: "80px" }}>
                   <td className="ps-4">
                     <img
-                      src={`https://ui-avatars.com/api/?name=${user.first_name}+${user.last_name}&background=f8f9fa&color=333`}
+                      src={`https://ui-avatars.com/api/?name=${user.first_name}+${user.last_name}&background=random`}
                       alt="Avatar"
-                      className="rounded shadow-sm border"
+                      className="rounded-circle shadow-sm border"
                       width="45"
                       height="45"
                     />
@@ -188,10 +119,7 @@ const AccountManagement = () => {
                     <div className="fw-bold text-dark">
                       {user.first_name} {user.last_name}
                     </div>
-                    <div
-                      className="text-muted x-small"
-                      style={{ fontSize: "0.75rem" }}
-                    ></div>
+                    <small className="text-muted">ID: #{user.user_id}</small>
                   </td>
                   <td className="text-muted fw-medium">{user.email}</td>
                   <td>
@@ -199,28 +127,26 @@ const AccountManagement = () => {
                       className="badge rounded-pill px-3 py-2"
                       style={{
                         backgroundColor:
-                          user.role === "admin" ? "#fff3cd" : "#e9ecef",
-                        color: user.role === "admin" ? "#856404" : "#495057",
-                        fontSize: "0.7rem",
-                        letterSpacing: "0.5px",
+                          user.role === "admin" ? "#d1ecf1" : user.role === "cashier" ? "#d4edda" : "#e9ecef",
+                        color: user.role === "admin" ? "#0c5460" : user.role === "cashier" ? "#155724" : "#495057",
+                        fontSize: "0.75rem",
+                        textTransform: "uppercase",
                       }}
                     >
-                      {user.role === "admin" ? "ADMIN" : "USER"}
+                      {user.role}
                     </span>
                   </td>
                   <td className="text-end pe-4">
-                    <button
-                      onClick={() => toggleAdmin(user.user_id, user.role)}
+                    <select
+                      className="form-select form-select-sm d-inline-block w-auto border-0 bg-light fw-bold"
+                      value={user.role}
                       disabled={updatingUserId === user.user_id}
-                      className="btn btn-outline-dark btn-sm fw-bold px-3 py-2"
-                      style={{ borderRadius: "6px", fontSize: "0.85rem" }}
+                      onChange={(e) => handleRoleChange(user.user_id, e.target.value)}
                     >
-                      {updatingUserId === user.user_id
-                        ? "..."
-                        : user.role === "admin"
-                          ? "Remove Admin"
-                          : "Make Admin"}
-                    </button>
+                      <option value="customer">Customer</option>
+                      <option value="cashier">Cashier</option>
+                      <option value="admin">Admin</option>
+                    </select>
                   </td>
                 </tr>
               ))}
@@ -233,28 +159,23 @@ const AccountManagement = () => {
       {filteredUsers.length > usersPerPage && (
         <div className="d-flex justify-content-between align-items-center mt-4 px-2">
           <span className="text-muted small">
-            Showing {indexOfFirstUser + 1} to{" "}
-            {Math.min(indexOfLastUser, filteredUsers.length)} of{" "}
+            Showing {indexOfFirstUser + 1} to {Math.min(indexOfLastUser, filteredUsers.length)} of{" "}
             {filteredUsers.length}
           </span>
-          <ul className="pagination mb-0">
-            <button
-              className="page-link border-0 link-dark link-offset-2 link-underline-opacity-0 link-underline-opacity-100-hover bg-transparent"
-              onClick={() => setCurrentPage((prev) => prev - 1)}
-            >
-              Previous
-            </button>
-            <li
-              className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}
-            >
-              <button
-                className="page-link border-0 text-dark bg-transparent"
-                onClick={() => setCurrentPage((prev) => prev + 1)}
-              >
-                Next
-              </button>
-            </li>
-          </ul>
+          <nav>
+            <ul className="pagination mb-0">
+              <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
+                <button className="page-link border-0 text-dark" onClick={() => setCurrentPage((p) => p - 1)}>
+                  Previous
+                </button>
+              </li>
+              <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
+                <button className="page-link border-0 text-dark" onClick={() => setCurrentPage((p) => p + 1)}>
+                  Next
+                </button>
+              </li>
+            </ul>
+          </nav>
         </div>
       )}
     </div>

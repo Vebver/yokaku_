@@ -150,6 +150,19 @@ const reservationController = {
   createReservation: async (req, res) => {
     try {
       const body = req.body;
+      const userId = body.userId;
+      if (userId && (userId !== "null") !== "null") {
+        const noShowCount = await Reservation.countNoShows(userId);
+
+        // Define your limit (e.g., 3 no-shows)
+        if (noShowCount >= 3) {
+          return res.status(403).json({
+            error: "Booking Restricted",
+            message:
+              "You have 3 or more no-shows. Please contact management to re-enable your account.",
+          });
+        }
+      }
       const items =
         typeof body.selectedItems === "string"
           ? JSON.parse(body.selectedItems)
@@ -207,15 +220,52 @@ const reservationController = {
   },
 
   updateStatus: async (req, res) => {
+    console.log("HIT THE STATUS UPDATE ROUTE!");
     try {
       const { id } = req.params;
       const { status } = req.body;
-      if (!id)
-        return res.status(400).json({ error: "Reservation ID is required" });
+      const currentUser = req.user; // This comes from your 'protect' middleware
+
+      // 1. Find the reservation
+      const reservation = await Reservation.findById(id);
+      if (!reservation) return res.status(404).json({ error: "Not found" });
+
+      // 2. SECURITY CHECK
+      const isOwner = reservation.user_id === currentUser.userId;
+      const isAdmin = currentUser.role === "admin";
+
+      // If the user is a CUSTOMER
+      if (!isAdmin) {
+        // Rule A: They can only update their OWN reservation
+        if (!isOwner) {
+          return res
+            .status(403)
+            .json({ error: "You do not own this reservation." });
+        }
+
+        // Rule B: They can ONLY change the status to 'Cancelled'
+        // They are NOT allowed to set it to 'Seated' or 'Confirmed'
+        if (status.toLowerCase() !== "cancelled") {
+          return res
+            .status(403)
+            .json({ error: "Customers can only cancel reservations." });
+        }
+      }
+
+      // 3. BLACKLIST CHECK (Only if they are trying to do something OTHER than cancel)
+      if (status.toLowerCase() !== "cancelled") {
+        const noShowCount = await Reservation.countNoShows(reservation.user_id);
+        if (noShowCount >= 3) {
+          return res
+            .status(403)
+            .json({ error: "Account restricted due to no-shows." });
+        }
+      }
+
+      // 4. If Admin OR (Owner + Cancelling), proceed!
       await Reservation.updateStatus(id, status);
-      res.json({ success: true, message: `Status updated to ${status}` });
+      res.json({ success: true, message: "Status updated." });
     } catch (error) {
-      console.error("Update status error:", error);
       res.status(500).json({ error: error.message });
     }
   },
@@ -229,16 +279,79 @@ const reservationController = {
     }
   },
 
+  // ==================== KIOSK VERIFICATION ====================
   checkReservationId: async (req, res) => {
     try {
       const reservation = await Reservation.findById(req.params.id);
-      if (reservation) {
-        res.json({ success: true, reservation });
-      } else {
-        res.status(404).json({ success: false, message: "Not found" });
+
+      if (!reservation) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Invalid Reservation ID." });
       }
+
+      // 1. Check if already used
+      if (
+        reservation.status === "Seated" ||
+        reservation.status === "Completed"
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "This reservation is already active or complet ed.",
+        });
+      }
+
+      // 2. Check if Rejected/Cancelled
+      if (
+        ["Rejected", "Cancelled", "no-show"].includes(
+          reservation.status.toLowerCase(),
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: `This reservation is ${reservation.status}. Please see staff.`,
+        });
+      }
+
+      // 3. TIME WINDOW VALIDATION
+      const now = new Date();
+
+      // Combine Date and Time from DB (e.g. "2023-10-25" and "14:30:00")
+      const scheduledTime = new Date(
+        `${reservation.reservation_date} ${reservation.reservation_time}`,
+      );
+
+      // Calculate difference in minutes (Now minus Scheduled)
+      const diffInMs = now - scheduledTime;
+      const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+
+      // CASE A: Too Early (More than 30 mins before)
+      if (diffInMinutes < -30) {
+        return res.status(400).json({
+          success: false,
+          message: `Too early! Check-in starts 30 mins before. Please wait until ${reservation.reservation_time}.`,
+        });
+      }
+
+      // CASE B: Too Late (More than 60 mins after)
+      if (diffInMinutes > 60) {
+        // Automatically update to No-Show in DB
+        await Reservation.updateStatus(reservation.reservation_id, "no-show");
+
+        return res.status(400).json({
+          success: false,
+          message:
+            "Reservation expired. You are more than 1 hour late and marked as a No-Show.",
+        });
+      }
+
+      // 4. IF ALL CHECKS PASS
+      res.json({ success: true, reservation });
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      console.error("Check ID Error:", error);
+      res
+        .status(500)
+        .json({ success: false, message: "Internal server error" });
     }
   },
 };

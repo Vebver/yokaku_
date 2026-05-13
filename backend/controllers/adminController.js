@@ -21,24 +21,38 @@ const adminController = {
       res.status(500).json({ error: error.message });
     }
   },
+  getTodaySchedule: async (req, res) => {
+  try {
+    const schedule = await TableStatus.getTodaySchedule();
+    res.json(schedule);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+},
   updateUserRole: async (req, res) => {
     try {
       const { userId } = req.params;
       const { role } = req.body;
 
-      // Validate role is either 'admin' or 'customer'
-      if (!["admin", "customer"].includes(role)) {
-        return res
-          .status(400)
-          .json({ error: "Invalid role. Must be 'admin' or 'customer'." });
+      // 1. FIXED VALIDATION: Added 'cashier' to the allowed list
+      const allowedRoles = ["admin", "customer", "cashier"]; 
+      
+      if (!allowedRoles.includes(role)) {
+        return res.status(400).json({ 
+          error: "Invalid role. Must be 'admin', 'customer', or 'cashier'." 
+        });
       }
 
+      // 2. Update the database
+      // Ensure the Model function is called correctly
       await AccountManagement.updateUserRole(userId, role);
+
       res.json({ message: "User role updated successfully" });
     } catch (error) {
+      console.error("Update Role Error:", error);
       res.status(500).json({ error: error.message });
     }
-  },
+},
   getTable: async (req, res) => {
     try {
       const status = await TableStatus.getTableStatus();
@@ -110,6 +124,12 @@ const adminController = {
       res.status(500).json({ success: false, error: error.message });
     }
   },
+  resetNoShows: async (req, res) => {
+  const { userId } = req.params;
+  // Mark all 'no-show' reservations as 'cancelled' so they don't count towards strikes
+  await db.query("UPDATE reservations SET status = 'cancelled' WHERE user_id = ? AND status = 'no-show'", [userId]);
+  res.json({ message: "No-show strikes reset." });
+}
 };
 
 module.exports = adminController;

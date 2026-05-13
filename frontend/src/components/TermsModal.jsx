@@ -92,53 +92,6 @@ const TermsModal = ({ isOpen, onAccept, onClose }) => {
             reservation time.
           </p>
         </div>
-
-        <label
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-            cursor: "pointer",
-            marginBottom: "20px",
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={agreed}
-            onChange={(e) => setAgreed(e.target.checked)}
-            style={{ width: "18px", height: "18px", cursor: "pointer" }}
-          />
-          <span
-            style={{ fontSize: "0.9rem", color: "#333", fontWeight: "500" }}
-          >
-            I have read and agree to the Terms and Conditions
-          </span>
-        </label>
-
-        <div
-          className="res-footer"
-          style={{ padding: 0, background: "none", border: "none" }}
-        >
-          <button
-            className="res-btn-continue"
-            disabled={!agreed}
-            onClick={onAccept}
-            style={{
-              width: "100%",
-              opacity: agreed ? 1 : 0.5,
-              cursor: agreed ? "pointer" : "not-allowed",
-              background: "#f38d31",
-              border: "none",
-              padding: "14px",
-              borderRadius: "14px",
-              color: "white",
-              fontWeight: "bold",
-              lineHeight: "1.5",
-            }}
-          >
-            Continue
-          </button>
-        </div>
       </div>
     </div>
   );

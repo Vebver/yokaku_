@@ -27,6 +27,9 @@ const MyReservation = () => {
   const [selectedCancelReason, setSelectedCancelReason] = useState("");
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [showTermsFromCancel, setShowTermsFromCancel] = useState(false);
+  const [noShowCount, setNoShowCount] = useState(0);
+  const [cancellationCount, setCancellationCount] = useState(0);
+  const MAX_STRIKES = 3;
   const [isCancelling, setIsCancelling] = useState(false); // Loading state for cancel button
 
   // New state for cancellation limit
@@ -342,10 +345,13 @@ const MyReservation = () => {
           <div className="my-reservation-header">
             <h1>My Reservations</h1>
             <p>View and manage your upcoming table reservations</p>
-            {/* Display cancellation limit info */}
-            <div className="cancellation-info">
+
+            <div
+              className="strike-summary"
+              style={{ display: "flex", gap: "10px", marginTop: "10px" }}
+            >
               <span
-                className={`cancellation-badge ${cancellationsLeft === 0 ? "limit-reached" : ""}`}
+                className={`badge ${cancellationCount >= 3 ? "bg-danger" : "bg-warning"}`}
               >
                 {cooldownTimeLeft > 0 ? (
                   <>⏰ Regains in: {formatCooldownTime(cooldownTimeLeft)}</>

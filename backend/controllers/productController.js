@@ -1,5 +1,12 @@
 const { get } = require("node:http");
 const Product = require("../models/Product");
+const cloudinary = require('cloudinary').v2;
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_NAME,
+  api_key: process.env.CLOUDINARY_KEY,
+  api_secret: process.env.CLOUDINARY_SECRET,
+});
 
 const productController = {
   getProducts: async (req, res) => {
@@ -39,46 +46,54 @@ const productController = {
     }
   },
 
-  createProduct: async (req, res) => {
-    try {
-      // 1. Get strings from req.body (Multer populates this)
-      const {
-        name,
-        description,
-        price,
-        category_id,
-        is_available,
-        is_featured,
-      } = req.body;
+createProduct: async (req, res) => {
+  try {
+    const { name, description, price, category_id, is_available, is_featured } = req.body;
 
-      // 2. Convert to proper types for MySQL
-      const clean_price = parseFloat(price) || 0.0;
-      const clean_category = parseInt(category_id);
-
-      // IMPORTANT: FormData "0" or "1" must be converted to numbers
-      const clean_available = parseInt(is_available) === 1 ? 1 : 0;
-      const clean_featured = parseInt(is_featured) === 1 ? 1 : 0;
-
-      // 3. Get image URL
-      const image_url = req.file ? `/uploads/${req.file.filename}` : null; // Images stored in frontend/public/uploads
-
-      // 4. Call Model
-      const newId = await Product.create({
-        name,
-        description,
-        price: clean_price,
-        category_id: clean_category,
-        image_url,
-        is_available: clean_available,
-        is_featured: clean_featured,
-      });
-
-      res.status(201).json({ success: true, id: newId });
-    } catch (error) {
-      console.error("ADD PRODUCT ERROR:", error.message);
-      res.status(400).json({ error: error.message }); // This sends the SQL error back to React
+    // 1. Check if Multer actually received a file
+    if (!req.file) {
+      return res.status(400).json({ error: "No image file provided." });
     }
-  },
+
+    // 2. Prepare paths
+    // image_url will store the local /uploads path
+    const local_disk_path = `/uploads/${req.file.filename}`;
+    let cloudinary_url = null;
+
+    // 3. Upload to Cloudinary
+    try {
+      // req.file.path is the absolute physical path (e.g., C:\project\backend\uploads\xxx.jpg)
+      const cloudResult = await cloudinary.uploader.upload(req.file.path, {
+        folder: "restaurant_products",
+      });
+      
+      cloudinary_url = cloudResult.secure_url;
+      console.log("Cloudinary Upload Successful:", cloudinary_url);
+    } catch (cloudErr) {
+      console.error("Cloudinary Logic Error:", cloudErr.message);
+      // We don't return here so that the product is still created locally even if cloud fails
+    }
+
+    // 4. Save to Database
+    // image_url = LOCAL (/uploads/...)
+    // local_path = CLOUDINARY (https://res.cloudinary...)
+    const newId = await Product.create({
+      name,
+      description,
+      price: parseFloat(price) || 0,
+      category_id: parseInt(category_id),
+      image_url: local_disk_path, 
+      local_path: cloudinary_url, 
+      is_available: parseInt(is_available) || 1,
+      is_featured: parseInt(is_featured) || 0,
+    });
+
+    res.status(201).json({ success: true, id: newId, cloudinary: cloudinary_url });
+  } catch (error) {
+    console.error("Database Save Error:", error.message);
+    res.status(500).json({ error: error.message });
+  }
+},
 
   deleteProduct: async (req, res) => {
     try {
@@ -88,12 +103,11 @@ const productController = {
       res.status(500).json({ error: error.message });
     }
   },
-   updateProduct: async (req, res) => {
+  updateProduct: async (req, res) => {
     try {
       const { id } = req.params;
       const { name, description, price, category_id, is_available, is_featured } = req.body;
 
-      // Clean/Convert data types
       const data = {
         name,
         description,
@@ -103,23 +117,28 @@ const productController = {
         is_featured: parseInt(is_featured)
       };
 
-      // If a new image was uploaded via multer, add it to the data
       if (req.file) {
-        data.image_url = `/uploads/${req.file.filename}`; // Images stored in frontend/public/uploads
+        // Update Local
+        data.image_url = `/uploads/${req.file.filename}`;
+        
+        // Update Cloudinary
+        try {
+          const result = await cloudinary.uploader.upload(req.file.path, {
+            folder: "restaurant_products",
+          });
+          data.local_path = result.secure_url; 
+        } catch (err) {
+          console.error("Cloudinary update failed:", err.message);
+        }
       }
 
       const result = await Product.update(id, data);
-
-      if (result.affectedRows === 0) {
-        return res.status(404).json({ error: "Product not found" });
-      }
-
       res.json({ success: true, message: "Product updated successfully" });
     } catch (error) {
-      console.error("UPDATE PRODUCT ERROR:", error.message);
       res.status(500).json({ error: error.message });
     }
   },
+
   getIngredients: async (req, res) => {
     try {
       const ingredients = await Product.getIngredients(req.params.id);
