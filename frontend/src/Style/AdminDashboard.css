@@ -68,6 +68,14 @@
   width: var(--sidebar-collapsed-width);
 }
 
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.no-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+
 .nav-link {
   color: #9ca3af !important;
   border-radius: 8px;

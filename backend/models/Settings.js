@@ -1,13 +1,13 @@
 const db = require('../config/db');
 
 const Setting = {
-  // Get all settings from the table
+  // Get all rows
   getAll: async () => {
     const [rows] = await db.execute("SELECT * FROM system_settings");
     return rows;
   },
 
-  // Update a specific setting by its key
+  // Update one row by key
   update: async (key, value) => {
     const sql = "UPDATE system_settings SET setting_value = ? WHERE setting_key = ?";
     const [result] = await db.execute(sql, [value, key]);
