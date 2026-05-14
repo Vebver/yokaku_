@@ -346,12 +346,14 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           const e = timeToMin(form.endTime);
           return s < timeToMin(r.endTime) && e > timeToMin(r.startTime);
         });
+        const isPaxValid = form.pax && parseInt(form.pax) > 0;
         return (
           selectedId !== null &&
           isStartTimeValid &&
           isEndTimeValid &&
           isTimeValid &&
-          hasNoConflict
+          hasNoConflict &&
+          isPaxValid
         );
       case 2:
         const isMuniValid = form.muni && form.muni !== "";
@@ -1569,9 +1571,39 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                 </div>
               </div>
 
-              <div className="input-group">
-                <label>GUESTS</label>
-                <input type="text" value={totalSeats} readOnly />
+              {/* ============ GUESTS FIELD - AUTO POPULATED FROM PAX ============ */}
+              <div className="input-group guests-auto-field">
+                <label>
+                  <Users size={12} /> GUESTS
+                </label>
+                <div className="guests-auto-display">
+                  <input
+                    type="text"
+                    value={
+                      form.pax && parseInt(form.pax) > 0
+                        ? `${form.pax} guest(s)`
+                        : "Not specified yet"
+                    }
+                    readOnly
+                    className={`guests-auto-input ${!form.pax || parseInt(form.pax) <= 0 ? "empty-value" : ""}`}
+                  />
+                  {!form.pax || parseInt(form.pax) <= 0 ? (
+                    <div className="guests-hint-warning">
+                      <AlertCircle size={14} />
+                      <span>
+                        Please enter number of guests in Step 2 (Select Table &
+                        Time)
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="guests-hint-success">
+                      <CheckCircle size={14} />
+                      <span>
+                        Auto-populated from Pax field in previous step
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="input-group">
@@ -1648,6 +1680,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     onChange={handleInputChange}
                   />
                 )}
+
                 {/* Show allergy count field only when allergy is selected and not "None" */}
                 {form.allergy && form.allergy !== "None" && (
                   <div className="allergy-count-field">
@@ -1660,22 +1693,23 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                         name="allergyCount"
                         className="allergy-count-input"
                         min="1"
-                        max={totalSeats || 10}
+                        max={parseInt(form.pax) || totalSeats || 10}
                         value={form.allergyCount}
                         onChange={(e) => {
                           const value = e.target.value;
+                          const maxPax = parseInt(form.pax) || totalSeats || 10;
                           if (
                             value === "" ||
-                            (parseInt(value) >= 1 &&
-                              parseInt(value) <= (totalSeats || 10))
+                            (parseInt(value) >= 1 && parseInt(value) <= maxPax)
                           ) {
                             handleInputChange(e);
                           }
                         }}
-                        placeholder={`Enter number (1-${totalSeats || 10})`}
+                        placeholder={`Enter number (1-${parseInt(form.pax) || totalSeats || 10})`}
                       />
                       <span className="allergy-count-hint">
-                        Out of {totalSeats || 0} total guest(s)
+                        Out of {parseInt(form.pax) || totalSeats || 0} total
+                        guest(s)
                       </span>
                     </div>
                   </div>
