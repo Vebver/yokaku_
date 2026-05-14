@@ -18,23 +18,22 @@ function Categories() {
     fetchCategories();
   }, []);
 
-  const fetchCategories = async () => {
-    try {
-      const response = await axios.get(`${API_BASE}/categories`);
-      // Map database columns (category_id, name, description)
-      const mappedData = response.data.map((cat) => ({
-        id: cat.category_id,
-        name: cat.name,
-        description: cat.description,
-      }));
-      setCategories(mappedData);
-      setLoading(false);
-    } catch (err) {
-      console.error("Error fetching categories:", err);
-      setLoading(false);
-    }
-  };
-
+ const fetchCategories = async () => {
+  try {
+    const response = await axios.get(`${API_BASE}/categories`);
+    // IMPORTANT: Keep the ID so you can delete items later
+    const mappedData = response.data.map((cat) => ({
+      id: cat.category_id || cat.id, // Use whatever primary key your DB provides
+      name: cat.name,
+      description: cat.description,
+    }));
+    setCategories(mappedData);
+    setLoading(false);
+  } catch (err) {
+    console.error("Error fetching categories:", err);
+    setLoading(false);
+  }
+};
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setNewCategory({ ...newCategory, [name]: value });
@@ -104,8 +103,7 @@ function Categories() {
             <table className="table table-hover align-middle mb-0">
               <thead className="table-light text-muted">
                 <tr>
-                  <th className="ps-4">ID</th>
-                  <th>Category Name</th>
+                  <th className="ps-4">Category Name</th>
                   <th>Description</th>
                   <th className="text-end pe-4">Actions</th>
                 </tr>
@@ -113,7 +111,7 @@ function Categories() {
               <tbody>
                 {categories.map((cat) => (
                   <tr key={cat.id}>
-                    <td className="ps-4 text-muted">#{cat.id}</td>
+
                     <td>
                       <div className="fw-bold text-primary">{cat.name}</div>
                     </td>

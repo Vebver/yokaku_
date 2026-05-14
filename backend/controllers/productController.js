@@ -54,7 +54,6 @@ const applyPeakPricing = async (products) => {
 const productController = {
   // UPDATED: Now applies peak pricing
   getProducts: async (req, res) => {
-    console.log("!!! SERVER HIT: getProducts function is running !!!"); // ADD THIS
     try {
       const products = await Product.getAll();
       

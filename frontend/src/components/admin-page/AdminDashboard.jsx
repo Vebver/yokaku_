@@ -24,17 +24,17 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineEleme
 
 // 1. Sidebar Icons
 const Icons = {
-  Dashboard: () => <i className="bi bi-speedometer2 me-2"></i>,
-  Inventory: () => <i className="bi bi-boxes me-2"></i>,
-  Recipe: () => <i className="bi bi-journal-bookmark me-2"></i>,
-  Categories: () => <i className="bi bi-tags me-2"></i>,
-  Products: () => <i className="bi bi-box-seam me-2"></i>,
-  Sales: () => <i className="bi bi-graph-up-arrow me-2"></i>,
-  Billing: () => <i className="bi bi-receipt me-2"></i>,
-  Profile: () => <i className="bi bi-person-circle me-2"></i>,
-  Reservations: () => <i className="bi bi-calendar-check me-2"></i>,
-  Account: () => <i className="bi bi-people me-2"></i>,
-  Maintenance: () => <i className="bi bi-tools me-2"></i>,
+  Dashboard: () => <i className="bi bi-speedometer2"></i>,
+  Inventory: () => <i className="bi bi-boxes"></i>,
+  Recipe: () => <i className="bi bi-journal-bookmark"></i>,
+  Categories: () => <i className="bi bi-tags"></i>,
+  Products: () => <i className="bi bi-box-seam"></i>,
+  Sales: () => <i className="bi bi-graph-up-arrow"></i>,
+  Billing: () => <i className="bi bi-receipt"></i>,
+  Profile: () => <i className="bi bi-person-circle"></i>,
+  Reservations: () => <i className="bi bi-calendar-check"></i>,
+  Account: () => <i className="bi bi-people"></i>,
+  Maintenance: () => <i className="bi bi-tools"></i>,
 };
 
 // 2. Navigation Items
@@ -44,27 +44,26 @@ const navItems = [
   { id: "inventory", label: "Inventory", icon: Icons.Inventory },
   { id: "recipe", label: "Recipes", icon: Icons.Recipe },
   { id: "products", label: "Menu Items", icon: Icons.Products },
-  { id: "report", label: "Report", icon: Icons.Sales },
-  { id: "reservations", label: "Reservations", icon: Icons.Reservations },
-  { id: "billing", label: "Billing", icon: Icons.Billing },
-  { id: "profile", label: "Profile", icon: Icons.Profile },
-  { id: "account", label: "Account", icon: Icons.Account },
+  { id: "report", label: "Reports", icon: Icons.Sales },
+  { id: "reservations", label: "Online Reservations", icon: Icons.Reservations },
+  { id: "billing", label: "Payments", icon: Icons.Billing },
+  { id: "profile", label: "Admin Profile", icon: Icons.Profile },
+  { id: "account", label: "Account Manage", icon: Icons.Account },
   { id: "table-status", label: "Table Status", icon: Icons.Dashboard },
   { id: "maintenance", label: "Maintenance", icon: Icons.Maintenance },
 ];
 
 const StatCard = ({ title, value, color, icon }) => (
-  <div className="col-4 px-1"> {/* px-1 for tighter horizontal spacing */}
-    <div className="card border-0 shadow-sm rounded-3 bg-white mt-3">
-      {/* Tight py-1 px-2 padding */}
-      <div className="card-body py-1 px-2 d-flex align-items-center gap-2">
+  <div className="col-12 col-md-4"> 
+    <div className="card border-0 shadow-sm rounded-3 bg-white">
+      <div className="card-body p-3 d-flex align-items-center gap-3">
         <div className={`d-flex align-items-center justify-content-center rounded-circle bg-${color}-subtle text-${color}`}
-          style={{ width: "26px", height: "26px", flexShrink: 0 }}>
-          <i className={`bi ${icon}`} style={{ fontSize: "0.8rem" }}></i>
+          style={{ width: "45px", height: "45px", flexShrink: 0 }}>
+          <i className={`bi ${icon}`} style={{ fontSize: "1.2rem" }}></i>
         </div>
-        <div className="text-truncate" style={{ lineHeight: '1.1' }}>
-          <p className="text-muted fw-bold text-uppercase mb-0" style={{ fontSize: "0.5rem" }}>{title}</p>
-          <h6 className="fw-bold mb-0" style={{ fontSize: "0.85rem" }}>{value}</h6>
+        <div>
+          <p className="text-muted fw-bold text-uppercase mb-0" style={{ fontSize: "0.7rem" }}>{title}</p>
+          <h4 className="fw-bold mb-0 text-dark">{value}</h4>
         </div>
       </div>
     </div>
@@ -74,7 +73,7 @@ const StatCard = ({ title, value, color, icon }) => (
 function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeSection, setActiveSection] = useState("dashboard");
-  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 768);
+  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 992);
   const [loading, setLoading] = useState(true);
   const [todaySchedule, setTodaySchedule] = useState([]);
   const [stats, setStats] = useState({ totalBookings: 0, activeTables: 0, kitchenQueue: 0 });
@@ -91,6 +90,15 @@ function AdminDashboard() {
     }
   }, []);
 
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth <= 992) setSidebarOpen(false);
+      else setSidebarOpen(true);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const fetchDashboardData = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -104,50 +112,49 @@ function AdminDashboard() {
     } catch (error) { console.error("Fetch error", error); }
     finally { setLoading(false); }
   };
-
-  const DashboardOverview = () => (
-  <div className="fade-in">
-    {/* 1. TIMELINE - mb-2 instead of mb-3 to close the gap */}
-     <div className="mb-1 bg-white p-2 rounded-3 shadow-sm border-start border-4 border-warning mt-0">
-      <div className="d-flex align-items-center mb-0">
-        <Info size={12} className="text-warning me-2" />
-        <span className="fw-bold" style={{ fontSize: "0.65rem" }}>Today's Timeline</span>
+const DashboardOverview = () => (
+  <div className="p-1">
+    {/* 1. TIMELINE - Added better padding and margin */}
+    <div className="mb-4 bg-white p-3 rounded-4 shadow-sm border-start border-4 border-warning">
+      <div className="d-flex align-items-center mb-2">
+        <Info size={18} className="text-warning me-2" />
+        <span className="fw-bold small">Today's Timeline</span>
       </div>
-      <div className="d-flex gap-2 overflow-auto no-scrollbar" style={{ whiteSpace: "nowrap" }}>
+      <div className="d-flex gap-2 overflow-auto no-scrollbar pb-1">
          {todaySchedule.length > 0 ? todaySchedule.map((res, i) => (
-            <div key={i} className="bg-light px-2 py-1 rounded-2 border small d-inline-block shadow-sm" style={{ fontSize: "0.65rem" }}>
+            <div key={i} className="bg-light px-3 py-2 rounded-3 border small d-inline-block shadow-sm">
               <span className="fw-bold text-primary">{res.reservation_time?.substring(0, 5)}</span>
-              <span className="mx-1">|</span>
+              <span className="mx-2 text-muted">|</span>
               <span className="fw-semibold">{res.first_name}</span>
-              <span className="badge bg-dark ms-1">T-{res.table_names}</span>
+              <span className="badge bg-dark ms-2">T-{res.table_names}</span>
             </div>
-         )) : <span className="text-muted" style={{fontSize: '0.65rem'}}>No arrivals for today.</span>}
+         )) : <span className="text-muted small">No arrivals for today.</span>}
       </div>
     </div>
 
-    {/* 2. STATS CARDS - mb-2 to stay close to the floor status */}
-    <div className="row g-2 mb-1 mt-0 px-1"> 
+    {/* 2. STATS CARDS - Use row g-3 for perfect spacing */}
+    <div className="row g-3 mb-4"> 
       <StatCard title="Bookings" value={stats.totalBookings} color="primary" icon="bi-calendar-check" />
       <StatCard title="Occupied" value={stats.activeTables} color="success" icon="bi-door-open" />
       <StatCard title="Queue" value={stats.kitchenQueue} color="warning" icon="bi-egg-fried" />
     </div>
 
-    {/* 3. FLOOR STATUS - Removed the extra card wrapper to reduce double padding */}
-    <div className="mt-4"> 
-      <div className="d-flex justify-content-between align-items-center mb-0 mt-1 px-1">
-        <h6 className="fw-bold mb-0 text-dark" style={{ fontSize: "0.8rem" }}>Floor Status</h6>
-        <button className="btn btn-sm p-0 text-primary fw-bold" style={{ fontSize: "0.7rem" }} onClick={() => setActiveSection("table-status")}>
+    {/* 3. FLOOR STATUS */}
+    <div className="mt-2"> 
+      <div className="d-flex justify-content-between align-items-center mb-3 px-1">
+        <h6 className="fw-bold mb-0 text-dark">Floor Status</h6>
+        <button className="btn btn-sm btn-link text-primary fw-bold text-decoration-none" onClick={() => setActiveSection("table-status")}>
            Full View →
         </button>
       </div>
       
-      {/* The actual component with zero extra margin */}
-      <div className="bg-white rounded-3 shadow-sm p-0 border">
+      <div className="bg-white rounded-4 shadow-sm p-2 border">
         <TableStatus compact={true} />
       </div>
     </div>
   </div>
 );
+
   const renderSection = () => {
     const sections = {
       dashboard: <DashboardOverview />,
@@ -168,64 +175,73 @@ function AdminDashboard() {
 
   const handleLogout = () => { localStorage.clear(); window.location.href = "/"; };
 
-  return (
-    <div className={`admin-layout ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
-      <aside className={`admin-sidebar bg-dark text-white ${sidebarOpen ? "expanded" : "collapsed"}`}>
-        <div className="sidebar-header d-flex align-items-center p-3 flex-shrink-0">
-          {sidebarOpen && <h4 className="fw-bold mb-0 text-white">HANGOUT</h4>}
-          <button className="btn btn-dark btn-sm ms-auto" onClick={() => setSidebarOpen(!sidebarOpen)}>
-            <i className={`bi ${sidebarOpen ? "bi-chevron-left" : "bi-list"}`}></i>
-          </button>
-        </div>
+return (
+  <div className="admin-layout">
+    {/* 1. MOBILE TOP BAR (Only visible on screens <= 992px) */}
+    <header className="mobile-header d-lg-none bg-dark text-white px-3 d-flex justify-content-between align-items-center sticky-top shadow">
+      <h5 className="fw-bold mb-0">HANGOUT</h5>
+      <button 
+        className="btn btn-outline-light btn-sm" 
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+      >
+        {/* Changes icon based on open/closed state */}
+        <i className={`bi ${sidebarOpen ? 'bi-x-lg' : 'bi-list'} fs-3`}></i>
+      </button>
+    </header>
 
-        <nav className="nav flex-column flex-nowrap gap-1 px-2 mt-2 custom-nav" style={{ overflowY: "auto", overflowX: "hidden", flex: 1 }}>
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => { setActiveSection(item.id); if (window.innerWidth < 992) setSidebarOpen(false); }}
-              className={`nav-link text-start border-0 rounded-2 py-2 px-3 d-flex align-items-center mb-1 transition-all ${activeSection === item.id ? "bg-primary text-white" : "text-secondary bg-transparent"}`}
-              style={{ whiteSpace: 'nowrap' }}
-            >
-              <item.icon />
-              {sidebarOpen && <span className="ms-2 small">{item.label}</span>}
-            </button>
-          ))}
-        </nav>
+    {/* 2. SIDEBAR OVERLAY (The dark shadow when menu is open) */}
+    {sidebarOpen && window.innerWidth <= 992 && (
+      <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)}></div>
+    )}
 
-        <div className="sidebar-footer p-3 flex-shrink-0">
-          <button className="btn btn-outline-danger btn-sm w-100" onClick={handleLogout}>
-            <i className="bi bi-box-arrow-left"></i> {sidebarOpen && "Logout"}
-          </button>
-        </div>
-      </aside>
-
-      <div className="main-container bg-light" style={{ marginLeft: sidebarOpen ? "250px" : "80px", transition: "all 0.3s ease" }}>
-        <main className="px-2 px-md-3 pt-1 pb-3"> 
-  {loading ? (
-    <div className="d-flex justify-content-center py-5"><div className="spinner-border text-primary"></div></div>
-  ) : (
-    renderSection()
-  )}
-</main>
+    {/* 3. SIDEBAR */}
+    <aside className={`admin-sidebar bg-dark text-white ${sidebarOpen ? "expanded" : "collapsed"}`}>
+      <div className="sidebar-header d-flex align-items-center p-3">
+        <h4 className={`brand-name fw-bold mb-0 transition-all ${sidebarOpen ? 'opacity-100' : 'opacity-0'}`}>
+          HANGOUT
+        </h4>
+        {/* Toggle button visible ONLY on Desktop */}
+        <button className="btn btn-dark btn-sm ms-auto d-none d-lg-block" onClick={() => setSidebarOpen(!sidebarOpen)}>
+          <i className={`bi ${sidebarOpen ? "bi-chevron-left" : "bi-list"}`}></i>
+        </button>
       </div>
 
-      <style>{`
-        .custom-nav::-webkit-scrollbar { width: 4px; }
-        .custom-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .admin-sidebar { position: fixed; height: 100vh; display: flex; flex-direction: column; z-index: 1000; width: 250px; transition: width 0.3s ease; }
-        .admin-sidebar.collapsed { width: 80px; }
-        .main-container { min-height: 100vh; }
-        .collapsed .nav-link { justify-content: center; padding: 12px !important; }
-        .collapsed .nav-link i { margin: 0 !important; font-size: 1.25rem; }
-        @media (max-width: 768px) {
-          .main-container { margin-left: 0 !important; }
-          .admin-sidebar { left: -250px; }
-          .sidebar-open .admin-sidebar { left: 0; width: 250px; }
-        }
-      `}</style>
+      <nav className="custom-nav px-2">
+        {navItems.map((item) => (
+          <button
+            key={item.id}
+            onClick={() => { 
+              setActiveSection(item.id); 
+              if (window.innerWidth <= 992) setSidebarOpen(false); // Auto-close on mobile after clicking
+            }}
+            className={`nav-link w-100 text-start border-0 rounded-2 py-2 px-3 d-flex align-items-center mb-1 transition-all ${activeSection === item.id ? "bg-primary text-white active" : "text-secondary bg-transparent"}`}
+          >
+            <div className="nav-icon me-2"><item.icon /></div>
+            <span className="nav-label small">{item.label}</span>
+          </button>
+        ))}
+      </nav>
+
+      <div className="sidebar-footer p-3">
+        <button className="btn btn-outline-danger btn-sm w-100 d-flex align-items-center justify-content-center" onClick={handleLogout}>
+          <i className="bi bi-box-arrow-left"></i> 
+          <span className="ms-2 nav-label">Logout</span>
+        </button>
+      </div>
+    </aside>
+
+    {/* 4. MAIN CONTAINER */}
+    <div className={`main-container bg-light ${sidebarOpen ? "margin-expanded" : "margin-collapsed"}`}>
+      <main className="content-wrapper"> 
+        {loading ? (
+          <div className="d-flex justify-content-center py-5"><div className="spinner-border text-primary"></div></div>
+        ) : (
+          renderSection()
+        )}
+      </main>
     </div>
-  );
+  </div>
+);
 }
 
 export default AdminDashboard;

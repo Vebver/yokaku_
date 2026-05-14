@@ -1,66 +1,47 @@
 /* --- Variables --- */
 :root {
-  --sidebar-width: 260px;
+  --sidebar-width: 250px;
   --sidebar-collapsed-width: 80px;
-  --bg-body: #f4f7f6;
-  --primary: #10b981;
+  --bg-body: #f8f9fa;
+  --primary: #10b981; /* Your Emerald Green */
   --dark-sidebar: #111827;
   --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* --- Layout --- */
+/* --- Base Reset --- */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Inter", "Segoe UI", sans-serif;
+  background-color: var(--bg-body);
+}
+
 .admin-layout {
   display: flex;
-  height: 100vh; /* Changed from min-height to height to prevent page-level scroll */
-  width: 100vw;
-  overflow: hidden; /* Prevents the whole page from scrolling */
-  background-color: var(--bg-body);
-  font-family: "Inter", "Segoe UI", sans-serif;
+  flex-direction: column; /* Stack header and container vertically on mobile */
+  min-height: 100vh;
+}
+@media (min-width: 993px) {
+  .admin-layout {
+    flex-direction: row; /* Side-by-side on desktop */
+  }
 }
 
 /* --- Sidebar --- */
 .admin-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
   height: 100vh;
-  display: flex;
-  flex-direction: column; /* Stacks Header, Nav, and Footer */
+  z-index: 2000; /* Sidebar stays above EVERYTHING */
   background: var(--dark-sidebar);
-  color: white;
   transition: var(--transition);
-  z-index: 1050;
-  flex-shrink: 0;
-}
-
-.sidebar-header {
-  height: 70px;
   display: flex;
-  align-items: center;
-  padding: 0 20px;
-  flex-shrink: 0; /* Header stays at the top */
+  flex-direction: column;
 }
-
-/* --- THE FIX: Independent Scroll for Nav Items --- */
-.sidebar-nav-container {
-  flex-grow: 1; /* Takes up all available middle space */
-  overflow-y: auto; /* Adds scroll if items too long */
-  overflow-x: hidden;
-  padding-top: 10px;
-}
-
-/* Custom Scrollbar for Sidebar */
-.sidebar-nav-container::-webkit-scrollbar {
-  width: 4px;
-}
-.sidebar-nav-container::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-}
-
-.sidebar-footer {
-  flex-shrink: 0; /* Keeps logout button at the very bottom */
-  padding: 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-}
-
 .admin-sidebar.expanded {
   width: var(--sidebar-width);
 }
@@ -68,19 +49,45 @@
   width: var(--sidebar-collapsed-width);
 }
 
-.no-scrollbar::-webkit-scrollbar {
-    display: none;
+.admin-sidebar, 
+.main-container, 
+.nav-link, 
+.transition-all {
+    transition: none !important; /* This makes movement instant */
 }
-.no-scrollbar {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
+.fade-in {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+}
+
+.sidebar-header {
+  height: 70px;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  flex-shrink: 0;
+}
+
+/* Navigation Scroll Area */
+.custom-nav {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.custom-nav::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-nav::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
 }
 
 .nav-link {
   color: #9ca3af !important;
   border-radius: 8px;
   margin: 4px 12px;
-  padding: 12px 16px;
+  padding: 10px 16px;
   display: flex;
   align-items: center;
   transition: var(--transition);
@@ -88,63 +95,149 @@
   border: none;
   font-weight: 500;
   background: transparent;
+  text-decoration: none;
 }
 
 .nav-link:hover,
+.nav-link.bg-primary {
+  background-color: var(--primary) !important;
+  color: white !important;
+}
 .nav-link.active {
   background-color: var(--primary) !important;
   color: white !important;
 }
 
-.nav-link.active {
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+.sidebar-footer {
+  padding: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+.card {
+    /* Ensure cards don't have hover animations if they were "bouncing" on hover */
+    transition: none !important;
+    transform: none !important;
 }
 
 /* --- Main Content Area --- */
 .main-container {
-  flex-grow: 1;
-  min-width: 0;
+  flex: 1;
+  min-height: 100vh;
+  transition: var(--transition);
+  width: 100%;
+}
+.mobile-header {
+  height: 65px;
+  z-index: 1040;
+  width: 100%;
+}
+
+/* --- DESKTOP MARGINS --- */
+@media (min-width: 993px) {
+  .margin-expanded { margin-left: var(--sidebar-width); }
+  .margin-collapsed { margin-left: var(--sidebar-collapsed-width); }
+  
+  .admin-sidebar.collapsed .nav-label { display: none; }
+}
+
+/* --- MOBILE & IPHONE SE FIXES --- */
+@media (max-width: 992px) {
+  .main-container {
+    margin-left: 0 !important; /* Forces full width content */
+    padding-top: 10px;
+  }
+
+  .admin-sidebar {
+    left: -260px; /* Hide sidebar completely to the left */
+    width: 260px !important;
+  }
+
+  .admin-sidebar.expanded {
+    left: 0; /* Slide in menu overlay */
+    box-shadow: 10px 0 50px rgba(0,0,0,0.5);
+  }
+
+  .nav-label { display: inline-block !important; }
+}
+  .sidebar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(2px);
+    z-index: 1500; /* Between content and sidebar */
+}
+.sidebar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(2px);
+    z-index: 1500; /* Between content and sidebar */
+}
+
+/* --- UI Components --- */
+.stat-icon-wrapper {
+  width: 42px;
+  height: 42px;
   display: flex;
-  flex-direction: column;
-  height: 100vh;
-  overflow-y: auto; /* Main dashboard content scrolls here */
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  flex-shrink: 0;
+  font-size: 1.2rem;
 }
 
-main {
-  padding: 2rem;
-  animation: fadeIn 0.4s ease-in;
+.stat-title {
+  font-size: 0.65rem;
+  letter-spacing: 0.5px;
+  color: #6b7280;
 }
 
-/* --- THE 4 BIG BOXES (NO MOVEMENT) --- */
-.card {
-  border: none;
-  border-radius: 1.25rem;
+.sidebar-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+  z-index: 1500; /* Sits between content and menu */
 }
 
-.card:hover {
-  transform: none !important;
-  transition: none !important;
+/* Removes the darkening effect entirely */
+.offcanvas-backdrop {
+    display: none !important;
 }
 
-.display-5 {
-  font-size: 2.5rem;
-  font-weight: 800;
+/* Adds a nice clean border to the drawer since the shadow/backdrop is gone */
+#resDetailsDrawer {
+    border-left: 1px solid #dee2e6 !important;
+    box-shadow: -5px 0 15px rgba(0,0,0,0.05) !important;
 }
 
-/* --- Logout Button Refinement --- */
-.btn-outline-danger {
-  border-color: #ef4444 !important;
-  color: #ef4444 !important;
+/* Optional: If you also want to remove the black background from the 'Total Bill' card */
+#resDetailsDrawer .bg-dark {
+    background-color: #ffffff !important;
+    color: #212529 !important;
+    border: 1px solid #dee2e6 !important;
 }
 
-.btn-outline-danger:hover {
-  background-color: #ef4444 !important;
-  color: white !important;
+#resDetailsDrawer .bg-dark .text-white-50 {
+    color: #6c757d !important;
 }
 
-/* Subtle backgrounds for icons */
+.timeline-item {
+  font-size: 0.65rem;
+  white-space: nowrap;
+}
+
+/* Background helpers for Stat Cards */
 .bg-primary-subtle {
-  background-color: #e0f2fe;
+  background-color: #d1fae5;
 }
 .bg-success-subtle {
   background-color: #dcfce7;
@@ -152,11 +245,51 @@ main {
 .bg-warning-subtle {
   background-color: #fef3c7;
 }
-.bg-danger-subtle {
-  background-color: #fee2e2;
+
+/* Utilities */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.transition-all {
+  transition: var(--transition);
+}
+.opacity-0 {
+  opacity: 0;
+}
+.opacity-100 {
+  opacity: 1;
 }
 
-/* --- Animations --- */
+.fade-in {
+  animation: fadeIn 0.4s ease-in;
+}
+@media (max-width: 576px) {
+  /* Ensure the table can be swiped left/right on phones */
+  .table-responsive {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 5px;
+  }
+
+  /* Make dish text a bit smaller so it doesn't wrap too much */
+  .fw-bold.text-dark {
+    font-size: 0.85rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px; /* Prevents long names from pushing other columns off screen */
+  }
+
+  /* Adjust header text size for mobile */
+  h2.fw-bold {
+    font-size: 1.5rem !important;
+  }
+}
+
+/* Fix for broken images (like Unlimited A in your screenshot) */
+img {
+  background-color: #f0f0f0; /* Shows a light gray box if the image is missing */
+}
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -165,52 +298,5 @@ main {
   to {
     opacity: 1;
     transform: translateY(0);
-  }
-}
-
-@media (max-width: 768px) {
-  .admin-sidebar {
-    position: fixed; /* Floats over content */
-    left: -260px;    /* Hidden by default */
-    width: 260px !important;
-  }
-
-  /* When sidebar is toggled open on mobile */
-  .sidebar-open .admin-sidebar {
-    left: 0;
-  }
-
-  /* Main container takes full width on mobile */
-  .main-container {
-    width: 100%;
-    margin-left: 0 !important;
-  }
-
-  /* Show the mobile overlay shadow */
-  .sidebar-overlay {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0,0,0,0.5);
-    z-index: 999;
-  }
-  
-  .sidebar-overlay.show {
-    display: block;
-  }
-
-  /* Hide the desktop collapse button on mobile */
-  .sidebar-header .btn-sm {
-    display: none;
-  }
-}
-
-/* Ensure StatCards stack on mobile */
-@media (max-width: 576px) {
-  .display-5 {
-    font-size: 2rem;
   }
 }
