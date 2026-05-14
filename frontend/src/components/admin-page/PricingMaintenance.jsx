@@ -13,21 +13,14 @@ const PricingMaintenance = () => {
   const [saving, setSaving] = useState(false);
 
   // 1. Fetch settings when component loads
- useEffect(() => {
+useEffect(() => {
     const fetchPricing = async () => {
       try {
-        const res = await api.get("/settings/peak-pricing");
-        console.log("Pricing Data from DB:", res.data); // Debug: See what the DB is actually sending
-
+        const res = await api.get("/price");
         if (res.data) {
           setConfig({
-            // IMPROVED LOGIC: Handles 1, "1", true, and "true"
-            is_peak_enabled: 
-              res.data.is_peak_enabled == 1 || 
-              res.data.is_peak_enabled === true || 
-              res.data.is_peak_enabled === "true" || 
-              res.data.is_peak_enabled === "1",
-
+            // Aggressive boolean check
+            is_peak_enabled: Boolean(Number(res.data.is_peak_enabled)), 
             peak_increase_percent: res.data.peak_increase_percent || 20,
             peak_start_time: res.data.peak_start_time || "17:00",
             peak_end_time: res.data.peak_end_time || "21:00",
@@ -47,7 +40,7 @@ const PricingMaintenance = () => {
     setSaving(true);
     try {
       // Send data to dedicated table
-      await api.put("/settings/peak-pricing", config);
+      await api.put("/price", config);
       alert("Peak hour pricing updated successfully!");
     } catch (err) {
       alert("Failed to save pricing settings.");

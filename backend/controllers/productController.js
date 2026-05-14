@@ -11,35 +11,42 @@ cloudinary.config({
 
 const applyPeakPricing = async (products) => {
   try {
-    // FETCH FROM THE NEW DEDICATED TABLE
     const settings = await PriceMaintenance.getSettings();
     if (!settings) return products;
 
+    // 1. Get Current Time in HH:mm:ss (24-hour format)
     const now = new Date();
-    // Get current time in HH:MM:SS format
     const currentTime = now.toTimeString().split(' ')[0]; 
 
-    // Check logic
-    const isPeakEnabled = settings.is_peak_enabled === 1 || settings.is_peak_enabled === true;
+    // 2. Check Logic (Handle 1/0 from MySQL)
+    const isPeakEnabled = settings.is_peak_enabled == 1; // Works for 1 or "1"
     const isWithinTimeRange = currentTime >= settings.peak_start_time && 
                               currentTime <= settings.peak_end_time;
 
     const isPeakActive = isPeakEnabled && isWithinTimeRange;
 
+    // DEBUG: Uncomment these lines if it's still not working to see why in your terminal
+    console.log("Time Now:", currentTime);
+    console.log("Peak Range:", settings.peak_start_time, "-", settings.peak_end_time);
+    console.log("Is Peak Active?:", isPeakActive);
+
     return products.map(p => {
       let finalPrice = parseFloat(p.price);
+      
       if (isPeakActive) {
-        const increasePercent = parseInt(settings.peak_increase_percent) / 100;
-        finalPrice = finalPrice * (1 + increasePercent);
+        const increasePercent = parseInt(settings.peak_increase_percent) || 20;
+        finalPrice = finalPrice * (1 + (increasePercent / 100));
       }
+
       return {
         ...p,
-        price: finalPrice.toFixed(2),
+        original_price: p.price,
+        price: finalPrice.toFixed(2), // Send as string with 2 decimals
         isPeakActive: isPeakActive 
       };
     });
   } catch (err) {
-    console.error("Peak Pricing Calculation Error:", err);
+    console.error("Peak Pricing Error:", err);
     return products;
   }
 };
@@ -47,11 +54,16 @@ const applyPeakPricing = async (products) => {
 const productController = {
   // UPDATED: Now applies peak pricing
   getProducts: async (req, res) => {
+    console.log("!!! SERVER HIT: getProducts function is running !!!"); // ADD THIS
     try {
       const products = await Product.getAll();
-      const adjustedProducts = await applyPeakPricing(products); // 2. APPLY LOGIC
+      
+      // LOGIC: Overwrite products with adjusted prices
+      const adjustedProducts = await applyPeakPricing(products); 
+      
       res.json(adjustedProducts);
     } catch (error) {
+      console.error("Controller Error:", error);
       res.status(500).json({ error: error.message });
     }
   },
