@@ -1422,6 +1422,7 @@ select:disabled {
   justify-content: space-between;
   margin-bottom: 24px;
   padding: 0 8px;
+  position: relative;
 }
 
 .calendar-nav-btn {
@@ -1444,11 +1445,154 @@ select:disabled {
   transform: scale(1.05);
 }
 
+.calendar-month-year-container {
+  position: relative;
+}
+
 .calendar-month-year {
-  font-size: 1.1rem;
-  font-weight: 700;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+}
+
+.calendar-month-btn,
+.calendar-year-btn {
+  background: none;
+  border: none;
+  font-size: 1rem;
+  font-weight: 600;
   color: #1a1a1a;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-family: "Inter", sans-serif;
+}
+
+.calendar-month-btn:hover,
+.calendar-year-btn:hover {
+  background: #f8f9fa;
+  color: #f38d31;
+}
+
+.calendar-dropdown-arrow {
+  font-size: 10px;
+  opacity: 0.6;
+  transition: transform 0.2s ease;
+}
+
+.calendar-month-btn:hover .calendar-dropdown-arrow,
+.calendar-year-btn:hover .calendar-dropdown-arrow {
+  opacity: 1;
+}
+
+/* Month Picker Dropdown */
+.calendar-month-picker {
+  position: absolute;
+  top: 45px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  border: 1px solid #f0f0f0;
+  z-index: 100;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 16px;
+  min-width: 280px;
+  animation: fadeIn 0.2s ease;
+}
+
+.calendar-month-option {
+  padding: 10px 8px;
+  border: none;
+  background: #f8f9fa;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #333;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.calendar-month-option:hover {
+  background: rgba(243, 141, 49, 0.1);
+  color: #f38d31;
+  transform: translateY(-2px);
+}
+
+.calendar-month-option.active {
+  background: linear-gradient(135deg, #ffcc00, #f38d31);
+  color: white;
+}
+
+/* Year Picker Dropdown */
+.calendar-year-picker {
+  position: absolute;
+  top: 45px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  border: 1px solid #f0f0f0;
+  z-index: 100;
+  padding: 12px;
+  min-width: 140px;
+  animation: fadeIn 0.2s ease;
+}
+
+.calendar-year-scroll {
+  max-height: 250px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.calendar-year-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.calendar-year-scroll::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.calendar-year-scroll::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 10px;
+}
+
+.calendar-year-option {
+  padding: 10px 16px;
+  border: none;
+  background: #f8f9fa;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #333;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.calendar-year-option:hover {
+  background: rgba(243, 141, 49, 0.1);
+  color: #f38d31;
+  transform: translateX(4px);
+}
+
+.calendar-year-option.active {
+  background: linear-gradient(135deg, #ffcc00, #f38d31);
+  color: white;
 }
 
 .calendar-weekdays {
@@ -1600,7 +1744,7 @@ select:disabled {
   border: 1px solid #f38d31;
 }
 
-/* Mobile Responsive */
+/* Mobile Responsive for Calendar */
 @media (max-width: 480px) {
   .calendar-container {
     padding: 12px;
@@ -1608,10 +1752,6 @@ select:disabled {
 
   .calendar-day-number {
     font-size: 0.8rem;
-  }
-
-  .calendar-month-year {
-    font-size: 0.95rem;
   }
 
   .calendar-nav-btn {
@@ -1629,6 +1769,33 @@ select:disabled {
 
   .calendar-legend-item {
     font-size: 0.6rem;
+  }
+
+  .calendar-month-picker {
+    grid-template-columns: repeat(2, 1fr);
+    min-width: 240px;
+    padding: 12px;
+    gap: 6px;
+  }
+
+  .calendar-month-option {
+    padding: 8px 6px;
+    font-size: 0.75rem;
+  }
+
+  .calendar-year-picker {
+    min-width: 120px;
+  }
+
+  .calendar-year-option {
+    padding: 8px 12px;
+    font-size: 0.8rem;
+  }
+
+  .calendar-month-btn,
+  .calendar-year-btn {
+    font-size: 0.85rem;
+    padding: 4px 8px;
   }
 }
 

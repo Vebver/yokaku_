@@ -70,6 +70,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   const [tableSchedules, setTableSchedules] = useState({});
   const [data, setData] = useState({ occupied: {}, schedule: [] });
   const [calendarMonth, setCalendarMonth] = useState(new Date());
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
+  const [showYearPicker, setShowYearPicker] = useState(false);
 
   const [form, setForm] = useState({
     date: "",
@@ -113,6 +115,29 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   const socket = useSocket();
   const { addressData, fetchBarangays } = useAddressData();
   const todayStr = new Date().toLocaleDateString("en-CA");
+
+  // ============ CLOSE PICKERS WHEN CLICKING OUTSIDE ============
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showMonthPicker || showYearPicker) {
+        const target = event.target;
+        const isMonthPicker = target.closest(".calendar-month-picker");
+        const isYearPicker = target.closest(".calendar-year-picker");
+        const isMonthBtn = target.closest(".calendar-month-btn");
+        const isYearBtn = target.closest(".calendar-year-btn");
+
+        if (!isMonthPicker && !isMonthBtn && showMonthPicker) {
+          setShowMonthPicker(false);
+        }
+        if (!isYearPicker && !isYearBtn && showYearPicker) {
+          setShowYearPicker(false);
+        }
+      }
+    };
+
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, [showMonthPicker, showYearPicker]);
 
   // ============ STEP FUNCTIONS ============
   const markStepCompleted = (step) => {
@@ -690,12 +715,102 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                 >
                   <ChevronLeft size={18} />
                 </button>
-                <div className="calendar-month-year">
-                  {calendarMonth.toLocaleString("default", {
-                    month: "long",
-                    year: "numeric",
-                  })}
+
+                <div className="calendar-month-year-container">
+                  <div className="calendar-month-year">
+                    <button
+                      type="button"
+                      className="calendar-month-btn"
+                      onClick={() => {
+                        setShowMonthPicker(!showMonthPicker);
+                        setShowYearPicker(false);
+                      }}
+                    >
+                      {calendarMonth.toLocaleString("default", {
+                        month: "long",
+                      })}
+                      <span className="calendar-dropdown-arrow">▼</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="calendar-year-btn"
+                      onClick={() => {
+                        setShowYearPicker(!showYearPicker);
+                        setShowMonthPicker(false);
+                      }}
+                    >
+                      {calendarMonth.getFullYear()}
+                      <span className="calendar-dropdown-arrow">▼</span>
+                    </button>
+                  </div>
+
+                  {showMonthPicker && (
+                    <div className="calendar-month-picker">
+                      {[
+                        "January",
+                        "February",
+                        "March",
+                        "April",
+                        "May",
+                        "June",
+                        "July",
+                        "August",
+                        "September",
+                        "October",
+                        "November",
+                        "December",
+                      ].map((month, index) => (
+                        <button
+                          key={month}
+                          type="button"
+                          className={`calendar-month-option ${calendarMonth.getMonth() === index ? "active" : ""}`}
+                          onClick={() => {
+                            const newDate = new Date(calendarMonth);
+                            newDate.setMonth(index);
+                            setCalendarMonth(newDate);
+                            setShowMonthPicker(false);
+                          }}
+                        >
+                          {month}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {showYearPicker && (
+                    <div className="calendar-year-picker">
+                      <div className="calendar-year-scroll">
+                        {(() => {
+                          const currentYear = new Date().getFullYear();
+                          const years = [];
+                          for (
+                            let i = currentYear - 5;
+                            i <= currentYear + 10;
+                            i++
+                          ) {
+                            years.push(i);
+                          }
+                          return years.map((year) => (
+                            <button
+                              key={year}
+                              type="button"
+                              className={`calendar-year-option ${calendarMonth.getFullYear() === year ? "active" : ""}`}
+                              onClick={() => {
+                                const newDate = new Date(calendarMonth);
+                                newDate.setFullYear(year);
+                                setCalendarMonth(newDate);
+                                setShowYearPicker(false);
+                              }}
+                            >
+                              {year}
+                            </button>
+                          ));
+                        })()}
+                      </div>
+                    </div>
+                  )}
                 </div>
+
                 <button
                   type="button"
                   className="calendar-nav-btn"
