@@ -83,12 +83,27 @@ function Product() {
     } catch (err) { alert("Error saving item."); }
   };
 
-  const deleteMenuItem = async (id) => {
-    if (window.confirm("Remove item?")) {
-      try { await axios.delete(`${API_BASE}/products/${id}`); fetchData(); } 
-      catch (err) { alert("Error deleting."); }
+const deleteMenuItem = async (id) => {
+  if (window.confirm("Remove item?")) {
+    try {
+      // 1. Get the token from local storage
+      const token = localStorage.getItem("token");
+
+      // 2. Attach it to the delete request
+      await axios.delete(`${API_BASE}/products/${id}`, {
+        headers: { 
+          Authorization: `Bearer ${token}` // This is the "Token" it is looking for
+        }
+      });
+
+      fetchData(); // Refresh the list
+      alert("Deleted successfully");
+    } catch (err) {
+      console.error(err);
+      alert("Error deleting item. Check if you are logged in.");
     }
-  };
+  }
+};
 
   const toggleFeature = async (id, currentStatus) => {
     try { await axios.put(`${API_BASE}/products/${id}/feature`, { is_featured: currentStatus === 1 ? 0 : 1 }); fetchData(); } 
@@ -201,20 +216,47 @@ function Product() {
       </div>
 
       {/* 3. RESPONSIVE PAGINATION */}
-      <div className="d-flex flex-column flex-sm-row justify-content-between align-items-center mt-4 gap-3 px-2">
-        <span className="text-muted small">Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredItems.length)} of {filteredItems.length}</span>
-        <nav>
-          <ul className="pagination pagination-sm mb-0">
-            <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
-              <button className="page-link" onClick={() => setCurrentPage(currentPage - 1)}><ChevronLeft size={16} /></button>
-            </li>
-            <li className="page-item disabled"><span className="page-link text-dark fw-bold px-3">{currentPage}</span></li>
-            <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
-              <button className="page-link" onClick={() => setCurrentPage(currentPage + 1)}><ChevronRight size={16} /></button>
-            </li>
-          </ul>
-        </nav>
-      </div>
+     {/* Standardized Pagination Wrapper */}
+<div className="mt-4 px-3 d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
+  {/* 1. Showing X of Y Text */}
+  <div className="text-muted small">
+    Showing <strong>{indexOfFirstItem + 1}</strong> to <strong>{Math.min(indexOfLastItem, filteredItems.length)}</strong> of <strong>{filteredItems.length}</strong> items
+  </div>
+
+  {/* 2. Unified Button Group Nav */}
+  <nav>
+    <ul className="pagination pagination-sm mb-0 shadow-sm border rounded bg-white overflow-hidden">
+      {/* Previous Button */}
+      <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
+        <button 
+          className="page-link border-0 px-3 py-2" 
+          onClick={() => setCurrentPage(prev => prev - 1)}
+          disabled={currentPage === 1}
+        >
+          <ChevronLeft size={16} />
+        </button>
+      </li>
+      
+      {/* Current Page Indicator */}
+      <li className="page-item disabled">
+        <span className="page-link border-0 text-dark fw-bold px-3 py-2 bg-white">
+          Page {currentPage} of {totalPages || 1}
+        </span>
+      </li>
+
+      {/* Next Button */}
+      <li className={`page-item ${currentPage === totalPages || totalPages === 0 ? "disabled" : ""}`}>
+        <button 
+          className="page-link border-0 px-3 py-2" 
+          onClick={() => setCurrentPage(prev => prev + 1)}
+          disabled={currentPage >= totalPages}
+        >
+          <ChevronRight size={16} />
+        </button>
+      </li>
+    </ul>
+  </nav>
+</div>
 
       {/* 4. DRAWER (RESPONSIVE WIDTH) */}
       <div className="offcanvas offcanvas-end shadow" tabIndex="-1" id="addMenuDrawer" style={{ width: "min(100%, 450px)" }}>
