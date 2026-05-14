@@ -1,4 +1,5 @@
 const { get } = require("node:http");
+const Product = require("../models/Product");
 const PriceMaintenance = require('../models/PriceMaintenance');
 const Setting = require("../models/Settings"); // 1. IMPORT YOUR SETTINGS MODEL
 const cloudinary = require('cloudinary').v2;
@@ -11,60 +12,63 @@ cloudinary.config({
 
 const applyPeakPricing = async (products) => {
   try {
-    const settings = await PriceMaintenance.getSettings();
+    // 1. Wrap the DB call in its own try/catch
+    let settings;
+    try {
+      settings = await PriceMaintenance.getSettings();
+    } catch (dbErr) {
+      console.error("⚠️ PEAK PRICING DB ERROR (Table probably missing):", dbErr.message);
+      return products; // Return normal prices instead of crashing
+    }
+
     if (!settings) return products;
 
-    // 1. Get Current Time in HH:mm:ss (24-hour format)
     const now = new Date();
     const currentTime = now.toTimeString().split(' ')[0]; 
-
-    // 2. Check Logic (Handle 1/0 from MySQL)
-    const isPeakEnabled = settings.is_peak_enabled == 1; // Works for 1 or "1"
+    const isPeakEnabled = Number(settings.is_peak_enabled) === 1;
     const isWithinTimeRange = currentTime >= settings.peak_start_time && 
                               currentTime <= settings.peak_end_time;
 
     const isPeakActive = isPeakEnabled && isWithinTimeRange;
 
-    // DEBUG: Uncomment these lines if it's still not working to see why in your terminal
-    console.log("Time Now:", currentTime);
-    console.log("Peak Range:", settings.peak_start_time, "-", settings.peak_end_time);
-    console.log("Is Peak Active?:", isPeakActive);
-
     return products.map(p => {
       let finalPrice = parseFloat(p.price);
-      
       if (isPeakActive) {
-        const increasePercent = parseInt(settings.peak_increase_percent) || 20;
-        finalPrice = finalPrice * (1 + (increasePercent / 100));
+        const increasePercent = parseInt(settings.peak_increase_percent) / 100;
+        finalPrice = finalPrice * (1 + increasePercent);
       }
-
       return {
         ...p,
         original_price: p.price,
-        price: finalPrice.toFixed(2), // Send as string with 2 decimals
+        price: finalPrice.toFixed(2),
         isPeakActive: isPeakActive 
       };
     });
   } catch (err) {
-    console.error("Peak Pricing Error:", err);
-    return products;
+    console.error("❌ PEAK PRICING LOGIC CRASH:", err);
+    return products; // ALWAYS return products so the app doesn't show 500
   }
 };
 
 const productController = {
   // UPDATED: Now applies peak pricing
   getProducts: async (req, res) => {
-    console.log("!!! SERVER HIT: getProducts function is running !!!"); // ADD THIS
     try {
       const products = await Product.getAll();
       
-      // LOGIC: Overwrite products with adjusted prices
-      const adjustedProducts = await applyPeakPricing(products); 
+      let adjustedProducts = products;
+      try {
+        // Wrap ONLY the pricing logic in its own try/catch
+        // This ensures if pricing fails, the menu still shows normally
+        adjustedProducts = await applyPeakPricing(products); 
+      } catch (priceErr) {
+        console.error("Pricing logic failed, showing normal prices:", priceErr);
+      }
       
       res.json(adjustedProducts);
     } catch (error) {
-      console.error("Controller Error:", error);
-      res.status(500).json({ error: error.message });
+      console.error("Main Controller Error:", error);
+      res.status(500).json({ error: "Failed to fetch products" });
     }
   },
 
