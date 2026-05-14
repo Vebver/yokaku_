@@ -23,3 +23,19 @@ exports.updatePaymentStatus = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+// --- NEW CONTROLLER METHOD ---
+exports.settleFullBill = async (req, res) => {
+  try {
+    const { resId } = req.params; // We use the reservation ID to settle the bill
+    const result = await Billing.settleReservation(resId);
+    
+    if (result) {
+      res.json({ message: "Bill settled and reservation completed successfully" });
+    } else {
+      res.status(404).json({ error: "Reservation not found" });
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};

@@ -4,11 +4,12 @@ const Billing = {
   getAll: async () => {
     const sql = `
       SELECT 
-        p.*, 
+        p.*,
+        r.status,          -- This allows us to see if it is 'confirmed', 'seated', etc.
         r.first_name, 
         r.last_name, 
         r.reservation_date, 
-        r.receipt_path  -- Get the raw path from the reservations table
+        r.receipt_path
       FROM payments p
       JOIN reservations r ON p.reservation_id = r.reservation_id
       ORDER BY p.paid_at DESC
@@ -16,15 +17,26 @@ const Billing = {
     const [rows] = await db.execute(sql);
     return rows;
   },
+
+  // NEW METHOD: Updates the Reservation status to 'completed'
+  settleReservation: async (resId) => {
+    try {
+      const sql = "UPDATE reservations SET status = 'completed' WHERE reservation_id = ?";
+      const [result] = await db.execute(sql, [resId]);
+      return result.affectedRows > 0;
+    } catch (err) {
+      console.error("Error settling reservation:", err);
+      throw err;
+    }
+  },
+
   updateStatus: async (id, status) => {
     try {
       let sql;
       let params;
 
       if (status === "verified") {
-        // IMPORTANT: Set paid_at to NOW() so the financial report can see it
-        sql =
-          "UPDATE payments SET payment_status = ?, paid_at = NOW() WHERE payment_id = ?";
+        sql = "UPDATE payments SET payment_status = ?, paid_at = NOW() WHERE payment_id = ?";
         params = [status, id];
       } else {
         sql = "UPDATE payments SET payment_status = ? WHERE payment_id = ?";
@@ -39,4 +51,5 @@ const Billing = {
     }
   },
 };
+
 module.exports = Billing;

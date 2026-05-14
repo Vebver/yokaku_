@@ -1,19 +1,36 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   LayoutDashboard, 
   CalendarCheck, 
   Receipt, 
   BarChart3, 
   LogOut, 
-  UserCircle 
+  UserCircle,
+  Menu,
+  X,
+  Store // Icon for Walk-ins
 } from "lucide-react";
+
+// Updated Imports
 import TableStatus from "../admin-page/TableStatus";
-import Reservations from "../admin-page/Reservation";
+import OnlineReservations from "../admin-page/OnlineReservations";
+import WalkInReservations from "../admin-page/WalkInReservations";
 import Billing from "../admin-page/Billing";
 import Reports from "../admin-page/Reports";
 
 const CashierDashboard = () => {
   const [activeTab, setActiveTab] = useState("tables");
+  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 992);
+
+  // Handle auto-close on mobile
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth <= 992) setSidebarOpen(false);
+      else setSidebarOpen(true);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const handleLogout = () => {
     localStorage.clear();
@@ -23,7 +40,8 @@ const CashierDashboard = () => {
   const renderContent = () => {
     switch (activeTab) {
       case "tables": return <TableStatus />;
-      case "reservations": return <Reservations />;
+      case "online": return <OnlineReservations />;
+      case "walkins": return <WalkInReservations />;
       case "billing": return <Billing />;
       case "reports": return <Reports />;
       default: return <TableStatus />;
@@ -31,88 +49,95 @@ const CashierDashboard = () => {
   };
 
   return (
-    <div className="d-flex" style={{ minHeight: "100vh", backgroundColor: "#f8f9fa" }}>
-      
-      {/* SIDEBAR */}
-      <div className="bg-dark text-white p-3 d-flex flex-column" style={{ width: "260px", position: "fixed", height: "100vh" }}>
-        <div className="mb-5 mt-2 px-3">
-          <h1 className="fw-bold fs-3 mb-0" style={{ color: "#ffcc00" }}>HANGOUT</h1>
-          <p className="small text-white-50">CASHIER PANEL</p>
+    <div className="admin-layout bg-light">
+      {/* 1. MOBILE HEADER */}
+      <header className="mobile-header d-lg-none bg-dark text-white px-3 d-flex justify-content-between align-items-center sticky-top shadow">
+        <h5 className="fw-bold mb-0">HANGOUT <small className="text-warning small" style={{fontSize: '0.6rem'}}>CASHIER</small></h5>
+        <button className="btn btn-outline-light btn-sm" onClick={() => setSidebarOpen(!sidebarOpen)}>
+          <i className={`bi ${sidebarOpen ? "bi-x-lg" : "bi-list"} fs-3`}></i>
+        </button>
+      </header>
+
+      {/* 2. OVERLAY */}
+      {sidebarOpen && window.innerWidth <= 992 && (
+        <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)}></div>
+      )}
+
+      {/* 3. SIDEBAR */}
+      <aside className={`admin-sidebar bg-dark text-white ${sidebarOpen ? "expanded" : "collapsed"}`}>
+        <div className="sidebar-header p-3 mb-4">
+          <h2 className="fw-bold mb-0" style={{ color: "#ffcc00" }}>HANGOUT</h2>
+          <p className="x-small text-white-50 mb-0">CASHIER PANEL</p>
         </div>
 
-        <nav className="nav flex-column gap-2 flex-grow-1">
+        <nav className="custom-nav px-2">
           <button 
-            onClick={() => setActiveTab("tables")}
-            className={`nav-link text-start border-0 py-3 px-3 d-flex align-items-center gap-3 transition-all ${activeTab === "tables" ? "bg-primary text-white rounded-3 shadow" : "text-white-50 bg-transparent"}`}
+            onClick={() => { setActiveTab("tables"); if (window.innerWidth <= 992) setSidebarOpen(false); }}
+            className={`nav-link w-100 text-start border-0 py-2 px-3 d-flex align-items-center mb-1 transition-all ${activeTab === "tables" ? "bg-primary text-white" : "text-secondary"}`}
           >
-            <LayoutDashboard size={20} /> <span className="fw-semibold">Table Status</span>
+            <LayoutDashboard size={18} className="me-2" /> <span className="nav-label small">Table Status</span>
           </button>
 
           <button 
-            onClick={() => setActiveTab("reservations")}
-            className={`nav-link text-start border-0 py-3 px-3 d-flex align-items-center gap-3 transition-all ${activeTab === "reservations" ? "bg-primary text-white rounded-3 shadow" : "text-white-50 bg-transparent"}`}
+            onClick={() => { setActiveTab("online"); if (window.innerWidth <= 992) setSidebarOpen(false); }}
+            className={`nav-link w-100 text-start border-0 py-2 px-3 d-flex align-items-center mb-1 transition-all ${activeTab === "online" ? "bg-primary text-white" : "text-secondary"}`}
           >
-            <CalendarCheck size={20} /> <span className="fw-semibold">Reservations</span>
+            <CalendarCheck size={18} className="me-2" /> <span className="nav-label small">Online Bookings</span>
           </button>
 
           <button 
-            onClick={() => setActiveTab("billing")}
-            className={`nav-link text-start border-0 py-3 px-3 d-flex align-items-center gap-3 transition-all ${activeTab === "billing" ? "bg-primary text-white rounded-3 shadow" : "text-white-50 bg-transparent"}`}
+            onClick={() => { setActiveTab("walkins"); if (window.innerWidth <= 992) setSidebarOpen(false); }}
+            className={`nav-link w-100 text-start border-0 py-2 px-3 d-flex align-items-center mb-1 transition-all ${activeTab === "walkins" ? "bg-primary text-white" : "text-secondary"}`}
           >
-            <Receipt size={20} /> <span className="fw-semibold">Billing</span>
+            <Store size={18} className="me-2" /> <span className="nav-label small">Walk-ins / Kiosk</span>
           </button>
 
           <button 
-            onClick={() => setActiveTab("reports")}
-            className={`nav-link text-start border-0 py-3 px-3 d-flex align-items-center gap-3 transition-all ${activeTab === "reports" ? "bg-primary text-white rounded-3 shadow" : "text-white-50 bg-transparent"}`}
+            onClick={() => { setActiveTab("billing"); if (window.innerWidth <= 992) setSidebarOpen(false); }}
+            className={`nav-link w-100 text-start border-0 py-2 px-3 d-flex align-items-center mb-1 transition-all ${activeTab === "billing" ? "bg-primary text-white" : "text-secondary"}`}
           >
-            <BarChart3 size={20} /> <span className="fw-semibold">Reports</span>
+            <Receipt size={18} className="me-2" /> <span className="nav-label small">Payments</span>
+          </button>
+
+          <button 
+            onClick={() => { setActiveTab("reports"); if (window.innerWidth <= 992) setSidebarOpen(false); }}
+            className={`nav-link w-100 text-start border-0 py-2 px-3 d-flex align-items-center mb-1 transition-all ${activeTab === "reports" ? "bg-primary text-white" : "text-secondary"}`}
+          >
+            <BarChart3 size={18} className="me-2" /> <span className="nav-label small">Reports</span>
           </button>
         </nav>
 
-        <div className="mt-auto border-top border-secondary pt-3">
-          <button onClick={handleLogout} className="nav-link text-danger border-0 bg-transparent py-3 px-3 d-flex align-items-center gap-3 w-100">
-            <LogOut size={20} /> <span className="fw-semibold">Sign Out</span>
+        <div className="sidebar-footer p-3">
+          <button onClick={handleLogout} className="btn btn-outline-danger btn-sm w-100 d-flex align-items-center justify-content-center">
+            <LogOut size={16} className="me-2" /> <span>Sign Out</span>
           </button>
         </div>
-      </div>
+      </aside>
 
-      {/* MAIN CONTENT */}
-      <div className="flex-grow-1" style={{ marginLeft: "260px" }}>
-        {/* TOP HEADER */}
-        <header className="bg-white border-bottom py-3 px-4 d-flex justify-content-between align-items-center sticky-top">
-          <div>
-            <h4 className="fw-bold mb-0 text-dark">
-              {activeTab === 'tables' && "Dining Floor Status"}
-              {activeTab === 'reservations' && "Booking Records"}
-              {activeTab === 'billing' && "Payment Verification"}
-              {activeTab === 'reports' && "Sales Analytics"}
-            </h4>
-          </div>
+      {/* 4. MAIN CONTAINER */}
+      <div className={`main-container ${sidebarOpen ? "margin-expanded" : "margin-collapsed"}`}>
+        {/* DESKTOP HEADER */}
+        <header className="bg-white border-bottom py-3 px-4 d-none d-lg-flex justify-content-between align-items-center sticky-top">
+          <h4 className="fw-bold mb-0 text-dark">
+            {activeTab === 'tables' && "Dining Floor Status"}
+            {activeTab === 'online' && "Web Reservation Logs"}
+            {activeTab === 'walkins' && "Walk-in & Kiosk Records"}
+            {activeTab === 'billing' && "Payment Verification"}
+            {activeTab === 'reports' && "Sales Analytics"}
+          </h4>
           <div className="d-flex align-items-center gap-3">
-            <div className="text-end d-none d-md-block">
+            <div className="text-end">
               <div className="fw-bold small text-dark">Cashier Terminal</div>
-              <div className="text-muted smaller" style={{ fontSize: '11px' }}>ID: {localStorage.getItem("userId")}</div>
+              <div className="text-muted x-small">ID: {localStorage.getItem("userId") || "001"}</div>
             </div>
             <UserCircle size={32} className="text-secondary" />
           </div>
         </header>
 
-        {/* PAGE CONTENT */}
-        <main className="p-4">
-          <div className="fade-in">
-            {renderContent()}
-          </div>
+        <main className="p-2 p-md-4">
+          {renderContent()}
         </main>
       </div>
-
-      <style>{`
-        .transition-all { transition: all 0.2s ease-in-out; }
-        .nav-link:hover { color: white !important; background-color: rgba(255,255,255,0.05) !important; border-radius: 8px; }
-        .smaller { font-size: 0.75rem; }
-        .fade-in { animation: fadeIn 0.3s ease-in; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-      `}</style>
     </div>
   );
 };

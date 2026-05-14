@@ -56,7 +56,6 @@ const TableStatus = ({ compact = false }) => {
   return (
     <div className={compact ? "p-0" : "container-fluid px-3 px-md-5 py-3 bg-light min-vh-100"}>
 
-      {/* ONLY SHOW HEADER IF NOT COMPACT */}
       {!compact && (
         <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3 gap-2">
           <div>
@@ -79,49 +78,49 @@ const TableStatus = ({ compact = false }) => {
 
       {/* Responsive Grid */}
       <div className="row g-2 row-cols-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-5">
-  {data.tables.map((t) => {
-    const cfg = getStatusCfg(t.bridge_status);
-    return (
-      <div key={t.table_id} className="col">
-        <div className="card border-0 shadow-sm h-100">
-          <div style={{ height: "3px", backgroundColor: cfg.color }}></div>
-          {/* Change p-2 p-md-3 to just p-2 to remove empty space */}
-          <div className="card-body p-2">
-            <div className="d-flex justify-content-between align-items-start mb-0">
-              <h6 className="fw-bold mb-0 text-truncate" style={{fontSize: '0.85rem'}}>T{t.table_number}</h6>
-              <span className="badge rounded-pill" style={{ backgroundColor: `${cfg.color}15`, color: cfg.color, fontSize: "0.55rem" }}>{cfg.label}</span>
+        {data.tables.map((t) => {
+          const cfg = getStatusCfg(t.bridge_status);
+          return (
+            <div key={t.table_id} className="col">
+              <div className="card border-0 shadow-sm h-100">
+                <div style={{ height: "3px", backgroundColor: cfg.color }}></div>
+                <div className="card-body p-2">
+                  <div className="d-flex justify-content-between align-items-start mb-0">
+                    {/* UPDATED: Changed from T{t.table_number} to Table {t.table_number} */}
+                    <h6 className="fw-bold mb-0 text-truncate" style={{fontSize: '0.75rem'}}>Table {t.table_number}</h6>
+                    <span className="badge rounded-pill" style={{ backgroundColor: `${cfg.color}15`, color: cfg.color, fontSize: "0.5rem" }}>{cfg.label}</span>
+                  </div>
+                  
+                  <div className="text-muted mb-1" style={{ fontSize: "0.6rem" }}><Users size={9} /> {t.capacity} Pax</div>
+                  
+                  <div className="bg-light rounded-2 p-1 mb-2 border text-center d-flex align-items-center justify-content-center" style={{ minHeight: "40px" }}>
+                    <span className="text-dark fw-bold" style={{fontSize: '0.65rem'}}>
+                      {t.bridge_status?.toLowerCase() === 'available' ? 'Available' : (t.first_name || t.customer_name)}
+                    </span>
+                  </div>
+
+                  <div className="mt-auto">
+                    {t.bridge_status?.toLowerCase() === "seated" ? (
+                      <button className="btn btn-sm btn-primary w-100 py-0 fw-bold" style={{ fontSize: "0.65rem", height: '22px' }} 
+                              onClick={() => openBill(t)}>Bill</button>
+                    ) : t.bridge_status?.toLowerCase() === "confirmed" ? (
+                      <button className="btn btn-sm btn-warning w-100 py-0 fw-bold text-white" style={{ fontSize: "0.65rem", height: '22px' }} 
+                              onClick={() => handleAction('put', `/reservations/${t.reservation_id}/status`, { status: "Seated" })}>Seat</button>
+                    ) : (
+                      <button className="btn btn-sm btn-outline-dark w-100 py-0 fw-bold" style={{ fontSize: "0.65rem", height: '22px' }} 
+                              onClick={() => { setSelectedTable(t); setUi(p => ({ ...p, modal: 'walkin' })); }}>Walk-in</button>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
-            
-            <div className="text-muted mb-1" style={{ fontSize: "0.65rem" }}><Users size={10} /> {t.capacity} Pax</div>
-            
-            {/* Height reduced from 60px to 45px */}
-            <div className="bg-light rounded-2 p-1 mb-2 border text-center d-flex align-items-center justify-content-center" style={{ minHeight: "45px" }}>
-              <span className="text-muted fw-medium" style={{fontSize: '0.7rem'}}>
-                {t.bridge_status?.toLowerCase() === 'available' ? 'Available' : (t.first_name || t.customer_name)}
-              </span>
-            </div>
-<div className="mt-auto">
-  {t.bridge_status?.toLowerCase() === "seated" ? (
-    <button className="btn btn-sm btn-primary w-100 py-0 fw-bold" style={{ fontSize: "0.7rem", height: '24px' }} 
-            onClick={() => openBill(t)}>Bill</button>
-  ) : t.bridge_status?.toLowerCase() === "confirmed" ? (
-    <button className="btn btn-sm btn-warning w-100 py-0 fw-bold text-white" style={{ fontSize: "0.7rem", height: '24px' }} 
-            onClick={() => handleAction('put', `/reservations/${t.reservation_id}/status`, { status: "Seated" })}>Seat</button>
-  ) : (
-    <button className="btn btn-sm btn-outline-dark w-100 py-0 fw-bold" style={{ fontSize: "0.7rem", height: '24px' }} 
-            onClick={() => { setSelectedTable(t); setUi(p => ({ ...p, modal: 'walkin' })); }}>Walk-in</button>
-  )}
-</div>
-          </div>
-        </div>
+          );
+        })}
       </div>
-    );
-  })}
-</div>
 
       {/* MODALS */}
       {ui.modal && (
-        <div className="modal show d-block" style={{ backgroundColor: "rgba(0,0,0,0.5)", backdropFilter: ui.modal === 'bill' ? "blur(4px)" : "none", zIndex: 1060 }}>
+        <div className="modal show d-block" style={{ backgroundColor: "rgba(0,0,0,0.5)", backdropFilter: ui.modal === 'bill' ? "blur(4px)" : "none", zIndex: 2000 }}>
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content border-0 shadow-lg">
               <div className="modal-header border-0 pt-4 px-4">
@@ -133,14 +132,14 @@ const TableStatus = ({ compact = false }) => {
               <div className="modal-body px-4 pb-4">
                 {ui.modal === 'add' && (
                   <form onSubmit={(e) => { e.preventDefault(); handleAction('post', '/admin/add-table', { table_number: form.tableNum, capacity: form.capacity }, () => setUi(p => ({ ...p, modal: null }))); }}>
-                    <div className="mb-3"><label className="form-label small fw-bold">Table Label</label><input type="text" className="form-control" onChange={e => setForm({...form, tableNum: e.target.value})} required /></div>
-                    <div className="mb-3"><label className="form-label small fw-bold">Capacity</label><input type="number" className="form-control" onChange={e => setForm({...form, capacity: e.target.value})} required /></div>
+                    <div className="mb-3"><label className="form-label small fw-bold">Table Label (Number)</label><input type="text" className="form-control" onChange={e => setForm({...form, tableNum: e.target.value})} required /></div>
+                    <div className="mb-3"><label className="form-label small fw-bold">Max Capacity</label><input type="number" className="form-control" onChange={e => setForm({...form, capacity: e.target.value})} required /></div>
                     <button className="btn btn-dark w-100 py-2 fw-bold" disabled={ui.updating}>Create Table</button>
                   </form>
                 )}
                 {ui.modal === 'walkin' && (
                   <form onSubmit={(e) => { e.preventDefault(); handleAction('post', `/admin/walk-in/${selectedTable.table_id}`, { customerName: form.guestName }, () => setUi(p => ({ ...p, modal: null }))); }}>
-                    <label className="form-label small fw-bold">Customer Name</label><input type="text" className="form-control py-2 mb-3" onChange={e => setForm({...form, guestName: e.target.value})} required placeholder="Guest name..." />
+                    <label className="form-label small fw-bold">Guest Name</label><input type="text" className="form-control py-2 mb-3" onChange={e => setForm({...form, guestName: e.target.value})} required placeholder="Enter guest name..." />
                     <button className="btn btn-dark w-100 py-2 fw-bold" disabled={ui.updating}>Confirm Entry</button>
                   </form>
                 )}
@@ -165,7 +164,7 @@ const TableStatus = ({ compact = false }) => {
         </div>
       )}
 
-      <style>{`.animate-spin { animation: spin 1s linear infinite; } .hover-card:hover { transform: translateY(-3px); transition: 0.3s; } .shake { animation: shake 0.5s infinite; } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } @keyframes shake { 0%, 100% { transform: rotate(0deg); } 25% { transform: rotate(0.5deg); } 75% { transform: rotate(-0.5deg); } } .cursor-pointer { cursor: pointer; }`}</style>
+      <style>{`.animate-spin { animation: spin 1s linear infinite; } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } .cursor-pointer { cursor: pointer; }`}</style>
     </div>
   );
 };
