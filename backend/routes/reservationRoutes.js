@@ -18,6 +18,12 @@ router.get(
   reservationController.getUserActiveReservation,
 );
 router.get("/user/:userId", protect, reservationController.getUserReservations);
+
+// Add these lines after the existing routes (around line 20)
+
+// ==================== CALENDAR ROUTES ====================
+router.get("/by-date-range", reservationController.getReservationsByDateRange);
+router.get("/by-date/:date", reservationController.getReservationsByDate);
 router.get(
   "/user/:userId/cancellation-count",
   protect,
@@ -31,11 +37,7 @@ router.post(
 
 // ==================== ADMIN ROUTES ====================
 router.get("/", protect, adminOnly, reservationController.getReservations);
-router.put(
-  "/:id/status",
-  protect,
-  reservationController.updateStatus,
-);
+router.put("/:id/status", protect, reservationController.updateStatus);
 router.delete(
   "/:id",
   protect,

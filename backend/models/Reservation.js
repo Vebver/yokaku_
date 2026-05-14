@@ -202,8 +202,15 @@ const Reservation = {
     const conn = await db.getConnection();
     try {
       const customId = generateRandomId();
+
       // 1. Insert into reservations
-      const resQuery = `INSERT INTO reservations (reservation_id, user_id, first_name, last_name, email, phone, reservation_date, reservation_time, end_time, num_guests, package_name, status, receipt_path, brgy_code, allergy) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      const resQuery = `INSERT INTO reservations (
+      reservation_id, user_id, first_name, last_name, email, phone, 
+      reservation_date, reservation_time, end_time, num_guests, 
+      package_name, status, receipt_path, brgy_code, allergy, 
+      allergy_count, occasion, high_chair
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
       await conn.query(resQuery, [
         customId,
         data.userId === "null" || !data.userId ? null : data.userId,
@@ -214,59 +221,68 @@ const Reservation = {
         data.date,
         data.startTime,
         data.endTime,
-        data.guests,
+        data.pax || data.guests || data.num_guests, // PAX value (number of guests)
         data.packageName,
         "Confirmed",
         data.receiptPath,
         data.brgyCode,
         data.allergy,
+        data.allergyCount || 0, // Number of people with allergy
+        data.occasion || "Casual Dining", // Occasion type
+        data.highChair || "No", // High chair needed
       ]);
 
-      // 2. Insert tables
+      // 2. Insert tables (reservation_tables junction table)
       if (data.tableIds?.length > 0) {
         for (const tid of data.tableIds) {
           await conn.query(
-            "INSERT INTO reservation_tables (reservation_id, table_id, customer_name, status, check_in_time) VALUES (?, ?, ?, 'confirmed', NOW())",
-            [customId, tid, `${data.firstName} ${data.lastName}`]
+            `INSERT INTO reservation_tables 
+           (reservation_id, table_id, customer_name, status, check_in_time) 
+           VALUES (?, ?, ?, 'confirmed', NOW())`,
+            [customId, tid, `${data.firstName} ${data.lastName}`],
           );
         }
       }
 
-      // 3. Insert items
+      // 3. Insert selected items (reservation_items)
       if (data.selectedItems?.length > 0) {
         for (const item of data.selectedItems) {
           await conn.query(
-            "INSERT INTO reservation_items (reservation_id, product_id, quantity, price, customizations) VALUES (?, ?, ?, ?, ?)",
+            `INSERT INTO reservation_items 
+           (reservation_id, product_id, quantity, price, customizations) 
+           VALUES (?, ?, ?, ?, ?)`,
             [
               customId,
               item.item_id || item.id,
               item.quantity,
               item.price,
               JSON.stringify(item.customizations),
-            ]
+            ],
           );
         }
       }
 
-      // 4. Insert Payment
+      // 4. Insert payment record
       await conn.query(
-        "INSERT INTO payments (reservation_id, amount, total_bill, payment_method, payment_status, paid_at) VALUES (?, ?, ?, ?, ?, NOW())",
+        `INSERT INTO payments 
+       (reservation_id, amount, total_bill, payment_method, payment_status, paid_at) 
+       VALUES (?, ?, ?, ?, ?, NOW())`,
         [
           customId,
           data.amount,
           data.totalAmount || data.amount,
           data.paymentMethod || "Gcash",
           "pending",
-        ]
+        ],
       );
 
-      // 5. INSERT NOTIFICATION (Added here)
-      // Only insert if there is a valid user_id
+      // 5. Insert notification (only for registered users)
       if (data.userId && data.userId !== "null") {
         const notifSql = `
-      INSERT INTO notifications (user_id, reservation_id, title, message, type, is_read, created_at) 
-      VALUES (?, ?, ?, ?, 'success', 0, NOW())
-    `;
+        INSERT INTO notifications 
+        (user_id, reservation_id, title, message, type, is_read, created_at) 
+        VALUES (?, ?, ?, ?, 'success', 0, NOW())
+      `;
         await conn.query(notifSql, [
           data.userId,
           customId,
@@ -275,10 +291,9 @@ const Reservation = {
         ]);
       }
 
-      // Commit everything
+      // Commit all changes
       await conn.commit();
       return customId;
-
     } catch (err) {
       await conn.rollback();
       console.error("Transaction Error:", err);

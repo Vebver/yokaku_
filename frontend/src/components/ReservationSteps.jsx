@@ -1,4 +1,4 @@
-// ReservationSteps.jsx
+// ReservationSteps.jsx (Updated with REAL calendar data)
 import React, { useState, useMemo, useEffect } from "react";
 import axios from "axios";
 import {
@@ -18,6 +18,8 @@ import {
   ChevronLeft,
   ChevronRight,
   CheckCircle,
+  Users,
+  User,
 } from "lucide-react";
 import StepProgress from "./StepProgress";
 import "../Style/TableReservation.css";
@@ -70,6 +72,13 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   const [tableSchedules, setTableSchedules] = useState({});
   const [data, setData] = useState({ occupied: {}, schedule: [] });
   const [calendarMonth, setCalendarMonth] = useState(new Date());
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
+  const [showYearPicker, setShowYearPicker] = useState(false);
+  const [selectedReservationDate, setSelectedReservationDate] = useState(null);
+  const [reservationsForDate, setReservationsForDate] = useState([]);
+  const [isLoadingReservations, setIsLoadingReservations] = useState(false);
+  const [dateReservationCounts, setDateReservationCounts] = useState({});
+  const [allReservationsByDate, setAllReservationsByDate] = useState({});
 
   const [form, setForm] = useState({
     date: "",
@@ -82,6 +91,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     customAllergy: "",
     occasion: "",
     customOccasion: "",
+    allergyCount: "",
   });
 
   const [user, setUser] = useState({
@@ -113,6 +123,183 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   const socket = useSocket();
   const { addressData, fetchBarangays } = useAddressData();
   const todayStr = new Date().toLocaleDateString("en-CA");
+
+  // ============ CLOSE PICKERS WHEN CLICKING OUTSIDE ============
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showMonthPicker || showYearPicker) {
+        const target = event.target;
+        const isMonthPicker = target.closest(".calendar-month-picker");
+        const isYearPicker = target.closest(".calendar-year-picker");
+        const isMonthBtn = target.closest(".calendar-month-btn");
+        const isYearBtn = target.closest(".calendar-year-btn");
+
+        if (!isMonthPicker && !isMonthBtn && showMonthPicker) {
+          setShowMonthPicker(false);
+        }
+        if (!isYearPicker && !isYearBtn && showYearPicker) {
+          setShowYearPicker(false);
+        }
+      }
+    };
+
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, [showMonthPicker, showYearPicker]);
+
+  // ============ FETCH ALL RESERVATIONS FOR CALENDAR ============
+  const fetchAllReservationsForMonth = async (year, month) => {
+    try {
+      const startDate = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+      const lastDay = new Date(year, month + 1, 0).getDate();
+      const endDate = `${year}-${String(month + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+      const response = await axios.get(
+        `${API_BASE}/reservations/by-date-range`,
+        {
+          params: { startDate, endDate },
+        },
+      );
+
+      if (response.data && Array.isArray(response.data)) {
+        // Group reservations by date
+        const groupedByDate = {};
+        const countsByDate = {};
+
+        response.data.forEach((reservation) => {
+          const date = reservation.date;
+          if (date) {
+            if (!groupedByDate[date]) {
+              groupedByDate[date] = [];
+              countsByDate[date] = 0;
+            }
+            groupedByDate[date].push(reservation);
+            countsByDate[date]++;
+          }
+        });
+
+        setAllReservationsByDate(groupedByDate);
+        setDateReservationCounts(countsByDate);
+      }
+    } catch (error) {
+      console.error("Error fetching reservations for month:", error);
+    }
+  };
+
+  // Fetch reservations when month changes
+  useEffect(() => {
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+    fetchAllReservationsForMonth(year, month);
+  }, [calendarMonth]);
+
+  // ============ FETCH RESERVATIONS FOR SELECTED DATE ============
+  const fetchReservationsForDate = async (date) => {
+    if (!date) return;
+
+    setIsLoadingReservations(true);
+    try {
+      // First check if we already have cached data
+      if (allReservationsByDate[date]) {
+        const formattedReservations = allReservationsByDate[date].map(
+          (res) => ({
+            ...res,
+            tableLabel:
+              TABLES_DATA.find((t) => t.id === res.table_id)?.label ||
+              `Table ${res.table_id}`,
+            startTimeFormatted: formatTime12Hour(res.startTime),
+            endTimeFormatted: formatTime12Hour(res.endTime),
+            duration: calculateDuration(res.startTime, res.endTime),
+            customerName:
+              res.customerName ||
+              `${res.first_name || ""} ${res.last_name || ""}`.trim() ||
+              "Guest",
+            guests: res.guests,
+            status: res.status || "Confirmed",
+          }),
+        );
+        setReservationsForDate(formattedReservations);
+      } else {
+        // Fallback to API call
+        const response = await axios.get(
+          `${API_BASE}/reservations/by-date/${date}`,
+        );
+
+        if (response.data && Array.isArray(response.data)) {
+          const formattedReservations = response.data.map((res) => {
+            // Find table label from TABLES_DATA
+            let tableLabel = `Table ${res.table_id}`;
+            const foundTable = TABLES_DATA.find((t) => t.id === res.table_id);
+            if (foundTable) {
+              tableLabel = foundTable.label;
+            }
+
+            return {
+              ...res,
+              tableLabel: tableLabel,
+              startTimeFormatted: formatTime12Hour(res.startTime),
+              endTimeFormatted: formatTime12Hour(res.endTime),
+              duration: calculateDuration(res.startTime, res.endTime),
+              customerName:
+                res.customerName ||
+                `${res.first_name || ""} ${res.last_name || ""}`.trim() ||
+                "Guest",
+              guests: res.guests,
+              status: res.status || "Confirmed",
+            };
+          });
+          setReservationsForDate(formattedReservations);
+        } else {
+          setReservationsForDate([]);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching reservations for date:", error);
+      setReservationsForDate([]);
+    } finally {
+      setIsLoadingReservations(false);
+    }
+  };
+
+  // Helper function to convert 24-hour time to 12-hour format
+  const formatTime12Hour = (timeStr) => {
+    if (!timeStr) return "";
+    const [hours, minutes] = timeStr.split(":");
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? "PM" : "AM";
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${minutes} ${ampm}`;
+  };
+
+  // Helper function to calculate duration between two times
+  const calculateDuration = (startTime, endTime) => {
+    if (!startTime || !endTime) return "";
+    const start = timeToMin(startTime);
+    const end = timeToMin(endTime);
+    const durationMinutes = end - start;
+    const hours = Math.floor(durationMinutes / 60);
+    const minutes = durationMinutes % 60;
+
+    if (hours === 0) return `${minutes} min`;
+    if (minutes === 0) return `${hours} hour${hours > 1 ? "s" : ""}`;
+    return `${hours} hour${hours > 1 ? "s" : ""} ${minutes} min`;
+  };
+
+  // Get reservation count for a date
+  const getReservationCountForDate = (dateStr) => {
+    return dateReservationCounts[dateStr] || 0;
+  };
+
+  // Get total tables count (excluding maintenance)
+  const totalTablesCount = TABLES_DATA.filter(
+    (t) => t.status !== "maintenance",
+  ).length;
+
+  // Check if date is fully booked
+  const isDateFullyBooked = (dateStr) => {
+    const count = getReservationCountForDate(dateStr);
+    return count >= totalTablesCount;
+  };
 
   // ============ STEP FUNCTIONS ============
   const markStepCompleted = (step) => {
@@ -159,12 +346,14 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           const e = timeToMin(form.endTime);
           return s < timeToMin(r.endTime) && e > timeToMin(r.startTime);
         });
+        const isPaxValid = form.pax && parseInt(form.pax) > 0;
         return (
           selectedId !== null &&
           isStartTimeValid &&
           isEndTimeValid &&
           isTimeValid &&
-          hasNoConflict
+          hasNoConflict &&
+          isPaxValid
         );
       case 2:
         const isMuniValid = form.muni && form.muni !== "";
@@ -303,6 +492,11 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           .filter((res) => res.status !== "Done" && res.status !== "Completed")
           .map((res) => ({ ...res }));
         setData({ occupied: statRes.data || {}, schedule: processedSchedule });
+
+        // Refresh calendar data periodically
+        const year = calendarMonth.getFullYear();
+        const month = calendarMonth.getMonth();
+        fetchAllReservationsForMonth(year, month);
       } catch (e) {
         console.error("Polling error:", e);
       }
@@ -310,7 +504,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     poll();
     const pollInterval = setInterval(poll, 10000);
     return () => clearInterval(pollInterval);
-  }, [form.date, form.startTime, form.endTime, selectedId]);
+  }, [form.date, form.startTime, form.endTime, selectedId, calendarMonth]);
 
   // ============ HELPER FUNCTIONS ============
   const primaryTable = useMemo(
@@ -442,6 +636,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       barangay:
         addressData.barangays.find((b) => b.code === form.brgy)?.name || "",
       allergy: getFinalAllergy,
+      allergyCount: form.allergyCount || "0",
       occasion: getFinalOccasion,
     }),
     [
@@ -616,6 +811,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         ...form,
         userId: userId,
         guests: totalSeats,
+        pax: form.pax || totalSeats, // Add this
+        allergyCount: form.allergyCount || 0, // Add this
         packageName: productDisplayName,
         totalAmount: orderSummary.totalOrderPrice,
         amount: orderSummary.downpayment,
@@ -645,6 +842,11 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           packageName: productDisplayName,
         });
       }
+
+      // Refresh calendar data after successful booking
+      const year = calendarMonth.getFullYear();
+      const month = calendarMonth.getMonth();
+      await fetchAllReservationsForMonth(year, month);
 
       onSuccess(res.data.id);
     } catch (e) {
@@ -690,12 +892,102 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                 >
                   <ChevronLeft size={18} />
                 </button>
-                <div className="calendar-month-year">
-                  {calendarMonth.toLocaleString("default", {
-                    month: "long",
-                    year: "numeric",
-                  })}
+
+                <div className="calendar-month-year-container">
+                  <div className="calendar-month-year">
+                    <button
+                      type="button"
+                      className="calendar-month-btn"
+                      onClick={() => {
+                        setShowMonthPicker(!showMonthPicker);
+                        setShowYearPicker(false);
+                      }}
+                    >
+                      {calendarMonth.toLocaleString("default", {
+                        month: "long",
+                      })}
+                      <span className="calendar-dropdown-arrow">▼</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="calendar-year-btn"
+                      onClick={() => {
+                        setShowYearPicker(!showYearPicker);
+                        setShowMonthPicker(false);
+                      }}
+                    >
+                      {calendarMonth.getFullYear()}
+                      <span className="calendar-dropdown-arrow">▼</span>
+                    </button>
+                  </div>
+
+                  {showMonthPicker && (
+                    <div className="calendar-month-picker">
+                      {[
+                        "January",
+                        "February",
+                        "March",
+                        "April",
+                        "May",
+                        "June",
+                        "July",
+                        "August",
+                        "September",
+                        "October",
+                        "November",
+                        "December",
+                      ].map((month, index) => (
+                        <button
+                          key={month}
+                          type="button"
+                          className={`calendar-month-option ${calendarMonth.getMonth() === index ? "active" : ""}`}
+                          onClick={() => {
+                            const newDate = new Date(calendarMonth);
+                            newDate.setMonth(index);
+                            setCalendarMonth(newDate);
+                            setShowMonthPicker(false);
+                          }}
+                        >
+                          {month}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {showYearPicker && (
+                    <div className="calendar-year-picker">
+                      <div className="calendar-year-scroll">
+                        {(() => {
+                          const currentYear = new Date().getFullYear();
+                          const years = [];
+                          for (
+                            let i = currentYear - 5;
+                            i <= currentYear + 10;
+                            i++
+                          ) {
+                            years.push(i);
+                          }
+                          return years.map((year) => (
+                            <button
+                              key={year}
+                              type="button"
+                              className={`calendar-year-option ${calendarMonth.getFullYear() === year ? "active" : ""}`}
+                              onClick={() => {
+                                const newDate = new Date(calendarMonth);
+                                newDate.setFullYear(year);
+                                setCalendarMonth(newDate);
+                                setShowYearPicker(false);
+                              }}
+                            >
+                              {year}
+                            </button>
+                          ));
+                        })()}
+                      </div>
+                    </div>
+                  )}
                 </div>
+
                 <button
                   type="button"
                   className="calendar-nav-btn"
@@ -707,6 +999,30 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                 >
                   <ChevronRight size={18} />
                 </button>
+              </div>
+
+              {/* Calendar Legend */}
+              <div className="calendar-legend">
+                <div className="calendar-legend-item">
+                  <div className="calendar-legend-dot normal"></div>
+                  <span>Available</span>
+                </div>
+                <div className="calendar-legend-item">
+                  <div className="calendar-legend-dot has-reservations"></div>
+                  <span>Has Reservation(s)</span>
+                </div>
+                <div className="calendar-legend-item">
+                  <div className="calendar-legend-dot fully-booked"></div>
+                  <span>Fully Booked</span>
+                </div>
+                <div className="calendar-legend-item">
+                  <div className="calendar-legend-dot blocked"></div>
+                  <span>Closed</span>
+                </div>
+                <div className="calendar-legend-item">
+                  <div className="calendar-legend-dot selected"></div>
+                  <span>Selected</span>
+                </div>
               </div>
 
               <div className="calendar-weekdays">
@@ -753,6 +1069,10 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   for (let i = 1; i <= daysInMonth; i++) {
                     const date = new Date(year, month, i);
                     const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+                    const reservationCount =
+                      getReservationCountForDate(dateStr);
+                    const isFullyBooked = isDateFullyBooked(dateStr);
+
                     calendarDays.push({
                       day: i,
                       date: dateStr,
@@ -761,6 +1081,9 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                       isSelected: form.date === dateStr,
                       isBlocked: blockedDates.includes(dateStr),
                       isPast: date < today,
+                      reservationCount: reservationCount,
+                      isFullyBooked: isFullyBooked,
+                      hasReservations: reservationCount > 0 && !isFullyBooked,
                     });
                   }
 
@@ -780,71 +1103,154 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     });
                   }
 
-                  return calendarDays.map((day, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      className={`calendar-day 
-                        ${day.isSelected ? "selected" : ""} 
-                        ${day.isBlocked ? "blocked" : ""} 
-                        ${day.isToday ? "today" : ""}
-                        ${!day.isCurrentMonth ? "other-month" : ""}
-                        ${day.isPast && !day.isSelected ? "past" : ""}
-                      `}
-                      disabled={
-                        day.isBlocked || (day.isPast && !day.isSelected)
-                      }
-                      onClick={() => {
-                        if (
-                          !day.isBlocked &&
-                          !(day.isPast && !day.isSelected)
-                        ) {
-                          const syntheticEvent = {
-                            target: {
-                              name: "date",
-                              value: day.date,
-                            },
-                          };
-                          const isBlocked = handleDateSelection(syntheticEvent);
-                          if (!isBlocked) {
-                            setSelectedId(null);
-                            setLinkedIds([]);
-                            setForm((prev) => ({
-                              ...prev,
-                              startTime: "",
-                              endTime: "",
-                            }));
-                          }
+                  return calendarDays.map((day, idx) => {
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        className={`calendar-day 
+                          ${day.isSelected ? "selected" : ""} 
+                          ${day.isBlocked ? "blocked" : ""} 
+                          ${day.isToday ? "today" : ""}
+                          ${!day.isCurrentMonth ? "other-month" : ""}
+                          ${day.isPast && !day.isSelected ? "past" : ""}
+                          ${day.hasReservations && !day.isSelected && !day.isBlocked ? "has-reservations" : ""}
+                          ${day.isFullyBooked && !day.isSelected && !day.isBlocked ? "fully-booked" : ""}
+                        `}
+                        disabled={
+                          day.isBlocked || (day.isPast && !day.isSelected)
                         }
-                      }}
-                    >
-                      <span className="calendar-day-number">{day.day}</span>
-                      {day.isBlocked && (
-                        <span className="calendar-blocked-dot"></span>
-                      )}
-                    </button>
-                  ));
+                        onClick={async () => {
+                          if (
+                            !day.isBlocked &&
+                            !(day.isPast && !day.isSelected)
+                          ) {
+                            const syntheticEvent = {
+                              target: {
+                                name: "date",
+                                value: day.date,
+                              },
+                            };
+                            const isBlocked =
+                              handleDateSelection(syntheticEvent);
+                            if (!isBlocked) {
+                              setSelectedId(null);
+                              setLinkedIds([]);
+                              setForm((prev) => ({
+                                ...prev,
+                                startTime: "",
+                                endTime: "",
+                              }));
+                              setSelectedReservationDate(day.date);
+                              await fetchReservationsForDate(day.date);
+                            }
+                          }
+                        }}
+                      >
+                        <span className="calendar-day-number">{day.day}</span>
+                        {day.hasReservations && day.reservationCount > 0 && (
+                          <span className="calendar-reservation-badge">
+                            {day.reservationCount}{" "}
+                            {day.reservationCount === 1 ? "Res" : "Res"}
+                          </span>
+                        )}
+                        {day.isFullyBooked && (
+                          <span className="calendar-reservation-badge full">
+                            Full
+                          </span>
+                        )}
+                        {day.isBlocked && (
+                          <span className="calendar-blocked-dot"></span>
+                        )}
+                      </button>
+                    );
+                  });
                 })()}
               </div>
 
               <input type="hidden" name="date" value={form.date} />
 
-              {blockedDates.length > 0 && (
-                <div className="calendar-legend">
-                  <div className="calendar-legend-item">
-                    <div className="calendar-legend-dot blocked"></div>
-                    <span>Closed</span>
+              {/* Reservation Details Section */}
+              {selectedReservationDate &&
+                selectedReservationDate === form.date && (
+                  <div className="reservation-details-container">
+                    <div className="reservation-details-header">
+                      <Clock size={16} />
+                      <h4>
+                        Reservations for{" "}
+                        {new Date(selectedReservationDate).toLocaleDateString(
+                          "default",
+                          {
+                            month: "long",
+                            day: "numeric",
+                            year: "numeric",
+                          },
+                        )}
+                      </h4>
+                    </div>
+
+                    {isLoadingReservations ? (
+                      <div className="reservation-details-loading">
+                        <div className="loading-spinner-small"></div>
+                        <p>Loading reservations...</p>
+                      </div>
+                    ) : reservationsForDate.length > 0 ? (
+                      <div className="reservation-details-list">
+                        {reservationsForDate.map((res, index) => (
+                          <div key={index} className="reservation-detail-card">
+                            <div className="reservation-card-header">
+                              <div className="table-badge">
+                                <Armchair size={14} />
+                                <strong>{res.tableLabel}</strong>
+                              </div>
+                              <span
+                                className={`status-badge ${res.status?.toLowerCase()}`}
+                              >
+                                {res.status || "Confirmed"}
+                              </span>
+                            </div>
+
+                            <div className="reservation-card-time">
+                              <Clock size={14} />
+                              <span>
+                                {res.startTimeFormatted} -{" "}
+                                {res.endTimeFormatted}
+                              </span>
+                            </div>
+
+                            <div className="reservation-card-duration">
+                              <AlertCircle size={14} />
+                              <span>Duration: {res.duration}</span>
+                            </div>
+
+                            {res.customerName && (
+                              <div className="reservation-card-customer">
+                                <User size={14} />
+                                <span>{res.customerName}</span>
+                              </div>
+                            )}
+
+                            {res.guests && (
+                              <div className="reservation-card-guests">
+                                <Users size={14} />
+                                <span>{res.guests} guests</span>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="reservation-details-empty">
+                        <Calendar size={32} />
+                        <p>No reservations for this date</p>
+                        <span>
+                          Click on a date with yellow highlight to view
+                          reservations
+                        </span>
+                      </div>
+                    )}
                   </div>
-                  <div className="calendar-legend-item">
-                    <div className="calendar-legend-dot selected"></div>
-                    <span>Selected</span>
-                  </div>
-                  <div className="calendar-legend-item">
-                    <div className="calendar-legend-dot today"></div>
-                    <span>Today</span>
-                  </div>
-                </div>
-              )}
+                )}
             </div>
           </div>
         );
@@ -1167,9 +1573,39 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                 </div>
               </div>
 
-              <div className="input-group">
-                <label>GUESTS</label>
-                <input type="text" value={totalSeats} readOnly />
+              {/* ============ GUESTS FIELD - AUTO POPULATED FROM PAX ============ */}
+              <div className="input-group guests-auto-field">
+                <label>
+                  <Users size={12} /> GUESTS
+                </label>
+                <div className="guests-auto-display">
+                  <input
+                    type="text"
+                    value={
+                      form.pax && parseInt(form.pax) > 0
+                        ? `${form.pax} guest(s)`
+                        : "Not specified yet"
+                    }
+                    readOnly
+                    className={`guests-auto-input ${!form.pax || parseInt(form.pax) <= 0 ? "empty-value" : ""}`}
+                  />
+                  {!form.pax || parseInt(form.pax) <= 0 ? (
+                    <div className="guests-hint-warning">
+                      <AlertCircle size={14} />
+                      <span>
+                        Please enter number of guests in Step 2 (Select Table &
+                        Time)
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="guests-hint-success">
+                      <CheckCircle size={14} />
+                      <span>
+                        Auto-populated from Pax field in previous step
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="input-group">
@@ -1245,6 +1681,54 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     value={form.customAllergy}
                     onChange={handleInputChange}
                   />
+                )}
+
+                {/* Show allergy count field only when allergy is selected and not "None" */}
+                {form.allergy && form.allergy !== "None" && (
+                  <div className="allergy-count-field">
+                    <label className="allergy-count-label">
+                      <Users size={14} /> How many people have this allergy?
+                    </label>
+                    <div className="allergy-count-input-wrapper">
+                      <input
+                        type="number"
+                        name="allergyCount"
+                        className="allergy-count-input"
+                        min="1"
+                        max={parseInt(form.pax) || totalSeats || 10}
+                        value={form.allergyCount}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          const maxPax = parseInt(form.pax) || totalSeats || 10;
+                          if (
+                            value === "" ||
+                            (parseInt(value) >= 1 && parseInt(value) <= maxPax)
+                          ) {
+                            handleInputChange(e);
+                          }
+                        }}
+                        placeholder={`Enter number (1-${parseInt(form.pax) || totalSeats || 10})`}
+                      />
+                      <span className="allergy-count-hint">
+                        Out of {parseInt(form.pax) || totalSeats || 0} total
+                        guest(s)
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Disclaimer - only show when allergy is selected and not "None" */}
+                {form.allergy && form.allergy !== "None" && (
+                  <div className="allergy-disclaimer">
+                    <AlertCircle size={12} className="disclaimer-icon" />
+                    <span>
+                      Disclaimer: If you have allergies or dietary restrictions
+                      related to certain ingredients, substitutions or
+                      ingredient removals may be necessary, which can slightly
+                      change the taste, texture, or overall flavor compared to
+                      the original product.
+                    </span>
+                  </div>
                 )}
               </div>
             </div>

@@ -151,7 +151,7 @@ const reservationController = {
     try {
       const body = req.body;
       const userId = body.userId;
-      if (userId && (userId !== "null") !== "null") {
+      if (userId && userId !== "null") {
         const noShowCount = await Reservation.countNoShows(userId);
 
         // Define your limit (e.g., 3 no-shows)
@@ -354,6 +354,76 @@ const reservationController = {
         .json({ success: false, message: "Internal server error" });
     }
   },
-};
+  // ==================== CALENDAR FUNCTIONS ====================
+  getReservationsByDateRange: async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
 
+      if (!startDate || !endDate) {
+        return res
+          .status(400)
+          .json({ error: "startDate and endDate are required" });
+      }
+
+      const sql = `
+      SELECT 
+        r.reservation_id,
+        DATE_FORMAT(r.reservation_date, '%Y-%m-%d') as date,
+        TIME_FORMAT(r.reservation_time, '%H:%i') as startTime,
+        TIME_FORMAT(r.end_time, '%H:%i') as endTime,
+        r.num_guests as guests,
+        r.first_name,
+        r.last_name,
+        r.status,
+        rt.table_id
+      FROM reservations r
+      JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
+      WHERE r.reservation_date BETWEEN ? AND ?
+        AND r.status IN ('Confirmed', 'Pending', 'Seated')
+      ORDER BY r.reservation_date ASC, r.reservation_time ASC
+    `;
+
+      const [rows] = await db.execute(sql, [startDate, endDate]);
+      res.json(rows);
+    } catch (error) {
+      console.error("Error fetching reservations by date range:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+
+  getReservationsByDate: async (req, res) => {
+    try {
+      const { date } = req.params;
+
+      if (!date) {
+        return res.status(400).json({ error: "date is required" });
+      }
+
+      const sql = `
+      SELECT 
+        r.reservation_id,
+        DATE_FORMAT(r.reservation_date, '%Y-%m-%d') as date,
+        TIME_FORMAT(r.reservation_time, '%H:%i') as startTime,
+        TIME_FORMAT(r.end_time, '%H:%i') as endTime,
+        r.num_guests as guests,
+        r.first_name,
+        r.last_name,
+        CONCAT(r.first_name, ' ', r.last_name) as customerName,
+        r.status,
+        rt.table_id
+      FROM reservations r
+      JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
+      WHERE r.reservation_date = ?
+        AND r.status IN ('Confirmed', 'Pending', 'Seated')
+      ORDER BY r.reservation_time ASC
+    `;
+
+      const [rows] = await db.execute(sql, [date]);
+      res.json(rows);
+    } catch (error) {
+      console.error("Error fetching reservations by date:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+};
 module.exports = reservationController;
