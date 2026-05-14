@@ -811,6 +811,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         ...form,
         userId: userId,
         guests: totalSeats,
+        pax: form.pax || totalSeats, // Add this
+        allergyCount: form.allergyCount || 0, // Add this
         packageName: productDisplayName,
         totalAmount: orderSummary.totalOrderPrice,
         amount: orderSummary.downpayment,
