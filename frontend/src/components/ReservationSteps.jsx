@@ -147,7 +147,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   }, [showMonthPicker, showYearPicker]);
 
   // ============ FETCH ALL RESERVATIONS FOR CALENDAR ============
-  // ============ FETCH ALL RESERVATIONS FOR CALENDAR ============
   const fetchAllReservationsForMonth = async (year, month) => {
     try {
       const startDate = `${year}-${String(month + 1).padStart(2, "0")}-01`;
