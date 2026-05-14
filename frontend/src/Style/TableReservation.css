@@ -1215,6 +1215,175 @@ select:disabled {
   transition: all 0.2s ease;
 }
 
+/* ============================================ */
+/* ALLERGY COUNT FIELD STYLES                  */
+/* ============================================ */
+
+.allergy-count-field {
+  margin-top: 16px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 14px;
+  border: 1px solid #f0f0f0;
+  animation: fadeIn 0.3s ease;
+}
+
+.allergy-count-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #e63946;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.allergy-count-label svg {
+  color: #e63946;
+}
+
+.allergy-count-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.allergy-count-input {
+  width: 120px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1.5px solid #e0e0e0;
+  background: white;
+  font-size: 1rem;
+  font-weight: 600;
+  text-align: center;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.allergy-count-input:focus {
+  border-color: #e63946;
+  box-shadow: 0 0 0 3px rgba(230, 57, 70, 0.1);
+}
+
+.allergy-count-input::-webkit-inner-spin-button,
+.allergy-count-input::-webkit-outer-spin-button {
+  opacity: 0.5;
+}
+
+.allergy-count-hint {
+  font-size: 0.7rem;
+  color: #888;
+  background: white;
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+/* ============================================ */
+/* ALLERGY DISCLAIMER STYLES                   */
+/* ============================================ */
+
+.allergy-disclaimer {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: #fff8e8;
+  border-left: 4px solid #ffcc00;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  line-height: 1.5;
+  color: #8a6e00;
+  animation: fadeIn 0.3s ease;
+}
+
+.disclaimer-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #ffcc00;
+}
+
+.allergy-disclaimer span {
+  flex: 1;
+  color: #6b5a00;
+}
+
+.allergy-disclaimer:hover {
+  background: #fff5e0;
+  transition: background 0.2s ease;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .allergy-count-field {
+    padding: 12px;
+  }
+
+  .allergy-count-label {
+    font-size: 0.7rem;
+    margin-bottom: 10px;
+  }
+
+  .allergy-count-input {
+    width: 100px;
+    padding: 8px 12px;
+    font-size: 0.9rem;
+  }
+
+  .allergy-count-hint {
+    font-size: 0.65rem;
+  }
+
+  .allergy-disclaimer {
+    padding: 10px 12px;
+    font-size: 0.65rem;
+    gap: 8px;
+  }
+
+  .disclaimer-icon {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .allergy-count-field {
+    padding: 10px;
+  }
+
+  .allergy-count-input-wrapper {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .allergy-count-input {
+    width: 100%;
+    max-width: 150px;
+  }
+
+  .allergy-disclaimer {
+    padding: 8px 10px;
+    font-size: 0.6rem;
+  }
+}
+
+/* Animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Mobile Responsive */
 @media (max-width: 768px) {
   .calendar-legend {

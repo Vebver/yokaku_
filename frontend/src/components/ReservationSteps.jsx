@@ -91,6 +91,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     customAllergy: "",
     occasion: "",
     customOccasion: "",
+    allergyCount: "",
   });
 
   const [user, setUser] = useState({
@@ -633,6 +634,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       barangay:
         addressData.barangays.find((b) => b.code === form.brgy)?.name || "",
       allergy: getFinalAllergy,
+      allergyCount: form.allergyCount || "0",
       occasion: getFinalOccasion,
     }),
     [
@@ -1645,6 +1647,52 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     value={form.customAllergy}
                     onChange={handleInputChange}
                   />
+                )}
+                {/* Show allergy count field only when allergy is selected and not "None" */}
+                {form.allergy && form.allergy !== "None" && (
+                  <div className="allergy-count-field">
+                    <label className="allergy-count-label">
+                      <Users size={14} /> How many people have this allergy?
+                    </label>
+                    <div className="allergy-count-input-wrapper">
+                      <input
+                        type="number"
+                        name="allergyCount"
+                        className="allergy-count-input"
+                        min="1"
+                        max={totalSeats || 10}
+                        value={form.allergyCount}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (
+                            value === "" ||
+                            (parseInt(value) >= 1 &&
+                              parseInt(value) <= (totalSeats || 10))
+                          ) {
+                            handleInputChange(e);
+                          }
+                        }}
+                        placeholder={`Enter number (1-${totalSeats || 10})`}
+                      />
+                      <span className="allergy-count-hint">
+                        Out of {totalSeats || 0} total guest(s)
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Disclaimer - only show when allergy is selected and not "None" */}
+                {form.allergy && form.allergy !== "None" && (
+                  <div className="allergy-disclaimer">
+                    <AlertCircle size={12} className="disclaimer-icon" />
+                    <span>
+                      Disclaimer: If you have allergies or dietary restrictions
+                      related to certain ingredients, substitutions or
+                      ingredient removals may be necessary, which can slightly
+                      change the taste, texture, or overall flavor compared to
+                      the original product.
+                    </span>
+                  </div>
                 )}
               </div>
             </div>
