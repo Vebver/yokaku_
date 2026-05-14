@@ -151,7 +151,7 @@ const reservationController = {
     try {
       const body = req.body;
       const userId = body.userId;
-      if (userId && (userId !== "null") !== "null") {
+      if (userId && userId !== "null") {
         const noShowCount = await Reservation.countNoShows(userId);
 
         // Define your limit (e.g., 3 no-shows)
