@@ -1,4 +1,4 @@
-// ReservationSteps.jsx (Updated Calendar Section)
+// ReservationSteps.jsx (Updated with REAL calendar data)
 import React, { useState, useMemo, useEffect } from "react";
 import axios from "axios";
 import {
@@ -20,7 +20,6 @@ import {
   CheckCircle,
   Users,
   User,
-  AlertTriangle,
 } from "lucide-react";
 import StepProgress from "./StepProgress";
 import "../Style/TableReservation.css";
@@ -78,6 +77,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   const [selectedReservationDate, setSelectedReservationDate] = useState(null);
   const [reservationsForDate, setReservationsForDate] = useState([]);
   const [isLoadingReservations, setIsLoadingReservations] = useState(false);
+  const [dateReservationCounts, setDateReservationCounts] = useState({});
+  const [allReservationsByDate, setAllReservationsByDate] = useState({});
 
   const [form, setForm] = useState({
     date: "",
@@ -145,29 +146,112 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     return () => document.removeEventListener("click", handleClickOutside);
   }, [showMonthPicker, showYearPicker]);
 
+  // ============ FETCH ALL RESERVATIONS FOR CALENDAR ============
+  // ============ FETCH ALL RESERVATIONS FOR CALENDAR ============
+  const fetchAllReservationsForMonth = async (year, month) => {
+    try {
+      const startDate = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+      const lastDay = new Date(year, month + 1, 0).getDate();
+      const endDate = `${year}-${String(month + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+      const response = await axios.get(
+        `${API_BASE}/reservations/by-date-range`,
+        {
+          params: { startDate, endDate },
+        },
+      );
+
+      if (response.data && Array.isArray(response.data)) {
+        // Group reservations by date
+        const groupedByDate = {};
+        const countsByDate = {};
+
+        response.data.forEach((reservation) => {
+          const date = reservation.date;
+          if (date) {
+            if (!groupedByDate[date]) {
+              groupedByDate[date] = [];
+              countsByDate[date] = 0;
+            }
+            groupedByDate[date].push(reservation);
+            countsByDate[date]++;
+          }
+        });
+
+        setAllReservationsByDate(groupedByDate);
+        setDateReservationCounts(countsByDate);
+      }
+    } catch (error) {
+      console.error("Error fetching reservations for month:", error);
+    }
+  };
+
+  // Fetch reservations when month changes
+  useEffect(() => {
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+    fetchAllReservationsForMonth(year, month);
+  }, [calendarMonth]);
+
   // ============ FETCH RESERVATIONS FOR SELECTED DATE ============
   const fetchReservationsForDate = async (date) => {
     if (!date) return;
 
     setIsLoadingReservations(true);
     try {
-      const response = await axios.get(`${API_BASE}/reservations/date`, {
-        params: { date: date },
-      });
-
-      if (response.data && Array.isArray(response.data)) {
-        const formattedReservations = response.data.map((res) => ({
-          ...res,
-          tableLabel:
-            TABLES_DATA.find((t) => t.id === res.tableId)?.label ||
-            `Table ${res.tableId}`,
-          startTimeFormatted: formatTime12Hour(res.startTime),
-          endTimeFormatted: formatTime12Hour(res.endTime),
-          duration: calculateDuration(res.startTime, res.endTime),
-        }));
+      // First check if we already have cached data
+      if (allReservationsByDate[date]) {
+        const formattedReservations = allReservationsByDate[date].map(
+          (res) => ({
+            ...res,
+            tableLabel:
+              TABLES_DATA.find((t) => t.id === res.table_id)?.label ||
+              `Table ${res.table_id}`,
+            startTimeFormatted: formatTime12Hour(res.startTime),
+            endTimeFormatted: formatTime12Hour(res.endTime),
+            duration: calculateDuration(res.startTime, res.endTime),
+            customerName:
+              res.customerName ||
+              `${res.first_name || ""} ${res.last_name || ""}`.trim() ||
+              "Guest",
+            guests: res.guests,
+            status: res.status || "Confirmed",
+          }),
+        );
         setReservationsForDate(formattedReservations);
       } else {
-        setReservationsForDate([]);
+        // Fallback to API call
+        const response = await axios.get(
+          `${API_BASE}/reservations/by-date/${date}`,
+        );
+
+        if (response.data && Array.isArray(response.data)) {
+          const formattedReservations = response.data.map((res) => {
+            // Find table label from TABLES_DATA
+            let tableLabel = `Table ${res.table_id}`;
+            const foundTable = TABLES_DATA.find((t) => t.id === res.table_id);
+            if (foundTable) {
+              tableLabel = foundTable.label;
+            }
+
+            return {
+              ...res,
+              tableLabel: tableLabel,
+              startTimeFormatted: formatTime12Hour(res.startTime),
+              endTimeFormatted: formatTime12Hour(res.endTime),
+              duration: calculateDuration(res.startTime, res.endTime),
+              customerName:
+                res.customerName ||
+                `${res.first_name || ""} ${res.last_name || ""}`.trim() ||
+                "Guest",
+              guests: res.guests,
+              status: res.status || "Confirmed",
+            };
+          });
+          setReservationsForDate(formattedReservations);
+        } else {
+          setReservationsForDate([]);
+        }
       }
     } catch (error) {
       console.error("Error fetching reservations for date:", error);
@@ -201,20 +285,20 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     return `${hours} hour${hours > 1 ? "s" : ""} ${minutes} min`;
   };
 
-  // Get date status (normal, hasReservations, fullyBooked)
-  const getDateStatus = (dateStr, reservations) => {
-    if (blockedDates.includes(dateStr)) return "blocked";
+  // Get reservation count for a date
+  const getReservationCountForDate = (dateStr) => {
+    return dateReservationCounts[dateStr] || 0;
+  };
 
-    const totalTables = TABLES_DATA.filter(
-      (t) => t.status !== "maintenance",
-    ).length;
-    const reservationCount = reservations.filter(
-      (r) => r.date === dateStr,
-    ).length;
+  // Get total tables count (excluding maintenance)
+  const totalTablesCount = TABLES_DATA.filter(
+    (t) => t.status !== "maintenance",
+  ).length;
 
-    if (reservationCount >= totalTables) return "fullyBooked";
-    if (reservationCount > 0) return "hasReservations";
-    return "normal";
+  // Check if date is fully booked
+  const isDateFullyBooked = (dateStr) => {
+    const count = getReservationCountForDate(dateStr);
+    return count >= totalTablesCount;
   };
 
   // ============ STEP FUNCTIONS ============
@@ -406,6 +490,11 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           .filter((res) => res.status !== "Done" && res.status !== "Completed")
           .map((res) => ({ ...res }));
         setData({ occupied: statRes.data || {}, schedule: processedSchedule });
+
+        // Refresh calendar data periodically
+        const year = calendarMonth.getFullYear();
+        const month = calendarMonth.getMonth();
+        fetchAllReservationsForMonth(year, month);
       } catch (e) {
         console.error("Polling error:", e);
       }
@@ -413,7 +502,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     poll();
     const pollInterval = setInterval(poll, 10000);
     return () => clearInterval(pollInterval);
-  }, [form.date, form.startTime, form.endTime, selectedId]);
+  }, [form.date, form.startTime, form.endTime, selectedId, calendarMonth]);
 
   // ============ HELPER FUNCTIONS ============
   const primaryTable = useMemo(
@@ -749,6 +838,11 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         });
       }
 
+      // Refresh calendar data after successful booking
+      const year = calendarMonth.getFullYear();
+      const month = calendarMonth.getMonth();
+      await fetchAllReservationsForMonth(year, month);
+
       onSuccess(res.data.id);
     } catch (e) {
       console.error("Booking Error:", e.response?.data || e.message);
@@ -970,6 +1064,10 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   for (let i = 1; i <= daysInMonth; i++) {
                     const date = new Date(year, month, i);
                     const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+                    const reservationCount =
+                      getReservationCountForDate(dateStr);
+                    const isFullyBooked = isDateFullyBooked(dateStr);
+
                     calendarDays.push({
                       day: i,
                       date: dateStr,
@@ -978,6 +1076,9 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                       isSelected: form.date === dateStr,
                       isBlocked: blockedDates.includes(dateStr),
                       isPast: date < today,
+                      reservationCount: reservationCount,
+                      isFullyBooked: isFullyBooked,
+                      hasReservations: reservationCount > 0 && !isFullyBooked,
                     });
                   }
 
@@ -998,21 +1099,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   }
 
                   return calendarDays.map((day, idx) => {
-                    // Determine date status for coloring
-                    let dateStatus = "normal";
-                    if (!day.isBlocked && !day.isPast && day.isCurrentMonth) {
-                      // In a real implementation, you would check reservations count here
-                      // This is a placeholder - you'd need to fetch reservation counts per date
-                      const mockReservationCount = Math.floor(
-                        Math.random() * 5,
-                      );
-                      if (mockReservationCount >= 4) {
-                        dateStatus = "fullyBooked";
-                      } else if (mockReservationCount > 0) {
-                        dateStatus = "hasReservations";
-                      }
-                    }
-
                     return (
                       <button
                         key={idx}
@@ -1023,8 +1109,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                           ${day.isToday ? "today" : ""}
                           ${!day.isCurrentMonth ? "other-month" : ""}
                           ${day.isPast && !day.isSelected ? "past" : ""}
-                          ${dateStatus === "hasReservations" && !day.isSelected ? "has-reservations" : ""}
-                          ${dateStatus === "fullyBooked" && !day.isSelected ? "fully-booked" : ""}
+                          ${day.hasReservations && !day.isSelected && !day.isBlocked ? "has-reservations" : ""}
+                          ${day.isFullyBooked && !day.isSelected && !day.isBlocked ? "fully-booked" : ""}
                         `}
                         disabled={
                           day.isBlocked || (day.isPast && !day.isSelected)
@@ -1057,12 +1143,13 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                         }}
                       >
                         <span className="calendar-day-number">{day.day}</span>
-                        {dateStatus === "hasReservations" && (
+                        {day.hasReservations && day.reservationCount > 0 && (
                           <span className="calendar-reservation-badge">
-                            📋 Res
+                            {day.reservationCount}{" "}
+                            {day.reservationCount === 1 ? "Res" : "Res"}
                           </span>
                         )}
-                        {dateStatus === "fullyBooked" && (
+                        {day.isFullyBooked && (
                           <span className="calendar-reservation-badge full">
                             Full
                           </span>
@@ -1088,7 +1175,11 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                         Reservations for{" "}
                         {new Date(selectedReservationDate).toLocaleDateString(
                           "default",
-                          { month: "long", day: "numeric", year: "numeric" },
+                          {
+                            month: "long",
+                            day: "numeric",
+                            year: "numeric",
+                          },
                         )}
                       </h4>
                     </div>
