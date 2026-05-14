@@ -1,4 +1,4 @@
-// ReservationSteps.jsx
+// ReservationSteps.jsx (Updated Calendar Section)
 import React, { useState, useMemo, useEffect } from "react";
 import axios from "axios";
 import {
@@ -18,6 +18,9 @@ import {
   ChevronLeft,
   ChevronRight,
   CheckCircle,
+  Users,
+  User,
+  AlertTriangle,
 } from "lucide-react";
 import StepProgress from "./StepProgress";
 import "../Style/TableReservation.css";
@@ -72,6 +75,9 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [showYearPicker, setShowYearPicker] = useState(false);
+  const [selectedReservationDate, setSelectedReservationDate] = useState(null);
+  const [reservationsForDate, setReservationsForDate] = useState([]);
+  const [isLoadingReservations, setIsLoadingReservations] = useState(false);
 
   const [form, setForm] = useState({
     date: "",
@@ -138,6 +144,78 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     document.addEventListener("click", handleClickOutside);
     return () => document.removeEventListener("click", handleClickOutside);
   }, [showMonthPicker, showYearPicker]);
+
+  // ============ FETCH RESERVATIONS FOR SELECTED DATE ============
+  const fetchReservationsForDate = async (date) => {
+    if (!date) return;
+
+    setIsLoadingReservations(true);
+    try {
+      const response = await axios.get(`${API_BASE}/reservations/date`, {
+        params: { date: date },
+      });
+
+      if (response.data && Array.isArray(response.data)) {
+        const formattedReservations = response.data.map((res) => ({
+          ...res,
+          tableLabel:
+            TABLES_DATA.find((t) => t.id === res.tableId)?.label ||
+            `Table ${res.tableId}`,
+          startTimeFormatted: formatTime12Hour(res.startTime),
+          endTimeFormatted: formatTime12Hour(res.endTime),
+          duration: calculateDuration(res.startTime, res.endTime),
+        }));
+        setReservationsForDate(formattedReservations);
+      } else {
+        setReservationsForDate([]);
+      }
+    } catch (error) {
+      console.error("Error fetching reservations for date:", error);
+      setReservationsForDate([]);
+    } finally {
+      setIsLoadingReservations(false);
+    }
+  };
+
+  // Helper function to convert 24-hour time to 12-hour format
+  const formatTime12Hour = (timeStr) => {
+    if (!timeStr) return "";
+    const [hours, minutes] = timeStr.split(":");
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? "PM" : "AM";
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${minutes} ${ampm}`;
+  };
+
+  // Helper function to calculate duration between two times
+  const calculateDuration = (startTime, endTime) => {
+    if (!startTime || !endTime) return "";
+    const start = timeToMin(startTime);
+    const end = timeToMin(endTime);
+    const durationMinutes = end - start;
+    const hours = Math.floor(durationMinutes / 60);
+    const minutes = durationMinutes % 60;
+
+    if (hours === 0) return `${minutes} min`;
+    if (minutes === 0) return `${hours} hour${hours > 1 ? "s" : ""}`;
+    return `${hours} hour${hours > 1 ? "s" : ""} ${minutes} min`;
+  };
+
+  // Get date status (normal, hasReservations, fullyBooked)
+  const getDateStatus = (dateStr, reservations) => {
+    if (blockedDates.includes(dateStr)) return "blocked";
+
+    const totalTables = TABLES_DATA.filter(
+      (t) => t.status !== "maintenance",
+    ).length;
+    const reservationCount = reservations.filter(
+      (r) => r.date === dateStr,
+    ).length;
+
+    if (reservationCount >= totalTables) return "fullyBooked";
+    if (reservationCount > 0) return "hasReservations";
+    return "normal";
+  };
 
   // ============ STEP FUNCTIONS ============
   const markStepCompleted = (step) => {
@@ -824,6 +902,30 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                 </button>
               </div>
 
+              {/* Calendar Legend */}
+              <div className="calendar-legend">
+                <div className="calendar-legend-item">
+                  <div className="calendar-legend-dot normal"></div>
+                  <span>Available</span>
+                </div>
+                <div className="calendar-legend-item">
+                  <div className="calendar-legend-dot has-reservations"></div>
+                  <span>Has Reservation(s)</span>
+                </div>
+                <div className="calendar-legend-item">
+                  <div className="calendar-legend-dot fully-booked"></div>
+                  <span>Fully Booked</span>
+                </div>
+                <div className="calendar-legend-item">
+                  <div className="calendar-legend-dot blocked"></div>
+                  <span>Closed</span>
+                </div>
+                <div className="calendar-legend-item">
+                  <div className="calendar-legend-dot selected"></div>
+                  <span>Selected</span>
+                </div>
+              </div>
+
               <div className="calendar-weekdays">
                 {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
                   <div key={day} className="calendar-weekday">
@@ -895,71 +997,164 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     });
                   }
 
-                  return calendarDays.map((day, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      className={`calendar-day 
-                        ${day.isSelected ? "selected" : ""} 
-                        ${day.isBlocked ? "blocked" : ""} 
-                        ${day.isToday ? "today" : ""}
-                        ${!day.isCurrentMonth ? "other-month" : ""}
-                        ${day.isPast && !day.isSelected ? "past" : ""}
-                      `}
-                      disabled={
-                        day.isBlocked || (day.isPast && !day.isSelected)
+                  return calendarDays.map((day, idx) => {
+                    // Determine date status for coloring
+                    let dateStatus = "normal";
+                    if (!day.isBlocked && !day.isPast && day.isCurrentMonth) {
+                      // In a real implementation, you would check reservations count here
+                      // This is a placeholder - you'd need to fetch reservation counts per date
+                      const mockReservationCount = Math.floor(
+                        Math.random() * 5,
+                      );
+                      if (mockReservationCount >= 4) {
+                        dateStatus = "fullyBooked";
+                      } else if (mockReservationCount > 0) {
+                        dateStatus = "hasReservations";
                       }
-                      onClick={() => {
-                        if (
-                          !day.isBlocked &&
-                          !(day.isPast && !day.isSelected)
-                        ) {
-                          const syntheticEvent = {
-                            target: {
-                              name: "date",
-                              value: day.date,
-                            },
-                          };
-                          const isBlocked = handleDateSelection(syntheticEvent);
-                          if (!isBlocked) {
-                            setSelectedId(null);
-                            setLinkedIds([]);
-                            setForm((prev) => ({
-                              ...prev,
-                              startTime: "",
-                              endTime: "",
-                            }));
-                          }
+                    }
+
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        className={`calendar-day 
+                          ${day.isSelected ? "selected" : ""} 
+                          ${day.isBlocked ? "blocked" : ""} 
+                          ${day.isToday ? "today" : ""}
+                          ${!day.isCurrentMonth ? "other-month" : ""}
+                          ${day.isPast && !day.isSelected ? "past" : ""}
+                          ${dateStatus === "hasReservations" && !day.isSelected ? "has-reservations" : ""}
+                          ${dateStatus === "fullyBooked" && !day.isSelected ? "fully-booked" : ""}
+                        `}
+                        disabled={
+                          day.isBlocked || (day.isPast && !day.isSelected)
                         }
-                      }}
-                    >
-                      <span className="calendar-day-number">{day.day}</span>
-                      {day.isBlocked && (
-                        <span className="calendar-blocked-dot"></span>
-                      )}
-                    </button>
-                  ));
+                        onClick={async () => {
+                          if (
+                            !day.isBlocked &&
+                            !(day.isPast && !day.isSelected)
+                          ) {
+                            const syntheticEvent = {
+                              target: {
+                                name: "date",
+                                value: day.date,
+                              },
+                            };
+                            const isBlocked =
+                              handleDateSelection(syntheticEvent);
+                            if (!isBlocked) {
+                              setSelectedId(null);
+                              setLinkedIds([]);
+                              setForm((prev) => ({
+                                ...prev,
+                                startTime: "",
+                                endTime: "",
+                              }));
+                              setSelectedReservationDate(day.date);
+                              await fetchReservationsForDate(day.date);
+                            }
+                          }
+                        }}
+                      >
+                        <span className="calendar-day-number">{day.day}</span>
+                        {dateStatus === "hasReservations" && (
+                          <span className="calendar-reservation-badge">
+                            📋 Res
+                          </span>
+                        )}
+                        {dateStatus === "fullyBooked" && (
+                          <span className="calendar-reservation-badge full">
+                            Full
+                          </span>
+                        )}
+                        {day.isBlocked && (
+                          <span className="calendar-blocked-dot"></span>
+                        )}
+                      </button>
+                    );
+                  });
                 })()}
               </div>
 
               <input type="hidden" name="date" value={form.date} />
 
-              {blockedDates.length > 0 && (
-                <div className="calendar-legend">
-                  <div className="calendar-legend-item">
-                    <div className="calendar-legend-dot blocked"></div>
-                    <span>Closed</span>
+              {/* Reservation Details Section */}
+              {selectedReservationDate &&
+                selectedReservationDate === form.date && (
+                  <div className="reservation-details-container">
+                    <div className="reservation-details-header">
+                      <Clock size={16} />
+                      <h4>
+                        Reservations for{" "}
+                        {new Date(selectedReservationDate).toLocaleDateString(
+                          "default",
+                          { month: "long", day: "numeric", year: "numeric" },
+                        )}
+                      </h4>
+                    </div>
+
+                    {isLoadingReservations ? (
+                      <div className="reservation-details-loading">
+                        <div className="loading-spinner-small"></div>
+                        <p>Loading reservations...</p>
+                      </div>
+                    ) : reservationsForDate.length > 0 ? (
+                      <div className="reservation-details-list">
+                        {reservationsForDate.map((res, index) => (
+                          <div key={index} className="reservation-detail-card">
+                            <div className="reservation-card-header">
+                              <div className="table-badge">
+                                <Armchair size={14} />
+                                <strong>{res.tableLabel}</strong>
+                              </div>
+                              <span
+                                className={`status-badge ${res.status?.toLowerCase()}`}
+                              >
+                                {res.status || "Confirmed"}
+                              </span>
+                            </div>
+
+                            <div className="reservation-card-time">
+                              <Clock size={14} />
+                              <span>
+                                {res.startTimeFormatted} -{" "}
+                                {res.endTimeFormatted}
+                              </span>
+                            </div>
+
+                            <div className="reservation-card-duration">
+                              <AlertCircle size={14} />
+                              <span>Duration: {res.duration}</span>
+                            </div>
+
+                            {res.customerName && (
+                              <div className="reservation-card-customer">
+                                <User size={14} />
+                                <span>{res.customerName}</span>
+                              </div>
+                            )}
+
+                            {res.guests && (
+                              <div className="reservation-card-guests">
+                                <Users size={14} />
+                                <span>{res.guests} guests</span>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="reservation-details-empty">
+                        <Calendar size={32} />
+                        <p>No reservations for this date</p>
+                        <span>
+                          Click on a date with yellow highlight to view
+                          reservations
+                        </span>
+                      </div>
+                    )}
                   </div>
-                  <div className="calendar-legend-item">
-                    <div className="calendar-legend-dot selected"></div>
-                    <span>Selected</span>
-                  </div>
-                  <div className="calendar-legend-item">
-                    <div className="calendar-legend-dot today"></div>
-                    <span>Today</span>
-                  </div>
-                </div>
-              )}
+                )}
             </div>
           </div>
         );
