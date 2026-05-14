@@ -71,17 +71,45 @@ function Product() {
     setNewItem({ name: "", description: "", price: "", category_id: categories[0]?.category_id || "", image: null, is_available: 1, is_featured: 0 });
   };
 
-  const handleAddOrUpdateMenuItem = async (e) => {
-    e.preventDefault();
-    const formData = new FormData();
-    Object.keys(newItem).forEach(key => { if (newItem[key] !== null) formData.append(key, newItem[key]); });
-    try {
-      if (isEditing) await axios.put(`${API_BASE}/products/${editId}`, formData);
-      else await axios.post(`${API_BASE}/products`, formData);
-      fetchData(); resetForm();
-      if (closeBtnRef.current) closeBtnRef.current.click();
-    } catch (err) { alert("Error saving item."); }
+const handleAddOrUpdateMenuItem = async (e) => {
+  e.preventDefault();
+  
+  // 1. Get the token from localStorage
+  const token = localStorage.getItem("token");
+
+  // 2. Setup the config with the header
+  const config = {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      // Note: Do NOT set Content-Type here; 
+      // Axios handles it automatically when sending FormData
+    },
   };
+
+  const formData = new FormData();
+  Object.keys(newItem).forEach((key) => {
+    if (newItem[key] !== null) formData.append(key, newItem[key]);
+  });
+
+  try {
+    if (isEditing) {
+      // 3. Pass 'config' as the 3rd argument for PUT
+      await axios.put(`${API_BASE}/products/${editId}`, formData, config);
+      alert("Dish Updated Successfully!");
+    } else {
+      // 3. Pass 'config' as the 3rd argument for POST
+      await axios.post(`${API_BASE}/products`, formData, config);
+      alert("New Dish Added Successfully!");
+    }
+    
+    fetchData();
+    resetForm();
+    if (closeBtnRef.current) closeBtnRef.current.click();
+  } catch (err) {
+    console.error(err);
+    alert(err.response?.data?.error || "Error saving item.");
+  }
+};
 
 const deleteMenuItem = async (id) => {
   if (window.confirm("Remove item?")) {
