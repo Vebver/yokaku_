@@ -1,8 +1,12 @@
 // src/api.js
 import axios from "axios";
 
-// This pulls the URL from your Vercel/Local env
-const API_URL = "https://yokaku-backend.onrender.com/api";
+// 1. Smart Detection
+const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+
+const API_URL = isLocal 
+  ? "http://localhost:5000/api" 
+  : "https://yokaku-backend.onrender.com/api";
 
 const api = axios.create({
   baseURL: API_URL,
@@ -11,7 +15,7 @@ const api = axios.create({
   },
 });
 
-// Optional: Automatically attach the token if it exists in localStorage
+// 2. Automated Token Attachment (The Interceptor)
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
   if (token) {

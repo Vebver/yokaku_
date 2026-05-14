@@ -1,16 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  PointElement,
-  LineElement,
-} from "chart.js";
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, PointElement, LineElement } from "chart.js";
+import { Info } from "lucide-react";
 
 // Internal Components
 import Billing from "./Billing";
@@ -29,17 +20,9 @@ import "../../Style/AdminDashboard.css";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-);
+ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, Title, Tooltip, Legend);
 
+// 1. Sidebar Icons
 const Icons = {
   Dashboard: () => <i className="bi bi-speedometer2 me-2"></i>,
   Inventory: () => <i className="bi bi-boxes me-2"></i>,
@@ -54,6 +37,7 @@ const Icons = {
   Maintenance: () => <i className="bi bi-tools me-2"></i>,
 };
 
+// 2. Navigation Items
 const navItems = [
   { id: "dashboard", label: "Dashboard", icon: Icons.Dashboard },
   { id: "categories", label: "Categories", icon: Icons.Categories },
@@ -70,22 +54,18 @@ const navItems = [
 ];
 
 const StatCard = ({ title, value, color, icon }) => (
-  <div className="col-12 col-md-4">
-    <div className="card border-0 shadow-sm h-100 rounded-4 bg-white text-dark">
-      <div className="card-body p-4 text-center">
-        <div
-          className={`mx-auto mb-3 d-flex align-items-center justify-content-center rounded-circle bg-${color}-subtle text-${color}`}
-          style={{ width: "60px", height: "60px" }}
-        >
-          <i className={`bi ${icon}`} style={{ fontSize: "1.8rem" }}></i>
+  <div className="col-4 px-1"> {/* px-1 for tighter horizontal spacing */}
+    <div className="card border-0 shadow-sm rounded-3 bg-white mt-3">
+      {/* Tight py-1 px-2 padding */}
+      <div className="card-body py-1 px-2 d-flex align-items-center gap-2">
+        <div className={`d-flex align-items-center justify-content-center rounded-circle bg-${color}-subtle text-${color}`}
+          style={{ width: "26px", height: "26px", flexShrink: 0 }}>
+          <i className={`bi ${icon}`} style={{ fontSize: "0.8rem" }}></i>
         </div>
-        <p
-          className="text-muted fw-bold text-uppercase mb-1"
-          style={{ letterSpacing: "1px", fontSize: "0.8rem" }}
-        >
-          {title}
-        </p>
-        <h2 className="fw-bold mb-0">{value}</h2>
+        <div className="text-truncate" style={{ lineHeight: '1.1' }}>
+          <p className="text-muted fw-bold text-uppercase mb-0" style={{ fontSize: "0.5rem" }}>{title}</p>
+          <h6 className="fw-bold mb-0" style={{ fontSize: "0.85rem" }}>{value}</h6>
+        </div>
       </div>
     </div>
   </div>
@@ -94,87 +74,80 @@ const StatCard = ({ title, value, color, icon }) => (
 function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeSection, setActiveSection] = useState("dashboard");
-  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 768); // Auto-close on small screens
+  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 768);
   const [loading, setLoading] = useState(true);
-
-  const [stats, setStats] = useState({
-    totalBookings: 0,
-    activeTables: 0,
-    kitchenQueue: 0,
-  });
+  const [todaySchedule, setTodaySchedule] = useState([]);
+  const [stats, setStats] = useState({ totalBookings: 0, activeTables: 0, kitchenQueue: 0 });
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    const role = localStorage.getItem("userRole");
+    const role = localStorage.getItem("role");
     if (token && role === "admin") {
-      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
       setIsAuthenticated(true);
       fetchDashboardData();
     } else {
       setIsAuthenticated(false);
       setLoading(false);
     }
-
-    // Auto-collapse sidebar on window resize
-    const handleResize = () => {
-      if (window.innerWidth <= 768) setSidebarOpen(false);
-      else setSidebarOpen(true);
-    };
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   const fetchDashboardData = async () => {
     try {
-      setLoading(true);
       const token = localStorage.getItem("token");
       const config = { headers: { Authorization: `Bearer ${token}` } };
-      const statsRes = await axios.get(`${API_BASE}/admin/stats`, config);
+      const [statsRes, scheduleRes] = await Promise.all([
+        axios.get(`${API_BASE}/admin/stats`, config),
+        axios.get(`${API_BASE}/admin/today-schedule`, config),
+      ]);
       setStats(statsRes.data);
-    } catch (error) {
-      console.error("Error fetching dashboard data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLogout = () => {
-    localStorage.clear();
-    delete axios.defaults.headers.common["Authorization"];
-    setIsAuthenticated(false);
-    window.location.href = "/";
+      setTodaySchedule(scheduleRes.data);
+    } catch (error) { console.error("Fetch error", error); }
+    finally { setLoading(false); }
   };
 
   const DashboardOverview = () => (
-    <div className="container-fluid fade-in py-3">
-      <div className="mb-4">
-        <h1 className="fw-bold text-dark">Welcome Back, Admin</h1>
-        <p className="text-muted">Here is what's happening at Hangout today.</p>
+  <div className="fade-in">
+    {/* 1. TIMELINE - mb-2 instead of mb-3 to close the gap */}
+     <div className="mb-1 bg-white p-2 rounded-3 shadow-sm border-start border-4 border-warning mt-0">
+      <div className="d-flex align-items-center mb-0">
+        <Info size={12} className="text-warning me-2" />
+        <span className="fw-bold" style={{ fontSize: "0.65rem" }}>Today's Timeline</span>
       </div>
-
-      <div className="row g-3 mb-5">
-        <StatCard
-          title="Total Bookings"
-          value={stats.totalBookings}
-          color="primary"
-          icon="bi-calendar-check-fill"
-        />
-        <StatCard
-          title="Active Tables"
-          value={stats.activeTables}
-          color="success"
-          icon="bi-door-open-fill"
-        />
-        <StatCard
-          title="Kitchen Queue"
-          value={stats.kitchenQueue}
-          color="warning"
-          icon="bi-egg-fried"
-        />
+      <div className="d-flex gap-2 overflow-auto no-scrollbar" style={{ whiteSpace: "nowrap" }}>
+         {todaySchedule.length > 0 ? todaySchedule.map((res, i) => (
+            <div key={i} className="bg-light px-2 py-1 rounded-2 border small d-inline-block shadow-sm" style={{ fontSize: "0.65rem" }}>
+              <span className="fw-bold text-primary">{res.reservation_time?.substring(0, 5)}</span>
+              <span className="mx-1">|</span>
+              <span className="fw-semibold">{res.first_name}</span>
+              <span className="badge bg-dark ms-1">T-{res.table_names}</span>
+            </div>
+         )) : <span className="text-muted" style={{fontSize: '0.65rem'}}>No arrivals for today.</span>}
       </div>
     </div>
-  );
 
+    {/* 2. STATS CARDS - mb-2 to stay close to the floor status */}
+    <div className="row g-2 mb-1 mt-0 px-1"> 
+      <StatCard title="Bookings" value={stats.totalBookings} color="primary" icon="bi-calendar-check" />
+      <StatCard title="Occupied" value={stats.activeTables} color="success" icon="bi-door-open" />
+      <StatCard title="Queue" value={stats.kitchenQueue} color="warning" icon="bi-egg-fried" />
+    </div>
+
+    {/* 3. FLOOR STATUS - Removed the extra card wrapper to reduce double padding */}
+    <div className="mt-4"> 
+      <div className="d-flex justify-content-between align-items-center mb-0 mt-1 px-1">
+        <h6 className="fw-bold mb-0 text-dark" style={{ fontSize: "0.8rem" }}>Floor Status</h6>
+        <button className="btn btn-sm p-0 text-primary fw-bold" style={{ fontSize: "0.7rem" }} onClick={() => setActiveSection("table-status")}>
+           Full View →
+        </button>
+      </div>
+      
+      {/* The actual component with zero extra margin */}
+      <div className="bg-white rounded-3 shadow-sm p-0 border">
+        <TableStatus compact={true} />
+      </div>
+    </div>
+  </div>
+);
   const renderSection = () => {
     const sections = {
       dashboard: <DashboardOverview />,
@@ -190,124 +163,67 @@ function AdminDashboard() {
       "table-status": <TableStatus />,
       maintenance: <Maintenance />,
     };
-    return sections[activeSection] || null;
+    return sections[activeSection] || <DashboardOverview />;
   };
 
-  if (!isAuthenticated && !loading) {
-    return (
-      <div className="vh-100 d-flex align-items-center justify-content-center bg-light text-dark p-3">
-        <div
-          className="card border-0 shadow p-4 text-center w-100"
-          style={{ maxWidth: "400px" }}
-        >
-          <i
-            className="bi bi-shield-lock-fill text-danger"
-            style={{ fontSize: "3rem" }}
-          ></i>
-          <h2 className="fw-bold mb-3">Access Denied</h2>
-          <button
-            className="btn btn-dark btn-lg w-100"
-            onClick={() => (window.location.href = "/")}
-          >
-            Return to Home
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const handleLogout = () => { localStorage.clear(); window.location.href = "/"; };
 
   return (
-    <div
-      className={`admin-layout ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}
-    >
-      {/* MOBILE OVERLAY */}
-      <div
-        className={`sidebar-overlay ${sidebarOpen ? "show" : ""}`}
-        onClick={() => setSidebarOpen(false)}
-      ></div>
-
-      {/* SIDEBAR */}
-      <aside
-        className={`admin-sidebar bg-dark text-white ${sidebarOpen ? "expanded" : "collapsed"}`}
-      >
-        <div className="sidebar-header d-flex align-items-center justify-content-between px-3">
-          {sidebarOpen && <h4 className="fw-bold mb-0 text-white">Hangout</h4>}
-          <button
-            className="btn btn-dark btn-sm d-none d-md-block ms-auto"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-          >
-            <i
-              className={`bi ${sidebarOpen ? "bi-chevron-left" : "bi-list"} fs-5 text-white`}
-            ></i>
-          </button>
-          {/* Mobile close button */}
-          <button
-            className="btn btn-dark d-md-none"
-            onClick={() => setSidebarOpen(false)}
-          >
-            <i className="bi bi-x-lg text-white"></i>
+    <div className={`admin-layout ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
+      <aside className={`admin-sidebar bg-dark text-white ${sidebarOpen ? "expanded" : "collapsed"}`}>
+        <div className="sidebar-header d-flex align-items-center p-3 flex-shrink-0">
+          {sidebarOpen && <h4 className="fw-bold mb-0 text-white">HANGOUT</h4>}
+          <button className="btn btn-dark btn-sm ms-auto" onClick={() => setSidebarOpen(!sidebarOpen)}>
+            <i className={`bi ${sidebarOpen ? "bi-chevron-left" : "bi-list"}`}></i>
           </button>
         </div>
 
-        <div className="sidebar-nav-container">
-          <nav className="nav flex-column gap-1 px-2">
-            {navItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => {
-                  setActiveSection(item.id);
-                  if (window.innerWidth <= 768) setSidebarOpen(false); // Auto-close on click for mobile
-                }}
-                className={`nav-link text-start border-0 rounded py-3 px-3 d-flex align-items-center transition-all ${
-                  activeSection === item.id
-                    ? "bg-success text-white active"
-                    : "text-secondary bg-transparent"
-                }`}
-              >
-                <item.icon />
-                {sidebarOpen && <span className="ms-2">{item.label}</span>}
-              </button>
-            ))}
-          </nav>
-        </div>
+        <nav className="nav flex-column flex-nowrap gap-1 px-2 mt-2 custom-nav" style={{ overflowY: "auto", overflowX: "hidden", flex: 1 }}>
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => { setActiveSection(item.id); if (window.innerWidth < 992) setSidebarOpen(false); }}
+              className={`nav-link text-start border-0 rounded-2 py-2 px-3 d-flex align-items-center mb-1 transition-all ${activeSection === item.id ? "bg-primary text-white" : "text-secondary bg-transparent"}`}
+              style={{ whiteSpace: 'nowrap' }}
+            >
+              <item.icon />
+              {sidebarOpen && <span className="ms-2 small">{item.label}</span>}
+            </button>
+          ))}
+        </nav>
 
-        <div className="sidebar-footer px-3 pb-4">
-          <button
-            className="btn btn-outline-danger btn-sm w-100 py-2"
-            onClick={handleLogout}
-          >
-            <i className="bi bi-box-arrow-left"></i>
-            {sidebarOpen && <span className="ms-2">Logout</span>}
+        <div className="sidebar-footer p-3 flex-shrink-0">
+          <button className="btn btn-outline-danger btn-sm w-100" onClick={handleLogout}>
+            <i className="bi bi-box-arrow-left"></i> {sidebarOpen && "Logout"}
           </button>
         </div>
       </aside>
 
-      {/* MAIN CONTENT AREA */}
-      <div className="main-container bg-light">
-        {/* MOBILE TOP NAV (Hamburger) */}
-        <header className="mobile-top-nav d-md-none bg-dark text-white p-3 d-flex justify-content-between align-items-center">
-          <h5 className="mb-0">Hangout Admin</h5>
-          <button
-            className="btn btn-dark border"
-            onClick={() => setSidebarOpen(true)}
-          >
-            <i className="bi bi-list fs-4"></i>
-          </button>
-        </header>
-
-        <main className="p-2 p-md-4">
-          {loading ? (
-            <div
-              className="d-flex justify-content-center align-items-center"
-              style={{ minHeight: "60vh" }}
-            >
-              <div className="spinner-border text-success"></div>
-            </div>
-          ) : (
-            renderSection()
-          )}
-        </main>
+      <div className="main-container bg-light" style={{ marginLeft: sidebarOpen ? "250px" : "80px", transition: "all 0.3s ease" }}>
+        <main className="px-2 px-md-3 pt-1 pb-3"> 
+  {loading ? (
+    <div className="d-flex justify-content-center py-5"><div className="spinner-border text-primary"></div></div>
+  ) : (
+    renderSection()
+  )}
+</main>
       </div>
+
+      <style>{`
+        .custom-nav::-webkit-scrollbar { width: 4px; }
+        .custom-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .admin-sidebar { position: fixed; height: 100vh; display: flex; flex-direction: column; z-index: 1000; width: 250px; transition: width 0.3s ease; }
+        .admin-sidebar.collapsed { width: 80px; }
+        .main-container { min-height: 100vh; }
+        .collapsed .nav-link { justify-content: center; padding: 12px !important; }
+        .collapsed .nav-link i { margin: 0 !important; font-size: 1.25rem; }
+        @media (max-width: 768px) {
+          .main-container { margin-left: 0 !important; }
+          .admin-sidebar { left: -250px; }
+          .sidebar-open .admin-sidebar { left: 0; width: 250px; }
+        }
+      `}</style>
     </div>
   );
 }

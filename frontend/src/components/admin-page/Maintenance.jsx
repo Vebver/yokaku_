@@ -4,6 +4,7 @@ import { Save, Smartphone, User, RefreshCw } from "lucide-react";
 // 1. IMPORT THE NEW FILE
 import DatabaseMaintenance from "./DatabaseMaintenance";
 import HolidayMaintenance from "./HolidayMaintenance";
+import PricingMaintenance from "./PricingMaintenance";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
@@ -135,7 +136,7 @@ const Maintenance = () => {
           </div>
         </form>
       </div>
-
+      <PricingMaintenance />
       {/* SECTION 2: Database Maintenance */}
       <DatabaseMaintenance />
       <HolidayMaintenance />
