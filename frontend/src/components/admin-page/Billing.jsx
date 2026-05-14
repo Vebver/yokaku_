@@ -89,24 +89,29 @@ const Billing = () => {
     }
   };
 
- const handleSettleFullBill = async (resId) => {
-  if (!window.confirm("Mark this bill as fully settled and COMPLETED?")) return;
-  
-  try {
-    const token = localStorage.getItem("token");
-    
-    // This endpoint should point to a controller that calls Billing.settleReservation(resId)
-    await axios.put(`${API_BASE}/billing/settle/${resId}`, {}, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+  const handleSettleFullBill = async (resId) => {
+    if (!window.confirm("Mark this bill as fully settled and COMPLETED?"))
+      return;
 
-    alert("Transaction Finished!");
-    fetchPayments(); // Refresh list to show updated status
-    if (closeBtnRef.current) closeBtnRef.current.click();
-  } catch (err) {
-    alert("Error settling bill.");
-  }
-};
+    try {
+      const token = localStorage.getItem("token");
+
+      // This endpoint should point to a controller that calls Billing.settleReservation(resId)
+      await axios.put(
+        `${API_BASE}/billing/settle/${resId}`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+
+      alert("Transaction Finished!");
+      fetchPayments(); // Refresh list to show updated status
+      if (closeBtnRef.current) closeBtnRef.current.click();
+    } catch (err) {
+      alert("Error settling bill.");
+    }
+  };
 
   const calculateItemsSum = () => {
     return orderItems.reduce(
@@ -400,13 +405,18 @@ const Billing = () => {
                 {/* LOGIC: Only show "Settle Bill" if it's not already completed */}
                 {selectedPayment.status !== "completed" && (
                   <button
-                    className="btn btn-warning w-100 py-2 fw-bold shadow-sm mb-2 text-dark"
+                    className="btn btn-warning w-100 py-2 fw-bold shadow-sm mb-2 text-dark d-flex align-items-center justify-content-center"
                     onClick={() =>
                       handleSettleFullBill(selectedPayment.reservation_id)
                     }
                   >
-                    <DollarSign size={16} className="me-1" /> Settle Remaining
-                    Balance
+                    {/* Using text symbol for Peso */}
+                    <span
+                      className="me-2 fs-5 fw-bold"
+                      style={{ marginTop: "-2px" }}
+                    >
+                    </span>
+                    Settle Remaining Balance
                   </button>
                 )}
 

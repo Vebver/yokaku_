@@ -5,6 +5,7 @@ import {
   CategoryScale,
   LinearScale,
   BarElement,
+  Title,
   Tooltip,
   Legend,
   PointElement,
