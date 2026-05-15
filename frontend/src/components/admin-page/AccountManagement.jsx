@@ -110,7 +110,7 @@ const AccountManagement = () => {
             <thead className="bg-light border-bottom">
               <tr className="text-muted small text-uppercase" style={{ fontSize: "0.7rem", letterSpacing: '0.8px' }}>
                 <th className="ps-4 py-3">Profile</th>
-                <th>Full Name & ID</th>
+                <th>Full Name</th>
                 <th>Email Address</th>
                 <th>Current Role</th>
                 <th className="text-end pe-4">Manage Permissions</th>
@@ -130,7 +130,7 @@ const AccountManagement = () => {
                   </td>
                   <td>
                     <div className="fw-bold text-dark">{user.first_name} {user.last_name}</div>
-                    <code className="text-muted" style={{ fontSize: '0.6rem' }}>#{user.user_id}</code>
+                    <code className="text-muted" style={{ fontSize: '0.6rem' }}></code>
                   </td>
                   <td className="text-muted small">{user.email || "No Email"}</td>
                   <td>

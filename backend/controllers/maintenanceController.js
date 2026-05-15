@@ -14,7 +14,7 @@ const maintenanceController = {
   },
 
   // OPTIMIZE STORAGE
-  Reset: async (req, res) => {
+  reset: async (req, res) => {
     try {
       const count = await Maintenance.resetFloorStatus();
       res.json({ message: `Storage Optimized. ${count} old receipt images were cleared to save space.` });
