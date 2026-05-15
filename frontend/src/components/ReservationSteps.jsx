@@ -1,4 +1,4 @@
-// ReservationSteps.jsx (Updated with REAL calendar data)
+// ReservationSteps.jsx (Updated with PAX field in Step 2)
 import React, { useState, useMemo, useEffect } from "react";
 import axios from "axios";
 import {
@@ -92,6 +92,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     occasion: "",
     customOccasion: "",
     allergyCount: "",
+    pax: "", // ADD PAX FIELD HERE
   });
 
   const [user, setUser] = useState({
@@ -162,7 +163,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       );
 
       if (response.data && Array.isArray(response.data)) {
-        // Group reservations by date
         const groupedByDate = {};
         const countsByDate = {};
 
@@ -199,7 +199,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
 
     setIsLoadingReservations(true);
     try {
-      // First check if we already have cached data
       if (allReservationsByDate[date]) {
         const formattedReservations = allReservationsByDate[date].map(
           (res) => ({
@@ -220,14 +219,12 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         );
         setReservationsForDate(formattedReservations);
       } else {
-        // Fallback to API call
         const response = await axios.get(
           `${API_BASE}/reservations/by-date/${date}`,
         );
 
         if (response.data && Array.isArray(response.data)) {
           const formattedReservations = response.data.map((res) => {
-            // Find table label from TABLES_DATA
             let tableLabel = `Table ${res.table_id}`;
             const foundTable = TABLES_DATA.find((t) => t.id === res.table_id);
             if (foundTable) {
@@ -493,7 +490,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           .map((res) => ({ ...res }));
         setData({ occupied: statRes.data || {}, schedule: processedSchedule });
 
-        // Refresh calendar data periodically
         const year = calendarMonth.getFullYear();
         const month = calendarMonth.getMonth();
         fetchAllReservationsForMonth(year, month);
@@ -618,7 +614,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       ...user,
       ...form,
       userId: localStorage.getItem("userId"),
-      guestCount: totalSeats,
+      guestCount: parseInt(form.pax) || totalSeats,
       tableLabel: primaryTable?.label,
       linkedTables: linkedIds.map(
         (id) => TABLES_DATA.find((t) => t.id === id)?.label,
@@ -744,6 +740,11 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     } else if (name === "customAllergy" || name === "customOccasion") {
       const sanitized = sanitizeStringInput(value);
       setForm((prev) => ({ ...prev, [name]: sanitized }));
+    } else if (name === "pax") {
+      const numValue = parseInt(value);
+      if (value === "" || (numValue >= 1 && numValue <= (totalSeats || 50))) {
+        setForm((prev) => ({ ...prev, [name]: value }));
+      }
     } else if (name in user) {
       setUser((prev) => ({ ...prev, [name]: value }));
     } else {
@@ -810,9 +811,9 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         ...user,
         ...form,
         userId: userId,
-        guests: totalSeats,
-        pax: form.pax || totalSeats, // Add this
-        allergyCount: form.allergyCount || 0, // Add this
+        guests: parseInt(form.pax) || totalSeats,
+        pax: form.pax || totalSeats,
+        allergyCount: form.allergyCount || 0,
         packageName: productDisplayName,
         totalAmount: orderSummary.totalOrderPrice,
         amount: orderSummary.downpayment,
@@ -838,12 +839,11 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           userId: userId,
           date: form.date,
           time: form.startTime,
-          guests: totalSeats,
+          guests: parseInt(form.pax) || totalSeats,
           packageName: productDisplayName,
         });
       }
 
-      // Refresh calendar data after successful booking
       const year = calendarMonth.getFullYear();
       const month = calendarMonth.getMonth();
       await fetchAllReservationsForMonth(year, month);
@@ -1001,7 +1001,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                 </button>
               </div>
 
-              {/* Calendar Legend */}
               <div className="calendar-legend">
                 <div className="calendar-legend-item">
                   <div className="calendar-legend-dot normal"></div>
@@ -1048,7 +1047,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
 
                   const calendarDays = [];
 
-                  // Previous month days
                   const prevMonthDays = new Date(year, month, 0).getDate();
                   for (let i = startDayOfWeek - 1; i >= 0; i--) {
                     const dayNum = prevMonthDays - i;
@@ -1065,7 +1063,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     });
                   }
 
-                  // Current month days
                   for (let i = 1; i <= daysInMonth; i++) {
                     const date = new Date(year, month, i);
                     const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -1087,7 +1084,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     });
                   }
 
-                  // Next month days
                   const remainingCells = 42 - calendarDays.length;
                   for (let i = 1; i <= remainingCells; i++) {
                     const date = new Date(year, month + 1, i);
@@ -1170,7 +1166,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
 
               <input type="hidden" name="date" value={form.date} />
 
-              {/* Reservation Details Section */}
               {selectedReservationDate &&
                 selectedReservationDate === form.date && (
                   <div className="reservation-details-container">
@@ -1255,6 +1250,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           </div>
         );
 
+      // ============ STEP 2 - SELECT TABLE & TIME (WITH PAX FIELD) ============
       case 1:
         return form.date ? (
           <div className="step-content step-tables">
@@ -1306,6 +1302,78 @@ export default function ReservationSteps({ onClose, onSuccess }) {
               </div>
             </div>
 
+            {/* ============ PAX FIELD - ADDED BACK ============ */}
+            <div className="pax-field-container">
+              <div className="input-group pax-input-group">
+                <label>
+                  <Users size={12} /> NUMBER OF GUESTS (PAX)
+                </label>
+                <div className="pax-input-wrapper">
+                  <button
+                    type="button"
+                    className="pax-btn pax-btn-decrease"
+                    onClick={() => {
+                      const currentPax = parseInt(form.pax) || 0;
+                      if (currentPax > 1) {
+                        setForm((prev) => ({
+                          ...prev,
+                          pax: String(currentPax - 1),
+                        }));
+                      }
+                    }}
+                    disabled={!form.pax || parseInt(form.pax) <= 1}
+                  >
+                    -
+                  </button>
+                  <input
+                    type="number"
+                    name="pax"
+                    className="pax-input"
+                    min="1"
+                    max={totalSeats || 20}
+                    value={form.pax}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (
+                        value === "" ||
+                        (parseInt(value) >= 1 &&
+                          parseInt(value) <= (totalSeats || 20))
+                      ) {
+                        handleInputChange(e);
+                      }
+                    }}
+                    placeholder="Enter number of guests"
+                  />
+                  <button
+                    type="button"
+                    className="pax-btn pax-btn-increase"
+                    onClick={() => {
+                      const currentPax = parseInt(form.pax) || 0;
+                      if (currentPax < (totalSeats || 20)) {
+                        setForm((prev) => ({
+                          ...prev,
+                          pax: String(currentPax + 1),
+                        }));
+                      }
+                    }}
+                    disabled={
+                      !form.pax || parseInt(form.pax) >= (totalSeats || 20)
+                    }
+                  >
+                    +
+                  </button>
+                </div>
+                <div className="pax-hint">
+                  <Users size={12} />
+                  <span>
+                    Selected tables can accommodate up to {totalSeats || 0}{" "}
+                    guests
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* ============ OCCUPIED SLOTS SECTION ============ */}
             {selectedId && data.schedule && data.schedule.length > 0 && (
               <div className="table-schedule-section">
                 <h4 className="schedule-header">
@@ -1573,7 +1641,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                 </div>
               </div>
 
-              {/* ============ GUESTS FIELD - AUTO POPULATED FROM PAX ============ */}
               <div className="input-group guests-auto-field">
                 <label>
                   <Users size={12} /> GUESTS
@@ -1673,17 +1740,23 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     </option>
                   ))}
                 </select>
-                {form.allergy === "Other" && (
+                {/* Add a hint text */}
+                <small className="allergy-hint">
+                  Select "Specify all Allergy" to list all allergies in your
+                  group
+                </small>
+
+                {form.allergy === "Specify all Allergy" && (
                   <input
                     type="text"
                     name="customAllergy"
-                    placeholder="Specify allergy"
+                    placeholder="Please specify all allergies (e.g., Peanuts, Shellfish, Dairy)"
                     value={form.customAllergy}
                     onChange={handleInputChange}
+                    className="custom-allergy-input"
                   />
                 )}
 
-                {/* Show allergy count field only when allergy is selected and not "None" */}
                 {form.allergy && form.allergy !== "None" && (
                   <div className="allergy-count-field">
                     <label className="allergy-count-label">
@@ -1717,7 +1790,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   </div>
                 )}
 
-                {/* Disclaimer - only show when allergy is selected and not "None" */}
                 {form.allergy && form.allergy !== "None" && (
                   <div className="allergy-disclaimer">
                     <AlertCircle size={12} className="disclaimer-icon" />
@@ -1735,7 +1807,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           </div>
         );
 
-      case 3: // Choose Package
+      case 3:
         return (
           <div className="step-content step-package">
             <button
@@ -1802,7 +1874,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           </div>
         );
 
-      case 4: // Summary
+      case 4:
         return (
           <div className="step-content step-summary">
             <ReservationSummary

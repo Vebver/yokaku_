@@ -12,18 +12,7 @@ export const TABLES_DATA = [
   { id: 10, label: "Table 10", seats: 3, status: "available" },
 ];
 
-export const ALLERGY_OPTIONS = [
-  "None",
-  "Nuts",
-  "Shellfish",
-  "Dairy",
-  "Eggs",
-  "Soy",
-  "Wheat/Gluten",
-  "Fish",
-  "Sesame",
-  "Other",
-];
+export const ALLERGY_OPTIONS = ["None", "Specify all Allergy"];
 
 export const OCCASION_OPTIONS = [
   "Casual Dining",
