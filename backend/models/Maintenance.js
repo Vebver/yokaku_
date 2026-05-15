@@ -3,19 +3,21 @@ const fs = require('fs');
 const path = require('path');
 
 const Maintenance = {
-    cleanReserve: async () => {
+  // 1. Archive Logic: Removing records that are already finished
+  archiveOldRecords: async () => {
+    // Instead of just 'Seated', we target records that are truly "Done" 
+    // so the manager's active list stays clean.
     const sql = `
       DELETE FROM reservations 
-      WHERE status = 'Seated' 
-      AND created_at < NOW() - INTERVAL 2 HOUR
+      WHERE (status = 'Completed' OR status = 'Rejected' OR status = 'Done' OR status = 'Cancelled') 
+      AND created_at < NOW() - INTERVAL 1 MONTH
     `;
     const [result] = await db.execute(sql);
     return result.affectedRows;
   },
 
- // 2. Storage Management: Delete receipt files of Completed/Rejected orders older than 3 months
-  cleanOldReceipts: async () => {
-    // Get list of file paths from DB for old/finished reservations
+  // 2. Storage Optimization: Deleting physical files
+  optimizeStorage: async () => {
     const sql = `
       SELECT receipt_path FROM reservations 
       WHERE (status = 'Completed' OR status = 'Rejected' OR status = 'Done')
@@ -28,12 +30,11 @@ const Maintenance = {
     rows.forEach(row => {
       const filePath = path.join(__dirname, '../uploads/', row.receipt_path);
       if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath); // Delete file from folder
+        fs.unlinkSync(filePath); 
         deletedCount++;
       }
     });
 
-    // Remove the paths from DB so we don't try to delete them again
     await db.execute(`
       UPDATE reservations SET receipt_path = NULL 
       WHERE (status = 'Completed' OR status = 'Rejected' OR status = 'Done')
@@ -41,7 +42,13 @@ const Maintenance = {
     `);
 
     return deletedCount;
+  },
+
+  // 3. Data Export: Get all records for CSV
+  getExportData: async () => {
+    const [rows] = await db.execute("SELECT * FROM reservations ORDER BY created_at DESC");
+    return rows;
   }
 };
-
+ 
 module.exports = Maintenance;

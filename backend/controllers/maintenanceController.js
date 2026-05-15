@@ -1,64 +1,58 @@
 const Maintenance = require('../models/Maintenance');
-const { exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
 const maintenanceController = {
-     cleanReserve: async (req, res) => {
+  // ARCHIVE OLD RECORDS
+  archiveRecords: async (req, res) => {
     try {
-      const count = await Maintenance.cleanPending();
-      res.json({ message: `Successfully cleared ${count} expired pending reservations.` });
+      const count = await Maintenance.archiveOldRecords();
+      res.json({ message: `System Archive Complete. Moved ${count} old records to history.` });
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: "Failed to archive records." });
     }
   },
 
-  // 2. CLEAN OLD IMAGES
-  cleanStorage: async (req, res) => {
+  // OPTIMIZE STORAGE
+  optimizeStorage: async (req, res) => {
     try {
-      const count = await Maintenance.cleanOldReceipts();
-      res.json({ message: `Successfully deleted ${count} old receipt images to save space.` });
+      const count = await Maintenance.optimizeStorage();
+      res.json({ message: `Storage Optimized. ${count} old receipt images were cleared to save space.` });
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: "Failed to optimize storage." });
     }
   },
 
-  // 3. FIXED: DATABASE BACKUP
-  backupDatabase: (req, res) => {
-    // Ensure the backup directory exists or the command will fail
-    const backupDir = path.join(__dirname, '../backups');
-    if (!fs.existsSync(backupDir)) {
-      fs.mkdirSync(backupDir, { recursive: true });
-    }
+  // EXPORT TO CSV (Replacement for SQL Backup)
+  exportData: async (req, res) => {
+    try {
+      const data = await Maintenance.getExportData();
+      if (data.length === 0) return res.status(404).send("No data to export");
 
-    const fileName = `backup-${Date.now()}.sql`;
-    const outputPath = path.join(backupDir, fileName);
-    
-    // IF THIS FAILS: Replace 'mysqldump' with the full path like:
-    // ' "C:\\xampp\\mysql\\bin\\mysqldump.exe" '
-    const mysqldumpPath = '"C:\\xampp\\mysql\\bin\\mysqldump.exe"'; 
+      // Create CSV Header
+      const fields = Object.keys(data[0]);
+      const csvRows = [fields.join(',')]; // Header row
 
-    const dbUser = "root";
-    const dbName = "yoyaku_db";
-
-    const cmd = `${mysqldumpPath} -u ${dbUser} ${dbName} > "${outputPath}"`;
-
-    exec(cmd, (error, stdout, stderr) => {
-      if (error) {
-        console.error("DUMP ERROR:", stderr);
-        return res.status(500).json({ 
-          error: "MySQL Dump failed.", 
-          details: "Ensure mysqldump is in your System Path or provide the full path in the controller." 
+      // Create Data Rows
+      for (const row of data) {
+        const values = fields.map(field => {
+          const val = row[field] === null ? "" : row[field];
+          return `"${val.toString().replace(/"/g, '""')}"`; // Escape quotes
         });
+        csvRows.push(values.join(','));
       }
+
+      const csvString = csvRows.join('\n');
+      const fileName = `Business_Report_${Date.now()}.csv`;
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
+      res.status(200).send(csvString);
       
-      // Send the file to the browser
-      res.download(outputPath, (err) => {
-        if (err) console.error("Download error:", err);
-        // Optional: delete the file from the server after download to keep it clean
-        // fs.unlinkSync(outputPath); 
-      });
-    });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: "Failed to generate report." });
+    }
   }
 };
 
