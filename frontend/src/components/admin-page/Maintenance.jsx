@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Save, Smartphone, User, RefreshCw } from "lucide-react";
 // 1. IMPORT THE NEW FILE
-import DatabaseMaintenance from "./DatabaseMaintenance";
+import DatabaseMaintenance from "./SystemMaintenance";
 import HolidayMaintenance from "./HolidayMaintenance";
 import PricingMaintenance from "./PricingMaintenance";
 

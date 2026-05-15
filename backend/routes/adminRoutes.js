@@ -23,9 +23,9 @@ router.put('/users/:userId/update-role', protect, adminOnly, adminController.upd
 router.get('/users', protect, adminOnly, adminController.getAllUsers);
 
 // --- MAINTENANCE ROUTES (Keep protected) ---
-router.post('/clean-reserve', protect, adminOnly, maintenanceController.cleanReserve);
-router.post('/clean-storage', protect, adminOnly, maintenanceController.cleanStorage);
-router.get('/backup', protect, adminOnly, maintenanceController.backupDatabase);
+router.post('/archive', protect, adminOnly, maintenanceController.archiveRecords);
+router.post('/optimize', protect, adminOnly, maintenanceController.optimizeStorage);
+router.get('/export-csv', protect, adminOnly, maintenanceController.exportData);
 
 // --- BLOCKED DATES ---
 router.get('/blocked-dates', blockedDateController.list); 
