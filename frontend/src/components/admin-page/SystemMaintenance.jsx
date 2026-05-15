@@ -3,16 +3,14 @@ import axios from "axios";
 import {
   FileSpreadsheet,
   Archive,
-  Sparkles,
+  RefreshCcw, // Added for the Reset card
   AlertTriangle,
+  Settings
 } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const SystemMaintenance = () => {
-  /**
-   * runTask: Handles destructive actions with clear business-focused warnings
-   */
   const runTask = async (endpoint, taskName, warningText) => {
     const confirmed = window.confirm(
       `Action: ${taskName}\n\n${warningText}\n\nAre you sure you want to proceed?`,
@@ -21,7 +19,6 @@ const SystemMaintenance = () => {
     if (!confirmed) return;
 
     try {
-      // Note: Endpoint names now match business logic (archive, optimize)
       const res = await axios.post(`${API_BASE}/admin/${endpoint}`);
       alert("Success: " + res.data.message);
     } catch (err) {
@@ -33,85 +30,89 @@ const SystemMaintenance = () => {
   const downloadReport = async () => {
     try {
       const token = localStorage.getItem("token");
-
       const response = await axios.get(`${API_BASE}/admin/export-csv`, {
         headers: { Authorization: `Bearer ${token}` },
-        responseType: "blob", // Important for downloading files
+        responseType: "blob",
       });
 
-      // Create a hidden link and click it to trigger the download
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       link.href = url;
       link.setAttribute("download", `Business_Report_${Date.now()}.csv`);
       document.body.appendChild(link);
       link.click();
-
-      // Cleanup
       link.parentNode.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error("Download failed", err);
-      alert("Failed to download report. Please check if you are logged in.");
+      alert("Failed to download report. Please check your connection.");
     }
   };
 
   return (
-    <div className="card shadow-sm border-0 p-4 mt-4">
+    <div className="card shadow-sm border-0 p-3 p-md-4 mt-4">
       <div className="d-flex align-items-center mb-4">
-        <h5 className="mb-0 fw-bold text-dark">System Housekeeping</h5>
+        <Settings className="text-secondary me-2" size={24} />
+        <h5 className="mb-0 fw-bold text-dark">Maintenance</h5>
       </div>
 
+      {/* Grid: 1 column on mobile, 2 on tablet, 3 on desktop */}
       <div className="row g-3">
-        {/* 1. EXPORT DATA (CSV) */}
-        <div className="col-md-4">
-          <div className="p-3 border rounded text-center h-100 bg-white">
-            <FileSpreadsheet className="text-success mb-2" size={32} />
-            <h6 className="fw-bold">Export Records</h6>
-            <p className="small text-muted">
-              Download all reservation and payment history as an Excel-friendly
-              CSV file.
-            </p>
+        
+        {/* 1. EXPORT DATA */}
+        <div className="col-12 col-md-6 col-lg-4">
+          <div className="p-4 border rounded text-center h-100 bg-white shadow-sm d-flex flex-column justify-content-between">
+            <div>
+              <FileSpreadsheet className="text-success mb-3" size={40} />
+              <h5 className="fw-bold">Export Records</h5>
+              <p className="small text-muted mb-4">
+                Download all reservation history as an Excel-friendly CSV file.
+              </p>
+            </div>
             <button
               onClick={downloadReport}
-              className="btn btn-outline-success btn-sm w-100 mt-2"
+              className="btn btn-success btn-lg w-100 py-3 fw-bold shadow-sm"
             >
-              Download CSV Report
+              Download Report
             </button>
           </div>
         </div>
 
         {/* 2. ARCHIVE DATA */}
-        <div className="col-md-4">
-          <div className="p-3 border rounded text-center h-100 bg-white">
-            <Archive className="text-primary mb-2" size={32} />
-            <h6 className="fw-bold">Archive History</h6>
-            <p className="small text-muted">
-              Clean up your dashboard by moving completed records older than 1
-              month to history.
-            </p>
+        <div className="col-12 col-md-6 col-lg-4">
+          <div className="p-4 border rounded text-center h-100 bg-white shadow-sm d-flex flex-column justify-content-between">
+            <div>
+              <Archive className="text-primary mb-3" size={40} />
+              <h5 className="fw-bold">Archive History</h5>
+              <p className="small text-muted mb-4">
+                Clean your dashboard by moving records older than 1 month to history.
+              </p>
+            </div>
             <button
               onClick={() =>
                 runTask(
                   "archive",
                   "System Archive",
-                  "This will remove old finished reservations from your active lists to keep the system running fast.",
+                  "This will remove old finished reservations from your active lists.",
                 )
               }
-              className="btn btn-outline-primary btn-sm w-100 mt-2"
+              className="btn btn-primary btn-lg w-100 py-3 fw-bold shadow-sm"
             >
               Run Archiving
             </button>
           </div>
         </div>
 
-        {/* 3. SHIFT RESET (Replaces Optimize) */}
-        <div className="col-md-4">
-          <div className="p-4 border rounded text-center h-100 bg-white shadow-sm">
-            <h5 className="fw-bold">Reset Table</h5>
-            <p className="small text-muted mb-4">
-              Prepares the floor for a new shift.
-            </p>
+        {/* 3. SHIFT RESET */}
+        <div className="col-12 col-md-12 col-lg-4">
+          <div className="p-4 border rounded text-center h-100 bg-white shadow-sm d-flex flex-column justify-content-between">
+            <div>
+              <RefreshCcw className="text-warning mb-3" size={40} />
+              <h5 className="fw-bold">Table Reset</h5>
+              <p className="small text-muted mb-4">
+                Prepares the floor for a new shift by resetting all table statuses.
+              </p>
+            </div>
             <button
               onClick={() =>
                 runTask(
@@ -120,7 +121,7 @@ const SystemMaintenance = () => {
                   "Warning: This will set all tables to 'Available'.",
                 )
               }
-              className="btn btn-outline-warning btn-lg w-100 py-3 fw-bold shadow-sm"
+              className="btn btn-warning btn-lg w-100 py-3 fw-bold shadow-sm"
             >
               Start New Shift
             </button>
@@ -130,10 +131,9 @@ const SystemMaintenance = () => {
 
       {/* Warning Footer */}
       <div className="mt-4 p-3 bg-light rounded border-start border-warning border-4 d-flex align-items-center">
-        <AlertTriangle size={20} className="text-warning me-3" />
+        <AlertTriangle size={20} className="text-warning me-3 flex-shrink-0" />
         <span className="small text-muted">
-          <b>Manager Note:</b> Cleanup actions are permanent. We recommend{" "}
-          <b>Exporting Records</b> once a month for your own physical files.
+          <b>Manager Note:</b> System actions are permanent. We recommend <b>Exporting Records</b> regularly for your physical archives.
         </span>
       </div>
     </div>

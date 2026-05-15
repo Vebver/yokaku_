@@ -17,6 +17,18 @@ function ReviewsSection() {
   useEffect(() => {
     fetchReviews();
     checkEligibility();
+
+    // Re-check eligibility when page becomes visible (e.g., after completing reservation)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        checkEligibility();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, []);
 
   const fetchReviews = async () => {
@@ -56,6 +68,7 @@ function ReviewsSection() {
       setComment("");
       setShowForm(false);
       fetchReviews();
+      checkEligibility(); // Re-check eligibility after submission
     } catch (err) {
       alert("Error submitting feedback");
     }
