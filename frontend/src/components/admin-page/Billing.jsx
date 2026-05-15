@@ -249,16 +249,30 @@ const Billing = () => {
           >
             <ChevronLeft size={16} />
           </button>
-          <span className="btn btn-sm disabled border-0 px-3 text-dark fw-bold">
-            Page {currentPage}
-          </span>
-          <button
-            className="btn btn-sm btn-white border-0 px-3"
-            disabled={currentPage >= totalPages}
-            onClick={() => setCurrentPage((p) => p + 1)}
-          >
-            <ChevronRight size={16} />
-          </button>
+          <div className="btn-group shadow-sm bg-white rounded border overflow-hidden">
+            {/* PREVIOUS BUTTON */}
+            <button
+              className="btn btn-sm btn-white border-0 px-3 py-2"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage((p) => p - 1)}
+            >
+              <ChevronLeft size={16} />
+            </button>
+
+            {/* PAGE INDICATOR - Added "of totalPages" for clarity */}
+            <span className="btn btn-sm disabled border-0 px-3 py-2 text-dark fw-bold bg-white">
+              Page {currentPage} of {totalPages || 1}
+            </span>
+
+            {/* NEXT BUTTON */}
+            <button
+              className="btn btn-sm btn-white border-0 px-3 py-2"
+              disabled={currentPage >= totalPages || totalPages === 0}
+              onClick={() => setCurrentPage((p) => p + 1)}
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -414,8 +428,7 @@ const Billing = () => {
                     <span
                       className="me-2 fs-5 fw-bold"
                       style={{ marginTop: "-2px" }}
-                    >
-                    </span>
+                    ></span>
                     Settle Remaining Balance
                   </button>
                 )}
