@@ -24,10 +24,32 @@ const SystemMaintenance = () => {
       alert("Something went wrong. Please try again or contact support.");
     }
   };
-  const downloadReport = () => {
-    // Points to the new CSV export route
-    window.open(`${API_BASE}/admin/maintenance/export-csv`, "_blank");
-  };
+  
+  const downloadReport = async () => {
+  try {
+    const token = localStorage.getItem("token");
+    
+    const response = await axios.get(`${API_BASE}/admin/maintenance/export-csv`, {
+      headers: { Authorization: `Bearer ${token}` },
+      responseType: 'blob', // Important for downloading files
+    });
+
+    // Create a hidden link and click it to trigger the download
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Business_Report_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    
+    // Cleanup
+    link.parentNode.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error("Download failed", err);
+    alert("Failed to download report. Please check if you are logged in.");
+  }
+};
 
   return (
     <div className="card shadow-sm border-0 p-4 mt-4">

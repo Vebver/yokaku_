@@ -41,6 +41,7 @@ body {
   transition: var(--transition);
   display: flex;
   flex-direction: column;
+  overflow-x: hidden !important; 
 }
 .admin-sidebar.expanded {
   width: var(--sidebar-width);
@@ -51,7 +52,7 @@ body {
 
 .admin-sidebar, 
 .main-container, 
-.nav-link, 
+.nav-link,
 .transition-all {
     transition: none !important; /* This makes movement instant */
 }
@@ -73,6 +74,7 @@ body {
 .custom-nav {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .custom-nav::-webkit-scrollbar {
@@ -147,6 +149,11 @@ body {
 .main-container .bg-white.rounded-4.border .card {
     margin-bottom: 1rem;
     box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
+}
+.nav-label {
+    white-space: nowrap; /* Prevents text from wrapping and making buttons taller */
+    overflow: hidden;
+    text-overflow: ellipsis; /* Adds ... if text is too long */
 }
 /* --- DESKTOP MARGINS --- */
 @media (min-width: 993px) {
