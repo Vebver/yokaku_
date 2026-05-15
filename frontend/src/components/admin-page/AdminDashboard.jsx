@@ -290,7 +290,7 @@ function AdminDashboard() {
                 setActiveSection(item.id);
                 if (window.innerWidth <= 992) setSidebarOpen(false); // Auto-close on mobile after clicking
               }}
-              className={`nav-link w-100 text-start border-0 rounded-2 py-2 px-3 d-flex align-items-center mb-1 transition-all ${activeSection === item.id ? "bg-primary text-white active" : "text-secondary bg-transparent"}`}
+              className={`nav-link w-100 text-start border-0 rounded-2 py-3 px-3 d-flex align-items-center mb-1 transition-all ${activeSection === item.id ? "bg-primary text-white active" : "text-secondary bg-transparent"}`}
             >
               <div className="nav-icon me-2">
                 <item.icon />

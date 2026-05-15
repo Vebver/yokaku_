@@ -16,33 +16,12 @@ const Maintenance = {
     return result.affectedRows;
   },
 
-  // 2. Storage Optimization: Deleting physical files
-  optimizeStorage: async () => {
-    const sql = `
-      SELECT receipt_path FROM reservations 
-      WHERE (status = 'Completed' OR status = 'Rejected' OR status = 'Done')
-      AND created_at < NOW() - INTERVAL 3 MONTH
-      AND receipt_path IS NOT NULL
-    `;
-    const [rows] = await db.execute(sql);
-    
-    let deletedCount = 0;
-    rows.forEach(row => {
-      const filePath = path.join(__dirname, '../uploads/', row.receipt_path);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath); 
-        deletedCount++;
-      }
-    });
-
-    await db.execute(`
-      UPDATE reservations SET receipt_path = NULL 
-      WHERE (status = 'Completed' OR status = 'Rejected' OR status = 'Done')
-      AND created_at < NOW() - INTERVAL 3 MONTH
-    `);
-
-    return deletedCount;
-  },
+  //Resets aanad refresh the tables
+ resetFloorStatus: async () => {
+  // Sets all tables back to available for the new shift
+  await db.execute("UPDATE tables SET is_available = 1, current_reservation_id = NULL");
+  return res.affectedRows;
+},
 
   // 3. Data Export: Get all records for CSV
   getExportData: async () => {

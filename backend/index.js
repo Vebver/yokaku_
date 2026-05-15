@@ -121,42 +121,6 @@ app.get("/", (req, res) => {
   });
 });
 
-// --- DEBUG ROUTE - Remove after testing ---
-app.get("/debug/categories-products", async (req, res) => {
-  try {
-    const db = require("./config/db");
-
-    // Get all categories
-    const [categories] = await db.execute(
-      "SELECT category_id, name FROM categories",
-    );
-
-    // Get all products with their category info
-    const [products] = await db.execute(`
-      SELECT p.item_id, p.name, p.price, p.category_id, c.name as category_name
-      FROM menu_items p
-      LEFT JOIN categories c ON p.category_id = c.category_id
-    `);
-
-    // Get products with missing categories
-    const mismatched = products.filter(
-      (p) => !p.category_name && p.category_id,
-    );
-
-    res.json({
-      success: true,
-      totalCategories: categories.length,
-      categories: categories,
-      totalProducts: products.length,
-      products: products,
-      productsWithoutValidCategory: mismatched,
-      mismatchCount: mismatched.length,
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
 // --- ROUTES ---
 app.use("/api/auth", authRoutes);
 app.use("/api/otp", otpRoutes);
