@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { Save, Smartphone, User, RefreshCw } from "lucide-react";
-// 1. IMPORT THE NEW FILE
-import DatabaseMaintenance from "./SystemMaintenance";
+import { Save, Smartphone, Wallet, CreditCard, Cog } from "lucide-react";
+
+// Components
+import SystemMaintenance from "./SystemMaintenance"; // Renamed from DatabaseMaintenance
 import HolidayMaintenance from "./HolidayMaintenance";
 import PricingMaintenance from "./PricingMaintenance";
 
@@ -33,17 +34,14 @@ const Maintenance = () => {
       });
       setLoading(false);
     } catch (err) {
-      console.error(err);
+      console.error("Settings fetch error:", err);
       setLoading(false);
     }
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setSettings((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setSettings((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleUpdate = async (e) => {
@@ -51,95 +49,130 @@ const Maintenance = () => {
     setSaving(true);
     try {
       await axios.put(`${API_BASE}/settings`, { settings });
-      alert("Payment details updated successfully!");
+      alert("Success: Payment details updated.");
     } catch (err) {
-      alert("Failed to update");
+      alert("Failed to update payment details.");
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) return <div className="p-5">Loading Maintenance...</div>;
+  if (loading) return (
+    <div className="p-5 d-flex align-items-center">
+        <div className="spinner-border spinner-border-sm text-primary me-2"></div>
+        <span>Loading Operations Management...</span>
+    </div>
+  );
 
   return (
-    <div className="container p-4">
-      <h2 className="fw-bold mb-4">System Maintenance</h2>
+    <div className="container-fluid p-3 p-md-4 bg-light min-vh-100">
+      <div className="d-flex align-items-center mb-4">
+        <Cog className="me-2 text-secondary" />
+        <h2 className="fw-bold mb-0">Operations & Settings</h2>
+      </div>
 
       {/* SECTION 1: Payment Settings */}
-      <div className="card shadow-sm border-0 p-4">
-        <h5 className="mb-4 text-primary fw-bold">Payment Account Settings</h5>
-        <form onSubmit={handleUpdate}>
-          <div className="row g-4">
-            {/* GCash Section */}
-            <div className="col-md-6">
-              <div className="p-3 border rounded bg-light">
-                <h6 className="fw-bold mb-3">GCash Details</h6>
-                <div className="mb-3">
-                  <label className="small fw-bold">Phone Number</label>
-                  <input
-                    type="text"
-                    name="gcash_number"
-                    className="form-control"
-                    value={settings.gcash_number}
-                    onChange={handleChange}
-                  />
+      <section className="mb-5">
+        <div className="card shadow-sm border-0 p-4">
+          <div className="d-flex align-items-center mb-4">
+            <Wallet className="text-primary me-2" size={20} />
+            <h5 className="mb-0 text-dark fw-bold">Customer Payment Accounts</h5>
+          </div>
+          
+          <form onSubmit={handleUpdate}>
+            <div className="row g-4">
+              {/* GCash Section */}
+              <div className="col-12 col-lg-6">
+                <div className="p-4 border rounded bg-white shadow-sm h-100">
+                  <div className="d-flex align-items-center mb-3">
+                    <div className="bg-primary text-white p-2 rounded me-2">G</div>
+                    <h6 className="fw-bold mb-0">GCash Business Details</h6>
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label small fw-bold text-muted">Phone Number</label>
+                    <input
+                      type="text"
+                      name="gcash_number"
+                      className="form-control form-control-lg"
+                      placeholder="09XX XXX XXXX"
+                      value={settings.gcash_number}
+                      onChange={handleChange}
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label small fw-bold text-muted">Account Name</label>
+                    <input
+                      type="text"
+                      name="gcash_name"
+                      className="form-control form-control-lg"
+                      placeholder="e.g., JUAN DELA CRUZ"
+                      value={settings.gcash_name}
+                      onChange={handleChange}
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="small fw-bold">Account Name</label>
-                  <input
-                    type="text"
-                    name="gcash_name"
-                    className="form-control"
-                    value={settings.gcash_name}
-                    onChange={handleChange}
-                  />
+              </div>
+
+              {/* Maya Section */}
+              <div className="col-12 col-lg-6">
+                <div className="p-4 border rounded bg-white shadow-sm h-100">
+                    <div className="d-flex align-items-center mb-3">
+                        <div className="bg-success text-white p-2 rounded me-2">M</div>
+                        <h6 className="fw-bold mb-0">Maya Business Details</h6>
+                    </div>
+                  <div className="mb-3">
+                    <label className="form-label small fw-bold text-muted">Phone Number</label>
+                    <input
+                      type="text"
+                      name="maya_number"
+                      className="form-control form-control-lg"
+                      placeholder="09XX XXX XXXX"
+                      value={settings.maya_number}
+                      onChange={handleChange}
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label small fw-bold text-muted">Account Name</label>
+                    <input
+                      type="text"
+                      name="maya_name"
+                      className="form-control form-control-lg"
+                      placeholder="e.g., JUAN DELA CRUZ"
+                      value={settings.maya_name}
+                      onChange={handleChange}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Maya Section */}
-            <div className="col-md-6">
-              <div className="p-3 border rounded bg-light">
-                <h6 className="fw-bold mb-3">Maya Details</h6>
-                <div className="mb-3">
-                  <label className="small fw-bold">Phone Number</label>
-                  <input
-                    type="text"
-                    name="maya_number"
-                    className="form-control"
-                    value={settings.maya_number}
-                    onChange={handleChange}
-                  />
-                </div>
-                <div>
-                  <label className="small fw-bold">Account Name</label>
-                  <input
-                    type="text"
-                    name="maya_name"
-                    className="form-control"
-                    value={settings.maya_name}
-                    onChange={handleChange}
-                  />
-                </div>
-              </div>
+            <div className="mt-4 text-center text-md-end">
+              <button
+                type="submit"
+                className="btn btn-primary px-5 py-3 fw-bold shadow-sm rounded-pill"
+                disabled={saving}
+              >
+                {saving ? "Updating..." : "Update Payment Accounts"}
+              </button>
             </div>
-          </div>
+          </form>
+        </div>
+      </section>
 
-          <div className="mt-4 text-end">
-            <button
-              type="submit"
-              className="btn btn-primary px-5 py-2 fw-bold"
-              disabled={saving}
-            >
-              {saving ? "Saving..." : "Save Changes"}
-            </button>
-          </div>
-        </form>
-      </div>
-      <PricingMaintenance />
-      {/* SECTION 2: Database Maintenance */}
-      <DatabaseMaintenance />
-      <HolidayMaintenance />
+      {/* SECTION 2: Pricing Logic */}
+      <section className="mb-5">
+        <PricingMaintenance />
+      </section>
+
+      {/* SECTION 3: System Housekeeping (Archive, Reset, Export) */}
+      <section className="mb-5">
+        <SystemMaintenance />
+      </section>
+
+      {/* SECTION 4: Holiday Management */}
+      <section className="mb-5 pb-5">
+        <HolidayMaintenance />
+      </section>
     </div>
   );
 };

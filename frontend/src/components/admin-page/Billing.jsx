@@ -10,6 +10,7 @@ import {
   ChevronRight,
   ReceiptText,
   CreditCard,
+  Check,
 } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
@@ -28,7 +29,6 @@ const Billing = () => {
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [orderItems, setOrderItems] = useState([]);
   const [loadingItems, setLoadingItems] = useState(false);
-
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const closeBtnRef = useRef(null);
@@ -60,9 +60,7 @@ const Billing = () => {
       const token = localStorage.getItem("token");
       const res = await axios.get(
         `${API_BASE}/reservations/${p.reservation_id}/items`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
+        { headers: { Authorization: `Bearer ${token}` } },
       );
       setOrderItems(res.data);
     } catch (err) {
@@ -82,8 +80,10 @@ const Billing = () => {
         { status: newStatus },
         { headers: { Authorization: `Bearer ${token}` } },
       );
+
+      // Update local state so UI reflects change immediately
+      setSelectedPayment((prev) => ({ ...prev, payment_status: newStatus }));
       fetchPayments();
-      if (closeBtnRef.current) closeBtnRef.current.click();
     } catch (err) {
       alert("Failed to update status.");
     }
@@ -95,19 +95,17 @@ const Billing = () => {
 
     try {
       const token = localStorage.getItem("token");
-
-      // This endpoint should point to a controller that calls Billing.settleReservation(resId)
       await axios.put(
         `${API_BASE}/billing/settle/${resId}`,
         {},
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
+        { headers: { Authorization: `Bearer ${token}` } },
       );
 
+      // FIX: Update the selectedPayment state locally so the button disappears
+      setSelectedPayment((prev) => ({ ...prev, status: "completed" }));
+
       alert("Transaction Finished!");
-      fetchPayments(); // Refresh list to show updated status
-      if (closeBtnRef.current) closeBtnRef.current.click();
+      fetchPayments(); // Refresh the background list
     } catch (err) {
       alert("Error settling bill.");
     }
@@ -140,7 +138,7 @@ const Billing = () => {
       style={{ minHeight: "100vh" }}
     >
       {/* HEADER */}
-      <div className="row align-items-center mb-4 px-2">
+      <div className="row align-items-center mb-4 px-2 g-3">
         <div className="col-12 col-md-8">
           <h2 className="fw-bold mb-1">Billing & Transactions</h2>
           <p className="text-muted small mb-0">
@@ -149,7 +147,7 @@ const Billing = () => {
         </div>
         <div className="col-12 col-md-4 text-md-end">
           <button
-            className="btn btn-white border shadow-sm fw-bold px-4"
+            className="btn btn-white border shadow-sm fw-bold px-4 w-100 w-md-auto"
             onClick={fetchPayments}
           >
             <RefreshCw size={16} className="me-2" /> Refresh
@@ -200,20 +198,14 @@ const Billing = () => {
                   </td>
                   <td>
                     <span
-                      className={`badge rounded-pill px-3 py-1 small ${
-                        p.payment_status === "verified"
-                          ? "bg-success text-white"
-                          : p.payment_status === "pending"
-                            ? "bg-warning text-dark"
-                            : "bg-danger text-white"
-                      }`}
+                      className={`badge rounded-pill px-3 py-1 small ${p.payment_status === "verified" ? "bg-success text-white" : p.payment_status === "pending" ? "bg-warning text-dark" : "bg-danger text-white"}`}
                     >
                       {p.payment_status?.toUpperCase()}
                     </span>
                   </td>
                   <td className="text-center">
                     <span
-                      className={`badge rounded-pill px-3 py-1 small bg-dark text-white`}
+                      className={`badge rounded-pill px-3 py-1 small ${p.status === "completed" ? "bg-secondary text-white" : "bg-dark text-white"}`}
                     >
                       {p.status?.toUpperCase() || "UNPAID"}
                     </span>
@@ -241,38 +233,24 @@ const Billing = () => {
         <span className="small text-muted">
           Showing {currentItems.length} of {payments.length}
         </span>
-        <div className="btn-group shadow-sm bg-white rounded border">
+        <div className="btn-group shadow-sm bg-white rounded border overflow-hidden">
           <button
-            className="btn btn-sm btn-white border-0 px-3"
+            className="btn btn-sm btn-white border-0 px-3 py-2"
             disabled={currentPage === 1}
             onClick={() => setCurrentPage((p) => p - 1)}
           >
             <ChevronLeft size={16} />
           </button>
-          <div className="btn-group shadow-sm bg-white rounded border overflow-hidden">
-            {/* PREVIOUS BUTTON */}
-            <button
-              className="btn btn-sm btn-white border-0 px-3 py-2"
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage((p) => p - 1)}
-            >
-              <ChevronLeft size={16} />
-            </button>
-
-            {/* PAGE INDICATOR - Added "of totalPages" for clarity */}
-            <span className="btn btn-sm disabled border-0 px-3 py-2 text-dark fw-bold bg-white">
-              Page {currentPage} of {totalPages || 1}
-            </span>
-
-            {/* NEXT BUTTON */}
-            <button
-              className="btn btn-sm btn-white border-0 px-3 py-2"
-              disabled={currentPage >= totalPages || totalPages === 0}
-              onClick={() => setCurrentPage((p) => p + 1)}
-            >
-              <ChevronRight size={16} />
-            </button>
-          </div>
+          <span className="btn btn-sm disabled border-0 px-3 py-2 text-dark fw-bold bg-white">
+            Page {currentPage} of {totalPages || 1}
+          </span>
+          <button
+            className="btn btn-sm btn-white border-0 px-3 py-2"
+            disabled={currentPage >= totalPages || totalPages === 0}
+            onClick={() => setCurrentPage((p) => p + 1)}
+          >
+            <ChevronRight size={16} />
+          </button>
         </div>
       </div>
 
@@ -300,7 +278,7 @@ const Billing = () => {
         <div className="offcanvas-body bg-white p-0">
           {selectedPayment && (
             <div className="d-flex flex-column h-100">
-              {/* 1. RECEIPT */}
+              {/* 1. RECEIPT SECTION */}
               <div className="p-3 border-bottom bg-light-subtle text-center">
                 <div className="d-flex justify-content-between align-items-center mb-2">
                   <span className="x-small fw-bold text-muted text-uppercase">
@@ -371,8 +349,10 @@ const Billing = () => {
                 )}
               </div>
 
-              {/* 3. FINAL FINANCIAL SUMMARY (COMPRESSED) */}
-              <div className="p-3 bg-dark text-white sticky-bottom mt-auto">
+              {/* 3. FINANCIAL SUMMARY */}
+              {/* --- Replace your footer section with this corrected logic --- */}
+
+              <div className="p-3 bg-dark text-white sticky-bottom mt-auto shadow-lg">
                 <div className="d-flex flex-column gap-2 mb-3">
                   <div className="d-flex justify-content-between border-bottom border-secondary pb-1">
                     <span className="x-small text-white-50">
@@ -387,7 +367,6 @@ const Billing = () => {
                       Downpayment Applied
                     </span>
                     <span className="fw-bold">
-                      {" "}
                       - ₱{Number(selectedPayment.amount).toLocaleString()}
                     </span>
                   </div>
@@ -404,11 +383,9 @@ const Billing = () => {
                       </h2>
                     </div>
                     <div className="text-end">
-                      <div className="x-small text-white-50 mb-1">
-                        Current Status
-                      </div>
+                      <div className="x-small text-white-50 mb-1">Status</div>
                       <span
-                        className={`badge py-1 px-2 small ${selectedPayment.status === "completed" ? "bg-secondary" : "bg-primary"}`}
+                        className={`badge py-1 px-2 small ${selectedPayment.status?.toLowerCase() === "completed" ? "bg-success" : "bg-primary"}`}
                       >
                         {selectedPayment.status?.toUpperCase()}
                       </span>
@@ -416,29 +393,35 @@ const Billing = () => {
                   </div>
                 </div>
 
-                {/* LOGIC: Only show "Settle Bill" if it's not already completed */}
-                {selectedPayment.status !== "completed" && (
+                {/* IMPROVED LOGIC: Case-insensitive check to hide button */}
+                {selectedPayment.status?.toLowerCase() !== "completed" ? (
                   <button
-                    className="btn btn-warning w-100 py-2 fw-bold shadow-sm mb-2 text-dark d-flex align-items-center justify-content-center"
+                    className="btn btn-warning btn-lg w-100 py-3 fw-bold shadow mb-2 text-dark d-flex align-items-center justify-content-center"
                     onClick={() =>
                       handleSettleFullBill(selectedPayment.reservation_id)
                     }
+                    style={{ whiteSpace: "nowrap" }} // Prevents text from cutting off
                   >
-                    {/* Using text symbol for Peso */}
-                    <span
-                      className="me-2 fs-5 fw-bold"
-                      style={{ marginTop: "-2px" }}
-                    ></span>
-                    Settle Remaining Balance
+                    <CreditCard size={18} className="me-2" />
+                    <span>Settle Remaining Balance</span>
                   </button>
+                ) : (
+                  /* This will show instead of the button if status is COMPLETED */
+                  <div className="bg-success bg-opacity-25 text-success border border-success p-3 rounded mb-3 text-center d-flex align-items-center justify-content-center gap-2">
+                    <CheckCircle2 size={20} />
+                    <div className="fw-bold small">
+                      This transaction is fully settled.
+                    </div>
+                  </div>
                 )}
 
-                {/* DOWNPAYMENT APPROVAL (Keep existing logic) */}
-                {selectedPayment.payment_status === "pending" && (
+                {/* DP APPROVAL (Only show if payment is still pending) */}
+                {selectedPayment.payment_status?.toLowerCase() ===
+                  "pending" && (
                   <div className="row g-2 mb-2">
                     <div className="col-6">
                       <button
-                        className="btn btn-success btn-sm w-100 fw-bold py-2 shadow-sm"
+                        className="btn btn-success w-100 fw-bold py-2 shadow-sm"
                         onClick={() =>
                           handleStatusChange(
                             selectedPayment.payment_id,
@@ -451,7 +434,7 @@ const Billing = () => {
                     </div>
                     <div className="col-6">
                       <button
-                        className="btn btn-outline-danger btn-sm w-100 fw-bold py-2"
+                        className="btn btn-outline-danger w-100 fw-bold py-2"
                         onClick={() =>
                           handleStatusChange(
                             selectedPayment.payment_id,
@@ -466,10 +449,10 @@ const Billing = () => {
                 )}
 
                 <button
-                  className="btn btn-dark border border-secondary btn-sm w-100 fw-bold py-2"
+                  className="btn btn-dark border border-secondary w-100 fw-bold py-2"
                   data-bs-dismiss="offcanvas"
                 >
-                  Close Details
+                  Close Review
                 </button>
               </div>
             </div>
@@ -479,7 +462,10 @@ const Billing = () => {
 
       <style>{`
         .x-small { font-size: 0.65rem; }
-        .page-link:focus { box-shadow: none; }
+        .btn-white:hover { background: #f8f9fa; }
+        @media (max-width: 576px) {
+           .btn-lg { font-size: 0.9rem; padding: 12px; }
+        }
       `}</style>
     </div>
   );
