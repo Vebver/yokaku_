@@ -1,4 +1,3 @@
-// AdminDashboard.jsx
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import {
@@ -12,8 +11,8 @@ import {
   PointElement,
   LineElement,
 } from "chart.js";
-import { Line } from "react-chartjs-2"; // Added Line for the graph
-import { Info, TrendingUp, DollarSign, ShoppingBag, CreditCard } from "lucide-react";
+import { Line } from "react-chartjs-2";
+import { Info, TrendingUp, DollarSign, ShoppingBag, CreditCard, Menu, LogOut, ChevronLeft } from "lucide-react";
 
 // Internal Components
 import Billing from "./Billing";
@@ -75,35 +74,30 @@ const navItems = [
   { id: "maintenance", label: "Maintenance", icon: Icons.Maintenance },
 ];
 
-// Top Stats Card Component
 const StatCard = ({ title, value, color, icon }) => (
   <div className="col-12 col-md-4">
-    <div className="card border-0 shadow-sm rounded-3 bg-white h-100">
+    <div className="card stat-card shadow-sm border-0 h-0">
       <div className="card-body p-3 d-flex align-items-center gap-3">
-        <div className={`d-flex align-items-center justify-content-center rounded-circle bg-${color}-subtle text-${color}`}
-          style={{ width: "45px", height: "45px", flexShrink: 0 }}>
-          <i className={`bi ${icon}`} style={{ fontSize: "1.2rem" }}></i>
+        <div className={`icon-circle bg-${color}-subtle text-${color}`}>
+          <i className={`bi ${icon}`}></i>
         </div>
         <div>
-          <p className="text-muted fw-bold text-uppercase mb-0" style={{ fontSize: "0.65rem" }}>{title}</p>
-          <h4 className="fw-bold mb-0 text-dark lh-1">{value}</h4>
+          <p className="text-muted fw-bold text-uppercase mb-0 small-text">{title}</p>
+          <h4 className="fw-bold mb-0 text-dark">{value}</h4>
         </div>
       </div>
     </div>
   </div>
 );
 
-// New Mini Card for Financial Section
 const MiniFinanceCard = ({ title, value, icon: Icon, colorClass }) => (
   <div className="col-6">
-    <div className="finance-mini-card p-3 rounded-4 shadow-sm bg-white border h-100 d-flex flex-column justify-content-between">
+    <div className="finance-mini-card p-3 rounded-4 shadow-sm bg-white border h-100">
       <div className={`icon-box ${colorClass} mb-2`}>
         <Icon size={18} />
       </div>
-      <div>
-        <p className="text-muted small fw-semibold mb-1">{title}</p>
-        <h5 className="fw-bold mb-0 text-dark">{value}</h5>
-      </div>
+      <p className="text-muted smaller fw-semibold mb-1">{title}</p>
+      <h5 className="fw-bold mb-0 text-dark">{value}</h5>
     </div>
   </div>
 );
@@ -111,14 +105,13 @@ const MiniFinanceCard = ({ title, value, icon: Icon, colorClass }) => (
 function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeSection, setActiveSection] = useState("dashboard");
-  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 992);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [loading, setLoading] = useState(true);
   const [todaySchedule, setTodaySchedule] = useState([]);
   const [stats, setStats] = useState({
     totalBookings: 0,
     activeTables: 0,
     kitchenQueue: 0,
-    // Mock financial data (replace with API data later)
     monthlyRevenue: "₱0.00",
     todayRevenue: "₱0.00",
     avgOrder: "₱0.00",
@@ -154,7 +147,6 @@ function AdminDashboard() {
         axios.get(`${API_BASE}/admin/stats`, config),
         axios.get(`${API_BASE}/admin/today-schedule`, config),
       ]);
-      // Merging existing stats with mock/fetched financial data
       setStats(prev => ({ ...prev, ...statsRes.data }));
       setTodaySchedule(scheduleRes.data);
     } catch (error) {
@@ -164,43 +156,30 @@ function AdminDashboard() {
     }
   };
 
-  // Chart Configuration
   const chartData = {
     labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-    datasets: [
-      {
-        label: "Revenue",
-        data: [1200, 1900, 3000, 5000, 2000, 3000, 4500],
-        borderColor: "#10b981",
-        backgroundColor: "rgba(16, 185, 129, 0.1)",
-        fill: true,
-        tension: 0.4,
-      },
-    ],
-  };
-
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: { legend: { display: false } },
-    scales: {
-      y: { beginAtZero: true, grid: { color: "#f0f0f0" } },
-      x: { grid: { display: false } }
-    }
+    datasets: [{
+      label: "Revenue",
+      data: [1200, 1900, 3000, 5000, 2000, 3000, 4500],
+      borderColor: "#0d6efd",
+      backgroundColor: "rgba(13, 110, 253, 0.1)",
+      fill: true,
+      tension: 0.4,
+    }],
   };
 
   const DashboardOverview = () => (
-    <div className="p-0">
-      {/* 1. TIMELINE */}
+    <div className="dashboard-content fade-in">
+      {/* 1. TIMELINE - PINAKATAAS */}
       <div className="mb-3 bg-white p-3 rounded-3 shadow-sm border-start border-4 border-warning">
         <div className="d-flex align-items-center mb-2">
           <Info size={16} className="text-warning me-2" />
           <span className="fw-bold small">Today's Timeline</span>
         </div>
-        <div className="d-flex gap-2 overflow-auto no-scrollbar pb-1">
+        <div className="d-flex gap-2 overflow-auto no-scrollbar pb-1 custom-scrollbar">
           {todaySchedule.length > 0 ? (
             todaySchedule.map((res, i) => (
-              <div key={i} className="bg-light px-3 py-2 rounded-3 border small d-inline-block shadow-sm">
+              <div key={i} className="timeline-badge">
                 <span className="fw-bold text-primary">{res.reservation_time?.substring(0, 5)}</span>
                 <span className="mx-2 text-muted">|</span>
                 <span className="fw-semibold">{res.first_name}</span>
@@ -208,21 +187,20 @@ function AdminDashboard() {
               </div>
             ))
           ) : (
-            <span className="text-muted small">No arrivals for today.</span>
+            <span className="text-muted small p-1">No arrivals for today.</span>
           )}
         </div>
       </div>
 
-      {/* 2. TOP STATS CARDS */}
-      <div className="row g-3 mb-4">
+      {/* 2. STATS CARDS - SUMUNOD SA TIMELINE */}
+      <div className="row g-3 mb-3">
         <StatCard title="Bookings" value={stats.totalBookings} color="primary" icon="bi-calendar-check" />
         <StatCard title="Occupied" value={stats.activeTables} color="success" icon="bi-door-open" />
         <StatCard title="Queue" value={stats.kitchenQueue} color="warning" icon="bi-egg-fried" />
       </div>
 
-      {/* 3. MIDDLE SECTION: FINANCIAL REPORTS (NEW) */}
-      <div className="row g-3 mb-4">
-        {/* Left: 2x2 Mini Cards */}
+      {/* 3. FINANCIAL SECTION & CHART */}
+      <div className="row g-3 mb-3">
         <div className="col-lg-5">
           <div className="row g-3 h-100">
             <MiniFinanceCard title="Monthly Revenue" value={stats.monthlyRevenue || "₱0.00"} icon={TrendingUp} colorClass="text-success bg-success-subtle" />
@@ -231,37 +209,31 @@ function AdminDashboard() {
             <MiniFinanceCard title="Total Order" value={stats.totalOrders || "0"} icon={CreditCard} colorClass="text-warning bg-warning-subtle" />
           </div>
         </div>
-        
-        {/* Right: Graph */}
         <div className="col-lg-7">
-          <div className="bg-white p-4 rounded-4 shadow-sm border h-100">
-            <div className="d-flex justify-content-between align-items-center mb-3">
-              <h6 className="fw-bold mb-0">Revenue Analytics</h6>
-              <span className="badge bg-light text-dark border">Weekly</span>
-            </div>
-            <div style={{ height: "220px" }}>
-              <Line data={chartData} options={chartOptions} />
+          <div className="bg-white p-3 p-md-4 rounded-4 shadow-sm border h-100">
+            <h6 className="fw-bold mb-3">Revenue Analytics</h6>
+            <div style={{ height: "200px" }}>
+              <Line data={chartData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }} />
             </div>
           </div>
         </div>
       </div>
 
-      {/* 4. FLOOR STATUS SECTION */}
-      <div className="mt-2 pb-5">
-        <div className="d-flex justify-content-between align-items-center mb-3 px-1">
+      {/* 4. FLOOR STATUS */}
+      <div className="mt-0 pb-5">
+        <div className="d-flex justify-content-between align-items-center mb-2 px-1">
           <h6 className="fw-bold mb-0 text-dark">Floor Status</h6>
-          <button className="btn btn-sm btn-link text-primary fw-bold text-decoration-none" onClick={() => setActiveSection("table-status")}>
+          <button className="btn btn-sm text-primary fw-bold text-decoration-none p-0" onClick={() => setActiveSection("table-status")}>
             Full View →
           </button>
         </div>
-        <div className="bg-white rounded-4 shadow-sm p-3 border d-block w-100 overflow-hidden">
+        <div className="bg-white rounded-4 shadow-sm p-3 border">
           <TableStatus compact={true} />
         </div>
       </div>
     </div>
   );
 
-  // Remaining render logic...
   const renderSection = () => {
     const sections = {
       dashboard: <DashboardOverview />,
@@ -287,50 +259,62 @@ function AdminDashboard() {
   };
 
   return (
-    <div className="admin-layout">
-      <header className="mobile-header d-lg-none bg-dark text-white px-3 d-flex justify-content-between align-items-center sticky-top shadow">
-        <h5 className="fw-bold mb-0">HANGOUT</h5>
-        <button className="btn btn-outline-light btn-sm" onClick={() => setSidebarOpen(!sidebarOpen)}>
-          <i className={`bi ${sidebarOpen ? "bi-x-lg" : "bi-list"} fs-3`}></i>
-        </button>
-      </header>
-
-      {sidebarOpen && window.innerWidth <= 992 && (
-        <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)}></div>
-      )}
-
-      <aside className={`admin-sidebar bg-dark text-white ${sidebarOpen ? "expanded" : "collapsed"}`}>
-        <div className="sidebar-header d-flex align-items-center p-3">
-          <h4 className={`brand-name fw-bold mb-0 transition-all ${sidebarOpen ? "opacity-100" : "opacity-0"}`}>HANGOUT</h4>
-          <button className="btn btn-dark btn-sm ms-auto d-none d-lg-block" onClick={() => setSidebarOpen(!sidebarOpen)}>
-            <i className={`bi ${sidebarOpen ? "bi-chevron-left" : "bi-list"}`}></i>
-          </button>
+    <div className={`admin-app-container ${sidebarOpen ? "sb-open" : "sb-closed"}`}>
+      {/* Sidebar - Fix position sa kaliwa */}
+      <aside className="app-sidebar shadow">
+        <div className="sidebar-header-branding">
+          <div className="brand-logo">H</div>
+          <span className="brand-name fw-bold">HANGOUT</span>
         </div>
 
-        <nav className="custom-nav px-2">
+        <nav className="sidebar-nav-list custom-scrollbar">
           {navItems.map((item) => (
-            <button key={item.id} onClick={() => { setActiveSection(item.id); if (window.innerWidth <= 992) setSidebarOpen(false); }}
-              className={`nav-link w-100 text-start border-0 rounded-2 py-2 px-3 d-flex align-items-center mb-1 transition-all ${activeSection === item.id ? "bg-primary text-white active" : "text-secondary bg-transparent"}`}>
-              <div className="nav-icon me-2"><item.icon /></div>
-              <span className="nav-label small">{item.label}</span>
+            <button
+              key={item.id}
+              onClick={() => {
+                setActiveSection(item.id);
+                if (window.innerWidth <= 992) setSidebarOpen(false);
+              }}
+              className={`nav-item-link ${activeSection === item.id ? "active" : ""}`}
+            >
+              <span className="nav-icon-wrapper"><item.icon /></span>
+              <span className="nav-text-label">{item.label}</span>
             </button>
           ))}
         </nav>
 
-        <div className="sidebar-footer p-3">
-          <button className="btn btn-outline-danger btn-sm w-100 d-flex align-items-center justify-content-center" onClick={handleLogout}>
-            <i className="bi bi-box-arrow-left"></i>
-            <span className="ms-2 nav-label">Logout</span>
+        <div className="sidebar-footer-action">
+          <button className="logout-button" onClick={handleLogout}>
+            <LogOut size={18} />
+            <span className="nav-text-label ms-2">Logout</span>
           </button>
         </div>
       </aside>
 
-      <div className={`main-container bg-light ${sidebarOpen ? "margin-expanded" : "margin-collapsed"}`}>
-        <main className="content-wrapper">
+      {/* Backdrop for Mobile */}
+      {sidebarOpen && window.innerWidth <= 992 && (
+        <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)}></div>
+      )}
+
+      {/* Main Content Area - Sa kanan ng sidebar */}
+      <div className="app-main-viewport">
+        <header className="app-top-nav bg-white shadow-sm px-4">
+          <button className="toggle-sidebar-btn" onClick={() => setSidebarOpen(!sidebarOpen)}>
+            {sidebarOpen ? <ChevronLeft size={20} /> : <Menu size={20} />}
+          </button>
+          
+          <div className="ms-auto d-flex align-items-center gap-3">
+             <div className="text-end d-none d-sm-block">
+                <p className="mb-0 fw-bold small text-dark">Admin User</p>
+                <p className="mb-0 text-muted smaller">System Administrator</p>
+             </div>
+             <div className="avatar-circle">A</div>
+          </div>
+        </header>
+
+        <main className="app-content-area px-4 py-3">
           {loading ? (
-            <div className="d-flex justify-content-center py-5">
-              <div className="spinner-border text-primary"></div>
-            </div>
+            <div className="text-center py-5"><div className="spinner-border text-primary"></div></div>
           ) : (
             renderSection()
           )}

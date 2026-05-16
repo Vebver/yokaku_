@@ -1,51 +1,256 @@
-/* --- Financial Section Styles --- */
-
-.finance-mini-card {
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-    border: 1px solid rgba(0, 0, 0, 0.05) !important;
+:root {
+    --sidebar-width: 260px;
+    --sidebar-collapsed: 85px;
+    --primary-blue: #0d6efd;
+    --sidebar-bg: #111827;
+    --body-bg: #f4f7fe;
+    --nav-text: #9ca3af;
 }
 
-.finance-mini-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08) !important;
+
+/* Base Layout */
+
+.admin-app-container {
+    display: flex;
+    min-height: 100vh;
+    background-color: var(--body-bg);
 }
 
-.icon-box {
-    width: 36px;
-    height: 36px;
+
+/* SIDEBAR STYLES */
+
+.app-sidebar {
+    width: var(--sidebar-width);
+    background-color: var(--sidebar-bg);
+    height: 100vh;
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 1050;
+    display: flex;
+    flex-direction: column;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sb-closed .app-sidebar {
+    width: var(--sidebar-collapsed);
+}
+
+.sidebar-header-branding {
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.brand-logo {
+    min-width: 38px;
+    height: 38px;
+    background: var(--primary-blue);
+    color: white;
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
+    font-weight: 800;
+    font-size: 1.2rem;
+}
+
+.brand-name {
+    color: white;
+    font-size: 1.25rem;
+    white-space: nowrap;
+    transition: opacity 0.2s;
+}
+
+.sb-closed .brand-name {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.sidebar-nav-list {
+    flex-grow: 1;
+    padding: 5px 16px;
+    overflow-y: auto;
+}
+
+.nav-item-link {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    padding: 10px 14px;
+    margin-bottom: 4px;
+    border: none;
+    background: transparent;
+    color: var(--nav-text);
+    border-radius: 12px;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.nav-item-link:hover,
+.nav-item-link.active {
+    background: rgba(255, 255, 255, 0.08);
+    color: white;
+}
+
+.nav-item-link.active {
+    background: var(--primary-blue);
+    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.2);
+}
+
+.nav-text-label {
+    font-size: 0.85rem;
+    margin-left: 12px;
+    font-weight: 500;
+}
+
+.sb-closed .nav-text-label {
+    opacity: 0;
+}
+
+.sidebar-footer-action {
+    padding: 15px 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.logout-button {
+    width: 100%;
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    border: none;
+    padding: 10px;
     border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 
-/* Custom subtle backgrounds for icons */
+/* MAIN CONTENT VIEWPORT */
 
-.bg-info-subtle {
-    background-color: #e0f2fe !important;
+.app-main-viewport {
+    flex-grow: 1;
+    margin-left: var(--sidebar-width);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    width: calc(100% - var(--sidebar-width));
 }
 
-.text-info {
-    color: #0ea5e9 !important;
+.sb-closed .app-main-viewport {
+    margin-left: var(--sidebar-collapsed);
+    width: calc(100% - var(--sidebar-collapsed));
+}
+
+.app-top-nav {
+    height: 60px;
+    display: flex;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.toggle-sidebar-btn {
+    border: none;
+    background: #f3f4f6;
+    padding: 6px;
+    border-radius: 8px;
+    color: #4b5563;
 }
 
 
-/* Ensure chart container is responsive */
+/* CARDS & SPACING */
 
-canvas {
-    width: 100% !important;
-    height: 100% !important;
+.card .stat-card {
+    border-radius: 15px;
+    border: 1px solid rgba(0, 0, 0, 0.05) !important;
+}
+
+.icon-circle {
+    width: 15px;
+    height: 15px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+}
+
+.timeline-badge {
+    background: white;
+    padding: 6px 14px;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    white-space: nowrap;
+    font-size: 0.85rem;
+    margin-bottom: 0;
+}
+
+.avatar-circle {
+    width: 35px;
+    height: 35px;
+    background: #374151;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
+
+.small-text {
+    font-size: 0.65rem;
+}
+
+.smaller {
+    font-size: 0.75rem;
 }
 
 
-/* Adjust row spacing for financial cards on mobile */
+/* Mobile View */
 
-@media (max-width: 576px) {
-    .finance-mini-card h5 {
-        font-size: 1rem;
+@media (max-width: 992px) {
+    .app-sidebar {
+        left: -100%;
     }
-    .finance-mini-card p {
-        font-size: 0.7rem;
+    .sb-open .app-sidebar {
+        left: 0;
+        width: 260px;
     }
+    .app-main-viewport {
+        margin-left: 0 !important;
+        width: 100% !important;
+    }
+    .sidebar-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.3);
+        z-index: 1040;
+    }
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
 }
