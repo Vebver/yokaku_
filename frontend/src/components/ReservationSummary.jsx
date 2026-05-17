@@ -24,7 +24,7 @@ const ReservationSummary = ({
   loading,
   paymentMethod,
   setPaymentMethod,
-  onBack, // Add this for navigation back
+  onBack,
 }) => {
   const [receipt, setReceipt] = useState(null);
   const fileInputRef = useRef(null);
@@ -91,6 +91,9 @@ const ReservationSummary = ({
   };
 
   const accountDetails = getAccountDetails();
+
+  // Check if submit should be disabled
+  const isSubmitDisabled = !paymentMethod || !receipt || loading;
 
   return (
     <div className="summary-inline-container">
@@ -313,7 +316,11 @@ const ReservationSummary = ({
           {["Gcash", "Maya"].map((method) => (
             <div
               key={method}
-              onClick={() => setPaymentMethod(method)}
+              onClick={() => {
+                setPaymentMethod(method);
+                setReceipt(null); // Clear receipt when changing payment method
+                if (fileInputRef.current) fileInputRef.current.value = "";
+              }}
               className={`payment-card ${paymentMethod === method ? "selected" : ""}`}
               style={{
                 flex: 1,
@@ -376,54 +383,56 @@ const ReservationSummary = ({
         )}
       </section>
 
-      {/* Receipt Upload Section */}
-      <section className="summary-section">
-        <label className="upload-instruction">
-          Upload Receipt (Amount: ₱{orderSummary?.downpayment?.toFixed(2)})
-        </label>
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={(e) => setReceipt(e.target.files[0])}
-          accept="image/*"
-          style={{ display: "none" }}
-        />
+      {/* ============ RECEIPT UPLOAD - ONLY SHOW AFTER PAYMENT METHOD SELECTED ============ */}
+      {paymentMethod && (
+        <section className="summary-section">
+          <label className="upload-instruction">
+            Upload Receipt (Amount: ₱{orderSummary?.downpayment?.toFixed(2)})
+          </label>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={(e) => setReceipt(e.target.files[0])}
+            accept="image/*"
+            style={{ display: "none" }}
+          />
 
-        <div className="upload-container-wrapper">
-          <button
-            type="button"
-            className={`upload-btn ${receipt ? "file-selected" : ""}`}
-            onClick={() => fileInputRef.current.click()}
-          >
-            {receipt ? (
-              <div className="selected-file-info">
-                <CheckCircle2 size={18} color="#27ae60" />
-                <span className="file-name">{receipt.name}</span>
-              </div>
-            ) : (
-              <div className="placeholder-info">
-                <Upload size={18} />
-                <span>Select Receipt Image</span>
-              </div>
-            )}
-          </button>
-          {receipt && (
+          <div className="upload-container-wrapper">
             <button
               type="button"
-              className="remove-file-action"
-              onClick={handleRemoveFile}
+              className={`upload-btn ${receipt ? "file-selected" : ""}`}
+              onClick={() => fileInputRef.current.click()}
             >
-              <Trash2 size={18} />
+              {receipt ? (
+                <div className="selected-file-info">
+                  <CheckCircle2 size={18} color="#27ae60" />
+                  <span className="file-name">{receipt.name}</span>
+                </div>
+              ) : (
+                <div className="placeholder-info">
+                  <Upload size={18} />
+                  <span>Select Receipt Image</span>
+                </div>
+              )}
             </button>
-          )}
-        </div>
-        {!receipt && (
-          <div className="upload-tip">
-            <AlertCircle size={14} />
-            <span>Payment screenshot is required to complete booking.</span>
+            {receipt && (
+              <button
+                type="button"
+                className="remove-file-action"
+                onClick={handleRemoveFile}
+              >
+                <Trash2 size={18} />
+              </button>
+            )}
           </div>
-        )}
-      </section>
+          {!receipt && (
+            <div className="upload-tip">
+              <AlertCircle size={14} />
+              <span>Payment screenshot is required to complete booking.</span>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Action Buttons */}
       <div className="summary-action-buttons">
@@ -432,10 +441,10 @@ const ReservationSummary = ({
         </button>
         <button
           className="confirm-btn"
-          disabled={!receipt || !paymentMethod || loading}
+          disabled={isSubmitDisabled}
           onClick={handlePaymentAndConfirm}
         >
-          {loading ? "Processing..." : "Submit Reservation"}
+          {loading ? "Processing..." : "Complete Reservation"}
         </button>
       </div>
     </div>
