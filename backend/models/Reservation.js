@@ -203,13 +203,13 @@ const Reservation = {
     try {
       const customId = generateRandomId();
 
-      // 1. Insert into reservations
+      // 1. Insert into reservations with new columns
       const resQuery = `INSERT INTO reservations (
-      reservation_id, user_id, first_name, last_name, email, phone, 
-      reservation_date, reservation_time, end_time, num_guests, 
-      package_name, status, receipt_path, brgy_code, allergy, 
-      allergy_count, occasion, high_chair
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        reservation_id, user_id, first_name, last_name, email, phone, 
+        reservation_date, reservation_time, end_time, num_guests, 
+        package_name, status, receipt_path, brgy_code, allergy, 
+        allergy_count, occasion, high_chair, duration_hours, downpayment_amount
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
       await conn.query(resQuery, [
         customId,
@@ -221,36 +221,38 @@ const Reservation = {
         data.date,
         data.startTime,
         data.endTime,
-        data.pax || data.guests || data.num_guests, // PAX value (number of guests)
+        data.pax || data.guests || data.num_guests,
         data.packageName,
         "Confirmed",
         data.receiptPath,
         data.brgyCode,
         data.allergy,
-        data.allergyCount || 0, // Number of people with allergy
-        data.occasion || "Casual Dining", // Occasion type
-        data.highChair || "No", // High chair needed
+        data.allergyCount || 0,
+        data.occasion || "Casual Dining",
+        data.highChair || "No",
+        data.durationHours || 1.0,
+        data.downpayment || 0,
       ]);
 
-      // 2. Insert tables (reservation_tables junction table)
+      // 2. Insert tables
       if (data.tableIds?.length > 0) {
         for (const tid of data.tableIds) {
           await conn.query(
             `INSERT INTO reservation_tables 
-           (reservation_id, table_id, customer_name, status, check_in_time) 
-           VALUES (?, ?, ?, 'confirmed', NOW())`,
+             (reservation_id, table_id, customer_name, status, check_in_time) 
+             VALUES (?, ?, ?, 'confirmed', NOW())`,
             [customId, tid, `${data.firstName} ${data.lastName}`],
           );
         }
       }
 
-      // 3. Insert selected items (reservation_items)
+      // 3. Insert selected items
       if (data.selectedItems?.length > 0) {
         for (const item of data.selectedItems) {
           await conn.query(
             `INSERT INTO reservation_items 
-           (reservation_id, product_id, quantity, price, customizations) 
-           VALUES (?, ?, ?, ?, ?)`,
+             (reservation_id, product_id, quantity, price, customizations) 
+             VALUES (?, ?, ?, ?, ?)`,
             [
               customId,
               item.item_id || item.id,
@@ -262,36 +264,34 @@ const Reservation = {
         }
       }
 
-      // 4. Insert payment record
+      // 4. Insert payment record with calculated downpayment
       await conn.query(
         `INSERT INTO payments 
-       (reservation_id, amount, total_bill, payment_method, payment_status, paid_at) 
-       VALUES (?, ?, ?, ?, ?, NOW())`,
+         (reservation_id, amount, total_bill, payment_method, payment_status, paid_at) 
+         VALUES (?, ?, ?, ?, 'pending', NOW())`,
         [
           customId,
-          data.amount,
-          data.totalAmount || data.amount,
-          data.paymentMethod || "Gcash",
-          "pending",
+          data.downpayment || 0,
+          data.totalAmount || data.amount || 0,
+          data.paymentMethod || "Maya",
         ],
       );
 
-      // 5. Insert notification (only for registered users)
+      // 5. Insert notification
       if (data.userId && data.userId !== "null") {
         const notifSql = `
-        INSERT INTO notifications 
-        (user_id, reservation_id, title, message, type, is_read, created_at) 
-        VALUES (?, ?, ?, ?, 'success', 0, NOW())
-      `;
+          INSERT INTO notifications 
+          (user_id, reservation_id, title, message, type, is_read, created_at) 
+          VALUES (?, ?, ?, ?, 'success', 0, NOW())
+        `;
         await conn.query(notifSql, [
           data.userId,
           customId,
           "Reservation Confirmed",
-          `Your reservation for ${data.date} at ${data.startTime} has been successfully placed.`,
+          `Your reservation for ${data.date} at ${data.startTime} has been successfully placed. Downpayment: ₱${(data.downpayment || 0).toFixed(2)}`,
         ]);
       }
 
-      // Commit all changes
       await conn.commit();
       return customId;
     } catch (err) {
@@ -302,7 +302,7 @@ const Reservation = {
       conn.release();
     }
   },
-  // counting customers no show
+
   countNoShows: async (userId) => {
     if (!userId || userId === "null") return 0;
     const sql = `SELECT COUNT(*) as count FROM reservations WHERE user_id = ? AND status = 'no-show'`;

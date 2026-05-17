@@ -11,6 +11,7 @@ import {
   User,
   Calendar,
   Layers,
+  Clock,
 } from "lucide-react";
 import "../Style/ReservationSummary.css";
 
@@ -276,6 +277,7 @@ const ReservationSummary = ({
               )}
             </div>
           </section>
+
           {/* Section 4: Payment Breakdown */}
           <section className="summary-section payment-box">
             <div className="section-header">
@@ -287,6 +289,18 @@ const ReservationSummary = ({
               </h3>
             </div>
 
+            {/* Duration Info */}
+            {reservationData.durationHours &&
+              reservationData.durationHours > 0 && (
+                <div className="duration-info-summary">
+                  <Clock size={14} />
+                  <span>
+                    Reservation Duration: {reservationData.durationHours} hour
+                    {reservationData.durationHours !== 1 ? "s" : ""}
+                  </span>
+                </div>
+              )}
+
             <div className="payment-row">
               <span>Total Bill</span>
               <span>
@@ -296,8 +310,27 @@ const ReservationSummary = ({
                 })}
               </span>
             </div>
+
+            {/* Show duration-based downpayment note if applicable */}
+            {reservationData.durationHours >= 2 && (
+              <div className="payment-note">
+                <small>
+                  ⚠️ Minimum downpayment for {reservationData.durationHours}{" "}
+                  hour(s): ₱
+                  {(() => {
+                    let min = 200;
+                    const additional = Math.floor(
+                      reservationData.durationHours - 2,
+                    );
+                    min += additional * 50;
+                    return min.toFixed(2);
+                  })()}
+                </small>
+              </div>
+            )}
+
             <div className="payment-row highlight">
-              <span>Required Downpayment (20%)</span>
+              <span>Required Downpayment</span>
               <span>
                 ₱
                 {orderSummary?.downpayment?.toLocaleString(undefined, {
@@ -305,6 +338,7 @@ const ReservationSummary = ({
                 })}
               </span>
             </div>
+
             <div className="payment-row balance">
               <span>Remaining Balance to Pay</span>
               <span>
@@ -377,7 +411,6 @@ const ReservationSummary = ({
                   Payment to:
                 </p>
                 <div className="account-details">
-                  {/* DISPLAY DYNAMIC VALUES FROM SETTINGS */}
                   <strong>{accountDetails.number || "Not Set"}</strong>
                   <div className="account-name">
                     Account Name: {accountDetails.name || "Not Set"}

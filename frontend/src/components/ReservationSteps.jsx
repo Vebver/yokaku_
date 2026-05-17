@@ -1,4 +1,4 @@
-// ReservationSteps.jsx (Updated with PAX field conditional)
+// ReservationSteps.jsx (Updated with PAX field conditional and dynamic downpayment)
 import React, { useState, useMemo, useEffect } from "react";
 import axios from "axios";
 import {
@@ -577,18 +577,53 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     );
   }, [selectedId, linkedIds, primaryTable]);
 
+  // Calculate duration in hours from startTime and endTime
+  const calculateDurationInHours = useMemo(() => {
+    if (!form.startTime || !form.endTime) return 0;
+    const start = timeToMin(form.startTime);
+    const end = timeToMin(form.endTime);
+    const durationMinutes = end - start;
+    return durationMinutes / 60;
+  }, [form.startTime, form.endTime]);
+
   const orderSummary = useMemo(() => {
     const rawTotal = selectedItems.reduce(
       (sum, item) => sum + item.price * item.quantity,
       0,
     );
     const total = Math.round(rawTotal * 100) / 100;
+
+    // Calculate downpayment based on duration and total
+    // Duration-based calculation:
+    // 1 hour = ₱0 minimum
+    // 2 hours = ₱200 minimum
+    // Each additional hour beyond 2 = +₱50
+    let durationBasedDownpayment = 0;
+    const durationHours = calculateDurationInHours;
+
+    if (durationHours >= 2) {
+      durationBasedDownpayment = 200;
+      const additionalHours = Math.floor(durationHours - 2);
+      durationBasedDownpayment += additionalHours * 50;
+    }
+
+    // 20% of total order
+    const twentyPercentOfOrder = total * 0.2;
+
+    // Final downpayment is the higher of the two
+    const finalDownpayment = Math.max(
+      durationBasedDownpayment,
+      twentyPercentOfOrder,
+    );
+
     return {
       totalOrderPrice: total,
-      downpayment: Math.round(total * 0.2 * 100) / 100,
-      balance: Math.round(total * 0.8 * 100) / 100,
+      downpayment: Math.round(finalDownpayment * 100) / 100,
+      balance: Math.round((total - finalDownpayment) * 100) / 100,
+      durationHours: durationHours,
+      durationBasedDownpayment: durationBasedDownpayment,
     };
-  }, [selectedItems]);
+  }, [selectedItems, calculateDurationInHours]);
 
   const tableIdsArray = useMemo(
     () => [selectedId, ...linkedIds].filter((id) => id !== null),
@@ -625,6 +660,9 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       selectedItems: selectedItems,
       packages: selectedItems,
       resDate: form.date,
+      startTime: form.startTime,
+      endTime: form.endTime,
+      durationHours: orderSummary.durationHours,
       amount: orderSummary.downpayment,
       totalAmount: orderSummary.totalOrderPrice,
       downpayment: orderSummary.downpayment,
@@ -827,6 +865,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         packageName: productDisplayName,
         totalAmount: orderSummary.totalOrderPrice,
         amount: orderSummary.downpayment,
+        downpayment: orderSummary.downpayment,
+        durationHours: orderSummary.durationHours,
         paymentMethod: method || paymentMethod || "Maya",
         tableIds: JSON.stringify(tableIdsArray),
         selectedItems: JSON.stringify(selectedItems),
@@ -1350,7 +1390,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     name="pax"
                     className="pax-input"
                     min="1"
-                    max="100" // Changed from totalSeats to 100 (reasonable max)
+                    max="100"
                     value={form.pax}
                     onChange={(e) => {
                       const value = e.target.value;
@@ -1393,7 +1433,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     onClick={() => {
                       const currentPax = parseInt(form.pax) || 0;
                       if (currentPax < 100) {
-                        // Changed from totalSeats to 100
                         setForm((prev) => ({
                           ...prev,
                           pax: String(currentPax + 1),
@@ -1421,7 +1460,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     <span>
                       Enter the total number of guests (selected tables can seat
                       up to {totalSeats || 0} guests in total, but you can enter
-                      any number)
+                      any number up to 38)
                     </span>
                   </div>
                 )}
@@ -1891,18 +1930,24 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                 </div>
                 <div className="package-downpayment">
                   <span style={{ color: "#f38d31", fontWeight: "800" }}>
-                    Downpayment (20%):
+                    Downpayment:
                   </span>
                   <strong style={{ color: "#f38d31" }}>
                     ₱{orderSummary.downpayment.toFixed(2)}
                   </strong>
                 </div>
                 <div className="package-balance">
-                  <span style={{ color: "#666" }}>
-                    Remaining Balance (80%):
-                  </span>
+                  <span style={{ color: "#666" }}>Remaining Balance:</span>
                   <strong>₱{orderSummary.balance.toFixed(2)}</strong>
                 </div>
+                {orderSummary.durationHours >= 2 && (
+                  <div className="duration-note">
+                    <small>
+                      ⚠️ Minimum downpayment of ₱200 applies for 2+ hour
+                      reservations (+₱50 per additional hour)
+                    </small>
+                  </div>
+                )}
 
                 <div className="terms-checkbox-wrapper">
                   <label className="terms-checkbox-label">

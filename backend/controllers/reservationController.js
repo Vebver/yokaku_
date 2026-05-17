@@ -1,6 +1,6 @@
 const Reservation = require("../models/Reservation");
 const User = require("../models/User");
-const db = require("../config/db"); // Add this for direct database queries
+const db = require("../config/db");
 
 /**
  * UTILITY HELPERS
@@ -12,6 +12,35 @@ const formatTimeTo24h = (timeStr) => {
   if (hours === "12") hours = "00";
   if (modifier === "PM") hours = parseInt(hours, 10) + 12;
   return `${String(hours).padStart(2, "0")}:${minutes}:00`;
+};
+
+// Helper function to calculate duration in hours
+const calculateDurationHours = (startTime, endTime, date) => {
+  const startDateTime = new Date(`${date} ${startTime}`);
+  const endDateTime = new Date(`${date} ${endTime}`);
+  const durationMs = endDateTime - startDateTime;
+  const durationHours = durationMs / (1000 * 60 * 60);
+  return Math.round(durationHours * 100) / 100;
+};
+
+// Helper function to calculate downpayment based on duration
+const calculateDownpayment = (durationHours, totalOrderAmount = 0) => {
+  let durationBasedDownpayment = 0;
+
+  // 1 hour or less = no downpayment from duration
+  if (durationHours >= 2) {
+    // Base ₱200 for 2 hours
+    durationBasedDownpayment = 200;
+    // Add ₱50 for each additional hour beyond 2
+    const additionalHours = Math.floor(durationHours - 2);
+    durationBasedDownpayment += additionalHours * 50;
+  }
+
+  // Calculate 20% of total order amount
+  const twentyPercentOfOrder = totalOrderAmount * 0.2;
+
+  // Return the higher amount
+  return Math.max(durationBasedDownpayment, twentyPercentOfOrder);
 };
 
 const reservationController = {
@@ -124,7 +153,6 @@ const reservationController = {
     try {
       const { userId } = req.body;
       await User.incrementCancellationCount(userId);
-      // Update last cancellation time
       await db.execute(
         "UPDATE users SET last_cancellation_time = NOW() WHERE user_id = ?",
         [userId],
@@ -151,10 +179,9 @@ const reservationController = {
     try {
       const body = req.body;
       const userId = body.userId;
+
       if (userId && userId !== "null") {
         const noShowCount = await Reservation.countNoShows(userId);
-
-        // Define your limit (e.g., 3 no-shows)
         if (noShowCount >= 3) {
           return res.status(403).json({
             error: "Booking Restricted",
@@ -163,6 +190,7 @@ const reservationController = {
           });
         }
       }
+
       const items =
         typeof body.selectedItems === "string"
           ? JSON.parse(body.selectedItems)
@@ -172,10 +200,26 @@ const reservationController = {
           ? JSON.parse(body.tableIds)
           : body.tableIds || [];
 
+      // Calculate duration in hours from start and end time
       const startDateTime = new Date(`${body.date} ${body.startTime}`);
-      const durationHours = parseInt(body.durationHours) || 2;
-      const endDateTime = new Date(startDateTime);
-      endDateTime.setHours(endDateTime.getHours() + durationHours);
+      const endDateTime = new Date(`${body.date} ${body.endTime}`);
+      const durationHours = (endDateTime - startDateTime) / (1000 * 60 * 60);
+
+      // Calculate total order amount from items
+      let totalOrderAmount = 0;
+      if (items.length > 0) {
+        totalOrderAmount = items.reduce((sum, item) => {
+          return sum + parseFloat(item.price) * (item.quantity || 1);
+        }, 0);
+      } else if (body.totalAmount) {
+        totalOrderAmount = parseFloat(body.totalAmount);
+      }
+
+      // Calculate downpayment based on duration and order amount
+      const calculatedDownpayment = calculateDownpayment(
+        durationHours,
+        totalOrderAmount,
+      );
 
       const dbStart = startDateTime.toTimeString().split(" ")[0];
       const dbEnd = endDateTime.toTimeString().split(" ")[0];
@@ -195,6 +239,9 @@ const reservationController = {
         userId: body.userId || req.user?.userId,
         startTime: dbStart,
         endTime: dbEnd,
+        durationHours: durationHours,
+        totalAmount: totalOrderAmount,
+        downpayment: calculatedDownpayment,
         packageName: finalPackageName,
         tableIds: tableIdsArray,
         selectedItems: items,
@@ -224,27 +271,20 @@ const reservationController = {
     try {
       const { id } = req.params;
       const { status } = req.body;
-      const currentUser = req.user; // This comes from your 'protect' middleware
+      const currentUser = req.user;
 
-      // 1. Find the reservation
       const reservation = await Reservation.findById(id);
       if (!reservation) return res.status(404).json({ error: "Not found" });
 
-      // 2. SECURITY CHECK
       const isOwner = reservation.user_id === currentUser.userId;
       const isAdmin = currentUser.role === "admin";
 
-      // If the user is a CUSTOMER
       if (!isAdmin) {
-        // Rule A: They can only update their OWN reservation
         if (!isOwner) {
           return res
             .status(403)
             .json({ error: "You do not own this reservation." });
         }
-
-        // Rule B: They can ONLY change the status to 'Cancelled'
-        // They are NOT allowed to set it to 'Seated' or 'Confirmed'
         if (status.toLowerCase() !== "cancelled") {
           return res
             .status(403)
@@ -252,7 +292,6 @@ const reservationController = {
         }
       }
 
-      // 3. BLACKLIST CHECK (Only if they are trying to do something OTHER than cancel)
       if (status.toLowerCase() !== "cancelled") {
         const noShowCount = await Reservation.countNoShows(reservation.user_id);
         if (noShowCount >= 3) {
@@ -262,7 +301,6 @@ const reservationController = {
         }
       }
 
-      // 4. If Admin OR (Owner + Cancelling), proceed!
       await Reservation.updateStatus(id, status);
       res.json({ success: true, message: "Status updated." });
     } catch (error) {
@@ -290,18 +328,16 @@ const reservationController = {
           .json({ success: false, message: "Invalid Reservation ID." });
       }
 
-      // 1. Check if already used
       if (
         reservation.status === "Seated" ||
         reservation.status === "Completed"
       ) {
         return res.status(400).json({
           success: false,
-          message: "This reservation is already active or complet ed.",
+          message: "This reservation is already active or completed.",
         });
       }
 
-      // 2. Check if Rejected/Cancelled
       if (
         ["Rejected", "Cancelled", "no-show"].includes(
           reservation.status.toLowerCase(),
@@ -313,19 +349,13 @@ const reservationController = {
         });
       }
 
-      // 3. TIME WINDOW VALIDATION
       const now = new Date();
-
-      // Combine Date and Time from DB (e.g. "2023-10-25" and "14:30:00")
       const scheduledTime = new Date(
         `${reservation.reservation_date} ${reservation.reservation_time}`,
       );
-
-      // Calculate difference in minutes (Now minus Scheduled)
       const diffInMs = now - scheduledTime;
       const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
 
-      // CASE A: Too Early (More than 30 mins before)
       if (diffInMinutes < -30) {
         return res.status(400).json({
           success: false,
@@ -333,11 +363,8 @@ const reservationController = {
         });
       }
 
-      // CASE B: Too Late (More than 60 mins after)
       if (diffInMinutes > 60) {
-        // Automatically update to No-Show in DB
         await Reservation.updateStatus(reservation.reservation_id, "no-show");
-
         return res.status(400).json({
           success: false,
           message:
@@ -345,7 +372,6 @@ const reservationController = {
         });
       }
 
-      // 4. IF ALL CHECKS PASS
       res.json({ success: true, reservation });
     } catch (error) {
       console.error("Check ID Error:", error);
@@ -354,6 +380,7 @@ const reservationController = {
         .json({ success: false, message: "Internal server error" });
     }
   },
+
   // ==================== CALENDAR FUNCTIONS ====================
   getReservationsByDateRange: async (req, res) => {
     try {
@@ -426,4 +453,5 @@ const reservationController = {
     }
   },
 };
+
 module.exports = reservationController;
