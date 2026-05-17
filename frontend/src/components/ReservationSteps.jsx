@@ -343,7 +343,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           const e = timeToMin(form.endTime);
           return s < timeToMin(r.endTime) && e > timeToMin(r.startTime);
         });
-        // PAX validation - just needs to be a positive number
         const isPaxValid =
           form.pax && parseInt(form.pax) >= 1 && parseInt(form.pax) <= 38;
         return (
@@ -352,7 +351,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           isEndTimeValid &&
           isTimeValid &&
           hasNoConflict &&
-          isPaxValid // Only checks if PAX is filled and positive
+          isPaxValid
         );
       case 2:
         const isMuniValid = form.muni && form.muni !== "";
@@ -366,24 +365,19 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           isBrgyValid
         );
       case 3:
-        // Check if downpayment requirement is met for 2+ hour reservations
-        const meetsDownpaymentRequirement = () => {
-          if (orderSummary.durationHours >= 2) {
-            // For 2+ hours, need to meet minimum downpayment
-            return (
-              orderSummary.downpayment >=
-              orderSummary.requiredMinimumDownpayment
-            );
-          }
-          // For 1 hour, just need items selected
-          return selectedItems.length > 0;
-        };
+        // Check if items are selected
+        const hasItems = selectedItems.length > 0;
+        // Check if terms are agreed
+        const termsAgreed = agreeToTerms;
 
-        return (
-          selectedItems.length > 0 &&
-          agreeToTerms &&
-          meetsDownpaymentRequirement()
-        );
+        // For 2+ hour reservations, check if downpayment meets minimum
+        let meetsDownpaymentRequirement = true;
+        if (orderSummary.durationHours >= 2) {
+          meetsDownpaymentRequirement =
+            orderSummary.downpayment >= orderSummary.requiredMinimumDownpayment;
+        }
+
+        return hasItems && termsAgreed && meetsDownpaymentRequirement;
       case 4:
         return true;
       default:
@@ -610,12 +604,10 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     );
     const total = Math.round(rawTotal * 100) / 100;
 
-    // Calculate required downpayment based on duration
-    // Duration-based calculation:
-    // 1 hour = 20% of order total (no minimum)
-    // 2 hours = ₱200 minimum (requires ₱1,000 order to reach)
-    // 3 hours = ₱250 minimum (requires ₱1,250 order to reach)
-    // Each additional hour beyond 2 = +₱50 minimum
+    // Calculate 20% of order total (this is the ACTUAL downpayment)
+    const twentyPercentOfOrder = total * 0.2;
+
+    // Calculate minimum required downpayment based on duration
     let requiredMinimumDownpayment = 0;
     const durationHours = calculateDurationInHours;
 
@@ -625,32 +617,24 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       requiredMinimumDownpayment += additionalHours * 50;
     }
 
-    // 20% of total order
-    const twentyPercentOfOrder = total * 0.2;
-
-    // For 1 hour: just use 20% of order
-    // For 2+ hours: need to meet the minimum downpayment
+    // For 1 hour: no minimum requirement
+    // For 2+ hours: downpayment is 20% of order, but must meet minimum requirement
     // If 20% is less than minimum, user needs to add more items
-    let finalDownpayment = twentyPercentOfOrder;
-    let needsMoreItems = false;
+    const needsMoreItems =
+      durationHours >= 2 && twentyPercentOfOrder < requiredMinimumDownpayment;
 
-    if (durationHours >= 2) {
-      if (twentyPercentOfOrder >= requiredMinimumDownpayment) {
-        finalDownpayment = twentyPercentOfOrder;
-      } else {
-        finalDownpayment = requiredMinimumDownpayment;
-        needsMoreItems = true;
-      }
-    }
+    // The actual downpayment is always 20% of order
+    // The warning tells them they need to add more items to meet the minimum
+    const actualDownpayment = twentyPercentOfOrder;
 
     return {
       totalOrderPrice: total,
-      downpayment: Math.round(finalDownpayment * 100) / 100,
-      balance: Math.round((total - finalDownpayment) * 100) / 100,
+      downpayment: Math.round(actualDownpayment * 100) / 100, // This is 20% of order
+      requiredMinimumDownpayment: requiredMinimumDownpayment, // This is the minimum they need to reach
+      balance: Math.round((total - actualDownpayment) * 100) / 100,
       durationHours: durationHours,
-      requiredMinimumDownpayment: requiredMinimumDownpayment,
       needsMoreItems: needsMoreItems,
-      minimumOrderNeeded: requiredMinimumDownpayment * 5, // ₱200 min downpayment = ₱1,000 order needed
+      minimumOrderNeeded: requiredMinimumDownpayment * 5, // Order needed to reach minimum (20% of order = min downpayment)
     };
   }, [selectedItems, calculateDurationInHours]);
 
@@ -1941,6 +1925,19 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         );
 
       case 3:
+        const meetsDownpaymentRequirement = () => {
+          if (orderSummary.durationHours >= 2) {
+            // Check if 20% of order meets or exceeds the minimum required
+            return (
+              orderSummary.downpayment >=
+              orderSummary.requiredMinimumDownpayment
+            );
+          }
+          return true;
+        };
+
+        const isDownpaymentRequirementMet = meetsDownpaymentRequirement();
+
         return (
           <div className="step-content step-package">
             <button
@@ -1971,14 +1968,24 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   </strong>
                 </div>
 
-                {/* Show duration-based requirement warning */}
+                {/* Duration info */}
+                {orderSummary.durationHours >= 2 && (
+                  <div className="duration-info">
+                    <Clock size={14} />
+                    <span>
+                      Reservation Duration: {orderSummary.durationHours} hour(s)
+                    </span>
+                  </div>
+                )}
+
+                {/* Show minimum requirement warning */}
                 {orderSummary.durationHours >= 2 && (
                   <div
-                    className={`duration-requirement ${orderSummary.needsMoreItems ? "warning" : "success"}`}
+                    className={`duration-requirement ${!isDownpaymentRequirementMet ? "warning" : "success"}`}
                   >
                     <AlertCircle size={14} />
                     <span>
-                      {orderSummary.needsMoreItems ? (
+                      {!isDownpaymentRequirementMet ? (
                         <>
                           ⚠️ Minimum downpayment of ₱
                           {orderSummary.requiredMinimumDownpayment} required for{" "}
@@ -1996,18 +2003,48 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   </div>
                 )}
 
+                {/* Downpayment display - always shows 20% of order */}
                 <div className="package-downpayment">
-                  <span style={{ color: "#f38d31", fontWeight: "800" }}>
-                    Downpayment:
-                  </span>
-                  <strong style={{ color: "#f38d31" }}>
-                    ₱{orderSummary.downpayment.toFixed(2)}
-                  </strong>
+                  <div className="downpayment-row">
+                    <span style={{ color: "#f38d31", fontWeight: "800" }}>
+                      Downpayment (20%):
+                    </span>
+                    <strong style={{ color: "#f38d31" }}>
+                      ₱{orderSummary.downpayment.toFixed(2)}
+                    </strong>
+                  </div>
+
+                  {/* Show required minimum if it's higher than actual */}
+                  {orderSummary.durationHours >= 2 &&
+                    orderSummary.requiredMinimumDownpayment >
+                      orderSummary.downpayment && (
+                      <div className="required-minimum-warning">
+                        <span className="required-label">
+                          Minimum Required:
+                        </span>
+                        <span className="required-amount">
+                          ₱{orderSummary.requiredMinimumDownpayment.toFixed(2)}
+                        </span>
+                      </div>
+                    )}
                 </div>
+
                 <div className="package-balance">
                   <span style={{ color: "#666" }}>Remaining Balance:</span>
                   <strong>₱{orderSummary.balance.toFixed(2)}</strong>
                 </div>
+
+                {/* Blocked warning - cannot proceed */}
+                {orderSummary.durationHours >= 2 &&
+                  !isDownpaymentRequirementMet && (
+                    <div className="requirement-blocked-warning">
+                      <AlertCircle size={16} />
+                      <span>
+                        You cannot proceed until the minimum downpayment
+                        requirement is met.
+                      </span>
+                    </div>
+                  )}
 
                 <div className="terms-checkbox-wrapper">
                   <label className="terms-checkbox-label">
@@ -2097,6 +2134,14 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   setUi((p) => ({ ...p, summary: true }));
               }}
               disabled={!validateCurrentStep()}
+              title={
+                currentStep === 3 &&
+                orderSummary.durationHours >= 2 &&
+                orderSummary.downpayment <
+                  orderSummary.requiredMinimumDownpayment
+                  ? `Minimum downpayment of ₱${orderSummary.requiredMinimumDownpayment} required`
+                  : ""
+              }
             >
               Complete Reservation <CheckCircle size={18} />
             </button>
@@ -2105,6 +2150,14 @@ export default function ReservationSteps({ onClose, onSuccess }) {
               className="nav-btn nav-btn-next"
               onClick={goToNextStep}
               disabled={!validateCurrentStep()}
+              title={
+                currentStep === 3 &&
+                orderSummary.durationHours >= 2 &&
+                orderSummary.downpayment <
+                  orderSummary.requiredMinimumDownpayment
+                  ? `Minimum downpayment of ₱${orderSummary.requiredMinimumDownpayment} required`
+                  : ""
+              }
             >
               Next <ChevronRight size={18} />
             </button>
