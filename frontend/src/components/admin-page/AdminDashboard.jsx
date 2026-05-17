@@ -73,17 +73,25 @@ const navItems = [
   { id: "maintenance", label: "Maintenance", icon: Icons.Maintenance },
 ];
 
-const StatCard = ({ title, value, color, icon }) => (
-  <div className="col-12 col-md-4">
-    {/* Removed any status-line borders (Yellow/Blue/Green things) */}
-    <div className="card stat-card shadow-sm border-0">
-      <div className="card-body p-3 d-flex align-items-center gap-3">
-        <div className={`icon-circle bg-${color}-subtle text-${color}`}>
-          <i className={`bi ${icon}`}></i>
+const StatCard = ({ title, value, color, icon: Icon }) => (
+  <div className="col-12 col-md-4 mb-3"> {/* Added mb-3 for bottom spacing */}
+    <div className="card border-0 shadow-sm rounded-4 p-3 bg-white" style={{ minHeight: '100px', display: 'block' }}>
+      <div className="d-flex align-items-center h-100 gap-3">
+        {/* Icon Box */}
+        <div className={`bg-${color}-subtle text-${color} d-flex align-items-center justify-content-center flex-shrink-0`} 
+             style={{ width: '48px', height: '48px', borderRadius: '12px' }}>
+          <Icon size={22} />
         </div>
-        <div>
-          <p className="text-muted fw-bold text-uppercase mb-0 small-text">{title}</p>
-          <h4 className="fw-bold mb-0 text-dark">{value}</h4>
+        
+        {/* Text Content */}
+        <div className="overflow-hidden">
+          <p className="text-muted fw-bold text-uppercase mb-1" 
+             style={{ fontSize: '0.65rem', letterSpacing: '0.8px', whiteSpace: 'nowrap' }}>
+            {title}
+          </p>
+          <h4 className="fw-bold mb-0 text-dark">
+            {value}
+          </h4>
         </div>
       </div>
     </div>
@@ -129,8 +137,9 @@ function AdminDashboard() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
- const fetchDashboardData = async () => {
+const fetchDashboardData = async () => {
     try {
+      setLoading(true);
       const token = localStorage.getItem("token");
       const config = { headers: { Authorization: `Bearer ${token}` } };
       
@@ -141,13 +150,12 @@ function AdminDashboard() {
 
       const data = statsRes.data;
 
-      // 1. Calculate the Real Total from the Trend (The same way Financial Report does)
-      const calculatedTotal = data.revenueTrend?.reduce((acc, val) => acc + Number(val), 0) || 0;
-
+      // Update state using the exact keys from the controller
       setStats({
-        ...data,
-        // Override the monthlyRevenue with the sum of the trend data
-        monthlyRevenue: calculatedTotal, 
+        totalBookings: data.totalBookings || 0,
+        activeTables: data.activeTables || 0,
+        kitchenQueue: data.kitchenQueue || 0,
+        monthlyRevenue: data.monthlyRevenue || 0,
         todayRevenue: data.todayRevenue || 0,
         avgOrder: data.avgOrder || 0,
         totalOrders: data.totalOrders || 0,
@@ -155,10 +163,12 @@ function AdminDashboard() {
         trendLabels: data.trendLabels || []
       });
 
-
       setTodaySchedule(scheduleRes.data);
-    } catch (error) { console.error("Fetch error", error); } 
-    finally { setLoading(false); }
+    } catch (error) { 
+        console.error("Fetch error", error); 
+    } finally { 
+        setLoading(false); 
+    }
 };
 
    const formatCurrency = (val) => `₱${Number(val || 0).toLocaleString(undefined, { 
@@ -195,107 +205,82 @@ function AdminDashboard() {
   );
 
   const DashboardOverview = () => (
-    <div className="dashboard-content">
-      {/* 1. TIMELINE */}
-      <div className="mb-3 bg-white p-3 rounded-3 shadow-sm border-start border-4 border-warning">
-        <div className="d-flex align-items-center mb-2">
-          <Info size={16} className="text-warning me-2" />
-          <span className="fw-bold small">Today's Timeline</span>
-        </div>
-        <div className="d-flex gap-2 overflow-auto no-scrollbar pb-1 custom-scrollbar">
-          {todaySchedule.length > 0 ? (
-            todaySchedule.map((res, i) => (
-              <div key={i} className="timeline-badge">
-                <span className="fw-bold text-primary">{res.reservation_time?.substring(0, 5)}</span>
-                <span className="mx-2 text-muted">|</span>
-                <span className="fw-semibold">{res.first_name}</span>
-                <span className="badge bg-dark ms-2">T-{res.table_names}</span>
-              </div>
-            ))
-          ) : (
-            <span className="text-muted small p-1">No arrivals for today.</span>
-          )}
-        </div>
+  <div className="dashboard-content">
+    {/* 1. TIMELINE (Keep your existing one) */}
+    <div className="mb-4 bg-white p-3 rounded-4 shadow-sm border-start border-4 border-warning">
+      <div className="d-flex align-items-center mb-2">
+        <Info size={16} className="text-warning me-2" />
+        <span className="fw-bold small">Today's Timeline</span>
       </div>
+      <div className="d-flex gap-2 overflow-auto no-scrollbar pb-1">
+        {todaySchedule.length > 0 ? (
+          todaySchedule.map((res, i) => (
+            <div key={i} className="timeline-badge bg-light px-3 py-1 rounded-pill border small fw-semibold">
+              <span className="text-primary">{res.reservation_time?.substring(0, 5)}</span>
+              <span className="mx-2 opacity-50">|</span>
+              <span>{res.first_name}</span>
+              <span className="badge bg-dark ms-2">T-{res.table_names}</span>
+            </div>
+          ))
+        ) : (
+          <span className="text-muted small p-1">No arrivals for today.</span>
+        )}
+      </div>
+    </div>
 
       {/* 2. STATS CARDS - ACCENT REMOVED */}
-      <div className="row g-3 mb-3">
-        <StatCard title="Bookings" value={stats.totalBookings} color="primary" icon="bi-calendar-check" />
-        <StatCard title="Occupied" value={stats.activeTables} color="success" icon="bi-door-open" />
-        {/* Changed color from warning to info to remove the heavy yellow look */}
-        <StatCard title="Queue" value={stats.kitchenQueue} color="info" icon="bi-egg-fried" />
-      </div>
+     {/* TOP STATS SECTION */}
+<div className="row g-3 mb-2"> {/* g-3 adds the gap between cards */}
+  <StatCard title="Total Bookings" value={stats.totalBookings} color="primary" icon={TrendingUp} />
+  <StatCard title="Tables Occupied" value={stats.activeTables} color="success" icon={ShoppingBag} />
+  <StatCard title="Kitchen Queue" value={stats.kitchenQueue} color="info" icon={Info} />
+</div>
 
       {/* 3. FINANCIAL SECTION & CHART */}
-     <div className="row g-3 mb-3">
-        <div className="col-lg-5">
-          <div className="row g-3 h-100">
-            <MiniFinanceCard 
-                title="Total Period Revenue" 
-                value={stats.monthlyRevenue} 
-                icon={TrendingUp} 
-                colorClass="text-success bg-success-subtle" 
-            />
-            <MiniFinanceCard 
-                title="Today's Revenue" 
-                value={stats.todayRevenue} 
-                icon={DollarSign} 
-                colorClass="text-primary bg-primary-subtle" 
-            />
-            <MiniFinanceCard 
-                title="Avg. Order" 
-                value={stats.avgOrder} 
-                icon={ShoppingBag} 
-                colorClass="text-info bg-info-subtle" 
-            />
-            <MiniFinanceCard 
-                title="Total Order" 
-                value={stats.totalOrders} 
-                icon={CreditCard} 
-                colorClass="text-warning bg-warning-subtle" 
-                isNum={true}
-            />
-          </div>
+    <div className="row g-3 mb-4">
+      <div className="col-lg-5">
+        <div className="row g-3">
+          <MiniFinanceCard title="Weekly Revenue" value={stats.monthlyRevenue} icon={TrendingUp} colorClass="text-success bg-success-subtle" />
+          <MiniFinanceCard title="Today's Revenue" value={stats.todayRevenue} icon={DollarSign} colorClass="text-primary bg-primary-subtle" />
+          <MiniFinanceCard title="Avg. Order" value={stats.avgOrder} icon={ShoppingBag} colorClass="text-info bg-info-subtle" />
+          <MiniFinanceCard title="Total Orders" value={stats.totalOrders} icon={CreditCard} colorClass="text-warning bg-warning-subtle" isNum={true} />
         </div>
+      </div>
 
         {/* REVENUE ANALYTICS CHART */}
         <div className="col-lg-7">
-          <div className="bg-white p-3 p-md-4 rounded-4 shadow-sm border h-100">
-            <div className="d-flex justify-content-between align-items-center mb-3">
-                <h6 className="fw-bold mb-0">Revenue Analytics</h6>
-                <span className="badge bg-primary-subtle text-primary rounded-pill px-3">
-                    Total: {formatCurrency(stats.monthlyRevenue)}
-                </span>
-            </div>
-            <div style={{ height: "200px" }}>
-              <Line 
-                data={chartData} 
-                options={{ 
-                  responsive: true, 
-                  maintainAspectRatio: false, 
-                  plugins: { legend: { display: false } },
-                  scales: { y: { beginAtZero: true, ticks: { callback: (v) => '₱' + v.toLocaleString() } } }
-                }} 
-              />
-            </div>
+        <div className="bg-white p-4 rounded-4 shadow-sm border h-100">
+          <div className="d-flex justify-content-between align-items-center mb-4">
+            <h6 className="fw-bold mb-0">Revenue Analytics</h6>
+            <span className="badge bg-primary-subtle text-primary rounded-pill px-3 py-2">
+              Total: {formatCurrency(stats.monthlyRevenue)}
+            </span>
+          </div>
+          <div style={{ height: "220px" }}>
+            <Line data={chartData} options={{ 
+              responsive: true, 
+              maintainAspectRatio: false, 
+              plugins: { legend: { display: false } },
+              scales: { y: { beginAtZero: true, ticks: { callback: (v) => '₱' + v.toLocaleString() } } }
+            }} />
           </div>
         </div>
       </div>
+    </div>
 
       {/* 4. FLOOR STATUS - FIXED BOX OVERFLOW */}
-      <div className="mt-0 pb-5">
-        <div className="d-flex justify-content-between align-items-center mb-2 px-1">
-          <h6 className="fw-bold mb-0 text-dark">Floor Status</h6>
-          <button className="btn btn-sm text-primary fw-bold text-decoration-none p-0" onClick={() => setActiveSection("table-status")}>
-            Full View →
-          </button>
-        </div>
-        {/* Added overflow-hidden and removed row margins internally */}
-        <div className="bg-white rounded-4 shadow-sm p-3 border overflow-hidden w-100 d-block">
-          <TableStatus compact={true} />
-        </div>
+      <div className="mt-4 pb-5">
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <h6 className="fw-bold mb-0">Floor Status</h6>
+        <button className="btn btn-sm text-primary fw-bold" onClick={() => setActiveSection("table-status")}>
+          Full View →
+        </button>
+      </div>
+      <div className="bg-white rounded-4 shadow-sm p-4 border">
+        <TableStatus compact={true} />
       </div>
     </div>
+  </div>
   )
 
   const renderSection = () => {

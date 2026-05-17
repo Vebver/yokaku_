@@ -8,39 +8,41 @@ const db = require("../config/db");
 
 
 const adminController = {
- getDashboardStats: async (req, res) => {
+getDashboardStats: async (req, res) => {
     try {
-      // Fetch all data in parallel for speed
       const [finStats, trendData, quickStats] = await Promise.all([
         FinancialReport.getFinancialStats(),
-        FinancialReport.getRecentTrend(), // This is for the 7-day chart
-        Dashboard.getQuickStats()         // This is for the 3 top cards
+        FinancialReport.getRecentTrend(),
+        Dashboard.getQuickStats()
       ]);
 
-      // IMPORTANT: Send RAW numbers. Do not add "₱" here. 
-      // The frontend will handle formatting.
+      // 1. Process Trend Data
+      const revenueTrend = trendData ? trendData.map(t => Number(t.value || 0)) : [0,0,0,0,0,0,0];
+      const trendLabels = trendData ? trendData.map(t => t.label || "") : ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+
+      // 2. SYNC LOGIC: Sum the 7-day trend to get the total
+      const calculatedTotal = revenueTrend.reduce((a, b) => a + b, 0);
+
+      // 3. Send names that match your React state exactly
       res.json({
-        // Top Card Counts
         totalBookings: quickStats.totalBookings,
         activeTables: quickStats.activeTables,
         kitchenQueue: quickStats.kitchenQueue,
+        
+        // If calculatedTotal is 0, fall back to the Monthly DB query
+        monthlyRevenue: calculatedTotal > 0 ? calculatedTotal : Number(finStats?.monthly_revenue || 0),
+        todayRevenue: Number(finStats?.today_revenue || 0),
+        avgOrder: Number(finStats?.aov || 0),
+        totalOrders: Number(finStats?.total_orders || 0),
 
-        // Finance Stats
-        monthlyRevenue: Number(finStats.monthly_revenue || 0),
-        todayRevenue: Number(finStats.today_revenue || 0),
-        avgOrder: Number(finStats.aov || 0),
-        totalOrders: Number(finStats.total_orders || 0),
-
-        // Chart Data (7 Days) 
-        revenueTrend: trendData.map((t) => Number(t.value || 0)),
-        trendLabels: trendData.map((t) => t.label || ""),
+        revenueTrend: revenueTrend,
+        trendLabels: trendLabels
       });
     } catch (error) {
       console.error("DASHBOARD STATS ERROR:", error);
       res.status(500).json({ error: error.message });
     }
   },
-
   getAllUsers: async (req, res) => {
     try {
       const users = await AccountManagement.getAll();
