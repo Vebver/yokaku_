@@ -1,34 +1,23 @@
-/* --- Variables --- */
 :root {
-  --sidebar-width: 250px;
-  --sidebar-collapsed-width: 80px;
-  --bg-body: #f8f9fa;
-  --primary: #10b981; /* Your Emerald Green */
-  --dark-sidebar: #111827;
-  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --sidebar-width: 260px;
+    --sidebar-collapsed: 85px;
+    --primary-blue: #0d6efd;
+    --sidebar-bg: #111827;
+    --body-bg: #f4f7fe;
+    --nav-text: #9ca3af;
 }
 
-/* --- Base Reset --- */
-* {
-  box-sizing: border-box;
+
+/* Base Layout */
+
+.admin-app-container {
+    display: flex;
+    min-height: 100vh;
+    background-color: var(--body-bg);
 }
 
-body {
-  margin: 0;
-  font-family: "Inter", "Segoe UI", sans-serif;
-  background-color: var(--bg-body);
-}
 
-.admin-layout {
-  display: flex;
-  flex-direction: column; /* Stack header and container vertically on mobile */
-  min-height: 100vh;
-}
-@media (min-width: 993px) {
-  .admin-layout {
-    flex-direction: row; /* Side-by-side on desktop */
-  }
-}
+/* SIDEBAR STYLES */
 
 /* --- Sidebar --- */
 .admin-sidebar {
@@ -183,144 +172,239 @@ body {
   .nav-label { display: inline-block !important; }
 }
   .sidebar-overlay {
+.app-sidebar {
+    width: var(--sidebar-width);
+    background-color: var(--sidebar-bg);
+    height: 100vh;
     position: fixed;
-    top: 0;
     left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0,0,0,0.5);
-    backdrop-filter: blur(2px);
-    z-index: 1500; /* Between content and sidebar */
-}
-.sidebar-overlay {
-    position: fixed;
     top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0,0,0,0.5);
-    backdrop-filter: blur(2px);
-    z-index: 1500; /* Between content and sidebar */
+    z-index: 1050;
+    display: flex;
+    flex-direction: column;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+  }
+
+.sb-closed .app-sidebar {
+    width: var(--sidebar-collapsed);
 }
 
-/* --- UI Components --- */
-.stat-icon-wrapper {
-  width: 42px;
-  height: 42px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  flex-shrink: 0;
-  font-size: 1.2rem;
+.sidebar-header-branding {
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
 }
 
-.stat-title {
-  font-size: 0.65rem;
-  letter-spacing: 0.5px;
-  color: #6b7280;
+.brand-logo {
+    min-width: 38px;
+    height: 38px;
+    background: var(--primary-blue);
+    color: white;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 1.2rem;
 }
 
-.sidebar-backdrop {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(2px);
-  z-index: 1500; /* Sits between content and menu */
+.brand-name {
+    color: white;
+    font-size: 1.25rem;
+    white-space: nowrap;
+    transition: opacity 0.2s;
 }
 
-/* Removes the darkening effect entirely */
-.offcanvas-backdrop {
-    display: none !important;
+.sb-closed .brand-name {
+    opacity: 0;
+    pointer-events: none;
 }
 
-/* Adds a nice clean border to the drawer since the shadow/backdrop is gone */
-#resDetailsDrawer {
-    border-left: 1px solid #dee2e6 !important;
-    box-shadow: -5px 0 15px rgba(0,0,0,0.05) !important;
+.sidebar-nav-list {
+    flex-grow: 1;
+    padding: 5px 16px;
+    overflow-y: auto;
 }
 
-/* Optional: If you also want to remove the black background from the 'Total Bill' card */
-#resDetailsDrawer .bg-dark {
-    background-color: #ffffff !important;
-    color: #212529 !important;
-    border: 1px solid #dee2e6 !important;
+.nav-item-link {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    padding: 10px 14px;
+    margin-bottom: 4px;
+    border: none;
+    background: transparent;
+    color: var(--nav-text);
+    border-radius: 12px;
+    transition: all 0.2s;
+    white-space: nowrap;
 }
 
-#resDetailsDrawer .bg-dark .text-white-50 {
-    color: #6c757d !important;
+.nav-item-link:hover,
+.nav-item-link.active {
+    background: rgba(255, 255, 255, 0.08);
+    color: white;
 }
 
-.timeline-item {
-  font-size: 0.65rem;
-  white-space: nowrap;
+.nav-item-link.active {
+    background: var(--primary-blue);
+    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.2);
 }
 
-/* Background helpers for Stat Cards */
-.bg-primary-subtle {
-  background-color: #d1fae5;
-}
-.bg-success-subtle {
-  background-color: #dcfce7;
-}
-.bg-warning-subtle {
-  background-color: #fef3c7;
+.nav-text-label {
+    font-size: 0.85rem;
+    margin-left: 12px;
+    font-weight: 500;
 }
 
-/* Utilities */
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
+.sb-closed .nav-text-label {
+    opacity: 0;
 }
-.transition-all {
-  transition: var(--transition);
+
+.sidebar-footer-action {
+    padding: 15px 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
-.opacity-0 {
-  opacity: 0;
+
+.logout-button {
+    width: 100%;
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    border: none;
+    padding: 10px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
-.opacity-100 {
-  opacity: 1;
+
+
+/* MAIN CONTENT VIEWPORT */
+
+.app-main-viewport {
+    flex-grow: 1;
+    margin-left: var(--sidebar-width);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    width: calc(100% - var(--sidebar-width));
+}
+
+.sb-closed .app-main-viewport {
+    margin-left: var(--sidebar-collapsed);
+    width: calc(100% - var(--sidebar-collapsed));
+}
+
+.app-top-nav {
+    height: 60px;
+    display: flex;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.toggle-sidebar-btn {
+    border: none;
+    background: #f3f4f6;
+    padding: 6px;
+    border-radius: 8px;
+    color: #4b5563;
+}
+
+
+/* CARDS & SPACING */
+
+.card .stat-card {
+    border-radius: 15px;
+    border: 1px solid rgba(0, 0, 0, 0.05) !important;
+}
+
+.icon-circle {
+    width: 15px;
+    height: 15px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+}
+
+.timeline-badge {
+    background: white;
+    padding: 6px 14px;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    white-space: nowrap;
+    font-size: 0.85rem;
+    margin-bottom: 0;
+}
+
+.avatar-circle {
+    width: 35px;
+    height: 35px;
+    background: #374151;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
+
+.small-text {
+    font-size: 0.65rem;
+}
+
+.smaller {
+    font-size: 0.75rem;
+}
+
+
+/* Mobile View */
+
+@media (max-width: 992px) {
+    .app-sidebar {
+        left: -100%;
+    }
+    .sb-open .app-sidebar {
+        left: 0;
+        width: 260px;
+    }
+    .app-main-viewport {
+        margin-left: 0 !important;
+        width: 100% !important;
+    }
+    .sidebar-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.3);
+        z-index: 1040;
+    }
 }
 
 .fade-in {
-  animation: fadeIn 0.4s ease-in;
-}
-@media (max-width: 576px) {
-  /* Ensure the table can be swiped left/right on phones */
-  .table-responsive {
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch;
-    padding-bottom: 5px;
-  }
-
-  /* Make dish text a bit smaller so it doesn't wrap too much */
-  .fw-bold.text-dark {
-    font-size: 0.85rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 120px; /* Prevents long names from pushing other columns off screen */
-  }
-
-  /* Adjust header text size for mobile */
-  h2.fw-bold {
-    font-size: 1.5rem !important;
-  }
+    animation: fadeIn 0.3s ease;
 }
 
-/* Fix for broken images (like Unlimited A in your screenshot) */
-img {
-  background-color: #f0f0f0; /* Shows a light gray box if the image is missing */
-}
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
 }
