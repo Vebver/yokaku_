@@ -1,41 +1,34 @@
 const db = require("../config/db");
 
 const Dashboard = {
-  getDashboardStats: async (req, res) => {
+  getQuickStats: async () => {
     try {
-      // 1. Total Bookings
-      const [bookingsResult] = await db.execute(
-        "SELECT COUNT(*) as totalBookings FROM reservations",
+      // 1. Total Bookings (All except cancelled)
+      const [bookings] = await db.execute(
+        "SELECT COUNT(*) as total FROM reservations WHERE status != 'cancelled'",
       );
-
-      // 2. Active Tables
-      const [activeResult] = await db.execute(
-        "SELECT COUNT(*) as activeTables FROM reservations WHERE status = 'Seated'",
+      const [tables] = await db.execute(
+        "SELECT COUNT(*) as total FROM tables WHERE status = 'occupied' OR bridge_status = 'seated'",
       );
-
-      // 3. Kitchen Queue
-      const [queueResult] = await db.execute(
-        "SELECT COUNT(*) as kitchenQueue FROM kiosk_orders WHERE kitchen_status = 'Pending'",
+      // 3. Kitchen Queue (Pending orders)
+      const [queue] = await db.execute(
+        "SELECT COUNT(*) as total FROM kiosk_orders WHERE kitchen_status = 'pending'",
       );
-
-      // 4. Total Revenue
-      const [revenueResult] = await db.execute(
-        "SELECT SUM(amount) as revenue FROM payments WHERE payment_status = 'verified'",
-      );
+      console.log("DB QuickStats Result:", {
+        bookings: bookings[0].total,
+        tables: tables[0].total,
+        queue: queue[0].total,
+      });
       return {
-        totalBookings: bookingsResult[0]?.totalBookings || 0,
-        activeTables: activeResult[0]?.activeTables || 0,
-        kitchenQueue: queueResult[0]?.kitchenQueue || 0,
-        revenue: revenueResult[0]?.revenue || 0,
+        totalBookings: bookings[0]?.total || 0,
+        activeTables: tables[0]?.total || 0,
+        kitchenQueue: queue[0]?.total || 0,
       };
-
-      // IMPORTANT: You must send the response back to the frontend!
     } catch (error) {
-      console.error("Dashboard Stats Error:", error);
-      throw error;
+      console.error("Model Error (QuickStats):", error.message);
+      return { totalBookings: 0, activeTables: 0, kitchenQueue: 0 };
     }
   },
-  
 };
 
 module.exports = Dashboard;
