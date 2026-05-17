@@ -1,68 +1,74 @@
-const db = require('../config/db');
+const db = require("../config/db");
 
 const Inventory = {
-    // GET ALL ITEMS
-    getAll: async () => {
-        // We sort by last_updated so the newest changes appear first
-        const [rows] = await db.query('SELECT * FROM inventory ORDER BY last_updated DESC');
-        return rows;
-    },
+  // GET ALL ITEMS
+  getAll: async () => {
+    // We sort by last_updated so the newest changes appear first
+    const [rows] = await db.query(
+      "SELECT * FROM inventory ORDER BY last_updated DESC",
+    );
+    return rows;
+  },
 
-    // CREATE NEW ITEM
-    create: async (data) => {
-        // 1. These must be the EXACT column names from your MySQL table
-        const sql = `INSERT INTO inventory 
+  // CREATE NEW ITEM
+  create: async (data) => {
+    // 1. These must be the EXACT column names from your MySQL table
+    const sql = `INSERT INTO inventory 
             (item_name, category, quantity, unit, unit_price, expiry_date, supplier, storage_location, reorder_level) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
-        // 2. These must match the names sent from your React 'newItem' state
-        const values = [
-            data.item_name,
-            data.category,
-            data.quantity,
-            data.unit,
-            data.unit_price,
-            data.expiry_date,
-            data.supplier,
-            data.storage_location,
-            data.reorder_level
-        ];
+    // 2. These must match the names sent from your React 'newItem' state
+    const values = [
+      data.item_name,
+      data.category,
+      data.quantity,
+      data.unit,
+      data.unit_price,
+      data.expiry_date,
+      data.supplier,
+      data.storage_location,
+      data.reorder_level,
+    ];
 
-        const [result] = await db.execute(sql, values);
-        return { inventory_id: result.insertId, ...data };
-    },
+    const [result] = await db.execute(sql, values);
+    return { inventory_id: result.insertId, ...data };
+  },
 
-    // DELETE ITEM
-    delete: async (id) => {
-        const sql = 'DELETE FROM inventory WHERE inventory_id = ?';
-        await db.execute(sql, [id]);
-        return true;
-    },
-    
-    GetLowStockItems: async () => {
+  // DELETE ITEM
+  delete: async (id) => {
+    const sql = "DELETE FROM inventory WHERE inventory_id = ?";
+    await db.execute(sql, [id]);
+    return true;
+  },
+
+  // 1. Get Low Stock Items
+  GetLowStockItems: async () => {
     const [rows] = await db.execute(`
-      SELECT name, current_stock, threshold, unit 
-      FROM ingredients 
-      WHERE current_stock <= threshold
-      ORDER BY current_stock ASC
+      SELECT 
+        item_name as name, 
+        quantity, 
+        reorder_level as threshold, 
+        unit 
+      FROM inventory
+      WHERE quantity <= reorder_level OR status = 'Low Stock'
+      ORDER BY quantity ASC
     `);
     return rows;
   },
 
-  // Get full inventory report
+  // 2. Get Inventory Value and Status
   GetInventoryUsage: async () => {
     const [rows] = await db.execute(`
       SELECT 
-        name, 
+        item_name as name, 
         unit,
-        starting_stock as starting, 
-        (starting_stock - current_stock) as used, 
-        current_stock as ending,
-        (current_stock * cost_per_unit) as inventory_value
-      FROM ingredients
+        quantity as ending,
+        (quantity * unit_price) as inventory_value
+      FROM inventory
+      LIMIT 10
     `);
     return rows;
-  }
+  },
 };
 
 module.exports = Inventory;
