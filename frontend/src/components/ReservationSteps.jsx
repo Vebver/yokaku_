@@ -89,9 +89,9 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     highChair: "No",
     muni: "",
     brgy: "",
-    allergy: "",
+    allergy: "None",
     customAllergy: "",
-    occasion: "",
+    occasion: "Casual Dining",
     customOccasion: "",
     allergyCount: "",
     pax: "",
@@ -1801,7 +1801,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
 
               <div className="input-group">
                 <label>
-                  <PartyPopper size={12} /> OCCASION (Optional)
+                  <PartyPopper size={12} /> OCCASION
                 </label>
                 <select
                   name="occasion"
@@ -1828,7 +1828,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
 
               <div className="input-group">
                 <label>
-                  <AlertCircle size={12} /> ALLERGIES (Optional)
+                  <AlertCircle size={12} /> ALLERGIES
                 </label>
                 <select
                   name="allergy"
@@ -1842,10 +1842,13 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     </option>
                   ))}
                 </select>
-                <small className="allergy-hint">
-                  Select "Specify all Allergy" to list all allergies in your
-                  group
-                </small>
+
+                {/* Only show hint if needed - optional */}
+                {form.allergy === "Specify all Allergy" && (
+                  <small className="allergy-hint">
+                    Please specify all allergies in your group
+                  </small>
+                )}
 
                 {form.allergy === "Specify all Allergy" && (
                   <input
@@ -1858,7 +1861,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   />
                 )}
 
-                {form.allergy && form.allergy !== "None" && (
+                {form.allergy !== "None" && (
                   <div className="allergy-count-field">
                     <label className="allergy-count-label">
                       <Users size={14} /> How many people have this allergy?
@@ -1891,7 +1894,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   </div>
                 )}
 
-                {form.allergy && form.allergy !== "None" && (
+                {form.allergy !== "None" && (
                   <div className="allergy-disclaimer">
                     <AlertCircle size={12} className="disclaimer-icon" />
                     <span>
