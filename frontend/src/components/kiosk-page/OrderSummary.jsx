@@ -25,7 +25,6 @@ const OrderSummary = ({ cart, onRemoveItem }) => {
                   <span className="item-qty">{item.quantity}x</span>
                   <div className="item-name-group">
                     <span className="item-name">{item.name}</span>
-                    <span className="item-category">{item.category || 'Main Course'}</span>
                   </div>
                 </div>
                 

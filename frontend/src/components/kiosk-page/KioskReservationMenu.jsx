@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   PlusSquare, Drumstick, CupSoda, Check, Bell, AlertCircle, Clock, 
-  Star, User, CheckCircle, PackageSearch,
+  Star, User, CheckCircle, PackageSearch, RefreshCw,
 } from "lucide-react";
 import "../../Style/KioskReservationMenu.css";
 import ReservationOrderModal from "./ReservationOrderModal";
@@ -54,6 +54,19 @@ const KioskReservationMenu = () => {
   const audioRef = useRef(new Audio(alertMusicFile));
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
+  // --- Logic Check for Bundles ---
+  const reservedItemsList = menuData["My Reserved Items"] || [];
+  const hasActiveBundle = [...reservedItemsList, ...cart].some((i) => {
+    const name = (i.name || i.item_name || "").toLowerCase();
+    const category = (i.category || i.category_name || "").toLowerCase();
+    return (
+      name.includes("bundle") ||
+      name.includes("unlimited") ||
+      category.includes("bundle") ||
+      category.includes("unlimited")
+    );
+  });
+
   // --- MONITOR ONLINE STATUS ---
   useEffect(() => {
     const handleStatus = () => {
@@ -104,7 +117,6 @@ const KioskReservationMenu = () => {
         
         const remaining = Math.floor((parseInt(savedEndTime) - Date.now()) / 1000);
         
-        // 30 MINUTE ALERT
         if (remaining === 1800) { 
             audioRef.current.currentTime = 0; 
             audioRef.current.play().catch(e => console.log("Audio blocked"));
@@ -125,11 +137,36 @@ const KioskReservationMenu = () => {
       try {
         const prodRes = await fetch(`${API_BASE}/products`);
         const allProducts = await prodRes.json();
+        
         const resItemsRes = await fetch(`${API_BASE}/orders/reservation-items/${reservationId}`);
         const reservedItems = await resItemsRes.json();
 
         localStorage.setItem("kiosk_res_cached_menu", JSON.stringify({ allProducts, reservedItems }));
         processMenu(allProducts, reservedItems);
+
+        // --- NEW LOGIC: AUTO-ADD RESERVED ITEMS TO CART ---
+        if (reservedItems.length > 0) {
+          const preLoadedCart = reservedItems.map((item) => {
+            let savedCustoms = item.customizations;
+            if (typeof savedCustoms === "string") {
+              try { savedCustoms = JSON.parse(savedCustoms); } catch (e) { savedCustoms = null; }
+            }
+            return {
+              id: item.item_id,
+              name: item.name,
+              price: item.price,
+              quantity: item.quantity || 1,
+              customizations: savedCustoms,
+              image: getImageUrl(item),
+              category: item.category_name,
+              isReserved: true // Flag to show these were pre-ordered
+            };
+          });
+          
+          // Only set the cart if it's currently empty (first load)
+          setOrderCart((currentCart) => currentCart.length === 0 ? preLoadedCart : currentCart);
+        }
+
       } catch (err) {
         const cached = localStorage.getItem("kiosk_res_cached_menu");
         if (cached) {
@@ -149,15 +186,15 @@ const KioskReservationMenu = () => {
         productLookup[cat].push({ id: p.item_id, name: p.name, price: p.price, image: getImageUrl(p) });
       });
 
+      // Keep "My Reserved Items" category visible so they can see them in the menu too
       if (reservedItems.length > 0) {
-        grouped["My Reserved Items"] = reservedItems.map((item) => {
-          let savedCustoms = item.customizations;
-          if (typeof savedCustoms === "string") {
-            try { savedCustoms = JSON.parse(savedCustoms); } catch (e) { savedCustoms = null; }
-          }
-          // Online -> Cloudinary (local_path) | Offline -> Local (image_url)
-          return { id: item.item_id, name: item.name, price: item.price, customizations: savedCustoms, image: getImageUrl(item) };
-        });
+        grouped["My Reserved Items"] = reservedItems.map((item) => ({
+          id: item.item_id,
+          name: item.name,
+          price: item.price,
+          image: getImageUrl(item),
+          category: item.category_name
+        }));
       }
 
       allProducts.forEach((item) => {
@@ -168,8 +205,14 @@ const KioskReservationMenu = () => {
 
       setMenuData(grouped);
       setAllProductsLookup(productLookup);
+      
+      // Default to "My Reserved Items" if they have them, otherwise first category
       const cats = Object.keys(grouped);
-      if (cats.length > 0) setActiveCategory(cats[0]);
+      if (cats.includes("My Reserved Items")) {
+        setActiveCategory("My Reserved Items");
+      } else if (cats.length > 0) {
+        setActiveCategory(cats[0]);
+      }
     };
 
     fetchData();
@@ -198,7 +241,6 @@ const KioskReservationMenu = () => {
         localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
         setOrderCart([]);
         setShowSuccessModal(true);
-        alert("Offline: Order saved locally. It will sync when Wi-Fi returns.");
         return;
     }
 
@@ -211,52 +253,44 @@ const KioskReservationMenu = () => {
 
       if (response.ok) {
         if (socket) socket.emit("send_order", { table: reservationId, items: cart.map((i) => ({ name: i.name, qty: i.quantity })) });
+        
+        // Scan for Bundle to start timer
         const bundleItem = cart.find((item) => {
           const name = (item.name || "").toLowerCase();
-          const category = (item.category || "").toLowerCase();
-          return (
-            name.includes("bundle") ||
-            name.includes("unlimited") ||
-            category.includes("bundle") ||
-            category.includes("unlimited")
-          );
+          const cat = (item.category || "").toLowerCase();
+          return name.includes("bundle") || name.includes("unlimited") || cat.includes("bundle") || cat.includes("unlimited");
         });
+
         if (bundleItem) {
           localStorage.setItem(SAVED_BUNDLE_ID, bundleItem.id);
           localStorage.setItem(SAVED_BUNDLE_NAME, bundleItem.name);
+          if (!localStorage.getItem(TIMER_SESSION_KEY)) {
+            const endTime = (Date.now() + 5400 * 1000).toString();
+            localStorage.setItem(TIMER_SESSION_KEY, endTime);
+            setIsTimerRunning(true);
+          }
         }
-        if (!localStorage.getItem(TIMER_SESSION_KEY)) {
-          const endTime = (Date.now() + 5400 * 1000).toString();
-          localStorage.setItem(TIMER_SESSION_KEY, endTime);
-          setIsTimerRunning(true);
-        }
+        
         setOrderCart([]);
         setShowSuccessModal(true);
+        // Reload to update reserved items from DB
+        setTimeout(() => window.location.reload(), 1500);
       } else {
         const err = await response.json();
         alert("Order failed: " + err.error);
       }
     } catch (err) {
-        const queue = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || "[]");
-        queue.push(orderData);
-        localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
-        setOrderCart([]);
-        setShowSuccessModal(true);
+        console.error(err);
     }
   };
 
   const getActiveBundle = () => {
-    const bundleFromCart = cart.find((item) => {
+    const bundleInCart = cart.find((item) => {
       const name = (item.name || "").toLowerCase();
-      const category = (item.category || "").toLowerCase();
-      return (
-        name.includes("bundle") ||
-        name.includes("unlimited") ||
-        category.includes("bundle") ||
-        category.includes("unlimited")
-      );
+      const cat = (item.category || "").toLowerCase();
+      return name.includes("bundle") || name.includes("unlimited") || cat.includes("bundle") || cat.includes("unlimited");
     });
-    if (bundleFromCart) return bundleFromCart;
+    if (bundleInCart) return bundleInCart;
 
     const savedId = localStorage.getItem(SAVED_BUNDLE_ID);
     const savedName = localStorage.getItem(SAVED_BUNDLE_NAME);
@@ -266,8 +300,7 @@ const KioskReservationMenu = () => {
 
   const handleRefillClick = async () => {
     const bundle = getActiveBundle();
-    if (!bundle) return alert("Please order a Hangout Bundle or Unlimited first.");
-    if (reservationId === "GUEST") return alert("Reservation session missing. Please return to the kiosk selection.");
+    if (!bundle) return alert("Order a Bundle first.");
 
     try {
       const response = await fetch(`${API_BASE}/orders/place`, {
@@ -275,27 +308,16 @@ const KioskReservationMenu = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           reservation_id: reservationId,
-          items: [
-            {
-              item_id: bundle.item_id || bundle.id,
-              quantity: 1,
-              customizations: "REFILL",
-              price: 0,
-              is_refill: true,
-            },
-          ],
+          items: [{ item_id: bundle.item_id || bundle.id, quantity: 1, customizations: "REFILL", price: 0, is_refill: true }],
         }),
       });
 
-      const result = await response.json();
-      if (response.ok) {
-        alert("Refill request sent to kitchen!");
-      } else {
-        alert("Refill failed: " + (result.error || result.message || "Server error"));
+      if (response.ok) alert("Refill request sent!");
+      else {
+        const res = await response.json();
+        alert(res.message || "Refill failed");
       }
-    } catch (err) {
-      alert("Refill failed: " + (err.message || "Server error"));
-    }
+    } catch (err) { alert("Server error"); }
   };
 
   const formatTime = (seconds) => {
@@ -306,18 +328,18 @@ const KioskReservationMenu = () => {
     return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
-  if (loading) return <div className="loading-container">Loading Kiosk...</div>;
+  if (loading) return <div className="loading-container">Loading...</div>;
 
   return (
-    <div className="res-kiosk-container" style={{ position: "relative", width: "100vw", height: "100vh", overflow: "hidden" }}>
+    <div className="res-kiosk-container">
       
       {!isOnline && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, background: '#ff4444', color: '#fff', textAlign: 'center', zIndex: 10001, fontSize: '12px', fontWeight: 'bold', padding: '2px' }}>
-          OFFLINE MODE - USING CACHED IMAGES
+          OFFLINE MODE
         </div>
       )}
 
-      <header className="kiosk-timer-wrapper" style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "80px", zIndex: 5000, display: "flex", alignItems: "center", pointerEvents: "auto" }}>
+      <header className="kiosk-timer-wrapper">
         <div className="header-id-section">
           <User size={20} color="#ffcc00" />
           <div className="id-details">
@@ -326,21 +348,22 @@ const KioskReservationMenu = () => {
           </div>
         </div>
 
-        <div className="timer-box" style={{ margin: "0 auto", pointerEvents: "auto" }}>
-          <Clock size={20} color="#ffcc00" />
-          <span className="timer-text">{formatTime(timeLeft)}</span>
-          <button
-            className="finish-session-header-btn"
-            onPointerDown={() => setShowEndModal(true)}
-            style={{ background: "#ffcc00", color: "#000", border: "none", padding: "8px 20px", borderRadius: "8px", fontWeight: "900", cursor: "pointer", position: "relative", zIndex: 6000 }}
-          >
+        <div className="timer-box" style={{ margin: "0 auto" }}>
+          {/* TIMER ONLY SHOWS IF RUNNING AND BUNDLE EXISTS */}
+          {isTimerRunning && hasActiveBundle && (
+            <>
+              <Clock size={20} color="#ffcc00" />
+              <span className="timer-text">{formatTime(timeLeft)}</span>
+            </>
+          )}
+          <button className="finish-session-header-btn" onClick={() => setShowEndModal(true)}>
             FINISH
           </button>
         </div>
         <div className="header-right-spacer"></div>
       </header>
 
-      <div className="res-main-layout" style={{ display: "flex", height: "calc(100vh - 80px)", marginTop: "80px" }}>
+      <div className="res-main-layout">
         <aside className="res-sidebar">
           <div className="res-brand"><h1>HANGOUT</h1><p>Resto Bar</p></div>
           <div className="res-category-list">
@@ -358,16 +381,16 @@ const KioskReservationMenu = () => {
           </button>
         </aside>
 
-        <main className="res-content-area" style={{ flex: 1, overflowY: "auto" }}>
+        <main className="res-content-area">
           <div className="res-grid-container">
             {menuData[activeCategory]?.map((item) => (
               <div key={item.id} className="res-food-card" onClick={() => { unlockAudio(); setSelectedItem(item); setIsModalOpen(true); }}>
                 <div className="res-card-image-container">
-                  <img src={item.image} alt={item.name} className="res-food-img" onError={(e) => { e.target.src = "https://via.placeholder.com/150"; }} />
+                  <img src={item.image} alt={item.name} className="res-food-img" />
                 </div>
                 <div className="res-card-info">
                   <h4 className="res-food-label">{item.name}</h4>
-                  <p style={{ color: "#ffcc00", fontSize: "0.9rem" }}>₱{item.price}</p>
+                  <p style={{ color: "#ffcc00" }}>₱{item.price}</p>
                 </div>
               </div>
             ))}
@@ -376,22 +399,24 @@ const KioskReservationMenu = () => {
         <OrderSummary cart={cart} onRemoveItem={(id) => setOrderCart(cart.filter((i) => i.id !== id))} />
       </div>
 
-      <footer className="res-bottom-bar" style={{ zIndex: 4000 }}>
+      <footer className="res-bottom-bar">
         <button className="res-btn-view-all" onClick={() => (window.location.href = "/kiosk-selection")}>Back</button>
         <div className="res-action-btns">
-          <button className="res-btn-view-all" onClick={handleRefillClick} style={{ background: "#333", color: "#ffcc00", marginRight: "10px" }}>
-            Request Refill
-          </button>
-          <button className="res-btn-view" disabled={cart.length === 0} onClick={handleSendRequest} style={{ background: "#ffcc00" }}>Place Order</button>
+          {/* REFILL ONLY SHOWS IF BUNDLE EXISTS */}
+          {hasActiveBundle && (
+            <button className="res-btn-view-all" onClick={handleRefillClick} style={{ background: "#28a745", color: "#fff", marginRight: "10px" }}>
+              <RefreshCw size={16} style={{marginRight: '5px'}}/> Request Refill
+            </button>
+          )}
+          <button className="res-btn-view" disabled={cart.length === 0} onClick={handleSendRequest}>Place Order</button>
         </div>
-      </footer>
+      </footer> 
 
       {showSuccessModal && (
-        <div className="res-modal-overlay" style={{ zIndex: 10000, display: "flex" }} onClick={() => setShowSuccessModal(false)}>
-          <div className="res-modal-card res-fade-in-scale" style={{ textAlign: "center" }}>
+        <div className="res-modal-overlay" onClick={() => setShowSuccessModal(false)}>
+          <div className="res-modal-card" style={{ textAlign: "center" }}>
             <CheckCircle size={60} color="#ffcc00" style={{ margin: "0 auto 20px" }} />
             <h2 style={{ color: "#ffcc00" }}>Order Sent!</h2>
-            <p style={{ color: "#fff", marginBottom: "20px" }}>Your items are being prepared.</p>
             <button className="res-modal-btn-primary" onClick={() => setShowSuccessModal(false)}>OK</button>
           </div>
         </div>
