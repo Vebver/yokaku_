@@ -14,9 +14,9 @@ function Reports() {
   const fetchReportData = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem("token"); 
+      const token = localStorage.getItem("token");
       const res = await axios.get(`${API_BASE}/admin/reports/financial`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (res.data.success) {
@@ -34,51 +34,44 @@ function Reports() {
   }, []);
 
   return (
-    // Changed p-4 to p-3 p-md-4 for better mobile spacing
-    <div className="container-fluid p-3 p-md-4 bg-light" style={{ minHeight: '100vh' }}>
-      
-      {/* Header: Responsive flex layout for iPhone SE */}
-      <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-3 mb-4">
-        <div>
-          <h2 className="fw-bold mb-0 fs-3">Financial Analytics</h2>
-          <p className="text-muted small mb-0">Real-time business performance</p>
-        </div>
-        <button
-          className="btn btn-dark d-flex align-items-center gap-2 shadow-sm w-100 w-sm-auto justify-content-center"
-          onClick={fetchReportData}
-          disabled={loading}
-        >
-          <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
-          {loading ? "Analyzing..." : "Refresh Report"}
-        </button>
+    <div
+      className="container-fluid p-3 p-md-4 bg-light"
+      style={{ minHeight: "100vh" }}
+    >
+      {/* 1. PAGE HEADER */}
+      <div className="mb-5 px-2">
+        <h2 className="fw-bold mb-0 fs-3">Financial Analytics</h2>
+        <p className="text-muted small mb-0">Real-time business performance</p>
       </div>
 
       {loading && !financialData ? (
         <div className="text-center p-5 mt-5">
           <div className="spinner-border text-primary mb-3" role="status"></div>
-          <p className="text-muted fw-bold">Analyzing financial records...</p>
+          <p className="text-muted fw-bold">Analyzing records...</p>
         </div>
       ) : (
-        /* FIXED: Wrapped multiple components in a div with a gap */
-        <div className="d-flex flex-column gap-4">
-          <FinancialOverview data={financialData} />
-          <ProductPerformance data={financialData} />
-          <InventoryReport data={financialData} />
+        /* 2. COMPONENT STACK - Using Row/Col to prevent overlap */
+        <div className="row g-5">
+          <div className="col-12">
+            <FinancialOverview data={financialData} />
+          </div>
+
+          <div className="col-12">
+            <ProductPerformance data={financialData} />
+          </div>
+
+          <div className="col-12">
+            <InventoryReport data={financialData} />
+          </div>
         </div>
       )}
 
-      {/* Global CSS for the spin animation */}
       <style>{`
-        .animate-spin {
-          animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
+      .animate-spin { animation: spin 1s linear infinite; }
+      @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    `}</style>
     </div>
-  );
+  );  
 }
 
 export default Reports;
