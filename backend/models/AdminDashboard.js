@@ -1,41 +1,25 @@
 const db = require("../config/db");
 
 const Dashboard = {
-  getDashboardStats: async (req, res) => {
+  getQuickStats: async () => {
     try {
-      // 1. Total Bookings
-      const [bookingsResult] = await db.execute(
-        "SELECT COUNT(*) as totalBookings FROM reservations",
-      );
+      // Use [rows] to safely destructure
+      const [bookings] = await db.execute("SELECT COUNT(*) as total FROM reservations WHERE status != 'cancelled'");
+      const [tables] = await db.execute("SELECT COUNT(*) as total FROM tables WHERE bridge_status = 'seated'");
+      const [queue] = await db.execute("SELECT COUNT(*) as total FROM kiosk_orders WHERE kitchen_status = 'pending'");
 
-      // 2. Active Tables
-      const [activeResult] = await db.execute(
-        "SELECT COUNT(*) as activeTables FROM reservations WHERE status = 'Seated'",
-      );
-
-      // 3. Kitchen Queue
-      const [queueResult] = await db.execute(
-        "SELECT COUNT(*) as kitchenQueue FROM kiosk_orders WHERE kitchen_status = 'Pending'",
-      );
-
-      // 4. Total Revenue
-      const [revenueResult] = await db.execute(
-        "SELECT SUM(amount) as revenue FROM payments WHERE payment_status = 'verified'",
-      );
       return {
-        totalBookings: bookingsResult[0]?.totalBookings || 0,
-        activeTables: activeResult[0]?.activeTables || 0,
-        kitchenQueue: queueResult[0]?.kitchenQueue || 0,
-        revenue: revenueResult[0]?.revenue || 0,
+        // The ?. total prevents "Cannot read property total of undefined"
+        totalBookings: bookings[0]?.total || 0,
+        activeTables: tables[0]?.total || 0,
+        kitchenQueue: queue[0]?.total || 0,
       };
-
-      // IMPORTANT: You must send the response back to the frontend!
     } catch (error) {
-      console.error("Dashboard Stats Error:", error);
-      throw error;
+      console.error("DATABASE ERROR IN QUICKSTATS:", error.message);
+      // Return zeros instead of throwing an error to prevent 500 crash
+      return { totalBookings: 0, activeTables: 0, kitchenQueue: 0 };
     }
-  },
-  
+  }
 };
 
 module.exports = Dashboard;

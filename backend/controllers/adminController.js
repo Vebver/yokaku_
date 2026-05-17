@@ -4,45 +4,43 @@ const TableStatus = require("../models/TableStatus");
 const FinancialReport = require("../models/FinancialReport");
 const Reservation = require("../models/Reservation");
 const { get } = require("node:http");
+const db = require("../config/db");
+
 
 const adminController = {
-  getDashboardStats: async (req, res) => {
+ getDashboardStats: async (req, res) => {
     try {
-      const [finStats, trendData, counts] = await Promise.all([
+      // Fetch all data in parallel for speed
+      const [finStats, trendData, quickStats] = await Promise.all([
         FinancialReport.getFinancialStats(),
-        FinancialReport.getRecentTrend(),
-        // Assuming you have logic for these 3 counts:
-        db.execute(
-          "SELECT COUNT(*) as total FROM reservations WHERE status != 'cancelled'",
-        ),
-        db.execute(
-          "SELECT COUNT(*) as total FROM tables WHERE bridge_status = 'seated'",
-        ),
-        db.execute(
-          "SELECT COUNT(*) as total FROM kiosk_orders WHERE kitchen_status = 'pending'",
-        ),
+        FinancialReport.getRecentTrend(), // This is for the 7-day chart
+        Dashboard.getQuickStats()         // This is for the 3 top cards
       ]);
 
+      // IMPORTANT: Send RAW numbers. Do not add "₱" here. 
+      // The frontend will handle formatting.
       res.json({
-        // 3 Main Stats
-        totalBookings: counts[0][0].total,
-        activeTables: counts[1][0].total,
-        kitchenQueue: counts[2][0].total,
+        // Top Card Counts
+        totalBookings: quickStats.totalBookings,
+        activeTables: quickStats.activeTables,
+        kitchenQueue: quickStats.kitchenQueue,
 
-        // Finance Stats (formatted as strings for the frontend)
-        monthlyRevenue: `₱${Number(finStats.monthly_revenue).toLocaleString()}`,
-        todayRevenue: `₱${Number(finStats.today_revenue).toLocaleString()}`,
-        avgOrder: `₱${Number(finStats.aov).toLocaleString()}`,
-        totalOrders: finStats.total_orders.toString(),
+        // Finance Stats
+        monthlyRevenue: Number(finStats.monthly_revenue || 0),
+        todayRevenue: Number(finStats.today_revenue || 0),
+        avgOrder: Number(finStats.aov || 0),
+        totalOrders: Number(finStats.total_orders || 0),
 
-        // Chart Data
-        revenueTrend: trendData.map((t) => t.value),
-        trendLabels: trendData.map((t) => t.label),
+        // Chart Data (7 Days) 
+        revenueTrend: trendData.map((t) => Number(t.value || 0)),
+        trendLabels: trendData.map((t) => t.label || ""),
       });
     } catch (error) {
+      console.error("DASHBOARD STATS ERROR:", error);
       res.status(500).json({ error: error.message });
     }
   },
+
   getAllUsers: async (req, res) => {
     try {
       const users = await AccountManagement.getAll();

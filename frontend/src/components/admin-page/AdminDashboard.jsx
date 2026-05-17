@@ -90,26 +90,6 @@ const StatCard = ({ title, value, color, icon }) => (
   </div>
 );
 
-const MiniFinanceCard = ({ title, value, icon: Icon, colorClass }) => (
-  <div className="col-6">
-    <div className="finance-mini-card p-3 rounded-4 shadow-sm bg-white border h-100">
-      <div className={`icon-box ${colorClass} mb-2`}>
-        <Icon size={18} />
-      </div>
-      <p className="text-muted x-small fw-bold text-uppercase mb-1" style={{fontSize: '0.6rem'}}>{title}</p>
-      <h5 className="fw-bold mb-0 text-dark">{value}</h5>
-    </div>
-  </div>
-);
-
-const formatCurrency = (val) => {
-  if (typeof val === 'string' && val.includes('₱')) return val; // Already formatted
-  return `₱${Number(val || 0).toLocaleString(undefined, { 
-    minimumFractionDigits: 2, 
-    maximumFractionDigits: 2 
-  })}`;
-};
-
 function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeSection, setActiveSection] = useState("dashboard");
@@ -153,22 +133,26 @@ function AdminDashboard() {
     try {
       const token = localStorage.getItem("token");
       const config = { headers: { Authorization: `Bearer ${token}` } };
+      
       const [statsRes, scheduleRes] = await Promise.all([
         axios.get(`${API_BASE}/admin/stats`, config),
         axios.get(`${API_BASE}/admin/today-schedule`, config),
       ]);
-       const data = statsRes.data;
-       const trendSum = data.revenueTrend?.reduce((a, b) => a + Number(b), 0) || 0;
 
-    setStats({
+      const data = statsRes.data;
+
+      // 1. Calculate the Real Total from the Trend (The same way Financial Report does)
+      const calculatedTotal = data.revenueTrend?.reduce((acc, val) => acc + Number(val), 0) || 0;
+
+      setStats({
         ...data,
-        // If trendSum exists, use it for Monthly Revenue to stay in sync with Reports
-        monthlyRevenue: trendSum > 0 ? trendSum : (data.monthlyRevenue || 0),
+        // Override the monthlyRevenue with the sum of the trend data
+        monthlyRevenue: calculatedTotal, 
         todayRevenue: data.todayRevenue || 0,
         avgOrder: data.avgOrder || 0,
         totalOrders: data.totalOrders || 0,
-        revenueTrend: data.revenueTrend || [0,0,0,0,0,0,0],
-        trendLabels: data.trendLabels || ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        revenueTrend: data.revenueTrend || [],
+        trendLabels: data.trendLabels || []
       });
 
 
@@ -177,6 +161,11 @@ function AdminDashboard() {
     finally { setLoading(false); }
 };
 
+   const formatCurrency = (val) => `₱${Number(val || 0).toLocaleString(undefined, { 
+    minimumFractionDigits: 2, maximumFractionDigits: 2 
+  })}`;
+
+  // 3. SHARED CHART DATA
   const chartData = {
     labels: stats.trendLabels,
     datasets: [{
@@ -187,9 +176,23 @@ function AdminDashboard() {
       fill: true,
       tension: 0.4,
       pointRadius: 4,
-      borderWidth: 2
+      borderWidth: 3
     }],
   };
+
+   const MiniFinanceCard = ({ title, value, icon: Icon, colorClass, isNum }) => (
+    <div className="col-6">
+      <div className="finance-mini-card p-3 rounded-4 shadow-sm bg-white border h-100">
+        <div className={`icon-box ${colorClass} mb-2`}>
+          <Icon size={18} />
+        </div>
+        <p className="text-muted fw-bold text-uppercase mb-1" style={{fontSize: '0.6rem'}}>{title}</p>
+        <h5 className="fw-bold mb-0 text-dark">
+            {isNum ? value : formatCurrency(value)}
+        </h5>
+      </div>
+    </div>
+  );
 
   const DashboardOverview = () => (
     <div className="dashboard-content">
@@ -224,18 +227,46 @@ function AdminDashboard() {
       </div>
 
       {/* 3. FINANCIAL SECTION & CHART */}
-      <div className="row g-3 mb-3">
+     <div className="row g-3 mb-3">
         <div className="col-lg-5">
           <div className="row g-3 h-100">
-            <MiniFinanceCard title="Monthly Revenue" value={stats.monthlyRevenue} icon={TrendingUp} colorClass="text-success bg-success-subtle" />
-            <MiniFinanceCard title="Today's Revenue" value={stats.todayRevenue} icon={DollarSign} colorClass="text-primary bg-primary-subtle" />
-            <MiniFinanceCard title="Avg. Order" value={stats.avgOrder} icon={ShoppingBag} colorClass="text-info bg-info-subtle" />
-            <MiniFinanceCard title="Total Order" value={stats.totalOrders} icon={CreditCard} colorClass="text-warning bg-warning-subtle" />
+            <MiniFinanceCard 
+                title="Total Period Revenue" 
+                value={stats.monthlyRevenue} 
+                icon={TrendingUp} 
+                colorClass="text-success bg-success-subtle" 
+            />
+            <MiniFinanceCard 
+                title="Today's Revenue" 
+                value={stats.todayRevenue} 
+                icon={DollarSign} 
+                colorClass="text-primary bg-primary-subtle" 
+            />
+            <MiniFinanceCard 
+                title="Avg. Order" 
+                value={stats.avgOrder} 
+                icon={ShoppingBag} 
+                colorClass="text-info bg-info-subtle" 
+            />
+            <MiniFinanceCard 
+                title="Total Order" 
+                value={stats.totalOrders} 
+                icon={CreditCard} 
+                colorClass="text-warning bg-warning-subtle" 
+                isNum={true}
+            />
           </div>
         </div>
+
+        {/* REVENUE ANALYTICS CHART */}
         <div className="col-lg-7">
           <div className="bg-white p-3 p-md-4 rounded-4 shadow-sm border h-100">
-            <h6 className="fw-bold mb-3">Revenue Analytics</h6>
+            <div className="d-flex justify-content-between align-items-center mb-3">
+                <h6 className="fw-bold mb-0">Revenue Analytics</h6>
+                <span className="badge bg-primary-subtle text-primary rounded-pill px-3">
+                    Total: {formatCurrency(stats.monthlyRevenue)}
+                </span>
+            </div>
             <div style={{ height: "200px" }}>
               <Line 
                 data={chartData} 
@@ -243,7 +274,7 @@ function AdminDashboard() {
                   responsive: true, 
                   maintainAspectRatio: false, 
                   plugins: { legend: { display: false } },
-                  scales: { y: { beginAtZero: true, ticks: { callback: (v) => '₱' + v } } }
+                  scales: { y: { beginAtZero: true, ticks: { callback: (v) => '₱' + v.toLocaleString() } } }
                 }} 
               />
             </div>
@@ -275,7 +306,17 @@ function AdminDashboard() {
       recipe: <RecipeManager />,
       products: <Product />,
       categories: <Categories />,
-      report: <Reports />,
+      report: <Reports data={{ 
+          summary: {
+              daily_revenue: stats.todayRevenue,
+              aov: stats.avgOrder,
+              total_orders: stats.totalOrders
+          },
+          monthlyTrend: stats.revenueTrend.map((val, i) => ({
+              label: stats.trendLabels[i],
+              value: val
+          }))
+      }} />,
       profile: <Profile />,
       "online-reservations": <OnlineReservations />,
       "walk-ins": <WalkInReservations />,

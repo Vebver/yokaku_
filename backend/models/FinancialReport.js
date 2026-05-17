@@ -2,8 +2,7 @@
 const db = require("../config/db");
 
 const FinancialReport = {
-  getFinancialStats: async () => {
-    // This query gets Today's revenue, This Month's revenue, Total count, and Average
+   getFinancialStats: async () => {
     const query = `
       SELECT 
           CAST(COALESCE(SUM(CASE WHEN DATE(d) = CURDATE() THEN amount ELSE 0 END), 0) AS DECIMAL(10,2)) as today_revenue,
@@ -13,12 +12,11 @@ const FinancialReport = {
       FROM (
           SELECT paid_at as d, amount FROM payments WHERE payment_status = 'verified'
           UNION ALL
-          SELECT created_at as d, (ko.quantity * m.price) as amount 
+          SELECT ko.created_at as d, (ko.quantity * m.price) as amount 
           FROM kiosk_orders ko 
           JOIN menu_items m ON ko.item_id = m.item_id
           WHERE (ko.reservation_id LIKE 'WALK%' OR ko.reservation_id IS NULL)
       ) as all_tx`;
-
     const [rows] = await db.execute(query);
     return rows[0];
   },
@@ -56,8 +54,8 @@ const FinancialReport = {
       ) as combined GROUP BY label`);
     return rows;
   },
-   getRecentTrend: async () => {
-    // This query gets the last 7 days of revenue for your Dashboard Chart
+    getRecentTrend: async () => {
+    // This query gets the last 7 days for your Weekly Chart
     const query = `
       SELECT DATE_FORMAT(d, '%a') as label, SUM(amount) as value
       FROM (
@@ -71,7 +69,7 @@ const FinancialReport = {
       ORDER BY DATE(d) ASC`;
     const [rows] = await db.execute(query);
     return rows;
-  }
+  },
 };
 
 module.exports = FinancialReport;
