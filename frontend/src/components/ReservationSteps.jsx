@@ -54,7 +54,6 @@ const STEPS = [
   "Select Table & Time",
   "Your Details",
   "Order Menu",
-  "Order Summary",
   "Reservation Summary",
 ];
 
@@ -368,10 +367,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           isBrgyValid
         );
       case 3:
-        // Step 3: Order Menu - just need items selected
-        return selectedItems.length > 0;
-      case 4:
-        // Step 4: Order Summary - need items, terms, and meet downpayment requirement
+        // Step 3: Order Menu - need items, terms, and meet downpayment requirement
         const hasItems = selectedItems.length > 0;
         const termsAgreed = agreeToTerms;
         let meetsDownpaymentRequirement = true;
@@ -380,8 +376,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
             orderSummary.downpayment >= orderSummary.requiredMinimumDownpayment;
         }
         return hasItems && termsAgreed && meetsDownpaymentRequirement;
-      case 5:
-        // Step 5: Reservation Summary - need payment method and receipt
+      case 4:
+        // Step 4: Reservation Summary - need payment method and receipt
         const isPaymentMethodSelected = paymentMethod !== null;
         const isReceiptUploaded = receiptFile !== null;
         return isPaymentMethodSelected && isReceiptUploaded;
@@ -816,6 +812,17 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       setUser((prev) => ({ ...prev, [name]: value }));
     } else {
       setForm((prev) => ({ ...prev, [name]: value }));
+    }
+  };
+
+  // ============ HANDLE BACK BUTTON ============
+  const handleBackButton = () => {
+    if (ui.menu) {
+      // If PackageModal is open, close it and go back to Step 3
+      setUi((p) => ({ ...p, menu: false }));
+    } else {
+      // Otherwise, close the entire reservation flow
+      onClose();
     }
   };
 
@@ -1924,7 +1931,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           </div>
         );
 
-      case 3:
+      case 3: // ORDER MENU (with terms and downpayment validation)
         const meetsDownpaymentRequirement = () => {
           if (orderSummary.durationHours >= 2) {
             return (
@@ -1951,7 +1958,16 @@ export default function ReservationSteps({ onClose, onSuccess }) {
 
             {selectedItems.length > 0 && (
               <div className="package-summary">
-                <h4>Selected Menu</h4>
+                <div className="order-summary-header">
+                  <h4>Your Order</h4>
+                  <button
+                    className="edit-order-btn"
+                    onClick={() => setUi((p) => ({ ...p, menu: true }))}
+                  >
+                    Edit
+                  </button>
+                </div>
+
                 {selectedItems.map((item, idx) => (
                   <div key={idx} className="package-item">
                     <span>
@@ -1967,6 +1983,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   </strong>
                 </div>
 
+                {/* Duration info */}
                 {orderSummary.durationHours >= 2 && (
                   <div className="duration-info">
                     <Clock size={14} />
@@ -1976,6 +1993,38 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   </div>
                 )}
 
+                {/* Downpayment display - always shows 20% of order */}
+                <div className="package-downpayment">
+                  <div className="downpayment-row">
+                    <span style={{ color: "#f38d31", fontWeight: "800" }}>
+                      Downpayment (20%):
+                    </span>
+                    <strong style={{ color: "#f38d31" }}>
+                      ₱{orderSummary.downpayment.toFixed(2)}
+                    </strong>
+                  </div>
+
+                  {/* Show required minimum if it's higher than actual */}
+                  {orderSummary.durationHours >= 2 &&
+                    orderSummary.requiredMinimumDownpayment >
+                      orderSummary.downpayment && (
+                      <div className="required-minimum-warning">
+                        <span className="required-label">
+                          Minimum Required:
+                        </span>
+                        <span className="required-amount">
+                          ₱{orderSummary.requiredMinimumDownpayment.toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+                </div>
+
+                <div className="package-balance">
+                  <span style={{ color: "#666" }}>Remaining Balance:</span>
+                  <strong>₱{orderSummary.balance.toFixed(2)}</strong>
+                </div>
+
+                {/* Show minimum requirement warning */}
                 {orderSummary.durationHours >= 2 && (
                   <div
                     className={`duration-requirement ${!isDownpaymentRequirementMet ? "warning" : "success"}`}
@@ -2000,35 +2049,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   </div>
                 )}
 
-                <div className="package-downpayment">
-                  <div className="downpayment-row">
-                    <span style={{ color: "#f38d31", fontWeight: "800" }}>
-                      Downpayment (20%):
-                    </span>
-                    <strong style={{ color: "#f38d31" }}>
-                      ₱{orderSummary.downpayment.toFixed(2)}
-                    </strong>
-                  </div>
-
-                  {orderSummary.durationHours >= 2 &&
-                    orderSummary.requiredMinimumDownpayment >
-                      orderSummary.downpayment && (
-                      <div className="required-minimum-warning">
-                        <span className="required-label">
-                          Minimum Required:
-                        </span>
-                        <span className="required-amount">
-                          ₱{orderSummary.requiredMinimumDownpayment.toFixed(2)}
-                        </span>
-                      </div>
-                    )}
-                </div>
-
-                <div className="package-balance">
-                  <span style={{ color: "#666" }}>Remaining Balance:</span>
-                  <strong>₱{orderSummary.balance.toFixed(2)}</strong>
-                </div>
-
+                {/* Blocked warning - cannot proceed */}
                 {orderSummary.durationHours >= 2 &&
                   !isDownpaymentRequirementMet && (
                     <div className="requirement-blocked-warning">
@@ -2064,131 +2085,16 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           </div>
         );
 
-      case 4:
+      case 4: // RESERVATION SUMMARY
         return (
-          <div className="step-content step-order-summary">
-            <div className="order-summary-container">
-              <div className="summary-header">
-                <h3>Order Summary</h3>
-                <button
-                  className="edit-order-btn"
-                  onClick={() => setCurrentStep(3)}
-                >
-                  Edit Order
-                </button>
-              </div>
-
-              <div className="order-items-list">
-                {selectedItems.length === 0 ? (
-                  <div className="empty-order-message">
-                    <ShoppingBag size={48} color="#ccc" />
-                    <p>No items selected</p>
-                    <button
-                      className="btn-link-mode"
-                      onClick={() => setCurrentStep(3)}
-                    >
-                      Browse Menu
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    {selectedItems.map((item, idx) => (
-                      <div key={idx} className="order-summary-item">
-                        <div className="order-item-info">
-                          <span className="order-item-qty">
-                            {item.quantity}x
-                          </span>
-                          <div className="order-item-details">
-                            <span className="order-item-name">{item.name}</span>
-                            {item.customizations && (
-                              <div className="order-item-customizations">
-                                {item.customizations.flavors?.length > 0 && (
-                                  <small>
-                                    Flavors:{" "}
-                                    {item.customizations.flavors.join(", ")}
-                                  </small>
-                                )}
-                                {item.customizations.drink && (
-                                  <small>
-                                    Drink: {item.customizations.drink}
-                                  </small>
-                                )}
-                                {item.customizations.spiceLevel && (
-                                  <small>
-                                    Spice: {item.customizations.spiceLevel}
-                                  </small>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <div className="order-item-price">
-                          ₱{(item.price * item.quantity).toFixed(2)}
-                        </div>
-                      </div>
-                    ))}
-
-                    <div className="order-summary-divider"></div>
-
-                    <div className="order-duration-info">
-                      <Clock size={16} />
-                      <span>
-                        Reservation Duration: {orderSummary.durationHours}{" "}
-                        hour(s)
-                      </span>
-                    </div>
-
-                    <div className="order-summary-row">
-                      <span>Subtotal</span>
-                      <span>₱{orderSummary.totalOrderPrice.toFixed(2)}</span>
-                    </div>
-
-                    <div className="order-summary-row highlight">
-                      <span>Downpayment (20%)</span>
-                      <span>₱{orderSummary.downpayment.toFixed(2)}</span>
-                    </div>
-
-                    {orderSummary.durationHours >= 2 &&
-                      orderSummary.downpayment <
-                        orderSummary.requiredMinimumDownpayment && (
-                        <div className="minimum-requirement-warning">
-                          <AlertCircle size={14} />
-                          <span>
-                            ⚠️ Minimum downpayment of ₱
-                            {orderSummary.requiredMinimumDownpayment} required
-                            for {orderSummary.durationHours} hour(s)
-                          </span>
-                        </div>
-                      )}
-
-                    <div className="order-summary-row balance">
-                      <span>Balance to Pay</span>
-                      <span>₱{orderSummary.balance.toFixed(2)}</span>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              <div className="terms-checkbox-wrapper order-summary-terms">
-                <label className="terms-checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={agreeToTerms}
-                    onChange={(e) => setAgreeToTerms(e.target.checked)}
-                  />
-                  <span>
-                    I have read and agree to the{" "}
-                    <button
-                      type="button"
-                      className="terms-link-btn"
-                      onClick={() => setUi((p) => ({ ...p, terms: true }))}
-                    >
-                      Terms and Conditions
-                    </button>
-                  </span>
-                </label>
-              </div>
-            </div>
+          <div className="step-content step-summary">
+            <ReservationSummary
+              orderSummary={orderSummary}
+              reservationData={fullReservationData}
+              paymentMethod={paymentMethod}
+              setPaymentMethod={setPaymentMethod}
+              onReceiptChange={(receipt) => setReceiptFile(receipt)}
+            />
           </div>
         );
 
@@ -2226,9 +2132,12 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     <div className="floor-plan-wrapper">
       {isProcessing && <LoadingSpinner />}
       {isDateLoading && <DateLoadingSpinner />}
-      <button className="page-back-btn" onClick={onClose}>
-        <ArrowLeft size={18} /> Cancel
+
+      {/* Dynamic Back/Cancel Button */}
+      <button className="page-back-btn" onClick={handleBackButton}>
+        <ArrowLeft size={18} /> {ui.menu ? "Back" : "Cancel"}
       </button>
+
       <div className="reservation-flow-container">
         <StepProgress
           steps={STEPS}
