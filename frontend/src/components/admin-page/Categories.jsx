@@ -34,21 +34,25 @@ function Categories() {
 
   useEffect(() => { fetchCategories(); }, []);
 
-  const fetchCategories = async () => {
-    try {
-      setLoading(true);
-      const response = await axios.get(`${API_BASE}/categories`, getAuthHeader());
-      const mappedData = response.data.map((cat) => ({
-        name: cat.name,
-        description: cat.description,
-      }));
-      setCategories(mappedData);
-    } catch (err) {
-      console.error("Error fetching categories:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+const fetchCategories = async () => {
+  try {
+    setLoading(true);
+    const response = await axios.get(`${API_BASE}/categories`, getAuthHeader());
+    
+    const mappedData = response.data.map((cat, index) => ({
+      // Try to find the ID, fallback to the array index if missing (to stop the error)
+      id: cat.id || cat._id || cat.category_id || `temp-id-${index}`, 
+      name: cat.name,
+      description: cat.description,
+    }));
+    
+    setCategories(mappedData);
+  } catch (err) {
+    console.error("Error fetching categories:", err);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -133,7 +137,7 @@ function Categories() {
               </tr>
             </thead>
             <tbody>
-              {currentItems.map((cat) => (
+              {currentItems.map((cat,index) => (
                 <tr key={cat.id}>
                   <td className="ps-4 py-3">
                     <div className="d-flex align-items-center">
