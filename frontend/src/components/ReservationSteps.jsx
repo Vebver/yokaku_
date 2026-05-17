@@ -721,7 +721,9 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       const minEndM = startM + 30;
       return minEndM <= maxEndTimeMinutes;
     });
-    if (selectedId) {
+    // Only filter by table schedule if a table is selected and times are selected
+    // This ensures time options are always available
+    if (selectedId && form.startTime && form.endTime) {
       const schedule = tableSchedules[selectedId] || [];
       return filtered.filter((startTime) => {
         const startM = timeToMin(startTime);
@@ -734,7 +736,15 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       });
     }
     return filtered;
-  }, [timeOptions, form.date, todayStr, selectedId, tableSchedules]);
+  }, [
+    timeOptions,
+    form.date,
+    todayStr,
+    selectedId,
+    tableSchedules,
+    form.startTime,
+    form.endTime,
+  ]);
 
   const filteredEndTimeOptions = useMemo(() => {
     if (!form.startTime) return [];
@@ -1301,10 +1311,11 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           </div>
         );
 
-      // ============ STEP 2 - SELECT TABLE & TIME (WITH CONDITIONAL PAX FIELD) ============
+      // ============ STEP 2 - SELECT TABLE & TIME (WITH FIXED TIME OPTIONS) ============
       case 1:
         return form.date ? (
           <div className="step-content step-tables">
+            {/* Time Selection Row - Should be available immediately */}
             <div className="time-selection-row">
               <div className="input-group">
                 <label>
@@ -1354,7 +1365,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                 </select>
               </div>
             </div>
-            {/* ============ PAX FIELD - CONDITIONALLY ENABLED (NO CAPACITY RESTRICTION) ============ */}
+
+            {/* ============ PAX FIELD - CONDITIONALLY ENABLED ============ */}
             <div className="pax-field-container">
               <div className="input-group pax-input-group">
                 <label>
@@ -1390,7 +1402,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     name="pax"
                     className="pax-input"
                     min="1"
-                    max="100"
+                    max="38"
                     value={form.pax}
                     onChange={(e) => {
                       const value = e.target.value;
@@ -1398,7 +1410,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                         setForm((prev) => ({ ...prev, pax: "" }));
                       } else {
                         const numValue = parseInt(value);
-                        // Only allow positive numbers between 1 and 38
                         if (
                           !isNaN(numValue) &&
                           numValue >= 1 &&
@@ -1409,7 +1420,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                       }
                     }}
                     onKeyDown={(e) => {
-                      // Prevent 'e', 'E', '-', '+', '.' from being typed
                       if (
                         e.key === "e" ||
                         e.key === "E" ||
@@ -1422,7 +1432,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     }}
                     placeholder={
                       selectedId
-                        ? "Enter number of guests"
+                        ? "Enter number of guests (1-38)"
                         : "Select a table first"
                     }
                     disabled={!selectedId}
@@ -1432,7 +1442,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     className="pax-btn pax-btn-increase"
                     onClick={() => {
                       const currentPax = parseInt(form.pax) || 0;
-                      if (currentPax < 100) {
+                      if (currentPax < 38) {
                         setForm((prev) => ({
                           ...prev,
                           pax: String(currentPax + 1),
@@ -1440,7 +1450,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                       }
                     }}
                     disabled={
-                      !selectedId || !form.pax || parseInt(form.pax) >= 100
+                      !selectedId || !form.pax || parseInt(form.pax) >= 38
                     }
                   >
                     +
@@ -1457,11 +1467,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                 {selectedId && (
                   <div className="pax-hint">
                     <Users size={12} />
-                    <span>
-                      Enter the total number of guests (selected tables can seat
-                      up to {totalSeats || 0} guests in total, but you can enter
-                      any number up to 38)
-                    </span>
+                    <span>Minimum 1 guest, Maximum 38 guests</span>
                   </div>
                 )}
               </div>
@@ -1492,6 +1498,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
               </div>
             )}
 
+            {/* Table Legend */}
             <div className="table-legend">
               <div className="legend-item">
                 <span className="legend-dot available"></span>
@@ -1517,6 +1524,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
               )}
             </div>
 
+            {/* Table Selection Grid */}
             <div className="table-selection-grid">
               {TABLES_DATA.map((t) => {
                 const hasAnyReservation = hasActiveReservationForTable(t.id);
@@ -1524,9 +1532,11 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                 const isSelected = selectedId === t.id;
                 const isLinked = linkedIds.includes(t.id);
                 const isMaintenance = t.status === "maintenance";
-                const isAvailableAtTime = isTableAvailableAtSelectedTime(t.id);
+                // Check availability based on selected time (if any)
                 const hasTimeConflict =
-                  form.startTime && form.endTime && !isAvailableAtTime;
+                  form.startTime &&
+                  form.endTime &&
+                  !isTableAvailableForTime(t.id, form.startTime, form.endTime);
 
                 let cardCls = "",
                   dotColor = "";
@@ -1590,6 +1600,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
               })}
             </div>
 
+            {/* Link Tables Button */}
             {selectedId && (
               <button
                 className={`btn-link-mode ${isLinkMode ? "active" : ""}`}
