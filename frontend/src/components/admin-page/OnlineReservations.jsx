@@ -286,7 +286,7 @@ const OnlineReservations = () => {
                       High Chair
                     </div>
                     <div className="small fw-bold">
-                      {selectedRes.high_chair ? "Yes" : "No"}
+                      {selectedRes.highChair ? "Yes" : "No"}
                     </div>
                   </div>
                 </div>
