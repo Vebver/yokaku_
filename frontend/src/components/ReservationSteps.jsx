@@ -196,6 +196,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   }, [calendarMonth]);
 
   // ============ FETCH RESERVATIONS FOR SELECTED DATE ============
+  // ============ FETCH RESERVATIONS FOR SELECTED DATE ============
   const fetchReservationsForDate = async (date) => {
     if (!date) return;
 
@@ -211,11 +212,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
             startTimeFormatted: formatTime12Hour(res.startTime),
             endTimeFormatted: formatTime12Hour(res.endTime),
             duration: calculateDuration(res.startTime, res.endTime),
-            customerName:
-              res.customerName ||
-              `${res.first_name || ""} ${res.last_name || ""}`.trim() ||
-              "Guest",
-            guests: res.guests,
+            // Remove customerName and guests - keep only essential info
             status: res.status || "Confirmed",
           }),
         );
@@ -239,11 +236,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
               startTimeFormatted: formatTime12Hour(res.startTime),
               endTimeFormatted: formatTime12Hour(res.endTime),
               duration: calculateDuration(res.startTime, res.endTime),
-              customerName:
-                res.customerName ||
-                `${res.first_name || ""} ${res.last_name || ""}`.trim() ||
-                "Guest",
-              guests: res.guests,
+              // Remove customerName and guests - keep only essential info
               status: res.status || "Confirmed",
             };
           });
@@ -1306,20 +1299,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                               <AlertCircle size={14} />
                               <span>Duration: {res.duration}</span>
                             </div>
-
-                            {res.customerName && (
-                              <div className="reservation-card-customer">
-                                <User size={14} />
-                                <span>{res.customerName}</span>
-                              </div>
-                            )}
-
-                            {res.guests && (
-                              <div className="reservation-card-guests">
-                                <Users size={14} />
-                                <span>{res.guests} guests</span>
-                              </div>
-                            )}
                           </div>
                         ))}
                       </div>
@@ -1830,7 +1809,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   value={form.occasion}
                   onChange={handleInputChange}
                 >
-                  <option value="">Select occasion</option>
                   {OCCASION_OPTIONS.map((opt) => (
                     <option key={opt} value={opt}>
                       {opt}
@@ -1858,7 +1836,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   value={form.allergy}
                   onChange={handleInputChange}
                 >
-                  <option value="">Select allergy</option>
                   {ALLERGY_OPTIONS.map((opt) => (
                     <option key={opt} value={opt}>
                       {opt}
