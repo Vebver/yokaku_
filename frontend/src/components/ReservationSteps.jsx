@@ -2082,6 +2082,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
               loading={ui.loading}
               paymentMethod={paymentMethod}
               setPaymentMethod={setPaymentMethod}
+              onBack={goToPrevStep}
             />
           </div>
         );
