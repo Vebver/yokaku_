@@ -19,159 +19,6 @@
 
 /* SIDEBAR STYLES */
 
-/* --- Sidebar --- */
-.admin-sidebar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  height: 100vh;
-  z-index: 2000; /* Sidebar stays above EVERYTHING */
-  background: var(--dark-sidebar);
-  transition: var(--transition);
-  display: flex;
-  flex-direction: column;
-  overflow-x: hidden !important; 
-}
-.admin-sidebar.expanded {
-  width: var(--sidebar-width);
-}
-.admin-sidebar.collapsed {
-  width: var(--sidebar-collapsed-width);
-}
-
-.admin-sidebar, 
-.main-container, 
-.nav-link,
-.transition-all {
-    transition: none !important; /* This makes movement instant */
-}
-.fade-in {
-    animation: none !important;
-    opacity: 1 !important;
-    transform: none !important;
-}
-
-.sidebar-header {
-  height: 70px;
-  display: flex;
-  align-items: center;
-  padding: 0 20px;
-  flex-shrink: 0;
-}
-
-/* Navigation Scroll Area */
-.custom-nav {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-}
-
-.custom-nav::-webkit-scrollbar {
-  width: 4px;
-}
-.custom-nav::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-}
-
-.nav-link {
-  color: #9ca3af !important;
-  border-radius: 8px;
-  margin: 4px 12px;
-  padding: 10px 16px;
-  display: flex;
-  align-items: center;
-  transition: var(--transition);
-  white-space: nowrap;
-  border: none;
-  font-weight: 500;
-  background: transparent;
-  text-decoration: none;
-}
-
-.nav-link:hover,
-.nav-link.bg-primary {
-  background-color: var(--primary) !important;
-  color: white !important;
-}
-.nav-link.active {
-  background-color: var(--primary) !important;
-  color: white !important;
-}
-
-.sidebar-footer {
-  padding: 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-}
-.card {
-    /* Ensure cards don't have hover animations if they were "bouncing" on hover */
-    transition: none !important;
-    transform: none !important;
-}
-
-/* --- Main Content Area --- */
-.main-container {
-  flex: 1;
-  min-height: 100vh;
-  transition: var(--transition);
-  width: 100%;
-}
-.mobile-header {
-  height: 65px;
-  z-index: 1040;
-  width: 100%;
-}
-/* Fix for TableStatus inside Dashboard box */
-.main-container .bg-white.rounded-4.border {
-    display: block !important;
-    height: auto !important; /* Forces box to grow with content */
-    clear: both;
-}
-
-/* If TableStatus uses a row, this prevents it from "bleeding" out the sides */
-.main-container .bg-white.rounded-4.border .row {
-    margin-right: 0 !important;
-    margin-left: 0 !important;
-}
-
-/* Ensure the cards inside TableStatus stay small in compact mode */
-.main-container .bg-white.rounded-4.border .card {
-    margin-bottom: 1rem;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
-}
-.nav-label {
-    white-space: nowrap; /* Prevents text from wrapping and making buttons taller */
-    overflow: hidden;
-    text-overflow: ellipsis; /* Adds ... if text is too long */
-}
-/* --- DESKTOP MARGINS --- */
-@media (min-width: 993px) {
-  .margin-expanded { margin-left: var(--sidebar-width); }
-  .margin-collapsed { margin-left: var(--sidebar-collapsed-width); }
-  
-  .admin-sidebar.collapsed .nav-label { display: none; }
-}
-
-/* --- MOBILE & IPHONE SE FIXES --- */
-@media (max-width: 992px) {
-  .main-container {
-    margin-left: 0 !important; /* Forces full width content */
-    padding-top: 10px;
-  }
-
-  .admin-sidebar {
-    left: -260px; /* Hide sidebar completely to the left */
-    width: 260px !important;
-  }
-
-  .admin-sidebar.expanded {
-    left: 0; /* Slide in menu overlay */
-    box-shadow: 10px 0 50px rgba(0,0,0,0.5);
-  }
-
-  .nav-label { display: inline-block !important; }
-}
-  .sidebar-overlay {
 .app-sidebar {
     width: var(--sidebar-width);
     background-color: var(--sidebar-bg);
@@ -184,7 +31,17 @@
     flex-direction: column;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
-  }
+/* Removes the glowing yellow shadow from the stat icons */
+.icon-circle {
+    box-shadow: none !important;
+    filter: none !important;
+    border: none !important;
+}
+
+/* Ensure the card itself doesn't have a yellow glow */
+.stat-card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075) !important; /* Standard light shadow */
+}
 
 .sb-closed .app-sidebar {
     width: var(--sidebar-collapsed);
@@ -322,13 +179,15 @@
 }
 
 .icon-circle {
-    width: 15px;
-    height: 15px;
-    border-radius: 12px;
+    width: 48px;
+    height: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.2rem;
+    border-radius: 50%;
+    flex-shrink: 0;
+    font-size: 1.25rem;
+    /* Removed all shadow properties */
 }
 
 .timeline-badge {

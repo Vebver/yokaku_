@@ -43,7 +43,6 @@ ChartJS.register(
   Legend
 );
 
-// Sidebar Icons
 const Icons = {
   Dashboard: () => <i className="bi bi-speedometer2"></i>,
   Inventory: () => <i className="bi bi-boxes"></i>,
@@ -76,7 +75,8 @@ const navItems = [
 
 const StatCard = ({ title, value, color, icon }) => (
   <div className="col-12 col-md-4">
-    <div className="card stat-card shadow-sm border-0 h-0">
+    {/* Removed any status-line borders (Yellow/Blue/Green things) */}
+    <div className="card stat-card shadow-sm border-0">
       <div className="card-body p-3 d-flex align-items-center gap-3">
         <div className={`icon-circle bg-${color}-subtle text-${color}`}>
           <i className={`bi ${icon}`}></i>
@@ -96,26 +96,36 @@ const MiniFinanceCard = ({ title, value, icon: Icon, colorClass }) => (
       <div className={`icon-box ${colorClass} mb-2`}>
         <Icon size={18} />
       </div>
-      <p className="text-muted smaller fw-semibold mb-1">{title}</p>
+      <p className="text-muted x-small fw-bold text-uppercase mb-1" style={{fontSize: '0.6rem'}}>{title}</p>
       <h5 className="fw-bold mb-0 text-dark">{value}</h5>
     </div>
   </div>
 );
 
+const formatCurrency = (val) => {
+  if (typeof val === 'string' && val.includes('₱')) return val; // Already formatted
+  return `₱${Number(val || 0).toLocaleString(undefined, { 
+    minimumFractionDigits: 2, 
+    maximumFractionDigits: 2 
+  })}`;
+};
+
 function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeSection, setActiveSection] = useState("dashboard");
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 992);
   const [loading, setLoading] = useState(true);
   const [todaySchedule, setTodaySchedule] = useState([]);
-  const [stats, setStats] = useState({
+ const [stats, setStats] = useState({
     totalBookings: 0,
     activeTables: 0,
     kitchenQueue: 0,
-    monthlyRevenue: "₱0.00",
-    todayRevenue: "₱0.00",
-    avgOrder: "₱0.00",
-    totalOrders: "0"
+    monthlyRevenue: 0,
+    todayRevenue: 0,
+    avgOrder: 0,
+    totalOrders: 0,
+    revenueTrend: [],
+    trendLabels: []
   });
 
   useEffect(() => {
@@ -139,7 +149,7 @@ function AdminDashboard() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const fetchDashboardData = async () => {
+ const fetchDashboardData = async () => {
     try {
       const token = localStorage.getItem("token");
       const config = { headers: { Authorization: `Bearer ${token}` } };
@@ -147,30 +157,43 @@ function AdminDashboard() {
         axios.get(`${API_BASE}/admin/stats`, config),
         axios.get(`${API_BASE}/admin/today-schedule`, config),
       ]);
-      setStats(prev => ({ ...prev, ...statsRes.data }));
+       const data = statsRes.data;
+       const trendSum = data.revenueTrend?.reduce((a, b) => a + Number(b), 0) || 0;
+
+    setStats({
+        ...data,
+        // If trendSum exists, use it for Monthly Revenue to stay in sync with Reports
+        monthlyRevenue: trendSum > 0 ? trendSum : (data.monthlyRevenue || 0),
+        todayRevenue: data.todayRevenue || 0,
+        avgOrder: data.avgOrder || 0,
+        totalOrders: data.totalOrders || 0,
+        revenueTrend: data.revenueTrend || [0,0,0,0,0,0,0],
+        trendLabels: data.trendLabels || ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+      });
+
+
       setTodaySchedule(scheduleRes.data);
-    } catch (error) {
-      console.error("Fetch error", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    } catch (error) { console.error("Fetch error", error); } 
+    finally { setLoading(false); }
+};
 
   const chartData = {
-    labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    labels: stats.trendLabels,
     datasets: [{
       label: "Revenue",
-      data: [1200, 1900, 3000, 5000, 2000, 3000, 4500],
+      data: stats.revenueTrend,
       borderColor: "#0d6efd",
-      backgroundColor: "rgba(13, 110, 253, 0.1)",
+      backgroundColor: "rgba(13, 110, 253, 0.05)",
       fill: true,
       tension: 0.4,
+      pointRadius: 4,
+      borderWidth: 2
     }],
   };
 
   const DashboardOverview = () => (
-    <div className="dashboard-content fade-in">
-      {/* 1. TIMELINE - PINAKATAAS */}
+    <div className="dashboard-content">
+      {/* 1. TIMELINE */}
       <div className="mb-3 bg-white p-3 rounded-3 shadow-sm border-start border-4 border-warning">
         <div className="d-flex align-items-center mb-2">
           <Info size={16} className="text-warning me-2" />
@@ -192,34 +215,43 @@ function AdminDashboard() {
         </div>
       </div>
 
-      {/* 2. STATS CARDS - SUMUNOD SA TIMELINE */}
+      {/* 2. STATS CARDS - ACCENT REMOVED */}
       <div className="row g-3 mb-3">
         <StatCard title="Bookings" value={stats.totalBookings} color="primary" icon="bi-calendar-check" />
         <StatCard title="Occupied" value={stats.activeTables} color="success" icon="bi-door-open" />
-        <StatCard title="Queue" value={stats.kitchenQueue} color="warning" icon="bi-egg-fried" />
+        {/* Changed color from warning to info to remove the heavy yellow look */}
+        <StatCard title="Queue" value={stats.kitchenQueue} color="info" icon="bi-egg-fried" />
       </div>
 
       {/* 3. FINANCIAL SECTION & CHART */}
       <div className="row g-3 mb-3">
         <div className="col-lg-5">
           <div className="row g-3 h-100">
-            <MiniFinanceCard title="Monthly Revenue" value={stats.monthlyRevenue || "₱0.00"} icon={TrendingUp} colorClass="text-success bg-success-subtle" />
-            <MiniFinanceCard title="Today's Revenue" value={stats.todayRevenue || "₱0.00"} icon={DollarSign} colorClass="text-primary bg-primary-subtle" />
-            <MiniFinanceCard title="Avg. Order" value={stats.avgOrder || "₱0.00"} icon={ShoppingBag} colorClass="text-info bg-info-subtle" />
-            <MiniFinanceCard title="Total Order" value={stats.totalOrders || "0"} icon={CreditCard} colorClass="text-warning bg-warning-subtle" />
+            <MiniFinanceCard title="Monthly Revenue" value={stats.monthlyRevenue} icon={TrendingUp} colorClass="text-success bg-success-subtle" />
+            <MiniFinanceCard title="Today's Revenue" value={stats.todayRevenue} icon={DollarSign} colorClass="text-primary bg-primary-subtle" />
+            <MiniFinanceCard title="Avg. Order" value={stats.avgOrder} icon={ShoppingBag} colorClass="text-info bg-info-subtle" />
+            <MiniFinanceCard title="Total Order" value={stats.totalOrders} icon={CreditCard} colorClass="text-warning bg-warning-subtle" />
           </div>
         </div>
         <div className="col-lg-7">
           <div className="bg-white p-3 p-md-4 rounded-4 shadow-sm border h-100">
             <h6 className="fw-bold mb-3">Revenue Analytics</h6>
             <div style={{ height: "200px" }}>
-              <Line data={chartData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }} />
+              <Line 
+                data={chartData} 
+                options={{ 
+                  responsive: true, 
+                  maintainAspectRatio: false, 
+                  plugins: { legend: { display: false } },
+                  scales: { y: { beginAtZero: true, ticks: { callback: (v) => '₱' + v } } }
+                }} 
+              />
             </div>
           </div>
         </div>
       </div>
 
-      {/* 4. FLOOR STATUS */}
+      {/* 4. FLOOR STATUS - FIXED BOX OVERFLOW */}
       <div className="mt-0 pb-5">
         <div className="d-flex justify-content-between align-items-center mb-2 px-1">
           <h6 className="fw-bold mb-0 text-dark">Floor Status</h6>
@@ -227,12 +259,13 @@ function AdminDashboard() {
             Full View →
           </button>
         </div>
-        <div className="bg-white rounded-4 shadow-sm p-3 border">
+        {/* Added overflow-hidden and removed row margins internally */}
+        <div className="bg-white rounded-4 shadow-sm p-3 border overflow-hidden w-100 d-block">
           <TableStatus compact={true} />
         </div>
       </div>
     </div>
-  );
+  )
 
   const renderSection = () => {
     const sections = {
@@ -275,7 +308,9 @@ function AdminDashboard() {
                 setActiveSection(item.id);
                 if (window.innerWidth <= 992) setSidebarOpen(false);
               }}
-              className={`nav-link w-100 text-start border-0 rounded-2 py-3 px-3 d-flex align-items-center mb-1 transition-all ${activeSection === item.id ? "bg-primary text-white active" : "text-secondary bg-transparent"}`}
+              className={`nav-link w-100 text-start border-0 rounded-3 py-4 px-3 d-flex align-items-center mb-2 transition-all ${
+        activeSection === item.id ? "bg-primary text-white active" : "text-secondary bg-transparent"
+      }`}
             >
               <span className="nav-icon-wrapper"><item.icon /></span>
               <span className="nav-text-label">{item.label}</span>
