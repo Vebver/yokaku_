@@ -52,7 +52,7 @@ const STEPS = [
   "Choose Date",
   "Select Table & Time",
   "Your Details",
-  "Choose Package",
+  "Order Menu",
   "Summary",
 ];
 
@@ -366,7 +366,24 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           isBrgyValid
         );
       case 3:
-        return selectedItems.length > 0 && agreeToTerms;
+        // Check if downpayment requirement is met for 2+ hour reservations
+        const meetsDownpaymentRequirement = () => {
+          if (orderSummary.durationHours >= 2) {
+            // For 2+ hours, need to meet minimum downpayment
+            return (
+              orderSummary.downpayment >=
+              orderSummary.requiredMinimumDownpayment
+            );
+          }
+          // For 1 hour, just need items selected
+          return selectedItems.length > 0;
+        };
+
+        return (
+          selectedItems.length > 0 &&
+          agreeToTerms &&
+          meetsDownpaymentRequirement()
+        );
       case 4:
         return true;
       default:
@@ -593,35 +610,47 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     );
     const total = Math.round(rawTotal * 100) / 100;
 
-    // Calculate downpayment based on duration and total
+    // Calculate required downpayment based on duration
     // Duration-based calculation:
-    // 1 hour = ₱0 minimum
-    // 2 hours = ₱200 minimum
-    // Each additional hour beyond 2 = +₱50
-    let durationBasedDownpayment = 0;
+    // 1 hour = 20% of order total (no minimum)
+    // 2 hours = ₱200 minimum (requires ₱1,000 order to reach)
+    // 3 hours = ₱250 minimum (requires ₱1,250 order to reach)
+    // Each additional hour beyond 2 = +₱50 minimum
+    let requiredMinimumDownpayment = 0;
     const durationHours = calculateDurationInHours;
 
     if (durationHours >= 2) {
-      durationBasedDownpayment = 200;
+      requiredMinimumDownpayment = 200;
       const additionalHours = Math.floor(durationHours - 2);
-      durationBasedDownpayment += additionalHours * 50;
+      requiredMinimumDownpayment += additionalHours * 50;
     }
 
     // 20% of total order
     const twentyPercentOfOrder = total * 0.2;
 
-    // Final downpayment is the higher of the two
-    const finalDownpayment = Math.max(
-      durationBasedDownpayment,
-      twentyPercentOfOrder,
-    );
+    // For 1 hour: just use 20% of order
+    // For 2+ hours: need to meet the minimum downpayment
+    // If 20% is less than minimum, user needs to add more items
+    let finalDownpayment = twentyPercentOfOrder;
+    let needsMoreItems = false;
+
+    if (durationHours >= 2) {
+      if (twentyPercentOfOrder >= requiredMinimumDownpayment) {
+        finalDownpayment = twentyPercentOfOrder;
+      } else {
+        finalDownpayment = requiredMinimumDownpayment;
+        needsMoreItems = true;
+      }
+    }
 
     return {
       totalOrderPrice: total,
       downpayment: Math.round(finalDownpayment * 100) / 100,
       balance: Math.round((total - finalDownpayment) * 100) / 100,
       durationHours: durationHours,
-      durationBasedDownpayment: durationBasedDownpayment,
+      requiredMinimumDownpayment: requiredMinimumDownpayment,
+      needsMoreItems: needsMoreItems,
+      minimumOrderNeeded: requiredMinimumDownpayment * 5, // ₱200 min downpayment = ₱1,000 order needed
     };
   }, [selectedItems, calculateDurationInHours]);
 
@@ -1923,6 +1952,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                 ? `${selectedItems.length} Selected`
                 : "View Menu"}
             </button>
+
             {selectedItems.length > 0 && (
               <div className="package-summary">
                 <h4>Selected Menu</h4>
@@ -1934,11 +1964,38 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     <span>₱{(item.price * item.quantity).toFixed(2)}</span>
                   </div>
                 ))}
+
                 <div className="package-total">
                   <strong>
                     Total: ₱{orderSummary.totalOrderPrice.toFixed(2)}
                   </strong>
                 </div>
+
+                {/* Show duration-based requirement warning */}
+                {orderSummary.durationHours >= 2 && (
+                  <div
+                    className={`duration-requirement ${orderSummary.needsMoreItems ? "warning" : "success"}`}
+                  >
+                    <AlertCircle size={14} />
+                    <span>
+                      {orderSummary.needsMoreItems ? (
+                        <>
+                          ⚠️ Minimum downpayment of ₱
+                          {orderSummary.requiredMinimumDownpayment} required for{" "}
+                          {orderSummary.durationHours} hour reservation. Please
+                          add more items (minimum order of ₱
+                          {orderSummary.minimumOrderNeeded})
+                        </>
+                      ) : (
+                        <>
+                          ✓ Minimum downpayment requirement met for{" "}
+                          {orderSummary.durationHours} hour reservation
+                        </>
+                      )}
+                    </span>
+                  </div>
+                )}
+
                 <div className="package-downpayment">
                   <span style={{ color: "#f38d31", fontWeight: "800" }}>
                     Downpayment:
@@ -1951,14 +2008,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   <span style={{ color: "#666" }}>Remaining Balance:</span>
                   <strong>₱{orderSummary.balance.toFixed(2)}</strong>
                 </div>
-                {orderSummary.durationHours >= 2 && (
-                  <div className="duration-note">
-                    <small>
-                      ⚠️ Minimum downpayment of ₱200 applies for 2+ hour
-                      reservations (+₱50 per additional hour)
-                    </small>
-                  </div>
-                )}
 
                 <div className="terms-checkbox-wrapper">
                   <label className="terms-checkbox-label">
