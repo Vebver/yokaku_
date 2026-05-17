@@ -1,4 +1,4 @@
-// ReservationSteps.jsx (Updated with PAX field in Step 2)
+// ReservationSteps.jsx (Updated with PAX field conditional)
 import React, { useState, useMemo, useEffect } from "react";
 import axios from "axios";
 import {
@@ -92,7 +92,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     occasion: "",
     customOccasion: "",
     allergyCount: "",
-    pax: "", // ADD PAX FIELD HERE
+    pax: "",
   });
 
   const [user, setUser] = useState({
@@ -343,14 +343,16 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           const e = timeToMin(form.endTime);
           return s < timeToMin(r.endTime) && e > timeToMin(r.startTime);
         });
-        const isPaxValid = form.pax && parseInt(form.pax) > 0;
+        // PAX validation - just needs to be a positive number
+        const isPaxValid =
+          form.pax && parseInt(form.pax) >= 1 && parseInt(form.pax) <= 38;
         return (
           selectedId !== null &&
           isStartTimeValid &&
           isEndTimeValid &&
           isTimeValid &&
           hasNoConflict &&
-          isPaxValid
+          isPaxValid // Only checks if PAX is filled and positive
         );
       case 2:
         const isMuniValid = form.muni && form.muni !== "";
@@ -565,6 +567,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
 
   const totalSeats = useMemo(() => {
     if (!selectedId) return 0;
+    // This is just for display - NOT a restriction
     return (
       (primaryTable?.seats || 0) +
       TABLES_DATA.filter((t) => linkedIds.includes(t.id)).reduce(
@@ -741,9 +744,14 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       const sanitized = sanitizeStringInput(value);
       setForm((prev) => ({ ...prev, [name]: sanitized }));
     } else if (name === "pax") {
-      const numValue = parseInt(value);
-      if (value === "" || (numValue >= 1 && numValue <= (totalSeats || 50))) {
-        setForm((prev) => ({ ...prev, [name]: value }));
+      // Only allow numbers between 1-38
+      if (value === "") {
+        setForm((prev) => ({ ...prev, pax: "" }));
+      } else {
+        const numValue = parseInt(value);
+        if (!isNaN(numValue) && numValue >= 1 && numValue <= 38) {
+          setForm((prev) => ({ ...prev, pax: value }));
+        }
       }
     } else if (name in user) {
       setUser((prev) => ({ ...prev, [name]: value }));
@@ -787,6 +795,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     } else {
       setSelectedId(selectedId === table.id ? null : table.id);
       setLinkedIds([]);
+      // Clear PAX when table selection changes
+      setForm((prev) => ({ ...prev, pax: "" }));
     }
   };
 
@@ -1136,6 +1146,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                                 ...prev,
                                 startTime: "",
                                 endTime: "",
+                                pax: "",
                               }));
                               setSelectedReservationDate(day.date);
                               await fetchReservationsForDate(day.date);
@@ -1250,7 +1261,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           </div>
         );
 
-      // ============ STEP 2 - SELECT TABLE & TIME (WITH PAX FIELD) ============
+      // ============ STEP 2 - SELECT TABLE & TIME (WITH CONDITIONAL PAX FIELD) ============
       case 1:
         return form.date ? (
           <div className="step-content step-tables">
@@ -1267,6 +1278,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     handleInputChange(e);
                     setLinkedIds([]);
                     setSelectedId(null);
+                    setForm((prev) => ({ ...prev, pax: "" }));
                   }}
                 >
                   <option value="">Select start time</option>
@@ -1289,6 +1301,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     handleInputChange(e);
                     setLinkedIds([]);
                     setSelectedId(null);
+                    setForm((prev) => ({ ...prev, pax: "" }));
                   }}
                   disabled={!form.startTime}
                 >
@@ -1301,12 +1314,17 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                 </select>
               </div>
             </div>
-
-            {/* ============ PAX FIELD - ADDED BACK ============ */}
+            {/* ============ PAX FIELD - CONDITIONALLY ENABLED (NO CAPACITY RESTRICTION) ============ */}
             <div className="pax-field-container">
               <div className="input-group pax-input-group">
                 <label>
                   <Users size={12} /> NUMBER OF GUESTS (PAX)
+                  {!selectedId && (
+                    <span className="pax-field-hint">
+                      {" "}
+                      (Select a table first)
+                    </span>
+                  )}
                 </label>
                 <div className="pax-input-wrapper">
                   <button
@@ -1321,7 +1339,9 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                         }));
                       }
                     }}
-                    disabled={!form.pax || parseInt(form.pax) <= 1}
+                    disabled={
+                      !selectedId || !form.pax || parseInt(form.pax) <= 1
+                    }
                   >
                     -
                   </button>
@@ -1330,26 +1350,50 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     name="pax"
                     className="pax-input"
                     min="1"
-                    max={totalSeats || 20}
+                    max="100" // Changed from totalSeats to 100 (reasonable max)
                     value={form.pax}
                     onChange={(e) => {
                       const value = e.target.value;
-                      if (
-                        value === "" ||
-                        (parseInt(value) >= 1 &&
-                          parseInt(value) <= (totalSeats || 20))
-                      ) {
-                        handleInputChange(e);
+                      if (value === "") {
+                        setForm((prev) => ({ ...prev, pax: "" }));
+                      } else {
+                        const numValue = parseInt(value);
+                        // Only allow positive numbers between 1 and 38
+                        if (
+                          !isNaN(numValue) &&
+                          numValue >= 1 &&
+                          numValue <= 38
+                        ) {
+                          setForm((prev) => ({ ...prev, pax: value }));
+                        }
                       }
                     }}
-                    placeholder="Enter number of guests"
+                    onKeyDown={(e) => {
+                      // Prevent 'e', 'E', '-', '+', '.' from being typed
+                      if (
+                        e.key === "e" ||
+                        e.key === "E" ||
+                        e.key === "-" ||
+                        e.key === "+" ||
+                        e.key === "."
+                      ) {
+                        e.preventDefault();
+                      }
+                    }}
+                    placeholder={
+                      selectedId
+                        ? "Enter number of guests"
+                        : "Select a table first"
+                    }
+                    disabled={!selectedId}
                   />
                   <button
                     type="button"
                     className="pax-btn pax-btn-increase"
                     onClick={() => {
                       const currentPax = parseInt(form.pax) || 0;
-                      if (currentPax < (totalSeats || 20)) {
+                      if (currentPax < 100) {
+                        // Changed from totalSeats to 100
                         setForm((prev) => ({
                           ...prev,
                           pax: String(currentPax + 1),
@@ -1357,19 +1401,30 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                       }
                     }}
                     disabled={
-                      !form.pax || parseInt(form.pax) >= (totalSeats || 20)
+                      !selectedId || !form.pax || parseInt(form.pax) >= 100
                     }
                   >
                     +
                   </button>
                 </div>
-                <div className="pax-hint">
-                  <Users size={12} />
-                  <span>
-                    Selected tables can accommodate up to {totalSeats || 0}{" "}
-                    guests
-                  </span>
-                </div>
+                {!selectedId && (
+                  <div className="pax-warning">
+                    <AlertCircle size={12} />
+                    <span>
+                      Please select a table before entering number of guests
+                    </span>
+                  </div>
+                )}
+                {selectedId && (
+                  <div className="pax-hint">
+                    <Users size={12} />
+                    <span>
+                      Enter the total number of guests (selected tables can seat
+                      up to {totalSeats || 0} guests in total, but you can enter
+                      any number)
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1740,7 +1795,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     </option>
                   ))}
                 </select>
-                {/* Add a hint text */}
                 <small className="allergy-hint">
                   Select "Specify all Allergy" to list all allergies in your
                   group
