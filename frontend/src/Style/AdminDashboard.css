@@ -219,7 +219,31 @@
 .smaller {
     font-size: 0.75rem;
 }
+/* 1. Kill the movement on ALL cards in the dashboard */
+.card, 
+.stat-card, 
+.finance-mini-card, 
+.table-card {
+    transition: none !important; /* Removes the smooth sliding animation */
+    transform: none !important;  /* Removes the actual movement */
+}
 
+/* 2. Specifically target the hover state to ensure it stays still */
+.card:hover, 
+.stat-card:hover, 
+.finance-mini-card:hover, 
+.table-card:hover {
+    transform: none !important;   /* Prevents the card from moving up/down */
+    top: 0 !important;            /* Prevents any 'top' based movement */
+    box-shadow: none !important;  /* Optional: removes the shadow glow if you want it totally flat */
+}
+
+/* 3. If your Floor Status tables have a specific zoom/pop effect */
+.table-item:hover, 
+.table-card-wrapper:hover {
+    transform: none !important;
+    scale: 1 !important;
+}
 
 /* Mobile View */
 
