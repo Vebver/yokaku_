@@ -16,7 +16,6 @@ const API_BASE = "https://yokaku-backend.onrender.com/api";
 const BASE_URL = "https://yokaku-backend.onrender.com";
 
 const getImageUrl = (item) => {
-  // Prioritize local_path (Cloudinary URL) over image_url
   const imagePath = item.local_path || item.image_url;
   if (!imagePath) return null;
   if (imagePath.startsWith("http")) return imagePath;
@@ -25,7 +24,6 @@ const getImageUrl = (item) => {
 };
 
 const PackageModal = ({
-  isOpen,
   onClose,
   onSelectedItemsChange,
   initialSelectedItems = [],
@@ -35,7 +33,6 @@ const PackageModal = ({
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedItems, setSelectedItems] = useState(initialSelectedItems);
   const [loading, setLoading] = useState(true);
-  const [imageErrors, setImageErrors] = useState({});
   const [selectedItem, setSelectedItem] = useState(null);
   const [showItemModal, setShowItemModal] = useState(false);
   const [showCartModal, setShowCartModal] = useState(false);
@@ -44,7 +41,7 @@ const PackageModal = ({
 
   const [customizations, setCustomizations] = useState({
     addOns: [],
-    flavors: [], // Changed to array for picking 4
+    flavors: [],
     drink: "",
     specialInstructions: "None",
     spiceLevel: "Medium",
@@ -57,11 +54,9 @@ const PackageModal = ({
   const HIDDEN_CATEGORIES = ["Chicken", "Drinks"];
 
   useEffect(() => {
-    if (isOpen) {
-      fetchCategories();
-      fetchProducts();
-    }
-  }, [isOpen]);
+    fetchCategories();
+    fetchProducts();
+  }, []);
 
   useEffect(() => {
     setSelectedItems(initialSelectedItems);
@@ -105,10 +100,8 @@ const PackageModal = ({
     setShowCustomizePanel(false);
 
     if (existingItem) {
-      // Load existing choices
       setCustomizations(existingItem.customizations);
     } else {
-      // Initialize New Item
       const chickenProducts = products.filter(
         (p) =>
           categories.find((c) => c.category_id === p.category_id)?.name ===
@@ -123,7 +116,6 @@ const PackageModal = ({
 
       setCustomizations({
         addOns: [],
-        // Grab first 4 chicken names for Unlimited
         flavors: isUnli ? chickenProducts.slice(0, 4).map((p) => p.name) : [],
         drink: isUnli && firstDrink ? firstDrink : "",
         spiceLevel: "Medium",
@@ -198,95 +190,88 @@ const PackageModal = ({
     0,
   );
 
-  if (!isOpen) return null;
-
   return (
-    <>
-      <div className="menu-modal-overlay" onClick={onClose}>
-        <div
-          className="menu-modal-container"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="menu-modal-header">
-            <h2>Select Packages</h2>
-            <button className="menu-modal-close" onClick={onClose}>
-              <X size={24} />
-            </button>
-          </div>
+    <div className="package-inline-container">
+      {/* Header */}
+      <div className="package-inline-header">
+        <h2>Select Packages</h2>
+        <button className="package-inline-close" onClick={onClose}>
+          <X size={24} />
+        </button>
+      </div>
 
-          <div className="menu-modal-content">
-            <div className="menu-categories">
-              {categories
-                .filter((cat) => !HIDDEN_CATEGORIES.includes(cat.name))
-                .map((cat) => (
-                  <button
-                    key={cat.category_id}
-                    className={`category-btn ${Number(selectedCategory) === Number(cat.category_id) ? "active" : ""}`}
-                    onClick={() => setSelectedCategory(Number(cat.category_id))}
-                  >
-                    {cat.name}
-                  </button>
-                ))}
-            </div>
+      {/* Content */}
+      <div className="package-inline-content">
+        <div className="menu-categories">
+          {categories
+            .filter((cat) => !HIDDEN_CATEGORIES.includes(cat.name))
+            .map((cat) => (
+              <button
+                key={cat.category_id}
+                className={`category-btn ${Number(selectedCategory) === Number(cat.category_id) ? "active" : ""}`}
+                onClick={() => setSelectedCategory(Number(cat.category_id))}
+              >
+                {cat.name}
+              </button>
+            ))}
+        </div>
 
-            <div className="menu-items-grid">
-              {loading ? (
-                <div className="loading-spinner">Loading packages...</div>
-              ) : products.filter(
-                  (p) => Number(p.category_id) === Number(selectedCategory),
-                ).length > 0 ? (
-                products
-                  .filter(
-                    (p) => Number(p.category_id) === Number(selectedCategory),
-                  )
-                  .map((item) => (
-                    <div
-                      key={item.item_id}
-                      className={`menu-item-card ${selectedItems.some((i) => i.id === item.item_id) ? "selected" : ""}`}
-                      onClick={() => handleCardClick(item)}
-                    >
-                      <div className="menu-item-image">
-                        <img
-                          src={getImageUrl(item)}
-                          alt={item.name}
-                          onError={(e) =>
-                            (e.target.src = "https://placehold.co/100")
-                          }
-                        />
-                        {selectedItems.some((i) => i.id === item.item_id) && (
-                          <div className="selected-overlay">
-                            <CheckCircle size={32} color="#f38d31" />
-                          </div>
-                        )}
+        <div className="menu-items-grid">
+          {loading ? (
+            <div className="loading-spinner">Loading packages...</div>
+          ) : products.filter(
+              (p) => Number(p.category_id) === Number(selectedCategory),
+            ).length > 0 ? (
+            products
+              .filter((p) => Number(p.category_id) === Number(selectedCategory))
+              .map((item) => (
+                <div
+                  key={item.item_id}
+                  className={`menu-item-card ${selectedItems.some((i) => i.id === item.item_id) ? "selected" : ""}`}
+                  onClick={() => handleCardClick(item)}
+                >
+                  <div className="menu-item-image">
+                    <img
+                      src={getImageUrl(item)}
+                      alt={item.name}
+                      onError={(e) =>
+                        (e.target.src = "https://placehold.co/100")
+                      }
+                    />
+                    {selectedItems.some((i) => i.id === item.item_id) && (
+                      <div className="selected-overlay">
+                        <CheckCircle size={32} color="#f38d31" />
                       </div>
-                      <div className="menu-item-info">
-                        <h4>{item.name}</h4>
-                        <p className="menu-item-price">
-                          ₱{parseFloat(item.price).toFixed(2)}
-                        </p>
-                      </div>
-                    </div>
-                  ))
-              ) : (
-                <p className="no-items">No items in this category</p>
-              )}
-            </div>
-          </div>
-
-          <div className="menu-modal-footer">
-            <div className="menu-summary">
-              <span>Total: ₱{totalPrice.toFixed(2)}</span>
-            </div>
-            <button
-              className="view-order-btn"
-              onClick={() => setShowCartModal(true)}
-            >
-              <ShoppingCart size={18} /> View Order ({selectedItems.length})
-            </button>
-          </div>
+                    )}
+                  </div>
+                  <div className="menu-item-info">
+                    <h4>{item.name}</h4>
+                    <p className="menu-item-price">
+                      ₱{parseFloat(item.price).toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+              ))
+          ) : (
+            <p className="no-items">No items in this category</p>
+          )}
         </div>
       </div>
 
+      {/* Footer */}
+      <div className="package-inline-footer">
+        <div className="menu-summary">
+          <span>Total: ₱{totalPrice.toFixed(2)}</span>
+        </div>
+        <button
+          className="view-order-btn"
+          onClick={() => setShowCartModal(true)}
+        >
+          <ShoppingCart size={18} /> View Order ({selectedItems.length})
+        </button>
+      </div>
+
+      {/* Item Detail Modal (still needed for customization) */}
       {showItemModal && selectedItem && (
         <div
           className="item-detail-modal-overlay"
@@ -363,7 +348,6 @@ const PackageModal = ({
                   </>
                 ) : (
                   <div className="customize-panel">
-                    {/*Chicken Flavors */}
                     <h3>Customize Your Order</h3>
                     <div className="customize-section">
                       <label className="section-label-highlight">
@@ -387,8 +371,6 @@ const PackageModal = ({
                             </button>
                           ))}
                       </div>
-
-                      {/*Drinks */}
                     </div>
                     <div className="customize-section">
                       <label className="section-label-highlight">
@@ -418,8 +400,6 @@ const PackageModal = ({
                           ))}
                       </div>
                     </div>
-
-                    {/*Spice level */}
                     <div className="customize-section">
                       <label>Spice Level:</label>
                       <div className="spice-levels">
@@ -439,8 +419,6 @@ const PackageModal = ({
                         ))}
                       </div>
                     </div>
-
-                    {/*Special Instruction */}
                     <div className="customize-section">
                       <label>Special Instructions:</label>
                       <textarea
@@ -456,7 +434,6 @@ const PackageModal = ({
                         rows="3"
                       />
                     </div>
-
                     <div className="customize-actions">
                       <button
                         className="save-customize-btn"
@@ -473,6 +450,7 @@ const PackageModal = ({
         </div>
       )}
 
+      {/* Cart Modal (still needed for cart view) */}
       {showCartModal && (
         <div
           className="cart-modal-overlay"
@@ -512,7 +490,6 @@ const PackageModal = ({
                             <small>
                               Spice: {item.customizations.spiceLevel}
                             </small>
-
                             {item.customizations.specialInstructions && (
                               <small>
                                 Note: {item.customizations.specialInstructions}
@@ -566,7 +543,7 @@ const PackageModal = ({
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 };
 

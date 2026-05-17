@@ -1,4 +1,4 @@
-// ReservationSteps.jsx (Updated with PAX field conditional and dynamic downpayment)
+// ReservationSteps.jsx (Updated with 6 Steps)
 import React, { useState, useMemo, useEffect } from "react";
 import axios from "axios";
 import {
@@ -20,6 +20,7 @@ import {
   CheckCircle,
   Users,
   User,
+  ShoppingBag,
 } from "lucide-react";
 import StepProgress from "./StepProgress";
 import "../Style/TableReservation.css";
@@ -53,7 +54,8 @@ const STEPS = [
   "Select Table & Time",
   "Your Details",
   "Order Menu",
-  "Summary",
+  "Order Summary",
+  "Reservation Summary",
 ];
 
 export default function ReservationSteps({ onClose, onSuccess }) {
@@ -366,21 +368,20 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           isBrgyValid
         );
       case 3:
-        // Check if items are selected
+        // Step 3: Order Menu - just need items selected
+        return selectedItems.length > 0;
+      case 4:
+        // Step 4: Order Summary - need items, terms, and meet downpayment requirement
         const hasItems = selectedItems.length > 0;
-        // Check if terms are agreed
         const termsAgreed = agreeToTerms;
-
-        // For 2+ hour reservations, check if downpayment meets minimum
         let meetsDownpaymentRequirement = true;
         if (orderSummary.durationHours >= 2) {
           meetsDownpaymentRequirement =
             orderSummary.downpayment >= orderSummary.requiredMinimumDownpayment;
         }
-
         return hasItems && termsAgreed && meetsDownpaymentRequirement;
-      case 4:
-        // Check if payment method is selected AND receipt is uploaded
+      case 5:
+        // Step 5: Reservation Summary - need payment method and receipt
         const isPaymentMethodSelected = paymentMethod !== null;
         const isReceiptUploaded = receiptFile !== null;
         return isPaymentMethodSelected && isReceiptUploaded;
@@ -406,7 +407,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     if (currentStep === 2 && validateCurrentStep()) {
       markStepCompleted(2);
     }
-    if (currentStep === 3 && selectedItems.length > 0 && agreeToTerms) {
+    if (currentStep === 3 && selectedItems.length > 0) {
       markStepCompleted(3);
     }
   }, [
@@ -582,7 +583,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
 
   const totalSeats = useMemo(() => {
     if (!selectedId) return 0;
-    // This is just for display - NOT a restriction
     return (
       (primaryTable?.seats || 0) +
       TABLES_DATA.filter((t) => linkedIds.includes(t.id)).reduce(
@@ -623,22 +623,19 @@ export default function ReservationSteps({ onClose, onSuccess }) {
 
     // For 1 hour: no minimum requirement
     // For 2+ hours: downpayment is 20% of order, but must meet minimum requirement
-    // If 20% is less than minimum, user needs to add more items
     const needsMoreItems =
       durationHours >= 2 && twentyPercentOfOrder < requiredMinimumDownpayment;
 
-    // The actual downpayment is always 20% of order
-    // The warning tells them they need to add more items to meet the minimum
     const actualDownpayment = twentyPercentOfOrder;
 
     return {
       totalOrderPrice: total,
-      downpayment: Math.round(actualDownpayment * 100) / 100, // This is 20% of order
-      requiredMinimumDownpayment: requiredMinimumDownpayment, // This is the minimum they need to reach
+      downpayment: Math.round(actualDownpayment * 100) / 100,
+      requiredMinimumDownpayment: requiredMinimumDownpayment,
       balance: Math.round((total - actualDownpayment) * 100) / 100,
       durationHours: durationHours,
       needsMoreItems: needsMoreItems,
-      minimumOrderNeeded: requiredMinimumDownpayment * 5, // Order needed to reach minimum (20% of order = min downpayment)
+      minimumOrderNeeded: requiredMinimumDownpayment * 5,
     };
   }, [selectedItems, calculateDurationInHours]);
 
@@ -738,8 +735,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       const minEndM = startM + 30;
       return minEndM <= maxEndTimeMinutes;
     });
-    // Only filter by table schedule if a table is selected and times are selected
-    // This ensures time options are always available
     if (selectedId && form.startTime && form.endTime) {
       const schedule = tableSchedules[selectedId] || [];
       return filtered.filter((startTime) => {
@@ -809,7 +804,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       const sanitized = sanitizeStringInput(value);
       setForm((prev) => ({ ...prev, [name]: sanitized }));
     } else if (name === "pax") {
-      // Only allow numbers between 1-38
       if (value === "") {
         setForm((prev) => ({ ...prev, pax: "" }));
       } else {
@@ -860,7 +854,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     } else {
       setSelectedId(selectedId === table.id ? null : table.id);
       setLinkedIds([]);
-      // Clear PAX when table selection changes
       setForm((prev) => ({ ...prev, pax: "" }));
     }
   };
@@ -873,7 +866,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       const payload = new FormData();
       const userId = localStorage.getItem("userId");
 
-      // Validate receipt exists
       if (!receiptFile) {
         alert("Please upload your payment receipt.");
         setIsProcessing(false);
@@ -911,7 +903,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         occasion: finalOccasion,
       };
 
-      // Append receipt file
       if (receiptFile) {
         payload.append("receipt", receiptFile);
       }
@@ -970,6 +961,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           <div className="step-content step-date">
             <div className="calendar-container">
               <div className="calendar-header">
+                {/* Calendar header content - keep as is */}
                 <button
                   type="button"
                   className="calendar-nav-btn"
@@ -1340,11 +1332,9 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           </div>
         );
 
-      // ============ STEP 2 - SELECT TABLE & TIME (WITH FIXED TIME OPTIONS) ============
       case 1:
         return form.date ? (
           <div className="step-content step-tables">
-            {/* Time Selection Row - Should be available immediately */}
             <div className="time-selection-row">
               <div className="input-group">
                 <label>
@@ -1395,7 +1385,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
               </div>
             </div>
 
-            {/* ============ PAX FIELD - CONDITIONALLY ENABLED ============ */}
             <div className="pax-field-container">
               <div className="input-group pax-input-group">
                 <label>
@@ -1502,7 +1491,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
               </div>
             </div>
 
-            {/* ============ OCCUPIED SLOTS SECTION ============ */}
             {selectedId && data.schedule && data.schedule.length > 0 && (
               <div className="table-schedule-section">
                 <h4 className="schedule-header">
@@ -1527,7 +1515,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
               </div>
             )}
 
-            {/* Table Legend */}
             <div className="table-legend">
               <div className="legend-item">
                 <span className="legend-dot available"></span>
@@ -1553,7 +1540,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
               )}
             </div>
 
-            {/* Table Selection Grid */}
             <div className="table-selection-grid">
               {TABLES_DATA.map((t) => {
                 const hasAnyReservation = hasActiveReservationForTable(t.id);
@@ -1561,7 +1547,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                 const isSelected = selectedId === t.id;
                 const isLinked = linkedIds.includes(t.id);
                 const isMaintenance = t.status === "maintenance";
-                // Check availability based on selected time (if any)
                 const hasTimeConflict =
                   form.startTime &&
                   form.endTime &&
@@ -1629,7 +1614,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
               })}
             </div>
 
-            {/* Link Tables Button */}
             {selectedId && (
               <button
                 className={`btn-link-mode ${isLinkMode ? "active" : ""}`}
@@ -1943,7 +1927,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       case 3:
         const meetsDownpaymentRequirement = () => {
           if (orderSummary.durationHours >= 2) {
-            // Check if 20% of order meets or exceeds the minimum required
             return (
               orderSummary.downpayment >=
               orderSummary.requiredMinimumDownpayment
@@ -1984,7 +1967,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   </strong>
                 </div>
 
-                {/* Duration info */}
                 {orderSummary.durationHours >= 2 && (
                   <div className="duration-info">
                     <Clock size={14} />
@@ -1994,7 +1976,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   </div>
                 )}
 
-                {/* Show minimum requirement warning */}
                 {orderSummary.durationHours >= 2 && (
                   <div
                     className={`duration-requirement ${!isDownpaymentRequirementMet ? "warning" : "success"}`}
@@ -2019,7 +2000,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   </div>
                 )}
 
-                {/* Downpayment display - always shows 20% of order */}
                 <div className="package-downpayment">
                   <div className="downpayment-row">
                     <span style={{ color: "#f38d31", fontWeight: "800" }}>
@@ -2030,7 +2010,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     </strong>
                   </div>
 
-                  {/* Show required minimum if it's higher than actual */}
                   {orderSummary.durationHours >= 2 &&
                     orderSummary.requiredMinimumDownpayment >
                       orderSummary.downpayment && (
@@ -2050,7 +2029,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   <strong>₱{orderSummary.balance.toFixed(2)}</strong>
                 </div>
 
-                {/* Blocked warning - cannot proceed */}
                 {orderSummary.durationHours >= 2 &&
                   !isDownpaymentRequirementMet && (
                     <div className="requirement-blocked-warning">
@@ -2087,6 +2065,134 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         );
 
       case 4:
+        return (
+          <div className="step-content step-order-summary">
+            <div className="order-summary-container">
+              <div className="summary-header">
+                <h3>Order Summary</h3>
+                <button
+                  className="edit-order-btn"
+                  onClick={() => setCurrentStep(3)}
+                >
+                  Edit Order
+                </button>
+              </div>
+
+              <div className="order-items-list">
+                {selectedItems.length === 0 ? (
+                  <div className="empty-order-message">
+                    <ShoppingBag size={48} color="#ccc" />
+                    <p>No items selected</p>
+                    <button
+                      className="btn-link-mode"
+                      onClick={() => setCurrentStep(3)}
+                    >
+                      Browse Menu
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    {selectedItems.map((item, idx) => (
+                      <div key={idx} className="order-summary-item">
+                        <div className="order-item-info">
+                          <span className="order-item-qty">
+                            {item.quantity}x
+                          </span>
+                          <div className="order-item-details">
+                            <span className="order-item-name">{item.name}</span>
+                            {item.customizations && (
+                              <div className="order-item-customizations">
+                                {item.customizations.flavors?.length > 0 && (
+                                  <small>
+                                    Flavors:{" "}
+                                    {item.customizations.flavors.join(", ")}
+                                  </small>
+                                )}
+                                {item.customizations.drink && (
+                                  <small>
+                                    Drink: {item.customizations.drink}
+                                  </small>
+                                )}
+                                {item.customizations.spiceLevel && (
+                                  <small>
+                                    Spice: {item.customizations.spiceLevel}
+                                  </small>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="order-item-price">
+                          ₱{(item.price * item.quantity).toFixed(2)}
+                        </div>
+                      </div>
+                    ))}
+
+                    <div className="order-summary-divider"></div>
+
+                    <div className="order-duration-info">
+                      <Clock size={16} />
+                      <span>
+                        Reservation Duration: {orderSummary.durationHours}{" "}
+                        hour(s)
+                      </span>
+                    </div>
+
+                    <div className="order-summary-row">
+                      <span>Subtotal</span>
+                      <span>₱{orderSummary.totalOrderPrice.toFixed(2)}</span>
+                    </div>
+
+                    <div className="order-summary-row highlight">
+                      <span>Downpayment (20%)</span>
+                      <span>₱{orderSummary.downpayment.toFixed(2)}</span>
+                    </div>
+
+                    {orderSummary.durationHours >= 2 &&
+                      orderSummary.downpayment <
+                        orderSummary.requiredMinimumDownpayment && (
+                        <div className="minimum-requirement-warning">
+                          <AlertCircle size={14} />
+                          <span>
+                            ⚠️ Minimum downpayment of ₱
+                            {orderSummary.requiredMinimumDownpayment} required
+                            for {orderSummary.durationHours} hour(s)
+                          </span>
+                        </div>
+                      )}
+
+                    <div className="order-summary-row balance">
+                      <span>Balance to Pay</span>
+                      <span>₱{orderSummary.balance.toFixed(2)}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="terms-checkbox-wrapper order-summary-terms">
+                <label className="terms-checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={agreeToTerms}
+                    onChange={(e) => setAgreeToTerms(e.target.checked)}
+                  />
+                  <span>
+                    I have read and agree to the{" "}
+                    <button
+                      type="button"
+                      className="terms-link-btn"
+                      onClick={() => setUi((p) => ({ ...p, terms: true }))}
+                    >
+                      Terms and Conditions
+                    </button>
+                  </span>
+                </label>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 5:
         return (
           <div className="step-content step-summary">
             <ReservationSummary
@@ -2131,6 +2237,17 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           onStepClick={goToStep}
         />
         <div className="step-content-container">{renderStepContent()}</div>
+
+        {ui.menu && (
+          <div className="package-inline-wrapper">
+            <PackageModal
+              onClose={() => setUi((p) => ({ ...p, menu: false }))}
+              onSelectedItemsChange={setSelectedItems}
+              initialSelectedItems={selectedItems}
+            />
+          </div>
+        )}
+
         <div className="step-navigation">
           <button
             className="nav-btn nav-btn-prev"
@@ -2162,12 +2279,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           )}
         </div>
       </div>
-      <PackageModal
-        isOpen={ui.menu}
-        onClose={() => setUi((p) => ({ ...p, menu: false }))}
-        onSelectedItemsChange={setSelectedItems}
-        initialSelectedItems={selectedItems}
-      />
       <TermsModal
         isOpen={ui.terms}
         onClose={() => setUi((p) => ({ ...p, terms: false }))}
