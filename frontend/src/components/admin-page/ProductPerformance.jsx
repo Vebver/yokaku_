@@ -1,9 +1,18 @@
-import React from 'react';
-import { ArrowDown, Award, TrendingUp } from 'lucide-react';
+import React, { useState } from 'react';
+import { ArrowDown, Award, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const ProductPerformance = ({ data }) => {
   const topProducts = data?.top_selling_products || [];
   const slowMoving = data?.slow_moving_products || [];
+
+  // --- LOCAL PAGINATION STATE ---
+  const [slowPage, setSlowPage] = useState(1);
+  const itemsPerPage = 6;
+  const totalSlowPages = Math.ceil(slowMoving.length / itemsPerPage);
+  
+  const indexOfLastItem = slowPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentSlowItems = slowMoving.slice(indexOfFirstItem, indexOfLastItem);
 
   const formatCurrency = (num) => 
     new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(num);
@@ -11,19 +20,17 @@ const ProductPerformance = ({ data }) => {
   if (!data) return null;
 
   return (
-     <div className="w-100"> {/* 1. Use a wrapper to clear grid margins */}
-      
-      {/* 2. HEADER SECTION (Outside the Row) */}
-     <div className="mb-4">
+     <div className="w-100">
+      <div className="mb-4 px-1 pb-3 border-bottom">
         <h4 className="fw-bold text-dark mb-1 fs-3 fs-md-4">Product Performance</h4>
-        <p className="text-muted small mb-0">Insights into your menu's popularity</p>
+        <p className="text-muted small">Insights into your menu's popularity</p>
       </div>
-      {/* 3. GRID SECTION (The actual cards) */}
+
       <div className="row g-3 g-md-4">
         {/* --- TOP SELLERS --- */}
-        <div className="col-12 col-lg-7 mb-5">
-          <div className="card border-0 shadow-sm rounded-4 h-100">
-            <div className="card-body p-3 p-md-5">
+        <div className="col-12 col-lg-5 pb-4">
+          <div className="card border-0 shadow-sm rounded-4 h-100 pb-3">
+            <div className="card-body p-3 p-md-4">
               <div className="d-flex align-items-center justify-content-between mb-3">
                 <h6 className="fw-bold mb-0">
                   <Award className="me-2 text-primary" size={18}/>Top 5 Best Sellers
@@ -68,22 +75,42 @@ const ProductPerformance = ({ data }) => {
           </div>
         </div>
 
-        {/* --- SLOW MOVING ITEMS --- */}
-        <div className="col-12 col-lg-5">
-          <div className="card border-0 shadow-sm rounded-4 h-100">
-            <div className="card-body p-3 p-md-4">
-              <h6 className="fw-bold mb-3 text-danger">
-                <ArrowDown className="me-2" size={18}/>Slow Moving Items
-              </h6>
-              <div className="list-group list-group-flush">
-                {slowMoving.length > 0 ? (
-                  slowMoving.map((item, idx) => (
-                    <div key={idx} className="list-group-item d-flex justify-content-between align-items-center px-0 py-3 border-0 border-bottom-dashed">
-                      <div>
-                          <div className="small text-dark fw-bold">{item.name}</div>
+        {/* --- SLOW MOVING ITEMS WITH PAGINATION --- */}
+        <div className="col-12 col-lg-7 pb-4">
+          <div className="card border-0 shadow-sm rounded-4 h-100 d-flex flex-column">
+            <div className="card-body p-3 p-md-4 flex-grow-1">
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <h6 className="fw-bold mb-0 text-danger">
+                  <ArrowDown className="me-2" size={18}/>Slow Moving
+                </h6>
+                {/* Micro-pagination controls */}
+                <div className="d-flex gap-1">
+                   <button 
+                    className="btn btn-light btn-sm p-1 border shadow-none" 
+                    disabled={slowPage === 1}
+                    onClick={() => setSlowPage(p => p - 1)}
+                   >
+                     <ChevronLeft size={14} />
+                   </button>
+                   <button 
+                    className="btn btn-light btn-sm p-1 border shadow-none" 
+                    disabled={slowPage >= totalSlowPages}
+                    onClick={() => setSlowPage(p => p + 1)}
+                   >
+                     <ChevronRight size={14} />
+                   </button>
+                </div>
+              </div>
+
+              <div className="list-group list-group-flush" style={{ minHeight: '350px' }}>
+                {currentSlowItems.length > 0 ? (
+                  currentSlowItems.map((item, idx) => (
+                    <div key={idx} className="list-group-item d-flex justify-content-between align-items-center px-0 py-2 border-0 border-bottom-dashed">
+                      <div className="text-truncate me-2">
+                          <div className="small text-dark fw-bold text-truncate" style={{ maxWidth: '150px' }}>{item.name}</div>
                           <div className="text-muted x-extra-small text-uppercase">Monthly Performance</div>
                       </div>
-                      <span className="badge bg-danger-subtle text-danger rounded-pill px-3 py-2">
+                      <span className="badge bg-danger-subtle text-danger rounded-pill px-3 py-1 x-small flex-shrink-0">
                         {item.total_sold} sold
                       </span>
                     </div>
@@ -94,6 +121,13 @@ const ProductPerformance = ({ data }) => {
                   </div>
                 )}
               </div>
+            </div>
+            
+            {/* Page indicator at the bottom */}
+            <div className="card-footer bg-transparent border-0 px-4 pb-3">
+               <div className="text-center text-muted x-extra-small text-uppercase">
+                 Page {slowPage} of {totalSlowPages || 1}
+               </div>
             </div>
           </div>
         </div>
@@ -107,7 +141,6 @@ const ProductPerformance = ({ data }) => {
         @media (max-width: 375px) {
            .card-body { padding: 1rem !important; }
            .badge { font-size: 0.7rem; }
-           .table td { padding-top: 0.75rem; padding-bottom: 0.75rem; }
         }
       `}</style>
     </div>

@@ -15,7 +15,7 @@ function Reports() {
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
-      const res = await axios.get(`${API_BASE}/admin/reports/financial`, {
+      const res = await axios.get(`${API_BASE}/admin/reports/financial-analytics`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -39,7 +39,7 @@ function Reports() {
       style={{ minHeight: "100vh" }}
     >
       {/* 1. PAGE HEADER */}
-      <div className="mb-5 px-2">
+      <div className="mb-4 px-1 pb-3 border-bottom">
         <h2 className="fw-bold mb-0 fs-3">Financial Analytics</h2>
         <p className="text-muted small mb-0">Real-time business performance</p>
       </div>
