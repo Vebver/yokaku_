@@ -72,7 +72,6 @@ const FinancialOverview = ({ data }) => {
               <h6 className="fw-bold mb-0">Revenue Trend</h6>
               <small className="text-muted">Total for this period: {formatCurrency(realMonthlyTotal)}</small>
             </div>
-            <span className="badge bg-success-subtle text-success">Verified Totals</span>
           </div>
           <div className="flex-grow-1" style={{ height: '350px' }}>
             <Line options={chartOptions} data={{

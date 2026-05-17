@@ -37,7 +37,32 @@ const Inventory = {
         const sql = 'DELETE FROM inventory WHERE inventory_id = ?';
         await db.execute(sql, [id]);
         return true;
-    }
+    },
+    
+    GetLowStockItems: async () => {
+    const [rows] = await db.execute(`
+      SELECT name, current_stock, threshold, unit 
+      FROM ingredients 
+      WHERE current_stock <= threshold
+      ORDER BY current_stock ASC
+    `);
+    return rows;
+  },
+
+  // Get full inventory report
+  GetInventoryUsage: async () => {
+    const [rows] = await db.execute(`
+      SELECT 
+        name, 
+        unit,
+        starting_stock as starting, 
+        (starting_stock - current_stock) as used, 
+        current_stock as ending,
+        (current_stock * cost_per_unit) as inventory_value
+      FROM ingredients
+    `);
+    return rows;
+  }
 };
 
 module.exports = Inventory;
