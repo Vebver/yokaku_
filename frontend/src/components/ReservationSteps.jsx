@@ -1817,11 +1817,11 @@ export default function ReservationSteps({ onClose, onSuccess }) {
               <Layers size={16} />{" "}
               {selectedItems.length > 0
                 ? `${selectedItems.length} Selected`
-                : "View Packages"}
+                : "View Menu"}
             </button>
             {selectedItems.length > 0 && (
               <div className="package-summary">
-                <h4>Selected Packages</h4>
+                <h4>Selected Menu</h4>
                 {selectedItems.map((item, idx) => (
                   <div key={idx} className="package-item">
                     <span>
