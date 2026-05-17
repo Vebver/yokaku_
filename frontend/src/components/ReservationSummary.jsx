@@ -1,11 +1,9 @@
 import React, { useState, useRef, useEffect } from "react";
 import axios from "axios";
 import {
-  X,
   Upload,
   CheckCircle2,
   AlertCircle,
-  ClipboardList,
   CreditCard,
   Trash2,
   User,
@@ -20,11 +18,9 @@ const API_BASE = "https://yokaku-backend.onrender.com/api";
 const ReservationSummary = ({
   orderSummary,
   reservationData,
-  onConfirm,
-  loading,
   paymentMethod,
   setPaymentMethod,
-  onBack,
+  onReceiptChange, // New prop to notify parent about receipt
 }) => {
   const [receipt, setReceipt] = useState(null);
   const fileInputRef = useRef(null);
@@ -43,6 +39,13 @@ const ReservationSummary = ({
       .catch((err) => console.error("Could not load payment info"));
   }, []);
 
+  // Notify parent when receipt changes
+  useEffect(() => {
+    if (onReceiptChange) {
+      onReceiptChange(receipt);
+    }
+  }, [receipt, onReceiptChange]);
+
   const handleRemoveFile = (e) => {
     e.stopPropagation();
     setReceipt(null);
@@ -57,21 +60,6 @@ const ReservationSummary = ({
         ? ` + ${reservationData.linkedTables.join(", ")}`
         : "";
     return main + linked;
-  };
-
-  // Handle payment and confirmation
-  const handlePaymentAndConfirm = () => {
-    if (!paymentMethod) {
-      alert("Please select a payment method.");
-      return;
-    }
-
-    if (!receipt) {
-      alert("Please upload your payment receipt screenshot.");
-      return;
-    }
-
-    onConfirm(receipt, paymentMethod);
   };
 
   // Get account details based on payment method
@@ -91,9 +79,6 @@ const ReservationSummary = ({
   };
 
   const accountDetails = getAccountDetails();
-
-  // Check if submit should be disabled
-  const isSubmitDisabled = !paymentMethod || !receipt || loading;
 
   return (
     <div className="summary-inline-container">
@@ -318,7 +303,7 @@ const ReservationSummary = ({
               key={method}
               onClick={() => {
                 setPaymentMethod(method);
-                setReceipt(null); // Clear receipt when changing payment method
+                setReceipt(null);
                 if (fileInputRef.current) fileInputRef.current.value = "";
               }}
               className={`payment-card ${paymentMethod === method ? "selected" : ""}`}
@@ -383,7 +368,7 @@ const ReservationSummary = ({
         )}
       </section>
 
-      {/* ============ RECEIPT UPLOAD - ONLY SHOW AFTER PAYMENT METHOD SELECTED ============ */}
+      {/* Receipt Upload - ONLY SHOW AFTER PAYMENT METHOD SELECTED */}
       {paymentMethod && (
         <section className="summary-section">
           <label className="upload-instruction">
@@ -433,20 +418,6 @@ const ReservationSummary = ({
           )}
         </section>
       )}
-
-      {/* Action Buttons */}
-      <div className="summary-action-buttons">
-        <button className="back-btn" onClick={onBack}>
-          Back
-        </button>
-        <button
-          className="confirm-btn"
-          disabled={isSubmitDisabled}
-          onClick={handlePaymentAndConfirm}
-        >
-          {loading ? "Processing..." : "Complete Reservation"}
-        </button>
-      </div>
     </div>
   );
 };

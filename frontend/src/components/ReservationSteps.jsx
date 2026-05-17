@@ -79,6 +79,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   const [isLoadingReservations, setIsLoadingReservations] = useState(false);
   const [dateReservationCounts, setDateReservationCounts] = useState({});
   const [allReservationsByDate, setAllReservationsByDate] = useState({});
+  const [receiptFile, setReceiptFile] = useState(null);
 
   const [form, setForm] = useState({
     date: "",
@@ -379,7 +380,10 @@ export default function ReservationSteps({ onClose, onSuccess }) {
 
         return hasItems && termsAgreed && meetsDownpaymentRequirement;
       case 4:
-        return true;
+        // Check if payment method is selected AND receipt is uploaded
+        const isPaymentMethodSelected = paymentMethod !== null;
+        const isReceiptUploaded = receiptFile !== null;
+        return isPaymentMethodSelected && isReceiptUploaded;
       default:
         return true;
     }
@@ -861,13 +865,21 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     }
   };
 
-  const confirmBooking = async (file, method) => {
+  const confirmBooking = async () => {
     setIsProcessing(true);
     setUi((p) => ({ ...p, loading: true }));
 
     try {
       const payload = new FormData();
       const userId = localStorage.getItem("userId");
+
+      // Validate receipt exists
+      if (!receiptFile) {
+        alert("Please upload your payment receipt.");
+        setIsProcessing(false);
+        setUi((p) => ({ ...p, loading: false }));
+        return;
+      }
 
       const finalAllergy =
         form.allergy === "Other" && form.customAllergy
@@ -890,7 +902,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         amount: orderSummary.downpayment,
         downpayment: orderSummary.downpayment,
         durationHours: orderSummary.durationHours,
-        paymentMethod: method || paymentMethod || "Maya",
+        paymentMethod: paymentMethod || "Maya",
         tableIds: JSON.stringify(tableIdsArray),
         selectedItems: JSON.stringify(selectedItems),
         status: "Confirmed",
@@ -899,7 +911,11 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         occasion: finalOccasion,
       };
 
-      if (file) payload.append("receipt", file);
+      // Append receipt file
+      if (receiptFile) {
+        payload.append("receipt", receiptFile);
+      }
+
       Object.entries(submission).forEach(([k, v]) => {
         if (v !== undefined && v !== null) payload.append(k, v);
       });
@@ -2074,15 +2090,11 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         return (
           <div className="step-content step-summary">
             <ReservationSummary
-              isOpen={true}
-              onClose={onClose}
               orderSummary={orderSummary}
               reservationData={fullReservationData}
-              onConfirm={confirmBooking}
-              loading={ui.loading}
               paymentMethod={paymentMethod}
               setPaymentMethod={setPaymentMethod}
-              onBack={goToPrevStep}
+              onReceiptChange={(receipt) => setReceiptFile(receipt)}
             />
           </div>
         );
@@ -2131,18 +2143,11 @@ export default function ReservationSteps({ onClose, onSuccess }) {
             <button
               className="nav-btn nav-btn-next"
               onClick={() => {
-                if (validateCurrentStep())
-                  setUi((p) => ({ ...p, summary: true }));
+                if (validateCurrentStep()) {
+                  confirmBooking();
+                }
               }}
               disabled={!validateCurrentStep()}
-              title={
-                currentStep === 3 &&
-                orderSummary.durationHours >= 2 &&
-                orderSummary.downpayment <
-                  orderSummary.requiredMinimumDownpayment
-                  ? `Minimum downpayment of ₱${orderSummary.requiredMinimumDownpayment} required`
-                  : ""
-              }
             >
               Complete Reservation <CheckCircle size={18} />
             </button>
@@ -2151,14 +2156,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
               className="nav-btn nav-btn-next"
               onClick={goToNextStep}
               disabled={!validateCurrentStep()}
-              title={
-                currentStep === 3 &&
-                orderSummary.durationHours >= 2 &&
-                orderSummary.downpayment <
-                  orderSummary.requiredMinimumDownpayment
-                  ? `Minimum downpayment of ₱${orderSummary.requiredMinimumDownpayment} required`
-                  : ""
-              }
             >
               Next <ChevronRight size={18} />
             </button>
