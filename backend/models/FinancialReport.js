@@ -3,20 +3,20 @@ const db = require("../config/db");
 
 const FinancialReport = {
   getFinancialStats: async () => {
-    // We remove all "Today" filters. This will sum EVERY verified transaction.
+    // This query gets Today's revenue, This Month's revenue, Total count, and Average
     const query = `
       SELECT 
-          CAST(COALESCE(SUM(amount), 0) AS DECIMAL(10,2)) as daily_revenue,
-          CAST(COALESCE(SUM(amount), 0) AS DECIMAL(10,2)) as monthly_revenue,
+          CAST(COALESCE(SUM(CASE WHEN DATE(d) = CURDATE() THEN amount ELSE 0 END), 0) AS DECIMAL(10,2)) as today_revenue,
+          CAST(COALESCE(SUM(CASE WHEN MONTH(d) = MONTH(CURDATE()) AND YEAR(d) = YEAR(CURDATE()) THEN amount ELSE 0 END), 0) AS DECIMAL(10,2)) as monthly_revenue,
           COUNT(*) as total_orders,
           CAST(COALESCE(AVG(amount), 0) AS DECIMAL(10,2)) as aov
       FROM (
           SELECT paid_at as d, amount FROM payments WHERE payment_status = 'verified'
           UNION ALL
-          SELECT ko.created_at as d, (ko.quantity * m.price) as amount 
+          SELECT created_at as d, (ko.quantity * m.price) as amount 
           FROM kiosk_orders ko 
           JOIN menu_items m ON ko.item_id = m.item_id
-          WHERE (ko.reservation_id = 'WALKIN' OR ko.reservation_id IS NULL)
+          WHERE (ko.reservation_id LIKE 'WALK%' OR ko.reservation_id IS NULL)
       ) as all_tx`;
 
     const [rows] = await db.execute(query);
@@ -54,6 +54,22 @@ const FinancialReport = {
         SELECT 'Walk-in' as label, (ko.quantity * m.price) as amount 
         FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
       ) as combined GROUP BY label`);
+    return rows;
+  },
+   getRecentTrend: async () => {
+    // This query gets the last 7 days of revenue for your Dashboard Chart
+    const query = `
+      SELECT DATE_FORMAT(d, '%a') as label, SUM(amount) as value
+      FROM (
+        SELECT paid_at as d, amount FROM payments WHERE payment_status = 'verified'
+        UNION ALL
+        SELECT created_at as d, (ko.quantity * m.price) as amount 
+        FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
+      ) as combined 
+      WHERE d >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+      GROUP BY DATE(d), label
+      ORDER BY DATE(d) ASC`;
+    const [rows] = await db.execute(query);
     return rows;
   }
 };

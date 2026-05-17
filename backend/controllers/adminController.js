@@ -2,13 +2,43 @@ const Dashboard = require("../models/AdminDashboard");
 const AccountManagement = require("../models/AccountManagement");
 const TableStatus = require("../models/TableStatus");
 const FinancialReport = require("../models/FinancialReport");
+const Reservation = require("../models/Reservation");
 const { get } = require("node:http");
 
 const adminController = {
   getDashboardStats: async (req, res) => {
     try {
-      const stats = await Dashboard.getDashboardStats();
-      res.json(stats);
+      const [finStats, trendData, counts] = await Promise.all([
+        FinancialReport.getFinancialStats(),
+        FinancialReport.getRecentTrend(),
+        // Assuming you have logic for these 3 counts:
+        db.execute(
+          "SELECT COUNT(*) as total FROM reservations WHERE status != 'cancelled'",
+        ),
+        db.execute(
+          "SELECT COUNT(*) as total FROM tables WHERE bridge_status = 'seated'",
+        ),
+        db.execute(
+          "SELECT COUNT(*) as total FROM kiosk_orders WHERE kitchen_status = 'pending'",
+        ),
+      ]);
+
+      res.json({
+        // 3 Main Stats
+        totalBookings: counts[0][0].total,
+        activeTables: counts[1][0].total,
+        kitchenQueue: counts[2][0].total,
+
+        // Finance Stats (formatted as strings for the frontend)
+        monthlyRevenue: `₱${Number(finStats.monthly_revenue).toLocaleString()}`,
+        todayRevenue: `₱${Number(finStats.today_revenue).toLocaleString()}`,
+        avgOrder: `₱${Number(finStats.aov).toLocaleString()}`,
+        totalOrders: finStats.total_orders.toString(),
+
+        // Chart Data
+        revenueTrend: trendData.map((t) => t.value),
+        trendLabels: trendData.map((t) => t.label),
+      });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
@@ -22,24 +52,24 @@ const adminController = {
     }
   },
   getTodaySchedule: async (req, res) => {
-  try {
-    const schedule = await TableStatus.getTodaySchedule();
-    res.json(schedule);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-},
+    try {
+      const schedule = await TableStatus.getTodaySchedule();
+      res.json(schedule);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
   updateUserRole: async (req, res) => {
     try {
       const { userId } = req.params;
       const { role } = req.body;
 
       // 1. FIXED VALIDATION: Added 'cashier' to the allowed list
-      const allowedRoles = ["admin", "customer", "cashier"]; 
-      
+      const allowedRoles = ["admin", "customer", "cashier"];
+
       if (!allowedRoles.includes(role)) {
-        return res.status(400).json({ 
-          error: "Invalid role. Must be 'admin', 'customer', or 'cashier'." 
+        return res.status(400).json({
+          error: "Invalid role. Must be 'admin', 'customer', or 'cashier'.",
         });
       }
 
@@ -52,7 +82,7 @@ const adminController = {
       console.error("Update Role Error:", error);
       res.status(500).json({ error: error.message });
     }
-},
+  },
   getTable: async (req, res) => {
     try {
       const status = await TableStatus.getTableStatus();
@@ -125,11 +155,14 @@ const adminController = {
     }
   },
   resetNoShows: async (req, res) => {
-  const { userId } = req.params;
-  // Mark all 'no-show' reservations as 'cancelled' so they don't count towards strikes
-  await db.query("UPDATE reservations SET status = 'cancelled' WHERE user_id = ? AND status = 'no-show'", [userId]);
-  res.json({ message: "No-show strikes reset." });
-}
+    const { userId } = req.params;
+    // Mark all 'no-show' reservations as 'cancelled' so they don't count towards strikes
+    await db.query(
+      "UPDATE reservations SET status = 'cancelled' WHERE user_id = ? AND status = 'no-show'",
+      [userId],
+    );
+    res.json({ message: "No-show strikes reset." });
+  },
 };
 
 module.exports = adminController;
