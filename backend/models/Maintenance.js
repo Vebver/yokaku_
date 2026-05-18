@@ -17,10 +17,10 @@ const Maintenance = {
   },
 
   //Resets aanad refresh the tables
- resetFloorStatus: async () => {
-  // Sets all tables back to available for the new shift
-  await db.execute("UPDATE tables SET is_available = 1, current_reservation_id = NULL");
-  return res.affectedRows;
+// models/Maintenance.js
+resetFloorStatus: async () => {
+  const [result] = await db.execute("UPDATE tables SET is_available = 1, current_reservation_id = NULL");
+  return result.affectedRows; // Changed result from 'res' to 'result'
 },
 
   // 3. Data Export: Get all records for CSV

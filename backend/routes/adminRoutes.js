@@ -27,7 +27,7 @@ router.get('/users', protect, adminOnly, adminController.getAllUsers);
 
 // --- MAINTENANCE ROUTES (Keep protected) ---
 router.post('/archive', protect, adminOnly, maintenanceController.archiveRecords);
-router.post('/optimize', protect, adminOnly, maintenanceController.reset);
+router.post('/reset', protect, adminOnly, maintenanceController.reset);
 router.get('/export-csv', protect, adminOnly, maintenanceController.exportData);
 
 // --- BLOCKED DATES ---

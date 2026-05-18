@@ -12,18 +12,18 @@ const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const SystemMaintenance = () => {
   const runTask = async (endpoint, taskName, warningText) => {
-    const confirmed = window.confirm(
-      `Action: ${taskName}\n\n${warningText}\n\nAre you sure you want to proceed?`,
-    );
-
+    const confirmed = window.confirm(`Action: ${taskName}\nAre you sure?`);
     if (!confirmed) return;
 
     try {
-      const res = await axios.post(`${API_BASE}/admin/${endpoint}`);
+      const token = localStorage.getItem("token"); // Get token
+      const res = await axios.post(`${API_BASE}/admin/${endpoint}`, {}, {
+        headers: { Authorization: `Bearer ${token}` } // Send token
+      });
       alert("Success: " + res.data.message);
     } catch (err) {
       console.error(err);
-      alert("Something went wrong. Please try again or contact support.");
+      alert("Error: " + (err.response?.data?.message || "Action failed"));
     }
   };
 
