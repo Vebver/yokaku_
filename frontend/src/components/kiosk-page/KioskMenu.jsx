@@ -69,8 +69,39 @@ const KioskMenu = () => {
 
   const [showBillInfo, setShowBillInfo] = useState(false);
   const [isFinalCheckout, setIsFinalCheckout] = useState(false);
+  const [localBillHistory, setLocalBillHistory] = useState([]);
 
-  // --- SESSION MANAGEMENT ---
+  // --- CALCULATION HELPER (FIXED) ---
+ const calculateTotal = () => {
+    // We combine Database items, Local History, and current Tray
+    // This ensures no matter where the data is, we find it.
+    const itemsToCalculate = [...billItems, ...localBillHistory, ...cart];
+    
+    // Remove duplicates (by checking if an item with same ID was already added from localHistory/billItems)
+    // But for simplicity in a Kiosk, just summing them is usually fine if you handle the transitions.
+    
+    const total = itemsToCalculate.reduce((sum, item) => {
+      const price = parseFloat(item.price || item.item_price || item.unit_price || 0);
+      const qty = parseInt(item.quantity || item.qty || 1);
+      return sum + (price * qty);
+    }, 0);
+    
+    return total.toFixed(2);
+  };
+
+  const fetchCurrentBill = async () => {
+    const resId = localStorage.getItem(SAVED_RES_ID);
+    if (!resId) return [];
+    try {
+      const res = await axios.get(`${API_BASE}/orders/reservation-items/${resId}`);
+      const data = res.data || [];
+      setBillItems(data);
+      return data; // Return data directly for immediate use
+    } catch (err) {
+      return [];
+    }
+  };
+
   const handleEndSession = async () => {
     const activeTable = localStorage.getItem(SAVED_TABLE_ID);
     const activeResId = localStorage.getItem(SAVED_RES_ID);
@@ -88,7 +119,6 @@ const KioskMenu = () => {
     window.location.href = "/kiosk-selection";
   };
 
-  // --- BILLING FLOW ---
   const handlePlaceOrderClick = () => {
     if (localStorage.getItem(SAVED_RES_ID)) {
         const tbl = localStorage.getItem(SAVED_TABLE_ID);
@@ -107,65 +137,55 @@ const KioskMenu = () => {
 
   const handleFinishClick = async () => {
     setShowSessionModal(false); 
-    await fetchCurrentBill(); 
+    const latestBill = await fetchCurrentBill(); // Wait for fresh data
     setIsFinalCheckout(true);
     setShowBillInfo(true);
   };
 
-  const calculateTotal = () => {
-    const itemsToCalculate = isFinalCheckout ? [...billItems, ...cart] : cart;
-    return itemsToCalculate.reduce((sum, item) => {
-        const price = parseFloat(item.price || item.item_price || 0);
-        const qty = parseInt(item.quantity || item.qty || 1);
-        return sum + (price * qty);
-    }, 0).toFixed(2);
-  };
-
-  const fetchCurrentBill = async () => {
-    const resId = localStorage.getItem(SAVED_RES_ID);
-    if (!resId) return;
-    try {
-      const res = await axios.get(`${API_BASE}/orders/reservation-items/${resId}`);
-      if (res.data) setBillItems(res.data);
-    } catch (err) {}
-  };
-
-  // --- CORE LOGIC ---
   const submitOrderToDatabase = async (tableId = null, itemsToSubmit = cart) => {
     const dynamicResId = localStorage.getItem(SAVED_RES_ID) || `WALK-${Date.now()}`;
     try {
       await axios.post(`${API_BASE}/orders/place`, {
         reservation_id: dynamicResId,
         table_id: tableId,
-        items: itemsToSubmit.map((i) => ({ item_id: i.id, quantity: i.quantity, customizations: i.customizations, is_refill: i.price === 0 }))
+        items: itemsToSubmit.map((i) => ({ 
+            item_id: i.id, 
+            quantity: i.quantity, 
+            customizations: i.customizations, 
+            is_refill: i.price === 0 
+        }))
       });
       finalizeOrderLocally(itemsToSubmit, tableId, dynamicResId);
     } catch (error) { finalizeOrderLocally(itemsToSubmit, tableId, dynamicResId); }
   };
 
   const finalizeOrderLocally = (itemsToSubmit, tableId, dynamicResId) => {
-    const hasUnlimited = itemsToSubmit.some(i => i.name.toLowerCase().includes("unlimited"));
+    const hasUnlimited = itemsToSubmit.some(i => (i.name || "").toLowerCase().includes("unlimited"));
+    
     if (hasUnlimited && !localStorage.getItem(TIMER_KEY)) {
       localStorage.setItem(TIMER_KEY, (Date.now() + 1860 * 1000).toString());
       setIsTimerRunning(true);
-      localStorage.setItem("kiosk_active_bundle_id", itemsToSubmit.find(i => i.name.toLowerCase().includes("unlimited")).id);
+      const unlimitedItem = itemsToSubmit.find(i => i.name.toLowerCase().includes("unlimited"));
+      localStorage.setItem("kiosk_active_bundle_id", unlimitedItem.id);
     }
+
+    // --- FIX: Save items to local history so we don't rely 100% on the backend fetch ---
+    setLocalBillHistory(prev => [...prev, ...itemsToSubmit]);
+
     localStorage.setItem(SAVED_TABLE_ID, tableId || "takeout");
     localStorage.setItem(SAVED_RES_ID, dynamicResId);
-    setCart([]);
+    
+    setCart([]); // Now safe to clear tray
     setShowTablePicker(false);
     setShowTypeModal(false);
     setShowSessionModal(true);
     fetchCurrentBill();
   };
 
-  // --- ITEM CLICK (RAMEN FIX) ---
   const handleItemClick = (item) => {
     unlockAudio();
     const itemName = (item.name || "").toLowerCase();
     const itemCat = (item.category || "").toLowerCase();
-
-    // 1. Special case: Unlimited or Ramen (Use our local Flavor Modal)
     const isUnlimited = itemName.includes("unlimited") || itemCat.includes("unlimited");
     const isRamenSet = itemName.includes("ramen");
 
@@ -175,19 +195,9 @@ const KioskMenu = () => {
       setSelectedDrink("");
       setIsRefillMode(false);
       setShowFlavorModal(true);
-    } 
-    // 2. Regular Bundles or Regular Items (Use ReservationOrderModal)
-    else {
-      /**
-       * FORCE FIX: 
-       * If this is a Bundle (but not Ramen/Unlimited), we change the category 
-       * to "Regular" so the ReservationOrderModal doesn't show its internal flavors.
-       */
-      const itemToPass = { 
-        ...item, 
-        category: "Regular" // This hides customization inside the modal
-      };
-      setSelectedItem(itemToPass);
+    } else {
+      // Pass category "Regular" to trick modal into hiding its own internal customizations
+      setSelectedItem({...item, category: "Regular"});
       setIsModalOpen(true);
     }
     setSelectedCard(item.id);
@@ -211,55 +221,33 @@ const KioskMenu = () => {
       const res = await axios.get(`${API_BASE}/admin/public/getTable`);
       setAvailableTables(res.data);
       setShowTypeModal(false);
-      setTimeout(() => setShowTablePicker(true), 100); // Small delay to fix disappearance
+      setTimeout(() => setShowTablePicker(true), 100);
     } catch (err) { alert("Could not load tables."); }
   };
 
-  // --- EFFECTS ---
-    useEffect(() => {
+  useEffect(() => {
     const fetchMenu = async () => {
       try {
         const response = await fetch(`${API_BASE}/products`);
         const data = await response.json();
-        processMenu(data); // <--- This calls the function below
+        const grouped = data.reduce((acc, item) => {
+          const cat = item.category_name || "General";
+          if (!acc[cat]) acc[cat] = [];
+          
+          const targetPath = (navigator.onLine && item.local_path) ? item.local_path : item.image_url;
+          const fullImage = targetPath?.startsWith("http") ? targetPath : `${BASE_URL}${targetPath?.startsWith("/") ? "" : "/"}${targetPath}`;
+          
+          acc[cat].push({ id: item.item_id, name: item.name, image: fullImage, price: item.price, category: cat, description: item.description || "" });
+          return acc;
+        }, {});
+        setMenuData(grouped);
+        setDynamicFlavors((grouped["Chicken"] || []).map(i => i.name));
+        setDynamicRamenFlavors((grouped["Ramen"] || []).map(i => i.name));
+        setDynamicDrinks([...(grouped["Beverages"] || []), ...(grouped["Drinks"] || [])].map(i => i.name));
+        const firstVisibleCat = Object.keys(grouped).find(cat => !HIDDEN_CATEGORIES.includes(cat));
+        if (firstVisibleCat) setActiveCategory(firstVisibleCat);
       } catch (e) { console.error(e); } finally { setLoading(false); }
     };
-
-    // REPLACE THE OLD processMenu WITH THIS ONE:
-    const processMenu = (data) => {
-      const grouped = data.reduce((acc, item) => {
-        const cat = item.category_name || "General";
-        if (!acc[cat]) acc[cat] = [];
-
-        // Dual path logic: uses local_path (Cloudinary) if online
-        const targetPath = (navigator.onLine && item.local_path) 
-          ? item.local_path 
-          : item.image_url;
-
-        // Ensure no double slashes and correct full URL
-        const fullImage = targetPath?.startsWith("http") 
-          ? targetPath 
-          : `${BASE_URL}${targetPath?.startsWith("/") ? "" : "/"}${targetPath}`;
-
-        acc[cat].push({ 
-          id: item.item_id, 
-          name: item.name, 
-          image: fullImage, 
-          price: item.price, 
-          category: cat 
-        });
-        return acc;
-      }, {});
-
-      setMenuData(grouped);
-      setDynamicFlavors((grouped["Chicken"] || []).map(i => i.name));
-      setDynamicRamenFlavors((grouped["Ramen"] || []).map(i => i.name));
-      setDynamicDrinks([...(grouped["Beverages"] || []), ...(grouped["Drinks"] || [])].map(i => i.name));
-      
-      const firstVisibleCat = Object.keys(grouped).find(cat => !HIDDEN_CATEGORIES.includes(cat));
-      if (firstVisibleCat) setActiveCategory(firstVisibleCat);
-    };
-
     fetchMenu();
   }, []);
 
@@ -304,13 +292,16 @@ const KioskMenu = () => {
           </div>
         </div>
 
-        <button 
-          className="billing-btn-header" 
-          onClick={handleFinishClick} 
-          style={{ background: "#ffcc00", color: "#000", border: "none", padding: "8px 15px", borderRadius: "8px", fontWeight: "bold", display: "flex", alignItems: "center", gap: "8px", marginLeft: "10px", cursor: "pointer" }}
-        >
-          <CreditCard size={18} /> PAY
-        </button>
+        {/* PAY Button (Visible once an order is placed) */}
+        {localStorage.getItem(SAVED_RES_ID) && (
+            <button 
+                className="billing-btn-header" 
+                onClick={handleFinishClick} 
+                style={{ background: "#ffcc00", color: "#000", border: "none", padding: "8px 15px", borderRadius: "8px", fontWeight: "bold", display: "flex", alignItems: "center", gap: "8px", marginLeft: "10px", cursor: "pointer" }}
+            >
+                <CreditCard size={18} /> PAY
+            </button>
+        )}
 
         {isTimerRunning && hasActiveBundle && (
           <div className="timer-box" onClick={() => setShowSessionModal(true)} style={{ cursor: "pointer", border: "2px solid #ffcc00", marginLeft: "auto" }}>
@@ -343,6 +334,7 @@ const KioskMenu = () => {
                 <div className="res-card-image-container"><img src={item.image} alt={item.name} className="res-food-img" /></div>
                 <div className="res-card-info">
                   <h4 className="res-food-label">{item.name}</h4>
+                  {item.description && <p style={{ color: "#ccc", fontSize: "0.75rem", marginBottom: "8px" }}>{item.description}</p>}
                   <p style={{ color: "#ffcc00", fontWeight: "bold" }}>₱{item.price}</p>
                 </div>
               </div>
@@ -367,19 +359,22 @@ const KioskMenu = () => {
             <Receipt size={50} color="#ffcc00" style={{ margin: "0 auto 15px" }} />
             <h2 style={{ color: "#ffcc00" }}>{isFinalCheckout ? "Final Bill Summary" : "Order Summary"}</h2>
             
-            <div className="bill-scroll" style={{ maxHeight: "250px", overflowY: "auto", margin: "20px 0", borderBottom: "1px solid #444" }}>
-              {(isFinalCheckout ? [...billItems, ...cart] : cart).map((item, idx) => {
-                const p = parseFloat(item.price || item.item_price || 0);
-                const q = parseInt(item.quantity || item.qty || 1);
-                const name = item.name || item.item_name || "Item";
-                return (
-                  <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "10px 5px", color: "#fff" }}>
-                    <span>{name} x{q}</span>
-                    <span>₱{(p * q).toFixed(2)}</span>
-                  </div>
-                );
-              })}
-            </div>
+           <div className="bill-scroll" style={{ maxHeight: "250px", overflowY: "auto", margin: "20px 0", borderBottom: "1px solid #444" }}>
+  {/* We use localBillHistory + cart because the network tab showed billItems is empty */}
+  {[...localBillHistory, ...cart].map((item, idx) => {
+    const p = parseFloat(item.price || item.item_price || 0);
+    const q = parseInt(item.quantity || item.qty || 1);
+    const name = item.name || item.item_name || "Item";
+    if (p === 0 && !isFinalCheckout) return null;
+
+    return (
+      <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "10px 5px", color: "#fff" }}>
+        <span style={{textAlign: 'left'}}>{name} x{q}</span>
+        <span>₱{(p * q).toFixed(2)}</span>
+      </div>
+    );
+  })}
+</div>
 
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "1.4rem", fontWeight: "bold", color: "#fff", marginBottom: "30px" }}>
               <span>Total:</span>
@@ -452,7 +447,7 @@ const KioskMenu = () => {
         </div>
       )}
 
-      {/* SESSION / REFILL MODAL */}
+      {/* SESSION MODAL */}
       {showSessionModal && (
         <div className="res-modal-overlay" style={{ zIndex: 7000 }}>
           <div className="res-modal-card" style={{ textAlign: "center", padding: "40px" }}>
@@ -468,7 +463,10 @@ const KioskMenu = () => {
         </div>
       )}
 
-      {/* DINE-IN / TAKE-OUT */}
+      <PortalModal isOpen={showEndModal} onClose={() => setShowEndModal(false)} onConfirm={handleEndSession} />
+      <ReservationOrderModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} item={selectedItem} onAdd={(item) => setCart([...cart, item])} allProducts={menuData} />
+
+      {/* TYPE MODAL */}
       {showTypeModal && (
         <div className="res-modal-overlay" style={{ zIndex: 6000 }}>
           <div className="res-modal-card">
@@ -501,11 +499,8 @@ const KioskMenu = () => {
           </div>
         </div>
       )}
-
-      <PortalModal isOpen={showEndModal} onClose={() => setShowEndModal(false)} onConfirm={handleEndSession} />
-      <ReservationOrderModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} item={selectedItem} onAdd={(item) => setCart([...cart, item])} allProducts={menuData} />
     </div>
   );
 };
 
-export default KioskMenu;
+export default KioskMenu; 

@@ -16,12 +16,12 @@ exports.getReviews = async (req, res) => {
     }
 };
 
-// Check if user has a confirmed/seated reservation
+// Check if user has a seated or completed reservation
 exports.checkEligibility = async (req, res) => {
     try {
         const userId = req.user.userId;
         const [rows] = await db.execute(
-            "SELECT * FROM reservations WHERE user_id = ? AND status = 'Seated' LIMIT 1",
+            "SELECT * FROM reservations WHERE user_id = ? AND status IN ('Seated', 'Completed') LIMIT 1",
             [userId]
         );
         res.json({ canReview: rows.length > 0 });
