@@ -12,18 +12,26 @@ const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const SystemMaintenance = () => {
   const runTask = async (endpoint, taskName, warningText) => {
-    const confirmed = window.confirm(`Action: ${taskName}\nAre you sure?`);
+    const confirmed = window.confirm(`Action: ${taskName}\n\n${warningText}\n\nAre you sure?`);
     if (!confirmed) return;
 
     try {
-      const token = localStorage.getItem("token"); // Get token
+      const token = localStorage.getItem("token");
       const res = await axios.post(`${API_BASE}/admin/${endpoint}`, {}, {
-        headers: { Authorization: `Bearer ${token}` } // Send token
+        headers: { Authorization: `Bearer ${token}` }
       });
+      
       alert("Success: " + res.data.message);
+      
+      // FIX: Force the dashboard to re-fetch the data from the database
+      // This will update the "1 Seated" count to "0 Seated"
+      if (endpoint === 'reset') {
+        window.location.reload(); 
+      }
+
     } catch (err) {
       console.error(err);
-      alert("Error: " + (err.response?.data?.message || "Action failed"));
+      alert("Error: " + (err.response?.data?.error || "Action failed"));
     }
   };
 
