@@ -1,4 +1,4 @@
-// ReservationSteps.jsx (Updated with 6 Steps)
+// ReservationSteps.jsx (Updated with Time Selection moved to Step 3)
 import React, { useState, useMemo, useEffect } from "react";
 import axios from "axios";
 import {
@@ -51,7 +51,7 @@ const API_BASE = "https://yokaku-backend.onrender.com/api";
 
 const STEPS = [
   "Choose Date",
-  "Select Table & Time",
+  "Select Table",
   "Your Details",
   "Order Menu",
   "Reservation Summary",
@@ -196,7 +196,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   }, [calendarMonth]);
 
   // ============ FETCH RESERVATIONS FOR SELECTED DATE ============
-  // ============ FETCH RESERVATIONS FOR SELECTED DATE ============
   const fetchReservationsForDate = async (date) => {
     if (!date) return;
 
@@ -212,7 +211,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
             startTimeFormatted: formatTime12Hour(res.startTime),
             endTimeFormatted: formatTime12Hour(res.endTime),
             duration: calculateDuration(res.startTime, res.endTime),
-            // Remove customerName and guests - keep only essential info
             status: res.status || "Confirmed",
           }),
         );
@@ -236,7 +234,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
               startTimeFormatted: formatTime12Hour(res.startTime),
               endTimeFormatted: formatTime12Hour(res.endTime),
               duration: calculateDuration(res.startTime, res.endTime),
-              // Remove customerName and guests - keep only essential info
               status: res.status || "Confirmed",
             };
           });
@@ -325,6 +322,12 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           form.date && form.date !== "" && !blockedDates.includes(form.date)
         );
       case 1:
+        // Step 1: Select Table - need table selected and PAX
+        const isPaxValid =
+          form.pax && parseInt(form.pax) >= 1 && parseInt(form.pax) <= 38;
+        return selectedId !== null && isPaxValid;
+      case 2:
+        // Step 2: Your Details - need all details + time selection
         const isStartTimeValid = form.startTime && form.startTime !== "";
         const isEndTimeValid = form.endTime && form.endTime !== "";
         const isTimeValid = (() => {
@@ -333,22 +336,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           const e = timeToMin(form.endTime);
           return e - s >= 30;
         })();
-        const hasNoConflict = !data.schedule.some((r) => {
-          const s = timeToMin(form.startTime);
-          const e = timeToMin(form.endTime);
-          return s < timeToMin(r.endTime) && e > timeToMin(r.startTime);
-        });
-        const isPaxValid =
-          form.pax && parseInt(form.pax) >= 1 && parseInt(form.pax) <= 38;
-        return (
-          selectedId !== null &&
-          isStartTimeValid &&
-          isEndTimeValid &&
-          isTimeValid &&
-          hasNoConflict &&
-          isPaxValid
-        );
-      case 2:
         const isMuniValid = form.muni && form.muni !== "";
         const isBrgyValid = form.brgy && form.brgy !== "";
         return (
@@ -357,7 +344,10 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           isEmailValid &&
           isPhoneValid &&
           isMuniValid &&
-          isBrgyValid
+          isBrgyValid &&
+          isStartTimeValid &&
+          isEndTimeValid &&
+          isTimeValid
         );
       case 3:
         // Step 3: Order Menu - need items, terms, and meet downpayment requirement
@@ -384,13 +374,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     if (currentStep === 0 && form.date && !blockedDates.includes(form.date)) {
       markStepCompleted(0);
     }
-    if (
-      currentStep === 1 &&
-      selectedId &&
-      form.startTime &&
-      form.endTime &&
-      validateCurrentStep()
-    ) {
+    if (currentStep === 1 && selectedId && form.pax && parseInt(form.pax) > 0) {
       markStepCompleted(1);
     }
     if (currentStep === 2 && validateCurrentStep()) {
@@ -408,6 +392,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     selectedItems,
     agreeToTerms,
     blockedDates,
+    form.pax,
   ]);
 
   // ============ INITIAL LOADING ============
@@ -724,28 +709,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       const minEndM = startM + 30;
       return minEndM <= maxEndTimeMinutes;
     });
-    if (selectedId && form.startTime && form.endTime) {
-      const schedule = tableSchedules[selectedId] || [];
-      return filtered.filter((startTime) => {
-        const startM = timeToMin(startTime);
-        const minEndM = startM + 30;
-        return !schedule.some((reservation) => {
-          const resStartM = timeToMin(reservation.startTime);
-          const resEndM = timeToMin(reservation.endTime);
-          return startM < resEndM && minEndM > resStartM;
-        });
-      });
-    }
     return filtered;
-  }, [
-    timeOptions,
-    form.date,
-    todayStr,
-    selectedId,
-    tableSchedules,
-    form.startTime,
-    form.endTime,
-  ]);
+  }, [timeOptions, form.date, todayStr]);
 
   const filteredEndTimeOptions = useMemo(() => {
     if (!form.startTime) return [];
@@ -762,25 +727,11 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     }
 
     const absoluteMaxEnd = Math.min(maxEndTimeMinutes, startM + 180);
-
-    if (!selectedId) {
-      return timeOptions.filter((endTime) => {
-        const endM = timeToMin(endTime);
-        return endM >= startM + 30 && endM <= absoluteMaxEnd;
-      });
-    }
-    const schedule = tableSchedules[selectedId] || [];
     return timeOptions.filter((endTime) => {
       const endM = timeToMin(endTime);
-      if (endM < startM + 30) return false;
-      if (endM > absoluteMaxEnd) return false;
-      return !schedule.some((reservation) => {
-        const resStartM = timeToMin(reservation.startTime);
-        const resEndM = timeToMin(reservation.endTime);
-        return startM < resEndM && endM > resStartM;
-      });
+      return endM >= startM + 30 && endM <= absoluteMaxEnd;
     });
-  }, [form.startTime, timeOptions, selectedId, tableSchedules]);
+  }, [form.startTime, timeOptions]);
 
   // ============ HANDLERS ============
   const handleInputChange = (e) => {
@@ -825,27 +776,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       return;
     }
 
-    if (
-      form.startTime &&
-      form.endTime &&
-      !isTableAvailableForTime(table.id, form.startTime, form.endTime)
-    ) {
-      alert(
-        "This table is not available during the selected time slot. Please choose a different time.",
-      );
-      return;
-    }
-
     if (isLinkMode) {
       if (table.id === selectedId) return;
-      if (!form.startTime || !form.endTime) {
-        alert("Please select start time and end time first");
-        return;
-      }
-      if (!isTableAvailableForTime(table.id, form.startTime, form.endTime)) {
-        alert("This table has a reservation during the selected time slot.");
-        return;
-      }
       setLinkedIds((prev) =>
         prev.includes(table.id)
           ? prev.filter((id) => id !== table.id)
@@ -961,7 +893,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           <div className="step-content step-date">
             <div className="calendar-container">
               <div className="calendar-header">
-                {/* Calendar header content - keep as is */}
                 <button
                   type="button"
                   className="calendar-nav-btn"
@@ -1321,56 +1252,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       case 1:
         return form.date ? (
           <div className="step-content step-tables">
-            <div className="time-selection-row">
-              <div className="input-group">
-                <label>
-                  <Clock size={12} /> START TIME
-                </label>
-                <select
-                  name="startTime"
-                  className="res-input-dropdown"
-                  value={form.startTime}
-                  onChange={(e) => {
-                    handleInputChange(e);
-                    setLinkedIds([]);
-                    setSelectedId(null);
-                    setForm((prev) => ({ ...prev, pax: "" }));
-                  }}
-                >
-                  <option value="">Select start time</option>
-                  {availableStartTimeOptions.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="input-group">
-                <label>
-                  <Clock size={12} /> END TIME
-                </label>
-                <select
-                  name="endTime"
-                  className="res-input-dropdown"
-                  value={form.endTime}
-                  onChange={(e) => {
-                    handleInputChange(e);
-                    setLinkedIds([]);
-                    setSelectedId(null);
-                    setForm((prev) => ({ ...prev, pax: "" }));
-                  }}
-                  disabled={!form.startTime}
-                >
-                  <option value="">Select end time</option>
-                  {filteredEndTimeOptions.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
             <div className="pax-field-container">
               <div className="input-group pax-input-group">
                 <label>
@@ -1533,10 +1414,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                 const isSelected = selectedId === t.id;
                 const isLinked = linkedIds.includes(t.id);
                 const isMaintenance = t.status === "maintenance";
-                const hasTimeConflict =
-                  form.startTime &&
-                  form.endTime &&
-                  !isTableAvailableForTime(t.id, form.startTime, form.endTime);
 
                 let cardCls = "",
                   dotColor = "";
@@ -1549,9 +1426,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                 } else if (isMaintenance) {
                   cardCls = "maintenance";
                   dotColor = "maintenance";
-                } else if (hasTimeConflict) {
-                  cardCls = "reserved";
-                  dotColor = "reserved";
                 } else if (hasOngoing && !isLinkMode) {
                   cardCls = "occupied";
                   dotColor = "occupied";
@@ -1570,7 +1444,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     onClick={() => onTableClick(t)}
                     style={{
                       cursor: isMaintenance ? "not-allowed" : "pointer",
-                      opacity: hasTimeConflict && !isSelected ? 0.6 : 1,
                     }}
                   >
                     <div className="table-card-content">
@@ -1586,12 +1459,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                             <span>Ongoing</span>
                           </div>
                         )}
-                        {hasTimeConflict && !isSelected && !isLinkMode && (
-                          <div className="reserved-badge">
-                            <Clock size={10} />
-                            <span>Time Conflict</span>
-                          </div>
-                        )}
                       </div>
                     </div>
                     <div className={`status-dot ${dotColor}`}></div>
@@ -1603,12 +1470,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
             {selectedId && (
               <button
                 className={`btn-link-mode ${isLinkMode ? "active" : ""}`}
-                onClick={() => {
-                  setIsLinkMode(!isLinkMode);
-                  if (!isLinkMode && (!form.startTime || !form.endTime)) {
-                    alert("Please select start time and end time first");
-                  }
-                }}
+                onClick={() => setIsLinkMode(!isLinkMode)}
                 style={{ marginTop: "20px" }}
               >
                 <LinkIcon size={18} />{" "}
@@ -1624,6 +1486,51 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         return (
           <div className="step-content step-details">
             <div className="reservation-form-grid">
+              {/* Time Selection Row - MOVED TO STEP 3 */}
+              <div className="time-selection-row">
+                <div className="input-group">
+                  <label>
+                    <Clock size={12} /> START TIME
+                  </label>
+                  <select
+                    name="startTime"
+                    className="res-input-dropdown"
+                    value={form.startTime}
+                    onChange={(e) => {
+                      handleInputChange(e);
+                    }}
+                  >
+                    <option value="">Select start time</option>
+                    {availableStartTimeOptions.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="input-group">
+                  <label>
+                    <Clock size={12} /> END TIME
+                  </label>
+                  <select
+                    name="endTime"
+                    className="res-input-dropdown"
+                    value={form.endTime}
+                    onChange={(e) => {
+                      handleInputChange(e);
+                    }}
+                    disabled={!form.startTime}
+                  >
+                    <option value="">Select end time</option>
+                    {filteredEndTimeOptions.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
               <div className="input-group">
                 <div className="label-with-icon">
                   <label>FIRST NAME</label>
@@ -1764,8 +1671,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     <div className="guests-hint-warning">
                       <AlertCircle size={14} />
                       <span>
-                        Please enter number of guests in Step 2 (Select Table &
-                        Time)
+                        Please enter number of guests in Step 2 (Select Table)
                       </span>
                     </div>
                   ) : (
@@ -1843,7 +1749,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   ))}
                 </select>
 
-                {/* Only show hint if needed - optional */}
                 {form.allergy === "Specify all Allergy" && (
                   <small className="allergy-hint">
                     Please specify all allergies in your group
@@ -1911,7 +1816,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           </div>
         );
 
-      case 3: // ORDER MENU (with terms and downpayment validation)
+      case 3: // ORDER MENU
         const meetsDownpaymentRequirement = () => {
           if (orderSummary.durationHours >= 2) {
             return (
@@ -1973,7 +1878,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   </div>
                 )}
 
-                {/* Downpayment display - always shows 20% of order */}
+                {/* Downpayment display */}
                 <div className="package-downpayment">
                   <div className="downpayment-row">
                     <span style={{ color: "#f38d31", fontWeight: "800" }}>
@@ -1984,7 +1889,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     </strong>
                   </div>
 
-                  {/* Show required minimum if it's higher than actual */}
                   {orderSummary.durationHours >= 2 &&
                     orderSummary.requiredMinimumDownpayment >
                       orderSummary.downpayment && (
@@ -2004,7 +1908,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   <strong>₱{orderSummary.balance.toFixed(2)}</strong>
                 </div>
 
-                {/* Show minimum requirement warning */}
                 {orderSummary.durationHours >= 2 && (
                   <div
                     className={`duration-requirement ${!isDownpaymentRequirementMet ? "warning" : "success"}`}
@@ -2029,7 +1932,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   </div>
                 )}
 
-                {/* Blocked warning - cannot proceed */}
                 {orderSummary.durationHours >= 2 &&
                   !isDownpaymentRequirementMet && (
                     <div className="requirement-blocked-warning">
@@ -2066,19 +1968,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         );
 
       case 4: // RESERVATION SUMMARY
-        return (
-          <div className="step-content step-summary">
-            <ReservationSummary
-              orderSummary={orderSummary}
-              reservationData={fullReservationData}
-              paymentMethod={paymentMethod}
-              setPaymentMethod={setPaymentMethod}
-              onReceiptChange={(receipt) => setReceiptFile(receipt)}
-            />
-          </div>
-        );
-
-      case 5:
         return (
           <div className="step-content step-summary">
             <ReservationSummary
