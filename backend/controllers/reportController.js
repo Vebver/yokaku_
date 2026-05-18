@@ -1,21 +1,20 @@
 const ReportModel = require('../models/BestSellerProduct');
 const InventoryModel = require('../models/Inventory');
+const FinancialReport = require('../models/FinancialReport');
 
 const getFinancialAnalytics = async (req, res) => {
   try {
     // 1. Fetch ALL data sets simultaneously
-    const [topSellers, slowMoving, lowStockItems, inventoryUsage] = await Promise.all([
+    const [topSellers, slowMoving, lowStockItems, inventoryUsage, financialStats, monthlyTrend] = await Promise.all([
       ReportModel.GetTopSellers(),
       ReportModel.GetSlowMoving(),
       InventoryModel.GetLowStockItems(),
-      InventoryModel.GetInventoryUsage()
+      InventoryModel.GetInventoryUsage(),
+      FinancialReport.getFinancialStats(),
+      FinancialReport.getMonthlyTrend()
     ]);
 
-    // 2. Calculate summary stats
-    const totalRevenue = topSellers.reduce((acc, item) => acc + Number(item.total_revenue || 0), 0);
-    const totalItemsSold = topSellers.reduce((acc, item) => acc + Number(item.total_sold || 0), 0);
-
-    // 3. Structure response for all frontend components (Performance + Inventory)
+    // 2. Structure response for all frontend components (Performance + Inventory)
     const responseData = {
       success: true,
       data: {
@@ -30,11 +29,12 @@ const getFinancialAnalytics = async (req, res) => {
         
         // --- For FinancialOverview.jsx ---
         summary: {
-          total_revenue: totalRevenue,
-          total_items_sold: totalItemsSold,
-          active_inventory_items: inventoryUsage.length,
-          monthly_growth: "+12.5%" 
-        }
+          daily_revenue: financialStats?.today_revenue || 0,
+          monthly_revenue: financialStats?.monthly_revenue || 0,
+          aov: financialStats?.aov || 0,
+          total_orders: financialStats?.total_orders || 0
+        },
+        monthlyTrend: monthlyTrend || []
       }
     };
 
