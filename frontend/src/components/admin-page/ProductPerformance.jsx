@@ -5,14 +5,23 @@ const ProductPerformance = ({ data }) => {
   const topProducts = data?.top_selling_products || [];
   const slowMoving = data?.slow_moving_products || [];
 
-  // --- LOCAL PAGINATION STATE ---
-  const [slowPage, setSlowPage] = useState(1);
-  const itemsPerPage = 6;
-  const totalSlowPages = Math.ceil(slowMoving.length / itemsPerPage);
+  // --- LOCAL PAGINATION STATE FOR TOP SELLERS ---
+  const [topPage, setTopPage] = useState(1);
+  const topItemsPerPage = 5;
+  const totalTopPages = Math.ceil(topProducts.length / topItemsPerPage);
   
-  const indexOfLastItem = slowPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentSlowItems = slowMoving.slice(indexOfFirstItem, indexOfLastItem);
+  const topIndexOfLastItem = topPage * topItemsPerPage;
+  const topIndexOfFirstItem = topIndexOfLastItem - topItemsPerPage;
+  const currentTopItems = topProducts.slice(topIndexOfFirstItem, topIndexOfLastItem);
+
+  // --- LOCAL PAGINATION STATE FOR SLOW MOVING ---
+  const [slowPage, setSlowPage] = useState(1);
+  const slowItemsPerPage = 6;
+  const totalSlowPages = Math.ceil(slowMoving.length / slowItemsPerPage);
+  
+  const slowIndexOfLastItem = slowPage * slowItemsPerPage;
+  const slowIndexOfFirstItem = slowIndexOfLastItem - slowItemsPerPage;
+  const currentSlowItems = slowMoving.slice(slowIndexOfFirstItem, slowIndexOfLastItem);
 
   const formatCurrency = (num) => 
     new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(num);
@@ -27,15 +36,31 @@ const ProductPerformance = ({ data }) => {
       </div>
 
       <div className="row g-3 g-md-4">
-        {/* --- TOP SELLERS --- */}
+        {/* --- TOP SELLERS WITH PAGINATION --- */}
         <div className="col-12 col-lg-5 pb-4">
-          <div className="card border-0 shadow-sm rounded-4 h-100 pb-3">
-            <div className="card-body p-3 p-md-4">
+          <div className="card border-0 shadow-sm rounded-4 h-100 pb-3 d-flex flex-column">
+            <div className="card-body p-3 p-md-4 flex-grow-1">
               <div className="d-flex align-items-center justify-content-between mb-3">
                 <h6 className="fw-bold mb-0">
-                  <Award className="me-2 text-primary" size={18}/>Top 5 Best Sellers
+                  <Award className="me-2 text-primary" size={18}/>Top Sellers
                 </h6>
-                <TrendingUp size={16} className="text-success d-none d-sm-block" />
+                {/* Pagination controls for top sellers */}
+                <div className="d-flex gap-1">
+                   <button 
+                    className="btn btn-light btn-sm p-1 border shadow-none" 
+                    disabled={topPage === 1}
+                    onClick={() => setTopPage(p => p - 1)}
+                   >
+                     <ChevronLeft size={14} />
+                   </button>
+                   <button 
+                    className="btn btn-light btn-sm p-1 border shadow-none" 
+                    disabled={topPage >= totalTopPages}
+                    onClick={() => setTopPage(p => p + 1)}
+                   >
+                     <ChevronRight size={14} />
+                   </button>
+                </div>
               </div>
 
               <div className="table-responsive">
@@ -48,15 +73,15 @@ const ProductPerformance = ({ data }) => {
                     </tr>
                   </thead>
                   <tbody>
-                    {topProducts.length > 0 ? (
-                      topProducts.map((p, i) => (
+                    {currentTopItems.length > 0 ? (
+                      currentTopItems.map((p, i) => (
                         <tr key={i}>
                           <td className="ps-0 py-3">
                             <div className="fw-bold text-dark text-truncate" style={{ maxWidth: '140px' }}>
                               {p.name}
                             </div>
-                            <span className={`badge ${i === 0 ? 'bg-primary' : 'bg-light text-dark'} x-extra-small border`}>
-                              {i === 0 ? 'TOP' : 'Trending'}
+                            <span className={`badge ${topIndexOfFirstItem + i === 0 ? 'bg-primary' : 'bg-light text-dark'} x-extra-small border`}>
+                              {topIndexOfFirstItem + i === 0 ? 'TOP' : 'Trending'}
                             </span>
                           </td>
                           <td className="small">{p.total_sold}</td>
@@ -71,6 +96,13 @@ const ProductPerformance = ({ data }) => {
                   </tbody>
                 </table>
               </div>
+            </div>
+
+            {/* Page indicator at the bottom */}
+            <div className="card-footer bg-transparent border-0 px-4 pb-3">
+               <div className="text-center text-muted x-extra-small text-uppercase">
+                 Page {topPage} of {totalTopPages || 1}
+               </div>
             </div>
           </div>
         </div>
