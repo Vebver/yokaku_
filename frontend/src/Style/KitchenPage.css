@@ -223,6 +223,25 @@ body {
   transition: background 0.2s;
 }
 
+.highlight-customs {
+    background: #fff3cd; /* Light yellow background */
+    color: #856404;      /* Dark brownish text */
+    padding: 6px 10px;
+    border-left: 4px solid #ffcc00;
+    font-weight: bold;
+    font-size: 0.9rem;
+    margin-top: 5px;
+    border-radius: 4px;
+    text-transform: uppercase;
+}
+
+/* Ensure the list item container has enough space */
+.item-container {
+    margin-bottom: 10px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+
 .btn-start { background: var(--primary); color: white; }
 .btn-start:hover { background: var(--primary-hover); }
 

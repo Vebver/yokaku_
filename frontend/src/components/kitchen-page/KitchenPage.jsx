@@ -5,7 +5,6 @@ import {
   CheckCircle2,
   PlayCircle,
   Timer,
-  Filter,
 } from "lucide-react";
 import "../../Style/KitchenPage.css";
 import { io } from "socket.io-client";
@@ -30,6 +29,7 @@ const StatusBadge = ({ status }) => {
 };
 
 // --- ORDER CARD COMPONENT ---
+// --- ORDER CARD COMPONENT ---
 const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
   const [elapsed, setElapsed] = useState(0);
 
@@ -40,108 +40,84 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
       const minutesElapsed = Math.floor((now - startTime) / 60000);
       setElapsed(Math.max(0, minutesElapsed));
     };
-
     calculateTime();
     const timer = setInterval(calculateTime, 10000);
     return () => clearInterval(timer);
   }, [order.timestamp]);
 
   const renderCustomizations = (customs) => {
-    if (!customs) return null;
+    if (!customs) return <div className="item-note-empty">—</div>;
+
+    // Check if it's the string format from the Kiosk (e.g. "Wings: Barbeque | Drink: Orange")
+    if (typeof customs === 'string' && !customs.trim().startsWith('{')) {
+      return (
+        <div className="custom-details-container">
+          <div className="highlight-custom-box">
+            {customs}
+          </div>
+        </div>
+      );
+    }
+
+    // Fallback for JSON format
     try {
       const c = typeof customs === "string" ? JSON.parse(customs) : customs;
       return (
-        <div className="item-details-box">
-          {c.flavor && <span className="detail-tag flavor">{c.flavor}</span>}
-          {c.drink && <span className="detail-tag drink">{c.drink}</span>}
-          {c.spiceLevel && (
-            <span className="detail-tag spice">{c.spiceLevel}</span>
-          )}
-          {c.addOns?.length > 0 && (
-            <span className="detail-tag addons">+{c.addOns.join(", ")}</span>
-          )}
-          {c.specialInstructions && (
-            <div className="item-note">" {c.specialInstructions} "</div>
-          )}
+        <div className="custom-details-container">
+          <div className="json-details">
+            {c.flavor && <span className="tag">FLAVOR: {c.flavor}</span>}
+            {c.drink && <span className="tag">DRINK: {c.drink}</span>}
+            {c.specialInstructions && <div className="note">"{c.specialInstructions}"</div>}
+          </div>
         </div>
       );
     } catch (e) {
-      return null;
+      return <div className="highlight-custom-box">{String(customs)}</div>;
     }
   };
 
-  const getTimerClass = () => {
-    if (elapsed > 15) return "time-elapsed critical";
-    if (elapsed > 10) return "time-elapsed warning";
-    return "time-elapsed";
+  const getTimerUrgency = () => {
+    if (elapsed >= 15) return "urgency-critical";
+    if (elapsed >= 8) return "urgency-warning";
+    return "urgency-normal";
   };
 
   return (
-    <motion.div
-      ref={ref}
-      layout
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.9 }}
-      className="order-card"
-    >
+    <motion.div ref={ref} layout initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className={`order-card status-${order.status.toLowerCase()}`}>
       <div className="card-header">
-        <div className="header-main">
-          <span className="table-number">Table {order.table}</span>
-          <StatusBadge status={order.status} />
+        <div className="table-badge">
+          <span className="table-label">TABLE</span>
+          <span className="table-id">{order.table}</span>
         </div>
-        <div className={getTimerClass()}>
+        <div className={`time-badge ${getTimerUrgency()}`}>
           <Timer size={14} />
           <span>{elapsed}m</span>
         </div>
       </div>
 
       <div className="card-body">
-        <ul className="item-list">
-          {order.items &&
-            order.items.map((item, idx) => (
-              <li key={idx} className="item-container">
-                <div className="item-row">
-                  <span className="item-name">{item.name}</span>
-                  <span className="qty">x{item.qty || item.quantity}</span>
-                </div>
-                {renderCustomizations(item.customizations)}
-              </li>
-            ))}
-        </ul>
-
-        {order.instructions && (
-          <div className="instructions">
-            <MessageSquare size={14} />
-            <p>{order.instructions}</p>
-          </div>
-        )}
+        <div className="item-list">
+          {order.items?.map((item, idx) => (
+            <div key={idx} className="ticket-item">
+              <div className="item-main-row">
+                <span className="item-qty">{item.qty || item.quantity}x</span>
+                <span className="item-name">{item.name}</span>
+              </div>
+              {renderCustomizations(item.customizations)}
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="card-footer">
         {order.status === "pending" && (
-          <button
-            onClick={() => onUpdateStatus(order.id, "preparing")}
-            className="action-btn btn-start"
-          >
-            <PlayCircle size={18} /> Start
-          </button>
+          <button onClick={() => onUpdateStatus(order.id, "preparing")} className="btn-action start">START COOKING</button>
         )}
         {order.status === "preparing" && (
-          <button
-            onClick={() => onUpdateStatus(order.id, "ready")}
-            className="action-btn btn-ready"
-          >
-            <CheckCircle2 size={18} /> Ready
-          </button>
+          <button onClick={() => onUpdateStatus(order.id, "ready")} className="btn-action ready">MARK READY</button>
         )}
         {order.status === "ready" && (
-          <button
-            onClick={() => onUpdateStatus(order.id, "served")}
-            className="action-btn btn-clear"
-          >
-            Clear
-          </button>
+          <button onClick={() => onUpdateStatus(order.id, "served")} className="btn-action clear">SERVED / CLEAR</button>
         )}
       </div>
     </motion.div>
@@ -313,12 +289,11 @@ const KitchenPage = () => {
       <header className="header">
         <div className="header-title">
           <div className="live-indicator" />
-          <h1>Kitchen Queue</h1>
+          <h1>Kitchen Status</h1>
           <span className="order-count">{orders.length} Active</span>
         </div>
 
         <div className="filter-group">
-          <Filter size={16} className="filter-icon" />
           {["all", "pending", "preparing", "ready"].map((f) => (
             <button
               key={f}
