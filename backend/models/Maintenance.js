@@ -18,10 +18,20 @@ const Maintenance = {
 
   //Resets aanad refresh the tables
 // models/Maintenance.js
-resetFloorStatus: async () => {
-  const [result] = await db.execute("UPDATE tables SET is_available = 1, current_reservation_id = NULL");
-  return result.affectedRows; // Changed result from 'res' to 'result'
-},
+ // Resets and refresh the tables for a new shift
+  resetFloorStatus: async () => {
+    try {
+      // 1. We update 'status' to 'Available'
+      // 2. We reset 'available_seats' to match the 'capacity' of the table
+      const [result] = await db.execute("UPDATE tables SET status = 'Available', available_seats = capacity");
+      
+      // 3. Return the number of tables that were reset
+      return result.affectedRows; 
+    } catch (error) {
+      console.error("Database Error:", error);
+      throw error;
+    }
+  },
 
   // 3. Data Export: Get all records for CSV
   getExportData: async () => {

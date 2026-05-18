@@ -14,12 +14,13 @@ const maintenanceController = {
   },
 
   // OPTIMIZE STORAGE
-  reset: async (req, res) => {
+ reset: async (req, res) => {
     try {
       const count = await Maintenance.resetFloorStatus();
-      res.json({ message: `Storage Optimized. ${count} old receipt images were cleared to save space.` });
+      res.json({ message: `Shift Reset Complete! ${count} tables are now Available and ready for new guests.` });
     } catch (error) {
-      res.status(500).json({ error: "Failed to optimize storage." });
+      console.error(error);
+      res.status(500).json({ error: "Failed to reset tables in the database." });
     }
   },
 
