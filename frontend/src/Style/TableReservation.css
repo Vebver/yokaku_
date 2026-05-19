@@ -2072,6 +2072,22 @@ select:disabled {
   text-decoration: underline;
 }
 
+.no-active-slots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  color: #888;
+  font-size: 0.8rem;
+}
+
+.no-active-slots svg {
+  color: #4caf50;
+}
+
 /* ============================================ */
 /* RESPONSIVE MEDIA QUERIES                    */
 /* ============================================ */

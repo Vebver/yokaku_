@@ -201,19 +201,27 @@ export default function ReservationSteps({ onClose, onSuccess }) {
 
     setIsLoadingReservations(true);
     try {
+      // Get current time to check against reservation end times
+      const now = new Date();
+      const currentTime = now.getHours() * 60 + now.getMinutes();
+
       if (allReservationsByDate[date]) {
-        const formattedReservations = allReservationsByDate[date].map(
-          (res) => ({
-            ...res,
-            tableLabel:
-              TABLES_DATA.find((t) => t.id === res.table_id)?.label ||
-              `Table ${res.table_id}`,
-            startTimeFormatted: formatTime12Hour(res.startTime),
-            endTimeFormatted: formatTime12Hour(res.endTime),
-            duration: calculateDuration(res.startTime, res.endTime),
-            status: res.status || "Confirmed",
-          }),
-        );
+        // Filter out completed reservations (end time has passed)
+        const activeReservations = allReservationsByDate[date].filter((res) => {
+          const endM = timeToMin(res.endTime);
+          return endM > currentTime; // Only show if end time is in the future
+        });
+
+        const formattedReservations = activeReservations.map((res) => ({
+          ...res,
+          tableLabel:
+            TABLES_DATA.find((t) => t.id === res.table_id)?.label ||
+            `Table ${res.table_id}`,
+          startTimeFormatted: formatTime12Hour(res.startTime),
+          endTimeFormatted: formatTime12Hour(res.endTime),
+          duration: calculateDuration(res.startTime, res.endTime),
+          status: res.status || "Confirmed",
+        }));
         setReservationsForDate(formattedReservations);
       } else {
         const response = await axios.get(
@@ -221,7 +229,15 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         );
 
         if (response.data && Array.isArray(response.data)) {
-          const formattedReservations = response.data.map((res) => {
+          // Filter out completed reservations
+          const now = new Date();
+          const currentTime = now.getHours() * 60 + now.getMinutes();
+          const activeReservations = response.data.filter((res) => {
+            const endM = timeToMin(res.endTime);
+            return endM > currentTime;
+          });
+
+          const formattedReservations = activeReservations.map((res) => {
             let tableLabel = `Table ${res.table_id}`;
             const foundTable = TABLES_DATA.find((t) => t.id === res.table_id);
             if (foundTable) {
@@ -412,6 +428,10 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       if (!form.date) return;
       setIsDateLoading(true);
       const schedules = {};
+      // Get current time once for all tables
+      const now = new Date();
+      const currentTime = now.getHours() * 60 + now.getMinutes();
+
       for (const table of TABLES_DATA) {
         try {
           const response = await axios.get(
@@ -420,9 +440,14 @@ export default function ReservationSteps({ onClose, onSuccess }) {
               params: { tableId: table.id, date: form.date },
             },
           );
-          schedules[table.id] = Array.isArray(response.data)
-            ? response.data
+          // Filter to only active reservations (end time not passed)
+          const activeSchedules = Array.isArray(response.data)
+            ? response.data.filter((res) => {
+                const endM = timeToMin(res.endTime);
+                return endM > currentTime;
+              })
             : [];
+          schedules[table.id] = activeSchedules;
         } catch (error) {
           schedules[table.id] = [];
         }
@@ -454,6 +479,10 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     const poll = async () => {
       if (!form.date) return;
       try {
+        // Get current time for filtering
+        const now = new Date();
+        const currentTime = now.getHours() * 60 + now.getMinutes();
+
         const statRes = await axios.get(
           `${API_BASE}/reservations/table-statuses`,
           {
@@ -477,22 +506,41 @@ export default function ReservationSteps({ onClose, onSuccess }) {
             schedRes = { data: [] };
           }
         }
+
+        // Filter out completed reservations from schedule
         const processedSchedule = (schedRes.data || [])
+          .filter((res) => {
+            const endM = timeToMin(res.endTime);
+            return endM > currentTime; // Only keep active reservations
+          })
           .filter((res) => res.status !== "Done" && res.status !== "Completed")
           .map((res) => ({ ...res }));
+
         setData({ occupied: statRes.data || {}, schedule: processedSchedule });
 
         const year = calendarMonth.getFullYear();
         const month = calendarMonth.getMonth();
         fetchAllReservationsForMonth(year, month);
+
+        // Also refresh the selected date reservations if needed
+        if (selectedReservationDate) {
+          await fetchReservationsForDate(selectedReservationDate);
+        }
       } catch (e) {
         console.error("Polling error:", e);
       }
     };
     poll();
-    const pollInterval = setInterval(poll, 10000);
+    const pollInterval = setInterval(poll, 5000); // Changed to 5 seconds for faster updates
     return () => clearInterval(pollInterval);
-  }, [form.date, form.startTime, form.endTime, selectedId, calendarMonth]);
+  }, [
+    form.date,
+    form.startTime,
+    form.endTime,
+    selectedId,
+    calendarMonth,
+    selectedReservationDate,
+  ]);
 
   // ============ HELPER FUNCTIONS ============
   const primaryTable = useMemo(
@@ -1117,14 +1165,14 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                         key={idx}
                         type="button"
                         className={`calendar-day 
-                          ${day.isSelected ? "selected" : ""} 
-                          ${day.isBlocked ? "blocked" : ""} 
-                          ${day.isToday ? "today" : ""}
-                          ${!day.isCurrentMonth ? "other-month" : ""}
-                          ${day.isPast && !day.isSelected ? "past" : ""}
-                          ${day.hasReservations && !day.isSelected && !day.isBlocked ? "has-reservations" : ""}
-                          ${day.isFullyBooked && !day.isSelected && !day.isBlocked ? "fully-booked" : ""}
-                        `}
+        ${day.isSelected ? "selected" : ""} 
+        ${day.isBlocked ? "blocked" : ""} 
+        ${day.isToday ? "today" : ""}
+        ${!day.isCurrentMonth ? "other-month" : ""}
+        ${day.isPast && !day.isSelected ? "past" : ""}
+        ${day.hasReservations && !day.isSelected && !day.isBlocked ? "has-reservations" : ""}
+        ${day.isFullyBooked && !day.isSelected && !day.isBlocked ? "fully-booked" : ""}
+      `}
                         disabled={
                           day.isBlocked || (day.isPast && !day.isSelected)
                         }
@@ -1160,7 +1208,9 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                         {day.hasReservations && day.reservationCount > 0 && (
                           <span className="calendar-reservation-badge">
                             {day.reservationCount}{" "}
-                            {day.reservationCount === 1 ? "Res" : "Res"}
+                            {day.reservationCount === 1
+                              ? "Reservation"
+                              : "Reservations"}
                           </span>
                         )}
                         {day.isFullyBooked && (
@@ -1361,24 +1411,46 @@ export default function ReservationSteps({ onClose, onSuccess }) {
             {selectedId && data.schedule && data.schedule.length > 0 && (
               <div className="table-schedule-section">
                 <h4 className="schedule-header">
-                  <Clock size={14} /> Occupied Slots for {primaryTable?.label}
+                  <Clock size={14} /> Active Slots for {primaryTable?.label}
                 </h4>
                 <div className="schedule-list">
-                  {data.schedule.map((res, i) => {
-                    const itemClass = getScheduleItemClassWithColor(res);
-                    const displayText = getStatusDisplayText(res);
-                    return (
-                      <div key={i} className={`schedule-item-3d ${itemClass}`}>
-                        <Clock size={12} />
-                        <span className="schedule-time">
-                          {formatTime(res.startTime)} -{" "}
-                          {formatTime(res.endTime)}
-                        </span>
-                        <span className="schedule-status">{displayText}</span>
-                      </div>
-                    );
-                  })}
+                  {data.schedule
+                    .filter((res) => {
+                      const endM = timeToMin(res.endTime);
+                      const now = new Date();
+                      const currentTime =
+                        now.getHours() * 60 + now.getMinutes();
+                      return endM > currentTime;
+                    })
+                    .map((res, i) => {
+                      const itemClass = getScheduleItemClassWithColor(res);
+                      const displayText = getStatusDisplayText(res);
+                      return (
+                        <div
+                          key={i}
+                          className={`schedule-item-3d ${itemClass}`}
+                        >
+                          <Clock size={12} />
+                          <span className="schedule-time">
+                            {formatTime(res.startTime)} -{" "}
+                            {formatTime(res.endTime)}
+                          </span>
+                          <span className="schedule-status">{displayText}</span>
+                        </div>
+                      );
+                    })}
                 </div>
+                {data.schedule.filter((res) => {
+                  const endM = timeToMin(res.endTime);
+                  const now = new Date();
+                  const currentTime = now.getHours() * 60 + now.getMinutes();
+                  return endM > currentTime;
+                }).length === 0 && (
+                  <div className="no-active-slots">
+                    <CheckCircle size={16} />
+                    <span>No active reservations for this table</span>
+                  </div>
+                )}
               </div>
             )}
 
