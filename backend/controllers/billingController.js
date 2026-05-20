@@ -9,12 +9,14 @@ exports.getPayments = async (req, res) => {
   }
 };
 
-exports.createWalkinPayment = async (req, res) => {
+exports.  createWalkinPayment = async (req, res) => {
   try {
     const { reservation_id, amount, payment_method, payment_status } = req.body;
     
-    if (!reservation_id || amount === undefined) {
-      return res.status(400).json({ error: "Missing required fields" });
+    console.log("[Billing Controller] Creating walk-in payment:", { reservation_id, amount, payment_method, payment_status });
+    
+    if (!reservation_id || amount === undefined || amount === null) {
+      return res.status(400).json({ error: "Missing required fields - reservation_id and amount are required" });
     }
 
     const paymentId = await Billing.createWalkinPayment(
@@ -24,12 +26,15 @@ exports.createWalkinPayment = async (req, res) => {
       payment_status || "pending"
     );
 
+    console.log("[Billing Controller] Payment created with ID:", paymentId);
+
     res.status(201).json({ 
       success: true, 
       payment_id: paymentId,
       message: "Walk-in payment record created"
     });
   } catch (error) {
+    console.error("[Billing Controller] Error creating walk-in payment:", error);
     res.status(500).json({ error: error.message });
   }
 };

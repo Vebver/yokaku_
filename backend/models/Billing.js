@@ -49,17 +49,29 @@ const Billing = {
   },
 
   // NEW METHOD: Updates the Reservation status to 'completed'
+ // UPDATED METHOD: Updates BOTH Reservation status and Payment status
   settleReservation: async (resId) => {
     try {
-      const sql = "UPDATE reservations SET status = 'completed' WHERE reservation_id = ?";
-      const [result] = await db.execute(sql, [resId]);
-      return result.affectedRows > 0;
+      // 1. Update the Reservation to 'completed'
+      const sqlRes = "UPDATE reservations SET status = 'completed' WHERE reservation_id = ?";
+      await db.execute(sqlRes, [resId]);
+
+      // 2. Update the Payment record to 'verified' and set the time
+      // This is the part that was missing!
+      const sqlPay = `
+        UPDATE payments 
+        SET payment_status = 'verified', paid_at = NOW() 
+        WHERE reservation_id = ?
+      `;
+      const [result] = await db.execute(sqlPay, [resId]);
+
+      // Return true if at least the reservation was updated
+      return true; 
     } catch (err) {
-      console.error("Error settling reservation:", err);
+      console.error("Error settling reservation and payment:", err);
       throw err;
     }
   },
-
   updateStatus: async (id, status) => {
     try {
       let sql;

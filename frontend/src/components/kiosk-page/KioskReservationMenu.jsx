@@ -199,7 +199,12 @@ const KioskReservationMenu = () => {
 
   const handleEndSession = () => {
     if (timerRef.current) clearInterval(timerRef.current);
-    localStorage.clear();
+    
+    // Only clear reservation-specific data, NOT auth tokens
+    localStorage.removeItem(TIMER_KEY);
+    localStorage.removeItem(PAYMENT_CHOICE_KEY);
+    localStorage.removeItem("resId");
+    
     window.location.href = "/kiosk-selection";
   };
 
