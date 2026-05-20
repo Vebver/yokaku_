@@ -98,22 +98,19 @@ const KioskMenu = () => {
   const [isFinalCheckout, setIsFinalCheckout] = useState(false);
   const [localBillHistory, setLocalBillHistory] = useState([]);
 
-  // --- CALCULATION HELPER (FIXED) ---
-const calculateTotal = () => {
-    // If we are in the middle of a checkout, we want to see everything
-    // Use a Map to ensure we don't double count items by their unique database ID if they exist in both lists
-    const combinedItems = [...billItems, ...cart];
-    
-    // If you are using localBillHistory as a fallback for offline, 
-    // only add them if billItems is empty
-    const finalItems = billItems.length > 0 ? [...billItems, ...cart] : [...localBillHistory, ...cart];
-
+  // --- CALCULATION HELPER ---
+  const calculateTotal = () => {
+    const finalItems =
+      billItems.length > 0
+        ? [...billItems, ...cart]
+        : [...localBillHistory, ...cart];
     const total = finalItems.reduce((sum, item) => {
-      const price = parseFloat(item.price || item.item_price || item.unit_price || 0);
+      const price = parseFloat(
+        item.price || item.item_price || item.unit_price || 0,
+      );
       const qty = parseInt(item.quantity || item.qty || 1);
-      return sum + (price * qty);
+      return sum + price * qty;
     }, 0);
-
     return total.toFixed(2);
   };
 
@@ -126,102 +123,95 @@ const calculateTotal = () => {
       );
       const data = res.data || [];
       setBillItems(data);
-      return data; // Return data directly for immediate use
+      return data;
     } catch (err) {
       return [];
     }
   };
 
- // FIND THIS FUNCTION in KioskMenu.jsx
-const handleEndSession = async () => {
-  const activeTable = localStorage.getItem(SAVED_TABLE_ID);
-  const activeResId = localStorage.getItem(SAVED_RES_ID);
-
-  if (activeTable && activeResId && navigator.onLine) {
-    try {
-      await axios.post(`${API_BASE}/orders/finish`, {
-        table_id: activeTable,
-        reservation_id: activeResId,
-        payment_method: localStorage.getItem(PAYMENT_CHOICE_KEY) || "Paid",
-      });
-    } catch (err) {
-      console.error(err);
-    }
-  }
-
-  if (timerRef.current) clearInterval(timerRef.current);
-
-  // --- FIX: DO NOT USE localStorage.clear() ---
-  // Only remove Kiosk-specific items
-  const keysToRemove = [
-    TIMER_KEY,
-    SAVED_TABLE_ID,
-    SAVED_RES_ID,
-    OFFLINE_QUEUE_KEY,
-    PAYMENT_CHOICE_KEY,
-    "kiosk_active_bundle_id"
-  ];
-  
-  keysToRemove.forEach(key => localStorage.removeItem(key));
-
-  // Redirect back to selection
-  window.location.href = "/kiosk-selection";
-};
-
-const handlePlaceOrderClick = () => {
-    // Check if there is an active reservation already
+  const handleEndSession = async () => {
+    const activeTable = localStorage.getItem(SAVED_TABLE_ID);
     const activeResId = localStorage.getItem(SAVED_RES_ID);
-    
+
+    if (activeTable && activeResId && navigator.onLine) {
+      try {
+        await axios.post(`${API_BASE}/orders/finish`, {
+          table_id: activeTable,
+          reservation_id: activeResId,
+          payment_method: localStorage.getItem(PAYMENT_CHOICE_KEY) || "Paid",
+        });
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    if (timerRef.current) clearInterval(timerRef.current);
+
+    const keysToRemove = [
+      TIMER_KEY,
+      SAVED_TABLE_ID,
+      SAVED_RES_ID,
+      OFFLINE_QUEUE_KEY,
+      PAYMENT_CHOICE_KEY,
+      "kiosk_active_bundle_id",
+    ];
+
+    keysToRemove.forEach((key) => localStorage.removeItem(key));
+
+    window.location.href = "/kiosk-selection";
+  };
+
+  const handlePlaceOrderClick = () => {
+    const activeResId = localStorage.getItem(SAVED_RES_ID);
+
     if (activeResId) {
       const tbl = localStorage.getItem(SAVED_TABLE_ID);
-      // FIX: You MUST pass 'cart' as the second argument here
-      submitOrderToDatabase(tbl === "takeout" ? null : tbl, cart);
+      submitOrderToDatabase(tbl === "walkin" ? null : tbl, cart);
     } else {
-      // First time ordering: show the Dine-in/Take-out selection
       setIsFinalCheckout(false);
       setShowTypeModal(true);
     }
   };
 
-const confirmPaymentChoice = (choice) => {
-  localStorage.setItem(PAYMENT_CHOICE_KEY, choice);
-  const resId = localStorage.getItem(SAVED_RES_ID);
-  const token = localStorage.getItem("token") || "";
+  const confirmPaymentChoice = (choice) => {
+    localStorage.setItem(PAYMENT_CHOICE_KEY, choice);
+    const resId = localStorage.getItem(SAVED_RES_ID);
+    const token = localStorage.getItem("token") || "";
 
-  if (resId && resId.startsWith("WALK-")) {
-    const total = calculateTotal();
-    
-    // Check if we already created a billing record for this session
-    const hasExistingBilling = localStorage.getItem(`billed_${resId}`);
+    if (resId && resId.startsWith("WALK-")) {
+      const total = calculateTotal();
+      const hasExistingBilling = localStorage.getItem(`billed_${resId}`);
 
-    // If we already billed, we don't send a second "Downpayment" 
-    // unless you want to update the amount. For now, let's just send it once.
-    if (!hasExistingBilling) {
-      axios.post(`${API_BASE}/billing/walkin`, {
-        reservation_id: resId,
-        amount: parseFloat(total),
-        payment_method: "Cash", 
-        payment_status: choice === "Pay Now" ? "verified" : "pending",
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      .then(() => {
-        localStorage.setItem(`billed_${resId}`, "true"); // Mark as billed
+      if (!hasExistingBilling) {
+        axios
+          .post(
+            `${API_BASE}/billing/walkin`,
+            {
+              reservation_id: resId,
+              amount: parseFloat(total),
+              payment_method: "Cash",
+              payment_status: choice === "Pay Now" ? "verified" : "pending",
+            },
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            },
+          )
+          .then(() => {
+            localStorage.setItem(`billed_${resId}`, "true");
+            setShowBillInfo(false);
+          })
+          .catch((err) => console.error(err));
+      } else {
         setShowBillInfo(false);
-      })
-      .catch((err) => console.error(err));
+      }
     } else {
-      // Just close modal if record already exists
       setShowBillInfo(false);
     }
-  } else {
-    setShowBillInfo(false);
-  }
-};
+  };
 
   const handleFinishClick = async () => {
     setShowSessionModal(false);
-    const latestBill = await fetchCurrentBill(); // Wait for fresh data
+    await fetchCurrentBill();
     setIsFinalCheckout(true);
     setShowBillInfo(true);
   };
@@ -264,13 +254,13 @@ const confirmPaymentChoice = (choice) => {
       localStorage.setItem("kiosk_active_bundle_id", unlimitedItem.id);
     }
 
-    // --- FIX: Save items to local history so we don't rely 100% on the backend fetch ---
     setLocalBillHistory((prev) => [...prev, ...itemsToSubmit]);
 
-    localStorage.setItem(SAVED_TABLE_ID, tableId || "takeout");
+    // Always store as "walkin" for display, but keep tableId for backend
+    localStorage.setItem(SAVED_TABLE_ID, tableId || "walkin");
     localStorage.setItem(SAVED_RES_ID, dynamicResId);
 
-    setCart([]); // Now safe to clear tray
+    setCart([]);
     setShowTablePicker(false);
     setShowTypeModal(false);
     setShowBillInfo(true);
@@ -294,7 +284,6 @@ const confirmPaymentChoice = (choice) => {
       setIsRefillMode(false);
       setShowFlavorModal(true);
     } else {
-      // Pass category "Regular" to trick modal into hiding its own internal customizations
       setSelectedItem({ ...item, category: "Regular" });
       setIsModalOpen(true);
     }
@@ -423,6 +412,7 @@ const confirmPaymentChoice = (choice) => {
         .catch(() => {});
     }
   };
+
   const formatTime = (s) =>
     `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
   const hasActiveBundle = Boolean(localStorage.getItem(TIMER_KEY));
@@ -431,7 +421,7 @@ const confirmPaymentChoice = (choice) => {
 
   return (
     <div className="res-kiosk-container">
-      {/* HEADER */}
+      {/* HEADER - Always shows WALK-IN GUEST */}
       <div className="kiosk-timer-wrapper" style={{ zIndex: 5000 }}>
         <div
           className="header-id-section"
@@ -464,11 +454,7 @@ const confirmPaymentChoice = (choice) => {
                 fontSize: "15px",
               }}
             >
-              {localStorage.getItem(SAVED_TABLE_ID) === "takeout"
-                ? "TAKE-OUT"
-                : localStorage.getItem(SAVED_TABLE_ID)
-                  ? `TABLE ${localStorage.getItem(SAVED_TABLE_ID)}`
-                  : "WALK-IN GUEST"}
+              WALK-IN GUEST
             </span>
           </div>
         </div>
@@ -637,7 +623,6 @@ const confirmPaymentChoice = (choice) => {
                 borderBottom: "1px solid #444",
               }}
             >
-              {/* We use localBillHistory + cart because the network tab showed billItems is empty */}
               {[...localBillHistory, ...cart].map((item, idx) => {
                 const p = parseFloat(item.price || item.item_price || 0);
                 const q = parseInt(item.quantity || item.qty || 1);
@@ -976,11 +961,9 @@ const confirmPaymentChoice = (choice) => {
                   table.bridge_status?.toLowerCase() === "confirmed" ||
                   table.bridge_status?.toLowerCase() === "seated";
                 return (
-                  // FIND THIS IN KioskMenu.jsx (Table Picker section)
                   <button
                     key={table.table_id}
                     disabled={occupied}
-                    // CHANGE THIS LINE:
                     onClick={() => submitOrderToDatabase(table.table_id, cart)}
                     style={{
                       padding: "20px 10px",
