@@ -63,218 +63,236 @@ const KioskMenu = () => {
   const navigate = useNavigate();
   const timerRef = useRef(null);
   const audioRef = useRef(new Audio(alertMusicFile));
+  const idleTimerRef = useRef(null);
 
   const TIMER_KEY = "kiosk_walkin_timer_end";
-  const SAVED_TABLE_ID = "kiosk_active_table_id";
   const SAVED_RES_ID = "kiosk_active_res_id";
-  const OFFLINE_QUEUE_KEY = "kiosk_offline_orders";
-  const PAYMENT_CHOICE_KEY = "kiosk_payment_choice";
 
+  // ============ STATE MANAGEMENT ============
   const [menuData, setMenuData] = useState({});
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("");
-  const [selectedCard, setSelectedCard] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState(null);
   const [cart, setCart] = useState([]);
-  const [billItems, setBillItems] = useState([]);
   const [dynamicFlavors, setDynamicFlavors] = useState([]);
   const [dynamicRamenFlavors, setDynamicRamenFlavors] = useState([]);
   const [dynamicDrinks, setDynamicDrinks] = useState([]);
   const [timeLeft, setTimeLeft] = useState(1860);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
-  const [showSessionModal, setShowSessionModal] = useState(false);
-  const [showEndModal, setShowEndModal] = useState(false);
-  const [showTypeModal, setShowTypeModal] = useState(false);
-  const [showTablePicker, setShowTablePicker] = useState(false);
-  const [availableTables, setAvailableTables] = useState([]);
+
+  // Modal States
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
   const [showFlavorModal, setShowFlavorModal] = useState(false);
   const [selectedFlavors, setSelectedFlavors] = useState([]);
   const [selectedDrink, setSelectedDrink] = useState("");
   const [isRefillMode, setIsRefillMode] = useState(false);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
-  const [showBillInfo, setShowBillInfo] = useState(false);
-  const [isFinalCheckout, setIsFinalCheckout] = useState(false);
-  const [localBillHistory, setLocalBillHistory] = useState([]);
+  // Order Flow States
+  const [showOrderSummaryModal, setShowOrderSummaryModal] = useState(false);
+  const [showOrderModeModal, setShowOrderModeModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedOrderMode, setSelectedOrderMode] = useState(null);
+  const [selectedPaymentOption, setSelectedPaymentOption] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [availableTables, setAvailableTables] = useState([]);
+  const [showTablePicker, setShowTablePicker] = useState(false);
+  const [selectedTable, setSelectedTable] = useState(null);
 
-  // --- CALCULATION HELPER ---
+  // Idle timer duration (5 minutes)
+  const IDLE_TIMEOUT = 5 * 60 * 1000;
+
+  // ============ HELPER FUNCTIONS ============
   const calculateTotal = () => {
-    const finalItems =
-      billItems.length > 0
-        ? [...billItems, ...cart]
-        : [...localBillHistory, ...cart];
-    const total = finalItems.reduce((sum, item) => {
-      const price = parseFloat(
-        item.price || item.item_price || item.unit_price || 0,
-      );
-      const qty = parseInt(item.quantity || item.qty || 1);
-      return sum + price * qty;
-    }, 0);
-    return total.toFixed(2);
+    return cart
+      .reduce((sum, item) => {
+        const price = parseFloat(item.price || 0);
+        const qty = parseInt(item.quantity || 1);
+        return sum + price * qty;
+      }, 0)
+      .toFixed(2);
   };
 
-  const fetchCurrentBill = async () => {
-    const resId = localStorage.getItem(SAVED_RES_ID);
-    if (!resId) return [];
-    try {
-      const res = await axios.get(
-        `${API_BASE}/orders/reservation-items/${resId}`,
-      );
-      const data = res.data || [];
-      setBillItems(data);
-      return data;
-    } catch (err) {
-      return [];
+  const resetOrderFlow = () => {
+    // Clear cart and order states
+    setCart([]);
+    setShowOrderSummaryModal(false);
+    setShowOrderModeModal(false);
+    setShowPaymentModal(false);
+    setSelectedOrderMode(null);
+    setSelectedPaymentOption(null);
+    setSelectedTable(null);
+    setShowTablePicker(false);
+    setIsSubmitting(false);
+
+    // Reset idle timer
+    resetIdleTimer();
+  };
+
+  const resetIdleTimer = () => {
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
     }
-  };
-
-  const handleEndSession = async () => {
-    const activeTable = localStorage.getItem(SAVED_TABLE_ID);
-    const activeResId = localStorage.getItem(SAVED_RES_ID);
-
-    if (activeTable && activeResId && navigator.onLine) {
-      try {
-        await axios.post(`${API_BASE}/orders/finish`, {
-          table_id: activeTable,
-          reservation_id: activeResId,
-          payment_method: localStorage.getItem(PAYMENT_CHOICE_KEY) || "Paid",
-        });
-      } catch (err) {
-        console.error(err);
+    idleTimerRef.current = setTimeout(() => {
+      // Auto-reset after idle
+      if (cart.length > 0 || showOrderSummaryModal) {
+        resetOrderFlow();
       }
-    }
-
-    if (timerRef.current) clearInterval(timerRef.current);
-
-    const keysToRemove = [
-      TIMER_KEY,
-      SAVED_TABLE_ID,
-      SAVED_RES_ID,
-      OFFLINE_QUEUE_KEY,
-      PAYMENT_CHOICE_KEY,
-      "kiosk_active_bundle_id",
-    ];
-
-    keysToRemove.forEach((key) => localStorage.removeItem(key));
-
-    window.location.href = "/kiosk-selection";
+    }, IDLE_TIMEOUT);
   };
 
-  const handlePlaceOrderClick = () => {
-    const activeResId = localStorage.getItem(SAVED_RES_ID);
-
-    if (activeResId) {
-      const tbl = localStorage.getItem(SAVED_TABLE_ID);
-      submitOrderToDatabase(tbl === "walkin" ? null : tbl, cart);
-    } else {
-      setIsFinalCheckout(false);
-      setShowTypeModal(true);
+  const unlockAudio = () => {
+    if (audioRef.current) {
+      audioRef.current
+        .play()
+        .then(() => {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+        })
+        .catch(() => {});
     }
   };
 
-  const confirmPaymentChoice = (choice) => {
-    localStorage.setItem(PAYMENT_CHOICE_KEY, choice);
-    const resId = localStorage.getItem(SAVED_RES_ID);
-    const token = localStorage.getItem("token") || "";
+  const formatTime = (s) =>
+    `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
+  const hasActiveBundle = Boolean(localStorage.getItem(TIMER_KEY));
 
-    if (resId && resId.startsWith("WALK-")) {
-      const total = calculateTotal();
-      const hasExistingBilling = localStorage.getItem(`billed_${resId}`);
+  // ============ ORDER SUBMISSION ============
+  const submitOrder = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
 
-      if (!hasExistingBilling) {
-        axios
-          .post(
-            `${API_BASE}/billing/walkin`,
-            {
-              reservation_id: resId,
-              amount: parseFloat(total),
-              payment_method: "Cash",
-              payment_status: choice === "Pay Now" ? "verified" : "pending",
-            },
-            {
-              headers: { Authorization: `Bearer ${token}` },
-            },
-          )
-          .then(() => {
-            localStorage.setItem(`billed_${resId}`, "true");
-            setShowBillInfo(false);
-          })
-          .catch((err) => console.error(err));
-      } else {
-        setShowBillInfo(false);
-      }
-    } else {
-      setShowBillInfo(false);
-    }
-  };
-
-  const handleFinishClick = async () => {
-    setShowSessionModal(false);
-    await fetchCurrentBill();
-    setIsFinalCheckout(true);
-    setShowBillInfo(true);
-  };
-
-  const submitOrderToDatabase = async (
-    tableId = null,
-    itemsToSubmit = null,
-  ) => {
-    if (!itemsToSubmit || itemsToSubmit.length === 0) return;
-    const dynamicResId =
-      localStorage.getItem(SAVED_RES_ID) || `WALK-${Date.now()}`;
     try {
+      const reservationId =
+        localStorage.getItem(SAVED_RES_ID) || `WALK-${Date.now()}`;
+      const tableId = selectedOrderMode === "dinein" ? selectedTable : null;
+
       await axios.post(`${API_BASE}/orders/place`, {
-        reservation_id: dynamicResId,
+        reservation_id: reservationId,
         table_id: tableId,
-        items: itemsToSubmit.map((i) => ({
+        items: cart.map((i) => ({
           item_id: i.id,
           quantity: i.quantity,
           customizations: i.customizations,
-          is_refill: i.price === 0,
+          is_refill: false,
         })),
       });
-      finalizeOrderLocally(itemsToSubmit, tableId, dynamicResId);
-    } catch (error) {
-      finalizeOrderLocally(itemsToSubmit, tableId, dynamicResId);
-    }
-  };
 
-  const finalizeOrderLocally = (itemsToSubmit, tableId, dynamicResId) => {
-    const hasUnlimited = itemsToSubmit.some((i) =>
-      (i.name || "").toLowerCase().includes("unlimited"),
-    );
+      // Save reservation ID
+      localStorage.setItem(SAVED_RES_ID, reservationId);
 
-    if (hasUnlimited && !localStorage.getItem(TIMER_KEY)) {
-      localStorage.setItem(TIMER_KEY, (Date.now() + 1860 * 1000).toString());
-      setIsTimerRunning(true);
-      const unlimitedItem = itemsToSubmit.find((i) =>
-        i.name.toLowerCase().includes("unlimited"),
+      // Set timer for unlimited bundles
+      const hasUnlimited = cart.some((i) =>
+        (i.name || "").toLowerCase().includes("unlimited"),
       );
-      localStorage.setItem("kiosk_active_bundle_id", unlimitedItem.id);
+      if (hasUnlimited && !localStorage.getItem(TIMER_KEY)) {
+        localStorage.setItem(TIMER_KEY, (Date.now() + 1860 * 1000).toString());
+        setIsTimerRunning(true);
+      }
+
+      // Show success and reset
+      setShowSuccessModal(true);
+
+      // Reset after 2 seconds
+      setTimeout(() => {
+        setShowSuccessModal(false);
+        resetOrderFlow();
+      }, 2000);
+    } catch (error) {
+      console.error("Order submission error:", error);
+      alert("Failed to place order. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setLocalBillHistory((prev) => [...prev, ...itemsToSubmit]);
-
-    // Always store as "walkin" for display, but keep tableId for backend
-    localStorage.setItem(SAVED_TABLE_ID, tableId || "walkin");
-    localStorage.setItem(SAVED_RES_ID, dynamicResId);
-
-    setCart([]);
-    setShowTablePicker(false);
-    setShowTypeModal(false);
-    setShowBillInfo(true);
-    setIsFinalCheckout(false);
-    setShowSessionModal(false);
-    fetchCurrentBill();
   };
 
+  // ============ FLOW HANDLERS ============
+  const handlePlaceOrderClick = () => {
+    if (cart.length === 0) return;
+    resetIdleTimer();
+    setShowOrderSummaryModal(true);
+  };
+
+  const handleProceedToOrderMode = () => {
+    setShowOrderSummaryModal(false);
+    setShowOrderModeModal(true);
+  };
+
+  const handleOrderModeSelect = (mode) => {
+    setSelectedOrderMode(mode);
+    setShowOrderModeModal(false);
+
+    if (mode === "dinein") {
+      // Fetch tables for dine-in
+      axios
+        .get(`${API_BASE}/admin/public/getTable`)
+        .then((res) => {
+          setAvailableTables(res.data);
+          setShowTablePicker(true);
+        })
+        .catch((err) => {
+          alert("Could not load tables.");
+          setSelectedOrderMode(null);
+        });
+    } else if (mode === "takeout") {
+      // Show payment options directly for takeout
+      setShowPaymentModal(true);
+    }
+  };
+
+  const handleTableSelect = (table) => {
+    setSelectedTable(table.table_id);
+    setShowTablePicker(false);
+    setShowPaymentModal(true);
+  };
+
+  const handlePaymentSelect = (option) => {
+    setSelectedPaymentOption(option);
+    setShowPaymentModal(false);
+    submitOrder();
+  };
+
+  const handleBackToMenu = () => {
+    setShowOrderSummaryModal(false);
+    resetIdleTimer();
+  };
+
+  const handleBackToOrderMode = () => {
+    setShowPaymentModal(false);
+    setShowOrderModeModal(true);
+  };
+
+  const handleCancelOrder = () => {
+    if (window.confirm("Are you sure you want to cancel your order?")) {
+      resetOrderFlow();
+    }
+  };
+
+  // ============ CART OPERATIONS ============
+  const updateQuantity = (itemId, newQuantity) => {
+    if (newQuantity <= 0) {
+      setCart(cart.filter((i) => i.id !== itemId));
+    } else {
+      setCart(
+        cart.map((i) =>
+          i.id === itemId ? { ...i, quantity: newQuantity } : i,
+        ),
+      );
+    }
+    resetIdleTimer();
+  };
+
+  const removeItem = (itemId) => {
+    setCart(cart.filter((i) => i.id !== itemId));
+    resetIdleTimer();
+  };
+
+  // ============ ITEM HANDLERS ============
   const handleItemClick = (item) => {
     unlockAudio();
+    resetIdleTimer();
     const itemName = (item.name || "").toLowerCase();
-    const itemCat = (item.category || "").toLowerCase();
-    const isUnlimited =
-      itemName.includes("unlimited") || itemCat.includes("unlimited");
+    const isUnlimited = itemName.includes("unlimited");
     const isRamenSet = itemName.includes("ramen");
 
     if (isUnlimited || isRamenSet) {
@@ -284,15 +302,19 @@ const KioskMenu = () => {
       setIsRefillMode(false);
       setShowFlavorModal(true);
     } else {
-      setSelectedItem({ ...item, category: "Regular" });
-      setIsModalOpen(true);
+      // Add regular item directly to cart
+      const existingItem = cart.find((i) => i.id === item.id);
+      if (existingItem) {
+        updateQuantity(item.id, existingItem.quantity + 1);
+      } else {
+        setCart([...cart, { ...item, quantity: 1, customizations: null }]);
+      }
     }
-    setSelectedCard(item.id);
   };
 
   const confirmFlavors = () => {
     const isRamen = selectedItem.name.toLowerCase().includes("ramen");
-    if (selectedFlavors.length === 0) return alert(`Select a flavor`);
+    if (selectedFlavors.length === 0) return alert("Select a flavor");
     if (!isRamen && !isRefillMode && !selectedDrink)
       return alert("Select a drink");
 
@@ -300,30 +322,19 @@ const KioskMenu = () => {
       ? `REFILL: ${selectedFlavors.join(", ")}`
       : `${isRamen ? "Ramen: " : "Flavors: "}${selectedFlavors.join(", ")} ${selectedDrink ? "| Drink: " + selectedDrink : ""}`;
 
-    setCart([
-      ...cart,
-      { ...selectedItem, quantity: 1, customizations: customization },
-    ]);
+    const existingItem = cart.find((i) => i.id === selectedItem.id);
+    if (existingItem) {
+      updateQuantity(selectedItem.id, existingItem.quantity + 1);
+    } else {
+      setCart([
+        ...cart,
+        { ...selectedItem, quantity: 1, customizations: customization },
+      ]);
+    }
     setShowFlavorModal(false);
   };
 
-  const handleDineInSelection = async () => {
-    try {
-      const res = await axios.get(`${API_BASE}/admin/public/getTable`);
-      setAvailableTables(res.data);
-      setShowTypeModal(false);
-      setTimeout(() => setShowTablePicker(true), 100);
-    } catch (err) {
-      alert("Could not load tables.");
-    }
-  };
-
-  const handleTakeOutClick = () => {
-    setShowTypeModal(false);
-    setIsFinalCheckout(false);
-    submitOrderToDatabase(null, cart);
-  };
-
+  // ============ FETCH MENU ============
   useEffect(() => {
     const fetchMenu = async () => {
       try {
@@ -372,6 +383,7 @@ const KioskMenu = () => {
     fetchMenu();
   }, []);
 
+  // ============ TIMER EFFECTS ============
   useEffect(() => {
     const savedEndTime = localStorage.getItem(TIMER_KEY);
     if (savedEndTime) {
@@ -381,8 +393,6 @@ const KioskMenu = () => {
       if (remaining > 0) {
         setTimeLeft(remaining);
         setIsTimerRunning(true);
-      } else {
-        handleEndSession();
       }
     }
   }, []);
@@ -394,34 +404,36 @@ const KioskMenu = () => {
         const remaining = Math.floor(
           (parseInt(savedEndTime) - Date.now()) / 1000,
         );
-        if (remaining <= 0) handleEndSession();
-        else setTimeLeft(remaining);
+        if (remaining <= 0) {
+          clearInterval(timerRef.current);
+          setIsTimerRunning(false);
+        } else {
+          setTimeLeft(remaining);
+        }
       }, 1000);
     }
     return () => clearInterval(timerRef.current);
   }, [isTimerRunning]);
 
-  const unlockAudio = () => {
-    if (audioRef.current) {
-      audioRef.current
-        .play()
-        .then(() => {
-          audioRef.current.pause();
-          audioRef.current.currentTime = 0;
-        })
-        .catch(() => {});
-    }
-  };
-
-  const formatTime = (s) =>
-    `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
-  const hasActiveBundle = Boolean(localStorage.getItem(TIMER_KEY));
+  // Reset idle timer on user activity
+  useEffect(() => {
+    const events = ["click", "touchstart", "keydown"];
+    events.forEach((event) => {
+      document.addEventListener(event, resetIdleTimer);
+    });
+    return () => {
+      events.forEach((event) => {
+        document.removeEventListener(event, resetIdleTimer);
+      });
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    };
+  }, []);
 
   if (loading) return <div className="loading-container">Loading Menu...</div>;
 
   return (
     <div className="res-kiosk-container">
-      {/* HEADER - Always shows WALK-IN GUEST */}
+      {/* HEADER */}
       <div className="kiosk-timer-wrapper" style={{ zIndex: 5000 }}>
         <div
           className="header-id-section"
@@ -443,7 +455,7 @@ const KioskMenu = () => {
                 display: "block",
               }}
             >
-              ORDER MODE
+              KIOSK ORDER
             </span>
             <span
               className="id-value"
@@ -454,61 +466,25 @@ const KioskMenu = () => {
                 fontSize: "15px",
               }}
             >
-              WALK-IN GUEST
+              {cart.length} item{cart.length !== 1 ? "s" : ""} in cart
             </span>
           </div>
         </div>
 
-        {/* PAY Button (Visible once an order is placed) */}
-        {localStorage.getItem(SAVED_RES_ID) && (
-          <button
-            className="billing-btn-header"
-            onClick={handleFinishClick}
-            style={{
-              background: "#ffcc00",
-              color: "#000",
-              border: "none",
-              padding: "8px 15px",
-              borderRadius: "8px",
-              fontWeight: "bold",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              marginLeft: "10px",
-              cursor: "pointer",
-            }}
-          >
-            <CreditCard size={18} /> PAY
-          </button>
-        )}
-
         {isTimerRunning && hasActiveBundle && (
           <div
             className="timer-box"
-            onClick={() => setShowSessionModal(true)}
-            style={{
-              cursor: "pointer",
-              border: "2px solid #ffcc00",
-              marginLeft: "auto",
-            }}
+            style={{ marginLeft: "auto", border: "2px solid #ffcc00" }}
           >
             <Clock size={20} color="#ffcc00" />
             <span className="timer-text" style={{ color: "#fff" }}>
               {formatTime(timeLeft)}
             </span>
-            <button
-              className="finish-session-header-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleFinishClick();
-              }}
-            >
-              FINISH
-            </button>
           </div>
         )}
       </div>
 
+      {/* MAIN CONTENT */}
       <div className="res-main-layout">
         <aside className="res-sidebar">
           <div className="res-brand">
@@ -571,6 +547,8 @@ const KioskMenu = () => {
             ))}
           </div>
         </main>
+
+        {/* Use your existing OrderSummary component */}
         <OrderSummary
           cart={cart}
           onRemoveItem={(id) => setCart(cart.filter((i) => i.id !== id))}
@@ -598,123 +576,220 @@ const KioskMenu = () => {
         </div>
       </footer>
 
-      {/* --- BILL MODAL --- */}
-      {showBillInfo && (
+      {/* ============ MODALS ============ */}
+
+      {/* ORDER SUMMARY MODAL */}
+      {showOrderSummaryModal && (
         <div className="res-modal-overlay" style={{ zIndex: 10000 }}>
           <div
             className="res-modal-card"
-            style={{ maxWidth: "450px", width: "90%", textAlign: "center" }}
+            style={{
+              maxWidth: "500px",
+              width: "90%",
+              maxHeight: "80vh",
+              overflowY: "auto",
+            }}
           >
-            <Receipt
-              size={50}
-              color="#ffcc00"
-              style={{ margin: "0 auto 15px" }}
-            />
-            <h2 style={{ color: "#ffcc00" }}>
-              {isFinalCheckout ? "Final Bill Summary" : "Order Summary"}
-            </h2>
-
-            <div
-              className="bill-scroll"
-              style={{
-                maxHeight: "250px",
-                overflowY: "auto",
-                margin: "20px 0",
-                borderBottom: "1px solid #444",
-              }}
-            >
-              {[...localBillHistory, ...cart].map((item, idx) => {
-                const p = parseFloat(item.price || item.item_price || 0);
-                const q = parseInt(item.quantity || item.qty || 1);
-                const name = item.name || item.item_name || "Item";
-                if (p === 0 && !isFinalCheckout) return null;
-
-                return (
-                  <div
-                    key={idx}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      padding: "10px 5px",
-                      color: "#fff",
-                    }}
-                  >
-                    <span style={{ textAlign: "left" }}>
-                      {name} x{q}
-                    </span>
-                    <span>₱{(p * q).toFixed(2)}</span>
-                  </div>
-                );
-              })}
+            <div className="modal-header">
+              <h2 style={{ color: "#ffcc00" }}>Order Summary</h2>
+              <button className="close-modal-btn" onClick={handleBackToMenu}>
+                ✕
+              </button>
             </div>
+
+            <div className="order-items-list">
+              {cart.map((item, idx) => (
+                <div key={idx} className="order-summary-item">
+                  <div className="item-info">
+                    <span className="item-qty-badge">{item.quantity}x</span>
+                    <div>
+                      <div className="item-name">{item.name}</div>
+                      {item.customizations && (
+                        <div className="item-customizations">
+                          {item.customizations}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="item-price">
+                    ₱{(parseFloat(item.price) * item.quantity).toFixed(2)}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="order-total">
+              <span>Total:</span>
+              <span>₱{calculateTotal()}</span>
+            </div>
+
+            <div className="modal-actions">
+              <button className="btn-secondary" onClick={handleBackToMenu}>
+                Back to Menu
+              </button>
+              <button
+                className="btn-primary"
+                onClick={handleProceedToOrderMode}
+              >
+                Proceed
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ORDER MODE MODAL */}
+      {showOrderModeModal && (
+        <div className="res-modal-overlay" style={{ zIndex: 10000 }}>
+          <div
+            className="res-modal-card"
+            style={{ maxWidth: "400px", width: "90%", textAlign: "center" }}
+          >
+            <h2 style={{ color: "#ffcc00", marginBottom: "20px" }}>
+              How would you like to order?
+            </h2>
 
             <div
               style={{
                 display: "flex",
-                justifyContent: "space-between",
-                fontSize: "1.4rem",
-                fontWeight: "bold",
-                color: "#fff",
-                marginBottom: "30px",
+                flexDirection: "column",
+                gap: "15px",
+                width: "100%",
               }}
             >
-              <span>Total:</span>
-              <span style={{ color: "#ffcc00" }}>₱{calculateTotal()}</span>
+              <button
+                className="mode-btn dinein"
+                onClick={() => handleOrderModeSelect("dinein")}
+              >
+                🍽️ DINE IN
+              </button>
+              <button
+                className="mode-btn takeout"
+                onClick={() => handleOrderModeSelect("takeout")}
+              >
+                🥡 TAKE OUT
+              </button>
+              <button
+                className="btn-cancel"
+                onClick={() => setShowOrderModeModal(false)}
+              >
+                Cancel
+              </button>
             </div>
+          </div>
+        </div>
+      )}
 
-            {isFinalCheckout ? (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "10px",
-                }}
+      {/* TABLE PICKER MODAL */}
+      {showTablePicker && (
+        <div className="res-modal-overlay" style={{ zIndex: 10000 }}>
+          <div
+            className="res-modal-card"
+            style={{ maxWidth: "600px", width: "90%" }}
+          >
+            <h2 style={{ color: "#ffcc00", marginBottom: "20px" }}>
+              Select Your Table
+            </h2>
+            <div className="table-grid">
+              {availableTables.map((table) => {
+                const occupied =
+                  table.bridge_status?.toLowerCase() === "confirmed" ||
+                  table.bridge_status?.toLowerCase() === "seated";
+                return (
+                  <button
+                    key={table.table_id}
+                    className={`table-btn ${occupied ? "occupied" : "available"}`}
+                    disabled={occupied}
+                    onClick={() => handleTableSelect(table)}
+                  >
+                    Table {table.table_number}
+                    {occupied && (
+                      <span className="occupied-badge">Occupied</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              className="btn-cancel"
+              style={{ marginTop: "20px" }}
+              onClick={() => {
+                setShowTablePicker(false);
+                setSelectedOrderMode(null);
+                setShowOrderModeModal(true);
+              }}
+            >
+              Back
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* PAYMENT MODAL */}
+      {showPaymentModal && (
+        <div className="res-modal-overlay" style={{ zIndex: 10000 }}>
+          <div
+            className="res-modal-card"
+            style={{ maxWidth: "400px", width: "90%", textAlign: "center" }}
+          >
+            <h2 style={{ color: "#ffcc00", marginBottom: "10px" }}>
+              Payment Option
+            </h2>
+            <p style={{ color: "#aaa", marginBottom: "20px" }}>
+              Total: ₱{calculateTotal()}
+            </p>
+
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "15px",
+                width: "100%",
+              }}
+            >
+              <button
+                className="payment-btn paynow"
+                onClick={() => handlePaymentSelect("Pay Now")}
               >
-                <p style={{ color: "#aaa", fontSize: "0.8rem" }}>
-                  Please proceed to the counter to settle your bill.
-                </p>
-                <button
-                  className="res-modal-btn-primary"
-                  onClick={handleEndSession}
-                >
-                  FINISH SESSION
-                </button>
-                <button
-                  className="res-btn-cancel"
-                  onClick={() => setShowBillInfo(false)}
-                >
-                  BACK
-                </button>
-              </div>
-            ) : (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "10px",
-                }}
+                <Banknote size={20} /> PAY NOW
+              </button>
+              <button
+                className="payment-btn paylater"
+                onClick={() => handlePaymentSelect("Pay Later")}
               >
-                <button
-                  className="res-modal-btn-primary"
-                  onClick={() => confirmPaymentChoice("Pay Now")}
-                >
-                  <Banknote size={18} /> PAY NOW (At Counter)
-                </button>
-                <button
-                  className="res-modal-btn-primary"
-                  style={{ background: "#444", border: "none" }}
-                  onClick={() => confirmPaymentChoice("Pay Later")}
-                >
-                  <Clock size={18} /> PAY LATER
-                </button>
-                <button
-                  className="res-btn-cancel"
-                  onClick={() => setShowBillInfo(false)}
-                >
-                  CANCEL
-                </button>
-              </div>
-            )}
+                <Clock size={20} /> PAY LATER
+              </button>
+              <button className="btn-cancel" onClick={handleBackToOrderMode}>
+                Back
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SUCCESS MODAL */}
+      {showSuccessModal && (
+        <div className="res-modal-overlay" style={{ zIndex: 10001 }}>
+          <div
+            className="res-modal-card success-modal"
+            style={{ textAlign: "center", animation: "fadeInUp 0.3s ease" }}
+          >
+            <CheckCircle
+              size={60}
+              color="#4caf50"
+              style={{ margin: "0 auto 20px" }}
+            />
+            <h2 style={{ color: "#ffcc00" }}>Order Placed Successfully!</h2>
+            <p style={{ color: "#fff", marginBottom: "20px" }}>
+              Your order has been sent to the kitchen.
+            </p>
+            <div
+              className="loading-spinner-small"
+              style={{ margin: "0 auto" }}
+            ></div>
+            <p style={{ color: "#888", fontSize: "0.8rem", marginTop: "15px" }}>
+              Returning to menu...
+            </p>
           </div>
         </div>
       )}
@@ -731,43 +806,27 @@ const KioskMenu = () => {
                 ? "Ramen Choice"
                 : "Unlimited Wings"}
             </h2>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: "10px",
-                marginTop: "20px",
-              }}
-            >
+            <div className="flavor-grid">
               {(selectedItem?.name.toLowerCase().includes("ramen")
                 ? dynamicRamenFlavors
                 : dynamicFlavors
               ).map((f) => (
                 <button
                   key={f}
+                  className={`flavor-btn ${selectedFlavors.includes(f) ? "active" : ""}`}
                   onClick={() => {
                     const isRamen = selectedItem.name
                       .toLowerCase()
                       .includes("ramen");
-                    if (selectedFlavors.includes(f))
+                    if (selectedFlavors.includes(f)) {
                       setSelectedFlavors(
                         selectedFlavors.filter((x) => x !== f),
                       );
-                    else {
+                    } else {
                       if (isRamen) setSelectedFlavors([f]);
                       else if (selectedFlavors.length < 4)
                         setSelectedFlavors([...selectedFlavors, f]);
                     }
-                  }}
-                  style={{
-                    padding: "15px 10px",
-                    borderRadius: "10px",
-                    border: "1px solid #ffcc00",
-                    background: selectedFlavors.includes(f)
-                      ? "#ffcc00"
-                      : "none",
-                    color: selectedFlavors.includes(f) ? "#000" : "#fff",
-                    fontWeight: "bold",
                   }}
                 >
                   {f}
@@ -780,25 +839,12 @@ const KioskMenu = () => {
                   <h4 style={{ color: "#fff", margin: "25px 0 10px" }}>
                     Select Drink
                   </h4>
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr 1fr",
-                      gap: "10px",
-                    }}
-                  >
+                  <div className="drink-grid">
                     {dynamicDrinks.map((d) => (
                       <button
                         key={d}
+                        className={`drink-btn ${selectedDrink === d ? "active" : ""}`}
                         onClick={() => setSelectedDrink(d)}
-                        style={{
-                          padding: "10px",
-                          borderRadius: "8px",
-                          border: "1px solid #555",
-                          background: selectedDrink === d ? "#fff" : "none",
-                          color: selectedDrink === d ? "#000" : "#fff",
-                          fontSize: "0.8rem",
-                        }}
                       >
                         {d}
                       </button>
@@ -806,188 +852,37 @@ const KioskMenu = () => {
                   </div>
                 </>
               )}
-            <div style={{ display: "flex", gap: "15px", marginTop: "30px" }}>
+            <div className="modal-actions" style={{ marginTop: "30px" }}>
               <button
-                className="res-btn-cancel"
-                style={{ flex: 1 }}
+                className="btn-secondary"
                 onClick={() => setShowFlavorModal(false)}
               >
                 Cancel
               </button>
-              <button
-                className="res-modal-btn-primary"
-                style={{ flex: 2 }}
-                onClick={confirmFlavors}
-              >
-                {isRefillMode ? "SEND REFILL" : "ADD TO TRAY"}
+              <button className="btn-primary" onClick={confirmFlavors}>
+                Add to Cart
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* SESSION MODAL */}
-      {showSessionModal && (
-        <div className="res-modal-overlay" style={{ zIndex: 7000 }}>
-          <div
-            className="res-modal-card"
-            style={{ textAlign: "center", padding: "40px" }}
-          >
-            <UtensilsCrossed
-              size={60}
-              color="#ffcc00"
-              style={{ margin: "0 auto 20px" }}
-            />
-            <h2 style={{ color: "#ffcc00", marginBottom: "10px" }}>
-              {hasActiveBundle ? "SESSION ACTIVE" : "ORDER PLACED"}
-            </h2>
-            {hasActiveBundle && (
-              <div
-                style={{
-                  fontSize: "3rem",
-                  fontWeight: "900",
-                  color: "#fff",
-                  margin: "20px 0",
-                }}
-              >
-                {formatTime(timeLeft)}
-              </div>
-            )}
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "10px" }}
-            >
-              {hasActiveBundle && (
-                <button
-                  className="res-modal-btn-primary"
-                  style={{ background: "#28a745" }}
-                  onClick={() => {
-                    setSelectedItem({
-                      id: localStorage.getItem("kiosk_active_bundle_id"),
-                      name: "Unlimited",
-                    });
-                    setIsRefillMode(true);
-                    setShowFlavorModal(true);
-                    setShowSessionModal(false);
-                  }}
-                >
-                  <RefreshCw size={18} /> REFILL CHICKEN
-                </button>
-              )}
-              <button
-                className="res-modal-btn-primary"
-                onClick={() => setShowSessionModal(false)}
-              >
-                ORDER MORE ITEMS
-              </button>
-              <button className="res-btn-cancel" onClick={handleFinishClick}>
-                FINISH & CHECKOUT
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <PortalModal
-        isOpen={showEndModal}
-        onClose={() => setShowEndModal(false)}
-        onConfirm={handleEndSession}
-      />
+      {/* ITEM MODAL (Regular items) */}
       <ReservationOrderModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         item={selectedItem}
-        onAdd={(item) => setCart([...cart, item])}
+        onAdd={(item) => {
+          const existingItem = cart.find((i) => i.id === item.id);
+          if (existingItem) {
+            updateQuantity(item.id, existingItem.quantity + item.quantity);
+          } else {
+            setCart([...cart, item]);
+          }
+          setIsModalOpen(false);
+        }}
         allProducts={menuData}
       />
-
-      {/* TYPE MODAL */}
-      {showTypeModal && (
-        <div className="res-modal-overlay" style={{ zIndex: 6000 }}>
-          <div className="res-modal-card">
-            <h2 style={{ color: "#ffcc00", marginBottom: "20px" }}>
-              Order Mode
-            </h2>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "15px",
-                width: "100%",
-              }}
-            >
-              <button
-                className="res-modal-btn-primary"
-                onClick={handleDineInSelection}
-              >
-                DINE-IN
-              </button>
-              <button
-                className="res-modal-btn-primary"
-                onClick={handleTakeOutClick}
-                style={{ background: "#ffcc00", color: "#000" }}
-              >
-                TAKE-OUT
-              </button>
-              <button
-                className="res-btn-cancel"
-                onClick={() => setShowTypeModal(false)}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TABLE PICKER */}
-      {showTablePicker && (
-        <div className="res-modal-overlay" style={{ zIndex: 6500 }}>
-          <div
-            className="res-modal-card"
-            style={{ maxWidth: "600px", width: "90%" }}
-          >
-            <h2 style={{ color: "#ffcc00" }}>Select Table</h2>
-            <div
-              className="table-grid-kiosk"
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(4, 1fr)",
-                gap: "20px",
-                margin: "20px 0",
-              }}
-            >
-              {availableTables.map((table) => {
-                const occupied =
-                  table.bridge_status?.toLowerCase() === "confirmed" ||
-                  table.bridge_status?.toLowerCase() === "seated";
-                return (
-                  <button
-                    key={table.table_id}
-                    disabled={occupied}
-                    onClick={() => submitOrderToDatabase(table.table_id, cart)}
-                    style={{
-                      padding: "20px 10px",
-                      borderRadius: "8px",
-                      border: "none",
-                      background: occupied ? "#333" : "#ffcc00",
-                      color: occupied ? "#666" : "#000",
-                      fontWeight: "bold",
-                    }}
-                  >
-                    {table.table_number}
-                  </button>
-                );
-              })}
-            </div>
-            <button
-              className="res-btn-cancel"
-              onClick={() => setShowTablePicker(false)}
-            >
-              Back
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
