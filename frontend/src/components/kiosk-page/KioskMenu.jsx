@@ -125,14 +125,26 @@ const KioskMenu = () => {
         submitOrderToDatabase(tbl === "takeout" ? null : tbl);
     } else {
         setIsFinalCheckout(false);
-        setShowBillInfo(true);
+        setShowTypeModal(true);
     }
   };
 
   const confirmPaymentChoice = (choice) => {
     localStorage.setItem(PAYMENT_CHOICE_KEY, choice);
+    
+    // Create payment record for walk-ins
+    const resId = localStorage.getItem(SAVED_RES_ID);
+    if (resId && resId.startsWith("WALK-")) {
+      const total = calculateTotal();
+      axios.post(`${API_BASE}/billing/walkin`, {
+        reservation_id: resId,
+        amount: parseFloat(total),
+        payment_method: choice === "Pay Now" ? "Cash" : "Pending",
+        payment_status: choice === "Pay Now" ? "verified" : "pending"
+      }).catch(err => console.error("Payment record creation failed:", err));
+    }
+    
     setShowBillInfo(false);
-    setShowTypeModal(true); 
   };
 
   const handleFinishClick = async () => {
@@ -142,7 +154,8 @@ const KioskMenu = () => {
     setShowBillInfo(true);
   };
 
-  const submitOrderToDatabase = async (tableId = null, itemsToSubmit = cart) => {
+  const submitOrderToDatabase = async (tableId = null, itemsToSubmit = null) => {
+    if (!itemsToSubmit || itemsToSubmit.length === 0) return;
     const dynamicResId = localStorage.getItem(SAVED_RES_ID) || `WALK-${Date.now()}`;
     try {
       await axios.post(`${API_BASE}/orders/place`, {
@@ -178,7 +191,9 @@ const KioskMenu = () => {
     setCart([]); // Now safe to clear tray
     setShowTablePicker(false);
     setShowTypeModal(false);
-    setShowSessionModal(true);
+    setShowBillInfo(true);
+    setIsFinalCheckout(false);
+    setShowSessionModal(false);
     fetchCurrentBill();
   };
 
@@ -223,6 +238,12 @@ const KioskMenu = () => {
       setShowTypeModal(false);
       setTimeout(() => setShowTablePicker(true), 100);
     } catch (err) { alert("Could not load tables."); }
+  };
+
+  const handleTakeOutClick = () => {
+    setShowTypeModal(false);
+    setIsFinalCheckout(false);
+    submitOrderToDatabase(null, cart);
   };
 
   useEffect(() => {
@@ -473,7 +494,7 @@ const KioskMenu = () => {
             <h2 style={{ color: "#ffcc00", marginBottom: "20px" }}>Order Mode</h2>
             <div style={{ display: "flex", flexDirection: "column", gap: "15px", width: "100%" }}>
               <button className="res-modal-btn-primary" onClick={handleDineInSelection}>DINE-IN</button>
-              <button className="res-btn-view" onClick={() => submitOrderToDatabase(null)} style={{ background: "#444" }}>TAKE-OUT</button>
+              <button className="res-modal-btn-primary" onClick={handleTakeOutClick} style={{ background: "#ffcc00", color: "#000" }}>TAKE-OUT</button>
               <button className="res-btn-cancel" onClick={() => setShowTypeModal(false)}>Cancel</button>
             </div>
           </div>

@@ -166,7 +166,6 @@ const KioskReservationMenu = () => {
 
   const confirmPaymentChoice = (choice) => {
     localStorage.setItem(PAYMENT_CHOICE_KEY, choice);
-    setShowBillInfo(false);
     submitOrderToDatabase();
   };
 
@@ -178,6 +177,7 @@ const KioskReservationMenu = () => {
   };
 
   const submitOrderToDatabase = async () => {
+    if (cart.length === 0) return;
     try {
       await axios.post(`${API_BASE}/orders/place`, {
         reservation_id: reservationId,
@@ -192,6 +192,7 @@ const KioskReservationMenu = () => {
 
       setBillItems(prev => [...prev, ...cart]);
       setCart([]);
+      setShowBillInfo(false);
       setShowSessionModal(true);
     } catch (e) { alert("Failed to send order."); }
   };
@@ -304,9 +305,9 @@ const KioskReservationMenu = () => {
         <div className="res-modal-overlay" style={{ zIndex: 10000 }}>
           <div className="res-modal-card" style={{ maxWidth: "450px", textAlign: "center" }}>
             <Receipt size={50} color="#ffcc00" style={{ margin: "0 auto 15px" }} />
-            <h2 style={{ color: "#ffcc00" }}>{isFinalCheckout ? "Final Bill Summary" : "Confirm Order"}</h2>
+            <h2 style={{ color: "#ffcc00" }}>Confirm Order</h2>
             <div className="bill-scroll" style={{ maxHeight: "250px", overflowY: "auto", margin: "20px 0", borderBottom: "1px solid #444" }}>
-              {[...billItems, ...cart].map((item, idx) => {
+              {cart.map((item, idx) => {
                 const p = parseFloat(item.price || item.item_price || 0);
                 const q = parseInt(item.quantity || item.qty || 1);
                 return (
@@ -320,18 +321,11 @@ const KioskReservationMenu = () => {
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "1.5rem", fontWeight: "bold", color: "#fff", marginBottom: "30px" }}>
               <span>Total:</span><span style={{ color: "#ffcc00" }}>₱{calculateTotal()}</span>
             </div>
-            {isFinalCheckout ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                 <button className="res-modal-btn-primary" onClick={() => setShowEndModal(true)}>PROCEED TO CHECKOUT</button>
-                 <button className="res-btn-cancel" onClick={() => setShowBillInfo(false)}>BACK</button>
-              </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                <button className="res-modal-btn-primary" onClick={() => confirmPaymentChoice("Pay Now")}><Banknote size={18} /> PAY NOW</button>
-                <button className="res-modal-btn-primary" style={{background: "#444"}} onClick={() => confirmPaymentChoice("Pay Later")}><Clock size={18} /> PAY LATER</button>
-                <button className="res-btn-cancel" onClick={() => setShowBillInfo(false)}>CANCEL</button>
-              </div>
-            )}
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              <button className="res-modal-btn-primary" onClick={() => confirmPaymentChoice("Pay Now")}><Banknote size={18} /> PAY NOW</button>
+              <button className="res-modal-btn-primary" style={{background: "#444"}} onClick={() => confirmPaymentChoice("Pay Later")}><Clock size={18} /> PAY LATER</button>
+              <button className="res-btn-cancel" onClick={() => setShowBillInfo(false)}>CANCEL</button>
+            </div>
           </div>
         </div>
       )}

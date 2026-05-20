@@ -184,23 +184,29 @@ const Billing = () => {
                     </div>
                     <code className="text-muted" style={{ fontSize: "0.6rem" }}>
                       Res ID: #{p.reservation_id}
+                      {p.reservation_id?.startsWith("WALK") && <span className="badge bg-info text-dark ms-1">Walk-In</span>}
                     </code>
                   </td>
                   <td>
                     <span className="badge bg-white text-dark border px-3 py-2 fw-normal">
-                      {p.payment_method?.toUpperCase()}
+                      {p.payment_method ? p.payment_method.toUpperCase() : "N/A"}
                     </span>
                   </td>
                   <td>
                     <span className="fw-bold text-primary">
-                      ₱{Number(p.amount).toLocaleString()}
+                      ₱{p.amount ? Number(p.amount).toLocaleString() : "0"}
                     </span>
                   </td>
                   <td>
                     <span
-                      className={`badge rounded-pill px-3 py-1 small ${p.payment_status === "verified" ? "bg-success text-white" : p.payment_status === "pending" ? "bg-warning text-dark" : "bg-danger text-white"}`}
+                      className={`badge rounded-pill px-3 py-1 small ${
+                        p.payment_status === "verified" ? "bg-success text-white" :
+                        p.payment_status === "pending" ? "bg-warning text-dark" :
+                        p.payment_status === "rejected" ? "bg-danger text-white" :
+                        "bg-secondary text-white"
+                      }`}
                     >
-                      {p.payment_status?.toUpperCase()}
+                      {p.payment_status ? p.payment_status.toUpperCase() : "NO RECORD"}
                     </span>
                   </td>
                   <td className="text-center">

@@ -119,12 +119,6 @@ function ReviewsSection() {
         </p>
       )}
 
-      {!isLoggedIn && !showForm && (
-        <p style={{ color: "#999", fontSize: "0.9rem", margin: "15px 0" }}>
-          👤 <a href="/login" style={{ color: "#ffcc00", textDecoration: "none", fontWeight: "bold" }}>Log in</a> to write a review after your visit
-        </p>
-      )}
-
       {showForm && (
         <div className="review-input-container fade-in">
           <form onSubmit={handleSubmit}>

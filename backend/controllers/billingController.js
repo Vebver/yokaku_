@@ -9,6 +9,31 @@ exports.getPayments = async (req, res) => {
   }
 };
 
+exports.createWalkinPayment = async (req, res) => {
+  try {
+    const { reservation_id, amount, payment_method, payment_status } = req.body;
+    
+    if (!reservation_id || amount === undefined) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    const paymentId = await Billing.createWalkinPayment(
+      reservation_id,
+      amount,
+      payment_method || "Cash",
+      payment_status || "pending"
+    );
+
+    res.status(201).json({ 
+      success: true, 
+      payment_id: paymentId,
+      message: "Walk-in payment record created"
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 exports.updatePaymentStatus = async (req, res) => {
   try {
     const { id } = req.params;
