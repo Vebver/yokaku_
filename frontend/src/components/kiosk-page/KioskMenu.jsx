@@ -227,8 +227,9 @@ const KioskMenu = () => {
         const grouped = data.reduce((acc, item) => {
           const cat = item.category_name || "General";
           if (!acc[cat]) acc[cat] = [];
-          const fullImg = item.image_url?.startsWith("http") ? item.image_url : `${BASE_URL}${item.image_url?.startsWith("/") ? "" : "/"}${item.image_url}`;
-          acc[cat].push({ id: item.item_id, name: item.name, image: fullImg, price: item.price, category: cat, description: item.description || "" });
+          const targetPath = navigator.onLine && item.local_path ? item.local_path : item.image_url;
+          const fullImage = targetPath?.startsWith("http") ? targetPath : `${BASE_URL}${targetPath?.startsWith("/") ? "" : "/"}${targetPath}`;
+          acc[cat].push({ id: item.item_id, name: item.name, image: fullImage, price: item.price, category: cat, description: item.description || "" });
           return acc;
         }, {});
         setMenuData(grouped);
@@ -251,7 +252,7 @@ const KioskMenu = () => {
     const params = new URLSearchParams(window.location.search);
     const setupId = params.get("setupTable");
     if (setupId) {
-      storage.setItem(FIXED_KIOSK_KEY, setupId);
+      storage.setItem(FIXED_KIOSK_KEY, setupId);  
       alert(`KIOSK CONFIGURED: Table ${setupId}`);
       navigate("/kiosk-selection/kiosk-menu", { replace: true });
     }
@@ -353,7 +354,7 @@ const KioskMenu = () => {
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "1.4rem", fontWeight: "bold", color: "#fff", marginBottom: "30px" }}><span>Total:</span><span style={{ color: "#ffcc00" }}>₱{calculateTotal()}</span></div>
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              {isFinalCheckout ? <><button className="res-modal-btn-primary" onClick={handleEndSession}>FINISH SESSION</button><button className="res-btn-cancel" onClick={() => setShowBillInfo(false)}>BACK</button></> : <><button className="res-modal-btn-primary" onClick={() => confirmPaymentChoice("Pay Now")}><Banknote size={18} className="me-2"/> PAY NOW</button><button className="res-modal-btn-primary" style={{ background: "#444" }} onClick={() => confirmPaymentChoice("Pay Later")}><Clock size={18} className="me-2"/> PAY LATER</button><button className="res-btn-cancel" onClick={() => setShowBillInfo(false)}>CANCEL</button></>}
+              {isFinalCheckout ? <><button className="res-modal-btn-primary" onClick={handleEndSession}>FINISH</button><button className="res-btn-cancel" onClick={() => setShowBillInfo(false)}>BACK</button></> : <><button className="res-modal-btn-primary" onClick={() => confirmPaymentChoice("Pay Now")}><Banknote size={18} className="me-2"/> PAY NOW</button><button className="res-modal-btn-primary" style={{ background: "#444" }} onClick={() => confirmPaymentChoice("Pay Later")}><Clock size={18} className="me-2"/> PAY LATER</button><button className="res-btn-cancel" onClick={() => setShowBillInfo(false)}>CANCEL</button></>}
             </div>
           </div>
         </div>
