@@ -1,16 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  PlusSquare, Drumstick, CupSoda, Check, Bell, Star, ShoppingBag,
-  CheckCircle, ChevronUp, ChevronDown, Flame, Wallet,
-  Infinity as InfinityIcon, Pizza, Beef, Package, Utensils,
-  Soup, Salad, Clock, Receipt, UtensilsCrossed, RefreshCw,
-  Banknote, CreditCard,
+  PlusSquare, Drumstick, CupSoda, Star, ShoppingBag,
+  Flame, Wallet, Infinity as InfinityIcon, Pizza, Beef, 
+  Package, Utensils, Soup, Salad, Clock, Receipt, 
+  CreditCard, Banknote,
 } from "lucide-react";
 import "../../Style/KioskReservationMenu.css";
 import ReservationOrderModal from "./ReservationOrderModal";
 import OrderSummary from "./OrderSummary";
-import PortalModal from "./PortalModal";
 import axios from "axios";
 import alertMusicFile from "../../assets/alert-sound.mp3";
 
@@ -32,11 +30,9 @@ const KioskMenu = () => {
 
   // --- STORAGE CONFIGURATION ---
   const storage = window.sessionStorage; 
-
   const TIMER_KEY = "kiosk_walkin_timer_end";
   const SAVED_TABLE_ID = "kiosk_active_table_id";
   const SAVED_RES_ID = "kiosk_active_res_id";
-  const OFFLINE_QUEUE_KEY = "kiosk_offline_orders";
   const PAYMENT_CHOICE_KEY = "kiosk_payment_choice";
   const FIXED_KIOSK_KEY = "kiosk_fixed_table_id";
 
@@ -48,9 +44,11 @@ const KioskMenu = () => {
   const [dynamicFlavors, setDynamicFlavors] = useState([]);
   const [dynamicRamenFlavors, setDynamicRamenFlavors] = useState([]);
   const [dynamicDrinks, setDynamicDrinks] = useState([]);
+
+  // --- TIMER STATES ---
   const [timeLeft, setTimeLeft] = useState(1860);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
-  const [showSessionModal, setShowSessionModal] = useState(false);
+
   const [showTypeModal, setShowTypeModal] = useState(false);
   const [showTablePicker, setShowTablePicker] = useState(false);
   const [availableTables, setAvailableTables] = useState([]);
@@ -64,46 +62,35 @@ const KioskMenu = () => {
   const [selectedItem, setSelectedItem] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  const formatTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
+
   const calculateTotal = () => {
     const finalItems = billItems.length > 0 ? [...billItems, ...cart] : [...localBillHistory, ...cart];
-    const total = finalItems.reduce((sum, item) => {
-      const price = parseFloat(
-        item.price || item.item_price || item.unit_price || 0,
-      );
+    return finalItems.reduce((sum, item) => {
+      const price = parseFloat(item.price || item.item_price || item.unit_price || 0);
       const qty = parseInt(item.quantity || item.qty || 1);
       return sum + price * qty;
-    }, 0);
-    return total.toFixed(2);
+    }, 0).toFixed(2);
   };
 
   const getImmediateTotal = (cartItems, historyItems) => {
-  const combined = [...historyItems, ...cartItems];
-  return combined.reduce((sum, item) => {
-    const price = parseFloat(item.price || item.item_price || 0);
-    const qty = parseInt(item.quantity || item.qty || 1);
-    return sum + (price * qty);
-  }, 0).toFixed(2);
-};
+    const combined = [...historyItems, ...cartItems];
+    return combined.reduce((sum, item) => {
+      const price = parseFloat(item.price || item.item_price || 0);
+      const qty = parseInt(item.quantity || item.qty || 1);
+      return sum + (price * qty);
+    }, 0).toFixed(2);
+  };
 
-  // Helper to send the current total to the Billing Dashboard
   const syncWithDashboard = async (resId, amount, method = "Cash", status = "pending") => {
-  try {
-    // We get the token because the Billing API usually requires it
-    const token = localStorage.getItem("token") || ""; 
-    
-    await axios.post(`${API_BASE}/billing/walkin`, {
-      reservation_id: resId,
-      amount: parseFloat(amount),
-      payment_method: method,
-      payment_status: status
-    }, {
-      headers: { Authorization: `Bearer ${token}` } // ADDED AUTHORIZATION
-    });
-    console.log("Successfully pushed to dashboard:", amount);
-  } catch (err) { 
-    console.error("Dashboard sync failed. Check if your API allows unauthorized billing updates.", err); 
-  }
-};
+    try {
+      const token = localStorage.getItem("token") || ""; 
+      await axios.post(`${API_BASE}/billing/walkin`, {
+        reservation_id: resId, amount: parseFloat(amount),
+        payment_method: method, payment_status: status
+      }, { headers: { Authorization: `Bearer ${token}` } });
+    } catch (err) { console.error("Dashboard sync failed", err); }
+  };
 
   const fetchCurrentBill = async () => {
     const resId = storage.getItem(SAVED_RES_ID);
@@ -118,92 +105,88 @@ const KioskMenu = () => {
   const handleEndSession = async () => {
     const activeTable = storage.getItem(SAVED_TABLE_ID);
     const activeResId = storage.getItem(SAVED_RES_ID);
-    const total = calculateTotal();
-
     if (activeResId && navigator.onLine) {
-      await syncWithDashboard(activeResId, total); // Send total one last time
       try {
         await axios.post(`${API_BASE}/orders/finish`, {
-          table_id: activeTable,
-          reservation_id: activeResId,
+          table_id: activeTable, reservation_id: activeResId,
         });
       } catch (err) { console.error(err); }
     }
-
     if (timerRef.current) clearInterval(timerRef.current);
-    const keysToRemove = [TIMER_KEY, SAVED_TABLE_ID, SAVED_RES_ID, OFFLINE_QUEUE_KEY, PAYMENT_CHOICE_KEY, "kiosk_active_bundle_id"];
+    const keysToRemove = [TIMER_KEY, SAVED_TABLE_ID, SAVED_RES_ID, "kiosk_offline_orders", PAYMENT_CHOICE_KEY, "kiosk_active_bundle_id"];
     keysToRemove.forEach((key) => storage.removeItem(key));
     window.location.href = "/kiosk-selection";
   };
 
   const confirmPaymentChoice = (choice) => {
-  storage.setItem(PAYMENT_CHOICE_KEY, choice);
-  const resId = storage.getItem(SAVED_RES_ID);
-  setShowBillInfo(false);
+    storage.setItem(PAYMENT_CHOICE_KEY, choice);
+    const resId = storage.getItem(SAVED_RES_ID);
+    if (resId) {
+      const total = calculateTotal();
+      const paymentStatus = choice === "Pay Now" ? "verified" : "pending";
+      syncWithDashboard(resId, total, "Cash", paymentStatus);
+      
+      // Update reservation status based on payment choice
+      try {
+        axios.put(`${API_BASE}/orders/${resId}/status`, {
+          status: paymentStatus
+        });
+      } catch (err) { console.error("Failed to update order status", err); }
+    }
+    setShowBillInfo(false);
+  };
 
-  if (resId) {
-    const total = calculateTotal();
-    // Pass the choice to set verified/pending correctly
-    syncWithDashboard(
-      resId, 
-      total, 
-      "Cash", 
-      choice === "Pay Now" ? "verified" : "pending"
-    );
-  }
-};
+  const finalizeOrderLocally = (itemsToSubmit, tableId, dynamicResId) => {
+    const totalWithNewItems = getImmediateTotal(itemsToSubmit, localBillHistory);
+    setLocalBillHistory((prev) => [...prev, ...itemsToSubmit]);
+    storage.setItem(SAVED_TABLE_ID, tableId || "takeout");
+    storage.setItem(SAVED_RES_ID, dynamicResId);
+    setCart([]);
+    setShowTablePicker(false);
+    setShowTypeModal(false);
+    setShowBillInfo(true);
+    setIsFinalCheckout(false);
+    fetchCurrentBill();
+  };
 
   const submitOrderToDatabase = async (tableId = null, itemsToSubmit = null, mode = "Dine-In") => {
     if (!itemsToSubmit || itemsToSubmit.length === 0) return;
     const activeResId = storage.getItem(SAVED_RES_ID);
     const dynamicResId = activeResId || `WALK-${Date.now()}`;
-
     const processedItems = itemsToSubmit.map((i) => ({
       item_id: i.id, quantity: i.quantity,
       customizations: mode === "Take-Out" ? `[TAKE-OUT] ${i.customizations || ""}` : i.customizations,
       is_refill: i.price === 0,
     }));
-
     try {
       await axios.post(`${API_BASE}/orders/place`, {
-        reservation_id: dynamicResId,
-        table_id: tableId,
-        items: processedItems,
+        reservation_id: dynamicResId, table_id: tableId, items: processedItems,
       });
-
       finalizeOrderLocally(itemsToSubmit, tableId, dynamicResId);
-    } catch (error) {
+      
+      // Start timer if unlimited items are ordered
+      const hasUnlimited = itemsToSubmit.some(i => (i.name || "").toLowerCase().includes("unlimited"));
+      if (hasUnlimited && !storage.getItem(TIMER_KEY)) {
+        storage.setItem(TIMER_KEY, (Date.now() + 1860 * 1000).toString());
+        setIsTimerRunning(true);
+      }
+    } catch (error) { 
       finalizeOrderLocally(itemsToSubmit, tableId, dynamicResId);
+      
+      // Start timer if unlimited items are ordered (even on error)
+      const hasUnlimited = itemsToSubmit.some(i => (i.name || "").toLowerCase().includes("unlimited"));
+      if (hasUnlimited && !storage.getItem(TIMER_KEY)) {
+        storage.setItem(TIMER_KEY, (Date.now() + 1860 * 1000).toString());
+        setIsTimerRunning(true);
+      }
     }
   };
 
-  const finalizeOrderLocally = (itemsToSubmit, tableId, dynamicResId) => {
-  // Calculate total immediately using the items we JUST sent
-  const totalWithNewItems = getImmediateTotal(itemsToSubmit, localBillHistory);
-  
-  // Push to dashboard right now
-  syncWithDashboard(dynamicResId, totalWithNewItems);
-
-  // Update states
-  setLocalBillHistory((prev) => [...prev, ...itemsToSubmit]);
-  storage.setItem(SAVED_TABLE_ID, tableId || "takeout");
-  storage.setItem(SAVED_RES_ID, dynamicResId);
-  
-  setCart([]);
-  setShowTablePicker(false);
-  setShowTypeModal(false);
-  setShowBillInfo(true);
-  setIsFinalCheckout(false);
-  fetchCurrentBill();
-};
-
-  const handlePlaceOrderClick = () => { setShowTypeModal(true); };
-
+  // --- ADDED MISSING FUNCTION ---
   const handleDineInSelection = async () => {
     const fixedTableId = storage.getItem(FIXED_KIOSK_KEY);
     const activeTableId = storage.getItem(SAVED_TABLE_ID);
     const finalTable = activeTableId || fixedTableId;
-
     if (finalTable && finalTable !== "takeout") {
       setShowTypeModal(false);
       submitOrderToDatabase(finalTable, cart, "Dine-In");
@@ -216,8 +199,6 @@ const KioskMenu = () => {
       } catch (err) { alert("Could not load tables."); }
     }
   };
-
-  const handleTakeOutClick = () => { setShowTypeModal(false); submitOrderToDatabase(null, cart, "Take-Out"); };
 
   useEffect(() => {
     const fetchMenu = async () => {
@@ -249,19 +230,13 @@ const KioskMenu = () => {
       const remaining = Math.floor((parseInt(savedEndTime) - Date.now()) / 1000);
       if (remaining > 0) { setTimeLeft(remaining); setIsTimerRunning(true); } else { handleEndSession(); }
     }
-    const params = new URLSearchParams(window.location.search);
-    const setupId = params.get("setupTable");
-    if (setupId) {
-      storage.setItem(FIXED_KIOSK_KEY, setupId);  
-      alert(`KIOSK CONFIGURED: Table ${setupId}`);
-      navigate("/kiosk-selection/kiosk-menu", { replace: true });
-    }
-  }, [navigate]);
+  }, []);
 
   useEffect(() => {
     if (isTimerRunning) {
       timerRef.current = setInterval(() => {
         const savedEndTime = storage.getItem(TIMER_KEY);
+        if (!savedEndTime) return;
         const remaining = Math.floor((parseInt(savedEndTime) - Date.now()) / 1000);
         if (remaining <= 0) handleEndSession(); else setTimeLeft(remaining);
       }, 1000);
@@ -269,12 +244,7 @@ const KioskMenu = () => {
     return () => clearInterval(timerRef.current);
   }, [isTimerRunning]);
 
-  const unlockAudio = () => { if (audioRef.current) { audioRef.current.play().then(() => { audioRef.current.pause(); audioRef.current.currentTime = 0; }).catch(() => {}); } };
-  const formatTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
-  const hasActiveBundle = Boolean(storage.getItem(TIMER_KEY));
-
   const handleItemClick = (item) => {
-    unlockAudio();
     const name = item.name.toLowerCase();
     if (name.includes("unlimited") || name.includes("ramen")) {
       setSelectedItem(item); setSelectedFlavors([]); setSelectedDrink(""); setIsRefillMode(false); setShowFlavorModal(true);
@@ -290,7 +260,7 @@ const KioskMenu = () => {
     setShowFlavorModal(false);
   };
 
-  const handleFinishClick = async () => { setShowSessionModal(false); await fetchCurrentBill(); setIsFinalCheckout(true); setShowBillInfo(true); };
+  const handleFinishClick = async () => { await fetchCurrentBill(); setIsFinalCheckout(true); setShowBillInfo(true); };
 
   if (loading) return <div className="loading-container">Loading Menu...</div>;
 
@@ -306,8 +276,20 @@ const KioskMenu = () => {
             </span>
           </div>
         </div>
-        {storage.getItem(SAVED_RES_ID) && <button className="billing-btn-header" onClick={handleFinishClick} style={{ background: "#ffcc00", color: "#000", border: "none", padding: "8px 15px", borderRadius: "8px", fontWeight: "bold", marginLeft: "10px" }}><CreditCard size={18} className="me-2"/> PAY</button>}
-        {isTimerRunning && hasActiveBundle && <div className="timer-box" onClick={() => setShowSessionModal(true)} style={{ cursor: "pointer", border: "2px solid #ffcc00", marginLeft: "auto" }}><Clock size={20} color="#ffcc00" /><span className="timer-text" style={{ color: "#fff" }}>{formatTime(timeLeft)}</span><button className="finish-session-header-btn" onClick={(e) => { e.stopPropagation(); handleFinishClick(); }}>FINISH</button></div>}
+        
+        {storage.getItem(SAVED_RES_ID) && (
+          <button className="billing-btn-header" onClick={handleFinishClick} style={{ background: "#ffcc00", color: "#000", border: "none", padding: "8px 15px", borderRadius: "8px", fontWeight: "bold", marginLeft: "10px" }}>
+            <CreditCard size={18} className="me-2"/> PAY
+          </button>
+        )}
+
+        {isTimerRunning && (
+          <div className="timer-box" onClick={() => setShowBillInfo(true)} style={{ cursor: "pointer", border: "3px solid #ffcc00", marginLeft: "auto", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "5px", padding: "10px 20px", borderRadius: "8px", background: "#000", minWidth: "200px" }}>
+            <Clock size={28} color="#ffcc00" />
+            <span className="timer-text" style={{ color: "#fff", fontWeight: "900", fontSize: "2.5rem" }}>{formatTime(timeLeft)}</span>
+            <button className="finish-session-header-btn" onClick={(e) => { e.stopPropagation(); handleFinishClick(); }} style={{ background: "#ffcc00", color: "#000", border: "none", padding: "4px 12px", borderRadius: "5px", fontWeight: "bold", fontSize: "0.9rem" }}>FINISH</button>
+          </div>
+        )}
       </div>
 
       <div className="res-main-layout">
@@ -339,8 +321,20 @@ const KioskMenu = () => {
 
       <footer className="res-bottom-bar">
          {!storage.getItem(SAVED_RES_ID) && !storage.getItem(FIXED_KIOSK_KEY) && <button className="res-btn-view-all" onClick={() => (window.location.href = "/kiosk-selection")}>Back</button>}
-        <div className="res-action-btns"><button className="res-btn-cancel" onClick={() => setCart([])}>Clear Tray</button><button className="res-btn-view" disabled={cart.length === 0} onClick={handlePlaceOrderClick}>Place Order</button></div>
+        <div className="res-action-btns"><button className="res-btn-cancel" onClick={() => setCart([])}>Clear Tray</button><button className="res-btn-view" disabled={cart.length === 0} onClick={() => setShowTypeModal(true)}>Place Order</button></div>
       </footer>
+
+      {showFlavorModal && (
+        <div className="res-modal-overlay" style={{ zIndex: 9000 }}><div className="res-modal-card" style={{ maxWidth: "600px" }}><h2 style={{ color: "#ffcc00", textAlign: "center" }}>{selectedItem?.name.toLowerCase().includes("ramen") ? "Ramen Choice" : "Unlimited Wings"}</h2><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginTop: "20px" }}>{(selectedItem?.name.toLowerCase().includes("ramen") ? dynamicRamenFlavors : dynamicFlavors).map(f => (<button key={f} onClick={() => { if (selectedFlavors.includes(f)) setSelectedFlavors(selectedFlavors.filter(x => x !== f)); else { if (selectedItem.name.toLowerCase().includes("ramen")) setSelectedFlavors([f]); else if (selectedFlavors.length < 4) setSelectedFlavors([...selectedFlavors, f]); } }} style={{ padding: "15px", borderRadius: "10px", border: "1px solid #ffcc00", background: selectedFlavors.includes(f) ? "#ffcc00" : "none", color: selectedFlavors.includes(f) ? "#000" : "#fff" }}>{f}</button>))}</div>{!isRefillMode && !selectedItem?.name.toLowerCase().includes("ramen") && (<div style={{ marginTop: "20px" }}><h4 style={{ color: "#fff" }}>Select Drink</h4><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>{dynamicDrinks.map(d => (<button key={d} onClick={() => setSelectedDrink(d)} style={{ padding: "10px", borderRadius: "8px", border: "1px solid #555", background: selectedDrink === d ? "#fff" : "#222", color: selectedDrink === d ? "#000" : "#fff" }}>{d}</button>))}</div></div>)}<div style={{ display: "flex", gap: "15px", marginTop: "30px" }}><button className="res-btn-cancel" style={{ flex: 1 }} onClick={() => setShowFlavorModal(false)}>Cancel</button><button className="res-modal-btn-primary" style={{ flex: 2 }} onClick={confirmFlavors}>{isRefillMode ? "SEND REFILL" : "ADD TO TRAY"}</button></div></div></div>
+      )}
+
+      {showTypeModal && (
+        <div className="res-modal-overlay" style={{ zIndex: 6000 }}><div className="res-modal-card"><h2 style={{ color: "#ffcc00", marginBottom: "20px" }}>Order Mode</h2><div style={{ display: "flex", flexDirection: "column", gap: "15px" }}><button className="res-modal-btn-primary" onClick={handleDineInSelection}>DINE-IN</button>{!cart.some(item => (item.name || "").toLowerCase().includes("unlimited")) && (<button className="res-modal-btn-primary" onClick={() => submitOrderToDatabase(null, cart, "Take-Out")} style={{ background: "#ffcc00", color: "#000" }}>TAKE-OUT</button>)}<button className="res-btn-cancel" onClick={() => setShowTypeModal(false)}>Cancel</button></div></div></div>
+      )}
+
+      {showTablePicker && (
+        <div className="res-modal-overlay" style={{ zIndex: 6500 }}><div className="res-modal-card"><h2 style={{ color: "#ffcc00" }}>Select Table</h2><div className="table-grid-kiosk" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "15px", margin: "20px 0" }}>{availableTables.map(table => { const occupied = table.bridge_status?.toLowerCase() === "confirmed" || table.bridge_status?.toLowerCase() === "seated"; return (<button key={table.table_id} disabled={occupied} onClick={() => submitOrderToDatabase(table.table_id, cart)} style={{ padding: "15px", borderRadius: "8px", background: occupied ? "#333" : "#ffcc00", color: occupied ? "#666" : "#000" }}>{table.table_number}</button>); })}</div><button className="res-btn-cancel" onClick={() => setShowTablePicker(false)}>Back</button></div></div>
+      )}
 
       {showBillInfo && (
         <div className="res-modal-overlay" style={{ zIndex: 10000 }}>
@@ -359,19 +353,6 @@ const KioskMenu = () => {
           </div>
         </div>
       )}
-
-      {showFlavorModal && (
-        <div className="res-modal-overlay" style={{ zIndex: 9000 }}><div className="res-modal-card" style={{ maxWidth: "600px" }}><h2 style={{ color: "#ffcc00", textAlign: "center" }}>{selectedItem?.name.toLowerCase().includes("ramen") ? "Ramen Choice" : "Unlimited Wings"}</h2><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginTop: "20px" }}>{(selectedItem?.name.toLowerCase().includes("ramen") ? dynamicRamenFlavors : dynamicFlavors).map(f => (<button key={f} onClick={() => { if (selectedFlavors.includes(f)) setSelectedFlavors(selectedFlavors.filter(x => x !== f)); else { if (selectedItem.name.toLowerCase().includes("ramen")) setSelectedFlavors([f]); else if (selectedFlavors.length < 4) setSelectedFlavors([...selectedFlavors, f]); } }} style={{ padding: "15px", borderRadius: "10px", border: "1px solid #ffcc00", background: selectedFlavors.includes(f) ? "#ffcc00" : "none", color: selectedFlavors.includes(f) ? "#000" : "#fff" }}>{f}</button>))}</div>{!isRefillMode && !selectedItem?.name.toLowerCase().includes("ramen") && (<div style={{ marginTop: "20px" }}><h4 style={{ color: "#fff" }}>Select Drink</h4><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>{dynamicDrinks.map(d => (<button key={d} onClick={() => setSelectedDrink(d)} style={{ padding: "10px", borderRadius: "8px", border: "1px solid #555", background: selectedDrink === d ? "#fff" : "none", color: selectedDrink === d ? "#000" : "#fff" }}>{d}</button>))}</div></div>)}<div style={{ display: "flex", gap: "15px", marginTop: "30px" }}><button className="res-btn-cancel" style={{ flex: 1 }} onClick={() => setShowFlavorModal(false)}>Cancel</button><button className="res-modal-btn-primary" style={{ flex: 2 }} onClick={confirmFlavors}>{isRefillMode ? "SEND REFILL" : "ADD TO TRAY"}</button></div></div></div>
-      )}
-
-      {showTypeModal && (
-        <div className="res-modal-overlay" style={{ zIndex: 6000 }}><div className="res-modal-card"><h2 style={{ color: "#ffcc00", marginBottom: "20px" }}>Order Mode</h2><div style={{ display: "flex", flexDirection: "column", gap: "15px" }}><button className="res-modal-btn-primary" onClick={handleDineInSelection}>DINE-IN</button>{!cart.some(item => (item.name || "").toLowerCase().includes("unlimited") || (item.category || "").toLowerCase().includes("unlimited")) && (<button className="res-modal-btn-primary" onClick={handleTakeOutClick} style={{ background: "#ffcc00", color: "#000" }}>TAKE-OUT</button>)}<button className="res-btn-cancel" onClick={() => setShowTypeModal(false)}>Cancel</button></div></div></div>
-      )}
-
-      {showTablePicker && (
-        <div className="res-modal-overlay" style={{ zIndex: 6500 }}><div className="res-modal-card"><h2 style={{ color: "#ffcc00" }}>Select Table</h2><div className="table-grid-kiosk" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "15px", margin: "20px 0" }}>{availableTables.map(table => { const occupied = table.bridge_status?.toLowerCase() === "confirmed" || table.bridge_status?.toLowerCase() === "seated"; return (<button key={table.table_id} disabled={occupied} onClick={() => submitOrderToDatabase(table.table_id, cart)} style={{ padding: "15px", borderRadius: "8px", background: occupied ? "#333" : "#ffcc00", color: occupied ? "#666" : "#000" }}>{table.table_number}</button>); })}</div><button className="res-btn-cancel" onClick={() => setShowTablePicker(false)}>Back</button></div></div>
-      )}
-
       <ReservationOrderModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} item={selectedItem} onAdd={(item) => setCart([...cart, item])} allProducts={menuData} />
     </div>
   );

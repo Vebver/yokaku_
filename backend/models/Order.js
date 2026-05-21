@@ -112,14 +112,27 @@ const Order = {
     );
   },
 
-  // 8. Update Kitchen Status
+  // 8. Update Kitchen Status and Reservation Status
   updateStatus: async (reservationId, status) => {
-    // This forces 'Preparing' or 'READY' to become 'preparing' or 'ready'
     const cleanStatus = status.toLowerCase();
 
-    return await db.execute(
+    // Map payment status to reservation status
+    let reservationStatus = 'processing';
+    if (cleanStatus === 'verified') {
+      reservationStatus = 'completed';
+    } else if (cleanStatus === 'pending') {
+      reservationStatus = 'processing';
+    }
+
+    // Update both kitchen_status and reservation status
+    await db.execute(
       `UPDATE kiosk_orders SET kitchen_status = ? WHERE reservation_id = ?`,
       [cleanStatus, reservationId],
+    );
+    
+    return await db.execute(
+      `UPDATE reservations SET status = ? WHERE reservation_id = ?`,
+      [reservationStatus, reservationId],
     );
   },
 
