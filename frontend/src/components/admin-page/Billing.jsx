@@ -132,57 +132,48 @@ const Billing = () => {
               </tr>
             </thead>
             <tbody>
-              {payments.map((p) => (
-                <tr key={p.payment_id}>
-                  <td className="ps-4 py-3">
-                    <div className="fw-bold">
-                      {p.first_name === "Walk-in"
-                        ? `Kiosk (Table ${p.table_number || "?"})`
-                        : `${p.first_name || "Guest"} ${p.last_name || ""}`}
-                    </div>
-                    <small className="text-muted">{p.reservation_id}</small>
-                  </td>
-                  <td>
-                    <span className="badge bg-white text-dark border">
-                      {p.payment_method
-                        ? p.payment_method.toUpperCase()
-                        : "PENDING"}
-                    </span>
-                  </td>
-                  <td className="fw-bold text-primary">
-                    {p.amount && Number(p.amount) > 0
-                      ? `₱${Number(p.amount).toLocaleString()}`
-                      : "₱0.00"}
-                  </td>
-                  <td>
-                    <span
-                      className={`badge rounded-pill px-3 ${p.payment_status === "verified" || p.status === "completed" ? "bg-success" : "bg-warning text-dark"}`}
-                    >
-                      {p.payment_status
-                        ? p.payment_status.toUpperCase()
-                        : "PENDING"}
-                    </span>
-                  </td>
-                  <td className="text-center">
-                    <span
-                      className={`badge rounded-pill px-3 ${p.status === "completed" ? "bg-secondary" : "bg-dark"}`}
-                    >
-                      {p.status?.toUpperCase() || "PENDING"}
-                    </span>
-                  </td>
-                  <td className="text-end pe-4">
-                    <button
-                      className="btn btn-sm btn-dark px-3"
-                      data-bs-toggle="offcanvas"
-                      data-bs-target="#billingDrawer"
-                      onClick={() => handleReviewClick(p)}
-                    >
-                      Review
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
+  {(payments || []).map((p, index) => (
+    <tr key={p.payment_id || p.reservation_id || index}>
+      <td className="ps-4 py-3">
+        <div className="fw-bold">
+          {p.first_name === "Walk-in" ? "Kiosk Guest" : `${p.first_name || 'Guest'} ${p.last_name || ''}`}
+        </div>
+        <small className="text-muted">{p.reservation_id}</small>
+      </td>
+      <td>
+        <span className="badge bg-white text-dark border">
+          {(p.payment_method || "CASH").toUpperCase()}
+        </span>
+      </td>
+      <td className="fw-bold text-primary">
+        ₱{p.amount ? Number(p.amount).toLocaleString() : "0.00"}
+      </td>
+      <td>
+        <span className={`badge rounded-pill px-3 ${
+          (p.payment_status === 'verified' || p.order_status === 'completed') 
+          ? 'bg-success' : 'bg-warning text-dark'
+        }`}>
+          {(p.payment_status || "PENDING").toUpperCase()}
+        </span>
+      </td>
+      <td className="text-center">
+        <span className={`badge rounded-pill px-3 ${p.order_status === 'completed' ? 'bg-secondary' : 'bg-dark'}`}>
+          {(p.order_status || "PENDING").toUpperCase()}
+        </span>
+      </td>
+      <td className="text-end pe-4">
+        <button 
+          className="btn btn-sm btn-dark px-3" 
+          data-bs-toggle="offcanvas" 
+          data-bs-target="#billingDrawer" 
+          onClick={() => handleReviewClick(p)}
+        >
+          Review
+        </button>
+      </td>
+    </tr>
+  ))}
+</tbody>
           </table>
         </div>
       </div>
