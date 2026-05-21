@@ -4,7 +4,7 @@ import {
   PlusSquare, Drumstick, CupSoda, Star, ShoppingBag,
   Flame, Wallet, Infinity as InfinityIcon, Pizza, Beef, 
   Package, Utensils, Soup, Salad, Clock, Receipt, 
-  CreditCard, Banknote,
+  CreditCard, Banknote, RefreshCw,
 } from "lucide-react";
 import "../../Style/KioskReservationMenu.css";
 import ReservationOrderModal from "./ReservationOrderModal";
