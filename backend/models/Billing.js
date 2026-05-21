@@ -16,82 +16,57 @@ const Billing = {
         r.first_name, 
         r.last_name, 
         r.reservation_date, 
-        r.receipt_path
+        r.receipt_path,
+        t.table_number -- JOINED TABLE NUMBER
       FROM reservations r
       LEFT JOIN payments p ON r.reservation_id = p.reservation_id
+      LEFT JOIN tables t ON r.table_id = t.table_id -- JOIN TABLES
       WHERE r.reservation_id LIKE 'WALK%' OR p.payment_id IS NOT NULL
-      ORDER BY COALESCE(p.paid_at, r.created_at) DESC
+      ORDER BY r.created_at DESC -- Sort by newest reservation
     `;
     const [rows] = await db.execute(sql);
     return rows;
   },
 
-  // NEW METHOD: Create payment record for walk-ins
   createWalkinPayment: async (reservationId, amount, paymentMethod, paymentStatus = "pending") => {
     try {
-      const sql = `
-        INSERT INTO payments 
-        (reservation_id, amount, total_bill, payment_method, payment_status, paid_at) 
-        VALUES (?, ?, ?, ?, ?, NOW())
-      `;
-      const [result] = await db.execute(sql, [
-        reservationId, 
-        amount, 
-        amount, 
-        paymentMethod, 
-        paymentStatus
-      ]);
-      return result.insertId;
+      // Logic: Check if payment row already exists for this guest
+      const [existing] = await db.execute("SELECT payment_id FROM payments WHERE reservation_id = ?", [reservationId]);
+      
+      if (existing.length > 0) {
+        // UPDATE existing record (Total bill grew)
+        const sql = `
+          UPDATE payments 
+          SET amount = ?, total_bill = ?, payment_method = ?, payment_status = ?, paid_at = NOW() 
+          WHERE reservation_id = ?
+        `;
+        await db.execute(sql, [amount, amount, paymentMethod, paymentStatus, reservationId]);
+        return existing[0].payment_id;
+      } else {
+        // INSERT new record
+        const sql = `
+          INSERT INTO payments 
+          (reservation_id, amount, total_bill, payment_method, payment_status, paid_at) 
+          VALUES (?, ?, ?, ?, ?, NOW())
+        `;
+        const [result] = await db.execute(sql, [reservationId, amount, amount, paymentMethod, paymentStatus]);
+        return result.insertId;
+      }
     } catch (err) {
-      console.error("Error creating walk-in payment:", err);
+      console.error("Error creating/updating walk-in payment:", err);
       throw err;
     }
   },
 
-  // NEW METHOD: Updates the Reservation status to 'completed'
- // UPDATED METHOD: Updates BOTH Reservation status and Payment status
   settleReservation: async (resId) => {
     try {
-      // 1. Update the Reservation to 'completed'
       const sqlRes = "UPDATE reservations SET status = 'completed' WHERE reservation_id = ?";
       await db.execute(sqlRes, [resId]);
-
-      // 2. Update the Payment record to 'verified' and set the time
-      // This is the part that was missing!
-      const sqlPay = `
-        UPDATE payments 
-        SET payment_status = 'verified', paid_at = NOW() 
-        WHERE reservation_id = ?
-      `;
-      const [result] = await db.execute(sqlPay, [resId]);
-
-      // Return true if at least the reservation was updated
+      const sqlPay = "UPDATE payments SET payment_status = 'verified', paid_at = NOW() WHERE reservation_id = ?";
+      await db.execute(sqlPay, [resId]);
       return true; 
-    } catch (err) {
-      console.error("Error settling reservation and payment:", err);
-      throw err;
-    }
-  },
-  updateStatus: async (id, status) => {
-    try {
-      let sql;
-      let params;
-
-      if (status === "verified") {
-        sql = "UPDATE payments SET payment_status = ?, paid_at = NOW() WHERE payment_id = ?";
-        params = [status, id];
-      } else {
-        sql = "UPDATE payments SET payment_status = ? WHERE payment_id = ?";
-        params = [status, id];
-      }
-
-      const [result] = await db.execute(sql, params);
-      return result.affectedRows > 0;
-    } catch (err) {
-      console.error("Error updating billing status:", err);
-      throw err;
-    }
-  },
+    } catch (err) { throw err; }
+  }
 };
 
 module.exports = Billing;
