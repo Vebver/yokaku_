@@ -66,6 +66,14 @@ const Billing = {
       await db.execute(sqlPay, [resId]);
       return true; 
     } catch (err) { throw err; }
+  },
+
+  updatePaymentStatusByReservation: async (resId, paymentStatus) => {
+    try {
+      const sql = "UPDATE payments SET payment_status = ? WHERE reservation_id = ?";
+      const [result] = await db.execute(sql, [paymentStatus, resId]);
+      return result.affectedRows > 0;
+    } catch (err) { throw err; }
   }
 };
 

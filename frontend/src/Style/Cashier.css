@@ -1,0 +1,113 @@
+/* Base Layout */
+.admin-layout {
+  display: flex;
+  min-height: 100vh;
+  background-color: #f8f9fa;
+}
+
+/* Sidebar Styling */
+.admin-sidebar {
+  width: 260px;
+  height: 100vh;
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 1050;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Sidebar States */
+.admin-sidebar.collapsed {
+  transform: translateX(-260px);
+}
+
+.admin-sidebar.expanded {
+  transform: translateX(0);
+}
+
+/* Navigation Links */
+.custom-nav {
+  flex: 1;
+}
+
+.custom-nav .nav-link {
+  padding: 14px 15px !important;
+  color: #a2a3b7 !important;
+  transition: all 0.2s;
+  text-decoration: none;
+}
+
+.custom-nav .nav-link:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: #fff !important;
+}
+
+.custom-nav .nav-link.active-nav {
+  background-color: #ffcc00 !important; /* Hangout Gold */
+  color: #000 !important;
+  box-shadow: 0 4px 12px rgba(255, 204, 0, 0.2);
+}
+
+/* Sign Out Button */
+.btn-logout {
+  padding: 12px;
+  background: transparent;
+  border: 1px solid #dc3545;
+  color: #dc3545;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: 0.3s;
+}
+
+.btn-logout:hover {
+  background: #dc3545;
+  color: #fff;
+}
+
+/* Main Content Area */
+.main-container {
+  flex: 1;
+  width: 100%;
+  transition: margin-left 0.3s ease;
+}
+
+/* Responsive Desktop Push */
+@media (min-width: 992px) {
+  .margin-expanded {
+    margin-left: 260px;
+  }
+  .margin-collapsed {
+    margin-left: 0;
+  }
+}
+
+/* Mobile Header */
+.mobile-header {
+  height: 60px;
+  z-index: 1060;
+}
+
+/* Mobile Backdrop Overlay */
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+  z-index: 1045;
+}
+
+/* Fix for small phones */
+@media (max-width: 576px) {
+  .admin-sidebar {
+    width: 85%; /* Side menu takes more space on tiny phones */
+    max-width: 280px;
+  }
+  .nav-label {
+    font-size: 0.9rem;
+  }
+}

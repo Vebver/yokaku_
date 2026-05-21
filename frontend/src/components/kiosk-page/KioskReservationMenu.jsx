@@ -88,11 +88,26 @@ const KioskReservationMenu = () => {
 
   // Helper to ensure image URLs are perfectly formatted
   const getFullImage = (item) => {
-    const targetPath = (navigator.onLine && item.local_path) ? item.local_path : item.image_url;
-    if (!targetPath) return "https://via.placeholder.com/150";
-    if (targetPath.startsWith("http")) return targetPath;
-    // Fixes double slash or missing slash issues
-    return `${BASE_URL}${targetPath.startsWith("/") ? "" : "/"}${targetPath}`;
+    const rawPath = (navigator.onLine && item.local_path) ? item.local_path : item.image_url;
+    
+    if (!rawPath) {
+      return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='200'%3E%3Crect fill='%23e0e0e0' width='300' height='200'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23999' font-size='20'%3ENo Image%3C/text%3E%3C/svg%3E";
+    }
+    
+    if (rawPath.startsWith("http://") || rawPath.startsWith("https://")) {
+      return rawPath;
+    }
+    
+    // Remove leading slash to avoid double slashes
+    const cleanPath = rawPath.startsWith("/") ? rawPath.substring(1) : rawPath;
+    
+    // Check if path already contains "uploads/"
+    if (cleanPath.startsWith("uploads/")) {
+      return `${BASE_URL}/${cleanPath}`;
+    } else {
+      // Most common fix: manually adding /uploads/ if missing
+      return `${BASE_URL}/uploads/${cleanPath}`;
+    }
   };
 
   // 1. Add "My Reserved Items" at the very top

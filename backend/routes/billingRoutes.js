@@ -4,7 +4,8 @@ const router = express.Router();
 const { 
     getPayments, 
     updatePaymentStatus, 
-    settleFullBill, 
+    settleFullBill,
+    updatePaymentStatusByReservation,
     createWalkinPayment // <--- Make sure this isn't cut off
 } = require('../controllers/billingController'); 
 
@@ -13,5 +14,6 @@ router.get('/', getPayments);
 router.post('/walkin', createWalkinPayment); 
 router.put('/:id/status', updatePaymentStatus);
 router.put('/settle/:resId', settleFullBill);
+router.put('/payment-status/:resId', updatePaymentStatusByReservation);
 
 module.exports = router;

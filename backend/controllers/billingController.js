@@ -69,3 +69,24 @@ exports.settleFullBill = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+exports.updatePaymentStatusByReservation = async (req, res) => {
+  try {
+    const { resId } = req.params;
+    const { payment_status } = req.body;
+
+    if (!payment_status) {
+      return res.status(400).json({ error: "payment_status is required" });
+    }
+
+    const result = await Billing.updatePaymentStatusByReservation(resId, payment_status);
+    
+    if (result) {
+      res.json({ message: `Payment status updated to ${payment_status}` });
+    } else {
+      res.status(404).json({ error: "Reservation payment not found" });
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
