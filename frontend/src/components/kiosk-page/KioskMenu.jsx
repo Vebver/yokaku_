@@ -282,8 +282,6 @@ const KioskMenu = () => {
     setShowFlavorModal(false);
   };
 
-  const formatTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
-
   if (loading) return <div className="loading-container">Loading Menu...</div>;
 
   return (
