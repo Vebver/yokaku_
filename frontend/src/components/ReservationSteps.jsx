@@ -809,13 +809,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
 
   // ============ HANDLE BACK BUTTON ============
   const handleBackButton = () => {
-    if (ui.menu) {
-      // If PackageModal is open, close it and go back to Step 3
-      setUi((p) => ({ ...p, menu: false }));
-    } else {
-      // Otherwise, close the entire reservation flow
-      onClose();
-    }
+    // Close the entire reservation flow
+    onClose();
   };
 
   const onTableClick = (table) => {
@@ -2074,10 +2069,12 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       {isProcessing && <LoadingSpinner />}
       {isDateLoading && <DateLoadingSpinner />}
 
-      {/* Dynamic Back/Cancel Button */}
-      <button className="page-back-btn" onClick={handleBackButton}>
-        <ArrowLeft size={18} /> {ui.menu ? "Back" : "Cancel"}
-      </button>
+      {/* Dynamic Back/Cancel Button - Hidden when PackageModal is open */}
+      {!ui.menu && (
+        <button className="page-back-btn" onClick={handleBackButton}>
+          <ArrowLeft size={18} /> Cancel
+        </button>
+      )}
 
       <div className="reservation-flow-container">
         <StepProgress
