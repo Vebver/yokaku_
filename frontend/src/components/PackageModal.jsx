@@ -63,7 +63,7 @@ const PackageModal = ({
     .includes("ramen set");
   const HIDDEN_CATEGORIES = ["Chicken", "Drinks"];
 
-  // Get Ramen flavors from products
+  // Get Ramen flavors from products with their images
   const ramenFlavors = products.filter(
     (p) =>
       categories.find((c) => c.category_id === p.category_id)?.name === "Ramen",
@@ -363,7 +363,7 @@ const PackageModal = ({
                       </div>
                     </div>
 
-                    {/* ============ RAMEN FLAVOR SELECTION (for Ramen Set in Hangout Bundle) ============ */}
+                    {/* ============ RAMEN FLAVOR SELECTION WITH IMAGES (for Ramen Set in Hangout Bundle) ============ */}
                     {isRamenSetItem && ramenFlavors.length > 0 && (
                       <div className="item-detail-ramen-flavors">
                         <label>Select Ramen Flavor:</label>
@@ -379,7 +379,18 @@ const PackageModal = ({
                                 }))
                               }
                             >
-                              {flavor.name}
+                              <div className="ramen-flavor-image">
+                                <img
+                                  src={getImageUrl(flavor)}
+                                  alt={flavor.name}
+                                  onError={(e) => {
+                                    e.target.src = "https://placehold.co/80";
+                                  }}
+                                />
+                              </div>
+                              <span className="ramen-flavor-name">
+                                {flavor.name}
+                              </span>
                             </button>
                           ))}
                         </div>
