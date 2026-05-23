@@ -7,7 +7,7 @@ import "../Style/FullMenu.css";
 const API_BASE = "https://yokaku-backend.onrender.com/api";
 const BASE_URL = "https://yokaku-backend.onrender.com";
 
-function FullMenu({ onLoginClick }) {
+function FullMenu() {
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
@@ -15,20 +15,14 @@ function FullMenu({ onLoginClick }) {
   const [activeCategory, setActiveCategory] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // Check if user is logged in - use either a constant OR a function, not both
-  const isLoggedIn = !!localStorage.getItem("token");
-
   // Define categories to exclude
   const excludedCategories = ["Chicken", "Drinks"];
 
-  const handleCardClick = (item) => {
-    if (!isLoggedIn) {
-      if (onLoginClick) {
-        navigate("/login");
-      }
-    } else {
-      navigate("/tablereservation");
-    }
+  // Check if user is logged in
+  const isLoggedIn = () => {
+    const userId = localStorage.getItem("userId");
+    const token = localStorage.getItem("token");
+    return userId && token;
   };
 
   useEffect(() => {
@@ -82,6 +76,17 @@ function FullMenu({ onLoginClick }) {
     }
   };
 
+  const handleOrderNow = (item) => {
+    // Check if user is logged in
+    if (isLoggedIn()) {
+      // User is logged in, navigate to table reservation
+      navigate("/tablereservation");
+    } else {
+      // User is not logged in, navigate to login page
+      navigate("/login");
+    }
+  };
+
   if (loading) return <div className="loading">Loading Menu...</div>;
 
   return (
@@ -127,9 +132,9 @@ function FullMenu({ onLoginClick }) {
               {/* ORDER NOW BUTTON */}
               <button
                 className="order-now-button"
-                onClick={() => handleCardClick(item)}
+                onClick={() => handleOrderNow(item)}
               >
-                {isLoggedIn ? "Order Now" : "Log in"}
+                Order Now
               </button>
             </div>
           </div>
