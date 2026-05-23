@@ -38,7 +38,7 @@ const PackageModal = ({
   const [showCartModal, setShowCartModal] = useState(false);
   const [itemQuantity, setItemQuantity] = useState(1);
   const [showCustomizePanel, setShowCustomizePanel] = useState(false);
-  const [itemNote, setItemNote] = useState(""); // New state for item note
+  const [itemNote, setItemNote] = useState("");
 
   const [customizations, setCustomizations] = useState({
     addOns: [],
@@ -46,13 +46,17 @@ const PackageModal = ({
     drink: "",
     specialInstructions: "None",
     spiceLevel: "Medium",
-    ramenSpice: "Original", // New field for Ramen spice option
+    ramenSpice: "Original",
   });
 
   const currentCategory = categories.find(
     (c) => c.category_id === selectedItem?.category_id,
   );
   const isUnliPackage = currentCategory?.name === "Unlimited";
+  const isHangoutBundle =
+    currentCategory?.name === "Hangout Bundle" ||
+    selectedItem?.name?.toLowerCase().includes("hangout") ||
+    currentCategory?.name?.toLowerCase().includes("bundle");
   const isRamenItem = selectedItem?.name?.toLowerCase().includes("ramen");
   const HIDDEN_CATEGORIES = ["Chicken", "Drinks"];
 
@@ -97,12 +101,16 @@ const PackageModal = ({
       (c) => c.category_id === item.category_id,
     );
     const isUnli = itemCategory?.name === "Unlimited";
+    const isBundle =
+      itemCategory?.name === "Hangout Bundle" ||
+      item.name?.toLowerCase().includes("hangout") ||
+      itemCategory?.name?.toLowerCase().includes("bundle");
     const isRamen = item.name?.toLowerCase().includes("ramen");
 
     setSelectedItem(item);
     setItemQuantity(existingItem?.quantity || 1);
     setShowCustomizePanel(false);
-    setItemNote(existingItem?.note || ""); // Load existing note if any
+    setItemNote(existingItem?.note || "");
 
     if (existingItem) {
       setCustomizations(existingItem.customizations);
@@ -121,11 +129,14 @@ const PackageModal = ({
 
       setCustomizations({
         addOns: [],
-        flavors: isUnli ? chickenProducts.slice(0, 4).map((p) => p.name) : [],
-        drink: isUnli && firstDrink ? firstDrink : "",
+        flavors:
+          isUnli || isBundle
+            ? chickenProducts.slice(0, 4).map((p) => p.name)
+            : [],
+        drink: (isUnli || isBundle) && firstDrink ? firstDrink : "",
         spiceLevel: "Medium",
         specialInstructions: "None",
-        ramenSpice: "Original", // Default for Ramen
+        ramenSpice: "Original",
       });
     }
     setShowItemModal(true);
@@ -157,9 +168,12 @@ const PackageModal = ({
       price: Math.round(parseFloat(selectedItem.price) * 100) / 100,
       quantity: itemQuantity,
       image: selectedItem.local_path || selectedItem.image_url,
-      note: itemNote, // Add note to cart item
+      note: itemNote,
       customizations:
-        isUnliPackage || selectedItem.name.includes("Unlimited") || isRamenItem
+        isUnliPackage ||
+        isHangoutBundle ||
+        selectedItem.name.includes("Unlimited") ||
+        isRamenItem
           ? customizations
           : null,
     };
@@ -175,7 +189,7 @@ const PackageModal = ({
     setSelectedItems(updatedItems);
     onSelectedItemsChange(updatedItems);
     setShowItemModal(false);
-    setItemNote(""); // Reset note
+    setItemNote("");
   };
 
   const handleRemoveCartItem = (itemId) => {
@@ -335,7 +349,7 @@ const PackageModal = ({
                       </div>
                     </div>
 
-                    {/* ============ NOTE TEXT FIELD (for all items) ============ */}
+                    {/* NOTE TEXT FIELD (for all items) */}
                     <div className="item-detail-note">
                       <label>Add a Note (Optional)</label>
                       <textarea
@@ -348,7 +362,8 @@ const PackageModal = ({
                     </div>
 
                     <div className="item-detail-actions">
-                      {isUnliPackage && (
+                      {/* Show Customize button for Unlimited AND Hangout Bundle */}
+                      {(isUnliPackage || isHangoutBundle) && (
                         <button
                           className="customize-btn"
                           onClick={() => setShowCustomizePanel(true)}
@@ -369,7 +384,7 @@ const PackageModal = ({
                   </>
                 ) : (
                   <div className="customize-panel">
-                    <h3>Customize Your Order</h3>
+                    <h3>Customize Your {selectedItem?.name}</h3>
 
                     {/* Ramen Spice Radio Buttons */}
                     {isRamenItem && (
