@@ -14,17 +14,12 @@ function FullMenu({ onLoginClick }) {
   const [categories, setCategories] = useState([]);
   const [activeCategory, setActiveCategory] = useState("");
   const [loading, setLoading] = useState(true);
+
+  // Check if user is logged in - use either a constant OR a function, not both
   const isLoggedIn = !!localStorage.getItem("token");
 
   // Define categories to exclude
   const excludedCategories = ["Chicken", "Drinks"];
-
-  // Check if user is logged in
-  const isLoggedIn = () => {
-    const userId = localStorage.getItem("userId");
-    const token = localStorage.getItem("token");
-    return userId && token;
-  };
 
   const handleCardClick = (item) => {
     if (!isLoggedIn) {
