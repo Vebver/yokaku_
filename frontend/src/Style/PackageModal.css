@@ -972,6 +972,83 @@
 /* ============================================ */
 /* ANIMATIONS                                  */
 /* ============================================ */
+/* ============================================ */
+/* ITEM NOTE TEXT FIELD                        */
+/* ============================================ */
+
+.item-detail-note {
+  margin-top: 16px;
+}
+
+.item-detail-note label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #555;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.item-note-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1.5px solid #e0e0e0;
+  background: #fafafa;
+  font-size: 0.85rem;
+  font-family: inherit;
+  resize: vertical;
+  transition: all 0.2s ease;
+}
+
+.item-note-textarea:focus {
+  outline: none;
+  border-color: #f38d31;
+  background: white;
+}
+
+/* ============================================ */
+/* RADIO BUTTONS FOR RAMEN                     */
+/* ============================================ */
+
+.radio-group {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #333;
+}
+
+.radio-option input[type="radio"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #f38d31;
+}
+
+.radio-option:hover {
+  color: #f38d31;
+}
+
+/* Cart item note */
+.cart-item-note {
+  margin-top: 6px;
+  padding: 4px 8px;
+  background: #fff8e8;
+  border-radius: 8px;
+}
+
+.cart-item-note small {
+  font-size: 0.7rem;
+  color: #8a6e00;
+}
 
 @keyframes modalFadeIn {
   from {

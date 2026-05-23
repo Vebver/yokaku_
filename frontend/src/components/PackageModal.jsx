@@ -38,6 +38,7 @@ const PackageModal = ({
   const [showCartModal, setShowCartModal] = useState(false);
   const [itemQuantity, setItemQuantity] = useState(1);
   const [showCustomizePanel, setShowCustomizePanel] = useState(false);
+  const [itemNote, setItemNote] = useState(""); // New state for item note
 
   const [customizations, setCustomizations] = useState({
     addOns: [],
@@ -45,12 +46,14 @@ const PackageModal = ({
     drink: "",
     specialInstructions: "None",
     spiceLevel: "Medium",
+    ramenSpice: "Original", // New field for Ramen spice option
   });
 
   const currentCategory = categories.find(
     (c) => c.category_id === selectedItem?.category_id,
   );
   const isUnliPackage = currentCategory?.name === "Unlimited";
+  const isRamenItem = selectedItem?.name?.toLowerCase().includes("ramen");
   const HIDDEN_CATEGORIES = ["Chicken", "Drinks"];
 
   useEffect(() => {
@@ -94,10 +97,12 @@ const PackageModal = ({
       (c) => c.category_id === item.category_id,
     );
     const isUnli = itemCategory?.name === "Unlimited";
+    const isRamen = item.name?.toLowerCase().includes("ramen");
 
     setSelectedItem(item);
     setItemQuantity(existingItem?.quantity || 1);
     setShowCustomizePanel(false);
+    setItemNote(existingItem?.note || ""); // Load existing note if any
 
     if (existingItem) {
       setCustomizations(existingItem.customizations);
@@ -120,6 +125,7 @@ const PackageModal = ({
         drink: isUnli && firstDrink ? firstDrink : "",
         spiceLevel: "Medium",
         specialInstructions: "None",
+        ramenSpice: "Original", // Default for Ramen
       });
     }
     setShowItemModal(true);
@@ -151,8 +157,9 @@ const PackageModal = ({
       price: Math.round(parseFloat(selectedItem.price) * 100) / 100,
       quantity: itemQuantity,
       image: selectedItem.local_path || selectedItem.image_url,
+      note: itemNote, // Add note to cart item
       customizations:
-        isUnliPackage || selectedItem.name.includes("Unlimited")
+        isUnliPackage || selectedItem.name.includes("Unlimited") || isRamenItem
           ? customizations
           : null,
     };
@@ -168,6 +175,7 @@ const PackageModal = ({
     setSelectedItems(updatedItems);
     onSelectedItemsChange(updatedItems);
     setShowItemModal(false);
+    setItemNote(""); // Reset note
   };
 
   const handleRemoveCartItem = (itemId) => {
@@ -326,6 +334,19 @@ const PackageModal = ({
                         </button>
                       </div>
                     </div>
+
+                    {/* ============ NOTE TEXT FIELD (for all items) ============ */}
+                    <div className="item-detail-note">
+                      <label>Add a Note (Optional)</label>
+                      <textarea
+                        className="item-note-textarea"
+                        placeholder="e.g., No onions, extra sauce, less ice..."
+                        value={itemNote}
+                        onChange={(e) => setItemNote(e.target.value)}
+                        rows="2"
+                      />
+                    </div>
+
                     <div className="item-detail-actions">
                       {isUnliPackage && (
                         <button
@@ -349,6 +370,49 @@ const PackageModal = ({
                 ) : (
                   <div className="customize-panel">
                     <h3>Customize Your Order</h3>
+
+                    {/* Ramen Spice Radio Buttons */}
+                    {isRamenItem && (
+                      <div className="customize-section">
+                        <label className="section-label-highlight">
+                          Choose Spice Level:
+                        </label>
+                        <div className="radio-group">
+                          <label className="radio-option">
+                            <input
+                              type="radio"
+                              name="ramenSpice"
+                              value="Original"
+                              checked={customizations.ramenSpice === "Original"}
+                              onChange={() =>
+                                setCustomizations((prev) => ({
+                                  ...prev,
+                                  ramenSpice: "Original",
+                                }))
+                              }
+                            />
+                            <span>🍜 Original</span>
+                          </label>
+                          <label className="radio-option">
+                            <input
+                              type="radio"
+                              name="ramenSpice"
+                              value="Spicy"
+                              checked={customizations.ramenSpice === "Spicy"}
+                              onChange={() =>
+                                setCustomizations((prev) => ({
+                                  ...prev,
+                                  ramenSpice: "Spicy",
+                                }))
+                              }
+                            />
+                            <span>🌶️ Spicy</span>
+                          </label>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Chicken Flavors */}
                     <div className="customize-section">
                       <label className="section-label-highlight">
                         Choose Chicken Flavors (Pick up to 4):
@@ -372,6 +436,8 @@ const PackageModal = ({
                           ))}
                       </div>
                     </div>
+
+                    {/* Drinks */}
                     <div className="customize-section">
                       <label className="section-label-highlight">
                         Choose Drink (Included):
@@ -400,6 +466,8 @@ const PackageModal = ({
                           ))}
                       </div>
                     </div>
+
+                    {/* Spice Level */}
                     <div className="customize-section">
                       <label>Spice Level:</label>
                       <div className="spice-levels">
@@ -419,6 +487,8 @@ const PackageModal = ({
                         ))}
                       </div>
                     </div>
+
+                    {/* Special Instructions */}
                     <div className="customize-section">
                       <label>Special Instructions:</label>
                       <textarea
@@ -434,6 +504,19 @@ const PackageModal = ({
                         rows="3"
                       />
                     </div>
+
+                    {/* Note Field in Customize Panel */}
+                    <div className="customize-section">
+                      <label>Add a Note (Optional):</label>
+                      <textarea
+                        className="special-instructions"
+                        placeholder="e.g., No onions, extra sauce, less ice..."
+                        value={itemNote}
+                        onChange={(e) => setItemNote(e.target.value)}
+                        rows="2"
+                      />
+                    </div>
+
                     <div className="customize-actions">
                       <button
                         className="save-customize-btn"
@@ -476,8 +559,20 @@ const PackageModal = ({
                       <div className="cart-item-details">
                         <h4>{item.name}</h4>
                         <p>₱{item.price.toFixed(2)} each</p>
+                        {item.note && (
+                          <div className="cart-item-note">
+                            <small>
+                              <strong>Note:</strong> {item.note}
+                            </small>
+                          </div>
+                        )}
                         {item.customizations && (
                           <div className="cart-item-customizations">
+                            {item.customizations.ramenSpice && (
+                              <small>
+                                Ramen: {item.customizations.ramenSpice}
+                              </small>
+                            )}
                             {item.customizations.flavors?.length > 0 && (
                               <small>
                                 Flavors:{" "}
@@ -487,14 +582,19 @@ const PackageModal = ({
                             {item.customizations.drink && (
                               <small>Drink: {item.customizations.drink}</small>
                             )}
-                            <small>
-                              Spice: {item.customizations.spiceLevel}
-                            </small>
-                            {item.customizations.specialInstructions && (
+                            {item.customizations.spiceLevel && (
                               <small>
-                                Note: {item.customizations.specialInstructions}
+                                Spice: {item.customizations.spiceLevel}
                               </small>
                             )}
+                            {item.customizations.specialInstructions &&
+                              item.customizations.specialInstructions !==
+                                "None" && (
+                                <small>
+                                  Instructions:{" "}
+                                  {item.customizations.specialInstructions}
+                                </small>
+                              )}
                           </div>
                         )}
                       </div>
