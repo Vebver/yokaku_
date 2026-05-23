@@ -17,15 +17,11 @@ function FullMenu() {
   const [loading, setLoading] = useState(true);
   const [showLoginModal, setShowLoginModal] = useState(false);
 
+  // Check if user is logged in (same as FeaturedMenu)
+  const isLoggedIn = !!localStorage.getItem("token");
+
   // Define categories to exclude
   const excludedCategories = ["Chicken", "Drinks"];
-
-  // Check if user is logged in
-  const isLoggedIn = () => {
-    const userId = localStorage.getItem("userId");
-    const token = localStorage.getItem("token");
-    return userId && token;
-  };
 
   useEffect(() => {
     const fetchAllItems = async () => {
@@ -78,14 +74,14 @@ function FullMenu() {
     }
   };
 
+  // Handle order now click - same logic as FeaturedMenu
   const handleOrderNow = (item) => {
-    // Check if user is logged in
-    if (isLoggedIn()) {
-      // User is logged in, navigate to table reservation
-      navigate("/tablereservation");
-    } else {
+    if (!isLoggedIn) {
       // User is not logged in, show login modal
       setShowLoginModal(true);
+    } else {
+      // User is logged in, navigate to table reservation
+      navigate("/tablereservation");
     }
   };
 
@@ -136,7 +132,7 @@ function FullMenu() {
                 className="order-now-button"
                 onClick={() => handleOrderNow(item)}
               >
-                Order Now
+                {isLoggedIn ? "Reserve a Table" : "Reserve now"}
               </button>
             </div>
           </div>
