@@ -7,13 +7,14 @@ import "../Style/FullMenu.css";
 const API_BASE = "https://yokaku-backend.onrender.com/api";
 const BASE_URL = "https://yokaku-backend.onrender.com";
 
-function FullMenu() {
+function FullMenu({ onLoginClick }) {
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [activeCategory, setActiveCategory] = useState("");
   const [loading, setLoading] = useState(true);
+  const isLoggedIn = !!localStorage.getItem("token");
 
   // Define categories to exclude
   const excludedCategories = ["Chicken", "Drinks"];
@@ -23,6 +24,16 @@ function FullMenu() {
     const userId = localStorage.getItem("userId");
     const token = localStorage.getItem("token");
     return userId && token;
+  };
+
+  const handleCardClick = (item) => {
+    if (!isLoggedIn) {
+      if (onLoginClick) {
+        onLoginClick();
+      }
+    } else {
+      navigate("/tablereservation");
+    }
   };
 
   useEffect(() => {
@@ -76,17 +87,6 @@ function FullMenu() {
     }
   };
 
-  const handleOrderNow = (item) => {
-    // Check if user is logged in
-    if (isLoggedIn()) {
-      // User is logged in, navigate to table reservation
-      navigate("/tablereservation");
-    } else {
-      // User is not logged in, navigate to login page
-      navigate("/login");
-    }
-  };
-
   if (loading) return <div className="loading">Loading Menu...</div>;
 
   return (
@@ -132,9 +132,9 @@ function FullMenu() {
               {/* ORDER NOW BUTTON */}
               <button
                 className="order-now-button"
-                onClick={() => handleOrderNow(item)}
+                onClick={() => handleCardClick(item)}
               >
-                Order Now
+                {isLoggedIn ? "Log in" : "Order Now"}
               </button>
             </div>
           </div>
