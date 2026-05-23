@@ -18,6 +18,13 @@ function FullMenu() {
   // Define categories to exclude
   const excludedCategories = ["Chicken", "Drinks"];
 
+  // Check if user is logged in
+  const isLoggedIn = () => {
+    const userId = localStorage.getItem("userId");
+    const token = localStorage.getItem("token");
+    return userId && token;
+  };
+
   useEffect(() => {
     const fetchAllItems = async () => {
       try {
@@ -70,9 +77,14 @@ function FullMenu() {
   };
 
   const handleOrderNow = (item) => {
-    // Add your ordering logic here (e.g., navigate to checkout or add to cart)
-    console.log("Ordering item:", item.name);
-    // Example: navigate(`/order/${item.id}`);
+    // Check if user is logged in
+    if (isLoggedIn()) {
+      // User is logged in, navigate to table reservation
+      navigate("/tablereservation");
+    } else {
+      // User is not logged in, navigate to login page
+      navigate("/login");
+    }
   };
 
   if (loading) return <div className="loading">Loading Menu...</div>;
@@ -108,8 +120,8 @@ function FullMenu() {
                   item.local_path
                     ? item.local_path
                     : item.image_url
-                    ? `${BASE_URL}${item.image_url}`
-                    : "https://placehold.co/150"
+                      ? `${BASE_URL}${item.image_url}`
+                      : "https://placehold.co/150"
                 }
                 alt={item.name}
               />
