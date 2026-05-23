@@ -3,6 +3,7 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import "../Style/FullMenu.css";
+import LoginSection from "./LoginSection";
 
 const API_BASE = "https://yokaku-backend.onrender.com/api";
 const BASE_URL = "https://yokaku-backend.onrender.com";
@@ -14,6 +15,7 @@ function FullMenu() {
   const [categories, setCategories] = useState([]);
   const [activeCategory, setActiveCategory] = useState("");
   const [loading, setLoading] = useState(true);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   // Define categories to exclude
   const excludedCategories = ["Chicken", "Drinks"];
@@ -82,8 +84,8 @@ function FullMenu() {
       // User is logged in, navigate to table reservation
       navigate("/tablereservation");
     } else {
-      // User is not logged in, navigate to login page
-      navigate("/login");
+      // User is not logged in, show login modal
+      setShowLoginModal(true);
     }
   };
 
@@ -140,6 +142,11 @@ function FullMenu() {
           </div>
         ))}
       </div>
+
+      {/* Login Modal */}
+      {showLoginModal && (
+        <LoginSection onClose={() => setShowLoginModal(false)} />
+      )}
     </section>
   );
 }
