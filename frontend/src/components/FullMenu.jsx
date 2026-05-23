@@ -3,7 +3,6 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import "../Style/FullMenu.css";
-import LoginSection from "./LoginSection";
 
 const API_BASE = "https://yokaku-backend.onrender.com/api";
 const BASE_URL = "https://yokaku-backend.onrender.com";
@@ -15,13 +14,16 @@ function FullMenu() {
   const [categories, setCategories] = useState([]);
   const [activeCategory, setActiveCategory] = useState("");
   const [loading, setLoading] = useState(true);
-  const [showLoginModal, setShowLoginModal] = useState(false);
-
-  // Check if user is logged in (same as FeaturedMenu)
-  const isLoggedIn = !!localStorage.getItem("token");
 
   // Define categories to exclude
   const excludedCategories = ["Chicken", "Drinks"];
+
+  // Check if user is logged in
+  const isLoggedIn = () => {
+    const userId = localStorage.getItem("userId");
+    const token = localStorage.getItem("token");
+    return userId && token;
+  };
 
   useEffect(() => {
     const fetchAllItems = async () => {
@@ -74,14 +76,14 @@ function FullMenu() {
     }
   };
 
-  // Handle order now click - same logic as FeaturedMenu
   const handleOrderNow = (item) => {
-    if (!isLoggedIn) {
-      // User is not logged in, show login modal
-      setShowLoginModal(true);
-    } else {
+    // Check if user is logged in
+    if (isLoggedIn()) {
       // User is logged in, navigate to table reservation
       navigate("/tablereservation");
+    } else {
+      // User is not logged in, navigate to login page
+      navigate("/login");
     }
   };
 
@@ -132,17 +134,12 @@ function FullMenu() {
                 className="order-now-button"
                 onClick={() => handleOrderNow(item)}
               >
-                {isLoggedIn ? "Reserve a Table" : "Reserve now"}
+                Order Now
               </button>
             </div>
           </div>
         ))}
       </div>
-
-      {/* Login Modal */}
-      {showLoginModal && (
-        <LoginSection onClose={() => setShowLoginModal(false)} />
-      )}
     </section>
   );
 }
