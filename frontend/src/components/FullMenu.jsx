@@ -3,21 +3,19 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import "../Style/FullMenu.css";
-import LoginSection from "./LoginSection";
 
 const API_BASE = "https://yokaku-backend.onrender.com/api";
 const BASE_URL = "https://yokaku-backend.onrender.com";
 
-function FullMenu() {
+function FullMenu({ onLoginClick }) {
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [activeCategory, setActiveCategory] = useState("");
   const [loading, setLoading] = useState(true);
-  const [showLoginModal, setShowLoginModal] = useState(false);
 
-  // Check if user is logged in
+  // Check if user is logged in - use either a constant OR a function, not both
   const isLoggedIn = !!localStorage.getItem("token");
 
   // Define categories to exclude
@@ -25,10 +23,10 @@ function FullMenu() {
 
   const handleCardClick = (item) => {
     if (!isLoggedIn) {
-      // Show login modal when not logged in
-      setShowLoginModal(true);
+      if (onLoginClick) {
+        onLoginClick();
+      }
     } else {
-      // Navigate to table reservation when logged in
       navigate("/tablereservation");
     }
   };
@@ -131,17 +129,12 @@ function FullMenu() {
                 className="order-now-button"
                 onClick={() => handleCardClick(item)}
               >
-                {isLoggedIn ? "Reserve a Table" : "Reserve now"}
+                {isLoggedIn ? "Order Now" : "Log in"}
               </button>
             </div>
           </div>
         ))}
       </div>
-
-      {/* Login Modal */}
-      {showLoginModal && (
-        <LoginSection onClose={() => setShowLoginModal(false)} />
-      )}
     </section>
   );
 }
