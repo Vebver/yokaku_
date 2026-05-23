@@ -46,7 +46,7 @@ const PackageModal = ({
     drink: "",
     specialInstructions: "None",
     spiceLevel: "Medium",
-    ramenSpice: "Original",
+    selectedRamenFlavor: "",
   });
 
   const currentCategory = categories.find(
@@ -58,7 +58,16 @@ const PackageModal = ({
     selectedItem?.name?.toLowerCase().includes("hangout") ||
     currentCategory?.name?.toLowerCase().includes("bundle");
   const isRamenItem = selectedItem?.name?.toLowerCase().includes("ramen");
+  const isRamenSetItem = selectedItem?.name
+    ?.toLowerCase()
+    .includes("ramen set");
   const HIDDEN_CATEGORIES = ["Chicken", "Drinks"];
+
+  // Get Ramen flavors from products
+  const ramenFlavors = products.filter(
+    (p) =>
+      categories.find((c) => c.category_id === p.category_id)?.name === "Ramen",
+  );
 
   useEffect(() => {
     fetchCategories();
@@ -105,7 +114,7 @@ const PackageModal = ({
       itemCategory?.name === "Hangout Bundle" ||
       item.name?.toLowerCase().includes("hangout") ||
       itemCategory?.name?.toLowerCase().includes("bundle");
-    const isRamen = item.name?.toLowerCase().includes("ramen");
+    const isRamenSet = item.name?.toLowerCase().includes("ramen set");
 
     setSelectedItem(item);
     setItemQuantity(existingItem?.quantity || 1);
@@ -127,6 +136,10 @@ const PackageModal = ({
           "Drinks",
       )?.name;
 
+      // Get first ramen flavor as default if it's a Ramen Set
+      const defaultRamenFlavor =
+        ramenFlavors.length > 0 ? ramenFlavors[0].name : "";
+
       setCustomizations({
         addOns: [],
         flavors:
@@ -136,7 +149,7 @@ const PackageModal = ({
         drink: (isUnli || isBundle) && firstDrink ? firstDrink : "",
         spiceLevel: "Medium",
         specialInstructions: "None",
-        ramenSpice: "Original",
+        selectedRamenFlavor: isRamenSet ? defaultRamenFlavor : "",
       });
     }
     setShowItemModal(true);
@@ -173,7 +186,8 @@ const PackageModal = ({
         isUnliPackage ||
         isHangoutBundle ||
         selectedItem.name.includes("Unlimited") ||
-        isRamenItem
+        isRamenItem ||
+        isRamenSetItem
           ? customizations
           : null,
     };
@@ -349,6 +363,29 @@ const PackageModal = ({
                       </div>
                     </div>
 
+                    {/* ============ RAMEN FLAVOR SELECTION (for Ramen Set in Hangout Bundle) ============ */}
+                    {isRamenSetItem && ramenFlavors.length > 0 && (
+                      <div className="item-detail-ramen-flavors">
+                        <label>Select Ramen Flavor:</label>
+                        <div className="ramen-flavor-grid">
+                          {ramenFlavors.map((flavor) => (
+                            <button
+                              key={flavor.item_id}
+                              className={`ramen-flavor-btn ${customizations.selectedRamenFlavor === flavor.name ? "active" : ""}`}
+                              onClick={() =>
+                                setCustomizations((prev) => ({
+                                  ...prev,
+                                  selectedRamenFlavor: flavor.name,
+                                }))
+                              }
+                            >
+                              {flavor.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* NOTE TEXT FIELD (for all items) */}
                     <div className="item-detail-note">
                       <label>Add a Note (Optional)</label>
@@ -363,14 +400,15 @@ const PackageModal = ({
 
                     <div className="item-detail-actions">
                       {/* Show Customize button for Unlimited AND Hangout Bundle */}
-                      {(isUnliPackage || isHangoutBundle) && (
-                        <button
-                          className="customize-btn"
-                          onClick={() => setShowCustomizePanel(true)}
-                        >
-                          <Settings size={16} /> Customize Selections
-                        </button>
-                      )}
+                      {(isUnliPackage || isHangoutBundle) &&
+                        !isRamenSetItem && (
+                          <button
+                            className="customize-btn"
+                            onClick={() => setShowCustomizePanel(true)}
+                          >
+                            <Settings size={16} /> Customize Selections
+                          </button>
+                        )}
                       <button
                         className="cancel-btn"
                         onClick={() => setShowItemModal(false)}
@@ -385,47 +423,6 @@ const PackageModal = ({
                 ) : (
                   <div className="customize-panel">
                     <h3>Customize Your {selectedItem?.name}</h3>
-
-                    {/* Ramen Spice Radio Buttons */}
-                    {isRamenItem && (
-                      <div className="customize-section">
-                        <label className="section-label-highlight">
-                          Choose Spice Level:
-                        </label>
-                        <div className="radio-group">
-                          <label className="radio-option">
-                            <input
-                              type="radio"
-                              name="ramenSpice"
-                              value="Original"
-                              checked={customizations.ramenSpice === "Original"}
-                              onChange={() =>
-                                setCustomizations((prev) => ({
-                                  ...prev,
-                                  ramenSpice: "Original",
-                                }))
-                              }
-                            />
-                            <span>🍜 Original</span>
-                          </label>
-                          <label className="radio-option">
-                            <input
-                              type="radio"
-                              name="ramenSpice"
-                              value="Spicy"
-                              checked={customizations.ramenSpice === "Spicy"}
-                              onChange={() =>
-                                setCustomizations((prev) => ({
-                                  ...prev,
-                                  ramenSpice: "Spicy",
-                                }))
-                              }
-                            />
-                            <span>🌶️ Spicy</span>
-                          </label>
-                        </div>
-                      </div>
-                    )}
 
                     {/* Chicken Flavors */}
                     <div className="customize-section">
@@ -583,9 +580,10 @@ const PackageModal = ({
                         )}
                         {item.customizations && (
                           <div className="cart-item-customizations">
-                            {item.customizations.ramenSpice && (
+                            {item.customizations.selectedRamenFlavor && (
                               <small>
-                                Ramen: {item.customizations.ramenSpice}
+                                Ramen Flavor:{" "}
+                                {item.customizations.selectedRamenFlavor}
                               </small>
                             )}
                             {item.customizations.flavors?.length > 0 && (
