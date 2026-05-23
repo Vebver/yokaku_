@@ -3,19 +3,21 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import "../Style/FullMenu.css";
+import LoginSection from "./LoginSection";
 
 const API_BASE = "https://yokaku-backend.onrender.com/api";
 const BASE_URL = "https://yokaku-backend.onrender.com";
 
-function FullMenu({ onLoginClick }) {
+function FullMenu() {
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [activeCategory, setActiveCategory] = useState("");
   const [loading, setLoading] = useState(true);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
-  // Check if user is logged in - use either a constant OR a function, not both
+  // Check if user is logged in
   const isLoggedIn = !!localStorage.getItem("token");
 
   // Define categories to exclude
@@ -23,10 +25,10 @@ function FullMenu({ onLoginClick }) {
 
   const handleCardClick = (item) => {
     if (!isLoggedIn) {
-      if (onLoginClick) {
-        onLoginClick();
-      }
+      // Show login modal when not logged in
+      setShowLoginModal(true);
     } else {
+      // Navigate to table reservation when logged in
       navigate("/tablereservation");
     }
   };
@@ -135,6 +137,11 @@ function FullMenu({ onLoginClick }) {
           </div>
         ))}
       </div>
+
+      {/* Login Modal */}
+      {showLoginModal && (
+        <LoginSection onClose={() => setShowLoginModal(false)} />
+      )}
     </section>
   );
 }
