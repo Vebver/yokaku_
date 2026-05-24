@@ -180,16 +180,15 @@ const PackageModal = ({
       (p) => p.item_id === selectedItem.item_id,
     );
 
+    // Use getImageUrl to get the full image URL
+    const imageUrl = getImageUrl(fullProduct || selectedItem);
+
     const newItemData = {
       id: selectedItem.item_id,
       name: selectedItem.name,
       price: Math.round(parseFloat(selectedItem.price) * 100) / 100,
       quantity: itemQuantity,
-      image:
-        fullProduct?.local_path ||
-        fullProduct?.image_url ||
-        selectedItem.local_path ||
-        selectedItem.image_url,
+      image: imageUrl, // ← CHANGE: Use the full URL from getImageUrl
       note: itemNote,
       customizations:
         isUnliPackage ||
@@ -592,10 +591,8 @@ const PackageModal = ({
                       <div className="cart-item-image">
                         <img
                           src={
-                            item.image
-                              ? item.image.startsWith("http")
-                                ? item.image
-                                : `${BASE_URL}/uploads/${item.image}`
+                            item.image && item.image !== "null"
+                              ? item.image
                               : "https://placehold.co/60"
                           }
                           alt={item.name}
