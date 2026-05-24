@@ -151,11 +151,11 @@ const TermsModal = ({ isOpen, onAccept, onClose }) => {
                   paddingLeft: "0",
                 }}
               >
-                <li>• Wings - ₱40/pc</li>
-                <li>• Pasta - ₱100 per serving</li>
-                <li>• Nachos/Fries - ₱80 per order</li>
-                <li>• Rice - ₱25/cup</li>
-                <li>• Drinks - ₱85 per order</li>
+                <li>Wings - ₱40/pc</li>
+                <li>Pasta - ₱100 per serving</li>
+                <li>Nachos/Fries - ₱80 per order</li>
+                <li>Rice - ₱25/cup</li>
+                <li>Drinks - ₱85 per order</li>
               </ul>
             </li>
           </ul>
