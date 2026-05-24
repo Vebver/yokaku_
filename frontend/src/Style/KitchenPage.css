@@ -392,6 +392,221 @@ body {
   padding-bottom: 10px;
 }
 
+/* Allergy Text Styles - Red and Larger */
+.allergy-text {
+  color: #e63946 !important;
+  font-size: 1rem !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  background: rgba(230, 57, 70, 0.1) !important;
+  padding: 4px 8px !important;
+  border-radius: 6px !important;
+  display: inline-block !important;
+}
+
+/* Allergy Container */
+.allergy-container {
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: rgba(230, 57, 70, 0.1);
+  border-left: 4px solid #e63946;
+  border-radius: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.allergy-label {
+  color: #e63946;
+  font-size: 0.85rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.allergy-value {
+  color: #e63946;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+/* Highlight box with allergy */
+.highlight-custom-box.has-allergy {
+  background: rgba(230, 57, 70, 0.08);
+  border-left: 4px solid #e63946;
+  padding: 8px 12px;
+}
+
+/* Note with allergy */
+.note.has-allergy {
+  color: #e63946 !important;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+/* Order card warning border for allergies */
+.order-card.has-allergy-warning {
+  border-left: 5px solid #e63946;
+  position: relative;
+}
+
+.order-card.has-allergy-warning::before {
+  content: "⚠️ ALLERGY ALERT";
+  position: absolute;
+  top: -12px;
+  right: 20px;
+  background: #e63946;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 2px 12px;
+  border-radius: 20px;
+  letter-spacing: 0.5px;
+  z-index: 10;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+/* ============================================ */
+/* IMPROVED ACTION BUTTONS - Matching Theme    */
+/* ============================================ */
+
+.card-footer {
+  padding: 1rem 1.25rem;
+  background: #f8fafc;
+  border-top: 1px solid var(--border-color, #e2e8f0);
+}
+
+.btn-action {
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  position: relative;
+  overflow: hidden;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
+}
+
+.btn-action::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+  transform: translate(-50%, -50%);
+  transition:
+    width 0.4s,
+    height 0.4s;
+}
+
+.btn-action:hover::before {
+  width: 200%;
+  height: 200%;
+}
+
+.btn-action:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+.btn-action:active {
+  transform: translateY(0px);
+}
+
+.btn-action:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-action:disabled::before {
+  display: none;
+}
+
+/* Start Cooking Button */
+.btn-action.start {
+  background: linear-gradient(135deg, #f38d31 0%, #e67e22 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(243, 141, 49, 0.3);
+}
+
+.btn-action.start:hover {
+  background: linear-gradient(135deg, #e67e22 0%, #d35400 100%);
+  box-shadow: 0 6px 16px rgba(243, 141, 49, 0.4);
+}
+
+/* Mark as Ready Button */
+.btn-action.ready {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
+}
+
+.btn-action.ready:hover {
+  background: linear-gradient(135deg, #047857 0%, #065f46 100%);
+  box-shadow: 0 6px 16px rgba(5, 150, 105, 0.4);
+}
+
+/* Served / Clear Button */
+.btn-action.clear {
+  background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(100, 116, 139, 0.3);
+}
+
+.btn-action.clear:hover {
+  background: linear-gradient(135deg, #475569 0%, #334155 100%);
+  box-shadow: 0 6px 16px rgba(100, 116, 139, 0.4);
+}
+
+/* Loading Spinner Animation */
+.spinner-animation {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Button loading state */
+.btn-action {
+  position: relative;
+}
+
+.btn-action:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-action:disabled::before {
+  display: none;
+}
+
+.btn-action .spinner-animation {
+  margin-right: 8px;
+}
 /* --- Animations --- */
 @keyframes pulse {
   0% {

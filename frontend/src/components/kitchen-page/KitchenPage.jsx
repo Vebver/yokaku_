@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   PlayCircle,
   Timer,
+  Loader2,
 } from "lucide-react";
 import "../../Style/KitchenPage.css";
 import { io } from "socket.io-client";
@@ -29,9 +30,9 @@ const StatusBadge = ({ status }) => {
 };
 
 // --- ORDER CARD COMPONENT ---
-// --- ORDER CARD COMPONENT ---
 const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
   const [elapsed, setElapsed] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const calculateTime = () => {
@@ -45,15 +46,43 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
     return () => clearInterval(timer);
   }, [order.timestamp]);
 
+  // Helper function to extract allergy from customizations or instructions
+  const extractAllergy = (customs, instructions) => {
+    // Check customizations first
+    if (customs) {
+      if (typeof customs === "string") {
+        if (customs.toLowerCase().includes("allergy")) {
+          return customs;
+        }
+      }
+      if (typeof customs === "object" && customs.allergy) {
+        return customs.allergy;
+      }
+    }
+    // Check instructions
+    if (instructions && instructions.toLowerCase().includes("allergy")) {
+      return instructions;
+    }
+    return null;
+  };
+
   const renderCustomizations = (customs) => {
     if (!customs) return <div className="item-note-empty">—</div>;
 
     // Check if it's the string format from the Kiosk (e.g. "Wings: Barbeque | Drink: Orange")
-    if (typeof customs === 'string' && !customs.trim().startsWith('{')) {
+    if (typeof customs === "string" && !customs.trim().startsWith("{")) {
+      // Check if this string contains allergy information
+      const hasAllergy = customs.toLowerCase().includes("allergy");
       return (
         <div className="custom-details-container">
-          <div className="highlight-custom-box">
-            {customs}
+          <div
+            className={`highlight-custom-box ${hasAllergy ? "has-allergy" : ""}`}
+          >
+            {hasAllergy ? (
+              <span className="allergy-text">{customs}</span>
+            ) : (
+              customs
+            )}
           </div>
         </div>
       );
@@ -62,17 +91,51 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
     // Fallback for JSON format
     try {
       const c = typeof customs === "string" ? JSON.parse(customs) : customs;
+      const hasAllergy =
+        c.allergy ||
+        (c.specialInstructions &&
+          c.specialInstructions.toLowerCase().includes("allergy"));
+
       return (
         <div className="custom-details-container">
           <div className="json-details">
             {c.flavor && <span className="tag">FLAVOR: {c.flavor}</span>}
             {c.drink && <span className="tag">DRINK: {c.drink}</span>}
-            {c.specialInstructions && <div className="note">"{c.specialInstructions}"</div>}
+            {c.allergy && (
+              <div className="allergy-container">
+                <span className="allergy-label">⚠️ ALLERGY:</span>
+                <span className="allergy-value">{c.allergy}</span>
+              </div>
+            )}
+            {c.specialInstructions && (
+              <div
+                className={`note ${c.specialInstructions.toLowerCase().includes("allergy") ? "has-allergy" : ""}`}
+              >
+                {c.specialInstructions.toLowerCase().includes("allergy") ? (
+                  <span className="allergy-text">
+                    "{c.specialInstructions}"
+                  </span>
+                ) : (
+                  `"${c.specialInstructions}"`
+                )}
+              </div>
+            )}
           </div>
         </div>
       );
     } catch (e) {
-      return <div className="highlight-custom-box">{String(customs)}</div>;
+      const hasAllergy = String(customs).toLowerCase().includes("allergy");
+      return (
+        <div
+          className={`highlight-custom-box ${hasAllergy ? "has-allergy" : ""}`}
+        >
+          {hasAllergy ? (
+            <span className="allergy-text">{String(customs)}</span>
+          ) : (
+            String(customs)
+          )}
+        </div>
+      );
     }
   };
 
@@ -82,8 +145,40 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
     return "urgency-normal";
   };
 
+  // Check if order has any allergy in items
+  const hasAllergyInOrder = () => {
+    if (!order.items) return false;
+    return order.items.some((item) => {
+      if (item.customizations) {
+        const customStr =
+          typeof item.customizations === "string"
+            ? item.customizations
+            : JSON.stringify(item.customizations);
+        return customStr.toLowerCase().includes("allergy");
+      }
+      return false;
+    });
+  };
+
+  const handleStatusUpdate = async (newStatus) => {
+    if (isLoading) return; // Prevent multiple clicks
+    setIsLoading(true);
+    try {
+      await onUpdateStatus(order.id, newStatus);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <motion.div ref={ref} layout initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className={`order-card status-${order.status.toLowerCase()}`}>
+    <motion.div
+      ref={ref}
+      layout
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.9 }}
+      className={`order-card status-${order.status.toLowerCase()} ${hasAllergyInOrder() ? "has-allergy-warning" : ""}`}
+    >
       <div className="card-header">
         <div className="table-badge">
           <span className="table-label">TABLE</span>
@@ -111,13 +206,52 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
 
       <div className="card-footer">
         {order.status === "pending" && (
-          <button onClick={() => onUpdateStatus(order.id, "preparing")} className="btn-action start">START COOKING</button>
+          <button
+            onClick={() => handleStatusUpdate("preparing")}
+            className="btn-action start"
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 size={18} className="spinner-animation" />
+                PROCESSING...
+              </>
+            ) : (
+              "START COOKING"
+            )}
+          </button>
         )}
         {order.status === "preparing" && (
-          <button onClick={() => onUpdateStatus(order.id, "ready")} className="btn-action ready">MARK READY</button>
+          <button
+            onClick={() => handleStatusUpdate("ready")}
+            className="btn-action ready"
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 size={18} className="spinner-animation" />
+                PROCESSING...
+              </>
+            ) : (
+              "MARK READY"
+            )}
+          </button>
         )}
         {order.status === "ready" && (
-          <button onClick={() => onUpdateStatus(order.id, "served")} className="btn-action clear">SERVED / CLEAR</button>
+          <button
+            onClick={() => handleStatusUpdate("served")}
+            className="btn-action clear"
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 size={18} className="spinner-animation" />
+                PROCESSING...
+              </>
+            ) : (
+              "SERVED / CLEAR"
+            )}
+          </button>
         )}
       </div>
     </motion.div>
@@ -141,9 +275,9 @@ const KitchenPage = () => {
   const [orders, setOrders] = useState([]);
   const [filter, setFilter] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
+  const [loadingOrderId, setLoadingOrderId] = useState(null);
   const location = useLocation();
 
-  // ============ 1. LOAD ALL ACTIVE ORDERS FROM DATABASE ============
   // ============ 1. LOAD ALL ACTIVE ORDERS FROM DATABASE ============
   const loadActiveOrders = async () => {
     try {
@@ -245,6 +379,7 @@ const KitchenPage = () => {
 
   // ============ UPDATE ORDER STATUS ============
   const updateStatus = async (id, newStatus) => {
+    setLoadingOrderId(id);
     try {
       console.log(`📡 Updating order ${id} to ${newStatus}...`);
 
@@ -265,6 +400,8 @@ const KitchenPage = () => {
     } catch (err) {
       console.error("❌ Failed to update order status:", err.message);
       alert(`Error: ${err.response?.data?.error || err.message}`);
+    } finally {
+      setLoadingOrderId(null);
     }
   };
 
@@ -273,7 +410,7 @@ const KitchenPage = () => {
     (o) => filter === "all" || o.status === filter,
   );
 
-  if (isLoading) {
+  if (isLoading && orders.length === 0) {
     return (
       <div className="kitchen-wrapper">
         <div className="loading-container">
