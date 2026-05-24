@@ -28,6 +28,21 @@ const TableStatus = ({ compact = false }) => {
   const [bill, setBill] = useState({ items: [], loading: false, label: "" });
   const [selectedTable, setSelectedTable] = useState(null);
 
+  const notificationSound = React.useMemo(
+    () => new Audio("../../assets/alert-sound.mp3"),
+    [],
+  );
+  const prevVerifiedCount = React.useRef(0);
+  const playPaymentVerifiedAlert = async () => {
+    try {
+      if (!notificationSound) return;
+      notificationSound.currentTime = 0;
+      await notificationSound.play();
+    } catch (e) {
+      console.log("Payment alert audio blocked:", e);
+    }
+  };
+
   const authHeader = () => ({
     headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
   });
@@ -38,12 +53,25 @@ const TableStatus = ({ compact = false }) => {
         api.get("/admin/table-status"),
         api.get("/admin/today-schedule", authHeader()),
       ]);
-      setData({ tables: tRes.data, schedule: sRes.data });
+
+      const tables = tRes.data || [];
+      // Detect kiosk “Pay Now” -> payment_status verified changes.
+      const verifiedCount = tables.filter(
+        (t) => (t.payment_status || "").toLowerCase() === "verified",
+      ).length;
+
+      if (verifiedCount > prevVerifiedCount.current) {
+        await playPaymentVerifiedAlert();
+      }
+      prevVerifiedCount.current = verifiedCount;
+
+      setData({ tables, schedule: sRes.data });
     } catch (err) {
       console.error("Fetch Error", err);
     }
     setUi((prev) => ({ ...prev, loading: false }));
-  }, []);
+  }, [playPaymentVerifiedAlert, authHeader]);
+
 
   useEffect(() => {
     fetchData();
@@ -253,22 +281,7 @@ const TableStatus = ({ compact = false }) => {
                   </div>
 
                   <div className="mt-auto">
-                    {ui.deleteMode ? (
-                      <button
-                        className="btn btn-sm btn-danger w-100 py-0 fw-bold"
-                        style={{ fontSize: "0.65rem", height: "22px" }}
-                        onClick={() =>
-                          handleAction(
-                            "delete",
-                            `/admin/tables/${t.table_id}`,
-                            null,
-                            () => setUi((p) => ({ ...p, deleteMode: false }))
-                          )
-                        }
-                      >
-                        <Trash2 size={12} /> Delete
-                      </button>
-                    ) : t.bridge_status?.toLowerCase() === "seated" ? (
+                    {t.bridge_status?.toLowerCase() === "seated" ? (
                       <button
                         className="btn btn-sm btn-primary w-100 py-0 fw-bold"
                         style={{ fontSize: "0.65rem", height: "22px" }}

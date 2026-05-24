@@ -27,7 +27,18 @@ const KioskMenu = () => {
   const navigate = useNavigate();
   const timerRef = useRef(null);
   const audioRef = useRef(new Audio(alertMusicFile));
-  const storage = window.sessionStorage; 
+  const storage = window.sessionStorage;
+
+  const playCashierAlert = async () => {
+    try {
+      if (!audioRef.current) return;
+      audioRef.current.currentTime = 0;
+      await audioRef.current.play();
+    } catch (e) {
+      // Autoplay might be blocked; that's okay.
+      console.log("Cashier alert audio blocked:", e);
+    }
+  };
 
   // Keys
   const TIMER_KEY = "kiosk_walkin_timer_end";
@@ -161,7 +172,9 @@ const KioskMenu = () => {
     const { tableId, mode } = pendingOrderDetails;
     const activeResId = storage.getItem(SAVED_RES_ID);
     const dynamicResId = activeResId || `WALK-${Date.now()}`;
-    const paymentStatus = choice === "Pay Now" ? "verified" : "pending";
+    const isPayNow = choice === "Pay Now";
+    const paymentStatus = isPayNow ? "verified" : "pending";
+
 
     const processedItems = cart.map((i) => ({
       item_id: i.id, quantity: i.quantity,
@@ -185,12 +198,15 @@ const KioskMenu = () => {
       setIsLoading(false);
       setShowPaymentModal(false);
 
-      if (choice === "Pay Now") {
-     
+      if (isPayNow) {
+        // Alert cashier when someone clicks PAY NOW on the kiosk
+        await playCashierAlert();
+
         setIsFinalCheckout(false);
         setShowBillInfo(true); // SHOW SUMMARY AFTER PAY LATER
         fetchCurrentBill();
       }
+
     } catch (error) {
       setIsLoading(false);
       alert("Order failed to place.");
