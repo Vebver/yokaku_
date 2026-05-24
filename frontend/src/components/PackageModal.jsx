@@ -175,12 +175,21 @@ const PackageModal = ({
   };
 
   const handleAddToCart = () => {
+    // Get the full product details for image URL
+    const fullProduct = products.find(
+      (p) => p.item_id === selectedItem.item_id,
+    );
+
     const newItemData = {
       id: selectedItem.item_id,
       name: selectedItem.name,
       price: Math.round(parseFloat(selectedItem.price) * 100) / 100,
       quantity: itemQuantity,
-      image: selectedItem.local_path || selectedItem.image_url,
+      image:
+        fullProduct?.local_path ||
+        fullProduct?.image_url ||
+        selectedItem.local_path ||
+        selectedItem.image_url,
       note: itemNote,
       customizations:
         isUnliPackage ||
@@ -556,7 +565,7 @@ const PackageModal = ({
         </div>
       )}
 
-      {/* Cart Modal (still needed for cart view) */}
+      {/* Cart Modal with Images */}
       {showCartModal && (
         <div
           className="cart-modal-overlay"
@@ -579,6 +588,22 @@ const PackageModal = ({
                 <div className="cart-items">
                   {selectedItems.map((item) => (
                     <div key={item.id} className="cart-item">
+                      {/* Item Image */}
+                      <div className="cart-item-image">
+                        <img
+                          src={
+                            item.image
+                              ? item.image.startsWith("http")
+                                ? item.image
+                                : `${BASE_URL}/uploads/${item.image}`
+                              : "https://placehold.co/60"
+                          }
+                          alt={item.name}
+                          onError={(e) => {
+                            e.target.src = "https://placehold.co/60";
+                          }}
+                        />
+                      </div>
                       <div className="cart-item-details">
                         <h4>{item.name}</h4>
                         <p>₱{item.price.toFixed(2)} each</p>
