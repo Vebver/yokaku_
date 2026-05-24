@@ -31,6 +31,9 @@ import {
   TABLES_DATA,
   ALLERGY_OPTIONS,
   OCCASION_OPTIONS,
+  STORE_HOURS,
+  isDateClosedByTime,
+  isDateFullyClosed,
 } from "./TableReservationConstants";
 import {
   sanitizeStringInput,
@@ -81,6 +84,23 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   const [dateReservationCounts, setDateReservationCounts] = useState({});
   const [allReservationsByDate, setAllReservationsByDate] = useState({});
   const [receiptFile, setReceiptFile] = useState(null);
+
+  // Add after other state declarations
+  const [currentMinutes, setCurrentMinutes] = useState(() => {
+    const now = new Date();
+    return now.getHours() * 60 + now.getMinutes();
+  });
+
+  // Real-time clock effect to update minutes every minute
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date();
+      const newCurrentMinutes = now.getHours() * 60 + now.getMinutes();
+      setCurrentMinutes(newCurrentMinutes);
+    }, 60000); // Update every minute
+
+    return () => clearInterval(interval);
+  }, []);
 
   const [form, setForm] = useState({
     date: "",
@@ -1107,14 +1127,19 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     const dayNum = prevMonthDays - i;
                     const date = new Date(year, month - 1, dayNum);
                     const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+                    const isTimeClosed = isDateClosedByTime(
+                      dateStr,
+                      currentMinutes,
+                    );
                     calendarDays.push({
                       day: dayNum,
                       date: dateStr,
                       isCurrentMonth: false,
                       isToday: dateStr === today.toISOString().split("T")[0],
                       isSelected: form.date === dateStr,
-                      isBlocked: blockedDates.includes(dateStr),
+                      isBlocked: blockedDates.includes(dateStr) || isTimeClosed,
                       isPast: date < today,
+                      isTimeClosed: isTimeClosed,
                     });
                   }
 
@@ -1124,6 +1149,10 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     const reservationCount =
                       getReservationCountForDate(dateStr);
                     const isFullyBooked = isDateFullyBooked(dateStr);
+                    const isTimeClosed = isDateClosedByTime(
+                      dateStr,
+                      currentMinutes,
+                    );
 
                     calendarDays.push({
                       day: i,
@@ -1131,8 +1160,9 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                       isCurrentMonth: true,
                       isToday: dateStr === today.toISOString().split("T")[0],
                       isSelected: form.date === dateStr,
-                      isBlocked: blockedDates.includes(dateStr),
+                      isBlocked: blockedDates.includes(dateStr) || isTimeClosed,
                       isPast: date < today,
+                      isTimeClosed: isTimeClosed,
                       reservationCount: reservationCount,
                       isFullyBooked: isFullyBooked,
                       hasReservations: reservationCount > 0 && !isFullyBooked,
@@ -1143,14 +1173,19 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   for (let i = 1; i <= remainingCells; i++) {
                     const date = new Date(year, month + 1, i);
                     const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+                    const isTimeClosed = isDateClosedByTime(
+                      dateStr,
+                      currentMinutes,
+                    );
                     calendarDays.push({
                       day: i,
                       date: dateStr,
                       isCurrentMonth: false,
                       isToday: dateStr === today.toISOString().split("T")[0],
                       isSelected: form.date === dateStr,
-                      isBlocked: blockedDates.includes(dateStr),
+                      isBlocked: blockedDates.includes(dateStr) || isTimeClosed,
                       isPast: date < today,
+                      isTimeClosed: isTimeClosed,
                     });
                   }
 
@@ -1165,16 +1200,20 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         ${day.isToday ? "today" : ""}
         ${!day.isCurrentMonth ? "other-month" : ""}
         ${day.isPast && !day.isSelected ? "past" : ""}
+        ${day.isTimeClosed && !day.isSelected ? "time-closed" : ""}
         ${day.hasReservations && !day.isSelected && !day.isBlocked ? "has-reservations" : ""}
         ${day.isFullyBooked && !day.isSelected && !day.isBlocked ? "fully-booked" : ""}
       `}
                         disabled={
-                          day.isBlocked || (day.isPast && !day.isSelected)
+                          day.isBlocked ||
+                          (day.isPast && !day.isSelected) ||
+                          day.isTimeClosed
                         }
                         onClick={async () => {
                           if (
                             !day.isBlocked &&
-                            !(day.isPast && !day.isSelected)
+                            !(day.isPast && !day.isSelected) &&
+                            !day.isTimeClosed
                           ) {
                             const syntheticEvent = {
                               target: {

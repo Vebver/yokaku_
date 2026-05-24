@@ -6,6 +6,7 @@
   --status-occupied: #e63946;
   --status-reserved: #ffcc00;
   --status-linked: #3a86ff;
+  --status-time-closed: #2d2d2d;
   --text-dark: #1a1a1a;
   --text-light: #666666;
   --schedule-reserved-bg: #fff9e6;
@@ -591,7 +592,7 @@ select:disabled {
 }
 .status-dot.occupied {
   background-color: #e63946;
-  box-shadow: 0 0 0 2px rgba(230, 57, 70, 0.2);
+  box-shadow: 0 0 0 2px rgba(230, Systems, 70, 0.2);
   animation: pulse 1.5s infinite;
 }
 .status-dot.selected {
@@ -2086,6 +2087,36 @@ select:disabled {
 
 .no-active-slots svg {
   color: #4caf50;
+}
+
+/* ============================================ */
+/* TIME CLOSED DATES (after 10:00 PM)          */
+/* ============================================ */
+
+.calendar-day.time-closed {
+  background-color: #2d2d2d;
+  color: #888;
+  cursor: not-allowed;
+  opacity: 0.6;
+  position: relative;
+}
+
+.calendar-day.time-closed:hover {
+  background-color: #3d3d3d;
+  transform: none;
+}
+
+.calendar-day.time-closed .calendar-day-number {
+  color: #888;
+}
+
+.calendar-day.time-closed::after {
+  content: "🔒";
+  font-size: 10px;
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  opacity: 0.5;
 }
 
 /* ============================================ */
