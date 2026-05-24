@@ -339,6 +339,23 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     return count >= totalTablesCount;
   };
 
+  // ============ CHECK TIME SLOT AVAILABILITY FOR SELECTED TABLE ============
+  const isTimeSlotAvailableForSelectedTable = (startTime, endTime) => {
+    if (!selectedId) return true;
+
+    const schedules = tableSchedules[selectedId] || [];
+    const startM = timeToMin(startTime);
+    const endM = timeToMin(endTime);
+
+    // Check if the selected time slot overlaps with any existing reservation
+    return !schedules.some((reservation) => {
+      const resStartM = timeToMin(reservation.startTime);
+      const resEndM = timeToMin(reservation.endTime);
+      // Overlap condition: new start < existing end AND new end > existing start
+      return startM < resEndM && endM > resStartM;
+    });
+  };
+
   // ============ STEP FUNCTIONS ============
   const markStepCompleted = (step) => {
     if (!completedSteps.includes(step)) {
@@ -790,8 +807,28 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       const minEndM = startM + 30;
       return minEndM <= maxEndTimeMinutes;
     });
+
+    // Filter out start times that conflict with existing reservations for selected table
+    if (selectedId) {
+      filtered = filtered.filter((startTime) => {
+        // For each potential start time, check if there's ANY possible end time available
+        const possibleEndTimes = timeOptions.filter((endTime) => {
+          const endM = timeToMin(endTime);
+          const startM = timeToMin(startTime);
+          const durationValid = endM >= startM + 30 && endM <= startM + 180;
+          const withinBusinessHours = endM <= maxEndTimeMinutes;
+          return (
+            durationValid &&
+            withinBusinessHours &&
+            isTimeSlotAvailableForSelectedTable(startTime, endTime)
+          );
+        });
+        return possibleEndTimes.length > 0;
+      });
+    }
+
     return filtered;
-  }, [timeOptions, form.date, todayStr]);
+  }, [timeOptions, form.date, todayStr, selectedId, tableSchedules]);
 
   const filteredEndTimeOptions = useMemo(() => {
     if (!form.startTime) return [];
@@ -808,11 +845,20 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     }
 
     const absoluteMaxEnd = Math.min(maxEndTimeMinutes, startM + 180);
-    return timeOptions.filter((endTime) => {
+    let filtered = timeOptions.filter((endTime) => {
       const endM = timeToMin(endTime);
       return endM >= startM + 30 && endM <= absoluteMaxEnd;
     });
-  }, [form.startTime, timeOptions]);
+
+    // Filter out end times that conflict with existing reservations for selected table
+    if (selectedId && form.startTime) {
+      filtered = filtered.filter((endTime) => {
+        return isTimeSlotAvailableForSelectedTable(form.startTime, endTime);
+      });
+    }
+
+    return filtered;
+  }, [form.startTime, timeOptions, selectedId, tableSchedules]);
 
   // ============ HANDLERS ============
   const handleInputChange = (e) => {
