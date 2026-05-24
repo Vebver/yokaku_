@@ -177,15 +177,20 @@ const WalkInReservations = () => {
                    <div className="x-small fw-bold text-muted text-uppercase">Session Time</div>
                    <div className="small fw-bold">
                      {(() => {
-                       const toManilaTime = (t) => {
+                     // Convert a DB time string (HH:MM:SS) assuming it is in Asia/Manila.
+                     // If your DB server is NOT in Manila, change this by subtracting the offset instead.
+                     const toManilaTime = (t) => {
                          if (!t) return "--:--";
-                         // DB for walk-ins uses CURTIME() -> HH:MM:SS (24h)
-                         // Date parsing without timezone can shift; format manually.
                          const parts = String(t).split(":");
                          if (parts.length < 2) return String(t);
-                         const hh = parseInt(parts[0], 10);
+                         let hh = parseInt(parts[0], 10);
                          const mm = parseInt(parts[1], 10);
                          if (Number.isNaN(hh) || Number.isNaN(mm)) return String(t);
+
+                         // If DB is UTC but DB returns UTC clock time, uncomment and set the offset:
+                         // const MANILA_OFFSET_HOURS = 8;
+                         // hh = (hh + MANILA_OFFSET_HOURS) % 24;
+
                          const hour12 = hh % 12 || 12;
                          const ampm = hh >= 12 ? "PM" : "AM";
                          return `${hour12}:${String(mm).padStart(2, "0")} ${ampm}`;

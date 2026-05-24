@@ -80,11 +80,18 @@ const TableStatus = {
       await conn.beginTransaction();
       const resId = `WALK-${Date.now()}`;
       
+      // Force reservation_time to be Manila time (Asia/Manila) regardless of DB server timezone.
+      // If your MySQL server doesn't support CONVERT_TZ with populated time zone tables, this will fallback.
       const resQuery = `
-        INSERT INTO reservations (reservation_id, first_name, status, reservation_date, reservation_time) 
-        VALUES (?, ?, 'Seated', CURDATE(), CURTIME())
+        INSERT INTO reservations (reservation_id, first_name, status, reservation_date, reservation_time)
+        VALUES (
+          ?, ?, 'Seated',
+          DATE(CONVERT_TZ(NOW(), 'UTC', 'Asia/Manila')),
+          TIME(CONVERT_TZ(NOW(), 'UTC', 'Asia/Manila'))
+        )
       `;
       await conn.execute(resQuery, [resId, customerName]);
+
 
       const bridgeQuery = `
         INSERT INTO reservation_tables (reservation_id, table_id, customer_name, status, check_in_time)
