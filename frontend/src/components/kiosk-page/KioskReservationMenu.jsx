@@ -29,6 +29,17 @@ const KioskReservationMenu = () => {
   const timerRef = useRef(null);
   const audioRef = useRef(new Audio(alertMusicFile));
   const reservationId = localStorage.getItem("resId") || "GUEST";
+
+  const playCashierAlert = async () => {
+    try {
+      if (!audioRef.current) return;
+      audioRef.current.currentTime = 0;
+      await audioRef.current.play();
+    } catch (e) {
+      console.log("Cashier alert audio blocked:", e);
+    }
+  };
+
   
   const TIMER_KEY = `kiosk_res_timer_${reservationId}`;
   const PAYMENT_CHOICE_KEY = `kiosk_pay_choice_${reservationId}`;
@@ -181,6 +192,10 @@ const KioskReservationMenu = () => {
 
   const confirmPaymentChoice = (choice) => {
     localStorage.setItem(PAYMENT_CHOICE_KEY, choice);
+    if (choice === "Pay Now") {
+      // Alert cashier when someone clicks PAY NOW on the reservation kiosk
+      playCashierAlert();
+    }
     submitOrderToDatabase();
   };
 
