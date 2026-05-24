@@ -80,18 +80,18 @@ const TableStatus = {
       await conn.beginTransaction();
       const resId = `WALK-${Date.now()}`;
       
-      // Force reservation_time to be Manila time (UTC+8) regardless of DB server timezone.
-      // Uses fixed offset with UTC_TIMESTAMP().
-      // If this still shows an offset, it means your stored times are already in Manila time (so we should REMOVE this conversion).
-      // In that case, revert to CURDATE()/CURTIME().
+      // Store walk-in reservation_time in UTC to eliminate timezone drift.
+      // UI should convert to the desired timezone.
       const resQuery = `
         INSERT INTO reservations (reservation_id, first_name, status, reservation_date, reservation_time)
         VALUES (
           ?, ?, 'Seated',
-          DATE(UTC_TIMESTAMP() + INTERVAL 8 HOUR),
-          TIME(UTC_TIMESTAMP() + INTERVAL 8 HOUR)
+          DATE(UTC_TIMESTAMP()),
+          TIME(UTC_TIMESTAMP())
         )
       `;
+
+
 
 
       await conn.execute(resQuery, [resId, customerName]);
