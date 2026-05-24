@@ -134,7 +134,7 @@ function FullMenu() {
                 className="order-now-button"
                 onClick={() => handleOrderNow(item)}
               >
-                Order Now
+                {isLoggedIn() ? "Order now" : "Log in"}
               </button>
             </div>
           </div>
