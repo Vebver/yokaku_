@@ -224,13 +224,23 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       // Get current time to check against reservation end times
       const now = new Date();
       const currentTime = now.getHours() * 60 + now.getMinutes();
+      const todayStrDate = now.toISOString().split("T")[0];
+
+      // Check if the selected date is today
+      const isToday = date === todayStrDate;
 
       if (allReservationsByDate[date]) {
-        // Filter out completed reservations (end time has passed)
-        const activeReservations = allReservationsByDate[date].filter((res) => {
-          const endM = timeToMin(res.endTime);
-          return endM > currentTime; // Only show if end time is in the future
-        });
+        // Filter reservations based on whether it's today or future date
+        let activeReservations = [...allReservationsByDate[date]];
+
+        if (isToday) {
+          // For today: only show reservations that haven't ended yet
+          activeReservations = activeReservations.filter((res) => {
+            const endM = timeToMin(res.endTime);
+            return endM > currentTime;
+          });
+        }
+        // For future dates: show ALL reservations (no time filtering)
 
         const formattedReservations = activeReservations.map((res) => ({
           ...res,
@@ -249,13 +259,16 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         );
 
         if (response.data && Array.isArray(response.data)) {
-          // Filter out completed reservations
-          const now = new Date();
-          const currentTime = now.getHours() * 60 + now.getMinutes();
-          const activeReservations = response.data.filter((res) => {
-            const endM = timeToMin(res.endTime);
-            return endM > currentTime;
-          });
+          let activeReservations = [...response.data];
+
+          if (isToday) {
+            // For today: filter out completed reservations
+            activeReservations = response.data.filter((res) => {
+              const endM = timeToMin(res.endTime);
+              return endM > currentTime;
+            });
+          }
+          // For future dates: show ALL reservations
 
           const formattedReservations = activeReservations.map((res) => {
             let tableLabel = `Table ${res.table_id}`;
