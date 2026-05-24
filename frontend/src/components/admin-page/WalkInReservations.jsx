@@ -90,7 +90,7 @@ const WalkInReservations = () => {
               <tr className="text-muted small text-uppercase" style={{ fontSize: "0.7rem", letterSpacing: '0.8px' }}>
                 <th className="ps-4 py-3">Guest & ID</th>
                 <th>Table</th>
-                <th>Time In</th>
+                <th>Date</th>
                 <th className="text-center">Status</th>
                 <th className="text-end pe-4">Actions</th>
               </tr>
@@ -110,7 +110,6 @@ const WalkInReservations = () => {
                   </td>
                   <td>
                     <div className="fw-bold small">{new Date(item.reservation_date).toLocaleDateString()}</div>
-                    <div className="text-muted x-small">{item.reservation_time}</div>
                   </td>
                   <td className="text-center">
                     <span className={`badge rounded-pill px-3 py-1 small ${item.status === 'completed' ? 'bg-secondary' : 'bg-success'}`}>
@@ -177,9 +176,11 @@ const WalkInReservations = () => {
                    <div className="x-small fw-bold text-muted text-uppercase">Session Time</div>
                    <div className="small fw-bold">
                      {(() => {
-                     // Convert a DB time string (HH:MM:SS) assuming it is in Asia/Manila.
-                     // If your DB server is NOT in Manila, change this by subtracting the offset instead.
-                     const toManilaTime = (t) => {
+                       // reservation_time is stored as UTC (see backend change).
+                       // Convert UTC -> Asia/Manila by adding +8 hours.
+                       const MANILA_OFFSET_HOURS = 8;
+
+                       const toManilaClock = (t) => {
                          if (!t) return "--:--";
                          const parts = String(t).split(":");
                          if (parts.length < 2) return String(t);
@@ -187,17 +188,17 @@ const WalkInReservations = () => {
                          const mm = parseInt(parts[1], 10);
                          if (Number.isNaN(hh) || Number.isNaN(mm)) return String(t);
 
-                         // If DB is UTC but DB returns UTC clock time, uncomment and set the offset:
-                         // const MANILA_OFFSET_HOURS = 8;
-                         // hh = (hh + MANILA_OFFSET_HOURS) % 24;
+                         hh = (hh + MANILA_OFFSET_HOURS) % 24;
 
                          const hour12 = hh % 12 || 12;
                          const ampm = hh >= 12 ? "PM" : "AM";
                          return `${hour12}:${String(mm).padStart(2, "0")} ${ampm}`;
                        };
-                       return `${toManilaTime(selectedRes.reservation_time)} - ${selectedRes.time_ended ? toManilaTime(selectedRes.time_ended) : "Now"}`;
+
+                       return `${toManilaClock(selectedRes.reservation_time)} - ${selectedRes.time_ended ? toManilaClock(selectedRes.time_ended) : "Now"}`;
                      })()}
                    </div>
+
 
                 </div>
               </div>
