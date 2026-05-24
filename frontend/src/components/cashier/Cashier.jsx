@@ -66,22 +66,20 @@ const CashierDashboard = () => {
   };
 
   return (
-    <div className="admin-wrapper">
-      {/* 1. MOBILE OVERLAY */}
+    <div className="kiosk-wrapper"> {/* Changed class name for context */}
+      {/* MOBILE OVERLAY */}
       {sidebarOpen && window.innerWidth <= 992 && (
         <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)}></div>
       )}
 
-      {/* 2. SIDEBAR */}
-      <aside className={`sidebar-container bg-dark ${sidebarOpen ? "open" : "closed"}`}>
-        <div className="sidebar-header border-bottom border-secondary p-4 d-flex justify-content-between align-items-center">
-          <h3 className="fw-bold mb-0 text-warning">HANGOUT</h3>
-          <button className="btn text-white d-lg-none" onClick={() => setSidebarOpen(false)}>
-            <X size={24} />
-          </button>
+      {/* KIOSK SIDEBAR */}
+      <aside className={`kiosk-sidebar ${sidebarOpen ? "open" : "closed"}`}>
+        <div className="kiosk-logo">
+          <h2 className="fw-bold mb-0 text-warning">H</h2>
+          <span className="small text-white-50">v1.0</span>
         </div>
 
-        <nav className="sidebar-nav p-2 mt-3">
+        <nav className="kiosk-nav">
           {navItems.map((item) => (
             <button
               key={item.id}
@@ -89,45 +87,47 @@ const CashierDashboard = () => {
                 setActiveTab(item.id);
                 if (window.innerWidth <= 992) setSidebarOpen(false);
               }}
-              className={`nav-btn ${activeTab === item.id ? "active" : ""}`}
+              className={`kiosk-nav-btn ${activeTab === item.id ? "active" : ""}`}
             >
-              <item.icon size={20} className="nav-icon" />
-              <span className="nav-text">{item.label}</span>
+              <item.icon size={32} className="kiosk-icon" />
+              <span className="kiosk-text">{item.label}</span>
             </button>
           ))}
         </nav>
 
-        <div className="sidebar-footer p-3 border-top border-secondary">
-          <button onClick={handleLogout} className="logout-btn">
-            <LogOut size={18} /> <span>Sign Out</span>
+        <div className="kiosk-footer">
+          <button onClick={handleLogout} className="kiosk-logout-btn">
+            <LogOut size={24} />
+            <span>Exit</span>
           </button>
         </div>
       </aside>
 
-      {/* 3. MAIN CONTENT */}
-      <main className={`main-layout ${sidebarOpen ? "shrunk" : "full"}`}>
-        {/* TOP NAVBAR */}
-        <header className="main-header bg-white shadow-sm px-4 py-3 sticky-top">
+      {/* MAIN CONTENT AREA */}
+      <main className={`kiosk-main ${sidebarOpen ? "shrunk" : "full"}`}>
+        <header className="kiosk-header">
           <div className="d-flex align-items-center gap-3">
-             <button className="btn btn-light d-lg-none" onClick={() => setSidebarOpen(true)}>
+             <button className="btn btn-warning d-lg-none" onClick={() => setSidebarOpen(true)}>
                <Menu size={24} />
              </button>
-             <h4 className="fw-bold mb-0 text-dark header-title">
-                {navItems.find(i => i.id === activeTab)?.label}
-             </h4>
+             <div>
+                <h3 className="fw-bold mb-0 text-dark">
+                    {navItems.find(i => i.id === activeTab)?.label}
+                </h3>
+                <p className="text-muted small mb-0">{new Date().toLocaleDateString()}</p>
+             </div>
           </div>
 
-          <div className="d-flex align-items-center gap-3">
+          <div className="kiosk-user-profile">
             <div className="text-end d-none d-sm-block">
-              <div className="fw-bold text-dark lh-1 mb-1">{user.name}</div>
-              <div className="text-uppercase text-primary small fw-bold">{user.role} Terminal</div>
+              <div className="fw-bold text-dark">{user.name}</div>
+              <div className="badge bg-primary">{user.role}</div>
             </div>
-            <UserCircle size={35} className="text-secondary" />
+            <UserCircle size={40} className="text-dark opacity-75" />
           </div>
         </header>
 
-        {/* COMPONENT RENDERER */}
-        <div className="content-inner p-3 p-md-4">
+        <div className="kiosk-content">
           {renderContent()}
         </div>
       </main>

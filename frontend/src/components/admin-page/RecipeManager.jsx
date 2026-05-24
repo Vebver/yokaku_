@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { Trash2, Plus, Info, BookOpen, Loader2, Package } from "lucide-react";
+import { Trash2, Plus, Info, BookOpen, Loader2, Package, Search } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
@@ -11,6 +11,7 @@ function RecipeManager() {
   const [currentRecipe, setCurrentRecipe] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingRecipe, setLoadingRecipe] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
 
   // Form State
   const [ingredientId, setIngredientId] = useState("");
@@ -124,6 +125,15 @@ function RecipeManager() {
               <span className="fw-bold small text-uppercase">1. Choose a Dish</span>
             </div>
             <div className="card-body p-4 bg-white">
+              <label className="form-label small fw-bold text-muted">SEARCH DISH</label>
+              <input
+                type="text"
+                className="form-control form-control-lg shadow-sm mb-3"
+                placeholder="Search menu items..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+
               <label className="form-label small fw-bold text-muted">MENU ITEM</label>
               <select
                 className="form-select border shadow-sm mb-3 py-2 fw-semibold"
@@ -131,11 +141,15 @@ function RecipeManager() {
                 onChange={(e) => setSelectedItemId(e.target.value)}
               >
                 <option value="">-- Select Product --</option>
-                {menuItems.map((item) => (
-                  <option key={item.item_id} value={item.item_id}>
-                    {item.name}
-                  </option>
-                ))}
+                {menuItems
+                  .filter((item) =>
+                    item.name.toLowerCase().includes(searchTerm.toLowerCase())
+                  )
+                  .map((item) => (
+                    <option key={item.item_id} value={item.item_id}>
+                      {item.name}
+                    </option>
+                  ))}
               </select>
               
               <div className="p-3 bg-light rounded-3 border d-flex gap-2 align-items-start">

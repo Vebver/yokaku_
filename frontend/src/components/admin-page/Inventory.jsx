@@ -162,8 +162,7 @@ function Inventory() {
               {currentItems.map((item) => (
                 <tr key={item.id}>
                   <td className="ps-4">
-                    <div className="fw-bold text-dark">{item.name}</div>
-                    <code className="text-muted" style={{fontSize: '0.6rem'}}>ID: #{item.id}</code>
+                    <div className="fw-bold text-dark">{item.name}</div>  
                   </td>
                   <td><span className="badge bg-white text-dark border fw-normal">{item.category}</span></td>
                   <td>

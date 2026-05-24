@@ -20,6 +20,7 @@ router.get('/reports/financial-analytics', protect, adminOnly, reportController.
 router.post('/walk-in/:tableId', protect, adminOnly, adminController.Walkin);
 router.put('/checkout/:tableId', protect, adminOnly, adminController.CheckOut);
 router.post('/add-table', protect, adminOnly, adminController.addTable);
+router.delete('/tables/:tableId', protect, adminOnly, adminController.deleteTable);
 
 // --- USER MANAGEMENT (Keep this for Admin and Cashier update permissions) ---
 router.put('/users/:userId/update-role', protect, adminOnly, adminController.updateUserRole);

@@ -146,6 +146,31 @@ const TableStatus = {
       throw err;
     }
   },
+
+  // 5. CREATE NEW TABLE
+  createNewTable: async (tableNumber, capacity) => {
+    try {
+      const query = `
+        INSERT INTO tables (table_number, capacity, available_seats, status)
+        VALUES (?, ?, ?, 'available')
+      `;
+      const [result] = await db.execute(query, [tableNumber, capacity, capacity]);
+      return { table_id: result.insertId, table_number: tableNumber, capacity, status: 'available' };
+    } catch (err) {
+      throw err;
+    }
+  },
+
+  // 6. DELETE TABLE
+  deleteTable: async (tableId) => {
+    try {
+      const query = `DELETE FROM tables WHERE table_id = ?`;
+      await db.execute(query, [tableId]);
+      return { success: true, message: "Table deleted successfully" };
+    } catch (err) {
+      throw err;
+    }
+  },
 };
 
 module.exports = TableStatus;

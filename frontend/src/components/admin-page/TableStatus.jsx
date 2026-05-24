@@ -253,7 +253,22 @@ const TableStatus = ({ compact = false }) => {
                   </div>
 
                   <div className="mt-auto">
-                    {t.bridge_status?.toLowerCase() === "seated" ? (
+                    {ui.deleteMode ? (
+                      <button
+                        className="btn btn-sm btn-danger w-100 py-0 fw-bold"
+                        style={{ fontSize: "0.65rem", height: "22px" }}
+                        onClick={() =>
+                          handleAction(
+                            "delete",
+                            `/admin/tables/${t.table_id}`,
+                            null,
+                            () => setUi((p) => ({ ...p, deleteMode: false }))
+                          )
+                        }
+                      >
+                        <Trash2 size={12} /> Delete
+                      </button>
+                    ) : t.bridge_status?.toLowerCase() === "seated" ? (
                       <button
                         className="btn btn-sm btn-primary w-100 py-0 fw-bold"
                         style={{ fontSize: "0.65rem", height: "22px" }}

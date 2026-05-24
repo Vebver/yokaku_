@@ -77,7 +77,7 @@ const WalkInReservations = () => {
         </div>
         <div className="col-auto">
           <div className="bg-primary text-white border-0 rounded-pill px-3 py-1 shadow-sm small fw-bold">
-            {inquiries.length} Active Today
+            {inquiries.length} Orders
           </div>
         </div>
       </div>

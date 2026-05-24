@@ -100,6 +100,15 @@ getDashboardStats: async (req, res) => {
       res.status(500).json({ error: error.message });
     }
   },
+  deleteTable: async (req, res) => {
+    try {
+      const { tableId } = req.params;
+      const result = await TableStatus.deleteTable(tableId);
+      res.json({ message: "Table deleted successfully", result });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
   Walkin: async (req, res) => {
     try {
       const { tableId } = req.params;

@@ -152,8 +152,8 @@ const deleteMenuItem = async (id) => {
       {/* 1. RESPONSIVE HEADER */}
       <div className="row g-3 align-items-center mb-4">
         <div className="col-12 col-lg-4">
-          <h2 className="fw-bold mb-0">Menu Management</h2>
-          <p className="text-muted mb-0 small">Manage digital menu items</p>
+          <h2 className="fw-bold mb-0">Menu Items</h2>
+          <p className="text-muted mb-0 small">Digital menu items</p>
         </div>
 
         <div className="col-12 col-md-8 col-lg-5">
@@ -214,7 +214,6 @@ const deleteMenuItem = async (id) => {
                       <img src={getImageUrl(item, BASE_URL)} alt="" className="rounded shadow-sm me-3 border" width="48" height="48" style={{ objectFit: "cover" }} />
                       <div>
                         <div className="fw-bold text-dark lh-1 mb-1">{item.name}</div>
-                        <small className="text-muted">ID: {item.item_id}</small>
                       </div>
                     </div>
                   </td>
