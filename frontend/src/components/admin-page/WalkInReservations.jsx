@@ -175,7 +175,25 @@ const WalkInReservations = () => {
               <div className="p-3 border-bottom">
                 <div className="d-flex justify-content-between align-items-center mb-1">
                    <div className="x-small fw-bold text-muted text-uppercase">Session Time</div>
-                   <div className="small fw-bold">{selectedRes.reservation_time} - {selectedRes.time_ended || "Now"}</div>
+                   <div className="small fw-bold">
+                     {(() => {
+                       const toManilaTime = (t) => {
+                         if (!t) return "--:--";
+                         // DB for walk-ins uses CURTIME() -> HH:MM:SS (24h)
+                         // Date parsing without timezone can shift; format manually.
+                         const parts = String(t).split(":");
+                         if (parts.length < 2) return String(t);
+                         const hh = parseInt(parts[0], 10);
+                         const mm = parseInt(parts[1], 10);
+                         if (Number.isNaN(hh) || Number.isNaN(mm)) return String(t);
+                         const hour12 = hh % 12 || 12;
+                         const ampm = hh >= 12 ? "PM" : "AM";
+                         return `${hour12}:${String(mm).padStart(2, "0")} ${ampm}`;
+                       };
+                       return `${toManilaTime(selectedRes.reservation_time)} - ${selectedRes.time_ended ? toManilaTime(selectedRes.time_ended) : "Now"}`;
+                     })()}
+                   </div>
+
                 </div>
               </div>
 

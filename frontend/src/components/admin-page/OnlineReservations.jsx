@@ -286,9 +286,19 @@ const OnlineReservations = () => {
                       High Chair
                     </div>
                     <div className="small fw-bold">
-                      {selectedRes.highChair ? "Yes" : "No"}
+                      {(() => {
+                        const v = selectedRes.highChair;
+                        if (v === true) return "Yes";
+                        if (typeof v === "string") {
+                          const s = v.trim().toLowerCase();
+                          if (["yes", "y", "true", "1"].includes(s)) return "Yes";
+                          if (["no", "n", "false", "0", ""].includes(s)) return "No";
+                        }
+                        return "No";
+                      })()}
                     </div>
                   </div>
+
                 </div>
               </div>
 
@@ -303,14 +313,19 @@ const OnlineReservations = () => {
                   </div>
                   <div className="small fw-bold">
                     <span className="text-muted">
-                      {selectedRes.time_started || "--:--"}
+                      {selectedRes.reservation_time || "--:--"}
                     </span>
                     <ChevronRight size={14} className="mx-1 text-muted" />
                     <span className="text-dark">
-                      {selectedRes.time_ended || "Active"}
+                      {selectedRes.end_time || "Active"}
                     </span>
                   </div>
                 </div>
+                <div className="x-small text-muted">
+                  Window: {selectedRes.reservation_time || "--:--"} -{" "}
+                  {selectedRes.end_time || "--:--"} • Status: {selectedRes.status || "--"}
+                </div>
+
 
                 {selectedRes.allergies && (
                   <div className="p-2 bg-warning-subtle rounded border border-warning-subtle d-flex gap-2">
