@@ -1612,7 +1612,15 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                       const now = new Date();
                       const currentTime =
                         now.getHours() * 60 + now.getMinutes();
-                      return endM > currentTime;
+                      const todayStrDate = now.toISOString().split("T")[0];
+                      const isToday = form.date === todayStrDate;
+
+                      // Only filter by time for TODAY's date
+                      if (isToday) {
+                        return endM > currentTime;
+                      }
+                      // For future dates, show all reservations
+                      return true;
                     })
                     .map((res, i) => {
                       const itemClass = getScheduleItemClassWithColor(res);
@@ -1636,7 +1644,15 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   const endM = timeToMin(res.endTime);
                   const now = new Date();
                   const currentTime = now.getHours() * 60 + now.getMinutes();
-                  return endM > currentTime;
+                  const todayStrDate = now.toISOString().split("T")[0];
+                  const isToday = form.date === todayStrDate;
+
+                  // Only filter by time for TODAY's date
+                  if (isToday) {
+                    return endM > currentTime;
+                  }
+                  // For future dates, show all reservations
+                  return true;
                 }).length === 0 && (
                   <div className="no-active-slots">
                     <CheckCircle size={16} />
@@ -2067,11 +2083,14 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   <div className="allergy-disclaimer">
                     <AlertCircle size={12} className="disclaimer-icon" />
                     <span>
-                      Disclaimer: If you have allergies or dietary restrictions
-                      related to certain ingredients, substitutions or
-                      ingredient removals may be necessary, which can slightly
-                      change the taste, texture, or overall flavor compared to
-                      the original product.
+                      Disclaimer: If you have allergies related to certain
+                      ingredients, substitutions or ingredient removals may be
+                      necessary, which can slightly change the taste, texture,
+                      or overall flavor compared to the original product.
+                      Hangout Resto Bar will not be held responsible if a
+                      customer consumes food that may cause allergic reactions,
+                      including food ordered by or shared with their companions
+                      or friends.
                     </span>
                   </div>
                 )}
