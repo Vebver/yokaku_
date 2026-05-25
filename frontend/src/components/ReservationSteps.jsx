@@ -228,10 +228,26 @@ export default function ReservationSteps({ onClose, onSuccess }) {
 
       // Check if the selected date is today
       const isToday = date === todayStrDate;
+      const checkDate = new Date(date);
+      const todayDate = new Date();
+      todayDate.setHours(0, 0, 0, 0);
+      const isPastDate = checkDate < todayDate;
 
       if (allReservationsByDate[date]) {
-        // Filter reservations based on whether it's today or future date
+        // Filter reservations - only show active ones (not completed/cancelled/done)
         let activeReservations = [...allReservationsByDate[date]];
+
+        // Filter out cancelled or completed reservations
+        activeReservations = activeReservations.filter((res) => {
+          if (
+            res.status === "Cancelled" ||
+            res.status === "Completed" ||
+            res.status === "Done"
+          ) {
+            return false;
+          }
+          return true;
+        });
 
         if (isToday) {
           // For today: only show reservations that haven't ended yet
@@ -240,7 +256,11 @@ export default function ReservationSteps({ onClose, onSuccess }) {
             return endM > currentTime;
           });
         }
-        // For future dates: show ALL reservations (no time filtering)
+
+        if (isPastDate) {
+          // For past dates: show no reservations (all are done)
+          activeReservations = [];
+        }
 
         const formattedReservations = activeReservations.map((res) => ({
           ...res,
@@ -261,14 +281,30 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         if (response.data && Array.isArray(response.data)) {
           let activeReservations = [...response.data];
 
+          // Filter out cancelled or completed reservations
+          activeReservations = activeReservations.filter((res) => {
+            if (
+              res.status === "Cancelled" ||
+              res.status === "Completed" ||
+              res.status === "Done"
+            ) {
+              return false;
+            }
+            return true;
+          });
+
           if (isToday) {
             // For today: filter out completed reservations
-            activeReservations = response.data.filter((res) => {
+            activeReservations = activeReservations.filter((res) => {
               const endM = timeToMin(res.endTime);
               return endM > currentTime;
             });
           }
-          // For future dates: show ALL reservations
+
+          if (isPastDate) {
+            // For past dates: show no reservations
+            activeReservations = [];
+          }
 
           const formattedReservations = activeReservations.map((res) => {
             let tableLabel = `Table ${res.table_id}`;
@@ -323,9 +359,42 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     return `${hours} hour${hours > 1 ? "s" : ""} ${minutes} min`;
   };
 
-  // Get reservation count for a date
-  const getReservationCountForDate = (dateStr) => {
-    return dateReservationCounts[dateStr] || 0;
+  // Get active reservation count for a date (only active, not completed)
+  const getActiveReservationCountForDate = (dateStr) => {
+    if (!allReservationsByDate[dateStr]) return 0;
+
+    const now = new Date();
+    const currentTime = now.getHours() * 60 + now.getMinutes();
+    const todayStrDate = now.toISOString().split("T")[0];
+    const isToday = dateStr === todayStrDate;
+    const checkDate = new Date(dateStr);
+    const todayDate = new Date();
+    todayDate.setHours(0, 0, 0, 0);
+    const isPastDate = checkDate < todayDate;
+
+    // Past dates have no active reservations
+    if (isPastDate) return 0;
+
+    let activeCount = allReservationsByDate[dateStr].filter((res) => {
+      // Skip cancelled or completed reservations
+      if (
+        res.status === "Cancelled" ||
+        res.status === "Completed" ||
+        res.status === "Done"
+      ) {
+        return false;
+      }
+
+      // For today, check if end time has passed
+      if (isToday) {
+        const endM = timeToMin(res.endTime);
+        if (endM <= currentTime) return false;
+      }
+
+      return true;
+    }).length;
+
+    return activeCount;
   };
 
   // Get total tables count (excluding maintenance)
@@ -333,10 +402,10 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     (t) => t.status !== "maintenance",
   ).length;
 
-  // Check if date is fully booked
+  // Check if date is fully booked (based on active reservations only)
   const isDateFullyBooked = (dateStr) => {
-    const count = getReservationCountForDate(dateStr);
-    return count >= totalTablesCount;
+    const activeCount = getActiveReservationCountForDate(dateStr);
+    return activeCount >= totalTablesCount;
   };
 
   // ============ CHECK TIME SLOT AVAILABILITY FOR SELECTED TABLE ============
@@ -490,11 +559,15 @@ export default function ReservationSteps({ onClose, onSuccess }) {
               params: { tableId: table.id, date: form.date },
             },
           );
-          // Filter to only active reservations (end time not passed)
+          // Filter to only active reservations (end time not passed and not completed)
           const activeSchedules = Array.isArray(response.data)
             ? response.data.filter((res) => {
                 const endM = timeToMin(res.endTime);
-                return endM > currentTime;
+                const isCompleted =
+                  res.status === "Done" ||
+                  res.status === "Completed" ||
+                  res.status === "Cancelled";
+                return endM > currentTime && !isCompleted;
               })
             : [];
           schedules[table.id] = activeSchedules;
@@ -563,7 +636,12 @@ export default function ReservationSteps({ onClose, onSuccess }) {
             const endM = timeToMin(res.endTime);
             return endM > currentTime; // Only keep active reservations
           })
-          .filter((res) => res.status !== "Done" && res.status !== "Completed")
+          .filter(
+            (res) =>
+              res.status !== "Done" &&
+              res.status !== "Completed" &&
+              res.status !== "Cancelled",
+          )
           .map((res) => ({ ...res }));
 
         setData({ occupied: statRes.data || {}, schedule: processedSchedule });
@@ -1206,7 +1284,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     const date = new Date(year, month, i);
                     const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
                     const reservationCount =
-                      getReservationCountForDate(dateStr);
+                      getActiveReservationCountForDate(dateStr);
                     const isFullyBooked = isDateFullyBooked(dateStr);
                     const isTimeClosed = isDateClosedByTime(
                       dateStr,
@@ -1377,9 +1455,9 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     ) : (
                       <div className="reservation-details-empty">
                         <Calendar size={32} />
-                        <p>No reservations for this date</p>
+                        <p>No active reservations for this date</p>
                         <span>
-                          Click on a date with yellow highlight to view
+                          Click on a date with yellow highlight to view active
                           reservations
                         </span>
                       </div>
