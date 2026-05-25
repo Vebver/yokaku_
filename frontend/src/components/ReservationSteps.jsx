@@ -547,9 +547,12 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       if (!form.date) return;
       setIsDateLoading(true);
       const schedules = {};
-      // Get current time once for all tables
+
+      // Check if selected date is today
       const now = new Date();
       const currentTime = now.getHours() * 60 + now.getMinutes();
+      const todayStrDate = now.toISOString().split("T")[0];
+      const isToday = form.date === todayStrDate;
 
       for (const table of TABLES_DATA) {
         try {
@@ -559,17 +562,28 @@ export default function ReservationSteps({ onClose, onSuccess }) {
               params: { tableId: table.id, date: form.date },
             },
           );
-          // Filter to only active reservations (end time not passed and not completed)
-          const activeSchedules = Array.isArray(response.data)
-            ? response.data.filter((res) => {
+
+          let activeSchedules = [];
+          if (Array.isArray(response.data)) {
+            // Filter out cancelled/completed reservations first
+            let filtered = response.data.filter((res) => {
+              return (
+                res.status !== "Cancelled" &&
+                res.status !== "Completed" &&
+                res.status !== "Done"
+              );
+            });
+
+            if (isToday) {
+              // For today: only show reservations that haven't ended yet
+              filtered = filtered.filter((res) => {
                 const endM = timeToMin(res.endTime);
-                const isCompleted =
-                  res.status === "Done" ||
-                  res.status === "Completed" ||
-                  res.status === "Cancelled";
-                return endM > currentTime && !isCompleted;
-              })
-            : [];
+                return endM > currentTime;
+              });
+            }
+            // For future dates: show ALL active reservations (no time filtering)
+            activeSchedules = filtered;
+          }
           schedules[table.id] = activeSchedules;
         } catch (error) {
           schedules[table.id] = [];
@@ -605,6 +619,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         // Get current time for filtering
         const now = new Date();
         const currentTime = now.getHours() * 60 + now.getMinutes();
+        const todayStrDate = now.toISOString().split("T")[0];
+        const isToday = form.date === todayStrDate;
 
         const statRes = await axios.get(
           `${API_BASE}/reservations/table-statuses`,
@@ -633,15 +649,22 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         // Filter out completed reservations from schedule
         const processedSchedule = (schedRes.data || [])
           .filter((res) => {
+            // First filter out cancelled/completed reservations
+            if (
+              res.status === "Cancelled" ||
+              res.status === "Completed" ||
+              res.status === "Done"
+            ) {
+              return false;
+            }
             const endM = timeToMin(res.endTime);
-            return endM > currentTime; // Only keep active reservations
+            // For today only, check if end time has passed
+            if (isToday) {
+              return endM > currentTime;
+            }
+            // For future dates, show all active reservations
+            return true;
           })
-          .filter(
-            (res) =>
-              res.status !== "Done" &&
-              res.status !== "Completed" &&
-              res.status !== "Cancelled",
-          )
           .map((res) => ({ ...res }));
 
         setData({ occupied: statRes.data || {}, schedule: processedSchedule });
