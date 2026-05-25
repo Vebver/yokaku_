@@ -1301,9 +1301,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                         {day.hasReservations && day.reservationCount > 0 && (
                           <span className="calendar-reservation-badge">
                             {day.reservationCount}{" "}
-                            {day.reservationCount === 1
-                              ? "Reservation"
-                              : "Reservations"}
+                            {day.reservationCount === 1 ? "Res" : "Res"}
                           </span>
                         )}
                         {day.isFullyBooked && (
