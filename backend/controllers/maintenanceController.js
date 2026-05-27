@@ -1,6 +1,6 @@
 const Maintenance = require('../models/Maintenance');
-const path = require('path');
-const fs = require('fs');
+const FinancialReport = require('../models/FinancialReport');
+const { buildFinancialPdf } = require('../utils/financialPdf');
 
 const maintenanceController = {
   // ARCHIVE OLD RECORDS
@@ -53,6 +53,58 @@ const maintenanceController = {
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: "Failed to generate report." });
+    }
+  },
+
+  // DOWNLOAD FINANCIAL REPORT AS PDF (Profit Weekly/Monthly/Yearly + Revenue Trends)
+  exportFinancialPdf: async (req, res) => {
+    try {
+      const [
+        stats,
+        profitWeekly,
+        profitMonthly,
+        profitYearly,
+        weeklyTrend,
+        monthlyTrend,
+        yearlyTrend,
+      ] = await Promise.all([
+        FinancialReport.getFinancialStats(),
+        FinancialReport.getProfitWeekly(),
+        FinancialReport.getProfitMonthly(),
+        FinancialReport.getProfitYearly(),
+        FinancialReport.getWeeklyProfitTrend(7),
+        FinancialReport.getMonthlyProfitTrend(6),
+        FinancialReport.getYearlyProfitTrend(5),
+      ]);
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="Financial_Report_${Date.now()}.pdf"`,
+      );
+
+      const doc = buildFinancialPdf({
+        title: 'Financial Report (Profit & Revenue Trend)',
+        payload: {
+          summary: stats || {},
+          profit: {
+            weekly: profitWeekly || 0,
+            monthly: profitMonthly || 0,
+            yearly: profitYearly || 0,
+          },
+          trends: {
+            weekly: weeklyTrend || [],
+            monthly: monthlyTrend || [],
+            yearly: yearlyTrend || [],
+          },
+        },
+      });
+
+      doc.pipe(res);
+      doc.end();
+    } catch (error) {
+      console.error('exportFinancialPdf error:', error);
+      res.status(500).json({ error: 'Failed to generate financial PDF.' });
     }
   }
 };

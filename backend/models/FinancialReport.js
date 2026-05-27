@@ -70,6 +70,100 @@ const FinancialReport = {
     const [rows] = await db.execute(query);
     return rows;
   },
+
+  // NEW: Weekly / Monthly / Yearly profit queries (profit = revenue)
+  getProfitWeekly: async () => {
+    const [rows] = await db.execute(`
+      SELECT SUM(amount) as value
+      FROM (
+        SELECT paid_at as d, amount FROM payments WHERE payment_status = 'verified'
+        UNION ALL
+        SELECT ko.created_at as d, (ko.quantity * m.price) as amount
+        FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
+      ) as combined
+      WHERE d >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+    `);
+    return rows[0]?.value ? Number(rows[0].value) : 0;
+  },
+
+  getProfitMonthly: async () => {
+    const [rows] = await db.execute(`
+      SELECT SUM(amount) as value
+      FROM (
+        SELECT paid_at as d, amount FROM payments WHERE payment_status = 'verified'
+        UNION ALL
+        SELECT ko.created_at as d, (ko.quantity * m.price) as amount
+        FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
+      ) as combined
+      WHERE MONTH(d) = MONTH(CURDATE()) AND YEAR(d) = YEAR(CURDATE())
+    `);
+    return rows[0]?.value ? Number(rows[0].value) : 0;
+  },
+
+  getProfitYearly: async () => {
+    const [rows] = await db.execute(`
+      SELECT SUM(amount) as value
+      FROM (
+        SELECT paid_at as d, amount FROM payments WHERE payment_status = 'verified'
+        UNION ALL
+        SELECT ko.created_at as d, (ko.quantity * m.price) as amount
+        FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
+      ) as combined
+      WHERE YEAR(d) = YEAR(CURDATE())
+    `);
+    return rows[0]?.value ? Number(rows[0].value) : 0;
+  },
+
+  getWeeklyProfitTrend: async (days = 13) => {
+    const [rows] = await db.execute(`
+      SELECT DATE_FORMAT(d, '%b %e') as label, SUM(amount) as value
+      FROM (
+        SELECT paid_at as d, amount FROM payments WHERE payment_status = 'verified'
+        UNION ALL
+        SELECT ko.created_at as d, (ko.quantity * m.price) as amount
+        FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
+      ) as combined
+      WHERE d >= DATE_SUB(CURDATE(), INTERVAL ${days - 1} DAY)
+      GROUP BY DATE(d)
+      ORDER BY DATE(d) ASC
+      LIMIT ${days}
+    `);
+    return rows;
+  },
+
+  getMonthlyProfitTrend: async (months = 6) => {
+    const [rows] = await db.execute(`
+      SELECT DATE_FORMAT(d, '%b %Y') as label, SUM(amount) as value
+      FROM (
+        SELECT paid_at as d, amount FROM payments WHERE payment_status = 'verified'
+        UNION ALL
+        SELECT ko.created_at as d, (ko.quantity * m.price) as amount
+        FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
+      ) as combined
+      WHERE d >= DATE_SUB(CURDATE(), INTERVAL ${months - 1} MONTH)
+      GROUP BY YEAR(d), MONTH(d)
+      ORDER BY YEAR(d), MONTH(d) ASC
+      LIMIT ${months}
+    `);
+    return rows;
+  },
+
+  getYearlyProfitTrend: async (years = 5) => {
+    const [rows] = await db.execute(`
+      SELECT DATE_FORMAT(d, '%Y') as label, SUM(amount) as value
+      FROM (
+        SELECT paid_at as d, amount FROM payments WHERE payment_status = 'verified'
+        UNION ALL
+        SELECT ko.created_at as d, (ko.quantity * m.price) as amount
+        FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
+      ) as combined
+      WHERE d >= DATE_SUB(CURDATE(), INTERVAL ${years - 1} YEAR)
+      GROUP BY YEAR(d)
+      ORDER BY YEAR(d) ASC
+      LIMIT ${years}
+    `);
+    return rows;
+  },
 };
 
 module.exports = FinancialReport;

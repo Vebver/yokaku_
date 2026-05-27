@@ -5,7 +5,8 @@ import {
   Archive,
   RefreshCcw, // Added for the Reset card
   AlertTriangle,
-  Settings
+  Settings,
+  FileText
 } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
@@ -32,6 +33,28 @@ const SystemMaintenance = () => {
     } catch (err) {
       console.error(err);
       alert("Error: " + (err.response?.data?.error || "Action failed"));
+    }
+  };
+
+  const downloadFinancialPdf = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.get(`${API_BASE}/admin/export-financial-pdf`, {
+        headers: { Authorization: `Bearer ${token}` },
+        responseType: "blob",
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `Financial_Report_${Date.now()}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Financial PDF download failed", err);
+      alert("Failed to download financial PDF. Please check your connection.");
     }
   };
 
@@ -111,7 +134,26 @@ const SystemMaintenance = () => {
           </div>
         </div>
 
-        {/* 3. SHIFT RESET */}
+        {/* 3. FINANCIAL PDF */}
+        <div className="col-12 col-md-6 col-lg-4">
+          <div className="p-4 border rounded text-center h-100 bg-white shadow-sm d-flex flex-column justify-content-between">
+            <div>
+              <FileText className="text-success mb-3" size={40} />
+              <h5 className="fw-bold">Financial PDF</h5>
+              <p className="small text-muted mb-4">
+                Includes profit (weekly/monthly/yearly) and revenue trend (weekly/monthly/yearly).
+              </p>
+            </div>
+            <button
+              onClick={downloadFinancialPdf}
+              className="btn btn-success btn-lg w-100 py-3 fw-bold shadow-sm"
+            >
+              Download PDF
+            </button>
+          </div>
+        </div>
+
+        {/* 4. SHIFT RESET */}
         <div className="col-12 col-md-12 col-lg-4">
           <div className="p-4 border rounded text-center h-100 bg-white shadow-sm d-flex flex-column justify-content-between">
             <div>

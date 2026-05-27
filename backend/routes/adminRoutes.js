@@ -30,6 +30,7 @@ router.get('/users', protect, adminOnly, adminController.getAllUsers);
 router.post('/archive', protect, adminOnly, maintenanceController.archiveRecords);
 router.post('/reset', protect, adminOnly, maintenanceController.reset);
 router.get('/export-csv', protect, adminOnly, maintenanceController.exportData);
+router.get('/export-financial-pdf', protect, adminOnly, maintenanceController.exportFinancialPdf);
 
 // --- BLOCKED DATES ---
 router.get('/blocked-dates', blockedDateController.list); 
