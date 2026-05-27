@@ -146,9 +146,6 @@ const OnlineReservations = () => {
                     <div className="fw-bold small">
                       {new Date(item.reservation_date).toLocaleDateString()}
                     </div>
-                    <div className="x-small text-muted">
-                      {item.reservation_time}
-                    </div>
                   </td>
                   <td>
                     <span
@@ -322,8 +319,8 @@ const OnlineReservations = () => {
                   </div>
                 </div>
                 <div className="x-small text-muted">
-                  Window: {selectedRes.reservation_time || "--:--"} -{" "}
-                  {selectedRes.end_time || "--:--"} • Status: {selectedRes.status || "--"}
+                  {selectedRes.reservation_time || "--:--"} -{" "}
+                  {selectedRes.end_time || "--:--"} : {selectedRes.status || "--"}
                 </div>
 
 

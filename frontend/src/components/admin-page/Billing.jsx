@@ -105,7 +105,7 @@ const Billing = () => {
         <div className="table-responsive">
           <table
             className="table table-hover align-middle mb-0"
-            style={{ minWidth: "1000px" }}
+            style={{ minWidth: "1100px" }}
           >
             <thead className="bg-light border-bottom">
               <tr
@@ -116,6 +116,7 @@ const Billing = () => {
                 <th>Method</th>
                 <th>Amount Paid</th>
                 <th>Pay Status</th>
+                <th>Settlement</th>
                 <th className="text-center">Order Status</th>
                 <th className="text-end pe-4">Action</th>
               </tr>
@@ -145,38 +146,46 @@ const Billing = () => {
                     <td>
                       <span
                         className={`badge rounded-pill px-3 ${
-                          p.payment_status === "verified" ||
-                          p.status === "completed"
+                          p.payment_status === "verified"
                             ? "bg-success"
-                            : p.payment_status === "rejected" ||
-                                p.status === "rejected"
+                            : p.payment_status === "rejected"
                               ? "bg-danger"
                               : "bg-warning text-dark"
                         }`}
                       >
-                        {(
-                          p.payment_status ||
-                          p.status ||
-                          "PENDING"
-                        ).toUpperCase()}
+                        {(p.payment_status || "PENDING").toUpperCase()}
                       </span>
                     </td>
+
+                    {/* NEW SETTLEMENT COLUMN LOGIC */}
+                    <td>
+                      {/* FIX: Convert to lowercase before comparing */}
+                      {p.order_status?.toLowerCase() === "completed" ||
+                      p.status?.toLowerCase() === "completed" ? (
+                        <span className="badge bg-primary-subtle text-primary border border-primary-subtle px-3">
+                          FULL PAID
+                        </span>
+                      ) : (
+                        <span className="badge bg-light text-muted border px-3">
+                          PARTIAL
+                        </span>
+                      )}
+                    </td>
+
                     <td className="text-center">
                       {(() => {
-                        const isKiosk =
-                          p.first_name === "Walk-in" ||
-                          p.reservation_id?.toString().includes("WALK");
-                        const isCompleted =
-                          p.status === "completed" ||
-                          p.payment_status === "verified" ||
-                          isKiosk;
+                        const statusText = (
+                          p.order_status ||
+                          p.status ||
+                          "PENDING"
+                        ).toLowerCase();
+                        const isCompleted = statusText === "completed";
+
                         return (
                           <span
                             className={`badge rounded-pill px-3 ${isCompleted ? "bg-success" : "bg-dark"}`}
                           >
-                            {isCompleted
-                              ? "COMPLETED"
-                              : (p.status || "PENDING").toUpperCase()}
+                            {statusText.toUpperCase()}
                           </span>
                         );
                       })()}
@@ -195,7 +204,7 @@ const Billing = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="6" className="text-center py-5 text-muted">
+                  <td colSpan="7" className="text-center py-5 text-muted">
                     No transactions found.
                   </td>
                 </tr>
@@ -352,18 +361,19 @@ const Billing = () => {
 
                 {/* ACTION BUTTONS (Verify & Reject) */}
                 <div className="mt-4 d-grid gap-2">
-                  {/* --- 1. PAYMENT VERIFICATION BLOCK --- */}
-                  {/* We show Verify/Reject only if the proof hasn't been verified yet */}
+                  {/* --- 1. PROOF VERIFICATION BLOCK --- */}
+                  {/* Disappears once the receipt is verified */}
                   {selectedPayment?.payment_status !== "verified" && (
                     <>
                       <button
                         className="btn btn-success btn-lg fw-bold"
                         onClick={async () => {
                           const token = localStorage.getItem("token");
-                          if (!token) return alert("Please log in again.");
-                          if (!window.confirm("Verify this payment proof?"))
+                          if (
+                            !token ||
+                            !window.confirm("Verify this payment proof?")
+                          )
                             return;
-
                           try {
                             await axios.put(
                               `${API_BASE}/billing/verify/${selectedPayment.reservation_id}`,
@@ -373,10 +383,7 @@ const Billing = () => {
                             fetchPayments();
                             closeBtnRef.current?.click();
                           } catch (err) {
-                            alert(
-                              err.response?.data?.error ||
-                                "Verification failed.",
-                            );
+                            alert("Failed to verify.");
                           }
                         }}
                       >
@@ -387,9 +394,8 @@ const Billing = () => {
                         className="btn btn-outline-danger fw-bold"
                         onClick={async () => {
                           const token = localStorage.getItem("token");
-                          if (!token) return alert("Please log in again.");
-                          if (!window.confirm("Reject this payment?")) return;
-
+                          if (!token || !window.confirm("Reject this payment?"))
+                            return;
                           try {
                             await axios.put(
                               `${API_BASE}/billing/reject/${selectedPayment.reservation_id}`,
@@ -399,7 +405,7 @@ const Billing = () => {
                             fetchPayments();
                             closeBtnRef.current?.click();
                           } catch (err) {
-                            alert("Rejection failed.");
+                            alert("Failed to reject.");
                           }
                         }}
                       >
@@ -408,18 +414,18 @@ const Billing = () => {
                     </>
                   )}
 
-                  {/* --- 2. SETTLEMENT BLOCK --- */}
-                  {/* We show Settle button as long as the order isn't 'completed' */}
-                  {selectedPayment?.status !== "completed" ? (
+                  {/* --- 2. SETTLE BILL BLOCK --- */}
+                  {/* This button will disappear ONLY when the order_status/status is 'completed' */}
+                  {selectedPayment?.order_status?.toLowerCase() !==
+                    "completed" &&
+                  selectedPayment?.status?.toLowerCase() !== "completed" ? (
                     <button
-                      className="btn btn-primary fw-bold"
+                      className="btn btn-primary fw-bold py-2"
                       onClick={async () => {
                         const token = localStorage.getItem("token");
                         if (!token) return alert("Please log in again.");
                         if (
-                          !window.confirm(
-                            "Mark this as FULLY PAID and COMPLETED?",
-                          )
+                          !window.confirm("Mark as FULLY PAID and COMPLETED?")
                         )
                           return;
 
@@ -429,35 +435,39 @@ const Billing = () => {
                             {},
                             { headers: { Authorization: `Bearer ${token}` } },
                           );
-                          fetchPayments();
-                          closeBtnRef.current?.click();
+
+                          // FIX 1: Manually update the selectedPayment state so the button disappears
+                          setSelectedPayment((prev) => ({
+                            ...prev,
+                            order_status: "completed", // Match your SQL alias
+                            payment_status: "verified",
+                          }));
+
+                          // FIX 2: Refresh the main list
+                          await fetchPayments();
+
+                          alert("Transaction Settled!");
+                          // Optional: closeBtnRef.current?.click();
                         } catch (err) {
-                          alert(
-                            err.response?.data?.error ||
-                              "Failed to settle payment.",
-                          );
+                          console.error("Settle error:", err.response?.data);
+                          alert("Failed to settle bill.");
                         }
                       }}
                     >
                       Verify Full Paid (Settle)
                     </button>
                   ) : (
-                    /* This only shows when the whole order is finished */
-                    <div className="alert alert-success py-2 text-center small fw-bold">
-                      TRANSACTION FULLY SETTLED & COMPLETED
+                    /* This message shows when the Settle button disappears */
+                    <div className="alert alert-success border-0 py-3 text-center mb-0">
+                      <div className="fw-bold">✓ TRANSACTION COMPLETED</div>
+                      <small className="opacity-75">
+                        This bill has been fully settled.
+                      </small>
                     </div>
                   )}
 
-                  {/* Only show "Verified" message if payment is verified but order NOT yet completed */}
-                  {selectedPayment?.payment_status === "verified" &&
-                    selectedPayment?.status !== "completed" && (
-                      <div className="text-center text-success small fw-bold mb-2">
-                        ✓ Payment Proof Verified
-                      </div>
-                    )}
-
                   <button
-                    className="btn btn-secondary"
+                    className="btn btn-secondary mt-2"
                     data-bs-dismiss="offcanvas"
                   >
                     Close
