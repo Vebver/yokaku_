@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import { TrendingUp, ShoppingBag, Wallet, CreditCard } from 'lucide-react';
@@ -6,26 +6,25 @@ import { TrendingUp, ShoppingBag, Wallet, CreditCard } from 'lucide-react';
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
 const FinancialOverview = ({ data }) => {
-  // 1. Check if data exists. If data.data exists (from axios), we use that.
   const reportData = data?.data || data; 
-  
+  const [period, setPeriod] = useState('monthly'); // This is the state we need to use
+
   if (!reportData || !reportData.summary) {
     return <div className="p-5 text-center text-muted">No financial data available.</div>;
   }
 
   const { summary } = reportData;
-  const monthlyTrend = reportData.monthlyTrend || [];
-  const weeklyTrend = reportData.weeklyTrend || [];
-  const yearlyTrend = reportData.yearlyTrend || [];
+  
+  // Helper to select the correct array based on state
+  const getActiveTrend = () => {
+    if (period === 'weekly') return reportData.weeklyTrend || [];
+    if (period === 'yearly') return reportData.yearlyTrend || [];
+    return reportData.monthlyTrend || [];
+  };
 
-  const [period, setPeriod] = useState('monthly');
+  const activeTrend = getActiveTrend();
 
-  // NOTE: dataset switching must drive both labels and values
-  // selectedTrend is kept for potential future refactor, but we also use the period directly below.
-  const selectedTrend = period === 'weekly' ? weeklyTrend : period === 'yearly' ? yearlyTrend : monthlyTrend;
-
-
-  // 2. Map values exactly as they are named in your Backend Controller
+  // Mapping summary values
   const totalMonthly = Number(summary.monthly_revenue || 0);
   const totalDaily = Number(summary.daily_revenue || 0);
   const averageOrder = Number(summary.aov || 0);
@@ -79,14 +78,14 @@ const FinancialOverview = ({ data }) => {
       ))}
 
       {/* CHART SECTION */}
-    <div className="col-12">
+      <div className="col-12">
         <div className="card border-0 shadow-sm p-4 rounded-4 bg-white" style={{ minHeight: '450px' }}>
           <div className="mb-4">
             <h6 className="fw-bold mb-0">Revenue Trend</h6>
             <small className="text-muted">Profit/Revenue performance by period</small>
 
             {/* CAPSULE TABS */}
-            <div className="d-flex gap-2 mt-3" role="tablist" aria-label="Revenue trend period">
+            <div className="d-flex gap-2 mt-3">
               {[
                 { key: 'weekly', label: 'Weekly' },
                 { key: 'monthly', label: 'Monthly' },
@@ -95,7 +94,7 @@ const FinancialOverview = ({ data }) => {
                 <button
                   key={t.key}
                   type="button"
-                  className={`btn btn-sm ${period === t.key ? 'btn-warning' : 'btn-outline-secondary'}`}
+                  className={`btn btn-sm px-3 rounded-pill fw-bold ${period === t.key ? 'btn-warning shadow-sm' : 'btn-outline-secondary'}`}
                   onClick={() => setPeriod(t.key)}
                 >
                   {t.label}
@@ -103,34 +102,26 @@ const FinancialOverview = ({ data }) => {
               ))}
             </div>
           </div>
+
           <div className="flex-grow-1" style={{ height: '350px' }}>
-            <Line options={chartOptions} data={{
-              labels: (() => {
-                const monthly = monthlyTrend || [];
-                const weekly = reportData?.weeklyTrend || [];
-                const yearly = reportData?.yearlyTrend || [];
-                const period = reportData?.selectedRevenuePeriod || 'monthly';
-                const src = period === 'weekly' ? weekly : period === 'yearly' ? yearly : monthly;
-                return src.map(t => t.label || t.month || t.date);
-              })(),
-              datasets: [{
-                label: 'Revenue',
-                data: (() => {
-                  const monthly = monthlyTrend || [];
-                  const weekly = reportData?.weeklyTrend || [];
-                  const yearly = reportData?.yearlyTrend || [];
-                  const period = reportData?.selectedRevenuePeriod || 'monthly';
-                  const src = period === 'weekly' ? weekly : period === 'yearly' ? yearly : monthly;
-                  return src.map(t => Number(t.value || t.revenue || 0));
-                })(),
-                borderColor: '#10b981',
-                borderWidth: 3,
-                tension: 0.4,
-                pointRadius: 4,
-                fill: true,
-                backgroundColor: 'rgba(16,185,129,0.05)'
-              }]
-            }} />
+            <Line 
+              options={chartOptions} 
+              data={{
+                // FIX: Use the activeTrend labels
+                labels: activeTrend.map(t => t.label || t.month || t.date || t.year),
+                datasets: [{
+                  label: 'Revenue',
+                  // FIX: Use the activeTrend values
+                  data: activeTrend.map(t => Number(t.value || t.revenue || 0)),
+                  borderColor: '#10b981',
+                  borderWidth: 3,
+                  tension: 0.4,
+                  pointRadius: 4,
+                  fill: true,
+                  backgroundColor: 'rgba(16,185,129,0.05)'
+                }]
+              }} 
+            />
           </div>
         </div>
       </div>

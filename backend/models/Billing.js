@@ -45,13 +45,35 @@ const Billing = {
     }
   },
 
-  settleReservation: async (resId) => {
-    try {
-      await db.execute("UPDATE reservations SET status = 'completed' WHERE reservation_id = ?", [resId]);
-      await db.execute("UPDATE payments SET payment_status = 'verified', paid_at = NOW() WHERE reservation_id = ?", [resId]);
-      return true; 
-    } catch (err) { throw err; }
-  },
+ // models/Billing.js
+
+// models/Billing.js
+
+settleReservation: async (resId) => {
+  try {
+    // 1. Mark reservation as completed
+    await db.execute(
+      "UPDATE reservations SET status = 'completed' WHERE reservation_id = ?", 
+      [resId]
+    );
+
+    // 2. Update the payment record
+    // We set 'amount' to 'total_bill' because the transaction is now 100% paid.
+    // If the bill was 100, the revenue recorded will be 100.
+    const sql = `
+      UPDATE payments 
+      SET amount = total_bill, 
+          payment_status = 'verified', 
+          paid_at = NOW() 
+      WHERE reservation_id = ?
+    `;
+    
+    await db.execute(sql, [resId]);
+    return true; 
+  } catch (err) { 
+    throw err; 
+  }
+},
 
   updatePaymentStatusByReservation: async (resId, paymentStatus) => {
     try {
@@ -60,7 +82,7 @@ const Billing = {
       return result.affectedRows > 0;
     } catch (err) { throw err; }
   },
-  
+
    confirmReservationStatus: async (resId) => {
         const sql = "UPDATE reservations SET status = 'Confirmed' WHERE reservation_id = ?";
         const [result] = await db.execute(sql, [resId]);

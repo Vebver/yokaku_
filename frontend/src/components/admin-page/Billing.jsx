@@ -314,36 +314,18 @@ const Billing = () => {
                 </div>
 
                 {/* CLOUDINARY IMAGE DISPLAY */}
-                {/* CLOUDINARY IMAGE DISPLAY */}
                 <div className="mt-2">
-                  <div className="d-flex justify-content-between align-items-center mb-2">
-                    <span className="text-white-50 small">Payment Proof</span>
-                    {selectedPayment?.receipt_path && (
-                      <a
-                        href={
-                          selectedPayment.receipt_path.startsWith("http")
-                            ? selectedPayment.receipt_path
-                            : `${API_BASE.replace("/api", "")}/uploads/${selectedPayment.receipt_path}`
-                        }
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-primary small text-decoration-none fw-bold"
-                      >
-                        View Full
-                      </a>
-                    )}
-                  </div>
-
+                  <span className="text-white-50 small">Proof of Payment</span>
                   {selectedPayment?.receipt_path ? (
                     <img
                       src={
                         selectedPayment.receipt_path?.startsWith("http")
-                          ? selectedPayment.receipt_path // It's already a full Cloudinary URL
+                          ? selectedPayment.receipt_path
                           : selectedPayment.receipt_path?.includes(
-                                "restaurant_products",
-                              )
+                                "restaurant_",
+                              ) // FIX: Use "restaurant_" to catch all Cloudinary folders
                             ? `https://res.cloudinary.com/dfajhhh84/image/upload/${selectedPayment.receipt_path}`
-                            : `${API_BASE.replace("/api", "")}/uploads/${selectedPayment.receipt_path}` // Fallback to local
+                            : `${API_BASE.replace("/api", "")}/uploads/${selectedPayment.receipt_path}`
                       }
                       alt="Payment receipt"
                       className="w-100 rounded-3 border border-secondary shadow"
@@ -353,7 +335,6 @@ const Billing = () => {
                         background: "#1a1a1a",
                       }}
                       onError={(e) => {
-                        // This helps you debug. Look at your browser console to see this URL
                         console.error(
                           "Image failed to load at URL:",
                           e.currentTarget.src,
@@ -371,31 +352,27 @@ const Billing = () => {
 
                 {/* ACTION BUTTONS (Verify & Reject) */}
                 <div className="mt-4 d-grid gap-2">
-                  {/* Only show actions if payment isn't already completed/verified */}
-                  {selectedPayment?.payment_status !== "verified" &&
-                  selectedPayment?.status !== "completed" ? (
+                  {/* --- 1. PAYMENT VERIFICATION BLOCK --- */}
+                  {/* We show Verify/Reject only if the proof hasn't been verified yet */}
+                  {selectedPayment?.payment_status !== "verified" && (
                     <>
-                      {/* VERIFY BUTTON */}
                       <button
                         className="btn btn-success btn-lg fw-bold"
                         onClick={async () => {
-                          const token = localStorage.getItem("token"); // Get token
+                          const token = localStorage.getItem("token");
                           if (!token) return alert("Please log in again.");
-                          if (!window.confirm("Verify this payment?")) return;
+                          if (!window.confirm("Verify this payment proof?"))
+                            return;
 
                           try {
                             await axios.put(
                               `${API_BASE}/billing/verify/${selectedPayment.reservation_id}`,
-                              {}, // 2nd Argument: Empty Body (Crucial!)
-                              { headers: { Authorization: `Bearer ${token}` } }, // 3rd Argument: Config
+                              {},
+                              { headers: { Authorization: `Bearer ${token}` } },
                             );
                             fetchPayments();
                             closeBtnRef.current?.click();
                           } catch (err) {
-                            console.error(
-                              "Verification error:",
-                              err.response?.data,
-                            );
                             alert(
                               err.response?.data?.error ||
                                 "Verification failed.",
@@ -403,10 +380,9 @@ const Billing = () => {
                           }
                         }}
                       >
-                        Verify & Complete Order
+                        Verify Payment Proof
                       </button>
 
-                      {/* REJECT BUTTON */}
                       <button
                         className="btn btn-outline-danger fw-bold"
                         onClick={async () => {
@@ -417,7 +393,7 @@ const Billing = () => {
                           try {
                             await axios.put(
                               `${API_BASE}/billing/reject/${selectedPayment.reservation_id}`,
-                              {}, // 2nd Argument: Empty Body
+                              {},
                               { headers: { Authorization: `Bearer ${token}` } },
                             );
                             fetchPayments();
@@ -430,11 +406,55 @@ const Billing = () => {
                         Reject Payment
                       </button>
                     </>
+                  )}
+
+                  {/* --- 2. SETTLEMENT BLOCK --- */}
+                  {/* We show Settle button as long as the order isn't 'completed' */}
+                  {selectedPayment?.status !== "completed" ? (
+                    <button
+                      className="btn btn-primary fw-bold"
+                      onClick={async () => {
+                        const token = localStorage.getItem("token");
+                        if (!token) return alert("Please log in again.");
+                        if (
+                          !window.confirm(
+                            "Mark this as FULLY PAID and COMPLETED?",
+                          )
+                        )
+                          return;
+
+                        try {
+                          await axios.put(
+                            `${API_BASE}/billing/settle/${selectedPayment.reservation_id}`,
+                            {},
+                            { headers: { Authorization: `Bearer ${token}` } },
+                          );
+                          fetchPayments();
+                          closeBtnRef.current?.click();
+                        } catch (err) {
+                          alert(
+                            err.response?.data?.error ||
+                              "Failed to settle payment.",
+                          );
+                        }
+                      }}
+                    >
+                      Verify Full Paid (Settle)
+                    </button>
                   ) : (
+                    /* This only shows when the whole order is finished */
                     <div className="alert alert-success py-2 text-center small fw-bold">
-                      TRANSACTION ALREADY VERIFIED
+                      TRANSACTION FULLY SETTLED & COMPLETED
                     </div>
                   )}
+
+                  {/* Only show "Verified" message if payment is verified but order NOT yet completed */}
+                  {selectedPayment?.payment_status === "verified" &&
+                    selectedPayment?.status !== "completed" && (
+                      <div className="text-center text-success small fw-bold mb-2">
+                        ✓ Payment Proof Verified
+                      </div>
+                    )}
 
                   <button
                     className="btn btn-secondary"
