@@ -265,131 +265,183 @@ const Billing = () => {
           ></button>
         </div>
 
-       <div className="offcanvas-body p-0 d-flex flex-column">
-  {selectedPayment && (
-    <>
-      {/* 1. ORDER ITEMS LIST */}
-      <div className="p-3 flex-grow-1 overflow-auto bg-light-subtle">
-        <span className="fw-bold text-muted text-uppercase d-block mb-3" style={{ fontSize: '0.7rem' }}>Order Summary</span>
-        {loadingItems ? (
-          <div className="text-center py-5"><Loader2 className="animate-spin text-primary" /></div>
-        ) : (
-          <div className="item-list">
-            {orderItems.map((item, idx) => (
-              <div key={idx} className="mb-2 p-2 bg-white rounded-2 border-bottom shadow-sm">
-                <div className="d-flex justify-content-between small">
-                  <div className="fw-bold text-dark">
-                    {item.name || item.item_name} <span className="text-primary ms-1">x{item.quantity}</span>
+        <div className="offcanvas-body p-0 d-flex flex-column">
+          {selectedPayment && (
+            <>
+              {/* 1. ORDER ITEMS LIST */}
+              <div className="p-3 flex-grow-1 overflow-auto bg-light-subtle">
+                <span
+                  className="fw-bold text-muted text-uppercase d-block mb-3"
+                  style={{ fontSize: "0.7rem" }}
+                >
+                  Order Summary
+                </span>
+                {loadingItems ? (
+                  <div className="text-center py-5">
+                    <Loader2 className="animate-spin text-primary" />
                   </div>
-                  <div className="fw-bold">₱{(item.quantity * item.price).toLocaleString()}</div>
+                ) : (
+                  <div className="item-list">
+                    {orderItems.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="mb-2 p-2 bg-white rounded-2 border-bottom shadow-sm"
+                      >
+                        <div className="d-flex justify-content-between small">
+                          <div className="fw-bold text-dark">
+                            {item.name || item.item_name}{" "}
+                            <span className="text-primary ms-1">
+                              x{item.quantity}
+                            </span>
+                          </div>
+                          <div className="fw-bold">
+                            ₱{(item.quantity * item.price).toLocaleString()}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* 2. PAYMENT REVIEW PANEL */}
+              <div className="p-4 bg-dark text-white shadow-lg">
+                <div className="d-flex justify-content-between border-bottom border-secondary pb-2 mb-3">
+                  <span className="text-white-50 small">Total Bill</span>
+                  <span className="fw-bold fs-5 text-warning">
+                    ₱{calculateItemsSum().toLocaleString()}
+                  </span>
+                </div>
+
+                {/* CLOUDINARY IMAGE DISPLAY */}
+                {/* CLOUDINARY IMAGE DISPLAY */}
+                <div className="mt-2">
+                  <div className="d-flex justify-content-between align-items-center mb-2">
+                    <span className="text-white-50 small">Payment Proof</span>
+                    {selectedPayment?.receipt_path && (
+                      <a
+                        href={
+                          selectedPayment.receipt_path.startsWith("http")
+                            ? selectedPayment.receipt_path
+                            : `${API_BASE.replace("/api", "")}/uploads/${selectedPayment.receipt_path}`
+                        }
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-primary small text-decoration-none fw-bold"
+                      >
+                        View Full
+                      </a>
+                    )}
+                  </div>
+
+                  {selectedPayment?.receipt_path ? (
+                    <img
+                      src={
+                        selectedPayment.receipt_path.startsWith("http")
+                          ? selectedPayment.receipt_path // Case A: Cloudinary URL
+                          : `${API_BASE.replace("/api", "")}/uploads/${selectedPayment.receipt_path}` // Case B: Local File
+                      }
+                      alt="Payment receipt"
+                      className="w-100 rounded-3 border border-secondary shadow"
+                      style={{
+                        maxHeight: 250,
+                        objectFit: "contain",
+                        background: "#1a1a1a",
+                      }}
+                      onError={(e) => {
+                        console.error(
+                          "Image failed to load:",
+                          e.currentTarget.src,
+                        );
+                        e.currentTarget.src =
+                          "https://placehold.co/400x250/222/888?text=Image+Not+Found";
+                      }}
+                    />
+                  ) : (
+                    <div className="py-4 text-center border border-secondary border-dashed rounded-3 text-white-50 small">
+                      No receipt uploaded.
+                    </div>
+                  )}
+                </div>
+
+                {/* ACTION BUTTONS (Verify & Reject) */}
+                <div className="mt-4 d-grid gap-2">
+                  {/* Only show actions if payment isn't already completed/verified */}
+                  {selectedPayment?.payment_status !== "verified" &&
+                  selectedPayment?.status !== "completed" ? (
+                    <>
+                      {/* VERIFY BUTTON */}
+                      <button
+                        className="btn btn-success btn-lg fw-bold"
+                        onClick={async () => {
+                          const token = localStorage.getItem("token"); // Get token
+                          if (!token) return alert("Please log in again.");
+                          if (!window.confirm("Verify this payment?")) return;
+
+                          try {
+                            await axios.put(
+                              `${API_BASE}/billing/verify/${selectedPayment.reservation_id}`,
+                              {}, // 2nd Argument: Empty Body (Crucial!)
+                              { headers: { Authorization: `Bearer ${token}` } }, // 3rd Argument: Config
+                            );
+                            fetchPayments();
+                            closeBtnRef.current?.click();
+                          } catch (err) {
+                            console.error(
+                              "Verification error:",
+                              err.response?.data,
+                            );
+                            alert(
+                              err.response?.data?.error ||
+                                "Verification failed.",
+                            );
+                          }
+                        }}
+                      >
+                        Verify & Complete Order
+                      </button>
+
+                      {/* REJECT BUTTON */}
+                      <button
+                        className="btn btn-outline-danger fw-bold"
+                        onClick={async () => {
+                          const token = localStorage.getItem("token");
+                          if (!token) return alert("Please log in again.");
+                          if (!window.confirm("Reject this payment?")) return;
+
+                          try {
+                            await axios.put(
+                              `${API_BASE}/billing/reject/${selectedPayment.reservation_id}`,
+                              {}, // 2nd Argument: Empty Body
+                              { headers: { Authorization: `Bearer ${token}` } },
+                            );
+                            fetchPayments();
+                            closeBtnRef.current?.click();
+                          } catch (err) {
+                            alert("Rejection failed.");
+                          }
+                        }}
+                      >
+                        Reject Payment
+                      </button>
+                    </>
+                  ) : (
+                    <div className="alert alert-success py-2 text-center small fw-bold">
+                      TRANSACTION ALREADY VERIFIED
+                    </div>
+                  )}
+
+                  <button
+                    className="btn btn-secondary"
+                    data-bs-dismiss="offcanvas"
+                  >
+                    Close
+                  </button>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* 2. PAYMENT REVIEW PANEL */}
-      <div className="p-4 bg-dark text-white shadow-lg">
-        <div className="d-flex justify-content-between border-bottom border-secondary pb-2 mb-3">
-          <span className="text-white-50 small">Total Bill</span>
-          <span className="fw-bold fs-5 text-warning">₱{calculateItemsSum().toLocaleString()}</span>
-        </div>
-
-        {/* CLOUDINARY IMAGE DISPLAY */}
-        <div className="mt-2">
-          <div className="d-flex justify-content-between align-items-center mb-2">
-            <span className="text-white-50 small">Payment Proof (Cloudinary)</span>
-            {selectedPayment?.receipt_path && (
-              <a 
-                href={selectedPayment.receipt_path} 
-                target="_blank" 
-                rel="noreferrer" 
-                className="text-primary small text-decoration-none fw-bold"
-              >
-                View Full
-              </a>
-            )}
-          </div>
-          
-          {selectedPayment?.receipt_path ? (
-            <img
-              /* FIX: Use the path directly because Cloudinary provides full URLs */
-              src={selectedPayment.receipt_path} 
-              alt="Payment receipt"
-              className="w-100 rounded-3 border border-secondary shadow"
-              style={{ maxHeight: 250, objectFit: "contain", background: '#1a1a1a' }}
-              onError={(e) => {
-                // Fallback if the Cloudinary link is broken
-                e.currentTarget.src = "https://placehold.co/400x250/222/888?text=Receipt+Link+Broken";
-              }}
-            />
-          ) : (
-            <div className="py-4 text-center border border-secondary border-dashed rounded-3 text-white-50 small">
-              No receipt uploaded.
-            </div>
-          )}
-        </div>
-
-        {/* ACTION BUTTONS (Verify & Reject) */}
-        <div className="mt-4 d-grid gap-2">
-          {/* Only show actions if payment isn't already completed/verified */}
-          {selectedPayment?.payment_status !== "verified" && selectedPayment?.status !== "completed" ? (
-            <>
-              <button
-                className="btn btn-success btn-lg fw-bold"
-                onClick={async () => {
-                  if(!window.confirm("Confirm this payment as verified?")) return;
-                  try {
-                    const token = localStorage.getItem("token");
-                    await axios.put(
-                      `${API_BASE}/billing/verify/${selectedPayment.reservation_id}`,
-                      {},
-                      { headers: { Authorization: `Bearer ${token}` } }
-                    );
-                    fetchPayments();
-                    closeBtnRef.current?.click(); // Close drawer
-                  } catch (err) {
-                    alert("Verification failed.");
-                  }
-                }}
-              >
-                Verify & Complete Order
-              </button>
-
-              <button
-                className="btn btn-outline-danger fw-bold"
-                onClick={async () => {
-                  if(!window.confirm("Reject this payment proof?")) return;
-                  try {
-                    const token = localStorage.getItem("token");
-                    await axios.put(
-                      `${API_BASE}/billing/reject/${selectedPayment.reservation_id}`,
-                      {},
-                      { headers: { Authorization: `Bearer ${token}` } }
-                    );
-                    fetchPayments();
-                    closeBtnRef.current?.click(); // Close drawer
-                  } catch (err) {
-                    alert("Rejection failed.");
-                  }
-                }}
-              >
-                Reject Payment
-              </button>
             </>
-          ) : (
-            <div className="alert alert-success py-2 text-center small fw-bold">
-              TRANSACTION ALREADY VERIFIED
-            </div>
           )}
-          
-          <button className="btn btn-secondary" data-bs-dismiss="offcanvas">Close</button>
         </div>
-      </div>
-    </>
-  )}
-</div>
       </div>
 
       <style>{`

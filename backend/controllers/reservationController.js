@@ -235,21 +235,24 @@ const reservationController = {
       }
 
       const reservationData = {
-        ...body,
-        userId: body.userId || req.user?.userId,
-        startTime: dbStart,
-        endTime: dbEnd,
-        durationHours: durationHours,
-        totalAmount: totalOrderAmount,
-        downpayment: calculatedDownpayment,
-        packageName: finalPackageName,
-        tableIds: tableIdsArray,
-        selectedItems: items,
-        // With Cloudinary-backed multer, req.file.path often contains the temp/local path,
-        // but req.file has a Cloudinary secure_url depending on the storage.
-        receiptPath: req.file?.secure_url || req.file?.path || req.file ? req.file.filename : null,
+    ...body,
+    userId: body.userId || req.user?.userId,
+    startTime: dbStart,
+    endTime: dbEnd,
+    durationHours: durationHours,
+    totalAmount: totalOrderAmount,
+    downpayment: calculatedDownpayment,
+    packageName: finalPackageName,
+    tableIds: tableIdsArray,
+    selectedItems: items,
+    
+    // FIX: Cloudinary storage populates .path with the full HTTPS URL.
+    // We only want the URL. We do NOT want the filename.
+    receiptPath: req.file ? req.file.path : null,
+};
 
-      };
+// DEBUG: Log this to your terminal to see the actual URL being saved
+console.log("Saving receipt URL to DB:", reservationData.receiptPath);
 
       const newId = await Reservation.create(reservationData);
       return res.status(201).json({ id: newId });
