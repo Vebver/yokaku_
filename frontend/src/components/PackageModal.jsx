@@ -61,6 +61,7 @@ const PackageModal = ({
   const isRamenSetItem = selectedItem?.name
     ?.toLowerCase()
     .includes("ramen set");
+  const canCustomize = isUnliPackage || isRamenItem || isRamenSetItem;
   const HIDDEN_CATEGORIES = ["Chicken", "Drinks"];
 
   // Get Ramen flavors from products with their images
@@ -190,14 +191,7 @@ const PackageModal = ({
       quantity: itemQuantity,
       image: imageUrl, // ← CHANGE: Use the full URL from getImageUrl
       note: itemNote,
-      customizations:
-        isUnliPackage ||
-        isHangoutBundle ||
-        selectedItem.name.includes("Unlimited") ||
-        isRamenItem ||
-        isRamenSetItem
-          ? customizations
-          : null,
+      customizations: canCustomize ? customizations: null,
     };
 
     const updatedItems = selectedItems.find(
@@ -419,7 +413,7 @@ const PackageModal = ({
 
                     <div className="item-detail-actions">
                       {/* Show Customize button for Unlimited AND Hangout Bundle */}
-                      {(isUnliPackage || isHangoutBundle) &&
+                      {isUnliPackage &&
                         !isRamenSetItem && (
                           <button
                             className="customize-btn"
