@@ -245,7 +245,10 @@ const reservationController = {
         packageName: finalPackageName,
         tableIds: tableIdsArray,
         selectedItems: items,
-        receiptPath: req.file ? req.file.filename : null,
+        // With Cloudinary-backed multer, req.file.path often contains the temp/local path,
+        // but req.file has a Cloudinary secure_url depending on the storage.
+        receiptPath: req.file?.secure_url || req.file?.path || req.file ? req.file.filename : null,
+
       };
 
       const newId = await Reservation.create(reservationData);

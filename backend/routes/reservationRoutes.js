@@ -2,6 +2,8 @@ const express = require("express");
 const router = express.Router();
 const reservationController = require("../controllers/reservationController");
 const upload = require("../middleware/upload");
+const uploadReceiptToCloudinary = require("../middleware/receiptUploadCloudinary");
+
 const { protect, adminOnly } = require("../middleware/authMiddleware");
 
 // ==================== PUBLIC ROUTES ====================
@@ -49,9 +51,11 @@ router.delete(
 router.get("/:id/items", protect, reservationController.getReservationItems);
 router.post(
   "/table",
-  upload.single("receipt"),
+  // Cloudinary-backed upload so we store a secure_url in reservations.receipt_path
+  uploadReceiptToCloudinary.single("receipt"),
   reservationController.createReservation,
 );
+
 router.get("/:id", protect, reservationController.checkReservationId);
 
 module.exports = router;

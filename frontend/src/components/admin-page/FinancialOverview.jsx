@@ -20,7 +20,10 @@ const FinancialOverview = ({ data }) => {
 
   const [period, setPeriod] = useState('monthly');
 
+  // NOTE: dataset switching must drive both labels and values
+  // selectedTrend is kept for potential future refactor, but we also use the period directly below.
   const selectedTrend = period === 'weekly' ? weeklyTrend : period === 'yearly' ? yearlyTrend : monthlyTrend;
+
 
   // 2. Map values exactly as they are named in your Backend Controller
   const totalMonthly = Number(summary.monthly_revenue || 0);

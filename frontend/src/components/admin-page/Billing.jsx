@@ -16,10 +16,10 @@ const Billing = () => {
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [orderItems, setOrderItems] = useState([]);
   const [loadingItems, setLoadingItems] = useState(false);
-  
+
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
-  
+
   const closeBtnRef = useRef(null);
 
   useEffect(() => {
@@ -68,32 +68,50 @@ const Billing = () => {
   };
 
   const calculateItemsSum = () => {
-    return orderItems.reduce((sum, item) => sum + item.quantity * item.price, 0);
+    return orderItems.reduce(
+      (sum, item) => sum + item.quantity * item.price,
+      0,
+    );
   };
 
-  if (loading) return (
-    <div className="d-flex justify-content-center align-items-center vh-100">
-      <Loader2 className="animate-spin text-primary" size={40} />
-    </div>
-  );
+  if (loading)
+    return (
+      <div className="d-flex justify-content-center align-items-center vh-100">
+        <Loader2 className="animate-spin text-primary" size={40} />
+      </div>
+    );
 
   return (
-    <div className="container-fluid py-4 bg-light" style={{ minHeight: "100vh" }}>
+    <div
+      className="container-fluid py-4 bg-light"
+      style={{ minHeight: "100vh" }}
+    >
       <div className="d-flex justify-content-between align-items-center mb-4 px-2">
         <div>
           <h2 className="fw-bold mb-1">Billing & Transactions</h2>
-          <p className="text-muted small mb-0">Manage payments for Online Bookings and Walk-in Kiosks</p>
+          <p className="text-muted small mb-0">
+            Manage payments for Online Bookings and Walk-in Kiosks
+          </p>
         </div>
-        <button className="btn btn-white border shadow-sm fw-bold" onClick={fetchPayments}>
+        <button
+          className="btn btn-white border shadow-sm fw-bold"
+          onClick={fetchPayments}
+        >
           <RefreshCw size={16} className="me-2" /> Refresh
         </button>
       </div>
 
       <div className="card border-0 shadow-sm rounded-4 overflow-hidden mx-2">
         <div className="table-responsive">
-          <table className="table table-hover align-middle mb-0" style={{ minWidth: "1000px" }}>
+          <table
+            className="table table-hover align-middle mb-0"
+            style={{ minWidth: "1000px" }}
+          >
             <thead className="bg-light border-bottom">
-              <tr className="text-muted small text-uppercase" style={{ fontSize: "0.7rem", letterSpacing: '0.8px' }}>
+              <tr
+                className="text-muted small text-uppercase"
+                style={{ fontSize: "0.7rem", letterSpacing: "0.8px" }}
+              >
                 <th className="ps-4 py-3">Customer</th>
                 <th>Method</th>
                 <th>Amount Paid</th>
@@ -116,32 +134,49 @@ const Billing = () => {
                     </td>
                     <td>
                       <span className="badge bg-white text-dark border font-monospace">
-                        {p.payment_method ? p.payment_method.toUpperCase() : "PENDING"}
+                        {p.payment_method
+                          ? p.payment_method.toUpperCase()
+                          : "PENDING"}
                       </span>
                     </td>
                     <td className="fw-bold text-primary">
                       ₱{p.amount ? Number(p.amount).toLocaleString() : "0.00"}
                     </td>
                     <td>
-                  <span
-                    className={`badge rounded-pill px-3 ${
-                      p.payment_status === "verified" || p.status === "completed"
-                        ? "bg-success"
-                        : p.payment_status === "rejected" || p.status === "rejected"
-                          ? "bg-danger"
-                          : "bg-warning text-dark"
-                    }`}
-                  >
-                    {(p.payment_status || p.status || "PENDING").toUpperCase()}
-                  </span>
+                      <span
+                        className={`badge rounded-pill px-3 ${
+                          p.payment_status === "verified" ||
+                          p.status === "completed"
+                            ? "bg-success"
+                            : p.payment_status === "rejected" ||
+                                p.status === "rejected"
+                              ? "bg-danger"
+                              : "bg-warning text-dark"
+                        }`}
+                      >
+                        {(
+                          p.payment_status ||
+                          p.status ||
+                          "PENDING"
+                        ).toUpperCase()}
+                      </span>
                     </td>
                     <td className="text-center">
                       {(() => {
-                        const isKiosk = p.first_name === "Walk-in" || p.reservation_id?.toString().includes("WALK");
-                        const isCompleted = p.status === "completed" || p.payment_status === "verified" || isKiosk;
+                        const isKiosk =
+                          p.first_name === "Walk-in" ||
+                          p.reservation_id?.toString().includes("WALK");
+                        const isCompleted =
+                          p.status === "completed" ||
+                          p.payment_status === "verified" ||
+                          isKiosk;
                         return (
-                          <span className={`badge rounded-pill px-3 ${isCompleted ? "bg-success" : "bg-dark"}`}>
-                            {isCompleted ? "COMPLETED" : (p.status || "PENDING").toUpperCase()}
+                          <span
+                            className={`badge rounded-pill px-3 ${isCompleted ? "bg-success" : "bg-dark"}`}
+                          >
+                            {isCompleted
+                              ? "COMPLETED"
+                              : (p.status || "PENDING").toUpperCase()}
                           </span>
                         );
                       })()}
@@ -160,7 +195,9 @@ const Billing = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="6" className="text-center py-5 text-muted">No transactions found.</td>
+                  <td colSpan="6" className="text-center py-5 text-muted">
+                    No transactions found.
+                  </td>
                 </tr>
               )}
             </tbody>
@@ -170,114 +207,189 @@ const Billing = () => {
         {/* PAGINATION */}
         {payments.length > itemsPerPage && (
           <div className="p-3 border-top bg-white d-flex justify-content-between align-items-center">
-            <span className="text-muted small">Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, payments.length)} of {payments.length}</span>
+            <span className="text-muted small">
+              Showing {indexOfFirstItem + 1} to{" "}
+              {Math.min(indexOfLastItem, payments.length)} of {payments.length}
+            </span>
             <nav>
               <ul className="pagination pagination-sm mb-0">
-                <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
-                  <button className="page-link" onClick={() => paginate(currentPage - 1)}><ChevronLeft size={14}/></button>
+                <li
+                  className={`page-item ${currentPage === 1 ? "disabled" : ""}`}
+                >
+                  <button
+                    className="page-link"
+                    onClick={() => paginate(currentPage - 1)}
+                  >
+                    <ChevronLeft size={14} />
+                  </button>
                 </li>
-                <li className="page-item disabled"><span className="page-link text-dark fw-bold">Page {currentPage} of {totalPages}</span></li>
-                <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
-                  <button className="page-link" onClick={() => paginate(currentPage + 1)}><ChevronRight size={14}/></button>
+                <li className="page-item disabled">
+                  <span className="page-link text-dark fw-bold">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                </li>
+                <li
+                  className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}
+                >
+                  <button
+                    className="page-link"
+                    onClick={() => paginate(currentPage + 1)}
+                  >
+                    <ChevronRight size={14} />
+                  </button>
                 </li>
               </ul>
             </nav>
           </div>
         )}
       </div>
-
       {/* FIXED OFFCANVAS ELEMENT */}
-      <div 
-        className="offcanvas offcanvas-end border-0 shadow-sm" 
-        tabIndex="-1" 
-        id="billingDrawer" 
-        data-bs-backdrop="true"   /* Added this to fix the error */
-        data-bs-scroll="true"     /* Allows scrolling of main page if needed */
+      <div
+        className="offcanvas offcanvas-end border-0 shadow-lg"
+        tabIndex="-1"
+        id="billingDrawer"
+        data-bs-backdrop="true"
+        data-bs-scroll="true"
         style={{ width: "min(100%, 500px)" }}
       >
         <div className="offcanvas-header border-bottom bg-white">
-          <h5 className="fw-bold m-0"><ReceiptText size={20} className="me-2 text-primary" /> Financial Review</h5>
-          <button type="button" className="btn-close shadow-none" data-bs-dismiss="offcanvas" ref={closeBtnRef}></button>
+          <h5 className="fw-bold m-0">
+            <ReceiptText size={20} className="me-2 text-primary" /> Financial
+            Review
+          </h5>
+          <button
+            type="button"
+            className="btn-close shadow-none"
+            data-bs-dismiss="offcanvas"
+            ref={closeBtnRef}
+          ></button>
         </div>
 
-        <div className="offcanvas-body p-0 d-flex flex-column">
-          {selectedPayment && (
-            <>
-              <div className="p-3 flex-grow-1 overflow-auto bg-light-subtle">
-                <span className="fw-bold text-muted text-uppercase d-block mb-3" style={{ fontSize: '0.7rem' }}>Order Summary</span>
-                {loadingItems ? (
-                  <div className="text-center py-5"><Loader2 className="animate-spin text-primary" /></div>
-                ) : (
-                  <div className="item-list">
-                    {orderItems.map((item, idx) => (
-                      <div key={idx} className="mb-2 p-2 bg-white rounded-2 border-bottom shadow-sm">
-                        <div className="d-flex justify-content-between small">
-                          <div className="fw-bold text-dark">
-                            {item.name || item.item_name} <span className="text-primary ms-1">x{item.quantity}</span>
-                          </div>
-                          <div className="fw-bold">₱{(item.quantity * item.price).toLocaleString()}</div>
-                        </div>
-                      </div>
-                    ))}
+       <div className="offcanvas-body p-0 d-flex flex-column">
+  {selectedPayment && (
+    <>
+      {/* 1. ORDER ITEMS LIST */}
+      <div className="p-3 flex-grow-1 overflow-auto bg-light-subtle">
+        <span className="fw-bold text-muted text-uppercase d-block mb-3" style={{ fontSize: '0.7rem' }}>Order Summary</span>
+        {loadingItems ? (
+          <div className="text-center py-5"><Loader2 className="animate-spin text-primary" /></div>
+        ) : (
+          <div className="item-list">
+            {orderItems.map((item, idx) => (
+              <div key={idx} className="mb-2 p-2 bg-white rounded-2 border-bottom shadow-sm">
+                <div className="d-flex justify-content-between small">
+                  <div className="fw-bold text-dark">
+                    {item.name || item.item_name} <span className="text-primary ms-1">x{item.quantity}</span>
                   </div>
-                )}
-              </div>
-
-              <div className="p-4 bg-dark text-white shadow-lg">
-                <div className="d-flex justify-content-between border-bottom border-secondary pb-2">
-                  <span className="text-white-50 small">Total Bill</span>
-                  <span className="fw-bold fs-5 text-warning">₱{calculateItemsSum().toLocaleString()}</span>
+                  <div className="fw-bold">₱{(item.quantity * item.price).toLocaleString()}</div>
                 </div>
-
-                {/* Payment proof / receipt */}
-                <div className="mt-3">
-                  <span className="text-white-50 small d-block mb-2">Payment Proof</span>
-                  {selectedPayment?.receipt_path ? (
-                    <img
-                      src={`${API_BASE}/uploads/${selectedPayment.receipt_path}`}
-                      alt="Payment receipt"
-                      className="w-100 rounded-3 border"
-                      style={{ maxHeight: 220, objectFit: "cover" }}
-                      onError={(e) => {
-                        e.currentTarget.style.display = "none";
-                      }}
-                    />
-                  ) : (
-                    <div className="text-white-50 small">No receipt uploaded.</div>
-                  )}
-                </div>
-
-                {/* Actions */}
-                <button
-                  className="btn btn-danger w-100 mt-3 fw-bold"
-                  disabled={selectedPayment?.payment_status === "verified" || selectedPayment?.status === "completed"}
-                  onClick={async () => {
-                    try {
-                      const token = localStorage.getItem("token");
-                      await axios.put(
-                        `${API_BASE}/billing/reject/${selectedPayment.reservation_id}`,
-                        {},
-                        { headers: { Authorization: `Bearer ${token}` } }
-                      );
-                      setSelectedPayment(null);
-                      fetchPayments();
-                      // Close the offcanvas using Bootstrap's dismissal attribute workaround
-                      const closeBtn = document.querySelector('#billingDrawer [data-bs-dismiss="offcanvas"]');
-                      if (closeBtn) closeBtn.click();
-                    } catch (err) {
-                      console.error(err);
-                      alert("Failed to reject payment.");
-                    }
-                  }}
-                >
-                  Reject
-                </button>
-
-                <button className="btn btn-outline-light w-100 mt-3" data-bs-dismiss="offcanvas">Close Review</button>
               </div>
-            </>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* 2. PAYMENT REVIEW PANEL */}
+      <div className="p-4 bg-dark text-white shadow-lg">
+        <div className="d-flex justify-content-between border-bottom border-secondary pb-2 mb-3">
+          <span className="text-white-50 small">Total Bill</span>
+          <span className="fw-bold fs-5 text-warning">₱{calculateItemsSum().toLocaleString()}</span>
+        </div>
+
+        {/* CLOUDINARY IMAGE DISPLAY */}
+        <div className="mt-2">
+          <div className="d-flex justify-content-between align-items-center mb-2">
+            <span className="text-white-50 small">Payment Proof (Cloudinary)</span>
+            {selectedPayment?.receipt_path && (
+              <a 
+                href={selectedPayment.receipt_path} 
+                target="_blank" 
+                rel="noreferrer" 
+                className="text-primary small text-decoration-none fw-bold"
+              >
+                View Full
+              </a>
+            )}
+          </div>
+          
+          {selectedPayment?.receipt_path ? (
+            <img
+              /* FIX: Use the path directly because Cloudinary provides full URLs */
+              src={selectedPayment.receipt_path} 
+              alt="Payment receipt"
+              className="w-100 rounded-3 border border-secondary shadow"
+              style={{ maxHeight: 250, objectFit: "contain", background: '#1a1a1a' }}
+              onError={(e) => {
+                // Fallback if the Cloudinary link is broken
+                e.currentTarget.src = "https://placehold.co/400x250/222/888?text=Receipt+Link+Broken";
+              }}
+            />
+          ) : (
+            <div className="py-4 text-center border border-secondary border-dashed rounded-3 text-white-50 small">
+              No receipt uploaded.
+            </div>
           )}
         </div>
+
+        {/* ACTION BUTTONS (Verify & Reject) */}
+        <div className="mt-4 d-grid gap-2">
+          {/* Only show actions if payment isn't already completed/verified */}
+          {selectedPayment?.payment_status !== "verified" && selectedPayment?.status !== "completed" ? (
+            <>
+              <button
+                className="btn btn-success btn-lg fw-bold"
+                onClick={async () => {
+                  if(!window.confirm("Confirm this payment as verified?")) return;
+                  try {
+                    const token = localStorage.getItem("token");
+                    await axios.put(
+                      `${API_BASE}/billing/verify/${selectedPayment.reservation_id}`,
+                      {},
+                      { headers: { Authorization: `Bearer ${token}` } }
+                    );
+                    fetchPayments();
+                    closeBtnRef.current?.click(); // Close drawer
+                  } catch (err) {
+                    alert("Verification failed.");
+                  }
+                }}
+              >
+                Verify & Complete Order
+              </button>
+
+              <button
+                className="btn btn-outline-danger fw-bold"
+                onClick={async () => {
+                  if(!window.confirm("Reject this payment proof?")) return;
+                  try {
+                    const token = localStorage.getItem("token");
+                    await axios.put(
+                      `${API_BASE}/billing/reject/${selectedPayment.reservation_id}`,
+                      {},
+                      { headers: { Authorization: `Bearer ${token}` } }
+                    );
+                    fetchPayments();
+                    closeBtnRef.current?.click(); // Close drawer
+                  } catch (err) {
+                    alert("Rejection failed.");
+                  }
+                }}
+              >
+                Reject Payment
+              </button>
+            </>
+          ) : (
+            <div className="alert alert-success py-2 text-center small fw-bold">
+              TRANSACTION ALREADY VERIFIED
+            </div>
+          )}
+          
+          <button className="btn btn-secondary" data-bs-dismiss="offcanvas">Close</button>
+        </div>
+      </div>
+    </>
+  )}
+</div>
       </div>
 
       <style>{`
