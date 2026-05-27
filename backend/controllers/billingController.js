@@ -90,3 +90,20 @@ exports.updatePaymentStatusByReservation = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+// --- NEW CONTROLLER METHOD ---
+// Reject payment by reservation id (sets payment_status='rejected' and reservations.status='rejected')
+exports.rejectPaymentByReservation = async (req, res) => {
+  try {
+    const { resId } = req.params;
+
+    const result = await Billing.rejectPaymentByReservation(resId);
+    if (result) {
+      res.json({ message: "Payment rejected successfully" });
+    } else {
+      res.status(404).json({ error: "Reservation payment not found" });
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};

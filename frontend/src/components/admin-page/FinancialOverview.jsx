@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import { TrendingUp, ShoppingBag, Wallet, CreditCard } from 'lucide-react';
@@ -13,7 +13,14 @@ const FinancialOverview = ({ data }) => {
     return <div className="p-5 text-center text-muted">No financial data available.</div>;
   }
 
-  const { summary, monthlyTrend } = reportData;
+  const { summary } = reportData;
+  const monthlyTrend = reportData.monthlyTrend || [];
+  const weeklyTrend = reportData.weeklyTrend || [];
+  const yearlyTrend = reportData.yearlyTrend || [];
+
+  const [period, setPeriod] = useState('monthly');
+
+  const selectedTrend = period === 'weekly' ? weeklyTrend : period === 'yearly' ? yearlyTrend : monthlyTrend;
 
   // 2. Map values exactly as they are named in your Backend Controller
   const totalMonthly = Number(summary.monthly_revenue || 0);
@@ -69,26 +76,56 @@ const FinancialOverview = ({ data }) => {
       ))}
 
       {/* CHART SECTION */}
-      <div className="col-12">
+    <div className="col-12">
         <div className="card border-0 shadow-sm p-4 rounded-4 bg-white" style={{ minHeight: '450px' }}>
           <div className="mb-4">
             <h6 className="fw-bold mb-0">Revenue Trend</h6>
-            <small className="text-muted">Monthly performance analysis</small>
+            <small className="text-muted">Profit/Revenue performance by period</small>
+
+            {/* CAPSULE TABS */}
+            <div className="d-flex gap-2 mt-3" role="tablist" aria-label="Revenue trend period">
+              {[
+                { key: 'weekly', label: 'Weekly' },
+                { key: 'monthly', label: 'Monthly' },
+                { key: 'yearly', label: 'Yearly' },
+              ].map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  className={`btn btn-sm ${period === t.key ? 'btn-warning' : 'btn-outline-secondary'}`}
+                  onClick={() => setPeriod(t.key)}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="flex-grow-1" style={{ height: '350px' }}>
             <Line options={chartOptions} data={{
-              // Use labels from your monthlyTrend objects
-              labels: monthlyTrend?.map(t => t.label || t.month || t.date) || [],
-              datasets: [{ 
-                label: 'Revenue', 
-                // Checks for 'value' or 'revenue' keys from your trend query
-                data: monthlyTrend?.map(t => Number(t.value || t.revenue || 0)) || [], 
-                borderColor: '#10b981', 
+              labels: (() => {
+                const monthly = monthlyTrend || [];
+                const weekly = reportData?.weeklyTrend || [];
+                const yearly = reportData?.yearlyTrend || [];
+                const period = reportData?.selectedRevenuePeriod || 'monthly';
+                const src = period === 'weekly' ? weekly : period === 'yearly' ? yearly : monthly;
+                return src.map(t => t.label || t.month || t.date);
+              })(),
+              datasets: [{
+                label: 'Revenue',
+                data: (() => {
+                  const monthly = monthlyTrend || [];
+                  const weekly = reportData?.weeklyTrend || [];
+                  const yearly = reportData?.yearlyTrend || [];
+                  const period = reportData?.selectedRevenuePeriod || 'monthly';
+                  const src = period === 'weekly' ? weekly : period === 'yearly' ? yearly : monthly;
+                  return src.map(t => Number(t.value || t.revenue || 0));
+                })(),
+                borderColor: '#10b981',
                 borderWidth: 3,
                 tension: 0.4,
                 pointRadius: 4,
-                fill: true, 
-                backgroundColor: 'rgba(16,185,129,0.05)' 
+                fill: true,
+                backgroundColor: 'rgba(16,185,129,0.05)'
               }]
             }} />
           </div>

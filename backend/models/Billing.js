@@ -15,7 +15,8 @@ const Billing = {
           p.payment_id,
           p.amount,
           p.payment_method,
-          p.payment_status
+          p.payment_status,
+          r.receipt_path AS receipt_path
         FROM reservations r
         LEFT JOIN payments p ON r.reservation_id = p.reservation_id
         ORDER BY r.reservation_id DESC
@@ -58,6 +59,17 @@ const Billing = {
       const [result] = await db.execute(sql, [paymentStatus, resId]);
       return result.affectedRows > 0;
     } catch (err) { throw err; }
+  },
+
+  // Reject payment by reservation id
+  rejectPaymentByReservation: async (resId) => {
+    try {
+      await db.execute("UPDATE payments SET payment_status = 'rejected' WHERE reservation_id = ?", [resId]);
+      const [result] = await db.execute("UPDATE reservations SET status = 'rejected' WHERE reservation_id = ?", [resId]);
+      return result.affectedRows > 0;
+    } catch (err) {
+      throw err;
+    }
   }
 };
 

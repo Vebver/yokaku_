@@ -5,13 +5,15 @@ const FinancialReport = require('../models/FinancialReport');
 const getFinancialAnalytics = async (req, res) => {
   try {
     // 1. Fetch ALL data sets simultaneously
-    const [topSellers, slowMoving, lowStockItems, inventoryUsage, financialStats, monthlyTrend] = await Promise.all([
+    const [topSellers, slowMoving, lowStockItems, inventoryUsage, financialStats, monthlyTrend, weeklyTrend, yearlyTrend] = await Promise.all([
       ReportModel.GetTopSellers(),
       ReportModel.GetSlowMoving(),
       InventoryModel.GetLowStockItems(),
       InventoryModel.GetInventoryUsage(),
       FinancialReport.getFinancialStats(),
-      FinancialReport.getMonthlyTrend()
+      FinancialReport.getMonthlyTrend(),
+      FinancialReport.getWeeklyProfitTrend(),
+      FinancialReport.getYearlyProfitTrend()
     ]);
 
     // 2. Structure response for all frontend components (Performance + Inventory)
@@ -34,7 +36,10 @@ const getFinancialAnalytics = async (req, res) => {
           aov: financialStats?.aov || 0,
           total_orders: financialStats?.total_orders || 0
         },
-        monthlyTrend: monthlyTrend || []
+        monthlyTrend: monthlyTrend || [],
+        // Used by FinancialOverview capsule tabs
+        weeklyTrend: weeklyTrend || [],
+        yearlyTrend: yearlyTrend || []
       }
     };
 

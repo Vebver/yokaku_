@@ -123,9 +123,17 @@ const Billing = () => {
                       ₱{p.amount ? Number(p.amount).toLocaleString() : "0.00"}
                     </td>
                     <td>
-                      <span className={`badge rounded-pill px-3 ${p.payment_status === "verified" || p.status === "completed" ? "bg-success" : "bg-warning text-dark"}`}>
-                        {(p.payment_status || "PENDING").toUpperCase()}
-                      </span>
+                  <span
+                    className={`badge rounded-pill px-3 ${
+                      p.payment_status === "verified" || p.status === "completed"
+                        ? "bg-success"
+                        : p.payment_status === "rejected" || p.status === "rejected"
+                          ? "bg-danger"
+                          : "bg-warning text-dark"
+                    }`}
+                  >
+                    {(p.payment_status || p.status || "PENDING").toUpperCase()}
+                  </span>
                     </td>
                     <td className="text-center">
                       {(() => {
@@ -220,6 +228,51 @@ const Billing = () => {
                   <span className="text-white-50 small">Total Bill</span>
                   <span className="fw-bold fs-5 text-warning">₱{calculateItemsSum().toLocaleString()}</span>
                 </div>
+
+                {/* Payment proof / receipt */}
+                <div className="mt-3">
+                  <span className="text-white-50 small d-block mb-2">Payment Proof</span>
+                  {selectedPayment?.receipt_path ? (
+                    <img
+                      src={`${API_BASE}/uploads/${selectedPayment.receipt_path}`}
+                      alt="Payment receipt"
+                      className="w-100 rounded-3 border"
+                      style={{ maxHeight: 220, objectFit: "cover" }}
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none";
+                      }}
+                    />
+                  ) : (
+                    <div className="text-white-50 small">No receipt uploaded.</div>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <button
+                  className="btn btn-danger w-100 mt-3 fw-bold"
+                  disabled={selectedPayment?.payment_status === "verified" || selectedPayment?.status === "completed"}
+                  onClick={async () => {
+                    try {
+                      const token = localStorage.getItem("token");
+                      await axios.put(
+                        `${API_BASE}/billing/reject/${selectedPayment.reservation_id}`,
+                        {},
+                        { headers: { Authorization: `Bearer ${token}` } }
+                      );
+                      setSelectedPayment(null);
+                      fetchPayments();
+                      // Close the offcanvas using Bootstrap's dismissal attribute workaround
+                      const closeBtn = document.querySelector('#billingDrawer [data-bs-dismiss="offcanvas"]');
+                      if (closeBtn) closeBtn.click();
+                    } catch (err) {
+                      console.error(err);
+                      alert("Failed to reject payment.");
+                    }
+                  }}
+                >
+                  Reject
+                </button>
+
                 <button className="btn btn-outline-light w-100 mt-3" data-bs-dismiss="offcanvas">Close Review</button>
               </div>
             </>
