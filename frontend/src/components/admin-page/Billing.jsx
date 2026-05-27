@@ -337,9 +337,13 @@ const Billing = () => {
                   {selectedPayment?.receipt_path ? (
                     <img
                       src={
-                        selectedPayment.receipt_path.startsWith("http")
-                          ? selectedPayment.receipt_path // Case A: Cloudinary URL
-                          : `${API_BASE.replace("/api", "")}/uploads/${selectedPayment.receipt_path}` // Case B: Local File
+                        selectedPayment.receipt_path?.startsWith("http")
+                          ? selectedPayment.receipt_path // It's already a full Cloudinary URL
+                          : selectedPayment.receipt_path?.includes(
+                                "restaurant_products",
+                              )
+                            ? `https://res.cloudinary.com/dfajhhh84/image/upload/${selectedPayment.receipt_path}`
+                            : `${API_BASE.replace("/api", "")}/uploads/${selectedPayment.receipt_path}` // Fallback to local
                       }
                       alt="Payment receipt"
                       className="w-100 rounded-3 border border-secondary shadow"
@@ -349,8 +353,9 @@ const Billing = () => {
                         background: "#1a1a1a",
                       }}
                       onError={(e) => {
+                        // This helps you debug. Look at your browser console to see this URL
                         console.error(
-                          "Image failed to load:",
+                          "Image failed to load at URL:",
                           e.currentTarget.src,
                         );
                         e.currentTarget.src =

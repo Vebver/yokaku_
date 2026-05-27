@@ -14,6 +14,7 @@ const {
 // If your index.js protects this whole file, /walkin will fail for guests.
 router.get('/', getPayments);
 router.post('/walkin', createWalkinPayment); 
+router.put('/verify/:resId', updatePaymentStatusByReservation); 
 router.put('/:id/status', updatePaymentStatus);
 router.put('/settle/:resId', settleFullBill);
 router.put('/payment-status/:resId', updatePaymentStatusByReservation);

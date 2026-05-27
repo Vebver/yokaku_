@@ -73,20 +73,25 @@ exports.settleFullBill = async (req, res) => {
 exports.updatePaymentStatusByReservation = async (req, res) => {
   try {
     const { resId } = req.params;
-    const { payment_status } = req.body;
+    // Default to 'verified' if no status is sent in body
+    const payment_status = req.body.payment_status || 'verified';
 
-    if (!payment_status) {
-      return res.status(400).json({ error: "payment_status is required" });
-    }
-
-    const result = await Billing.updatePaymentStatusByReservation(resId, payment_status);
+    // Call Model Function 1: Update Payment
+    const paymentUpdated = await Billing.updatePaymentStatusByReservation(resId, payment_status);
     
-    if (result) {
-      res.json({ message: `Payment status updated to ${payment_status}` });
+    if (paymentUpdated) {
+      // Call Model Function 2: Update Reservation to 'Confirmed'
+      await Billing.confirmReservationStatus(resId);
+
+      res.json({ 
+        success: true, 
+        message: `Payment verified and reservation confirmed.` 
+      });
     } else {
-      res.status(404).json({ error: "Reservation payment not found" });
+      res.status(404).json({ error: "Reservation payment record not found" });
     }
   } catch (error) {
+    console.error("Controller Error:", error);
     res.status(500).json({ error: error.message });
   }
 };

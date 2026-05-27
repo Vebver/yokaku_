@@ -60,6 +60,12 @@ const Billing = {
       return result.affectedRows > 0;
     } catch (err) { throw err; }
   },
+  
+   confirmReservationStatus: async (resId) => {
+        const sql = "UPDATE reservations SET status = 'Confirmed' WHERE reservation_id = ?";
+        const [result] = await db.execute(sql, [resId]);
+        return result.affectedRows > 0;
+    },
 
   // Reject payment by reservation id
   rejectPaymentByReservation: async (resId) => {
