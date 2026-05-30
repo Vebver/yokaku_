@@ -124,16 +124,61 @@ const Order = {
       reservationStatus = 'processing';
     }
 
-    // Update both kitchen_status and reservation status
-    await db.execute(
-      `UPDATE kiosk_orders SET kitchen_status = ? WHERE reservation_id = ?`,
-      [cleanStatus, reservationId],
-    );
-    
-    return await db.execute(
-      `UPDATE reservations SET status = ? WHERE reservation_id = ?`,
-      [reservationStatus, reservationId],
-    );
+    // --- B. Map Kitchen Status to Notification ENUM ---
+    // Your DB allowed: 'success', 'promo', 'info', 'alert'
+    let notifType = 'info'; 
+    if (cleanStatus === 'ready') {
+      notifType = 'success'; // Green alert for "Ready"
+    } else if (cleanStatus === 'alert') {
+      notifType = 'alert';
+    }
+
+    const conn = await db.getConnection();
+    try {
+      await conn.beginTransaction();
+
+      // 1. Update kitchen status for all items in that reservation
+      await conn.execute(
+        `UPDATE kiosk_orders SET kitchen_status = ? WHERE reservation_id = ?`,
+        [cleanStatus, reservationId]
+      );
+
+      // 2. Update the main reservation status
+      await conn.execute(
+        `UPDATE reservations SET status = ? WHERE reservation_id = ?`,
+        [reservationStatus, reservationId]
+      );
+
+      // 3. Get user_id from reservation before creating notification
+      const [resData] = await conn.execute(
+        `SELECT user_id FROM reservations WHERE reservation_id = ?`,
+        [reservationId]
+      );
+
+      // 4. Only create notification if user_id exists (not a walk-in order without user)
+      if (resData.length > 0 && resData[0].user_id && resData[0].user_id !== "null") {
+        await conn.execute(
+          `INSERT INTO notifications (user_id, reservation_id, title, message, type, is_read, created_at) 
+           VALUES (?, ?, ?, ?, ?, 0, NOW())`,
+          [
+            resData[0].user_id,
+            reservationId,
+            `Order Status: ${cleanStatus}`,
+            `Your order status has been updated to ${cleanStatus}`,
+            notifType
+          ]
+        );
+      }
+
+      await conn.commit();
+      return true;
+    } catch (error) {
+      await conn.rollback();
+      console.error("Database Transaction Error:", error);
+      throw error; // This sends the error back to the controller
+    } finally {
+      conn.release();
+    }
   },
 
   // 9. Get pre-reserved items (for initial kiosk load)

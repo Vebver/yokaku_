@@ -399,8 +399,8 @@ const KioskMenu = () => {
           <h2 style={{ color: "#ffcc00" }}>Payment Choice</h2>
           <p style={{ color: "#fff", fontSize: "1.2rem" }}>Total Amount: <span style={{ color: "#ffcc00" }}>₱{calculateTotal()}</span></p>
           <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "20px" }}>
-            <button className="res-modal-btn-primary" onClick={() => confirmPaymentChoice("Pay Now")}><Banknote size={18} className="me-2"/> PAY NOW</button>
-            <button className="res-modal-btn-primary" style={{ background: "#444" }} onClick={() => confirmPaymentChoice("Pay Later")}><Clock size={18} className="me-2"/> PAY LATER</button>
+            <button className="res-modal-btn-primary" disabled={isLoading} style={{ opacity: isLoading ? 0.6 : 1 }} onClick={() => confirmPaymentChoice("Pay Now")}><Banknote size={18} className="me-2"/> PAY NOW</button>
+            <button className="res-modal-btn-primary" disabled={isLoading} style={{ background: isLoading ? "#555" : "#444", opacity: isLoading ? 0.6 : 1 }} onClick={() => confirmPaymentChoice("Pay Later")}><Clock size={18} className="me-2"/> PAY LATER</button>
           </div>
         </div></div>
       )}
@@ -425,7 +425,16 @@ const KioskMenu = () => {
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               {isFinalCheckout ? (
                 <>
-                  <button className="res-modal-btn-primary" disabled={isPaymentProcessing} onClick={async () => { setIsPaymentProcessing(true); await syncWithDashboard(storage.getItem(SAVED_RES_ID), calculateTotal(), "Cash", "verified"); }} style={{ opacity: isPaymentProcessing ? 0.6 : 1 }}><Banknote size={18} className="me-2"/> PAY NOW</button>
+                  <button className="res-modal-btn-primary" disabled={isPaymentProcessing} onClick={async () => { 
+                    setIsPaymentProcessing(true); 
+                    try {
+                      await syncWithDashboard(storage.getItem(SAVED_RES_ID), calculateTotal(), "Cash", "verified");
+                      playCashierAlert();
+                    } catch (err) {
+                      alert("Payment sync failed. Please try again.");
+                      setIsPaymentProcessing(false);
+                    }
+                  }} style={{ opacity: isPaymentProcessing ? 0.6 : 1 }}><Banknote size={18} className="me-2"/> PAY NOW</button>
                   <button className="res-modal-btn-primary" style={{ background: "#28a745" }} onClick={handleEndSession}>FINISH SESSION</button>
                 </>
               ) : (
