@@ -29,25 +29,37 @@ const Billing = {
     }
   },
 
-  createWalkinPayment: async (reservationId, amount, paymentMethod, paymentStatus = "pending") => {
-    try {
-      // Use REPLACE INTO to avoid duplicate row errors
-      const sql = `
-        REPLACE INTO payments 
+ createWalkinPayment: async (reservationId, amount, paymentMethod, paymentStatus = "pending") => {
+  try {
+    // This SQL command says: "Try to insert this. If the ID already exists, 
+    // just update the amount and status instead of crashing."
+    const sql = `
+      INSERT INTO payments 
         (reservation_id, amount, total_bill, payment_method, payment_status, paid_at) 
-        VALUES (?, ?, ?, ?, ?, NOW())
-      `;
-      const [result] = await db.execute(sql, [reservationId, amount, amount, paymentMethod, paymentStatus]);
-      return result.insertId;
-    } catch (err) {
-      console.error("Error creating payment:", err.message);
-      throw err;
-    }
-  },
+      VALUES (?, ?, ?, ?, ?, NOW())
+      ON DUPLICATE KEY UPDATE 
+        amount = VALUES(amount),
+        total_bill = VALUES(total_bill),
+        payment_status = VALUES(payment_status),
+        payment_method = VALUES(payment_method),
+        paid_at = NOW()
+    `;
+    
+    const [result] = await db.execute(sql, [
+      reservationId, 
+      amount, 
+      amount, 
+      paymentMethod, 
+      paymentStatus
+    ]);
+    
+    return result.insertId || result.affectedRows;
+  } catch (err) {
+    console.error("Error in createWalkinPayment:", err.message);
+    throw err;
+  }
+},
 
- // models/Billing.js
-
-// models/Billing.js
 
 // models/Billing.js
 settleReservation: async (resId) => {
