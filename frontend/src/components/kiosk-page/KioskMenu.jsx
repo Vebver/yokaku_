@@ -322,6 +322,16 @@ const KioskMenu = () => {
       </div>
 
       <footer className="res-bottom-bar">
+
+         {!storage.getItem(SAVED_RES_ID) && (
+    <button 
+      className="res-btn-cancel" 
+      onClick={() => navigate("/kiosk-selection")}
+      style={{ marginRight: "auto", background: "#444" }}
+    >
+      <ArrowLeft size={18} className="me-2" /> Back
+    </button>
+  )}
         <div className="res-action-btns">
           <button className="res-btn-cancel" onClick={() => setCart([])}>Clear Tray</button>
           <button className="res-btn-view" disabled={cart.length === 0} onClick={() => setShowTypeModal(true)}>Place Order</button>
@@ -367,7 +377,7 @@ const KioskMenu = () => {
             <p style={{ color: "#fff", fontSize: "1.2rem" }}>Total Amount: <span style={{ color: "#ffcc00" }}>₱{calculateTrayTotal()}</span></p>
             <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "20px" }}>
               <button className="res-modal-btn-primary" onClick={() => confirmPaymentChoice("Pay Now")}>PAY NOW</button>
-              <button className="res-modal-btn-primary" style={{ background: "#444" }} onClick={() => confirmPaymentChoice("Pay Later")}>PAY LATER</button>
+              <button className="res-modal-btn-primary" style={{ background: "#ffcc00fb" }} onClick={() => confirmPaymentChoice("Pay Later")}>PAY LATER</button>
             </div>
           </div>
         </div>

@@ -133,7 +133,7 @@ app.use("/api/categories", categoryRoutes);
 app.use("/api/inventory", protect, adminOnly, inventoryRoutes);
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/api/admin", adminRoutes);
-app.use("/api/billing", protect, adminOnly, billingRoutes);
+app.use("/api/billing", protect, billingRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/inventory", inventoryRoutes);
