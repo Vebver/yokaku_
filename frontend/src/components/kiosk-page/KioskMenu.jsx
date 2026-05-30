@@ -108,7 +108,11 @@ const KioskMenu = () => {
         reservation_id: resId, amount: parseFloat(amount),
         payment_method: method, payment_status: status
       }, { headers: { Authorization: `Bearer ${token}` } });
-    } catch (err) { console.error("Sync failed", err); }
+      return true;
+    } catch (err) { 
+      console.error("Sync failed", err);
+      throw err;
+    }
   };
 
   const handleEndSession = async () => {
@@ -210,6 +214,8 @@ const KioskMenu = () => {
     } catch (error) {
       setIsLoading(false);
       alert("Order failed to place.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -425,7 +431,17 @@ const KioskMenu = () => {
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               {isFinalCheckout ? (
                 <>
-                  <button className="res-modal-btn-primary" disabled={isPaymentProcessing} onClick={async () => { setIsPaymentProcessing(true); await syncWithDashboard(storage.getItem(SAVED_RES_ID), calculateTotal(), "Cash", "verified"); }} style={{ opacity: isPaymentProcessing ? 0.6 : 1 }}><Banknote size={18} className="me-2"/> PAY NOW</button>
+                  <button className="res-modal-btn-primary" disabled={isPaymentProcessing} onClick={async () => { 
+                    setIsPaymentProcessing(true); 
+                    try {
+                      await syncWithDashboard(storage.getItem(SAVED_RES_ID), calculateTotal(), "Cash", "verified");
+                      playCashierAlert();
+                    } catch (err) {
+                      alert("Payment sync failed. Please try again.");
+                    } finally {
+                      setIsPaymentProcessing(false);
+                    }
+                  }} style={{ opacity: isPaymentProcessing ? 0.6 : 1 }}><Banknote size={18} className="me-2"/> PAY NOW</button>
                   <button className="res-modal-btn-primary" style={{ background: "#28a745" }} onClick={handleEndSession}>FINISH SESSION</button>
                 </>
               ) : (

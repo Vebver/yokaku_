@@ -112,28 +112,58 @@ const Order = {
     );
   },
 
-  // 8. Update Kitchen Status and Reservation Status
+ // 8. Update Kitchen Status, Reservation Status, and Notify
   updateStatus: async (reservationId, status) => {
-    const cleanStatus = status.toLowerCase();
+    const cleanStatus = status.toLowerCase(); // pending, preparing, ready, served
 
-    // Map payment status to reservation status
-    let reservationStatus = 'processing';
-    if (cleanStatus === 'verified') {
+    // --- A. Map Kitchen Status to Reservation Status ---
+    // Use statuses your database actually supports (usually 'seated' or 'completed')
+    let reservationStatus = 'seated'; 
+    if (cleanStatus === 'served' || cleanStatus === 'completed') {
       reservationStatus = 'completed';
-    } else if (cleanStatus === 'pending') {
-      reservationStatus = 'processing';
     }
 
-    // Update both kitchen_status and reservation status
-    await db.execute(
-      `UPDATE kiosk_orders SET kitchen_status = ? WHERE reservation_id = ?`,
-      [cleanStatus, reservationId],
-    );
-    
-    return await db.execute(
-      `UPDATE reservations SET status = ? WHERE reservation_id = ?`,
-      [reservationStatus, reservationId],
-    );
+    // --- B. Map Kitchen Status to Notification ENUM ---
+    // Your DB allowed: 'success', 'promo', 'info', 'alert'
+    let notifType = 'info'; 
+    if (cleanStatus === 'ready') {
+      notifType = 'success'; // Green alert for "Ready"
+    } else if (cleanStatus === 'alert') {
+      notifType = 'alert';
+    }
+
+    const conn = await db.getConnection();
+    try {
+      await conn.beginTransaction();
+
+      // 1. Update kitchen status for all items in that reservation
+      await conn.execute(
+        `UPDATE kiosk_orders SET kitchen_status = ? WHERE reservation_id = ?`,
+        [cleanStatus, reservationId]
+      );
+
+      // 2. Update the main reservation status
+      await conn.execute(
+        `UPDATE reservations SET status = ? WHERE reservation_id = ?`,
+        [reservationStatus, reservationId]
+      );
+
+      // 3. Insert into the notifications table using your specific Enum types
+      // Assuming you want to notify that the status changed
+      await conn.execute(
+        `INSERT INTO notifications (type, is_read, created_at) VALUES (?, 0, NOW())`,
+        [notifType]
+      );
+
+      await conn.commit();
+      return true;
+    } catch (error) {
+      await conn.rollback();
+      console.error("Database Transaction Error:", error);
+      throw error; // This sends the error back to the controller
+    } finally {
+      conn.release();
+    }
   },
 
   // 9. Get pre-reserved items (for initial kiosk load)
