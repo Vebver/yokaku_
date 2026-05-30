@@ -174,40 +174,48 @@ const getAuthHeader = () => {
     fetchCurrentBill();
   }, [reservationId]);
 
- const handleEndSession = async () => {
+const handleEndSession = async () => {
   setIsLoading(true);
   try {
-    // Attempt to find the tableId from local bill history if storage is empty
+    // 1. Get the table ID before we start deleting things
     let currentTableId = localStorage.getItem("tableId");
     if (!currentTableId && billItems.length > 0) {
         currentTableId = billItems[0].table_id;
     }
 
-    // Call Backend (This is what triggers your SQL releaseTable logic)
+    // 2. Call Backend to update status to "completed"
     await axios.post(`${API_BASE}/orders/finish`, { 
       reservation_id: reservationId,
       table_id: currentTableId 
     }, getAuthHeader());
 
-    // WIPE EVERYTHING
+    // 3. Define ONLY the reservation-specific keys to delete
     const keysToWipe = [
-      TIMER_KEY, PAYMENT_CHOICE_KEY, TOTAL_PAID_KEY, "resId", "tableId",
-      `kiosk_res_timer_${reservationId}`, `kiosk_pay_choice_${reservationId}`, `kiosk_total_paid_${reservationId}`
+      "resId",
+      "tableId",
+      TIMER_KEY, 
+      PAYMENT_CHOICE_KEY, 
+      TOTAL_PAID_KEY,
+      `kiosk_res_timer_${reservationId}`, 
+      `kiosk_pay_choice_${reservationId}`, 
+      `kiosk_total_paid_${reservationId}`
     ];
+
+    // 4. Delete ONLY those keys
     keysToWipe.forEach(k => localStorage.removeItem(k));
     
-    // Nuclear wipe and redirect
-    localStorage.clear(); 
+    // IMPORTANT: REMOVE localStorage.clear(); <--- This was causing the logout
+    
+    // 5. Redirect to selection screen
     window.location.href = "/kiosk-selection";
     
   } catch (e) {
     console.error("End Session Failed:", e);
-    if (e.response?.status === 403) {
-        alert("Permission Denied (403). Please ask staff to manually complete the session.");
-    } else {
-        localStorage.clear();
-        window.location.href = "/kiosk-selection";
-    }
+    // If backend fails, we still want to clear the UI for the next customer
+    // but without logging out the Kiosk.
+    localStorage.removeItem("resId");
+    localStorage.removeItem("tableId");
+    window.location.href = "/kiosk-selection";
   } finally {
     setIsLoading(false);
   }
@@ -429,7 +437,19 @@ const getAuthHeader = () => {
                       style={{ opacity: (isPaid || isPaymentProcessing) ? 0.5 : 1, background: isPaid ? "#666" : "#ffcc00" }}>
                       {isPaid ? "PAYMENT VERIFIED" : "PAY NOW"}
                    </button>
-                   <button className="res-modal-btn-primary" style={{ background: "#28a745" }} onClick={handleEndSession}>FINISH SESSION</button>
+
+                   <button
+                     className="res-modal-btn-primary"
+                     style={{ background: "#28a745" }}
+                     onClick={() => {
+                       // If user chose PAY LATER earlier, keep isPaid=false.
+                       // Still allow finishing: session will end regardless of payment state.
+                       handleEndSession();
+                     }}
+                   >
+                     FINISH SESSION
+                   </button>
+
                    <button className="res-btn-cancel" onClick={() => setShowBillInfo(false)}><ArrowLeft size={18} /> Back</button>
                 </>
               ) : (
@@ -439,6 +459,7 @@ const getAuthHeader = () => {
                   <button className="res-btn-cancel" onClick={() => setShowBillInfo(false)}>CANCEL</button>
                 </>
               )}
+
             </div>
           </div>
         </div>

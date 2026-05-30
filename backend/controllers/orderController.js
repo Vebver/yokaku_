@@ -128,9 +128,9 @@ const orderController = {
 
       console.log(`🏁 Finishing session: Res ${reservation_id}, Table ${table_id}`);
 
-      // 1. Update main reservation status (THIS CHANGES IT FROM CONFIRMED TO COMPLETED)
+      // 1. Update main reservation status (match existing casing used by kiosk verification)
       await conn.execute(
-        "UPDATE reservations SET status = 'completed' WHERE reservation_id = ?",
+        "UPDATE reservations SET status = 'Completed' WHERE reservation_id = ?",
         [reservation_id]
       );
 
@@ -140,13 +140,21 @@ const orderController = {
         [reservation_id]
       );
 
-      // 3. Release table if it's a real table
+
+      // 3. Mark kiosk orders as completed (fix UI showing 'confirmed' after finish)
+      await conn.execute(
+        "UPDATE kiosk_orders SET kitchen_status = 'completed' WHERE reservation_id = ?",
+        [reservation_id]
+      );
+
+      // 4. Release table if it's a real table
       if (table_id && table_id !== "takeout" && table_id !== "null") {
         await conn.execute(
           "UPDATE tables SET status = 'available' WHERE table_id = ?",
           [table_id]
         );
       }
+
 
       await conn.commit();
       res.status(200).json({ success: true });
@@ -156,6 +164,15 @@ const orderController = {
       res.status(500).json({ error: error.message });
     } finally {
       conn.release();
+    }
+  },
+
+  getReservedItems: async (req, res) => {
+    try {
+      const items = await Order.getPreReservedItems(req.params.id);
+      res.status(200).json(items);
+    } catch (error) {
+      res.status(500).json({ error: "Failed" });
     }
   },
 
