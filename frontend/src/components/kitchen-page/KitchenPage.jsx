@@ -190,6 +190,21 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
         </div>
       </div>
 
+      {hasAllergyInOrder() && (
+        <div style={{ 
+          backgroundColor: "#ff4444", 
+          padding: "12px 15px", 
+          margin: "8px 0", 
+          borderRadius: "6px", 
+          textAlign: "center",
+          fontWeight: "bold",
+          color: "#fff",
+          fontSize: "1.1rem"
+        }}>
+          ⚠️ CUSTOMER HAS ALLERGIES - HANDLE WITH CARE ⚠️
+        </div>
+      )}
+
       <div className="card-body">
         <div className="item-list">
           {order.items?.map((item, idx) => (

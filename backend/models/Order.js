@@ -148,26 +148,12 @@ const Order = {
         [reservationStatus, reservationId]
       );
 
-      // 3. Get user_id from reservation before creating notification
-      const [resData] = await conn.execute(
-        `SELECT user_id FROM reservations WHERE reservation_id = ?`,
-        [reservationId]
+      // 3. Insert into the notifications table using your specific Enum types
+      // Assuming you want to notify that the status changed
+      await conn.execute(
+        `INSERT INTO notifications (type, is_read, created_at) VALUES (?, 0, NOW())`,
+        [notifType]
       );
-
-      // 4. Only create notification if user_id exists (not a walk-in order without user)
-      if (resData.length > 0 && resData[0].user_id && resData[0].user_id !== "null") {
-        await conn.execute(
-          `INSERT INTO notifications (user_id, reservation_id, title, message, type, is_read, created_at) 
-           VALUES (?, ?, ?, ?, ?, 0, NOW())`,
-          [
-            resData[0].user_id,
-            reservationId,
-            `Order Status: ${cleanStatus}`,
-            `Your order status has been updated to ${cleanStatus}`,
-            notifType
-          ]
-        );
-      }
 
       await conn.commit();
       return true;
