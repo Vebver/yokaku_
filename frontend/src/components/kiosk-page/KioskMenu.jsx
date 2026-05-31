@@ -49,17 +49,8 @@ const categoryIcons = {
 
 const KioskMenu = () => {
   const navigate = useNavigate();
-  const timerRef = useRef(null);
   const audioRef = useRef(new Audio(alertMusicFile));
   const storage = window.sessionStorage;
-
-  const playCashierAlert = async () => {
-    try {
-      if (!audioRef.current) return;
-      audioRef.current.currentTime = 0;
-      await audioRef.current.play();
-    } catch (e) { console.log("Audio blocked:", e); }
-  };
 
   const TIMER_KEY = "kiosk_walkin_timer_end";
   const SAVED_TABLE_ID = "kiosk_active_table_id";
@@ -76,9 +67,6 @@ const KioskMenu = () => {
   const [localBillHistory, setLocalBillHistory] = useState([]);
   const [isPaid, setIsPaid] = useState(storage.getItem(PAYMENT_CHOICE_KEY) === "verified");
 
-  const [timeLeft, setTimeLeft] = useState(1860);
-  const [isTimerRunning, setIsTimerRunning] = useState(false);
-
   const [showTypeModal, setShowTypeModal] = useState(false);
   const [showTablePicker, setShowTablePicker] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -91,15 +79,19 @@ const KioskMenu = () => {
   const [selectedItem, setSelectedItem] = useState(null);
   const [selectedFlavors, setSelectedFlavors] = useState([]);
   const [selectedDrink, setSelectedDrink] = useState("");
-  const [isRefillMode, setIsRefillMode] = useState(false);
   const [availableTables, setAvailableTables] = useState([]);
   const [pendingOrderDetails, setPendingOrderDetails] = useState({ tableId: null, mode: "Dine-In" });
   const [isPaymentProcessing, setIsPaymentProcessing] = useState(false);
   const [dynamicFlavors, setDynamicFlavors] = useState([]);
   const [dynamicRamenFlavors, setDynamicRamenFlavors] = useState([]);
-  const [dynamicDrinks, setDynamicDrinks] = useState([]);
 
-  const formatTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
+  const playCashierAlert = async () => {
+    try {
+      if (!audioRef.current) return;
+      audioRef.current.currentTime = 0;
+      await audioRef.current.play();
+    } catch (e) { console.log("Audio blocked:", e); }
+  };
 
   const calculateSessionTotal = () => {
     const history = billItems.length > 0 ? billItems : localBillHistory;
@@ -112,15 +104,11 @@ const KioskMenu = () => {
   };
 
   const calculateTotalDue = () => {
-    if (isPaid) return "0.00"; // If marked as paid, strictly show zero
+    if (isPaid) return "0.00";
     const totalSession = calculateSessionTotal();
     const alreadyPaid = parseFloat(storage.getItem(TOTAL_PAID_KEY) || 0);
     const due = totalSession - alreadyPaid;
     return due > 0 ? due.toFixed(2) : "0.00";
-  };
-
-  const calculateTrayTotal = () => {
-    return cart.reduce((sum, item) => sum + (parseFloat(item.price || 0) * (item.quantity || 1)), 0).toFixed(2);
   };
 
   const syncWithDashboard = async (resId, amount, method = "Cash", status = "pending") => {
@@ -169,13 +157,11 @@ const KioskMenu = () => {
     const isPayNow = choice === "Pay Now";
 
     try {
-      // 1. Calculate cumulative snapshot for DB sync
       const currentHistory = billItems.length > 0 ? billItems : localBillHistory;
       const trayTotal = itemsToSubmit.reduce((sum, i) => sum + (parseFloat(i.price || 0) * (i.quantity || 1)), 0);
       const historyTotal = currentHistory.reduce((sum, i) => sum + (parseFloat(i.price || i.item_price || 0) * (i.quantity || 1)), 0);
       const newSessionTotal = (historyTotal + trayTotal).toFixed(2);
 
-      // 2. Place Order
       await axios.post(`${API_BASE}/orders/place`, {
         reservation_id: dynamicResId,
         table_id: tableId,
@@ -187,31 +173,26 @@ const KioskMenu = () => {
         })),
       });
 
-      // 3. Update State
       setLocalBillHistory((prev) => [...prev, ...itemsToSubmit]);
       setCart([]);
       storage.setItem(SAVED_TABLE_ID, tableId || "takeout");
       storage.setItem(SAVED_RES_ID, dynamicResId);
 
-      // 4. If Pay Now, finalize payment trackers immediately
       if (isPayNow) {
         await syncWithDashboard(dynamicResId, newSessionTotal, "Cash", "verified");
         storage.setItem(TOTAL_PAID_KEY, newSessionTotal);
         storage.setItem(PAYMENT_CHOICE_KEY, "verified");
-        setIsPaid(true); // <--- Sets this TRUE for the next modal
-        
+        setIsPaid(true);
         await playCashierAlert();
         setShowPaymentModal(false);
         setShowBillInfo(true);
         await fetchCurrentBill();
       } else {
-        // If pay later, mark as unpaid because balance increased
         setIsPaid(false);
         storage.removeItem(PAYMENT_CHOICE_KEY);
         setShowPaymentModal(false);
       }
     } catch (error) {
-      setCart(itemsToSubmit);
       alert("Order failed.");
     } finally {
       setIsLoading(false);
@@ -222,7 +203,6 @@ const KioskMenu = () => {
     setIsPaymentProcessing(false);
     await fetchCurrentBill();
     setIsFinalCheckout(true);
-    // Determine if everything is already paid
     const due = parseFloat(calculateTotalDue());
     setIsPaid(due <= 0);
     setShowBillInfo(true);
@@ -248,7 +228,6 @@ const KioskMenu = () => {
         setMenuData(grouped);
         setDynamicFlavors((grouped["Chicken"] || []).map(i => i.name));
         setDynamicRamenFlavors((grouped["Ramen"] || []).map(i => i.name));
-        setDynamicDrinks([...(grouped["Beverages"] || []), ...(grouped["Drinks"] || [])].map(i => i.name));
         const firstVisibleCat = Object.keys(grouped).find(cat => !HIDDEN_CATEGORIES.includes(cat));
         if (firstVisibleCat) setActiveCategory(firstVisibleCat);
       } catch (e) { console.error(e); } finally { setLoading(false); }
@@ -258,7 +237,7 @@ const KioskMenu = () => {
 
   const handleItemClick = (item) => {
     if (item.name.toLowerCase().includes("unlimited") || item.name.toLowerCase().includes("ramen")) {
-      setSelectedItem(item); setSelectedFlavors([]); setSelectedDrink(""); setIsRefillMode(false); setShowFlavorModal(true);
+      setSelectedItem(item); setSelectedFlavors([]); setSelectedDrink(""); setShowFlavorModal(true);
     } else { setSelectedItem({ ...item, category: "Regular" }); setIsModalOpen(true); }
   };
 
@@ -272,7 +251,6 @@ const KioskMenu = () => {
 
   return (
     <div className="res-kiosk-container">
-      {/* HEADER */}
       <div className="kiosk-timer-wrapper" style={{ zIndex: 5000 }}>
         <div className="header-id-section" style={{ background: "#222", border: "2px solid #ffcc00", padding: "10px 15px", borderRadius: "10px" }}>
           <ShoppingBag size={20} color="#ffcc00" />
@@ -322,16 +300,11 @@ const KioskMenu = () => {
       </div>
 
       <footer className="res-bottom-bar">
-
          {!storage.getItem(SAVED_RES_ID) && (
-    <button 
-      className="res-btn-cancel" 
-      onClick={() => navigate("/kiosk-selection")}
-      style={{ marginRight: "auto", background: "#444" }}
-    >
-      <ArrowLeft size={18} className="me-2" /> Back
-    </button>
-  )}
+            <button className="res-btn-cancel" onClick={() => navigate("/kiosk-selection")} style={{ marginRight: "auto", background: "#444" }}>
+                <ArrowLeft size={18} className="me-2" /> Back
+            </button>
+         )}
         <div className="res-action-btns">
           <button className="res-btn-cancel" onClick={() => setCart([])}>Clear Tray</button>
           <button className="res-btn-view" disabled={cart.length === 0} onClick={() => setShowTypeModal(true)}>Place Order</button>
@@ -374,10 +347,10 @@ const KioskMenu = () => {
           <div className="res-modal-card" style={{ maxWidth: "450px", textAlign: "center" }}>
             <Receipt size={50} color="#ffcc00" style={{ margin: "0 auto 15px" }} />
             <h2 style={{ color: "#ffcc00" }}>Payment Choice</h2>
-            <p style={{ color: "#fff", fontSize: "1.2rem" }}>Total Amount: <span style={{ color: "#ffcc00" }}>₱{calculateTrayTotal()}</span></p>
+            <p style={{ color: "#fff", fontSize: "1.2rem" }}>Total: <span style={{ color: "#ffcc00" }}>₱{calculateSessionTotal()}</span></p>
             <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "20px" }}>
-              <button className="res-modal-btn-primary" onClick={() => confirmPaymentChoice("Pay Now")}>PAY NOW</button>
-              <button className="res-modal-btn-primary" style={{ background: "#ffcc00fb" }} onClick={() => confirmPaymentChoice("Pay Later")}>PAY LATER</button>
+              <button className="res-modal-btn-primary" disabled={isLoading} onClick={() => confirmPaymentChoice("Pay Now")}><Banknote size={18} className="me-2"/> PAY NOW</button>
+              <button className="res-modal-btn-primary" disabled={isLoading} style={{ background: "#444" }} onClick={() => confirmPaymentChoice("Pay Later")}><Clock size={18} className="me-2"/> PAY LATER</button>
             </div>
           </div>
         </div>
@@ -388,39 +361,39 @@ const KioskMenu = () => {
           <div className="res-modal-card" style={{ maxWidth: "450px", width: "90%", textAlign: "center" }}>
             <Receipt size={50} color="#ffcc00" style={{ margin: "0 auto 15px" }} />
             <h2 style={{ color: "#ffcc00" }}>{isFinalCheckout ? "Final Bill Summary" : "Order Summary"}</h2>
-            <div className="bill-scroll" style={{ maxHeight: "250px", overflowY: "auto", margin: "20px 0", borderBottom: "1px solid #444" }}>
+            <div className="bill-scroll" style={{ maxHeight: "250px", overflowY: "auto", margin: "20px 0" }}>
               {(billItems.length > 0 ? billItems : localBillHistory).map((item, idx) => (
                 <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "10px 5px", color: "#fff" }}>
-                  <span>{item.name || item.item_name} x{item.quantity || item.qty || 1}</span>
+                  <span>{item.name || item.item_name} x{item.quantity || 1}</span>
                   <span>₱{(parseFloat(item.price || 0) * (item.quantity || 1)).toFixed(2)}</span>
                 </div>
               ))}
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "1.4rem", fontWeight: "bold", color: "#fff", marginBottom: "30px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "1.4rem", fontWeight: "bold", color: "#fff" }}>
               <span>Total Due:</span>
               <span style={{ color: "#ffcc00" }}>₱{calculateTotalDue()}</span>
             </div>
-            {isPaid && <p style={{ color: "#28a745", fontWeight: "bold", marginTop: "-20px", marginBottom: "20px" }}>Payment recorded!</p>}
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            {isPaid && <p style={{ color: "#28a745", fontWeight: "bold" }}>Payment recorded!</p>}
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "20px" }}>
               {isFinalCheckout ? (
                 <>
-                  <button className="res-modal-btn-primary" disabled={isPaid || isPaymentProcessing} onClick={async () => {
-                      if (isPaymentProcessing || isPaid) return;
-                      setIsPaymentProcessing(true);
-                      try {
-                        const resId = storage.getItem(SAVED_RES_ID);
-                        const fullTotal = calculateSessionTotal();
-                        await syncWithDashboard(resId, fullTotal, "Cash", "verified");
-                        storage.setItem(TOTAL_PAID_KEY, fullTotal.toString());
-                        storage.setItem(PAYMENT_CHOICE_KEY, "verified");
-                        setIsPaid(true);
-                        await playCashierAlert();
-                      } catch (e) { alert("Sync failed."); } finally { setIsPaymentProcessing(false); }
-                    }} style={{ opacity: (isPaid || isPaymentProcessing) ? 0.5 : 1, background: isPaid ? "#666" : "#ffcc00" }}>
-                    {isPaid ? "PAYMENT VERIFIED" : "PAY NOW"}
-                  </button>
+                  {!isPaid && (
+                    <button className="res-modal-btn-primary" disabled={isPaymentProcessing} onClick={async () => {
+                        setIsPaymentProcessing(true);
+                        try {
+                          await syncWithDashboard(storage.getItem(SAVED_RES_ID), calculateSessionTotal(), "Cash", "verified");
+                          storage.setItem(TOTAL_PAID_KEY, calculateSessionTotal());
+                          storage.setItem(PAYMENT_CHOICE_KEY, "verified");
+                          setIsPaid(true);
+                          await playCashierAlert();
+                        } catch (err) { alert("Payment sync failed."); }
+                        finally { setIsPaymentProcessing(false); }
+                    }}>
+                        <Banknote size={18} className="me-2" /> PAY NOW
+                    </button>
+                  )}
                   <button className="res-modal-btn-primary" style={{ background: "#28a745" }} onClick={handleEndSession}>FINISH SESSION</button>
-                  <button className="res-btn-cancel" onClick={() => setShowBillInfo(false)}><ArrowLeft size={18} className="me-2" /> Back</button>
+                  <button className="res-btn-cancel" onClick={() => setShowBillInfo(false)}>Back</button>
                 </>
               ) : (
                 <button className="res-modal-btn-primary" onClick={() => setShowBillInfo(false)}>CLOSE</button>
@@ -449,10 +422,7 @@ const KioskMenu = () => {
 
       {isLoading && (
         <div className="res-modal-overlay" style={{ zIndex: 11000, background: "rgba(0, 0, 0, 0.8)" }}>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "20px" }}>
-            <RefreshCw className="spinner-loader" color="#ffcc00" size={60} />
-            <h2 style={{ color: "#ffcc00" }}>Processing...</h2>
-          </div>
+          <RefreshCw className="spinner-loader" color="#ffcc00" size={60} />
         </div>
       )}
 
