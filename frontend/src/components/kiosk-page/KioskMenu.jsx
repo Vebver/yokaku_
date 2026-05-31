@@ -40,7 +40,6 @@ const HIDDEN_CATEGORIES = [
   "Ramen",
 ];
 
-// ADDED: Constants for the timer
 const DURATION = 2 * 60 * 60 * 1000; // 2 Hours in milliseconds
 
 const categoryIcons = {
@@ -70,7 +69,6 @@ const KioskMenu = () => {
   const PAYMENT_CHOICE_KEY = "kiosk_payment_choice";
   const TOTAL_PAID_KEY = "kiosk_total_paid";
 
-  // ADDED: Missing Timer States
   const [timeLeft, setTimeLeft] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
 
@@ -82,6 +80,11 @@ const KioskMenu = () => {
   const [localBillHistory, setLocalBillHistory] = useState([]);
   const [isPaid, setIsPaid] = useState(
     storage.getItem(PAYMENT_CHOICE_KEY) === "verified",
+  );
+
+  // DECLARED: React state to track total payments in real-time
+  const [localTotalPaid, setLocalTotalPaid] = useState(
+    parseFloat(storage.getItem(TOTAL_PAID_KEY) || 0)
   );
 
   const [showTypeModal, setShowTypeModal] = useState(false);
@@ -107,8 +110,10 @@ const KioskMenu = () => {
   const [dynamicFlavors, setDynamicFlavors] = useState([]);
   const [dynamicRamenFlavors, setDynamicRamenFlavors] = useState([]);
   const [dynamicDrinks, setDynamicDrinks] = useState([]);
+  const [isRefillMode, setIsRefillMode] = useState(false);
+  
   const currentTableId = localStorage.getItem("tableId") || "takeout";
-  // RESTORED: Authentication Token Configurations
+
   const getAuthHeader = () => {
     const token = localStorage.getItem("token") || sessionStorage.getItem("token");
     if (!token || token === "null" || token === "undefined") {
@@ -125,7 +130,6 @@ const KioskMenu = () => {
       : { "Content-Type": "application/json" };
   };
 
-  // ADDED: Helper to format time (00:00:00)
   const formatTime = (seconds) => {
     if (seconds <= 0) return "00:00:00";
     const h = Math.floor(seconds / 3600);
@@ -144,23 +148,42 @@ const KioskMenu = () => {
     }
   };
 
-  const calculateSessionTotal = () => {
-    const history = billItems.length > 0 ? billItems : localBillHistory;
-    const combined = [...history, ...cart];
-
-    return combined.reduce((sum, item) => {
-      const p = parseFloat(
-        item.price || item.item_price || item.unit_price || 0,
-      );
-      const q = parseInt(item.quantity || item.qty || 1);
-      return sum + p * q;
+  // Calculates the cost of the items currently inside your interactive tray
+  const calculateCartTotal = () => {
+    return cart.reduce((sum, item) => {
+      const p = parseFloat(item.price || 0);
+      const q = parseInt(item.quantity || 1);
+      return sum + (p * q);
     }, 0);
   };
 
-  const calculateTotalDue = () => {
-    const totalSession = calculateSessionTotal(); 
-    const alreadyPaid = parseFloat(storage.getItem(TOTAL_PAID_KEY) || 0);
-    const due = totalSession - alreadyPaid;
+  const calculateSessionTotal = (excludeCart = false) => {
+    const history = billItems.length > 0 ? billItems : localBillHistory;
+    // If excludeCart is true (like on Pay Bill), we only sum already placed history items
+    const combined = excludeCart ? history : [...history, ...cart];
+
+    return combined.reduce((sum, item) => {
+      const q = parseInt(item.quantity || item.qty || 1); 
+
+      let p = parseFloat(item.price);
+      if (isNaN(p)) p = parseFloat(item.unit_price);
+      if (isNaN(p) && item.item_price) p = parseFloat(item.item_price) / q;
+      if (isNaN(p)) p = 0;
+
+      const isRefill = item.is_refill === 1 || 
+                       item.is_refill === true || 
+                       (item.customizations && item.customizations.toString().includes("[REFILL]"));
+      if (isRefill) {
+        p = 0;
+      }
+
+      return sum + (p * q);
+    }, 0);
+  };
+
+  const calculateTotalDue = (excludeCart = false) => {
+    const totalSession = calculateSessionTotal(excludeCart); 
+    const due = totalSession - localTotalPaid; // Calculates using the reactive state
     return due > 0 ? due.toFixed(2) : "0.00";
   };
 
@@ -179,7 +202,7 @@ const KioskMenu = () => {
           payment_method: method,
           payment_status: status,
         },
-        getAuthHeader(), // Restored Token Header
+        getAuthHeader(),
       );
       return true;
     } catch (err) {
@@ -187,16 +210,16 @@ const KioskMenu = () => {
       throw err;
     }
   };
+
   useEffect(() => {
-  const params = new URLSearchParams(window.location.search);
-  const setupTable = params.get("setupTable");
-  
-  if (setupTable) {
-    // Saves the table ID (e.g., 2) to session storage so it bypasses the picker
-    storage.setItem(FIXED_KIOSK_KEY, setupTable);
-    console.log(`Kiosk locked to Table ID: ${setupTable}`);
-  }
-}, []);
+    const params = new URLSearchParams(window.location.search);
+    const setupTable = params.get("setupTable");
+    
+    if (setupTable) {
+      storage.setItem(FIXED_KIOSK_KEY, setupTable);
+      console.log(`Kiosk locked to Table ID: ${setupTable}`);
+    }
+  }, []);
 
   const handleEndSession = async () => {
     const activeTable = storage.getItem(SAVED_TABLE_ID);
@@ -206,7 +229,7 @@ const KioskMenu = () => {
         await axios.post(`${API_BASE}/orders/finish`, {
           table_id: activeTable,
           reservation_id: activeResId,
-        }, getAuthHeader()); // Restored Token Header
+        }, getAuthHeader());
       } catch (err) {
         console.error(err);
       }
@@ -222,7 +245,22 @@ const KioskMenu = () => {
   };
 
   const handleRefillClick = () => {
+    const lastRefill = sessionStorage.getItem("kiosk_last_refill_timestamp");
+    if (lastRefill) {
+      const timeElapsed = Date.now() - parseInt(lastRefill, 10);
+      const cooldownPeriod = 10 * 60 * 1000;
+      
+      if (timeElapsed < cooldownPeriod) {
+        const remainingSeconds = Math.ceil((cooldownPeriod - timeElapsed) / 1000);
+        const m = Math.floor(remainingSeconds / 60);
+        const s = remainingSeconds % 60;
+        alert(`Refill is on cooldown. Please wait ${m}m ${s}s before requesting another.`);
+        return;
+      }
+    }
+
     const refillItem = menuData["Chicken"]?.[0] || {
+      id: 162,
       name: "Chicken Wings",
       price: 0,
     };
@@ -230,10 +268,10 @@ const KioskMenu = () => {
     setSelectedItem({ ...refillItem, price: 0 }); 
     setSelectedFlavors([]);
     setSelectedDrink("");
+    setIsRefillMode(true);
     setShowFlavorModal(true); 
   };
 
-  // Timer Logic
   useEffect(() => {
     const syncTimer = () => {
       const savedEnd = sessionStorage.getItem(TIMER_KEY);
@@ -267,7 +305,7 @@ const KioskMenu = () => {
     try {
       const res = await axios.get(
         `${API_BASE}/orders/reservation-items/${resId}`,
-        getAuthHeader() // Restored Token Header
+        getAuthHeader()
       );
       setBillItems(res.data || []);
       return res.data;
@@ -276,7 +314,7 @@ const KioskMenu = () => {
     }
   };
 
- const confirmPaymentChoice = async (choice) => {
+  const confirmPaymentChoice = async (choice) => {
     if (isLoading) return;
     const itemsToSubmit = [...cart];
     if (itemsToSubmit.length === 0) return;
@@ -291,16 +329,14 @@ const KioskMenu = () => {
       i.name.toLowerCase().includes("unlimited"),
     );
 
-    // FIX: Parse the table ID into an integer. Send null for "takeout" strings.
     const rawTableId = tableId || currentTableId;
     const parsedTableId = parseInt(rawTableId, 10);
     const finalTableId = isNaN(parsedTableId) ? null : parsedTableId;
 
     try {
-      // 1. Place the order in the database with allergy note
       await axios.post(`${API_BASE}/orders/place`, {
         reservation_id: dynamicResId,
-        table_id: finalTableId, // Pass safe integer or null
+        table_id: finalTableId,
         items: itemsToSubmit.map((i) => ({
           item_id: i.id,
           quantity: i.quantity,
@@ -311,9 +347,8 @@ const KioskMenu = () => {
           is_refill: i.price === 0,
         })),
         allergy_note: allergyNote !== "None" ? allergyNote : null,
-      }, getAuthHeader()); // Restored Token Header
+      }, getAuthHeader());
 
-      // Update local history and clear the current tray
       setLocalBillHistory((prev) => [...prev, ...itemsToSubmit]);
       setCart([]);
       storage.setItem(SAVED_TABLE_ID, tableId || "takeout");
@@ -326,34 +361,36 @@ const KioskMenu = () => {
         setTimeLeft(DURATION / 1000);
       }
       setCart([]);
-
+     // 1. Handle payment updates depending on choice
       if (isPayNow) {
-        const amountToPayRightNow = parseFloat(calculateTotalDue());
+        const outstandingBalance = parseFloat(calculateTotalDue()); 
         const newTotalPaidInStorage = calculateSessionTotal();
 
         await syncWithDashboard(
           dynamicResId,
-          amountToPayRightNow,
+          outstandingBalance, 
           "Cash",
           "verified",
         );
 
         storage.setItem(TOTAL_PAID_KEY, newTotalPaidInStorage.toString());
-        storage.setItem(PAYMENT_CHOICE_KEY, "verified");
+        setLocalTotalPaid(newTotalPaidInStorage); // Instantly updates paid total state
 
-        setCart([]); 
+        storage.setItem(PAYMENT_CHOICE_KEY, "verified");
         setIsPaid(true);
         await playCashierAlert();
-        setShowPaymentModal(false);
         setShowBillInfo(true);
-
-        await fetchCurrentBill();
-        setLocalBillHistory([]);
       } else {
         setIsPaid(false);
         storage.removeItem(PAYMENT_CHOICE_KEY);
-        setShowPaymentModal(false);
       }
+
+      // 2. Always refresh database records and clear local history on success
+      await fetchCurrentBill(); // Instantly syncs the header "PAY BILL" totals
+      setLocalBillHistory([]);
+
+      setShowPaymentModal(false);
+      // REMOVED: setShowSessionModal(true) to prevent crash
     } catch (error) {
       console.error(error);
       alert("Order failed.");
@@ -366,7 +403,7 @@ const KioskMenu = () => {
     setIsPaymentProcessing(false);
     await fetchCurrentBill();
     setIsFinalCheckout(true);
-    const due = parseFloat(calculateTotalDue());
+    const due = parseFloat(calculateTotalDue(true));
     setIsPaid(due <= 0);
     setShowBillInfo(true);
   };
@@ -375,7 +412,7 @@ const KioskMenu = () => {
     const fetchMenu = async () => {
       try {
         const response = await fetch(`${API_BASE}/products`, {
-          headers: getFetchHeaders() // Restored Token Header
+          headers: getFetchHeaders()
         });
         const data = await response.json();
         const grouped = data.reduce((acc, item) => {
@@ -425,6 +462,7 @@ const KioskMenu = () => {
       setSelectedItem({ ...item, price: 0 }); 
       setSelectedFlavors([]);
       setSelectedDrink("");
+      setIsRefillMode(true);
       setShowFlavorModal(true);
     }
     else if (
@@ -442,25 +480,62 @@ const KioskMenu = () => {
     }
   };
 
-  const confirmFlavors = () => {
+  const confirmFlavors = async () => {
     if (selectedFlavors.length === 0) {
       alert("Please select at least one flavor.");
       return;
     }
+    if (selectedFlavors.length > 4) {
+      alert("You can select a maximum of 4 flavors.");
+      return;
+    }
 
-    const isRefill = parseFloat(selectedItem.price) === 0;
+    const isRefill = parseFloat(selectedItem.price) === 0 || isRefillMode;
     const customization = `${isRefill ? "[REFILL] " : ""}Flavors: ${selectedFlavors.join(", ")}${selectedDrink ? " | Drink: " + selectedDrink : ""}`;
 
     const newItem = {
       ...selectedItem,
       quantity: 1,
       customizations: customization,
-      price: selectedItem.price,
+      price: isRefill ? 0 : selectedItem.price, 
       is_refill: isRefill,
     };
 
-    setCart([...cart, newItem]);
-    setShowFlavorModal(false);
+    if (isRefill) {
+      setIsLoading(true);
+      const activeResId = storage.getItem(SAVED_RES_ID);
+      const activeTable = storage.getItem(SAVED_TABLE_ID);
+      const parsedTableId = parseInt(activeTable, 10);
+      const finalTableId = isNaN(parsedTableId) ? null : parsedTableId;
+
+      try {
+        await axios.post(`${API_BASE}/orders/place`, {
+          reservation_id: activeResId,
+          table_id: finalTableId,
+          items: [{
+            item_id: newItem.id,
+            quantity: 1,
+            customizations: newItem.customizations,
+            is_refill: true,
+          }],
+        }, getAuthHeader());
+
+        sessionStorage.setItem("kiosk_last_refill_timestamp", Date.now().toString());
+        await fetchCurrentBill();
+
+        setShowFlavorModal(false);
+        setIsRefillMode(false);
+        alert("Refill order placed successfully!");
+      } catch (err) {
+        alert("Refill placement failed.");
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      setCart([...cart, newItem]);
+      setShowFlavorModal(false);
+    }
+
     setSelectedFlavors([]);
     setSelectedDrink("");
     setSelectedItem(null);
@@ -473,7 +548,7 @@ const KioskMenu = () => {
     } else if (storage.getItem(SAVED_RES_ID)) {
       setIsPaid(true);
     }
-  }, [cart, billItems]);
+  }, [cart, billItems, localTotalPaid]);
 
   if (loading) return <div className="loading-container">Loading Menu...</div>;
 
@@ -524,12 +599,12 @@ const KioskMenu = () => {
               onClick={handleHeaderPayClick}
               style={{
                 background:
-                  parseFloat(calculateTotalDue()) <= 0 ? "#28a745" : "#ffcc00",
-                color: parseFloat(calculateTotalDue()) <= 0 ? "#fff" : "#000",
+                  parseFloat(calculateTotalDue(true)) <= 0 ? "#28a745" : "#ffcc00",
+                color: parseFloat(calculateTotalDue(true)) <= 0 ? "#fff" : "#000",
               }}
             >
               <CreditCard size={18} className="me-2" />
-              {parseFloat(calculateTotalDue()) <= 0
+              {parseFloat(calculateTotalDue(true)) <= 0
                 ? "VIEW RECEIPT"
                 : "PAY BILL"}
             </button>
@@ -858,7 +933,7 @@ const KioskMenu = () => {
       )}
 
       {/* Payment Choice Modal */}
-      {showPaymentModal && (
+     {showPaymentModal && (
         <div className="res-modal-overlay" style={{ zIndex: 10000 }}>
           <div className="res-modal-card">
             <Receipt
@@ -872,13 +947,9 @@ const KioskMenu = () => {
               style={{ color: "#fff", fontSize: "1.4rem", fontWeight: "bold" }}
             >
               Amount to Pay:{" "}
+              {/* Correctly displays the combined unpaid history + new cart additions */}
               <span style={{ color: "#ffcc00" }}>₱{calculateTotalDue()}</span>
             </p>
-
-            <p style={{ color: "#888", fontSize: "0.8rem" }}>
-              (Items already paid have been cleared from this total)
-            </p>
-
             <div
               style={{
                 display: "flex",
@@ -925,7 +996,40 @@ const KioskMenu = () => {
               {isFinalCheckout ? "Bill Summary" : "Current Tray"}
             </h2>
 
-            {/* ... (Keep your bill items mapping here) ... */}
+          <div className="bill-scroll" style={{ maxHeight: "200px", overflowY: "auto", margin: "20px 0" }}>
+              {(isFinalCheckout ? billItems : cart).map((item, idx) => {
+                // 1. Get the correct quantity
+                const q = parseInt(item.quantity || item.qty || 1);
+                
+                // 2. Resolve the individual unit price dynamically
+                let p = parseFloat(item.price);
+                if (isNaN(p)) p = parseFloat(item.unit_price);
+                if (isNaN(p) && item.item_price) p = parseFloat(item.item_price) / q;
+                if (isNaN(p)) p = 0;
+
+                // 3. Force price to 0 if the item is a refill record
+                const isRefill = item.is_refill === 1 || 
+                                 item.is_refill === true || 
+                                 (item.customizations && item.customizations.toString().includes("[REFILL]"));
+                if (isRefill) {
+                  p = 0;
+                }
+
+                return (
+                  <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "10px 5px", color: "#fff", borderBottom: '1px solid #222' }}>
+                    <div style={{textAlign: 'left'}}>
+                      <span style={{fontWeight: 'bold', display: 'block'}}>{item.name || item.item_name}</span>
+                      <small style={{color: '#888'}}>
+                        {isRefill ? "Refill Option" : `₱${p.toFixed(2)} x ${q}`}
+                      </small>
+                    </div>
+                    <span style={{alignSelf: 'center'}}>
+                      ₱{(p * q).toFixed(2)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
 
             <div
               style={{
@@ -934,10 +1038,11 @@ const KioskMenu = () => {
                 fontSize: "1.4rem",
                 fontWeight: "bold",
                 color: "#fff",
+                marginBottom: "20px"
               }}
             >
               <span>Total Due:</span>
-              <span style={{ color: "#ffcc00" }}>₱{calculateTotalDue()}</span>
+              <span style={{ color: "#ffcc00" }}>₱{calculateTotalDue(isFinalCheckout)}</span>
             </div>
 
             <div
@@ -948,26 +1053,36 @@ const KioskMenu = () => {
                 marginTop: "20px",
               }}
             >
-              {parseFloat(calculateTotalDue()) > 0 ? (
+             {parseFloat(calculateTotalDue(isFinalCheckout)) > 0 ? (
                 <button
                   className="res-modal-btn-primary"
                   onClick={async () => {
-                    const due = parseFloat(calculateTotalDue());
-                    await syncWithDashboard(
-                      storage.getItem(SAVED_RES_ID),
-                      due,
-                      "Cash",
-                      "verified",
-                    );
-                    const newTotalPaid =
-                      parseFloat(storage.getItem(TOTAL_PAID_KEY) || 0) + due;
-                    storage.setItem(TOTAL_PAID_KEY, newTotalPaid.toString());
-                    await fetchCurrentBill();
-                    await playCashierAlert();
+                    const totalBill = calculateSessionTotal(isFinalCheckout); 
+                    setIsLoading(true);
+                    try {
+                      await syncWithDashboard(
+                        storage.getItem(SAVED_RES_ID),
+                        totalBill, 
+                        "Cash",
+                        "verified",
+                      );
+                      
+                      // 1. Instantly update storage & state to force immediate render of ₱0.00 due
+                      storage.setItem(TOTAL_PAID_KEY, totalBill.toString());
+                      setLocalTotalPaid(totalBill); 
+                      
+                      setIsLoading(false); // Turn off the loading screen immediately
+
+                      // 2. Trigger these in the background without blocking the UI thread
+                      fetchCurrentBill();
+                      playCashierAlert();
+                    } catch (err) {
+                      alert("Payment processing failed.");
+                      setIsLoading(false);
+                    }
                   }}
                 >
-                  <Banknote size={18} className="me-2" /> PAY NOW (₱
-                  {calculateTotalDue()})
+                  <Banknote size={18} className="me-2" /> PAY NOW (₱{calculateTotalDue(isFinalCheckout)})
                 </button>
               ) : (
                 <button
@@ -983,7 +1098,7 @@ const KioskMenu = () => {
                 className="res-btn-cancel"
                 onClick={() => setShowBillInfo(false)}
               >
-                {parseFloat(calculateTotalDue()) > 0
+                {parseFloat(calculateTotalDue(isFinalCheckout)) > 0
                   ? "Pay Later & Exit Menu"
                   : "Close"}
               </button>
@@ -997,8 +1112,8 @@ const KioskMenu = () => {
           <div className="res-modal-card flavor-modal-wide">
             <h2 className="modal-title-yellow">Customize Your Order</h2>
             <div className="customization-scroll-area">
-              <section className="modal-section">
-                <h3 className="section-label">Select Flavors (Multiple)</h3>
+             <section className="modal-section">
+                <h3 className="section-label">Select Flavors (Up to 4)</h3>
                 <div className="flavor-grid">
                   {(selectedItem?.name.toLowerCase().includes("ramen")
                     ? dynamicRamenFlavors
@@ -1007,11 +1122,16 @@ const KioskMenu = () => {
                     <button
                       key={f}
                       onClick={() =>
-                        setSelectedFlavors((prev) =>
-                          prev.includes(f)
-                            ? prev.filter((x) => x !== f)
-                            : [...prev, f],
-                        )
+                        setSelectedFlavors((prev) => {
+                          if (prev.includes(f)) {
+                            return prev.filter((x) => x !== f);
+                          }
+                          if (prev.length >= 4) {
+                            alert("You can select a maximum of 4 flavors.");
+                            return prev;
+                          }
+                          return [...prev, f];
+                        })
                       }
                       className={`flavor-btn ${selectedFlavors.includes(f) ? "active" : ""}`}
                     >
@@ -1040,7 +1160,10 @@ const KioskMenu = () => {
             <div className="modal-footer-actions">
               <button
                 className="res-btn-cancel-ui"
-                onClick={() => setShowFlavorModal(false)}
+                onClick={() => {
+                  setShowFlavorModal(false);
+                  setIsRefillMode(false);
+                }}
               >
                 Cancel
               </button>
