@@ -54,6 +54,8 @@ const KioskReservationMenu = () => {
   const [isRefillMode, setIsRefillMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isPaymentProcessing, setIsPaymentProcessing] = useState(false);
+  
+  // Database-driven customization states
   const [dynamicFlavors, setDynamicFlavors] = useState([]); 
   const [dynamicRamenFlavors, setDynamicRamenFlavors] = useState([]);
   const [dynamicDrinks, setDynamicDrinks] = useState([]);
@@ -68,26 +70,36 @@ const KioskReservationMenu = () => {
     return `${h}:${m.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}`;
   };
 
-const getAuthHeader = () => {
-  const token = localStorage.getItem("token");
-  if (!token || token === "null" || token === "undefined") return {}; 
-  return { headers: { Authorization: `Bearer ${token}` } };
-};
+  const getAuthHeader = () => {
+    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+    if (!token || token === "null" || token === "undefined") {
+      console.warn("Authorization token is missing from browser storage.");
+      return { headers: {} }; 
+    }
+    return { headers: { Authorization: `Bearer ${token}` } };
+  };
+
+  const getFetchHeaders = () => {
+    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+    return token && token !== "null" && token !== "undefined"
+      ? { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" }
+      : { "Content-Type": "application/json" };
+  };
 
   const calculateSessionTotal = () => {
     const history = billItems.length > 0 ? billItems : [];
     const combined = [...history, ...cart];
+
     return combined.reduce((sum, item) => {
-      const p = parseFloat(item.price || item.item_price || 0);
-      const q = parseInt(item.quantity || item.qty || 1);
+      const p = parseFloat(item.price || item.item_price || item.unit_price || 0);
+      const q = parseInt(item.quantity || item.qty || item.quantity || 1); 
       return sum + (p * q);
     }, 0);
   };
 
   const calculateTotalDue = () => {
-    if (isPaid) return "0.00"; 
     const totalSession = calculateSessionTotal();
-    const alreadyPaid = parseFloat(storage.getItem(TOTAL_PAID_KEY) || 0);
+    const alreadyPaid = parseFloat(storage.getItem(TOTAL_PAID_KEY) || 0); 
     const due = totalSession - alreadyPaid;
     return due > 0 ? due.toFixed(2) : "0.00";
   };
@@ -104,33 +116,14 @@ const getAuthHeader = () => {
     try { audioObj.currentTime = 0; await audioObj.play(); } catch (e) { }
   };
 
-  // RESTORED: Initial data fetch with pre-reserved item logic
+  // Initial data fetch and Database-driven Customization mapping
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [prodRes, resItemsRes, billingRes] = await Promise.all([
-          fetch(`${API_BASE}/products`).then(r => r.json()),
+        const [prodRes, resItemsRes] = await Promise.all([
+          fetch(`${API_BASE}/products`, { headers: getFetchHeaders() }).then(r => r.json()),
           axios.get(`${API_BASE}/orders/reservation-items/${reservationId}`, getAuthHeader()).then(r => r.data),
-          axios.get(`${API_BASE}/billing`, getAuthHeader()).then(r => r.data).catch(() => [])
         ]);
-        
-        // 1. Sync Downpayments
-        const existingPayment = billingRes.find(p => p.reservation_id === reservationId && p.payment_status === 'verified');
-        if (existingPayment) {
-            storage.setItem(TOTAL_PAID_KEY, existingPayment.amount.toString());
-        }
-
-        // 2. AUTO-LOAD RESERVED ITEMS INTO CART (TRAY)
-        if (resItemsRes.length > 0) {
-            setCart(resItemsRes.map(i => ({
-                id: i.item_id, 
-                name: i.name || i.item_name, 
-                price: i.price || i.item_price,
-                quantity: i.quantity || 1, 
-                customizations: i.customizations, 
-                isPreReserved: true
-            })));
-        }
 
         const grouped = {};
         const getFullImage = (item) => {
@@ -138,117 +131,129 @@ const getAuthHeader = () => {
           if (!rawPath) return "";
           if (rawPath.startsWith("http")) return rawPath;
           const cleanPath = rawPath.startsWith("/") ? rawPath.substring(1) : rawPath;
-          const finalPath = cleanPath.startsWith("uploads/") ? cleanPath : `uploads/${cleanPath}`;
-          return `${BASE_URL}/${finalPath}`;
+          return `${BASE_URL}/${cleanPath}`;
         };
 
-        // 3. CREATE "MY RESERVED ITEMS" CATEGORY
+        // Populate pre-reserved items category if exist
         if (resItemsRes.length > 0) {
-            grouped["My Reserved Items"] = resItemsRes.map(i => ({
-                id: i.item_id, 
-                name: i.name || i.item_name, 
-                price: i.price || i.item_price,
-                image: getFullImage(i), 
-                category: "My Reserved Items", 
-                description: "Your pre-booked items."
-            }));
+          grouped["My Reserved Items"] = resItemsRes.map(i => ({
+            id: i.item_id, 
+            name: i.item_name || i.name, 
+            price: i.item_price || i.price,
+            image: getFullImage(i), 
+            category: "My Reserved Items",
+            quantity: parseInt(i.qty || i.quantity || 1)
+          }));
+
+          setCart(resItemsRes.map(i => ({
+            id: i.item_id, 
+            name: i.item_name || i.name, 
+            price: i.item_price || i.price,
+            quantity: parseInt(i.qty || i.quantity || 1), 
+            customizations: i.customizations, 
+            isPreReserved: true
+          })));
         }
 
-        prodRes.reduce((acc, item) => {
+        // Group regular products
+        prodRes.forEach((item) => {
           const cat = item.category_name || "General";
-          if (!acc[cat]) acc[cat] = [];
-          acc[cat].push({ id: item.item_id, name: item.name, image: getFullImage(item), price: item.price, category: cat, description: item.description });
-          return acc;
-        }, grouped);
+          if (!grouped[cat]) grouped[cat] = [];
+          grouped[cat].push({ 
+              id: item.item_id, 
+              name: item.name, 
+              image: getFullImage(item), 
+              price: item.price, 
+              category: cat 
+          });
+        });
 
         setMenuData(grouped);
-        setDynamicFlavors((grouped["Chicken"] || []).map(i => i.name));
+
+        // Map customization arrays dynamically from database-driven values
+        setDynamicFlavors((grouped["Chicken"] || grouped["Chicken Wings"] || []).map(i => i.name));
         setDynamicRamenFlavors((grouped["Ramen"] || []).map(i => i.name));
         setDynamicDrinks([...(grouped["Beverages"] || []), ...(grouped["Drinks"] || [])].map(i => i.name));
         
         const cats = Object.keys(grouped).filter(c => !HIDDEN_CATEGORIES.includes(c));
-        if (cats.length > 0) setActiveCategory(cats[0]);
-      } catch (e) { } finally { setLoading(false); }
+        if (cats.includes("My Reserved Items")) {
+            setActiveCategory("My Reserved Items");
+        } else if (cats.length > 0) {
+            setActiveCategory(cats[0]);
+        }
+
+      } catch (e) { 
+          console.error("Data Fetch Error", e); 
+      } finally { 
+          setLoading(false); 
+      }
     };
     fetchData();
-    fetchCurrentBill();
   }, [reservationId]);
-
-const handleEndSession = async () => {
-  setIsLoading(true);
-  try {
-    // 1. Get the table ID before we start deleting things
-    let currentTableId = localStorage.getItem("tableId");
-    if (!currentTableId && billItems.length > 0) {
-        currentTableId = billItems[0].table_id;
-    }
-
-    // 2. Call Backend to update status to "completed"
-    await axios.post(`${API_BASE}/orders/finish`, { 
-      reservation_id: reservationId,
-      table_id: currentTableId 
-    }, getAuthHeader());
-
-    // 3. Define ONLY the reservation-specific keys to delete
-    const keysToWipe = [
-      "resId",
-      "tableId",
-      TIMER_KEY, 
-      PAYMENT_CHOICE_KEY, 
-      TOTAL_PAID_KEY,
-      `kiosk_res_timer_${reservationId}`, 
-      `kiosk_pay_choice_${reservationId}`, 
-      `kiosk_total_paid_${reservationId}`
-    ];
-
-    // 4. Delete ONLY those keys
-    keysToWipe.forEach(k => localStorage.removeItem(k));
-    
-    // IMPORTANT: REMOVE localStorage.clear(); <--- This was causing the logout
-    
-    // 5. Redirect to selection screen
-    window.location.href = "/kiosk-selection";
-    
-  } catch (e) {
-    console.error("End Session Failed:", e);
-    // If backend fails, we still want to clear the UI for the next customer
-    // but without logging out the Kiosk.
-    localStorage.removeItem("resId");
-    localStorage.removeItem("tableId");
-    window.location.href = "/kiosk-selection";
-  } finally {
-    setIsLoading(false);
-  }
-};
 
   const confirmPaymentChoice = async (choice) => {
     setIsLoading(true);
     const isPayNow = choice === "Pay Now";
+    const hasUnlimited = cart.some(i => (i.name || "").toLowerCase().includes("unlimited"));
+
     try {
+      // 1. Submit order to backend
       await axios.post(`${API_BASE}/orders/place`, {
         reservation_id: reservationId,
         items: cart.map(i => ({ item_id: i.id, quantity: i.quantity, customizations: i.customizations }))
       }, getAuthHeader());
       
-      const freshBill = await fetchCurrentBill();
-      const newFullTotal = freshBill.reduce((sum, item) => sum + (parseFloat(item.item_price || 0) * (item.quantity || 1)), 0);
-      const status = isPayNow ? "verified" : "pending";
+      // 2. Start the timer only when the order contains an unlimited item and is successfully placed
+      if (hasUnlimited && !storage.getItem(TIMER_KEY)) {
+        const endTime = Date.now() + (2 * 60 * 60 * 1000); // 2 Hours
+        storage.setItem(TIMER_KEY, endTime.toString());
+        setTimeLeft(7200); 
+        setIsTimerRunning(true);
+      }
 
-      await axios.post(`${API_BASE}/billing/walkin`, { 
-          reservation_id: reservationId, amount: newFullTotal, payment_method: "Cash", payment_status: status 
-      }, getAuthHeader());
+      const unpaidBalance = parseFloat(calculateTotalDue());
+      const newTotalPaidInStorage = calculateSessionTotal();
 
-      if (isPayNow) {
-          storage.setItem(TOTAL_PAID_KEY, newFullTotal.toString());
+      if (isPayNow && unpaidBalance > 0) {
+          await axios.post(`${API_BASE}/billing/walkin`, { 
+              reservation_id: reservationId, 
+              amount: unpaidBalance, 
+              payment_method: "Cash", 
+              payment_status: "verified" 
+          }, getAuthHeader());
+
+          storage.setItem(TOTAL_PAID_KEY, newTotalPaidInStorage.toString());
           storage.setItem(PAYMENT_CHOICE_KEY, "verified");
           setIsPaid(true);
           playCashierAlert();
       }
+
       setCart([]);
       setShowBillInfo(false);
       setShowSessionModal(true);
-    } catch (e) { alert("Order submission failed."); }
-    finally { setIsLoading(false); }
+      await fetchCurrentBill();
+    } catch (e) { 
+        alert("Order submission failed."); 
+    } finally { 
+        setIsLoading(false); 
+    }
+  };
+
+  const handleEndSession = async () => {
+    setIsLoading(true);
+    try {
+      let currentTableId = localStorage.getItem("tableId");
+      await axios.post(`${API_BASE}/orders/finish`, { 
+        reservation_id: reservationId,
+        table_id: currentTableId 
+      }, getAuthHeader());
+
+      [ "resId", "tableId", TIMER_KEY, PAYMENT_CHOICE_KEY, TOTAL_PAID_KEY ].forEach(k => localStorage.removeItem(k));
+      window.location.href = "/kiosk-selection";
+    } catch (e) {
+      localStorage.removeItem("resId");
+      window.location.href = "/kiosk-selection";
+    } finally { setIsLoading(false); }
   };
 
   const handleHeaderPayClick = async () => {
@@ -260,7 +265,7 @@ const handleEndSession = async () => {
     setShowBillInfo(true);
   };
 
-  // Timer logic
+  // Timer Restore logic
   useEffect(() => {
     const savedEndTime = storage.getItem(TIMER_KEY);
     if (savedEndTime) {
@@ -283,10 +288,19 @@ const handleEndSession = async () => {
   }, [isTimerRunning]);
 
   const confirmFlavors = async () => {
-    const isRamen = selectedItem.name.toLowerCase().includes("ramen");
-    if (selectedFlavors.length === 0) return alert(`Select a flavor`);
-    const cust = isRefillMode ? `REFILL: ${selectedFlavors.join(", ")}` : `${isRamen ? "Ramen: " : "Wings: "}${selectedFlavors.join(", ")} ${selectedDrink ? "| " + selectedDrink : ""}`;
-    const newItem = { ...selectedItem, quantity: 1, customizations: cust, price: isRefillMode ? 0 : selectedItem.price };
+    if (selectedFlavors.length === 0) return alert(`Select at least one flavor`);
+    
+    const cust = isRefillMode 
+      ? `[REFILL] Flavors: ${selectedFlavors.join(", ")}` 
+      : `Flavors: ${selectedFlavors.join(", ")}${selectedDrink ? " | Drink: " + selectedDrink : ""}`;
+      
+    const newItem = { 
+      ...selectedItem, 
+      quantity: 1, 
+      customizations: cust, 
+      price: isRefillMode ? 0 : selectedItem.price,
+      is_refill: isRefillMode
+    };
 
     if (isRefillMode) {
         setIsLoading(true);
@@ -323,31 +337,42 @@ const handleEndSession = async () => {
   return (
     <div className="res-kiosk-container">
       {/* HEADER */}
-      <div className="kiosk-timer-wrapper" style={{ zIndex: 5000 }}>
-        <div className="header-id-section" style={{ background: "#222", border: "3px solid #ffcc00", padding: "10px 20px", borderRadius: "10px" }}>
-          <User size={24} color="#ffcc00" />
-          <div className="id-details" style={{ marginLeft: "12px" }}>
-            <span style={{ color: "#ffcc00", fontSize: "10px", fontWeight: "900", display: "block" }}>RESERVATION ID</span>
-            <span style={{ color: "#fff", fontWeight: "900", fontSize: "20px" }}>{reservationId}</span>
-          </div>
+      <div className="kiosk-timer-wrapper" style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', padding: '10px 30px', background: '#000', minHeight: '90px', borderBottom: '2px solid #222' }}>
+        
+        {/* LEFT: ID */}
+        <div className="header-left-group">
+            <div className="header-id-section" style={{ background: "#1a1a1a", border: "1px solid #333", padding: "8px 15px", borderRadius: "10px", display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <User size={20} color="#ffcc00" />
+            <div className="id-details">
+                <span style={{ color: "#ffcc00", fontSize: "10px", fontWeight: "900", display: "block" }}>RESERVATION ID</span>
+                <span style={{ color: "#fff", fontWeight: "900", fontSize: "16px" }}>{reservationId}</span>
+            </div>
+            </div>
         </div>
 
-        <button className="billing-btn-header" onClick={handleHeaderPayClick} 
-           style={{ background: isPaid ? "#28a745" : "#ffcc00", color: isPaid ? "#fff" : "#000", border: "none", padding: "10px 20px", borderRadius: "8px", fontWeight: "bold", marginLeft: "20px", display: 'flex', gap: '8px' }}>
-          <CreditCard size={18} /> {isPaid ? "VIEW RECEIPT" : "PAY"}
-        </button>
+        {/* CENTER: TIMER & REFILL */}
+        <div className="header-center-group" style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            {isTimerRunning && (
+                <>
+                    <div className="unlimited-timer-pill" style={{ border: "2px solid #ffcc00", background: '#111', padding: '5px 25px', borderRadius: '50px', textAlign: 'center' }}>
+                        <span style={{ color: "#ffcc00", fontSize: '10px', fontWeight: '900', display: 'block', textTransform: 'uppercase' }}>Unlimited Time</span>
+                        <span style={{ color: "#fff", fontSize: '22px', fontWeight: '800', fontFamily: 'monospace' }}>{formatTime(timeLeft)}</span>
+                    </div>
+                    <button onClick={() => { setSelectedItem({id: 162, name: 'Unlimited', price: 0}); setIsRefillMode(true); setShowFlavorModal(true); }} 
+                            className="refill-action-btn" style={{ background: '#ffcc00', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                        <RefreshCw size={18} /> REFILL
+                    </button>
+                </>
+            )}
+        </div>
 
-        {isTimerRunning && (
-          <div className="timer-box" style={{ border: "2px solid #ffcc00", marginLeft: "auto", background: '#000', padding: '5px 15px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '15px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Clock size={20} color="#ffcc00" />
-                <span style={{ color: "#fff", fontSize: '1.5rem', fontWeight: '900' }}>{formatTime(timeLeft)}</span>
-            </div>
-            <button onClick={() => { setSelectedItem({id: 162, name: 'Unlimited'}); setIsRefillMode(true); setShowFlavorModal(true); }} 
-                    style={{ background: '#28a745', color: '#fff', border: 'none', padding: '5px 15px', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer' }}>REFILL</button>
-            <button className="finish-session-header-btn" onClick={() => setShowEndModal(true)} style={{ background: '#ffcc00', border: 'none', borderRadius: '4px', padding: '5px 10px', fontWeight: 'bold' }}>FINISH</button>
-          </div>
-        )}
+        {/* RIGHT: VIEW RECEIPT / PAY */}
+        <div className="header-right-group" style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+            <button className="billing-btn-header" onClick={handleHeaderPayClick} 
+                style={{ background: parseFloat(calculateTotalDue()) <= 0 ? "#28a745" : "#ffcc00", color: parseFloat(calculateTotalDue()) <= 0 ? "#fff" : "#000", border: "none", padding: "12px 20px", borderRadius: "8px", fontWeight: "900", cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <CreditCard size={18} /> {parseFloat(calculateTotalDue()) <= 0 ? "VIEW RECEIPT" : "PAY BILL"}
+            </button>
+        </div>
       </div>
 
       <div className="res-main-layout">
@@ -372,7 +397,7 @@ const handleEndSession = async () => {
                 <div className="res-card-image-container"><img src={item.image} alt={item.name} className="res-food-img" /></div>
                 <div className="res-card-info">
                   <h4 className="res-food-label">{item.name}</h4>
-                  <p style={{ color: "#ffcc00", fontWeight: "bold" }}>₱{item.price}</p>
+                  <p style={{ color: "#ffcc00", fontWeight: "bold" }}>₱{parseFloat(item.price).toFixed(2)}</p>
                 </div>
               </div>
             ))}
@@ -389,124 +414,152 @@ const handleEndSession = async () => {
         )}
         <div className="res-action-btns" style={{marginLeft: 'auto'}}>
           <button className="res-btn-cancel" onClick={() => setCart([])}>Clear Tray</button>
-          <button className="res-btn-view" disabled={cart.length === 0} onClick={() => { setIsFinalCheckout(false); setShowBillInfo(true); }}>Place Order</button>
+          <button className="res-btn-view" disabled={cart.length === 0} onClick={() => { setIsFinalCheckout(false); setShowBillInfo(true); }}>Place Order ({cart.length})</button>
         </div>
       </footer>
 
-      {/* SUMMARY BILL MODAL */}
+      {/* CONFIRM ORDER MODAL */}
+ {/* CONFIRM ORDER OR BILL SUMMARY MODAL */}
       {showBillInfo && (
         <div className="res-modal-overlay" style={{ zIndex: 10000 }}>
-          <div className="res-modal-card" style={{ maxWidth: "450px", width: "90%", textAlign: "center" }}>
+          <div className="res-modal-card" style={{ maxWidth: "450px", textAlign: "center" }}>
             <Receipt size={50} color="#ffcc00" style={{ margin: "0 auto 15px" }} />
-            <h2 style={{ color: "#ffcc00" }}>{isFinalCheckout ? "Final Bill Summary" : "Confirm Order"}</h2>
+            <h2 style={{ color: "#ffcc00" }}>{isFinalCheckout ? "Bill Summary" : "Confirm Order"}</h2>
             
-            <div className="bill-scroll" style={{ maxHeight: "250px", overflowY: "auto", margin: "20px 0", borderBottom: "1px solid #444" }}>
-              {(isFinalCheckout ? billItems : cart).map((item, idx) => (
-                  <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "10px 5px", color: "#fff" }}>
-                    <span style={{textAlign: 'left'}}>{item.name || item.item_name} x{item.quantity || 1}</span>
-                    <span>₱{(parseFloat(item.price || item.item_price || 0) * (item.quantity || 1)).toFixed(2)}</span>
+            <div className="bill-scroll" style={{ maxHeight: "200px", overflowY: "auto", margin: "20px 0" }}>
+              {(isFinalCheckout ? billItems : cart).map((item, idx) => {
+                const p = parseFloat(item.price || item.item_price || 0);
+                const q = parseInt(item.quantity || item.qty || 1);
+                return (
+                  <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "10px 5px", color: "#fff", borderBottom: '1px solid #222' }}>
+                    <div style={{textAlign: 'left'}}>
+                      <span style={{fontWeight: 'bold', display: 'block'}}>{item.name || item.item_name}</span>
+                      <small style={{color: '#888'}}>₱{p.toFixed(2)} x {q}</small>
+                    </div>
+                    <span style={{alignSelf: 'center'}}>₱{(p * q).toFixed(2)}</span>
                   </div>
-              ))}
+                );
+              })}
             </div>
 
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "1.4rem", fontWeight: "bold", color: "#fff", marginBottom: "30px" }}>
-              <span>Total Due:</span><span style={{ color: "#ffcc00" }}>₱{calculateTotalDue()}</span>
+            <div style={{ borderTop: "1px solid #333", paddingTop: "10px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", color: "#888", fontSize: "0.9rem" }}>
+                <span>Subtotal:</span>
+                <span>₱{calculateSessionTotal().toFixed(2)}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", color: "#28a745", fontSize: "0.9rem" }}>
+                <span>Paid / Downpayment:</span>
+                <span>- ₱{parseFloat(storage.getItem(TOTAL_PAID_KEY) || 0).toFixed(2)}</span>
+              </div>
             </div>
 
-            {isPaid && isFinalCheckout && <p style={{ color: "#28a745", fontWeight: "bold", marginTop: "-20px", marginBottom: "20px" }}>Payment recorded!</p>}
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "1.6rem", fontWeight: "bold", color: "#fff", marginTop: "10px" }}>
+              <span>Total Due:</span>
+              <span style={{ color: "#ffcc00" }}>₱{calculateTotalDue()}</span>
+            </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "20px" }}>
               {isFinalCheckout ? (
-                <>
-                   <button className="res-modal-btn-primary" 
-                      disabled={isPaid || isPaymentProcessing}
+                /* 1. HEADER VIEW BILL / FINAL CHECKOUT MODE */
+                parseFloat(calculateTotalDue()) > 0 ? (
+                  <>
+                    <button 
+                      className="res-modal-btn-primary" 
                       onClick={async () => {
-                        if (isPaymentProcessing || isPaid) return;
-                        setIsPaymentProcessing(true);
+                        const due = parseFloat(calculateTotalDue());
+                        setIsLoading(true);
                         try {
-                          const fullTotal = calculateSessionTotal();
-                          await axios.post(`${API_BASE}/billing/walkin`, { reservation_id: reservationId, amount: fullTotal, payment_method: "Cash", payment_status: "verified" }, getAuthHeader());
-                          storage.setItem(TOTAL_PAID_KEY, fullTotal.toString());
-                          storage.setItem(PAYMENT_CHOICE_KEY, "verified");
-                          setIsPaid(true);
-                          playCashierAlert();
+                          await axios.post(`${API_BASE}/billing/walkin`, { 
+                              reservation_id: reservationId, 
+                              amount: due, 
+                              payment_method: "Cash", 
+                              payment_status: "verified" 
+                          }, getAuthHeader());
+
+                          const newTotalPaid = parseFloat(storage.getItem(TOTAL_PAID_KEY) || 0) + due;
+                          storage.setItem(TOTAL_PAID_KEY, newTotalPaid.toString());
                           await fetchCurrentBill();
-                        } catch (e) { alert("Payment sync failed."); }
-                        finally { setIsPaymentProcessing(false); }
+                          await playCashierAlert();
+                        } catch (err) {
+                          alert("Payment processing failed.");
+                        } finally {
+                          setIsLoading(false);
+                        }
                       }}
-                      style={{ opacity: (isPaid || isPaymentProcessing) ? 0.5 : 1, background: isPaid ? "#666" : "#ffcc00" }}>
-                      {isPaid ? "PAYMENT VERIFIED" : "PAY NOW"}
-                   </button>
-
-                   <button
-                     className="res-modal-btn-primary"
-                     style={{ background: "#28a745" }}
-                     onClick={() => {
-                       // If user chose PAY LATER earlier, keep isPaid=false.
-                       // Still allow finishing: session will end regardless of payment state.
-                       handleEndSession();
-                     }}
-                   >
-                     FINISH SESSION
-                   </button>
-
-                   <button className="res-btn-cancel" onClick={() => setShowBillInfo(false)}><ArrowLeft size={18} /> Back</button>
-                </>
+                    >
+                      <Banknote size={18} style={{ marginRight: "8px" }} /> PAY NOW (₱{calculateTotalDue()})
+                    </button>
+                    <button className="res-btn-cancel" onClick={() => setShowBillInfo(false)}>Pay Later & Close</button>
+                  </>
+                ) : (
+                  <>
+                    <button 
+                      className="res-modal-btn-primary" 
+                      style={{ background: "#28a745" }} 
+                      onClick={handleEndSession}
+                    >
+                      FINISH SESSION
+                    </button>
+                    <button className="res-btn-cancel" onClick={() => setShowBillInfo(false)}>Close</button>
+                  </>
+                )
               ) : (
+                /* 2. PLACING CURRENT ORDER TRAY MODE */
                 <>
-                  <button className="res-modal-btn-primary" onClick={() => confirmPaymentChoice("Pay Now")}><Banknote size={18} /> PAY NOW</button>
-                  <button className="res-modal-btn-primary" style={{background: "#444"}} onClick={() => confirmPaymentChoice("Pay Later")}><Clock size={18} /> PAY LATER</button>
+                  <button className="res-modal-btn-primary" onClick={() => confirmPaymentChoice("Pay Now")}>PAY NOW (CASHIER)</button>
+                  <button className="res-modal-btn-primary" style={{background: "#444"}} onClick={() => confirmPaymentChoice("Pay Later")}>ORDER NOW, PAY LATER</button>
                   <button className="res-btn-cancel" onClick={() => setShowBillInfo(false)}>CANCEL</button>
                 </>
               )}
-
             </div>
           </div>
         </div>
       )}
-
-      {/* CUSTOMIZE/REFILL MODAL */}
+      {/* DYNAMIC DATABASE CUSTOMIZATION MODAL (Wings & Drinks) */}
       {showFlavorModal && (
         <div className="res-modal-overlay" style={{ zIndex: 9000 }}>
-          <div className="res-modal-card" style={{ maxWidth: "600px" }}>
-            <h2 style={{ color: "#ffcc00", textAlign: "center" }}>{isRefillMode ? "Choose Refill" : "Customize"}</h2>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginTop: '20px' }}>
-              {(selectedItem?.name.toLowerCase().includes("ramen") ? dynamicRamenFlavors : dynamicFlavors).map((f) => (
-                <button key={f} onClick={() => {
-                    if (selectedFlavors.includes(f)) setSelectedFlavors(selectedFlavors.filter(x => x !== f));
-                    else { if (selectedItem.name.toLowerCase().includes("ramen")) setSelectedFlavors([f]); else if (selectedFlavors.length < 4) setSelectedFlavors([...selectedFlavors, f]); }
-                  }}
-                  style={{ padding: "15px 10px", borderRadius: "10px", border: "1px solid #ffcc00", background: selectedFlavors.includes(f) ? "#ffcc00" : "none", color: selectedFlavors.includes(f) ? "#000" : "#fff", fontWeight: "bold" }}>{f}</button>
-              ))}
-            </div>
-            <div style={{ display: "flex", gap: "15px", marginTop: "30px" }}>
-              <button className="res-btn-cancel" style={{ flex: 1 }} onClick={() => {setShowFlavorModal(false); setIsRefillMode(false);}}>Cancel</button>
-              <button className="res-modal-btn-primary" style={{ flex: 2 }} onClick={confirmFlavors}>{isRefillMode ? "SEND REFILL" : "ADD TO TRAY"}</button>
-            </div>
-          </div>
-        </div>
-      )}
+          <div className="res-modal-card flavor-modal-wide">
+            <h2 className="modal-title-yellow">Customize Your Order</h2>
+            <div className="customization-scroll-area">
+              
+              {/* Flavors Section */}
+              <section className="modal-section">
+                <h3 className="section-label">Select Flavors (Multiple)</h3>
+                <div className="flavor-grid">
+                  {(selectedItem?.name.toLowerCase().includes("ramen") ? dynamicRamenFlavors : dynamicFlavors).map(f => (
+                    <button 
+                      key={f} 
+                      onClick={() => setSelectedFlavors(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f])} 
+                      className={`flavor-btn ${selectedFlavors.includes(f) ? "active" : ""}`}
+                    >
+                      {f}
+                    </button>
+                  ))}
+                </div>
+              </section>
 
-      {cooldownMessage && (
-        <div className="res-modal-overlay" style={{ zIndex: 12000 }}>
-          <div className="res-modal-card" style={{ maxWidth: "400px", textAlign: "center", border: '2px solid #ff4444' }}>
-            <AlertCircle size={60} color="#ff4444" style={{ margin: "0 auto 20px" }} />
-            <h2 style={{ color: "#ff4444" }}>Cooldown Active</h2>
-            <p style={{ color: "#fff", fontSize: '1.1rem', margin: '15px 0' }}>{cooldownMessage}</p>
-            <button className="res-modal-btn-primary" style={{ background: '#ff4444' }} onClick={() => {setCooldownMessage(null); setIsRefillMode(false);}}>OK</button>
-          </div>
-        </div>
-      )}
+              {/* Drinks Section */}
+              {!isRefillMode && (
+                <section className="modal-section">
+                  <h3 className="section-label">Select Drink (Choose One)</h3>
+                  <div className="drink-grid">
+                    {dynamicDrinks.map(d => (
+                      <button 
+                        key={d} 
+                        onClick={() => setSelectedDrink(d)} 
+                        className={`flavor-btn ${selectedDrink === d ? "active-drink" : ""}`}
+                      >
+                        {d}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              )}
+            </div>
 
-      {showSessionModal && (
-        <div className="res-modal-overlay" style={{ zIndex: 7000 }}>
-          <div className="res-modal-card" style={{ textAlign: "center", padding: "40px" }}>
-            <UtensilsCrossed size={60} color="#ffcc00" style={{ margin: "0 auto 20px" }} />
-            <h2 style={{ color: "#ffcc00" }}>{isTimerRunning ? "SESSION ACTIVE" : "ORDER SENT"}</h2>
-            <p style={{color: '#fff', marginBottom: '20px'}}>Your items are being prepared in the kitchen.</p>
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              <button className="res-modal-btn-primary" onClick={() => setShowSessionModal(false)}>ORDER MORE ITEMS</button>
-              <button className="res-btn-cancel" onClick={handleHeaderPayClick}>FINISH & CHECKOUT</button>
+            <div className="modal-footer-actions">
+              <button className="res-btn-cancel-ui" onClick={() => { setShowFlavorModal(false); setIsRefillMode(false); }}>Cancel</button>
+              <button className="res-btn-confirm-ui" onClick={confirmFlavors}>Add to Tray</button>
             </div>
           </div>
         </div>
@@ -522,7 +575,27 @@ const handleEndSession = async () => {
       )}
 
       <PortalModal isOpen={showEndModal} onClose={() => setShowEndModal(false)} onConfirm={handleEndSession} />
-      <ReservationOrderModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} item={selectedItem} onAdd={(item) => setCart([...cart, item])} allProducts={menuData} />
+      
+      <ReservationOrderModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        item={selectedItem} 
+        onAdd={(newItem) => {
+          setCart(prevCart => {
+            const existingIdx = prevCart.findIndex(
+              i => i.id === newItem.id && i.customizations === newItem.customizations
+            );
+
+            if (existingIdx > -1) {
+              const updated = [...prevCart];
+              updated[existingIdx].quantity += (newItem.quantity || 1);
+              return updated;
+            }
+            return [...prevCart, { ...newItem, quantity: newItem.quantity || 1 }];
+          });
+        }} 
+        allProducts={menuData} 
+      />
       <style>{` .spinner-loader { animation: spin 1s linear infinite; } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } `}</style>
     </div>
   );

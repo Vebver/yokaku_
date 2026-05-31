@@ -56,6 +56,6 @@ router.post(
   reservationController.createReservation,
 );
 
-router.get("/:id", protect, reservationController.checkReservationId);
+router.get("/:id", reservationController.checkReservationId);
 
 module.exports = router;
