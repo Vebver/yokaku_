@@ -92,24 +92,41 @@ const calculateSessionTotal = () => {
     const combined = [];
     const accountedIds = new Set();
 
-    // Prioritize active items in the cart
+    // Prioritize active items in the cart, casting IDs to string
     cart.forEach(item => {
-      combined.push(item);
-      accountedIds.add(item.id);
+      if (item && item.id) {
+        combined.push(item);
+        accountedIds.add(String(item.id));
+      }
     });
 
     // Add items from the history list only if they aren't already represented in the cart
     history.forEach(item => {
-      const itemId = item.item_id || item.id;
-      if (!accountedIds.has(itemId)) {
-        combined.push(item);
-        accountedIds.add(itemId);
+      if (item) {
+        const itemId = String(item.item_id || item.id);
+        if (itemId && !accountedIds.has(itemId)) {
+          combined.push(item);
+          accountedIds.add(itemId);
+        }
       }
     });
 
     return combined.reduce((sum, item) => {
-      const p = parseFloat(item.price || item.item_price || item.unit_price || 0);
       const q = parseInt(item.quantity || item.qty || 1); 
+
+      let p = parseFloat(item.price);
+      if (isNaN(p)) p = parseFloat(item.unit_price);
+      if (isNaN(p) && item.item_price) p = parseFloat(item.item_price) / q;
+      if (isNaN(p)) p = 0;
+
+      // Force price to 0 if the item is a refill record
+      const isRefill = item.is_refill === 1 || 
+                       item.is_refill === true || 
+                       (item.customizations && item.customizations.toString().includes("[REFILL]"));
+      if (isRefill) {
+        p = 0;
+      }
+
       return sum + (p * q);
     }, 0);
   };
@@ -195,6 +212,7 @@ useEffect(() => {
       };
 
       // Put pre-reserved items directly into the cart tray
+      // Put pre-reserved items directly into the cart tray, marked as placed
       if (resItemsRes && resItemsRes.length > 0) {
         const reservedCartItems = resItemsRes.map(i => ({
           id: i.item_id, 
@@ -203,7 +221,7 @@ useEffect(() => {
           image: getFullImage(i), 
           category: i.category_name || "Regular",
           quantity: parseInt(i.qty || i.quantity || 1),
-          customizations: i.customizations || ""
+          customizations: i.customizations || "",
         }));
         
         setCart(reservedCartItems);
@@ -243,21 +261,28 @@ useEffect(() => {
   fetchData();
 }, [reservationId]);
 
-  const confirmPaymentChoice = async (choice) => {
+const confirmPaymentChoice = async (choice) => {
     setIsLoading(true);
     const isPayNow = choice === "Pay Now";
-    const hasUnlimited = cart.some(i => (i.name || "").toLowerCase().includes("unlimited"));
+    
+    // Only send pending additions to the backend
+    const pendingItems = cart.filter(i => !i.is_placed);
+    const hasUnlimited = pendingItems.some(i => (i.name || "").toLowerCase().includes("unlimited"));
+
+    if (pendingItems.length === 0) {
+      alert("No new items in the tray to place.");
+      setIsLoading(false);
+      return;
+    }
 
     try {
-      // 1. Submit order to backend
       await axios.post(`${API_BASE}/orders/place`, {
         reservation_id: reservationId,
-        items: cart.map(i => ({ item_id: i.id, quantity: i.quantity, customizations: i.customizations }))
+        items: pendingItems.map(i => ({ item_id: i.id, quantity: i.quantity, customizations: i.customizations }))
       }, getAuthHeader());
       
-      // 2. Start the timer only when the order contains an unlimited item and is successfully placed
       if (hasUnlimited && !storage.getItem(TIMER_KEY)) {
-        const endTime = Date.now() + (2 * 60 * 60 * 1000); // 2 Hours
+        const endTime = Date.now() + (2 * 60 * 60 * 1000); 
         storage.setItem(TIMER_KEY, endTime.toString());
         setTimeLeft(7200); 
         setIsTimerRunning(true);
@@ -266,10 +291,10 @@ useEffect(() => {
       const unpaidBalance = parseFloat(calculateTotalDue());
       const newTotalPaidInStorage = calculateSessionTotal();
 
-      if (isPayNow && unpaidBalance > 0) {
+     if (isPayNow && unpaidBalance > 0) {
           await axios.post(`${API_BASE}/billing/walkin`, { 
               reservation_id: reservationId, 
-              amount: unpaidBalance, 
+              amount: newTotalPaidInStorage, // Overwrites database payment record with the full subtotal (e.g., 578.00)
               payment_method: "Cash", 
               payment_status: "verified" 
           }, getAuthHeader());
@@ -280,10 +305,10 @@ useEffect(() => {
           playCashierAlert();
       }
 
-      // 3. Fetch the updated bill list from the server
+      // Refresh database records
       const updatedBill = await fetchCurrentBill();
 
-      // 4. Map the updated database items directly back to the active tray so they don't disappear
+      // Convert updated database items back to cart items marked with is_placed: true so they stay visible
       const getFullImage = (item) => {
         const rawPath = item.local_path || item.image_url;
         if (!rawPath) return "";
@@ -300,7 +325,8 @@ useEffect(() => {
           image: getFullImage(i), 
           category: i.category_name || "Regular",
           quantity: parseInt(i.qty || i.quantity || 1),
-          customizations: i.customizations || ""
+          customizations: i.customizations || "",
+          is_placed: true // Keeps them visible but safely protected
         }));
         setCart(updatedCartItems);
       } else {
@@ -490,7 +516,13 @@ useEffect(() => {
             ))}
           </div>
         </main>
-        <OrderSummary cart={cart} onRemoveItem={(id) => setCart(cart.filter(i => i.id !== id))} />
+     <OrderSummary 
+          cart={cart} // Pass full cart so reserved items stay visible in the tray
+          onRemoveItem={(id) => {
+            // Protect already placed database items from being locally cleared
+            setCart(prev => prev.filter(i => i.id !== id || i.is_placed));
+          }} 
+        />
       </div>
 
       <footer className="res-bottom-bar">
@@ -518,19 +550,30 @@ useEffect(() => {
     const q = parseInt(item.quantity || item.qty || 1);
     
     // 2. Resolve the individual unit price dynamically
-    let p = parseFloat(item.price || item.unit_price || 0);
-    if (!p && item.item_price) {
-      // If the database has only returned the line total, divide by quantity to get the correct unit cost
-      p = parseFloat(item.item_price) / q;
+    let p = parseFloat(item.price);
+    if (isNaN(p)) p = parseFloat(item.unit_price);
+    if (isNaN(p) && item.item_price) p = parseFloat(item.item_price) / q;
+    if (isNaN(p)) p = 0;
+
+    // 3. Force price to 0 if the item is a refill record
+    const isRefill = item.is_refill === 1 || 
+                     item.is_refill === true || 
+                     (item.customizations && item.customizations.toString().includes("[REFILL]"));
+    if (isRefill) {
+      p = 0;
     }
 
     return (
       <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "10px 5px", color: "#fff", borderBottom: '1px solid #222' }}>
         <div style={{textAlign: 'left'}}>
           <span style={{fontWeight: 'bold', display: 'block'}}>{item.name || item.item_name}</span>
-          <small style={{color: '#888'}}>₱{p.toFixed(2)} x {q}</small>
+          <small style={{color: '#888'}}>
+            {isRefill ? "Refill Option" : `₱${p.toFixed(2)} x ${q}`}
+          </small>
         </div>
-        <span style={{alignSelf: 'center'}}>₱{(p * q).toFixed(2)}</span>
+        <span style={{alignSelf: 'center'}}>
+          ₱{(p * q).toFixed(2)}
+        </span>
       </div>
     );
   })}
@@ -560,18 +603,17 @@ useEffect(() => {
                     <button 
                       className="res-modal-btn-primary" 
                       onClick={async () => {
-                        const due = parseFloat(calculateTotalDue());
+                        const totalBill = calculateSessionTotal(); // The full total subtotal (e.g., 578.00)
                         setIsLoading(true);
                         try {
                           await axios.post(`${API_BASE}/billing/walkin`, { 
                               reservation_id: reservationId, 
-                              amount: due, 
+                              amount: totalBill, // Overwrites database payment record with the full subtotal
                               payment_method: "Cash", 
                               payment_status: "verified" 
                           }, getAuthHeader());
 
-                          const newTotalPaid = parseFloat(storage.getItem(TOTAL_PAID_KEY) || 0) + due;
-                          storage.setItem(TOTAL_PAID_KEY, newTotalPaid.toString());
+                          storage.setItem(TOTAL_PAID_KEY, totalBill.toString());
                           await fetchCurrentBill();
                           await playCashierAlert();
                         } catch (err) {
