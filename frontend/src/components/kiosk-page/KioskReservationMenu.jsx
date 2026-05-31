@@ -116,14 +116,23 @@ const KioskReservationMenu = () => {
     try { audioObj.currentTime = 0; await audioObj.play(); } catch (e) { }
   };
 
-  // Initial data fetch and Database-driven Customization mapping
+// Initial data fetch and Database-driven Customization mapping
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [prodRes, resItemsRes] = await Promise.all([
+        const [prodRes, resItemsRes, reservationRes] = await Promise.all([
           fetch(`${API_BASE}/products`, { headers: getFetchHeaders() }).then(r => r.json()),
           axios.get(`${API_BASE}/orders/reservation-items/${reservationId}`, getAuthHeader()).then(r => r.data),
+          // Fetch reservation details
+          axios.get(`${API_BASE}/reservations/${reservationId}`, getAuthHeader()).then(r => r.data).catch(() => null)
         ]);
+
+        // Robustly parse amount even if wrapped inside nested response blocks (e.g. data or reservation)
+        if (reservationRes) {
+          const targetData = reservationRes.data || reservationRes.reservation || reservationRes;
+          const paidAmount = parseFloat(targetData.amount || targetData.downpayment || 0);
+          storage.setItem(TOTAL_PAID_KEY, paidAmount.toString());
+        }
 
         const grouped = {};
         const getFullImage = (item) => {
@@ -134,7 +143,7 @@ const KioskReservationMenu = () => {
           return `${BASE_URL}/${cleanPath}`;
         };
 
-        // Populate pre-reserved items category if exist
+        // Populate pre-reserved items category
         if (resItemsRes.length > 0) {
           grouped["My Reserved Items"] = resItemsRes.map(i => ({
             id: i.item_id, 
@@ -145,14 +154,12 @@ const KioskReservationMenu = () => {
             quantity: parseInt(i.qty || i.quantity || 1)
           }));
 
-          setCart(resItemsRes.map(i => ({
-            id: i.item_id, 
-            name: i.item_name || i.name, 
-            price: i.item_price || i.price,
-            quantity: parseInt(i.qty || i.quantity || 1), 
-            customizations: i.customizations, 
-            isPreReserved: true
-          })));
+          // FIX: Do NOT put these database items into the interactive tray (cart).
+          // They are already recorded on the server, so we initialize the local tray as empty.
+          setCart([]); 
+          
+          // Pre-populate the bill history with these items
+          setBillItems(resItemsRes);
         }
 
         // Group regular products
