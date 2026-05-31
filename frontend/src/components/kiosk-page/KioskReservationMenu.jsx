@@ -33,6 +33,7 @@ const KioskReservationMenu = () => {
   const TIMER_KEY = `kiosk_res_timer_${reservationId}`;
   const PAYMENT_CHOICE_KEY = `kiosk_pay_choice_${reservationId}`;
   const TOTAL_PAID_KEY = `kiosk_total_paid_${reservationId}`;
+  const LAST_REFILL_KEY = `kiosk_last_refill_${reservationId}`;
 
   const [menuData, setMenuData] = useState({});
   const [loading, setLoading] = useState(true);
@@ -86,13 +87,29 @@ const KioskReservationMenu = () => {
       : { "Content-Type": "application/json" };
   };
 
-  const calculateSessionTotal = () => {
+const calculateSessionTotal = () => {
     const history = billItems.length > 0 ? billItems : [];
-    const combined = [...history, ...cart];
+    const combined = [];
+    const accountedIds = new Set();
+
+    // Prioritize active items in the cart
+    cart.forEach(item => {
+      combined.push(item);
+      accountedIds.add(item.id);
+    });
+
+    // Add items from the history list only if they aren't already represented in the cart
+    history.forEach(item => {
+      const itemId = item.item_id || item.id;
+      if (!accountedIds.has(itemId)) {
+        combined.push(item);
+        accountedIds.add(itemId);
+      }
+    });
 
     return combined.reduce((sum, item) => {
       const p = parseFloat(item.price || item.item_price || item.unit_price || 0);
-      const q = parseInt(item.quantity || item.qty || item.quantity || 1); 
+      const q = parseInt(item.quantity || item.qty || 1); 
       return sum + (p * q);
     }, 0);
   };
@@ -116,87 +133,115 @@ const KioskReservationMenu = () => {
     try { audioObj.currentTime = 0; await audioObj.play(); } catch (e) { }
   };
 
-// Initial data fetch and Database-driven Customization mapping
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [prodRes, resItemsRes, reservationRes] = await Promise.all([
-          fetch(`${API_BASE}/products`, { headers: getFetchHeaders() }).then(r => r.json()),
-          axios.get(`${API_BASE}/orders/reservation-items/${reservationId}`, getAuthHeader()).then(r => r.data),
-          // Fetch reservation details
-          axios.get(`${API_BASE}/reservations/${reservationId}`, getAuthHeader()).then(r => r.data).catch(() => null)
-        ]);
+  // Helper to locate active Unlimited product configurations in menuData
+  const findUnlimitedItem = () => {
+    for (const cat of Object.keys(menuData)) {
+      const found = menuData[cat].find(item => (item.name || "").toLowerCase().includes("unlimited"));
+      if (found) return found;
+    }
+    return null;
+  };
 
-        // Robustly parse amount even if wrapped inside nested response blocks (e.g. data or reservation)
-        if (reservationRes) {
-          const targetData = reservationRes.data || reservationRes.reservation || reservationRes;
-          const paidAmount = parseFloat(targetData.amount || targetData.downpayment || 0);
-          storage.setItem(TOTAL_PAID_KEY, paidAmount.toString());
-        }
-
-        const grouped = {};
-        const getFullImage = (item) => {
-          const rawPath = item.local_path || item.image_url;
-          if (!rawPath) return "";
-          if (rawPath.startsWith("http")) return rawPath;
-          const cleanPath = rawPath.startsWith("/") ? rawPath.substring(1) : rawPath;
-          return `${BASE_URL}/${cleanPath}`;
-        };
-
-        // Populate pre-reserved items category
-        if (resItemsRes.length > 0) {
-          grouped["My Reserved Items"] = resItemsRes.map(i => ({
-            id: i.item_id, 
-            name: i.item_name || i.name, 
-            price: i.item_price || i.price,
-            image: getFullImage(i), 
-            category: "My Reserved Items",
-            quantity: parseInt(i.qty || i.quantity || 1)
-          }));
-
-          // FIX: Do NOT put these database items into the interactive tray (cart).
-          // They are already recorded on the server, so we initialize the local tray as empty.
-          setCart([]); 
-          
-          // Pre-populate the bill history with these items
-          setBillItems(resItemsRes);
-        }
-
-        // Group regular products
-        prodRes.forEach((item) => {
-          const cat = item.category_name || "General";
-          if (!grouped[cat]) grouped[cat] = [];
-          grouped[cat].push({ 
-              id: item.item_id, 
-              name: item.name, 
-              image: getFullImage(item), 
-              price: item.price, 
-              category: cat 
-          });
-        });
-
-        setMenuData(grouped);
-
-        // Map customization arrays dynamically from database-driven values
-        setDynamicFlavors((grouped["Chicken"] || grouped["Chicken Wings"] || []).map(i => i.name));
-        setDynamicRamenFlavors((grouped["Ramen"] || []).map(i => i.name));
-        setDynamicDrinks([...(grouped["Beverages"] || []), ...(grouped["Drinks"] || [])].map(i => i.name));
-        
-        const cats = Object.keys(grouped).filter(c => !HIDDEN_CATEGORIES.includes(c));
-        if (cats.includes("My Reserved Items")) {
-            setActiveCategory("My Reserved Items");
-        } else if (cats.length > 0) {
-            setActiveCategory(cats[0]);
-        }
-
-      } catch (e) { 
-          console.error("Data Fetch Error", e); 
-      } finally { 
-          setLoading(false); 
+  // Cooldown validation and initial trigger for Unlimited refills
+  const handleRefillClick = () => {
+    const lastRefill = storage.getItem(LAST_REFILL_KEY);
+    if (lastRefill) {
+      const timeElapsed = Date.now() - parseInt(lastRefill);
+      const tenMinutes = 10 * 60 * 1000;
+      if (timeElapsed < tenMinutes) {
+        const remainingSeconds = Math.ceil((tenMinutes - timeElapsed) / 1000);
+        const m = Math.floor(remainingSeconds / 60);
+        const s = remainingSeconds % 60;
+        setCooldownMessage(`Refill is on cooldown. Please wait ${m}m ${s}s before requesting another.`);
+        return;
       }
-    };
-    fetchData();
-  }, [reservationId]);
+    }
+
+    const unlimitedItem = findUnlimitedItem();
+    if (!unlimitedItem) {
+      alert("No active Unlimited package found in the system registry.");
+      return;
+    }
+
+    setSelectedItem(unlimitedItem);
+    setSelectedFlavors([]);
+    setSelectedDrink("");
+    setIsRefillMode(true);
+    setShowFlavorModal(true);
+  };
+// Initial data fetch and mapping pre-reserved items straight into the tray (cart)
+useEffect(() => {
+  const fetchData = async () => {
+    try {
+      const [prodRes, resItemsRes, reservationRes] = await Promise.all([
+        fetch(`${API_BASE}/products`, { headers: getFetchHeaders() }).then(r => r.json()),
+        axios.get(`${API_BASE}/orders/reservation-items/${reservationId}`, getAuthHeader()).then(r => r.data),
+        axios.get(`${API_BASE}/reservations/${reservationId}`, getAuthHeader()).then(r => r.data).catch(() => null)
+      ]);
+
+      if (reservationRes) {
+        const targetData = reservationRes.data || reservationRes.reservation || reservationRes;
+        const paidAmount = parseFloat(targetData.amount || targetData.downpayment || 0);
+        storage.setItem(TOTAL_PAID_KEY, paidAmount.toString());
+      }
+
+      const grouped = {};
+      const getFullImage = (item) => {
+        const rawPath = item.local_path || item.image_url;
+        if (!rawPath) return "";
+        if (rawPath.startsWith("http")) return rawPath;
+        const cleanPath = rawPath.startsWith("/") ? rawPath.substring(1) : rawPath;
+        return `${BASE_URL}/${cleanPath}`;
+      };
+
+      // Put pre-reserved items directly into the cart tray
+      if (resItemsRes && resItemsRes.length > 0) {
+        const reservedCartItems = resItemsRes.map(i => ({
+          id: i.item_id, 
+          name: i.item_name || i.name, 
+          price: i.item_price || i.price,
+          image: getFullImage(i), 
+          category: i.category_name || "Regular",
+          quantity: parseInt(i.qty || i.quantity || 1),
+          customizations: i.customizations || ""
+        }));
+        
+        setCart(reservedCartItems);
+        setBillItems(resItemsRes);
+      }
+
+      // Group regular products
+      prodRes.forEach((item) => {
+        const cat = item.category_name || "General";
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push({ 
+            id: item.item_id, 
+            name: item.name, 
+            image: getFullImage(item), 
+            price: item.price, 
+            category: cat 
+        });
+      });
+
+      setMenuData(grouped);
+
+      setDynamicFlavors((grouped["Chicken"] || grouped["Chicken Wings"] || []).map(i => i.name));
+      setDynamicRamenFlavors((grouped["Ramen"] || []).map(i => i.name));
+      setDynamicDrinks([...(grouped["Beverages"] || []), ...(grouped["Drinks"] || [])].map(i => i.name));
+      
+      const cats = Object.keys(grouped).filter(c => !HIDDEN_CATEGORIES.includes(c));
+      if (cats.length > 0) {
+          setActiveCategory(cats[0]);
+      }
+
+    } catch (e) { 
+        console.error("Data Fetch Error", e); 
+    } finally { 
+        setLoading(false); 
+    }
+  };
+  fetchData();
+}, [reservationId]);
 
   const confirmPaymentChoice = async (choice) => {
     setIsLoading(true);
@@ -235,10 +280,35 @@ const KioskReservationMenu = () => {
           playCashierAlert();
       }
 
-      setCart([]);
+      // 3. Fetch the updated bill list from the server
+      const updatedBill = await fetchCurrentBill();
+
+      // 4. Map the updated database items directly back to the active tray so they don't disappear
+      const getFullImage = (item) => {
+        const rawPath = item.local_path || item.image_url;
+        if (!rawPath) return "";
+        if (rawPath.startsWith("http")) return rawPath;
+        const cleanPath = rawPath.startsWith("/") ? rawPath.substring(1) : rawPath;
+        return `${BASE_URL}/${cleanPath}`;
+      };
+
+      if (updatedBill && updatedBill.length > 0) {
+        const updatedCartItems = updatedBill.map(i => ({
+          id: i.item_id, 
+          name: i.item_name || i.name, 
+          price: i.item_price || i.price,
+          image: getFullImage(i), 
+          category: i.category_name || "Regular",
+          quantity: parseInt(i.qty || i.quantity || 1),
+          customizations: i.customizations || ""
+        }));
+        setCart(updatedCartItems);
+      } else {
+        setCart([]);
+      }
+
       setShowBillInfo(false);
       setShowSessionModal(true);
-      await fetchCurrentBill();
     } catch (e) { 
         alert("Order submission failed."); 
     } finally { 
@@ -255,7 +325,7 @@ const KioskReservationMenu = () => {
         table_id: currentTableId 
       }, getAuthHeader());
 
-      [ "resId", "tableId", TIMER_KEY, PAYMENT_CHOICE_KEY, TOTAL_PAID_KEY ].forEach(k => localStorage.removeItem(k));
+      [ "resId", "tableId", TIMER_KEY, PAYMENT_CHOICE_KEY, TOTAL_PAID_KEY, LAST_REFILL_KEY ].forEach(k => localStorage.removeItem(k));
       window.location.href = "/kiosk-selection";
     } catch (e) {
       localStorage.removeItem("resId");
@@ -272,7 +342,6 @@ const KioskReservationMenu = () => {
     setShowBillInfo(true);
   };
 
-  // Timer Restore logic
   useEffect(() => {
     const savedEndTime = storage.getItem(TIMER_KEY);
     if (savedEndTime) {
@@ -295,11 +364,17 @@ const KioskReservationMenu = () => {
   }, [isTimerRunning]);
 
   const confirmFlavors = async () => {
-    if (selectedFlavors.length === 0) return alert(`Select at least one flavor`);
+    if (selectedFlavors.length === 0) {
+      alert(`Select at least one flavor`);
+      return;
+    }
+    if (selectedFlavors.length > 4) {
+      alert(`You can select up to 4 flavors`);
+      return;
+    }
     
-    const cust = isRefillMode 
-      ? `[REFILL] Flavors: ${selectedFlavors.join(", ")}` 
-      : `Flavors: ${selectedFlavors.join(", ")}${selectedDrink ? " | Drink: " + selectedDrink : ""}`;
+    const custPrefix = isRefillMode ? "[REFILL] " : "";
+    const cust = `${custPrefix}Flavors: ${selectedFlavors.join(", ")}${selectedDrink ? " | Drink: " + selectedDrink : ""}`;
       
     const newItem = { 
       ...selectedItem, 
@@ -316,6 +391,10 @@ const KioskReservationMenu = () => {
                 reservation_id: reservationId, 
                 items: [{ item_id: newItem.id, quantity: 1, customizations: newItem.customizations, is_refill: true }] 
             }, getAuthHeader());
+            
+            // Set local storage cooldown upon success
+            storage.setItem(LAST_REFILL_KEY, Date.now().toString());
+            
             setShowFlavorModal(false);
             setIsRefillMode(false);
             setShowSessionModal(true);
@@ -324,8 +403,9 @@ const KioskReservationMenu = () => {
                 setCooldownMessage(e.response.data.message);
                 setShowFlavorModal(false);
             } else { alert("Refill failed."); }
+        } finally { 
+            setIsLoading(false); 
         }
-        finally { setIsLoading(false); }
     } else {
         setCart([...cart, newItem]);
         setShowFlavorModal(false);
@@ -365,7 +445,7 @@ const KioskReservationMenu = () => {
                         <span style={{ color: "#ffcc00", fontSize: '10px', fontWeight: '900', display: 'block', textTransform: 'uppercase' }}>Unlimited Time</span>
                         <span style={{ color: "#fff", fontSize: '22px', fontWeight: '800', fontFamily: 'monospace' }}>{formatTime(timeLeft)}</span>
                     </div>
-                    <button onClick={() => { setSelectedItem({id: 162, name: 'Unlimited', price: 0}); setIsRefillMode(true); setShowFlavorModal(true); }} 
+                    <button onClick={handleRefillClick} 
                             className="refill-action-btn" style={{ background: '#ffcc00', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                         <RefreshCw size={18} /> REFILL
                     </button>
@@ -425,29 +505,36 @@ const KioskReservationMenu = () => {
         </div>
       </footer>
 
-      {/* CONFIRM ORDER MODAL */}
- {/* CONFIRM ORDER OR BILL SUMMARY MODAL */}
+      {/* CONFIRM ORDER OR BILL SUMMARY MODAL */}
       {showBillInfo && (
         <div className="res-modal-overlay" style={{ zIndex: 10000 }}>
           <div className="res-modal-card" style={{ maxWidth: "450px", textAlign: "center" }}>
             <Receipt size={50} color="#ffcc00" style={{ margin: "0 auto 15px" }} />
             <h2 style={{ color: "#ffcc00" }}>{isFinalCheckout ? "Bill Summary" : "Confirm Order"}</h2>
             
-            <div className="bill-scroll" style={{ maxHeight: "200px", overflowY: "auto", margin: "20px 0" }}>
-              {(isFinalCheckout ? billItems : cart).map((item, idx) => {
-                const p = parseFloat(item.price || item.item_price || 0);
-                const q = parseInt(item.quantity || item.qty || 1);
-                return (
-                  <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "10px 5px", color: "#fff", borderBottom: '1px solid #222' }}>
-                    <div style={{textAlign: 'left'}}>
-                      <span style={{fontWeight: 'bold', display: 'block'}}>{item.name || item.item_name}</span>
-                      <small style={{color: '#888'}}>₱{p.toFixed(2)} x {q}</small>
-                    </div>
-                    <span style={{alignSelf: 'center'}}>₱{(p * q).toFixed(2)}</span>
-                  </div>
-                );
-              })}
-            </div>
+<div className="bill-scroll" style={{ maxHeight: "200px", overflowY: "auto", margin: "20px 0" }}>
+  {(isFinalCheckout ? billItems : cart).map((item, idx) => {
+    // 1. Get the correct quantity
+    const q = parseInt(item.quantity || item.qty || 1);
+    
+    // 2. Resolve the individual unit price dynamically
+    let p = parseFloat(item.price || item.unit_price || 0);
+    if (!p && item.item_price) {
+      // If the database has only returned the line total, divide by quantity to get the correct unit cost
+      p = parseFloat(item.item_price) / q;
+    }
+
+    return (
+      <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "10px 5px", color: "#fff", borderBottom: '1px solid #222' }}>
+        <div style={{textAlign: 'left'}}>
+          <span style={{fontWeight: 'bold', display: 'block'}}>{item.name || item.item_name}</span>
+          <small style={{color: '#888'}}>₱{p.toFixed(2)} x {q}</small>
+        </div>
+        <span style={{alignSelf: 'center'}}>₱{(p * q).toFixed(2)}</span>
+      </div>
+    );
+  })}
+</div>
 
             <div style={{ borderTop: "1px solid #333", paddingTop: "10px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", color: "#888", fontSize: "0.9rem" }}>
@@ -522,7 +609,8 @@ const KioskReservationMenu = () => {
           </div>
         </div>
       )}
-      {/* DYNAMIC DATABASE CUSTOMIZATION MODAL (Wings & Drinks) */}
+
+      {/* DYNAMIC DATABASE CUSTOMIZATION MODAL (Wings, Ramen & Drinks) */}
       {showFlavorModal && (
         <div className="res-modal-overlay" style={{ zIndex: 9000 }}>
           <div className="res-modal-card flavor-modal-wide">
@@ -531,9 +619,9 @@ const KioskReservationMenu = () => {
               
               {/* Flavors Section */}
               <section className="modal-section">
-                <h3 className="section-label">Select Flavors (Multiple)</h3>
+                <h3 className="section-label">Select Flavors (Up to 4)</h3>
                 <div className="flavor-grid">
-                  {(selectedItem?.name.toLowerCase().includes("ramen") ? dynamicRamenFlavors : dynamicFlavors).map(f => (
+                  {(selectedItem?.name?.toLowerCase().includes("ramen") ? dynamicRamenFlavors : dynamicFlavors).map(f => (
                     <button 
                       key={f} 
                       onClick={() => setSelectedFlavors(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f])} 
@@ -546,28 +634,38 @@ const KioskReservationMenu = () => {
               </section>
 
               {/* Drinks Section */}
-              {!isRefillMode && (
-                <section className="modal-section">
-                  <h3 className="section-label">Select Drink (Choose One)</h3>
-                  <div className="drink-grid">
-                    {dynamicDrinks.map(d => (
-                      <button 
-                        key={d} 
-                        onClick={() => setSelectedDrink(d)} 
-                        className={`flavor-btn ${selectedDrink === d ? "active-drink" : ""}`}
-                      >
-                        {d}
-                      </button>
-                    ))}
-                  </div>
-                </section>
-              )}
+              <section className="modal-section">
+                <h3 className="section-label">Select Drink (Choose One)</h3>
+                <div className="drink-grid">
+                  {dynamicDrinks.map(d => (
+                    <button 
+                      key={d} 
+                      onClick={() => setSelectedDrink(d)} 
+                      className={`flavor-btn ${selectedDrink === d ? "active-drink" : ""}`}
+                    >
+                      {d}
+                    </button>
+                  ))}
+                </div>
+              </section>
             </div>
 
             <div className="modal-footer-actions">
               <button className="res-btn-cancel-ui" onClick={() => { setShowFlavorModal(false); setIsRefillMode(false); }}>Cancel</button>
-              <button className="res-btn-confirm-ui" onClick={confirmFlavors}>Add to Tray</button>
+              <button className="res-btn-confirm-ui" onClick={confirmFlavors}>{isRefillMode ? "Order Refill" : "Add to Tray"}</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* COOLDOWN FEEDBACK MODAL */}
+      {cooldownMessage && (
+        <div className="res-modal-overlay" style={{ zIndex: 12000 }}>
+          <div className="res-modal-card" style={{ maxWidth: "400px", textAlign: "center" }}>
+            <AlertCircle size={50} color="#ffcc00" style={{ margin: "0 auto 15px" }} />
+            <h3 style={{ color: "#ffcc00" }}>Refill Cooldown</h3>
+            <p style={{ color: "#fff", margin: "15px 0" }}>{cooldownMessage}</p>
+            <button className="res-modal-btn-primary" onClick={() => setCooldownMessage(null)}>OK</button>
           </div>
         </div>
       )}
@@ -588,19 +686,19 @@ const KioskReservationMenu = () => {
         onClose={() => setIsModalOpen(false)} 
         item={selectedItem} 
         onAdd={(newItem) => {
-          setCart(prevCart => {
-            const existingIdx = prevCart.findIndex(
-              i => i.id === newItem.id && i.customizations === newItem.customizations
-            );
+    setCart(prevCart => {
+      const existingIdx = prevCart.findIndex(
+        i => i.id === newItem.id && i.customizations === newItem.customizations && !i.is_placed
+      );
 
-            if (existingIdx > -1) {
-              const updated = [...prevCart];
-              updated[existingIdx].quantity += (newItem.quantity || 1);
-              return updated;
-            }
-            return [...prevCart, { ...newItem, quantity: newItem.quantity || 1 }];
-          });
-        }} 
+      if (existingIdx > -1) {
+        const updated = [...prevCart];
+        updated[existingIdx].quantity += (newItem.quantity || 1);
+        return updated;
+      }
+      return [...prevCart, { ...newItem, quantity: newItem.quantity || 1, is_placed: false }];
+    });
+  }}
         allProducts={menuData} 
       />
       <style>{` .spinner-loader { animation: spin 1s linear infinite; } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } `}</style>
