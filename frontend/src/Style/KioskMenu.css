@@ -32,6 +32,12 @@
   flex-shrink: 0;
 }
 
+.allergy-input-group textarea:focus {
+  outline: none;
+  border-color: #ffcc00;
+  box-shadow: 0 0 5px rgba(255, 204, 0, 0.3);
+}
+
 .step-item {
   display: flex;
   align-items: center;
@@ -94,24 +100,40 @@
   overflow: hidden; /* Keeps everything inside the rounded corners */
 }
 
-.brand { text-align: center; margin-bottom: 1.5rem; }
-.logo-main { color: var(--accent); font-weight: 900; font-size: 1.5rem; margin: 0; }
-.logo-sub { margin: 0; font-size: 0.9rem; font-family: serif; font-style: italic; opacity: 0.8; color: white; text-align: center;}
+.brand {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+.logo-main {
+  color: var(--accent);
+  font-weight: 900;
+  font-size: 1.5rem;
+  margin: 0;
+}
+.logo-sub {
+  margin: 0;
+  font-size: 0.9rem;
+  font-family: serif;
+  font-style: italic;
+  opacity: 0.8;
+  color: white;
+  text-align: center;
+}
 
 /* 3. THE ACTUAL SCROLLABLE PART */
 .cat-scroll-wrapper {
-  flex: 1; 
+  flex: 1;
   overflow-y: auto !important; /* Forces vertical scrolling */
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  
+
   /* Hides the ugly default scrollbar */
-  scrollbar-width: none; 
+  scrollbar-width: none;
   -ms-overflow-style: none;
-  
+
   /* THE FIX: Space at the bottom so "Extra" isn't cut off */
-  padding-bottom: 40px; 
+  padding-bottom: 40px;
 }
 
 .category-list {
@@ -122,10 +144,12 @@
   min-height: 0; /* Important: Allow flex items to shrink below content size */
 }
 
-.cat-scroll-wrapper::-webkit-scrollbar { display: none; }
+.cat-scroll-wrapper::-webkit-scrollbar {
+  display: none;
+}
 
 .cat-btn {
-  background: rgba(255,255,255,0.03);
+  background: rgba(255, 255, 255, 0.03);
   border: 1px solid transparent;
   color: var(--text-main);
   padding: 1rem;
@@ -177,7 +201,13 @@
   transform: scale(1.1);
 }
 
-.scroll-arrow { display: flex; justify-content: center; padding: 0.5rem; opacity: 0.5; color: white;}
+.scroll-arrow {
+  display: flex;
+  justify-content: center;
+  padding: 0.5rem;
+  opacity: 0.5;
+  color: white;
+}
 
 .assist-btn {
   margin-top: 10px;
@@ -206,7 +236,9 @@
   overflow-y: auto;
 }
 
-.content-area::-webkit-scrollbar { display: none; }
+.content-area::-webkit-scrollbar {
+  display: none;
+}
 
 .grid-container {
   display: grid;
@@ -245,7 +277,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
   z-index: 2;
 }
 
@@ -303,9 +335,15 @@
   align-items: center;
 }
 
-.action-btns { display: flex; gap: 1rem; flex: 1; justify-content: flex-end;}
+.action-btns {
+  display: flex;
+  gap: 1rem;
+  flex: 1;
+  justify-content: flex-end;
+}
 
-.btn-cancel, .btn-view {
+.btn-cancel,
+.btn-view {
   padding: 0.8rem 1.5rem;
   border-radius: 1rem;
   font-weight: 700;
@@ -315,8 +353,18 @@
   transition: all 0.2s;
 }
 
-.btn-cancel { background: white; border: 2px solid #aaa; color: #444; flex-grow: 0.2;}
-.btn-view { background: var(--accent); border: none; color: #000; flex-grow: 0.2; }
+.btn-cancel {
+  background: white;
+  border: 2px solid #aaa;
+  color: #444;
+  flex-grow: 0.2;
+}
+.btn-view {
+  background: var(--accent);
+  border: none;
+  color: #000;
+  flex-grow: 0.2;
+}
 
 .btn-view:disabled {
   background-color: #555;
@@ -421,7 +469,7 @@
 }
 
 .view-details-link::after {
-  content: '';
+  content: "";
   position: absolute;
   width: 0;
   height: 2px;
@@ -441,13 +489,21 @@
 }
 
 @keyframes modalPop {
-  from { opacity: 0; transform: scale(0.9); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 /* --- RESPONSIVE FIXES --- */
 @media (max-width: 1024px) {
-  .main-layout { flex-direction: column; }
+  .main-layout {
+    flex-direction: column;
+  }
   .sidebar {
     width: 100%;
     height: auto;
@@ -459,8 +515,14 @@
     padding-bottom: 0.5rem;
     height: 80px;
   }
-  .cat-btn { white-space: nowrap; }
-  .brand, .scroll-arrow, .assist-btn { display: none; }
+  .cat-btn {
+    white-space: nowrap;
+  }
+  .brand,
+  .scroll-arrow,
+  .assist-btn {
+    display: none;
+  }
 }
 
 @media (max-width: 600px) {
@@ -473,6 +535,14 @@
   .view-details-link {
     font-size: 0.7rem;
   }
-  .bottom-bar { height: auto; padding: 1rem; flex-direction: column; gap: 1rem; }
-  .action-btns { width: 100%; justify-content: center; }
+  .bottom-bar {
+    height: auto;
+    padding: 1rem;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .action-btns {
+    width: 100%;
+    justify-content: center;
+  }
 }

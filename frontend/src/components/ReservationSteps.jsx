@@ -1,5 +1,5 @@
 // ReservationSteps.jsx (Updated with Time Selection moved to Step 3)
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import axios from "axios";
 import {
   ArrowLeft,
@@ -537,9 +537,12 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   }, []);
 
   // ============ FETCH ADDRESS DATA ============
+  // FIXED: Removed fetchBarangays from dependencies to prevent infinite loop
   useEffect(() => {
-    if (form.muni) fetchBarangays(form.muni);
-  }, [form.muni, fetchBarangays]);
+    if (form.muni) {
+      fetchBarangays(form.muni);
+    }
+  }, [form.muni]);
 
   // ============ FETCH TABLE SCHEDULES ============
   useEffect(() => {
