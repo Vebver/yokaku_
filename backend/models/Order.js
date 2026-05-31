@@ -53,8 +53,8 @@ const Order = {
   ) => {
     const query = `
       INSERT INTO kiosk_orders 
-      (reservation_id, item_id, quantity, kitchen_status, customizations, is_refill) 
-      VALUES (?, ?, ?, ?, ?, ?)`;
+      (reservation_id, item_id, quantity, kitchen_status, customizations, is_refill, allergy_note) 
+      VALUES (?, ?, ?, ?, ?, ?, ?)`;
     const customData = customizations ? JSON.stringify(customizations) : null;
     return await conn.execute(query, [
       reservationId,
