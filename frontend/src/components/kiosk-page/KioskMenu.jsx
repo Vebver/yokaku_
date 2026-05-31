@@ -107,6 +107,23 @@ const KioskMenu = () => {
   const [dynamicFlavors, setDynamicFlavors] = useState([]);
   const [dynamicRamenFlavors, setDynamicRamenFlavors] = useState([]);
   const [dynamicDrinks, setDynamicDrinks] = useState([]);
+  const currentTableId = localStorage.getItem("tableId") || "takeout";
+  // RESTORED: Authentication Token Configurations
+  const getAuthHeader = () => {
+    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+    if (!token || token === "null" || token === "undefined") {
+      console.warn("Authorization token is missing from browser storage.");
+      return { headers: {} }; 
+    }
+    return { headers: { Authorization: `Bearer ${token}` } };
+  };
+
+  const getFetchHeaders = () => {
+    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+    return token && token !== "null" && token !== "undefined"
+      ? { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" }
+      : { "Content-Type": "application/json" };
+  };
 
   // ADDED: Helper to format time (00:00:00)
   const formatTime = (seconds) => {
@@ -128,14 +145,10 @@ const KioskMenu = () => {
   };
 
   const calculateSessionTotal = () => {
-    // Use billItems (from server) if available, otherwise use local history
     const history = billItems.length > 0 ? billItems : localBillHistory;
-
-    // Combine History + Current Cart
     const combined = [...history, ...cart];
 
     return combined.reduce((sum, item) => {
-      // Check all possible price/qty keys (standardizing the data)
       const p = parseFloat(
         item.price || item.item_price || item.unit_price || 0,
       );
@@ -143,12 +156,11 @@ const KioskMenu = () => {
       return sum + p * q;
     }, 0);
   };
+
   const calculateTotalDue = () => {
-    const totalSession = calculateSessionTotal(); // Everything in history + current tray
+    const totalSession = calculateSessionTotal(); 
     const alreadyPaid = parseFloat(storage.getItem(TOTAL_PAID_KEY) || 0);
     const due = totalSession - alreadyPaid;
-    // If the math is 0 or less, they owe nothing.
-    // If they added new items, "due" will correctly show the price of those new items.
     return due > 0 ? due.toFixed(2) : "0.00";
   };
 
@@ -159,7 +171,6 @@ const KioskMenu = () => {
     status = "pending",
   ) => {
     try {
-      const token = localStorage.getItem("token") || "";
       await axios.post(
         `${API_BASE}/billing/walkin`,
         {
@@ -168,7 +179,7 @@ const KioskMenu = () => {
           payment_method: method,
           payment_status: status,
         },
-        { headers: { Authorization: `Bearer ${token}` } },
+        getAuthHeader(), // Restored Token Header
       );
       return true;
     } catch (err) {
@@ -176,6 +187,16 @@ const KioskMenu = () => {
       throw err;
     }
   };
+  useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  const setupTable = params.get("setupTable");
+  
+  if (setupTable) {
+    // Saves the table ID (e.g., 2) to session storage so it bypasses the picker
+    storage.setItem(FIXED_KIOSK_KEY, setupTable);
+    console.log(`Kiosk locked to Table ID: ${setupTable}`);
+  }
+}, []);
 
   const handleEndSession = async () => {
     const activeTable = storage.getItem(SAVED_TABLE_ID);
@@ -185,7 +206,7 @@ const KioskMenu = () => {
         await axios.post(`${API_BASE}/orders/finish`, {
           table_id: activeTable,
           reservation_id: activeResId,
-        });
+        }, getAuthHeader()); // Restored Token Header
       } catch (err) {
         console.error(err);
       }
@@ -201,17 +222,15 @@ const KioskMenu = () => {
   };
 
   const handleRefillClick = () => {
-    // Find the base unlimited item or a specific refill item from your menuData
-    // Assuming 'Chicken' category contains the items for refill
     const refillItem = menuData["Chicken"]?.[0] || {
       name: "Chicken Wings",
       price: 0,
     };
 
-    setSelectedItem({ ...refillItem, price: 0 }); // Force price to 0 for refills
+    setSelectedItem({ ...refillItem, price: 0 }); 
     setSelectedFlavors([]);
     setSelectedDrink("");
-    setShowFlavorModal(true); // Open the same modal you showed in the screenshot
+    setShowFlavorModal(true); 
   };
 
   // Timer Logic
@@ -248,6 +267,7 @@ const KioskMenu = () => {
     try {
       const res = await axios.get(
         `${API_BASE}/orders/reservation-items/${resId}`,
+        getAuthHeader() // Restored Token Header
       );
       setBillItems(res.data || []);
       return res.data;
@@ -256,7 +276,7 @@ const KioskMenu = () => {
     }
   };
 
-  const confirmPaymentChoice = async (choice) => {
+ const confirmPaymentChoice = async (choice) => {
     if (isLoading) return;
     const itemsToSubmit = [...cart];
     if (itemsToSubmit.length === 0) return;
@@ -271,11 +291,16 @@ const KioskMenu = () => {
       i.name.toLowerCase().includes("unlimited"),
     );
 
+    // FIX: Parse the table ID into an integer. Send null for "takeout" strings.
+    const rawTableId = tableId || currentTableId;
+    const parsedTableId = parseInt(rawTableId, 10);
+    const finalTableId = isNaN(parsedTableId) ? null : parsedTableId;
+
     try {
       // 1. Place the order in the database with allergy note
       await axios.post(`${API_BASE}/orders/place`, {
         reservation_id: dynamicResId,
-        table_id: tableId,
+        table_id: finalTableId, // Pass safe integer or null
         items: itemsToSubmit.map((i) => ({
           item_id: i.id,
           quantity: i.quantity,
@@ -286,7 +311,7 @@ const KioskMenu = () => {
           is_refill: i.price === 0,
         })),
         allergy_note: allergyNote !== "None" ? allergyNote : null,
-      });
+      }, getAuthHeader()); // Restored Token Header
 
       // Update local history and clear the current tray
       setLocalBillHistory((prev) => [...prev, ...itemsToSubmit]);
@@ -303,15 +328,9 @@ const KioskMenu = () => {
       setCart([]);
 
       if (isPayNow) {
-        // 1. How much is the user actually handing to the cashier right now?
-        // (Total items - what they already paid previously)
         const amountToPayRightNow = parseFloat(calculateTotalDue());
-
-        // 2. What will the NEW "already paid" total be?
         const newTotalPaidInStorage = calculateSessionTotal();
 
-        // 3. Sync ONLY the NEW money to the dashboard
-        // If they paid 100 earlier and are paying 50 now, we ONLY send 50.
         await syncWithDashboard(
           dynamicResId,
           amountToPayRightNow,
@@ -319,19 +338,15 @@ const KioskMenu = () => {
           "verified",
         );
 
-        // 4. Update the storage to the full session total
         storage.setItem(TOTAL_PAID_KEY, newTotalPaidInStorage.toString());
         storage.setItem(PAYMENT_CHOICE_KEY, "verified");
 
-        // 5. Cleanup
-        setCart([]); // Clear cart immediately
+        setCart([]); 
         setIsPaid(true);
         await playCashierAlert();
         setShowPaymentModal(false);
         setShowBillInfo(true);
 
-        // 6. Final Sync: Fetch fresh data from the server
-        // This clears 'localBillHistory' and replaces it with 'billItems'
         await fetchCurrentBill();
         setLocalBillHistory([]);
       } else {
@@ -359,7 +374,9 @@ const KioskMenu = () => {
   useEffect(() => {
     const fetchMenu = async () => {
       try {
-        const response = await fetch(`${API_BASE}/products`);
+        const response = await fetch(`${API_BASE}/products`, {
+          headers: getFetchHeaders() // Restored Token Header
+        });
         const data = await response.json();
         const grouped = data.reduce((acc, item) => {
           const cat = item.category_name || "General";
@@ -404,14 +421,12 @@ const KioskMenu = () => {
   }, []);
 
   const handleItemClick = (item) => {
-    // If the user clicks an item while in the Chicken (Refills) category
     if (activeCategory === "Chicken") {
-      setSelectedItem({ ...item, price: 0 }); // FORCE price to 0
+      setSelectedItem({ ...item, price: 0 }); 
       setSelectedFlavors([]);
       setSelectedDrink("");
       setShowFlavorModal(true);
     }
-    // Standard logic for Ramen/Unlimited
     else if (
       item.name.toLowerCase().includes("unlimited") ||
       item.name.toLowerCase().includes("ramen")
@@ -421,7 +436,6 @@ const KioskMenu = () => {
       setSelectedDrink("");
       setShowFlavorModal(true);
     }
-    // Standard items
     else {
       setSelectedItem({ ...item, category: "Regular" });
       setIsModalOpen(true);
@@ -434,9 +448,7 @@ const KioskMenu = () => {
       return;
     }
 
-    // Check if price is 0 to mark as refill
     const isRefill = parseFloat(selectedItem.price) === 0;
-
     const customization = `${isRefill ? "[REFILL] " : ""}Flavors: ${selectedFlavors.join(", ")}${selectedDrink ? " | Drink: " + selectedDrink : ""}`;
 
     const newItem = {
@@ -449,13 +461,11 @@ const KioskMenu = () => {
 
     setCart([...cart, newItem]);
     setShowFlavorModal(false);
-    // Reset
     setSelectedFlavors([]);
     setSelectedDrink("");
     setSelectedItem(null);
   };
 
-  // Add this effect to automatically update the 'isPaid' state based on the balance
   useEffect(() => {
     const due = parseFloat(calculateTotalDue());
     if (due > 0) {
@@ -536,7 +546,7 @@ const KioskMenu = () => {
           <div className="res-category-list">
             <div className="res-cat-scroll-wrapper">
               {Object.keys(menuData)
-                .filter((cat) => !HIDDEN_CATEGORIES.includes(cat)) // ONLY show non-hidden categories
+                .filter((cat) => !HIDDEN_CATEGORIES.includes(cat)) 
                 .map((cat) => (
                   <button
                     key={cat}
@@ -572,7 +582,6 @@ const KioskMenu = () => {
                 <div className="res-card-info">
                   <h4 className="res-food-label">{item.name}</h4>
                   <p style={{ color: "#ffcc00", fontWeight: "bold" }}>
-                    {/* If the active category is Chicken (Refills), show ₱0.00 */}
                     {activeCategory === "Chicken"
                       ? "₱0.00 (REFILL)"
                       : `₱${parseFloat(item.price).toFixed(2)}`}
@@ -613,7 +622,6 @@ const KioskMenu = () => {
             className="res-btn-view"
             disabled={cart.length === 0}
             onClick={() => {
-              // Show Allergy Modal first before placing order
               setShowAllergyModal(true);
             }}
           >
@@ -765,7 +773,7 @@ const KioskMenu = () => {
                     setShowPaymentModal(true);
                   } else {
                     axios
-                      .get(`${API_BASE}/admin/public/getTable`)
+                      .get(`${API_BASE}/admin/public/getTable`, getAuthHeader()) // Restored Token Header
                       .then((r) => setAvailableTables(r.data));
                     setShowTypeModal(false);
                     setShowTablePicker(true);
@@ -860,7 +868,6 @@ const KioskMenu = () => {
             />
             <h2 style={{ color: "#ffcc00" }}>Payment Choice</h2>
 
-            {/* FIX: Use calculateTotalDue() so it subtracts previous payments */}
             <p
               style={{ color: "#fff", fontSize: "1.4rem", fontWeight: "bold" }}
             >
@@ -941,9 +948,7 @@ const KioskMenu = () => {
                 marginTop: "20px",
               }}
             >
-              {/* NEW LOGIC: Check balance to decide which button to show */}
               {parseFloat(calculateTotalDue()) > 0 ? (
-                /* SHOW PAY NOW IF MONEY IS OWED */
                 <button
                   className="res-modal-btn-primary"
                   onClick={async () => {
@@ -965,7 +970,6 @@ const KioskMenu = () => {
                   {calculateTotalDue()})
                 </button>
               ) : (
-                /* SHOW FINISH SESSION ONLY IF BALANCE IS 0 */
                 <button
                   className="res-modal-btn-primary"
                   style={{ background: "#28a745" }}
