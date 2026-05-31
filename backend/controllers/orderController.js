@@ -84,7 +84,8 @@ const orderController = {
           item.item_id || item.id,
           item.quantity,
           item.customizations,
-          item.is_refill ? 1 : 0, // Make sure your model handles this extra field!
+          item.is_refill ? 1 : 0,
+          req.body.allergy_note, // ← ADD THIS LINE - passes allergy_note from request
         );
 
         enrichedItems.push({
@@ -126,35 +127,35 @@ const orderController = {
     try {
       await conn.beginTransaction();
 
-      console.log(`🏁 Finishing session: Res ${reservation_id}, Table ${table_id}`);
+      console.log(
+        `🏁 Finishing session: Res ${reservation_id}, Table ${table_id}`,
+      );
 
       // 1. Update main reservation status (match existing casing used by kiosk verification)
       await conn.execute(
         "UPDATE reservations SET status = 'Completed' WHERE reservation_id = ?",
-        [reservation_id]
+        [reservation_id],
       );
 
       // 2. Update bridge table status
       await conn.execute(
         "UPDATE reservation_tables SET status = 'completed' WHERE reservation_id = ?",
-        [reservation_id]
+        [reservation_id],
       );
-
 
       // 3. Mark kiosk orders as completed (fix UI showing 'confirmed' after finish)
       await conn.execute(
         "UPDATE kiosk_orders SET kitchen_status = 'completed' WHERE reservation_id = ?",
-        [reservation_id]
+        [reservation_id],
       );
 
       // 4. Release table if it's a real table
       if (table_id && table_id !== "takeout" && table_id !== "null") {
         await conn.execute(
           "UPDATE tables SET status = 'available' WHERE table_id = ?",
-          [table_id]
+          [table_id],
         );
       }
-
 
       await conn.commit();
       res.status(200).json({ success: true });

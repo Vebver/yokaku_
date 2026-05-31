@@ -49,6 +49,7 @@ const Order = {
     quantity,
     customizations,
     isRefill = 0,
+    allergyNote = null,
   ) => {
     const query = `
       INSERT INTO kiosk_orders 
@@ -62,6 +63,7 @@ const Order = {
       "pending",
       customData,
       isRefill,
+      allergyNote,
     ]);
   },
 
@@ -112,24 +114,24 @@ const Order = {
     );
   },
 
- // 8. Update Kitchen Status, Reservation Status, and Notify
+  // 8. Update Kitchen Status, Reservation Status, and Notify
   updateStatus: async (reservationId, status) => {
     const cleanStatus = status.toLowerCase(); // pending, preparing, ready, served
 
     // --- A. Map Kitchen Status to Reservation Status ---
     // Use statuses your database actually supports (usually 'seated' or 'completed')
-    let reservationStatus = 'seated'; 
-    if (cleanStatus === 'served' || cleanStatus === 'completed') {
-      reservationStatus = 'completed';
+    let reservationStatus = "seated";
+    if (cleanStatus === "served" || cleanStatus === "completed") {
+      reservationStatus = "completed";
     }
 
     // --- B. Map Kitchen Status to Notification ENUM ---
     // Your DB allowed: 'success', 'promo', 'info', 'alert'
-    let notifType = 'info'; 
-    if (cleanStatus === 'ready') {
-      notifType = 'success'; // Green alert for "Ready"
-    } else if (cleanStatus === 'alert') {
-      notifType = 'alert';
+    let notifType = "info";
+    if (cleanStatus === "ready") {
+      notifType = "success"; // Green alert for "Ready"
+    } else if (cleanStatus === "alert") {
+      notifType = "alert";
     }
 
     const conn = await db.getConnection();
@@ -139,23 +141,27 @@ const Order = {
       // 1. Update kitchen status for all items in that reservation
       await conn.execute(
         `UPDATE kiosk_orders SET kitchen_status = ? WHERE reservation_id = ?`,
-        [cleanStatus, reservationId]
+        [cleanStatus, reservationId],
       );
 
       // 2. Update the main reservation status
       await conn.execute(
         `UPDATE reservations SET status = ? WHERE reservation_id = ?`,
-        [reservationStatus, reservationId]
+        [reservationStatus, reservationId],
       );
 
       // 3. Get user_id from reservation before creating notification
       const [resData] = await conn.execute(
         `SELECT user_id FROM reservations WHERE reservation_id = ?`,
-        [reservationId]
+        [reservationId],
       );
 
       // 4. Only create notification if user_id exists (not a walk-in order without user)
-      if (resData.length > 0 && resData[0].user_id && resData[0].user_id !== "null") {
+      if (
+        resData.length > 0 &&
+        resData[0].user_id &&
+        resData[0].user_id !== "null"
+      ) {
         await conn.execute(
           `INSERT INTO notifications (user_id, reservation_id, title, message, type, is_read, created_at) 
            VALUES (?, ?, ?, ?, ?, 0, NOW())`,
@@ -164,8 +170,8 @@ const Order = {
             reservationId,
             `Order Status: ${cleanStatus}`,
             `Your order status has been updated to ${cleanStatus}`,
-            notifType
-          ]
+            notifType,
+          ],
         );
       }
 
@@ -199,6 +205,7 @@ const Order = {
       ko.quantity,
       ko.kitchen_status as status,
       ko.customizations,
+      ko.allergy_note,
       ko.created_at as timestamp,
       mi.name as item_name,
       mi.price,
@@ -214,7 +221,7 @@ const Order = {
     ORDER BY ko.created_at DESC
   `);
 
-    // Group items by reservation_id to match KitchenPage expected format
+    // Group items by reservation_id
     const groupedOrders = {};
     rows.forEach((row) => {
       if (!groupedOrders[row.reservation_id]) {
@@ -223,6 +230,7 @@ const Order = {
           table: row.table,
           status: row.status,
           timestamp: row.timestamp,
+          allergy_note: row.allergy_note, // ← ADD THIS LINE
           items: [],
         };
       }
