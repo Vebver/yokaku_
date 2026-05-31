@@ -186,16 +186,19 @@ const Order = {
     }
   },
 
-  // 9. Get pre-reserved items (for initial kiosk load)
- // 9. Get pre-reserved items (for initial kiosk load)
-  getPreReservedItems: async (reservationId) => {
-    const [rows] = await db.execute(
-      `SELECT m.*, ri.quantity, ri.customizations 
-       FROM menu_items m 
-       JOIN reservation_items ri ON m.item_id = ri.product_id 
-       WHERE ri.reservation_id = ?`,
-      [reservationId],
-    );
+ getPreReservedItems: async (reservationId) => {
+    const query = `
+      SELECT m.*, ri.quantity, ri.customizations 
+      FROM menu_items m 
+      JOIN reservation_items ri ON m.item_id = ri.product_id 
+      WHERE ri.reservation_id = ?
+      UNION ALL
+      SELECT m.*, ko.quantity, ko.customizations 
+      FROM menu_items m 
+      JOIN kiosk_orders ko ON m.item_id = ko.item_id 
+      WHERE ko.reservation_id = ?
+    `;
+    const [rows] = await db.execute(query, [reservationId, reservationId]);
     return rows;
   },
 
