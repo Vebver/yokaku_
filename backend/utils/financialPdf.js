@@ -25,24 +25,24 @@ function buildFinancialPdf({ title, payload }) {
     .fontSize(22)
     .text(title, { align: "center" });
 
-  doc.moveDown(0.2);
+  doc.moveDown(0.3);
   doc
     .fillColor("#64748b")
     .font("Helvetica")
     .fontSize(9)
     .text(`Generated: ${dateLabel}`, { align: "center" });
 
-  doc.moveDown(1);
+  doc.moveDown(1.2);
 
   // Decorative line
   doc
-    .moveTo(100, doc.y)
-    .lineTo(doc.page.width - 100, doc.y)
+    .moveTo(80, doc.y)
+    .lineTo(doc.page.width - 80, doc.y)
     .strokeColor("#e2e8f0")
     .lineWidth(0.8)
     .stroke();
 
-  doc.moveDown(1.2);
+  doc.moveDown(1.5);
 
   // ============ STATS CARDS ============
   const summary = payload?.summary || {};
@@ -52,20 +52,19 @@ function buildFinancialPdf({ title, payload }) {
   const totalOrders = summary.total_orders || 0;
   const avgOrder = summary.aov || 0;
 
-  const cardWidth = (doc.page.width - 100 - 20) / 3;
+  const cardWidth = (doc.page.width - 100 - 24) / 3;
   const startX = 50;
   let cardY = doc.y;
 
-  function renderCard(x, label, value, subtext = null) {
-    const displayValue =
-      typeof value === "number" && label.includes("ORDERS")
-        ? value.toLocaleString()
-        : formatCurrencyPHP(value);
+  function renderCard(x, label, value, subtext = null, isNumber = false) {
+    const displayValue = isNumber
+      ? value.toLocaleString()
+      : formatCurrencyPHP(value);
 
     // Card background
-    doc.fillColor("#ffffff").roundedRect(x, cardY, cardWidth, 85, 10).fill();
+    doc.fillColor("#ffffff").roundedRect(x, cardY, cardWidth, 80, 10).fill();
     doc
-      .roundedRect(x, cardY, cardWidth, 85, 10)
+      .roundedRect(x, cardY, cardWidth, 80, 10)
       .strokeColor("#e2e8f0")
       .lineWidth(0.5)
       .stroke();
@@ -78,50 +77,50 @@ function buildFinancialPdf({ title, payload }) {
       .fillColor("#64748b")
       .font("Helvetica")
       .fontSize(8)
-      .text(label, x + 18, cardY + 14);
+      .text(label, x + 28, cardY + 14);
 
     // Value
     doc
       .fillColor("#0f172a")
       .font("Helvetica-Bold")
       .fontSize(20)
-      .text(displayValue, x + 18, cardY + 34);
+      .text(displayValue, x + 18, cardY + 38);
 
     if (subtext) {
       doc
         .fillColor("#94a3b8")
         .font("Helvetica")
         .fontSize(7)
-        .text(subtext, x + 18, cardY + 60);
+        .text(subtext, x + 18, cardY + 62);
     }
   }
 
   renderCard(startX, "WEEKLY PROFIT", profitWeekly);
-  renderCard(startX + cardWidth + 10, "MONTHLY PROFIT", profitMonthly);
-  renderCard(startX + (cardWidth + 10) * 2, "YEARLY PROFIT", profitYearly);
+  renderCard(startX + cardWidth + 12, "MONTHLY PROFIT", profitMonthly);
+  renderCard(startX + (cardWidth + 12) * 2, "YEARLY PROFIT", profitYearly);
 
-  cardY += 100;
+  cardY += 95;
 
-  const halfWidth = (doc.page.width - 100 - 10) / 2;
+  const halfWidth = (doc.page.width - 100 - 12) / 2;
 
-  renderCard(startX, "TOTAL ORDERS", totalOrders, "Completed orders");
+  renderCard(startX, "TOTAL ORDERS", totalOrders, "Completed orders", true);
   renderCard(
-    startX + halfWidth + 10,
+    startX + halfWidth + 12,
     "AVERAGE ORDER VALUE",
     avgOrder,
     "Per transaction",
   );
 
-  doc.moveDown(5);
+  doc.moveDown(6);
 
   // ============ SECTION DIVIDER ============
   doc
     .fillColor("#1e293b")
     .font("Helvetica-Bold")
-    .fontSize(16)
+    .fontSize(18)
     .text("Revenue & Profit Analysis", { align: "center" });
 
-  doc.moveDown(0.2);
+  doc.moveDown(0.3);
   doc
     .fillColor("#64748b")
     .font("Helvetica")
@@ -130,33 +129,41 @@ function buildFinancialPdf({ title, payload }) {
       align: "center",
     });
 
-  doc.moveDown(1.2);
+  doc.moveDown(1.5);
 
   // ============ TREND TABLES ============
-  function renderTrendTable(title, trends, isLast = false) {
+  function renderTrendTable(title, trends) {
     if (!trends || trends.length === 0) return;
 
+    const startTableY = doc.y;
+
     // Section background
-    const bgY = doc.y - 5;
     doc
       .fillColor("#f8fafc")
-      .roundedRect(45, bgY, doc.page.width - 90, 35 + trends.length * 28, 8)
+      .roundedRect(
+        45,
+        startTableY,
+        doc.page.width - 90,
+        50 + trends.length * 30,
+        8,
+      )
       .fill();
 
-    // Title with accent
+    // "PERFORMANCE" tag
     doc
       .fillColor("#f59e0b")
       .font("Helvetica-Bold")
-      .fontSize(8)
-      .text("PERFORMANCE", 65, bgY + 12);
+      .fontSize(7)
+      .text("PERFORMANCE", 65, startTableY + 12);
 
+    // Title
     doc
       .fillColor("#1e293b")
       .font("Helvetica-Bold")
-      .fontSize(14)
-      .text(title, 65, bgY + 24);
+      .fontSize(13)
+      .text(title, 65, startTableY + 26);
 
-    let y = bgY + 55;
+    let y = startTableY + 52;
 
     // Table header
     doc
@@ -166,7 +173,7 @@ function buildFinancialPdf({ title, payload }) {
       .text("PERIOD", 65, y);
     doc.text("REVENUE", doc.page.width - 130, y, { width: 80, align: "right" });
 
-    y += 5;
+    y += 6;
     doc
       .moveTo(60, y)
       .lineTo(doc.page.width - 60, y)
@@ -174,7 +181,7 @@ function buildFinancialPdf({ title, payload }) {
       .lineWidth(0.5)
       .stroke();
 
-    y += 12;
+    y += 14;
 
     // Table rows
     trends.forEach((item, idx) => {
@@ -186,7 +193,7 @@ function buildFinancialPdf({ title, payload }) {
       if (idx % 2 === 1) {
         doc
           .fillColor("#f1f5f9")
-          .roundedRect(58, y - 6, doc.page.width - 116, 24, 4)
+          .roundedRect(58, y - 6, doc.page.width - 116, 26, 4)
           .fill();
       }
 
@@ -197,26 +204,34 @@ function buildFinancialPdf({ title, payload }) {
         .text(period, 65, y);
       doc.text(revenue, doc.page.width - 130, y, { width: 80, align: "right" });
 
-      y += 26;
+      y += 30;
     });
 
-    doc.moveDown(isLast ? 1 : 1.5);
+    // Position after the table
+    doc.y = y + 15;
   }
 
   renderTrendTable("Weekly Revenue Trend", payload?.trends?.weekly);
   renderTrendTable("Monthly Revenue Trend", payload?.trends?.monthly);
-  renderTrendTable("Yearly Revenue Trend", payload?.trends?.yearly, true);
+  renderTrendTable("Yearly Revenue Trend", payload?.trends?.yearly);
 
   // ============ FOOTER ============
-  const footerY = doc.page.height - 55;
+  // Ensure footer is at the bottom of the page
+  if (doc.y < doc.page.height - 100) {
+    doc.y = doc.page.height - 85;
+  } else {
+    doc.addPage();
+    doc.y = doc.page.height - 85;
+  }
 
   doc
-    .moveTo(60, footerY - 15)
-    .lineTo(doc.page.width - 60, footerY - 15)
+    .moveTo(60, doc.y)
+    .lineTo(doc.page.width - 60, doc.y)
     .strokeColor("#e2e8f0")
     .lineWidth(0.5)
     .stroke();
 
+  doc.moveDown(0.5);
   doc
     .fillColor("#94a3b8")
     .font("Helvetica")
@@ -224,10 +239,11 @@ function buildFinancialPdf({ title, payload }) {
     .text(
       "Note: Profit is calculated as total revenue from verified payments and kiosk walk-in orders.",
       50,
-      footerY,
+      doc.y,
       { width: doc.page.width - 100, align: "center" },
     );
 
+  doc.moveDown(0.3);
   doc
     .fillColor("#cbd5e1")
     .font("Helvetica")
@@ -235,7 +251,7 @@ function buildFinancialPdf({ title, payload }) {
     .text(
       "No operational expenses have been deducted from these figures.",
       50,
-      footerY + 12,
+      doc.y,
       { width: doc.page.width - 100, align: "center" },
     );
 
