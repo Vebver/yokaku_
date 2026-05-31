@@ -140,8 +140,13 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
     return "urgency-normal";
   };
 
-  // Check if order has any allergy in items
+  // Check if order has any allergy in items or allergyNote
   const hasAllergyInOrder = () => {
+    // Check if there's an allergyNote from the order
+    if (order.allergyNote && order.allergyNote !== "None") {
+      return true;
+    }
+    // Check items customizations
     if (!order.items) return false;
     return order.items.some((item) => {
       if (item.customizations) {
@@ -155,6 +160,27 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
     });
   };
 
+  // Get the allergy text to display
+  const getAllergyText = () => {
+    if (order.allergyNote && order.allergyNote !== "None") {
+      return order.allergyNote;
+    }
+    // Check items for allergy in customizations
+    if (!order.items) return null;
+    for (const item of order.items) {
+      if (item.customizations) {
+        const customStr =
+          typeof item.customizations === "string"
+            ? item.customizations
+            : JSON.stringify(item.customizations);
+        if (customStr.toLowerCase().includes("allergy")) {
+          return customStr;
+        }
+      }
+    }
+    return null;
+  };
+
   const handleStatusUpdate = async (newStatus) => {
     if (isLoading) return;
     setIsLoading(true);
@@ -165,6 +191,9 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
     }
   };
 
+  const allergyText = getAllergyText();
+  const hasAllergy = hasAllergyInOrder();
+
   return (
     <motion.div
       ref={ref}
@@ -172,7 +201,7 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
-      className={`order-card status-${order.status.toLowerCase()} ${hasAllergyInOrder() ? "has-allergy-warning" : ""}`}
+      className={`order-card status-${order.status.toLowerCase()} ${hasAllergy ? "has-allergy-warning" : ""}`}
     >
       <div className="card-header">
         <div className="table-badge">
@@ -185,39 +214,11 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
         </div>
       </div>
 
-      {/* Display Allergy Note from Kiosk */}
-      {order.allergyNote && order.allergyNote !== "None" && (
-        <div
-          style={{
-            backgroundColor: "#ff4444",
-            padding: "12px 15px",
-            margin: "8px 0",
-            borderRadius: "6px",
-            textAlign: "center",
-            fontWeight: "bold",
-            color: "#fff",
-            fontSize: "1rem",
-          }}
-        >
-          ⚠️ ALLERGY ALERT: {order.allergyNote} ⚠️
-        </div>
-      )}
-
-      {/* Fallback allergy warning from items */}
-      {hasAllergyInOrder() && (
-        <div
-          style={{
-            backgroundColor: "#ff4444",
-            padding: "12px 15px",
-            margin: "8px 0",
-            borderRadius: "6px",
-            textAlign: "center",
-            fontWeight: "bold",
-            color: "#fff",
-            fontSize: "1rem",
-          }}
-        >
-          ⚠️ CUSTOMER HAS ALLERGIES - HANDLE WITH CARE ⚠️
+      {/* Display Allergy Alert if present */}
+      {hasAllergy && (
+        <div className="allergy-alert-banner">
+          ⚠️ ALLERGY ALERT:{" "}
+          {allergyText || "Customer has allergies - Handle with care"} ⚠️
         </div>
       )}
 
