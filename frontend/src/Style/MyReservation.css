@@ -90,7 +90,7 @@
 .id-value {
   font-size: 14px;
   font-weight: 700;
-  color: #000000; /* Changed from #1a1a1a to pure black */
+  color: #000000 !important; /* Changed from #1a1a1a to pure black */
   font-family: monospace;
 }
 
