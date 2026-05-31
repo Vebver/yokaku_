@@ -214,11 +214,13 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
         </div>
       </div>
 
-      {/* Display Allergy Alert if present */}
+      {/* Display Allergy Alert prominently in the card */}
       {hasAllergy && (
         <div className="allergy-alert-banner">
-          ⚠️ ALLERGY ALERT:{" "}
-          {allergyText || "Customer has allergies - Handle with care"} ⚠️
+          <span className="allergy-alert-icon">⚠️</span>
+          ALLERGY ALERT:{" "}
+          {allergyText || "Customer has allergies - Handle with care"}
+          <span className="allergy-alert-icon">⚠️</span>
         </div>
       )}
 
@@ -320,6 +322,12 @@ const KitchenPage = () => {
 
       if (response.data && Array.isArray(response.data)) {
         console.log(`✅ Loaded ${response.data.length} active orders`);
+
+        // Debug: Log to see if allergy_note is in the response
+        if (response.data.length > 0) {
+          console.log("📋 Sample order data:", response.data[0]);
+          console.log("📋 allergy_note value:", response.data[0].allergy_note);
+        }
 
         const formattedOrders = response.data.map((order) => ({
           id: order.id,
