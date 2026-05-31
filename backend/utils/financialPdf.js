@@ -2,7 +2,7 @@ const PDFDocument = require("pdfkit");
 
 function formatCurrencyPHP(amount) {
   const n = Number(amount || 0);
-  return n.toLocaleString("en-PH", { style: "currency", currency: "PHP" });
+  return `₱${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function formatDate(date) {
@@ -14,37 +14,37 @@ function formatDate(date) {
 }
 
 function buildFinancialPdf({ title, payload }) {
-  const doc = new PDFDocument({ margin: 60, size: "A4" });
+  const doc = new PDFDocument({ margin: 50, size: "A4" });
   const today = new Date();
   const dateLabel = formatDate(today);
 
-  // ============ HEADER ============
+  // ============ HEADER SECTION ============
   doc
-    .fillColor("#111827")
+    .fillColor("#1e293b")
     .font("Helvetica-Bold")
-    .fontSize(24)
+    .fontSize(22)
     .text(title, { align: "center" });
 
-  doc.moveDown(0.3);
+  doc.moveDown(0.2);
   doc
-    .fillColor("#6b7280")
+    .fillColor("#64748b")
     .font("Helvetica")
-    .fontSize(10)
+    .fontSize(9)
     .text(`Generated: ${dateLabel}`, { align: "center" });
 
-  doc.moveDown(1.5);
+  doc.moveDown(1);
 
-  // Light separator line
+  // Decorative line
   doc
-    .moveTo(60, doc.y)
-    .lineTo(doc.page.width - 60, doc.y)
-    .strokeColor("#e5e7eb")
-    .lineWidth(0.5)
+    .moveTo(100, doc.y)
+    .lineTo(doc.page.width - 100, doc.y)
+    .strokeColor("#e2e8f0")
+    .lineWidth(0.8)
     .stroke();
 
   doc.moveDown(1.2);
 
-  // ============ SUMMARY CARDS ============
+  // ============ STATS CARDS ============
   const summary = payload?.summary || {};
   const profitWeekly = payload?.profit?.weekly || 0;
   const profitMonthly = payload?.profit?.monthly || 0;
@@ -52,58 +52,78 @@ function buildFinancialPdf({ title, payload }) {
   const totalOrders = summary.total_orders || 0;
   const avgOrder = summary.aov || 0;
 
-  const cardWidth = (doc.page.width - 120 - 24) / 3;
-  const startX = 60;
+  const cardWidth = (doc.page.width - 100 - 20) / 3;
+  const startX = 50;
   let cardY = doc.y;
 
-  // Card helper
-  function renderCard(x, label, value, prefix = "₱") {
+  function renderCard(x, label, value, subtext = null) {
     const displayValue =
-      prefix === "₱" ? formatCurrencyPHP(value) : value.toLocaleString();
+      typeof value === "number" && label.includes("ORDERS")
+        ? value.toLocaleString()
+        : formatCurrencyPHP(value);
 
-    doc.fillColor("#ffffff").roundedRect(x, cardY, cardWidth, 70, 8).fill();
+    // Card background
+    doc.fillColor("#ffffff").roundedRect(x, cardY, cardWidth, 85, 10).fill();
     doc
-      .roundedRect(x, cardY, cardWidth, 70, 8)
-      .strokeColor("#e5e7eb")
+      .roundedRect(x, cardY, cardWidth, 85, 10)
+      .strokeColor("#e2e8f0")
       .lineWidth(0.5)
       .stroke();
 
-    doc
-      .fillColor("#6b7280")
-      .font("Helvetica")
-      .fontSize(9)
-      .text(label, x + 16, cardY + 18);
+    // Tiny accent dot
+    doc.circle(x + 18, cardY + 18, 3).fill("#f59e0b");
 
+    // Label
     doc
-      .fillColor("#111827")
+      .fillColor("#64748b")
+      .font("Helvetica")
+      .fontSize(8)
+      .text(label, x + 18, cardY + 14);
+
+    // Value
+    doc
+      .fillColor("#0f172a")
       .font("Helvetica-Bold")
-      .fontSize(18)
-      .text(displayValue, x + 16, cardY + 36);
+      .fontSize(20)
+      .text(displayValue, x + 18, cardY + 34);
+
+    if (subtext) {
+      doc
+        .fillColor("#94a3b8")
+        .font("Helvetica")
+        .fontSize(7)
+        .text(subtext, x + 18, cardY + 60);
+    }
   }
 
   renderCard(startX, "WEEKLY PROFIT", profitWeekly);
-  renderCard(startX + cardWidth + 12, "MONTHLY PROFIT", profitMonthly);
-  renderCard(startX + (cardWidth + 12) * 2, "YEARLY PROFIT", profitYearly);
+  renderCard(startX + cardWidth + 10, "MONTHLY PROFIT", profitMonthly);
+  renderCard(startX + (cardWidth + 10) * 2, "YEARLY PROFIT", profitYearly);
 
-  cardY += 85;
+  cardY += 100;
 
-  const statsCardWidth = (doc.page.width - 120 - 12) / 2;
+  const halfWidth = (doc.page.width - 100 - 10) / 2;
 
-  renderCard(startX, "TOTAL ORDERS", totalOrders, "#");
-  renderCard(startX + statsCardWidth + 12, "AVERAGE ORDER VALUE", avgOrder);
+  renderCard(startX, "TOTAL ORDERS", totalOrders, "Completed orders");
+  renderCard(
+    startX + halfWidth + 10,
+    "AVERAGE ORDER VALUE",
+    avgOrder,
+    "Per transaction",
+  );
 
-  doc.moveDown(6.5);
+  doc.moveDown(5);
 
-  // ============ SECTION TITLE ============
+  // ============ SECTION DIVIDER ============
   doc
-    .fillColor("#111827")
+    .fillColor("#1e293b")
     .font("Helvetica-Bold")
     .fontSize(16)
     .text("Revenue & Profit Analysis", { align: "center" });
 
-  doc.moveDown(0.3);
+  doc.moveDown(0.2);
   doc
-    .fillColor("#6b7280")
+    .fillColor("#64748b")
     .font("Helvetica")
     .fontSize(9)
     .text("Track your business performance across different time periods", {
@@ -113,88 +133,110 @@ function buildFinancialPdf({ title, payload }) {
   doc.moveDown(1.2);
 
   // ============ TREND TABLES ============
-  function renderTrendTable(title, trends) {
+  function renderTrendTable(title, trends, isLast = false) {
     if (!trends || trends.length === 0) return;
 
-    doc.fillColor("#111827").font("Helvetica-Bold").fontSize(13).text(title);
-
-    doc.moveDown(0.8);
-
-    // Table Header
-    const headerY = doc.y;
+    // Section background
+    const bgY = doc.y - 5;
     doc
-      .fillColor("#9ca3af")
-      .font("Helvetica")
-      .fontSize(9)
-      .text("Period", 60, headerY);
-    doc.text("Revenue", doc.page.width - 140, headerY, {
-      width: 80,
-      align: "right",
-    });
+      .fillColor("#f8fafc")
+      .roundedRect(45, bgY, doc.page.width - 90, 35 + trends.length * 28, 8)
+      .fill();
 
-    doc.moveDown(0.5);
+    // Title with accent
     doc
-      .moveTo(60, doc.y)
-      .lineTo(doc.page.width - 60, doc.y)
-      .strokeColor("#e5e7eb")
+      .fillColor("#f59e0b")
+      .font("Helvetica-Bold")
+      .fontSize(8)
+      .text("PERFORMANCE", 65, bgY + 12);
+
+    doc
+      .fillColor("#1e293b")
+      .font("Helvetica-Bold")
+      .fontSize(14)
+      .text(title, 65, bgY + 24);
+
+    let y = bgY + 55;
+
+    // Table header
+    doc
+      .fillColor("#94a3b8")
+      .font("Helvetica-Bold")
+      .fontSize(8)
+      .text("PERIOD", 65, y);
+    doc.text("REVENUE", doc.page.width - 130, y, { width: 80, align: "right" });
+
+    y += 5;
+    doc
+      .moveTo(60, y)
+      .lineTo(doc.page.width - 60, y)
+      .strokeColor("#cbd5e1")
       .lineWidth(0.5)
       .stroke();
 
-    doc.moveDown(0.5);
+    y += 12;
 
-    // Table Rows
+    // Table rows
     trends.forEach((item, idx) => {
       const period =
         item.label || item.period || item.month || item.week || item.date || "";
       const revenue = formatCurrencyPHP(item.value || item.revenue || 0);
 
-      doc
-        .fillColor(idx % 2 === 0 ? "#ffffff" : "#f9fafb")
-        .roundedRect(58, doc.y - 4, doc.page.width - 116, 24, 4)
-        .fill();
+      // Row background for alternating
+      if (idx % 2 === 1) {
+        doc
+          .fillColor("#f1f5f9")
+          .roundedRect(58, y - 6, doc.page.width - 116, 24, 4)
+          .fill();
+      }
 
       doc
-        .fillColor("#374151")
+        .fillColor("#334155")
         .font("Helvetica")
         .fontSize(10)
-        .text(period, 60, doc.y);
-      doc.text(revenue, doc.page.width - 140, doc.y, {
-        width: 80,
-        align: "right",
-      });
+        .text(period, 65, y);
+      doc.text(revenue, doc.page.width - 130, y, { width: 80, align: "right" });
 
-      doc.moveDown(1.3);
+      y += 26;
     });
 
-    doc.moveDown(0.5);
+    doc.moveDown(isLast ? 1 : 1.5);
   }
 
   renderTrendTable("Weekly Revenue Trend", payload?.trends?.weekly);
   renderTrendTable("Monthly Revenue Trend", payload?.trends?.monthly);
-  renderTrendTable("Yearly Revenue Trend", payload?.trends?.yearly);
+  renderTrendTable("Yearly Revenue Trend", payload?.trends?.yearly, true);
 
-  // ============ FOOTER NOTE ============
-  const footerY = doc.page.height - 50;
-  if (doc.y > footerY - 80) {
-    doc.addPage();
-  }
+  // ============ FOOTER ============
+  const footerY = doc.page.height - 55;
 
   doc
-    .moveTo(60, doc.page.height - 70)
-    .lineTo(doc.page.width - 60, doc.page.height - 70)
-    .strokeColor("#e5e7eb")
+    .moveTo(60, footerY - 15)
+    .lineTo(doc.page.width - 60, footerY - 15)
+    .strokeColor("#e2e8f0")
     .lineWidth(0.5)
     .stroke();
 
   doc
-    .fillColor("#9ca3af")
+    .fillColor("#94a3b8")
     .font("Helvetica")
-    .fontSize(8)
+    .fontSize(7)
     .text(
-      "Note: Profit is calculated as total revenue from verified payments and kiosk walk-in orders (no expense subtraction).",
-      60,
-      doc.page.height - 55,
-      { width: doc.page.width - 120, align: "center" },
+      "Note: Profit is calculated as total revenue from verified payments and kiosk walk-in orders.",
+      50,
+      footerY,
+      { width: doc.page.width - 100, align: "center" },
+    );
+
+  doc
+    .fillColor("#cbd5e1")
+    .font("Helvetica")
+    .fontSize(7)
+    .text(
+      "No operational expenses have been deducted from these figures.",
+      50,
+      footerY + 12,
+      { width: doc.page.width - 100, align: "center" },
     );
 
   return doc;
