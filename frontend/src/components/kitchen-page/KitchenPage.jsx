@@ -46,32 +46,13 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
     return () => clearInterval(timer);
   }, [order.timestamp]);
 
-  // Helper function to extract allergy from customizations or instructions
-  const extractAllergy = (customs, instructions) => {
-    // Check customizations first
-    if (customs) {
-      if (typeof customs === "string") {
-        if (customs.toLowerCase().includes("allergy")) {
-          return customs;
-        }
-      }
-      if (typeof customs === "object" && customs.allergy) {
-        return customs.allergy;
-      }
-    }
-    // Check instructions
-    if (instructions && instructions.toLowerCase().includes("allergy")) {
-      return instructions;
-    }
-    return null;
-  };
-
   const renderCustomizations = (customs) => {
-    if (!customs) return <div className="item-note-empty">—</div>;
+    // Skip if customs is null, undefined, or the string "null"
+    if (!customs || customs === "null" || customs === "undefined")
+      return <div className="item-note-empty">—</div>;
 
     // Check if it's the string format from the Kiosk (e.g. "Wings: Barbeque | Drink: Orange")
     if (typeof customs === "string" && !customs.trim().startsWith("{")) {
-      // Check if this string contains allergy information
       const hasAllergy = customs.toLowerCase().includes("allergy");
       return (
         <div className="custom-details-container">
@@ -91,6 +72,11 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
     // Fallback for JSON format
     try {
       const c = typeof customs === "string" ? JSON.parse(customs) : customs;
+
+      // If c is null or empty after parsing, show nothing
+      if (!c || Object.keys(c).length === 0)
+        return <div className="item-note-empty">—</div>;
+
       const hasAllergy =
         c.allergy ||
         (c.specialInstructions &&
@@ -124,15 +110,24 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
         </div>
       );
     } catch (e) {
-      const hasAllergy = String(customs).toLowerCase().includes("allergy");
+      const customsStr = String(customs);
+      const hasAllergy = customsStr.toLowerCase().includes("allergy");
+      // Skip if it's just "null" or empty
+      if (
+        customsStr === "null" ||
+        customsStr === "undefined" ||
+        customsStr === ""
+      ) {
+        return <div className="item-note-empty">—</div>;
+      }
       return (
         <div
           className={`highlight-custom-box ${hasAllergy ? "has-allergy" : ""}`}
         >
           {hasAllergy ? (
-            <span className="allergy-text">{String(customs)}</span>
+            <span className="allergy-text">{customsStr}</span>
           ) : (
-            String(customs)
+            customsStr
           )}
         </div>
       );
@@ -161,7 +156,7 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
   };
 
   const handleStatusUpdate = async (newStatus) => {
-    if (isLoading) return; // Prevent multiple clicks
+    if (isLoading) return;
     setIsLoading(true);
     try {
       await onUpdateStatus(order.id, newStatus);
@@ -190,17 +185,38 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
         </div>
       </div>
 
+      {/* Display Allergy Note from Kiosk */}
+      {order.allergyNote && order.allergyNote !== "None" && (
+        <div
+          style={{
+            backgroundColor: "#ff4444",
+            padding: "12px 15px",
+            margin: "8px 0",
+            borderRadius: "6px",
+            textAlign: "center",
+            fontWeight: "bold",
+            color: "#fff",
+            fontSize: "1rem",
+          }}
+        >
+          ⚠️ ALLERGY ALERT: {order.allergyNote} ⚠️
+        </div>
+      )}
+
+      {/* Fallback allergy warning from items */}
       {hasAllergyInOrder() && (
-        <div style={{ 
-          backgroundColor: "#ff4444", 
-          padding: "12px 15px", 
-          margin: "8px 0", 
-          borderRadius: "6px", 
-          textAlign: "center",
-          fontWeight: "bold",
-          color: "#fff",
-          fontSize: "1.1rem"
-        }}>
+        <div
+          style={{
+            backgroundColor: "#ff4444",
+            padding: "12px 15px",
+            margin: "8px 0",
+            borderRadius: "6px",
+            textAlign: "center",
+            fontWeight: "bold",
+            color: "#fff",
+            fontSize: "1rem",
+          }}
+        >
           ⚠️ CUSTOMER HAS ALLERGIES - HANDLE WITH CARE ⚠️
         </div>
       )}
@@ -299,18 +315,17 @@ const KitchenPage = () => {
       setIsLoading(true);
       console.log("📡 Loading active orders from database...");
 
-      // Use your existing API endpoint
       const response = await axios.get(`${API_URL}/orders/active`);
 
       if (response.data && Array.isArray(response.data)) {
         console.log(`✅ Loaded ${response.data.length} active orders`);
 
-        // Transform the data to match KitchenPage expected format
         const formattedOrders = response.data.map((order) => ({
           id: order.id,
           table: order.table,
           status: order.status,
           timestamp: order.timestamp,
+          allergyNote: order.allergy_note || null,
           items: order.items.map((item) => ({
             name: item.name,
             qty: item.quantity,
@@ -338,37 +353,30 @@ const KitchenPage = () => {
   useEffect(() => {
     console.log("🔌 Kitchen monitoring active...");
 
-    // Load existing orders from database when page opens
     loadActiveOrders();
 
     socket.on("connect", () => console.log("✅ Socket Connected"));
 
-    // Listen for new orders from kiosk
     socket.on("send_order", (data) => {
       console.log("📩 New kiosk order received:", data);
-      // Immediately refresh orders from database
       loadActiveOrders();
     });
 
-    // Listen for regular orders
     socket.on("new_order", (data) => {
       console.log("📩 New order received:", data);
       loadActiveOrders();
     });
 
-    // Listen for reservation orders
     socket.on("new_reservation", (reservationData) => {
       console.log("📩 New reservation order received:", reservationData);
       loadActiveOrders();
     });
 
-    // Listen for order status updates
     socket.on("order_status_updated", (data) => {
       console.log("🔄 Order status updated:", data);
       loadActiveOrders();
     });
 
-    // Handle data passed from navigation
     if (location.state?.newOrder) {
       loadActiveOrders();
       window.history.replaceState({}, document.title);
@@ -387,7 +395,7 @@ const KitchenPage = () => {
     const pollInterval = setInterval(() => {
       console.log("🔄 Polling for updates...");
       loadActiveOrders();
-    }, 15000); // Poll every 15 seconds as fallback
+    }, 15000);
 
     return () => clearInterval(pollInterval);
   }, []);
@@ -404,10 +412,7 @@ const KitchenPage = () => {
 
       if (response.status === 200 || response.status === 201) {
         console.log(`✅ Order ${id} updated to ${newStatus}`);
-        // Refresh orders from database
         await loadActiveOrders();
-
-        // Emit to other connected clients
         socket.emit("order_status_update", { orderId: id, newStatus });
       } else {
         throw new Error("Failed to update status");
@@ -420,7 +425,6 @@ const KitchenPage = () => {
     }
   };
 
-  // Filter logic
   const filteredOrders = orders.filter(
     (o) => filter === "all" || o.status === filter,
   );
