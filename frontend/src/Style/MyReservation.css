@@ -86,10 +86,11 @@
   letter-spacing: 0.5px;
 }
 
+/* Update the id-value class - change color from #1a1a1a to black */
 .id-value {
   font-size: 14px;
   font-weight: 700;
-  color: #1a1a1a;
+  color: #000000; /* Changed from #1a1a1a to pure black */
   font-family: monospace;
 }
 
@@ -365,7 +366,7 @@
 
 .detail-value {
   font-weight: 500;
-  color: #1a1a1a;
+  color: #000000; /* Changed from #1a1a1a to pure black */
   font-size: 13px;
   text-align: right;
 }
