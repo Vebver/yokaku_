@@ -1,178 +1,444 @@
-import React, { useState } from 'react';
-import { ArrowDown, Award, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useState } from "react";
+import {
+  ArrowDown,
+  Award,
+  TrendingUp,
+  ChevronLeft,
+  ChevronRight,
+  Star,
+  TrendingDown,
+  Package,
+  DollarSign,
+  BarChart3,
+} from "lucide-react";
 
 const ProductPerformance = ({ data }) => {
   const topProducts = data?.top_selling_products || [];
   const slowMoving = data?.slow_moving_products || [];
+  const summary = data?.summary || {};
+
+  const totalRevenue = summary?.total_revenue || 0;
+  const totalItemsSold = summary?.total_items_sold || 0;
+  const topProductCount = topProducts.length;
+  const slowProductCount = slowMoving.length;
 
   // --- LOCAL PAGINATION STATE FOR TOP SELLERS ---
   const [topPage, setTopPage] = useState(1);
   const topItemsPerPage = 5;
   const totalTopPages = Math.ceil(topProducts.length / topItemsPerPage);
-  
+
   const topIndexOfLastItem = topPage * topItemsPerPage;
   const topIndexOfFirstItem = topIndexOfLastItem - topItemsPerPage;
-  const currentTopItems = topProducts.slice(topIndexOfFirstItem, topIndexOfLastItem);
+  const currentTopItems = topProducts.slice(
+    topIndexOfFirstItem,
+    topIndexOfLastItem,
+  );
 
   // --- LOCAL PAGINATION STATE FOR SLOW MOVING ---
   const [slowPage, setSlowPage] = useState(1);
   const slowItemsPerPage = 6;
   const totalSlowPages = Math.ceil(slowMoving.length / slowItemsPerPage);
-  
+
   const slowIndexOfLastItem = slowPage * slowItemsPerPage;
   const slowIndexOfFirstItem = slowIndexOfLastItem - slowItemsPerPage;
-  const currentSlowItems = slowMoving.slice(slowIndexOfFirstItem, slowIndexOfLastItem);
+  const currentSlowItems = slowMoving.slice(
+    slowIndexOfFirstItem,
+    slowIndexOfLastItem,
+  );
 
-  const formatCurrency = (num) => 
-    new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(num);
+  const formatCurrency = (num) =>
+    new Intl.NumberFormat("en-PH", {
+      style: "currency",
+      currency: "PHP",
+      minimumFractionDigits: 2,
+    }).format(num);
+
+  const formatNumber = (num) => new Intl.NumberFormat("en-PH").format(num);
 
   if (!data) return null;
 
   return (
-     <div className="w-100">
-      <div className="mb-4 px-1 pb-3 border-bottom">
-        <h4 className="fw-bold text-dark mb-1 fs-3 fs-md-4">Product Performance</h4>
-        <p className="text-muted small">Insights into your menu's popularity</p>
+    <div className="product-performance-container">
+      {/* Header Section */}
+      <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 pb-2 border-bottom">
+        <div>
+          <h2 className="fw-bold mb-1 text-dark">Product Performance</h2>
+          <p className="text-muted small mb-0">
+            Insights into your menu's popularity
+            <span className="ms-2 text-warning">●</span>
+            <span className="ms-1 text-muted">Real-time analytics</span>
+          </p>
+        </div>
       </div>
 
-      <div className="row g-3 g-md-4">
-        {/* --- TOP SELLERS WITH PAGINATION --- */}
-        <div className="col-12 col-lg-5 pb-4">
-          <div className="card border-0 shadow-sm rounded-4 h-100 pb-3 d-flex flex-column">
-            <div className="card-body p-3 p-md-4 flex-grow-1">
+      {/* KPI Cards Row */}
+      <div className="row g-4 mb-4">
+        {/* Total Revenue */}
+        <div className="col-lg-3 col-md-6">
+          <div className="card border-0 shadow-sm rounded-4 h-100">
+            <div className="card-body p-4">
               <div className="d-flex align-items-center justify-content-between mb-3">
-                <h6 className="fw-bold mb-0">
-                  <Award className="me-2 text-primary" size={18}/>Top Sellers
-                </h6>
-                {/* Pagination controls for top sellers */}
+                <div className="bg-primary bg-opacity-10 rounded-3 p-2">
+                  <DollarSign size={22} className="text-primary" />
+                </div>
+                <span className="badge bg-light text-muted rounded-pill">
+                  Total
+                </span>
+              </div>
+              <h3 className="fw-bold mb-1 text-dark">
+                {formatCurrency(totalRevenue)}
+              </h3>
+              <p className="text-muted small mb-0">Total revenue generated</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Total Items Sold */}
+        <div className="col-lg-3 col-md-6">
+          <div className="card border-0 shadow-sm rounded-4 h-100">
+            <div className="card-body p-4">
+              <div className="d-flex align-items-center justify-content-between mb-3">
+                <div className="bg-success bg-opacity-10 rounded-3 p-2">
+                  <Package size={22} className="text-success" />
+                </div>
+                <span className="badge bg-light text-muted rounded-pill">
+                  Units
+                </span>
+              </div>
+              <h3 className="fw-bold mb-1 text-dark">
+                {formatNumber(totalItemsSold)}
+              </h3>
+              <p className="text-muted small mb-0">Total items sold</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Top Selling Items */}
+        <div className="col-lg-3 col-md-6">
+          <div className="card border-0 shadow-sm rounded-4 h-100">
+            <div className="card-body p-4">
+              <div className="d-flex align-items-center justify-content-between mb-3">
+                <div className="bg-warning bg-opacity-10 rounded-3 p-2">
+                  <Star size={22} className="text-warning" />
+                </div>
+                <span className="badge bg-light text-muted rounded-pill">
+                  Best Sellers
+                </span>
+              </div>
+              <h3 className="fw-bold mb-1 text-dark">{topProductCount}</h3>
+              <p className="text-muted small mb-0">Top performing items</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Slow Moving Items */}
+        <div className="col-lg-3 col-md-6">
+          <div className="card border-0 shadow-sm rounded-4 h-100 bg-gradient-danger text-white">
+            <div className="card-body p-4">
+              <div className="d-flex align-items-center justify-content-between mb-3">
+                <div className="bg-white bg-opacity-25 rounded-3 p-2">
+                  <TrendingDown size={22} color="white" />
+                </div>
+                <span className="badge bg-white bg-opacity-25 text-white rounded-pill">
+                  Slow Movers
+                </span>
+              </div>
+              <h3 className="fw-bold mb-1">{slowProductCount}</h3>
+              <p className="mb-0 small text-white-50">
+                Items needing attention
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content Row */}
+      <div className="row g-4">
+        {/* Top Sellers Section */}
+        <div className="col-12 col-lg-6">
+          <div className="card border-0 shadow-sm rounded-4 h-100">
+            <div className="card-header bg-white border-0 pt-4 px-4">
+              <div className="d-flex align-items-center justify-content-between">
+                <div className="d-flex align-items-center gap-2">
+                  <Award size={18} className="text-warning" />
+                  <h6 className="fw-bold mb-0">Top Selling Items</h6>
+                </div>
                 <div className="d-flex gap-1">
-                   <button 
-                    className="btn btn-light btn-sm p-1 border shadow-none" 
+                  <button
+                    className="btn btn-light btn-sm rounded-circle p-1 border shadow-none"
+                    style={{ width: "28px", height: "28px" }}
                     disabled={topPage === 1}
-                    onClick={() => setTopPage(p => p - 1)}
-                   >
-                     <ChevronLeft size={14} />
-                   </button>
-                   <button 
-                    className="btn btn-light btn-sm p-1 border shadow-none" 
+                    onClick={() => setTopPage((p) => p - 1)}
+                  >
+                    <ChevronLeft size={14} />
+                  </button>
+                  <button
+                    className="btn btn-light btn-sm rounded-circle p-1 border shadow-none"
+                    style={{ width: "28px", height: "28px" }}
                     disabled={topPage >= totalTopPages}
-                    onClick={() => setTopPage(p => p + 1)}
-                   >
-                     <ChevronRight size={14} />
-                   </button>
+                    onClick={() => setTopPage((p) => p + 1)}
+                  >
+                    <ChevronRight size={14} />
+                  </button>
                 </div>
               </div>
-
+            </div>
+            <div className="card-body p-0">
               <div className="table-responsive">
-                <table className="table align-middle mb-0" style={{ minWidth: '280px' }}>
+                <table className="table table-hover align-middle mb-0">
                   <thead className="table-light">
-                    <tr className="x-small text-uppercase text-muted">
-                      <th className="ps-0 border-0">Item</th>
-                      <th className="border-0">Sold</th>
-                      <th className="text-end pe-0 border-0">Revenue</th>
+                    <tr>
+                      <th className="fw-semibold ps-4">Item</th>
+                      <th className="fw-semibold text-center">Sold</th>
+                      <th className="fw-semibold text-end pe-4">Revenue</th>
                     </tr>
                   </thead>
                   <tbody>
                     {currentTopItems.length > 0 ? (
-                      currentTopItems.map((p, i) => (
-                        <tr key={i}>
-                          <td className="ps-0 py-3">
-                            <div className="fw-bold text-dark text-truncate" style={{ maxWidth: '140px' }}>
-                              {p.name}
-                            </div>
-                            <span className={`badge ${topIndexOfFirstItem + i === 0 ? 'bg-primary' : 'bg-light text-dark'} x-extra-small border`}>
-                              {topIndexOfFirstItem + i === 0 ? 'TOP' : 'Trending'}
-                            </span>
-                          </td>
-                          <td className="small">{p.total_sold}</td>
-                          <td className="fw-bold text-end pe-0 text-primary small">
-                            {formatCurrency(p.total_revenue)}
-                          </td>
-                        </tr>
-                      ))
+                      currentTopItems.map((p, i) => {
+                        const rank = topIndexOfFirstItem + i + 1;
+                        return (
+                          <tr key={i}>
+                            <td className="py-3 ps-4">
+                              <div className="d-flex align-items-center gap-3">
+                                <div
+                                  className={`rounded-circle d-flex align-items-center justify-content-center fw-bold ${rank === 1 ? "bg-warning text-white" : "bg-light text-dark"}`}
+                                  style={{
+                                    width: "28px",
+                                    height: "28px",
+                                    fontSize: "12px",
+                                  }}
+                                >
+                                  {rank === 1 ? "👑" : rank}
+                                </div>
+                                <div>
+                                  <div className="fw-semibold text-dark">
+                                    {p.name}
+                                  </div>
+                                  {rank === 1 && (
+                                    <small className="text-warning">
+                                      Best Seller
+                                    </small>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="text-center">
+                              <span className="fw-semibold">
+                                {p.total_sold}
+                              </span>
+                              <small className="text-muted d-block">
+                                units
+                              </small>
+                            </td>
+                            <td className="text-end pe-4">
+                              <span className="fw-bold text-primary">
+                                {formatCurrency(p.total_revenue)}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })
                     ) : (
-                      <tr><td colSpan="3" className="text-center py-4 text-muted">No sales data found</td></tr>
+                      <tr>
+                        <td colSpan="3" className="text-center py-5 text-muted">
+                          <Package size={40} className="mb-3 opacity-25" />
+                          <p>No sales data available</p>
+                        </td>
+                      </tr>
                     )}
                   </tbody>
                 </table>
               </div>
             </div>
-
-            {/* Page indicator at the bottom */}
-            <div className="card-footer bg-transparent border-0 px-4 pb-3">
-               <div className="text-center text-muted x-extra-small text-uppercase">
-                 Page {topPage} of {totalTopPages || 1}
-               </div>
-            </div>
+            {totalTopPages > 1 && (
+              <div className="card-footer bg-white border-0 pt-2 pb-3 px-4">
+                <div className="d-flex justify-content-between align-items-center">
+                  <small className="text-muted">
+                    Showing {topIndexOfFirstItem + 1} -{" "}
+                    {Math.min(topIndexOfLastItem, topProducts.length)} of{" "}
+                    {topProducts.length} items
+                  </small>
+                  <div className="d-flex gap-1">
+                    {[...Array(Math.min(totalTopPages, 3))].map((_, idx) => (
+                      <button
+                        key={idx}
+                        className={`btn btn-sm rounded-circle p-0 ${topPage === idx + 1 ? "btn-warning text-white" : "btn-light"}`}
+                        style={{
+                          width: "28px",
+                          height: "28px",
+                          fontSize: "12px",
+                        }}
+                        onClick={() => setTopPage(idx + 1)}
+                      >
+                        {idx + 1}
+                      </button>
+                    ))}
+                    {totalTopPages > 3 && (
+                      <span className="mx-1 text-muted">...</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* --- SLOW MOVING ITEMS WITH PAGINATION --- */}
-        <div className="col-12 col-lg-7 pb-4">
-          <div className="card border-0 shadow-sm rounded-4 h-100 d-flex flex-column">
-            <div className="card-body p-3 p-md-4 flex-grow-1">
-              <div className="d-flex justify-content-between align-items-center mb-3">
-                <h6 className="fw-bold mb-0 text-danger">
-                  <ArrowDown className="me-2" size={18}/>Slow Moving
-                </h6>
-                {/* Micro-pagination controls */}
+        {/* Slow Moving Section */}
+        <div className="col-12 col-lg-6">
+          <div className="card border-0 shadow-sm rounded-4 h-100">
+            <div className="card-header bg-white border-0 pt-4 px-4">
+              <div className="d-flex align-items-center justify-content-between">
+                <div className="d-flex align-items-center gap-2">
+                  <ArrowDown size={18} className="text-danger" />
+                  <h6 className="fw-bold mb-0 text-danger">
+                    Slow Moving Items
+                  </h6>
+                </div>
                 <div className="d-flex gap-1">
-                   <button 
-                    className="btn btn-light btn-sm p-1 border shadow-none" 
+                  <button
+                    className="btn btn-light btn-sm rounded-circle p-1 border shadow-none"
+                    style={{ width: "28px", height: "28px" }}
                     disabled={slowPage === 1}
-                    onClick={() => setSlowPage(p => p - 1)}
-                   >
-                     <ChevronLeft size={14} />
-                   </button>
-                   <button 
-                    className="btn btn-light btn-sm p-1 border shadow-none" 
+                    onClick={() => setSlowPage((p) => p - 1)}
+                  >
+                    <ChevronLeft size={14} />
+                  </button>
+                  <button
+                    className="btn btn-light btn-sm rounded-circle p-1 border shadow-none"
+                    style={{ width: "28px", height: "28px" }}
                     disabled={slowPage >= totalSlowPages}
-                    onClick={() => setSlowPage(p => p + 1)}
-                   >
-                     <ChevronRight size={14} />
-                   </button>
+                    onClick={() => setSlowPage((p) => p + 1)}
+                  >
+                    <ChevronRight size={14} />
+                  </button>
                 </div>
               </div>
-
-              <div className="list-group list-group-flush" style={{ minHeight: '350px' }}>
-                {currentSlowItems.length > 0 ? (
-                  currentSlowItems.map((item, idx) => (
-                    <div key={idx} className="list-group-item d-flex justify-content-between align-items-center px-0 py-2 border-0 border-bottom-dashed">
-                      <div className="text-truncate me-2">
-                          <div className="small text-dark fw-bold text-truncate" style={{ maxWidth: '150px' }}>{item.name}</div>
-                          <div className="text-muted x-extra-small text-uppercase">Monthly Performance</div>
+              <p className="text-muted small mb-0 mt-1">
+                Items with low sales volume
+              </p>
+            </div>
+            <div className="card-body p-0">
+              {currentSlowItems.length > 0 ? (
+                <div className="list-group list-group-flush">
+                  {currentSlowItems.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="list-group-item d-flex justify-content-between align-items-center px-4 py-3 border-bottom"
+                    >
+                      <div>
+                        <div className="fw-semibold text-dark">{item.name}</div>
+                        <div className="d-flex align-items-center gap-2 mt-1">
+                          <span
+                            className="badge bg-danger bg-opacity-10 text-danger rounded-pill px-2 py-1"
+                            style={{ fontSize: "11px" }}
+                          >
+                            {item.total_sold} sold
+                          </span>
+                          <span
+                            className="text-muted"
+                            style={{ fontSize: "11px" }}
+                          >
+                            this period
+                          </span>
+                        </div>
                       </div>
-                      <span className="badge bg-danger-subtle text-danger rounded-pill px-3 py-1 x-small flex-shrink-0">
-                        {item.total_sold} sold
-                      </span>
+                      <div className="text-end">
+                        <div className="text-muted small">Revenue</div>
+                        <div className="fw-semibold text-danger">
+                          {formatCurrency(item.total_revenue || 0)}
+                        </div>
+                      </div>
                     </div>
-                  ))
-                ) : (
-                  <div className="text-center py-5">
-                      <p className="text-muted small">All items are performing well!</p>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-5">
+                  <div
+                    className="bg-success bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3"
+                    style={{ width: "60px", height: "60px" }}
+                  >
+                    <TrendingUp size={28} className="text-success" />
                   </div>
-                )}
+                  <h6 className="fw-bold text-success mb-1">
+                    All Items Performing Well!
+                  </h6>
+                  <p className="text-muted small mb-0">
+                    No slow-moving items detected
+                  </p>
+                </div>
+              )}
+            </div>
+            {totalSlowPages > 1 && currentSlowItems.length > 0 && (
+              <div className="card-footer bg-white border-0 pt-2 pb-3 px-4">
+                <div className="d-flex justify-content-between align-items-center">
+                  <small className="text-muted">
+                    Showing {slowIndexOfFirstItem + 1} -{" "}
+                    {Math.min(slowIndexOfLastItem, slowMoving.length)} of{" "}
+                    {slowMoving.length} items
+                  </small>
+                  <div className="d-flex gap-1">
+                    {[...Array(Math.min(totalSlowPages, 3))].map((_, idx) => (
+                      <button
+                        key={idx}
+                        className={`btn btn-sm rounded-circle p-0 ${slowPage === idx + 1 ? "btn-danger text-white" : "btn-light"}`}
+                        style={{
+                          width: "28px",
+                          height: "28px",
+                          fontSize: "12px",
+                        }}
+                        onClick={() => setSlowPage(idx + 1)}
+                      >
+                        {idx + 1}
+                      </button>
+                    ))}
+                    {totalSlowPages > 3 && (
+                      <span className="mx-1 text-muted">...</span>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-            
-            {/* Page indicator at the bottom */}
-            <div className="card-footer bg-transparent border-0 px-4 pb-3">
-               <div className="text-center text-muted x-extra-small text-uppercase">
-                 Page {slowPage} of {totalSlowPages || 1}
-               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
 
+      {/* Custom CSS */}
       <style>{`
-        .x-small { font-size: 0.75rem; letter-spacing: 0.5px; }
-        .x-extra-small { font-size: 0.65rem; }
-        .border-bottom-dashed { border-bottom: 1px dashed #e9ecef !important; }
-        
-        @media (max-width: 375px) {
-           .card-body { padding: 1rem !important; }
-           .badge { font-size: 0.7rem; }
+        .product-performance-container {
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        .bg-gradient-danger {
+          background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+        .table-light th {
+          font-weight: 600;
+          font-size: 0.75rem;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          color: #64748b;
+          padding: 12px 16px;
+        }
+        .table td {
+          padding: 12px 16px;
+          vertical-align: middle;
+        }
+        .list-group-item {
+          transition: all 0.2s ease;
+        }
+        .list-group-item:hover {
+          background-color: #f8fafc;
+          transform: translateX(4px);
+        }
+        @media print {
+          .card {
+            break-inside: avoid;
+            box-shadow: none !important;
+            border: 1px solid #e2e8f0 !important;
+          }
+          .btn {
+            display: none !important;
+          }
         }
       `}</style>
     </div>
