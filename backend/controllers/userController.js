@@ -16,9 +16,7 @@ const userController = {
         firstName: user.first_name,
         lastName: user.last_name,
         email: user.email,
-        phone: user.phone || "",
         role: user.role,
-        profileImage: user.profile_image || null,
         memberSince: user.created_at,
         status:
           user.role === "Admin" ? "System Administrator" : "Customer",
@@ -34,7 +32,7 @@ const userController = {
   async updateProfile(req, res) {
     try {
       const userId = req.user.userId;
-      const { firstName, lastName, email, phone, profileImage } = req.body;
+      const { firstName, lastName, email } = req.body;
 
       // --- ADDED: RESTRICTION FOR EXISTING EMAIL ---
       if (email) {
@@ -48,7 +46,7 @@ const userController = {
       }
       // ----------------------------------------------
 
-      const updateData = { firstName, lastName, email, phone, profileImage };
+      const updateData = { firstName, lastName, email};
 
       const success = await User.update(userId, updateData);
 
@@ -60,9 +58,7 @@ const userController = {
         firstName: updatedUser.first_name,
         lastName: updatedUser.last_name,
         email: updatedUser.email,
-        phone: updatedUser.phone || "",
         role: updatedUser.role,
-        profileImage: updatedUser.profile_image || "",
         memberSince: updatedUser.created_at,
         status:
           updatedUser.role === "Admin" ? "Profile Updated" : "Customer",

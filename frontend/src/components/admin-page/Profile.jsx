@@ -6,7 +6,6 @@ function Profile() {
     firstName: "",
     lastName: "",
     email: "",
-    phone: "",
     role: "",
     status: "",
     memberSince: "",
@@ -212,23 +211,7 @@ function Profile() {
                     }
                     required
                   />
-                </div>
-                <div className="col-md-6">
-                  <label
-                    className="form-label small fw-bold text-uppercase text-muted"
-                    style={{ fontSize: "0.7rem" }}
-                  >
-                    Phone Number
-                  </label>
-                  <input
-                    type="text"
-                    className="form-control bg-light border-0 py-2"
-                    value={profile.phone || ""}
-                    onChange={(e) =>
-                      setProfile({ ...profile, phone: e.target.value })
-                    }
-                  />
-                </div>
+                </div>  
               </div>
               <div className="mt-5">
                 <button
