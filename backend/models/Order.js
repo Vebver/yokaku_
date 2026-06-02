@@ -81,12 +81,10 @@ const Order = {
 
   // 6. Link the table and update status to occupied
   linkTableToSession: async (conn, reservationId, tableId) => {
-    // 1. Insert into bridge table
     await conn.execute(
       `INSERT INTO reservation_tables (reservation_id, table_id, status, check_in_time) VALUES (?, ?, 'seated', NOW())`,
       [reservationId, tableId],
     );
-    // 2. Update master tables record
     return await conn.execute(
       `UPDATE tables SET status = 'occupied', available_seats = 0 WHERE table_id = ?`,
       [tableId],
@@ -95,41 +93,34 @@ const Order = {
 
   // 7. Release Table (Finish Button logic)
   releaseTable: async (conn, tableId, reservationId) => {
-    // 1. Mark table as available
     await conn.execute(
       `UPDATE tables SET status = 'available' WHERE table_id = ?`,
       [tableId],
     );
 
-    // 2. Mark the bridge record as completed
     await conn.execute(
       `UPDATE reservation_tables SET status = 'completed' WHERE reservation_id = ? AND table_id = ?`,
       [reservationId, tableId],
     );
 
-    // 3. Mark the main reservation as completed
     return await conn.execute(
       `UPDATE reservations SET status = 'completed' WHERE reservation_id = ?`,
       [reservationId],
     );
   },
 
-  // 8. Update Kitchen Status, Reservation Status, and Notify
+  // 8. Update Kitchen Status, Reservation Status, and Notify (Deduction Added)
   updateStatus: async (reservationId, status) => {
     const cleanStatus = status.toLowerCase(); // pending, preparing, ready, served
 
-    // --- A. Map Kitchen Status to Reservation Status ---
-    // Use statuses your database actually supports (usually 'seated' or 'completed')
     let reservationStatus = "seated";
     if (cleanStatus === "served" || cleanStatus === "completed") {
       reservationStatus = "completed";
     }
 
-    // --- B. Map Kitchen Status to Notification ENUM ---
-    // Your DB allowed: 'success', 'promo', 'info', 'alert'
     let notifType = "info";
     if (cleanStatus === "ready") {
-      notifType = "success"; // Green alert for "Ready"
+      notifType = "success"; 
     } else if (cleanStatus === "alert") {
       notifType = "alert";
     }
@@ -137,6 +128,31 @@ const Order = {
     const conn = await db.getConnection();
     try {
       await conn.beginTransaction();
+
+      // --- INVENTORY DEDUCTION TRANSACTION ---
+      // If status transitions to served or completed, we deduct linked ingredients
+      if (cleanStatus === "served" || cleanStatus === "completed") {
+        // Select active items to deduct. Excluding already served/completed orders avoids double deduction.
+        const [orders] = await conn.execute(
+          `SELECT item_id, quantity 
+           FROM kiosk_orders 
+           WHERE reservation_id = ? AND kitchen_status NOT IN ('served', 'completed')`,
+          [reservationId]
+        );
+
+        for (const order of orders) {
+          // Look up linked recipe ingredients
+          const ingredients = await Order.getIngredients(conn, order.item_id);
+          
+          for (const ingredient of ingredients) {
+            // total amount consumed = ordered quantity * ingredient amount per serving
+            const totalUsed = order.quantity * ingredient.quantity_required;
+            
+            // Run deduction and update status ('low stock', 'out of stock', or 'available')
+            await Order.updateInventory(conn, ingredient.inventory_id, totalUsed);
+          }
+        }
+      }
 
       // 1. Update kitchen status for all items in that reservation
       await conn.execute(
@@ -156,7 +172,7 @@ const Order = {
         [reservationId],
       );
 
-      // 4. Only create notification if user_id exists (not a walk-in order without user)
+      // 4. Only create notification if user_id exists
       if (
         resData.length > 0 &&
         resData[0].user_id &&
@@ -180,13 +196,13 @@ const Order = {
     } catch (error) {
       await conn.rollback();
       console.error("Database Transaction Error:", error);
-      throw error; // This sends the error back to the controller
+      throw error; 
     } finally {
       conn.release();
     }
   },
 
- getPreReservedItems: async (reservationId) => {
+  getPreReservedItems: async (reservationId) => {
     const query = `
       SELECT m.*, ri.quantity, ri.customizations 
       FROM menu_items m 
@@ -228,7 +244,6 @@ const Order = {
     ORDER BY ko.created_at DESC
   `);
 
-    // Group items by reservation_id
     const groupedOrders = {};
     rows.forEach((row) => {
       if (!groupedOrders[row.reservation_id]) {
@@ -237,7 +252,7 @@ const Order = {
           table: row.table,
           status: row.status,
           timestamp: row.timestamp,
-          allergy_note: row.allergy_note, // ← ADD THIS LINE
+          allergy_note: row.allergy_note, 
           items: [],
         };
       }

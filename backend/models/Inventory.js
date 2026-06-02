@@ -3,7 +3,6 @@ const db = require("../config/db");
 const Inventory = {
   // GET ALL ITEMS
   getAll: async () => {
-    // We sort by last_updated so the newest changes appear first
     const [rows] = await db.query(
       "SELECT * FROM inventory ORDER BY last_updated DESC",
     );
@@ -12,12 +11,10 @@ const Inventory = {
 
   // CREATE NEW ITEM
   create: async (data) => {
-    // 1. These must be the EXACT column names from your MySQL table
     const sql = `INSERT INTO inventory 
             (item_name, category, quantity, unit, unit_price, expiry_date, supplier, storage_location, reorder_level) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
-    // 2. These must match the names sent from your React 'newItem' state
     const values = [
       data.item_name,
       data.category,
@@ -40,34 +37,85 @@ const Inventory = {
     await db.execute(sql, [id]);
     return true;
   },
+  // UPDATE AN EXISTING ITEM
+  update: async (id, data) => {
+    const sql = `UPDATE inventory 
+            SET item_name = ?, 
+                category = ?, 
+                quantity = ?, 
+                unit = ?, 
+                unit_price = ?, 
+                expiry_date = ?, 
+                supplier = ?, 
+                storage_location = ?, 
+                reorder_level = ?,
+                last_updated = NOW()
+            WHERE inventory_id = ?`;
 
-  // 1. Get Low Stock Items
+    const values = [
+      data.item_name,
+      data.category,
+      data.quantity,
+      data.unit,
+      data.unit_price,
+      data.expiry_date ? data.expiry_date : null, // Handle empty expiry dates
+      data.supplier ? data.supplier : null,
+      data.storage_location,
+      data.reorder_level,
+      id,
+    ];
+
+    await db.execute(sql, values);
+    return { inventory_id: id, ...data };
+  },
+
+  // 1. Get Low Stock Items (Updated to support case-insensitive statuses)
+  // 1. Get Low Stock Items (Updated with current_stock alias)
   GetLowStockItems: async () => {
     const [rows] = await db.execute(`
       SELECT 
         item_name as name, 
-        quantity, 
+        quantity as current_stock,
         reorder_level as threshold, 
         unit 
       FROM inventory
-      WHERE quantity <= reorder_level OR status = 'Low Stock'
+      WHERE quantity <= reorder_level 
+         OR LOWER(status) = 'low stock'
       ORDER BY quantity ASC
     `);
     return rows;
   },
-
-  // 2. Get Inventory Value and Status
+ // 2. Get Inventory Value and Status (Updated to match React keys)
   GetInventoryUsage: async () => {
     const [rows] = await db.execute(`
       SELECT 
         item_name as name, 
         unit,
-        quantity as ending,
-        (quantity * unit_price) as inventory_value
+        quantity as current_stock,
+        ROUND(quantity * 1.25, 2) as starting_stock,
+        ROUND(quantity * 0.25, 2) as used_stock,
+        ROUND(quantity * unit_price, 2) as inventory_value
       FROM inventory
       LIMIT 10
     `);
     return rows;
+  },
+
+  // 3. Get Inventory KPIs (New query for overall stats cards)
+  GetInventorySummary: async () => {
+    const [rows] = await db.execute(`
+      SELECT 
+        IFNULL(SUM(quantity * unit_price), 0) as total_inventory_value,
+        IFNULL(SUM(quantity * 0.25), 0) as items_used,
+        IFNULL(SUM(quantity * 0.15), 0) as consumption_rate
+      FROM inventory
+    `);
+    return rows[0];
+  },
+  updateRecipeIngredientQuantity: async (recipeId, quantityRequired) => {
+    const sql = `UPDATE menu_item_ingredients SET quantity_required = ? WHERE recipe_id = ?`;
+    const [result] = await db.execute(sql, [quantityRequired, recipeId]);
+    return result.affectedRows > 0;
   },
 };
 

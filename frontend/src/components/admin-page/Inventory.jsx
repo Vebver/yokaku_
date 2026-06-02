@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
-import { 
-  Trash2, 
-  Package, 
-  Search, 
-  RefreshCw, 
-  ChevronLeft, 
-  ChevronRight, 
+import {
+  Trash2,
+  Package,
+  Search,
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
   AlertTriangle,
   Plus,
-  Box
+  Box,
+  Edit2,
 } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
@@ -20,6 +21,8 @@ function Inventory() {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editItemId, setEditItemId] = useState(null);
 
   const [newItem, setNewItem] = useState({
     item_name: "",
@@ -35,18 +38,22 @@ function Inventory() {
 
   const closeBtnRef = useRef(null);
 
-  // Helper to get auth header
   const getAuthHeader = () => {
     const token = localStorage.getItem("token");
     return { headers: { Authorization: `Bearer ${token}` } };
   };
 
-  useEffect(() => { fetchInventory(); }, []);
+  useEffect(() => {
+    fetchInventory();
+  }, []);
 
   const fetchInventory = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_BASE}/inventory`, getAuthHeader());
+      const response = await axios.get(
+        `${API_BASE}/inventory`,
+        getAuthHeader(),
+      );
       const mappedData = response.data.map((item) => ({
         id: item.inventory_id,
         name: item.item_name,
@@ -73,18 +80,61 @@ function Inventory() {
     setNewItem({ ...newItem, [name]: value });
   };
 
-  const handleAddItem = async (e) => {
+  const openAddMode = () => {
+    setIsEditMode(false);
+    setEditItemId(null);
+    setNewItem({
+      item_name: "",
+      category: "Produce",
+      quantity: "",
+      unit: "kg",
+      unit_price: "",
+      reorder_level: "",
+      expiry_date: "",
+      supplier: "",
+      storage_location: "Dry Pantry",
+    });
+  };
+
+  const openEditMode = (item) => {
+    setIsEditMode(true);
+    setEditItemId(item.id);
+
+    // Format date string to YYYY-MM-DD for standard html date input
+    const formattedExpiry = item.expiry
+      ? new Date(item.expiry).toISOString().split("T")[0]
+      : "";
+
+    setNewItem({
+      item_name: item.name,
+      category: item.category,
+      quantity: item.stock,
+      unit: item.unit,
+      unit_price: item.price,
+      reorder_level: item.reorder,
+      expiry_date: formattedExpiry,
+      supplier: item.supplier || "",
+      storage_location: item.location || "Dry Pantry",
+    });
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.post(`${API_BASE}/inventory`, newItem, getAuthHeader());
+      if (isEditMode) {
+        await axios.put(
+          `${API_BASE}/inventory/${editItemId}`,
+          newItem,
+          getAuthHeader(),
+        );
+      } else {
+        await axios.post(`${API_BASE}/inventory`, newItem, getAuthHeader());
+      }
       fetchInventory();
-      setNewItem({
-        item_name: "", category: "Produce", quantity: "", unit: "kg",
-        unit_price: "", reorder_level: "", expiry_date: "",
-        supplier: "", storage_location: "Dry Pantry",
-      });
       if (closeBtnRef.current) closeBtnRef.current.click();
-    } catch (err) { alert("Failed to add stock."); }
+    } catch (err) {
+      alert(isEditMode ? "Failed to update stock." : "Failed to add stock.");
+    }
   };
 
   const deleteItem = async (id) => {
@@ -92,7 +142,9 @@ function Inventory() {
       try {
         await axios.delete(`${API_BASE}/inventory/${id}`, getAuthHeader());
         fetchInventory();
-      } catch (err) { alert("Error deleting item."); }
+      } catch (err) {
+        alert("Error deleting item.");
+      }
     }
   };
 
@@ -102,50 +154,88 @@ function Inventory() {
     return diff <= 3;
   };
 
-  // FILTER & PAGINATION
-  const filtered = inventory.filter(item => 
-    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.category.toLowerCase().includes(searchTerm.toLowerCase())
+  const filtered = inventory.filter(
+    (item) =>
+      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.category.toLowerCase().includes(searchTerm.toLowerCase()),
   );
-  const currentItems = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const currentItems = filtered.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage,
+  );
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
 
-  if (loading) return <div className="p-5 text-center"><RefreshCw className="animate-spin text-primary mx-auto" /></div>;
+  if (loading)
+    return (
+      <div className="p-5 text-center">
+        <RefreshCw className="animate-spin text-primary mx-auto" />
+      </div>
+    );
 
   return (
-    <div className="container-fluid py-3 py-md-4 text-dark bg-light" style={{ minHeight: '100vh' }}>
-      
-      {/* RESPONSIVE HEADER */}
+    <div
+      className="container-fluid py-3 py-md-4 text-dark bg-light"
+      style={{ minHeight: "100vh" }}
+    >
       <div className="row g-3 align-items-center mb-4 px-2">
         <div className="col-12 col-lg-4">
           <h2 className="fw-bold mb-0">Kitchen Inventory</h2>
-          <p className="text-muted small mb-0">Manage raw materials and stock levels</p>
+          <p className="text-muted small mb-0">
+            Manage raw materials and stock levels
+          </p>
         </div>
 
         <div className="col-12 col-md-8 col-lg-5">
-          <div className="d-flex align-items-center bg-white rounded-3 border shadow-sm px-3" style={{ height: '45px' }}>
+          <div
+            className="d-flex align-items-center bg-white rounded-3 border shadow-sm px-3"
+            style={{ height: "45px" }}
+          >
             <Search size={18} className="text-muted flex-shrink-0" />
             <input
               type="text"
               className="form-control border-0 bg-transparent shadow-none w-100 ms-2"
               placeholder="Search inventory items..."
               value={searchTerm}
-              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
             />
           </div>
         </div>
 
-        <div className="col-12 col-md-4 col-lg-3 text-md-end">
-          <button className="btn btn-primary w-100 py-2 fw-bold shadow-sm" data-bs-toggle="offcanvas" data-bs-target="#addInvDrawer">
-            <Plus size={18} className="me-1" /> Receive Stock
+        {/* ALIGNED REFRESH & RECEIVE STOCK BUTTON GROUP */}
+        <div className="col-12 col-md-4 col-lg-3 d-flex gap-2 align-items-center justify-content-md-end">
+          {/* Square Refresh Button */}
+          <button
+            className="btn btn-light border shadow-sm d-flex align-items-center justify-content-center flex-shrink-0"
+            style={{ height: "45px", width: "45px" }}
+            onClick={fetchInventory}
+            title="Refresh Inventory"
+            type="button"
+          >
+            <RefreshCw size={18} className="text-muted" />
+          </button>
+
+          {/* Receive Stock Button matching 45px height */}
+          <button
+            className="btn btn-primary fw-bold shadow-sm d-flex align-items-center justify-content-center w-100"
+            style={{ height: "45px" }}
+            data-bs-toggle="offcanvas"
+            data-bs-target="#addInvDrawer"
+            onClick={openAddMode}
+          >
+            <Plus size={18} className="me-1 flex-shrink-0" /> Receive Stock
           </button>
         </div>
       </div>
 
-      {/* TABLE */}
       <div className="card border-0 shadow-sm rounded-4 overflow-hidden mx-2">
         <div className="table-responsive">
-          <table className="table table-hover align-middle mb-0" style={{ minWidth: '1100px' }}>
+          <table
+            className="table table-hover align-middle mb-0"
+            style={{ minWidth: "1100px" }}
+          >
             <thead className="bg-light border-bottom">
               <tr className="text-muted x-small text-uppercase">
                 <th className="ps-4 py-3">Item Name</th>
@@ -162,32 +252,78 @@ function Inventory() {
               {currentItems.map((item) => (
                 <tr key={item.id}>
                   <td className="ps-4">
-                    <div className="fw-bold text-dark">{item.name}</div>  
+                    <div className="fw-bold text-dark">{item.name}</div>
                   </td>
-                  <td><span className="badge bg-white text-dark border fw-normal">{item.category}</span></td>
                   <td>
-                    <div className={`fw-bold ${item.stock <= item.reorder ? 'text-danger' : 'text-dark'}`}>
-                      {item.stock} <small className="text-muted fw-normal">{item.unit}</small>
-                    </div>
-                    <div className="x-small text-muted">Reorder at: {item.reorder}</div>
-                  </td>
-                  <td className="fw-bold text-success">₱{Number(item.price).toFixed(2)}</td>
-                  <td>
-                    <span className={`badge rounded-pill px-2 py-1 x-small ${
-                      item.stock <= 0 ? 'bg-danger' : item.stock <= item.reorder ? 'bg-warning text-dark' : 'bg-success'
-                    }`}>
-                      {item.stock <= 0 ? 'OUT OF STOCK' : item.stock <= item.reorder ? 'LOW STOCK' : 'HEALTHY'}
+                    <span className="badge bg-white text-dark border fw-normal">
+                      {item.category}
                     </span>
                   </td>
                   <td>
-                    {isExpiringSoon(item.expiry) && <AlertTriangle size={12} className="text-danger me-1" />}
-                    <span className={isExpiringSoon(item.expiry) ? "text-danger fw-bold" : "text-muted small"}>
-                      {item.expiry ? new Date(item.expiry).toLocaleDateString() : "---"}
+                    <div
+                      className={`fw-bold ${item.stock <= item.reorder ? "text-danger" : "text-dark"}`}
+                    >
+                      {item.stock}{" "}
+                      <small className="text-muted fw-normal">
+                        {item.unit}
+                      </small>
+                    </div>
+                    <div className="x-small text-muted">
+                      Reorder at: {item.reorder}
+                    </div>
+                  </td>
+                  <td className="fw-bold text-success">
+                    ₱{Number(item.price).toFixed(2)}
+                  </td>
+                  <td>
+                    <span
+                      className={`badge rounded-pill px-2 py-1 x-small ${
+                        item.stock <= 0
+                          ? "bg-danger"
+                          : item.stock <= item.reorder
+                            ? "bg-warning text-dark"
+                            : "bg-success"
+                      }`}
+                    >
+                      {item.stock <= 0
+                        ? "OUT OF STOCK"
+                        : item.stock <= item.reorder
+                          ? "LOW STOCK"
+                          : "HEALTHY"}
+                    </span>
+                  </td>
+                  <td>
+                    {isExpiringSoon(item.expiry) && (
+                      <AlertTriangle size={12} className="text-danger me-1" />
+                    )}
+                    <span
+                      className={
+                        isExpiringSoon(item.expiry)
+                          ? "text-danger fw-bold"
+                          : "text-muted small"
+                      }
+                    >
+                      {item.expiry
+                        ? new Date(item.expiry).toLocaleDateString()
+                        : "---"}
                     </span>
                   </td>
                   <td className="small text-muted">{item.supplier || "---"}</td>
                   <td className="text-end pe-4">
-                    <button className="btn btn-sm btn-outline-danger border-0" onClick={() => deleteItem(item.id)}><Trash2 size={16} /></button>
+                    <button
+                      className="btn btn-sm btn-outline-primary border-0 me-1"
+                      data-bs-toggle="offcanvas"
+                      data-bs-target="#addInvDrawer"
+                      onClick={() => openEditMode(item)}
+                    >
+                      <Edit2 size={16} />
+                    </button>
+                    <button
+                      className="btn btn-sm btn-outline-danger border-0"
+                      onClick={() => deleteItem(item.id)}
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -196,42 +332,184 @@ function Inventory() {
         </div>
       </div>
 
-      {/* PAGINATION */}
       <div className="mt-4 px-3 d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
-        <span className="small text-muted">Showing {currentItems.length} of {filtered.length} items</span>
+        <span className="small text-muted">
+          Showing {currentItems.length} of {filtered.length} items
+        </span>
         <div className="btn-group shadow-sm bg-white rounded border overflow-hidden">
-          <button className="btn btn-sm btn-white border-0 px-3" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}><ChevronLeft size={16} /></button>
-          <span className="btn btn-sm disabled border-0 px-3 text-dark fw-bold bg-white">Page {currentPage} of {totalPages || 1}</span>
-          <button className="btn btn-sm btn-white border-0 px-3" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(p => p + 1)}><ChevronRight size={16} /></button>
+          <button
+            className="btn btn-sm btn-white border-0 px-3"
+            disabled={currentPage === 1}
+            onClick={() => setCurrentPage((p) => p - 1)}
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <span className="btn btn-sm disabled border-0 px-3 text-dark fw-bold bg-white">
+            Page {currentPage} of {totalPages || 1}
+          </span>
+          <button
+            className="btn btn-sm btn-white border-0 px-3"
+            disabled={currentPage >= totalPages}
+            onClick={() => setCurrentPage((p) => p + 1)}
+          >
+            <ChevronRight size={16} />
+          </button>
         </div>
       </div>
 
-      {/* DRAWER */}
-      <div className="offcanvas offcanvas-end border-0 shadow" id="addInvDrawer" data-bs-backdrop="false" style={{ width: "min(100%, 500px)" }}>
+      {/* DRAWER FOR BOTH ADD & EDIT */}
+      <div
+        className="offcanvas offcanvas-end border-0 shadow"
+        id="addInvDrawer"
+        data-bs-backdrop="false"
+        style={{ width: "min(100%, 500px)" }}
+      >
         <div className="offcanvas-header border-bottom">
-          <h5 className="fw-bold m-0"><Box size={20} className="me-2 text-primary" />Receive New Stock</h5>
-          <button type="button" className="btn-close" data-bs-dismiss="offcanvas" ref={closeBtnRef}></button>
+          <h5 className="fw-bold m-0">
+            <Box size={20} className="me-2 text-primary" />
+            {isEditMode ? "Edit Inventory Stock" : "Receive New Stock"}
+          </h5>
+          <button
+            type="button"
+            className="btn-close"
+            data-bs-dismiss="offcanvas"
+            ref={closeBtnRef}
+          ></button>
         </div>
         <div className="offcanvas-body">
-          <form onSubmit={handleAddItem} className="d-flex flex-column gap-3">
-             <div className="row g-2">
-                <div className="col-12"><label className="x-small fw-bold text-muted">ITEM NAME</label><input type="text" name="item_name" className="form-control" onChange={handleInputChange} required /></div>
-                <div className="col-6"><label className="x-small fw-bold text-muted">CATEGORY</label><select name="category" className="form-select" onChange={handleInputChange}><option value="Meat">Meat</option><option value="Dairy">Dairy</option><option value="Produce">Produce</option><option value="Dry Goods">Dry Goods</option></select></div>
-                <div className="col-6"><label className="x-small fw-bold text-muted">STORAGE</label><select name="storage_location" className="form-select" onChange={handleInputChange}><option value="Dry Pantry">Dry Pantry</option><option value="Fridge">Fridge</option><option value="Freezer">Freezer</option></select></div>
-             </div>
-             <div className="row g-2">
-                <div className="col-4"><label className="x-small fw-bold text-muted">QTY</label><input type="number" name="quantity" className="form-control" onChange={handleInputChange} required /></div>
-                <div className="col-4"><label className="x-small fw-bold text-muted">UNIT</label><select name="unit" className="form-select" onChange={handleInputChange}><option value="kg">kg</option><option value="L">L</option><option value="pcs">pcs</option></select></div>
-                <div className="col-4"><label className="x-small fw-bold text-muted">COST (₱)</label><input type="number" step="0.01" name="unit_price" className="form-control" onChange={handleInputChange} required /></div>
-             </div>
-             <div className="row g-2">
-                <div className="col-6"><label className="x-small fw-bold text-muted">EXPIRY DATE</label><input type="date" name="expiry_date" className="form-control" onChange={handleInputChange} /></div>
-                <div className="col-6"><label className="x-small fw-bold text-muted">REORDER LVL</label><input type="number" name="reorder_level" className="form-control" onChange={handleInputChange} required /></div>
-             </div>
-             <div className="mt-2">
-                <button type="submit" className="btn btn-primary w-100 py-2 fw-bold shadow-sm">Save to Inventory</button>
-                <button type="button" className="btn btn-light w-100 mt-2 x-small border" data-bs-dismiss="offcanvas">Cancel</button>
-             </div>
+          <form onSubmit={handleSubmit} className="d-flex flex-column gap-3">
+            <div className="row g-2">
+              <div className="col-12">
+                <label className="x-small fw-bold text-muted">ITEM NAME</label>
+                <input
+                  type="text"
+                  name="item_name"
+                  value={newItem.item_name}
+                  className="form-control"
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              <div className="col-6">
+                <label className="x-small fw-bold text-muted">CATEGORY</label>
+                <select
+                  name="category"
+                  value={newItem.category}
+                  className="form-select"
+                  onChange={handleInputChange}
+                >
+                  <option value="Meat">Meat</option>
+                  <option value="Dairy">Dairy</option>
+                  <option value="Produce">Produce</option>
+                  <option value="Dry Goods">Dry Goods</option>
+                </select>
+              </div>
+              <div className="col-6">
+                <label className="x-small fw-bold text-muted">STORAGE</label>
+                <select
+                  name="storage_location"
+                  value={newItem.storage_location}
+                  className="form-select"
+                  onChange={handleInputChange}
+                >
+                  <option value="Dry Pantry">Dry Pantry</option>
+                  <option value="Fridge">Fridge</option>
+                  <option value="Freezer">Freezer</option>
+                </select>
+              </div>
+            </div>
+            <div className="row g-2">
+              <div className="col-4">
+                <label className="x-small fw-bold text-muted">QTY</label>
+                <input
+                  type="number"
+                  name="quantity"
+                  value={newItem.quantity}
+                  className="form-control"
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              <div className="col-4">
+                <label className="x-small fw-bold text-muted">UNIT</label>
+                <select
+                  name="unit"
+                  value={newItem.unit}
+                  className="form-select"
+                  onChange={handleInputChange}
+                >
+                  <option value="kg">kg</option>
+                  <option value="L">L</option>
+                  <option value="pcs">pcs</option>
+                </select>
+              </div>
+              <div className="col-4">
+                <label className="x-small fw-bold text-muted">COST (₱)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  name="unit_price"
+                  value={newItem.unit_price}
+                  className="form-control"
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+            </div>
+            <div className="row g-2">
+              <div className="col-6">
+                <label className="x-small fw-bold text-muted">
+                  EXPIRY DATE
+                </label>
+                <input
+                  type="date"
+                  name="expiry_date"
+                  value={newItem.expiry_date}
+                  className="form-control"
+                  onChange={handleInputChange}
+                />
+              </div>
+              <div className="col-6">
+                <label className="x-small fw-bold text-muted">
+                  REORDER LVL
+                </label>
+                <input
+                  type="number"
+                  name="reorder_level"
+                  value={newItem.reorder_level}
+                  className="form-control"
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+            </div>
+            <div className="row g-2">
+              <div className="col-12">
+                <label className="x-small fw-bold text-muted">SUPPLIER</label>
+                <input
+                  type="text"
+                  name="supplier"
+                  value={newItem.supplier}
+                  className="form-control"
+                  onChange={handleInputChange}
+                />
+              </div>
+            </div>
+            <div className="mt-2">
+              <button
+                type="submit"
+                className="btn btn-primary w-100 py-2 fw-bold shadow-sm"
+              >
+                {isEditMode ? "Save Changes" : "Save to Inventory"}
+              </button>
+              <button
+                type="button"
+                className="btn btn-light w-100 mt-2 x-small border"
+                data-bs-dismiss="offcanvas"
+              >
+                Cancel
+              </button>
+            </div>
           </form>
         </div>
       </div>

@@ -24,6 +24,19 @@ const InventoryReport = ({ data }) => {
   const consumptionRate = summary?.consumption_rate || 0;
   const reorderItems = summary?.reorder_items || 0;
 
+
+  const fetchReportData = async () => {
+  try {
+    const response = await axios.get(`${API_BASE}/reports`, getAuthHeader());
+    
+    // Add this line to inspect the exact payload in your browser console:
+    console.log("INVENTORY REPORT DATA RECEIVED:", response.data);
+    
+    setReportData(response.data.data);
+  } catch (err) {
+    console.error(err);
+  }
+};
   const formatCurrency = (num) =>
     new Intl.NumberFormat("en-PH", {
       style: "currency",
@@ -222,17 +235,6 @@ const InventoryReport = ({ data }) => {
                         </div>
                         <small className="text-muted">
                           Urgent (&lt;5 units)
-                        </small>
-                      </div>
-                    </div>
-                    <div className="col-6">
-                      <div className="bg-warning bg-opacity-10 rounded-3 p-2 text-center">
-                        <Clock size={14} className="text-warning mb-1" />
-                        <div className="fw-bold text-warning">
-                          {warningLowStock}
-                        </div>
-                        <small className="text-muted">
-                          Warning (&lt;10 units)
                         </small>
                       </div>
                     </div>

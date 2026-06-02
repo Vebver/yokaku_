@@ -222,68 +222,69 @@ const ProductPerformance = ({ data }) => {
                       <th className="fw-semibold text-end pe-4">Revenue</th>
                     </tr>
                   </thead>
-                  <tbody>
-                    {currentTopItems.length > 0 ? (
-                      currentTopItems.map((p, i) => {
-                        const rank = topIndexOfFirstItem + i + 1;
-                        return (
-                          <tr key={i}>
-                            <td className="py-3 ps-4">
-                              <div className="d-flex align-items-center gap-3">
-                                <div
-                                  className={`rounded-circle d-flex align-items-center justify-content-center fw-bold ${rank === 1 ? "bg-warning text-white" : "bg-light text-dark"}`}
-                                  style={{
-                                    width: "32px",
-                                    height: "32px",
-                                    fontSize: "14px",
-                                    flexShrink: 0,
-                                  }}
-                                >
-                                  {rank === 1 ? "👑" : rank}
-                                </div>
-                                <div>
-                                  <div className="fw-semibold text-dark">
-                                    {p.name}
-                                    {rank === 1 && (
-                                      <span
-                                        className="ms-2 badge bg-warning text-dark rounded-pill"
-                                        style={{
-                                          fontSize: "10px",
-                                          fontWeight: "600",
-                                        }}
-                                      >
-                                        BEST SELLER
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="text-center">
-                              <span className="fw-semibold">
-                                {p.total_sold}
-                              </span>
-                              <small className="text-muted d-block">
-                                units
-                              </small>
-                            </td>
-                            <td className="text-end pe-4">
-                              <span className="fw-bold text-primary">
-                                {formatCurrency(p.total_revenue)}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    ) : (
-                      <tr>
-                        <td colSpan="3" className="text-center py-5 text-muted">
-                          <Package size={40} className="mb-3 opacity-25" />
-                          <p>No sales data available</p>
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
+                 <tbody>
+  {currentTopItems.length > 0 ? (
+    currentTopItems.map((p, i) => {
+      const rank = topIndexOfFirstItem + i + 1;
+      return (
+        <tr key={i}>
+          <td className="py-3 ps-4">
+            <div className="d-flex align-items-center gap-3">
+              <div
+                className={`rounded-circle d-flex align-items-center justify-content-center fw-bold ${rank === 1 ? "bg-warning text-white" : "bg-light text-dark"}`}
+                style={{
+                  width: "32px",
+                  height: "32px",
+                  fontSize: "14px",
+                  flexShrink: 0,
+                }}
+              >
+                {/* Changed from {rank === 1 ? "👑" : rank} to just {rank} */}
+                {rank}
+              </div>
+              <div>
+                <div className="fw-semibold text-dark">
+                  {p.name}
+                  {rank === 1 && (
+                    <span
+                      className="ms-2 badge bg-warning text-dark rounded-pill"
+                      style={{
+                        fontSize: "10px",
+                        fontWeight: "600",
+                      }}
+                    >
+                      BEST SELLER
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </td>
+          <td className="text-center">
+            <span className="fw-semibold">
+              {p.total_sold}
+            </span>
+            <small className="text-muted d-block">
+              units
+            </small>
+          </td>
+          <td className="text-end pe-4">
+            <span className="fw-bold text-primary">
+              {formatCurrency(p.total_revenue)}
+            </span>
+          </td>
+        </tr>
+      );
+    })
+  ) : (
+    <tr>
+      <td colSpan="3" className="text-center py-5 text-muted">
+        <Package size={40} className="mb-3 opacity-25" />
+        <p>No sales data available</p>
+      </td>
+    </tr>
+  )}
+</tbody>
                 </table>
               </div>
             </div>

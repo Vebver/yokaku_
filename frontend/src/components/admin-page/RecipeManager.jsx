@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { Trash2, Plus, Info, BookOpen, Loader2, Package, Search } from "lucide-react";
+import { Trash2, Plus, Info, BookOpen, Loader2, Package, Edit2, Check, X } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
@@ -13,11 +13,14 @@ function RecipeManager() {
   const [loadingRecipe, setLoadingRecipe] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
+  // Edit Link State
+  const [editingRecipeId, setEditingRecipeId] = useState(null);
+  const [editQty, setEditQty] = useState("");
+
   // Form State
   const [ingredientId, setIngredientId] = useState("");
   const [qtyNeeded, setQtyNeeded] = useState("");
 
-  // Helper to get the auth header
   const getAuthHeader = () => {
     const token = localStorage.getItem("token");
     return { headers: { Authorization: `Bearer ${token}` } };
@@ -35,7 +38,6 @@ function RecipeManager() {
   const fetchBaseData = async () => {
     try {
       setLoading(true);
-      // Added getAuthHeader() to both requests
       const [menuRes, invRes] = await Promise.all([
         axios.get(`${API_BASE}/products`, getAuthHeader()),
         axios.get(`${API_BASE}/inventory`, getAuthHeader()),
@@ -54,7 +56,7 @@ function RecipeManager() {
       setLoadingRecipe(true);
       const res = await axios.get(
         `${API_BASE}/products/${selectedItemId}/ingredients`,
-        getAuthHeader() // Added header
+        getAuthHeader()
       );
       setCurrentRecipe(res.data);
     } catch (err) {
@@ -73,7 +75,7 @@ function RecipeManager() {
       await axios.post(
         `${API_BASE}/products/${selectedItemId}/ingredients`,
         { inventory_id: ingredientId, quantity_required: qtyNeeded },
-        getAuthHeader() // Added header
+        getAuthHeader()
       );
       setQtyNeeded("");
       setIngredientId("");
@@ -83,12 +85,34 @@ function RecipeManager() {
     }
   };
 
+  // Turn on edit mode for selected ingredient
+  const startEditIngredient = (ing) => {
+    setEditingRecipeId(ing.recipe_id);
+    setEditQty(ing.quantity_required);
+  };
+
+  // Submit PUT request to update ingredient quantity
+  const saveEditedIngredient = async (recipeId) => {
+    if (!editQty || Number(editQty) <= 0) return alert("Enter a valid quantity");
+    try {
+      await axios.put(
+        `${API_BASE}/products/ingredients/${recipeId}`,
+        { quantity_required: editQty },
+        getAuthHeader()
+      );
+      setEditingRecipeId(null);
+      fetchCurrentRecipe();
+    } catch (err) {
+      alert("Error updating ingredient link value");
+    }
+  };
+
   const removeIngredient = async (recipeId) => {
     if (!window.confirm("Remove this ingredient?")) return;
     try {
       await axios.delete(
         `${API_BASE}/products/ingredients/${recipeId}`,
-        getAuthHeader() // Added header
+        getAuthHeader()
       );
       fetchCurrentRecipe();
     } catch (err) {
@@ -105,7 +129,6 @@ function RecipeManager() {
   return (
     <div className="container-fluid py-3 py-md-4 text-dark bg-light" style={{ minHeight: '100vh' }}>
       
-      {/* RESPONSIVE HEADER */}
       <div className="row align-items-center mb-4 px-2">
         <div className="col-12 col-md-8">
           <h2 className="fw-bold mb-1">Recipe Manager</h2>
@@ -117,7 +140,6 @@ function RecipeManager() {
       </div>
 
       <div className="row g-3 px-2">
-        {/* 1. SELECT PRODUCT CARD */}
         <div className="col-12 col-lg-4">
           <div className="card border-0 shadow-sm rounded-4 h-100 overflow-hidden">
             <div className="bg-primary p-3 text-white d-flex align-items-center gap-2">
@@ -162,7 +184,6 @@ function RecipeManager() {
           </div>
         </div>
 
-        {/* 2. MANAGE INGREDIENTS CARD */}
         <div className="col-12 col-lg-8">
           <div className="card border-0 shadow-sm rounded-4 h-100 overflow-hidden bg-white">
             <div className="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center">
@@ -176,7 +197,6 @@ function RecipeManager() {
             <div className="card-body p-3 p-md-4">
               {selectedItemId ? (
                 <>
-                  {/* ADD INGREDIENT FORM */}
                   <form className="row g-2 mb-4 p-3 bg-light rounded-3 border" onSubmit={handleAddIngredient}>
                     <div className="col-12 col-md-6">
                       <label className="x-small fw-bold text-muted mb-1 d-block">SELECT MATERIAL</label>
@@ -213,7 +233,6 @@ function RecipeManager() {
                     </div>
                   </form>
 
-                  {/* INGREDIENTS TABLE */}
                   <div className="table-responsive">
                     <table className="table table-hover align-middle mb-0">
                       <thead className="bg-light">
@@ -230,11 +249,57 @@ function RecipeManager() {
                           currentRecipe.map((ing) => (
                             <tr key={ing.recipe_id}>
                               <td className="ps-3 fw-bold small text-dark">{ing.item_name}</td>
-                              <td><span className="badge bg-light text-dark border fw-normal">{ing.quantity_required} {ing.unit}</span></td>
+                              
+                              <td>
+                                {editingRecipeId === ing.recipe_id ? (
+                                  <div className="d-flex align-items-center gap-1" style={{ maxWidth: '140px' }}>
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      className="form-control form-control-sm"
+                                      value={editQty}
+                                      onChange={(e) => setEditQty(e.target.value)}
+                                      autoFocus
+                                    />
+                                    <span className="small text-muted">{ing.unit}</span>
+                                  </div>
+                                ) : (
+                                  <span className="badge bg-light text-dark border fw-normal">{ing.quantity_required} {ing.unit}</span>
+                                )}
+                              </td>
+
                               <td className="text-end pe-3">
-                                <button className="btn btn-sm btn-outline-danger border-0 p-2 shadow-none" onClick={() => removeIngredient(ing.recipe_id)}>
-                                  <Trash2 size={16} />
-                                </button>
+                                {editingRecipeId === ing.recipe_id ? (
+                                  <>
+                                    <button 
+                                      className="btn btn-sm btn-outline-success border-0 p-2 me-1 shadow-none" 
+                                      onClick={() => saveEditedIngredient(ing.recipe_id)}
+                                    >
+                                      <Check size={16} />
+                                    </button>
+                                    <button 
+                                      className="btn btn-sm btn-outline-secondary border-0 p-2 shadow-none" 
+                                      onClick={() => setEditingRecipeId(null)}
+                                    >
+                                      <X size={16} />
+                                    </button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button 
+                                      className="btn btn-sm btn-outline-primary border-0 p-2 me-1 shadow-none" 
+                                      onClick={() => startEditIngredient(ing)}
+                                    >
+                                      <Edit2 size={16} />
+                                    </button>
+                                    <button 
+                                      className="btn btn-sm btn-outline-danger border-0 p-2 shadow-none" 
+                                      onClick={() => removeIngredient(ing.recipe_id)}
+                                    >
+                                      <Trash2 size={16} />
+                                    </button>
+                                  </>
+                                )}
                               </td>
                             </tr>
                           ))
