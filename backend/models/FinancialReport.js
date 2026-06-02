@@ -2,7 +2,7 @@
 const db = require("../config/db");
 
 const FinancialReport = {
-  // 1. Fetches daily/monthly overview KPIs, total counts, and averages
+  // 1. Used in both Reports and Dashboard
   getFinancialStats: async () => {
     const query = `
       SELECT 
@@ -22,7 +22,7 @@ const FinancialReport = {
     return rows[0];
   },
 
-  // 2. Fetches monthly values for the Monthly Tab & Table
+  // 2. Used in Reports
   getMonthlyTrend: async () => {
     const [rows] = await db.execute(`
       SELECT DATE_FORMAT(d, '%b %Y') as label, SUM(amount) as value
@@ -35,7 +35,24 @@ const FinancialReport = {
     return rows;
   },
 
-  // 3. Fetches daily values for the Weekly Tab & Table
+  // 3. Used in Dashboard (Restored)
+  getRecentTrend: async () => {
+    const query = `
+      SELECT DATE_FORMAT(d, '%a') as label, SUM(amount) as value
+      FROM (
+        SELECT paid_at as d, amount FROM payments WHERE payment_status = 'verified'
+        UNION ALL
+        SELECT created_at as d, (ko.quantity * m.price) as amount 
+        FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
+      ) as combined 
+      WHERE d >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+      GROUP BY DATE(d), label
+      ORDER BY DATE(d) ASC`;
+    const [rows] = await db.execute(query);
+    return rows;
+  },
+
+  // 4. Used in Reports
   getWeeklyProfitTrend: async (days = 13) => {
     const [rows] = await db.execute(`
       SELECT DATE_FORMAT(d, '%b %e') as label, SUM(amount) as value
@@ -53,7 +70,7 @@ const FinancialReport = {
     return rows;
   },
 
-  // 4. Fetches yearly values for the Yearly Tab & Table
+  // 5. Used in Reports
   getYearlyProfitTrend: async (years = 5) => {
     const [rows] = await db.execute(`
       SELECT DATE_FORMAT(d, '%Y') as label, SUM(amount) as value

@@ -20,17 +20,17 @@ getDashboardStats: async (req, res) => {
       const revenueTrend = trendData ? trendData.map(t => Number(t.value || 0)) : [0,0,0,0,0,0,0];
       const trendLabels = trendData ? trendData.map(t => t.label || "") : ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 
-      // 2. SYNC LOGIC: Sum the 7-day trend to get the total
-      const calculatedTotal = revenueTrend.reduce((a, b) => a + b, 0);
+      // 2. Sum the 7-day trend to get the total weekly revenue
+      const calculatedWeeklyTotal = revenueTrend.reduce((a, b) => a + b, 0);
 
-      // 3. Send names that match your React state exactly
+      // 3. Send response with both key formats to prevent dashboard state mismatches
       res.json({
         totalBookings: quickStats.totalBookings,
         activeTables: quickStats.activeTables,
         kitchenQueue: quickStats.kitchenQueue,
         
-        // If calculatedTotal is 0, fall back to the Monthly DB query
-        monthlyRevenue: calculatedTotal > 0 ? calculatedTotal : Number(finStats?.monthly_revenue || 0),
+        weeklyRevenue: calculatedWeeklyTotal, // Exposes calculated weekly total to your dashboard card
+        monthlyRevenue: Number(finStats?.monthly_revenue || 0),
         todayRevenue: Number(finStats?.today_revenue || 0),
         avgOrder: Number(finStats?.aov || 0),
         totalOrders: Number(finStats?.total_orders || 0),
@@ -158,15 +158,6 @@ getDashboardStats: async (req, res) => {
       console.error("REPORT ERROR:", error);
       res.status(500).json({ success: false, error: error.message });
     }
-  },
-  resetNoShows: async (req, res) => {
-    const { userId } = req.params;
-    // Mark all 'no-show' reservations as 'cancelled' so they don't count towards strikes
-    await db.query(
-      "UPDATE reservations SET status = 'cancelled' WHERE user_id = ? AND status = 'no-show'",
-      [userId],
-    );
-    res.json({ message: "No-show strikes reset." });
   },
 };
 
