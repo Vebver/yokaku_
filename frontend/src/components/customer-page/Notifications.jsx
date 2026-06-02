@@ -208,10 +208,26 @@ const Notifications = () => {
     return `${hour12}:${minutes} ${ampm}`;
   };
 
-  // Extract reservation ID from message
-  const extractReservationId = (message) => {
-    const match = message.match(/Reservation ID: ([A-Z0-9-]+)/i);
-    return match ? match[1] : null;
+  // Extract reservation ID from notification (checks multiple sources)
+  const getReservationId = (notification) => {
+    // First check if the notification has a reservation_id field
+    if (notification.reservation_id && notification.reservation_id !== "null") {
+      return notification.reservation_id;
+    }
+
+    // Then try to find in message
+    let match = notification.message?.match(/Reservation ID: ([A-Z0-9-]+)/i);
+    if (match) return match[1];
+
+    // Try to find in title
+    match = notification.title?.match(/([A-Z0-9-]+)/i);
+    if (match) return match[1];
+
+    // Try to find any alphanumeric pattern that looks like an ID (8+ characters)
+    match = notification.message?.match(/([A-Z0-9]{8,})/i);
+    if (match) return match[1];
+
+    return null;
   };
 
   return (
@@ -256,7 +272,7 @@ const Notifications = () => {
               <div className="loading-spinner">Loading notifications...</div>
             ) : notifications.length > 0 ? (
               notifications.map((notif) => {
-                const reservationId = extractReservationId(notif.message);
+                const reservationId = getReservationId(notif);
                 return (
                   <div
                     key={notif.notification_id}
