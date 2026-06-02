@@ -62,6 +62,22 @@ const OnlineReservations = () => {
       setLoadingItems(false);
     }
   };
+  const formatTime = (timeStr) => {
+    if (!timeStr) return "--:--";
+
+    // Split the time string (e.g. "17:00" or "17:00:00")
+    const parts = timeStr.split(":");
+    if (parts.length < 2) return timeStr;
+
+    let hours = parseInt(parts[0], 10);
+    const minutes = parts[1];
+    const ampm = hours >= 12 ? "PM" : "AM";
+
+    hours = hours % 12;
+    hours = hours ? hours : 12; // Convert '0' to '12'
+
+    return `${hours}:${minutes} ${ampm}`;
+  };
 
   // Helper for Status Colors
   const getStatusBadge = (s) => {
@@ -275,7 +291,7 @@ const OnlineReservations = () => {
                       Guests
                     </div>
                     <div className="small fw-bold">
-                      {selectedRes.pax || "0"} Pax
+                      {selectedRes.num_guests || "0"} Pax
                     </div>
                   </div>
                   <div className="col-4">
@@ -288,14 +304,15 @@ const OnlineReservations = () => {
                         if (v === true) return "Yes";
                         if (typeof v === "string") {
                           const s = v.trim().toLowerCase();
-                          if (["yes", "y", "true", "1"].includes(s)) return "Yes";
-                          if (["no", "n", "false", "0", ""].includes(s)) return "No";
+                          if (["yes", "y", "true", "1"].includes(s))
+                            return "Yes";
+                          if (["no", "n", "false", "0", ""].includes(s))
+                            return "No";
                         }
                         return "No";
                       })()}
                     </div>
                   </div>
-
                 </div>
               </div>
 
@@ -310,22 +327,31 @@ const OnlineReservations = () => {
                   </div>
                   <div className="small fw-bold">
                     <span className="text-muted">
-                      {selectedRes.reservation_time || "--:--"}
+                      {selectedRes.reservation_time
+                        ? formatTime(selectedRes.reservation_time)
+                        : "--:--"}
                     </span>
                     <ChevronRight size={14} className="mx-1 text-muted" />
                     <span className="text-dark">
-                      {selectedRes.end_time || "Active"}
+                      {selectedRes.end_time
+                        ? formatTime(selectedRes.end_time)
+                        : "Active"}
                     </span>
                   </div>
                 </div>
                 <div className="x-small text-muted">
-                  {selectedRes.reservation_time || "--:--"} -{" "}
-                  {selectedRes.end_time || "--:--"} : {selectedRes.status || "--"}
+                  {selectedRes.reservation_time
+                    ? formatTime(selectedRes.reservation_time)
+                    : "--:--"}{" "}
+                  -{" "}
+                  {selectedRes.end_time
+                    ? formatTime(selectedRes.end_time)
+                    : "--:--"}{" "}
+                  : {selectedRes.status || "--"}
                 </div>
 
-
                 {selectedRes.allergies && (
-                  <div className="p-2 bg-warning-subtle rounded border border-warning-subtle d-flex gap-2">
+                  <div className="p-2 bg-warning-subtle rounded border border-warning-subtle d-flex gap-2 mt-2">
                     <Info
                       size={14}
                       className="text-warning mt-1 flex-shrink-0"
