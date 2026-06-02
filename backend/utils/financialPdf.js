@@ -2,7 +2,8 @@ const PDFDocument = require("pdfkit");
 
 function formatCurrencyPHP(amount) {
   const n = Number(amount || 0);
-  return `₱${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  // Using "PHP" instead of the "₱" symbol to avoid standard font encoding issues (the "±" bug)
+  return `PHP ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function formatDate(date) {
@@ -52,19 +53,21 @@ function buildFinancialPdf({ title, payload }) {
   const totalOrders = summary.total_orders || 0;
   const avgOrder = summary.aov || 0;
 
-  const cardWidth = (doc.page.width - 100 - 24) / 3;
   const startX = 50;
+  const totalWidth = doc.page.width - 100;
+  const cardWidth3Col = (totalWidth - 24) / 3; // Width for 3-column layout
+  const cardWidth2Col = (totalWidth - 12) / 2; // Width for 2-column layout
   let cardY = doc.y;
 
-  function renderCard(x, label, value, subtext = null, isNumber = false) {
+  function renderCard(x, label, value, subtext = null, isNumber = false, customWidth = cardWidth3Col) {
     const displayValue = isNumber
       ? value.toLocaleString()
       : formatCurrencyPHP(value);
 
     // Card background
-    doc.fillColor("#ffffff").roundedRect(x, cardY, cardWidth, 80, 10).fill();
+    doc.fillColor("#ffffff").roundedRect(x, cardY, customWidth, 80, 10).fill();
     doc
-      .roundedRect(x, cardY, cardWidth, 80, 10)
+      .roundedRect(x, cardY, customWidth, 80, 10)
       .strokeColor("#e2e8f0")
       .lineWidth(0.5)
       .stroke();
@@ -95,38 +98,42 @@ function buildFinancialPdf({ title, payload }) {
     }
   }
 
-  renderCard(startX, "WEEKLY PROFIT", profitWeekly);
-  renderCard(startX + cardWidth + 12, "MONTHLY PROFIT", profitMonthly);
-  renderCard(startX + (cardWidth + 12) * 2, "YEARLY PROFIT", profitYearly);
+  // Row 1: 3 Columns
+  renderCard(startX, "WEEKLY PROFIT", profitWeekly, null, false, cardWidth3Col);
+  renderCard(startX + cardWidth3Col + 12, "MONTHLY PROFIT", profitMonthly, null, false, cardWidth3Col);
+  renderCard(startX + (cardWidth3Col + 12) * 2, "YEARLY PROFIT", profitYearly, null, false, cardWidth3Col);
 
   cardY += 95;
 
-  const halfWidth = (doc.page.width - 100 - 12) / 2;
-
-  renderCard(startX, "TOTAL ORDERS", totalOrders, "Completed orders", true);
+  // Row 2: 2 Columns (balanced across the entire page width)
+  renderCard(startX, "TOTAL ORDERS", totalOrders, "Completed orders", true, cardWidth2Col);
   renderCard(
-    startX + halfWidth + 12,
+    startX + cardWidth2Col + 12,
     "AVERAGE ORDER VALUE",
     avgOrder,
     "Per transaction",
+    false,
+    cardWidth2Col
   );
 
-  doc.moveDown(6);
+  doc.y = cardY + 95; // Reset doc cursor position below the cards
 
   // ============ SECTION DIVIDER ============
+  // Explicitly set X coordinate and width so centering spans the full page correctly
   doc
     .fillColor("#1e293b")
     .font("Helvetica-Bold")
     .fontSize(18)
-    .text("Revenue & Profit Analysis", { align: "center" });
+    .text("Revenue & Profit Analysis", 50, doc.y, { align: "center", width: totalWidth });
 
   doc.moveDown(0.3);
   doc
     .fillColor("#64748b")
     .font("Helvetica")
     .fontSize(9)
-    .text("Track your business performance across different time periods", {
+    .text("Track your business performance across different time periods", 50, doc.y, {
       align: "center",
+      width: totalWidth
     });
 
   doc.moveDown(1.5);
@@ -171,7 +178,7 @@ function buildFinancialPdf({ title, payload }) {
       .font("Helvetica-Bold")
       .fontSize(8)
       .text("PERIOD", 65, y);
-    doc.text("REVENUE", doc.page.width - 130, y, { width: 80, align: "right" });
+    doc.text("REVENUE", doc.page.width - 150, y, { width: 100, align: "right" });
 
     y += 6;
     doc
@@ -189,7 +196,7 @@ function buildFinancialPdf({ title, payload }) {
         item.label || item.period || item.month || item.week || item.date || "";
       const revenue = formatCurrencyPHP(item.value || item.revenue || 0);
 
-      // Row background for alternating
+      // Row background for alternating rows
       if (idx % 2 === 1) {
         doc
           .fillColor("#f1f5f9")
@@ -202,7 +209,7 @@ function buildFinancialPdf({ title, payload }) {
         .font("Helvetica")
         .fontSize(10)
         .text(period, 65, y);
-      doc.text(revenue, doc.page.width - 130, y, { width: 80, align: "right" });
+      doc.text(revenue, doc.page.width - 150, y, { width: 100, align: "right" });
 
       y += 30;
     });
@@ -216,7 +223,6 @@ function buildFinancialPdf({ title, payload }) {
   renderTrendTable("Yearly Revenue Trend", payload?.trends?.yearly);
 
   // ============ FOOTER ============
-  // Ensure footer is at the bottom of the page
   if (doc.y < doc.page.height - 100) {
     doc.y = doc.page.height - 85;
   } else {
@@ -240,7 +246,7 @@ function buildFinancialPdf({ title, payload }) {
       "Note: Profit is calculated as total revenue from verified payments and kiosk walk-in orders.",
       50,
       doc.y,
-      { width: doc.page.width - 100, align: "center" },
+      { width: totalWidth, align: "center" },
     );
 
   doc.moveDown(0.3);
@@ -252,7 +258,7 @@ function buildFinancialPdf({ title, payload }) {
       "No operational expenses have been deducted from these figures.",
       50,
       doc.y,
-      { width: doc.page.width - 100, align: "center" },
+      { width: totalWidth, align: "center" },
     );
 
   return doc;

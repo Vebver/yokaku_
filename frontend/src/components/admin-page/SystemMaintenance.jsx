@@ -138,15 +138,15 @@ const SystemMaintenance = () => {
         <div className="col-12 col-md-6 col-lg-4">
           <div className="p-4 border rounded text-center h-100 bg-white shadow-sm d-flex flex-column justify-content-between">
             <div>
-              <FileText className="text-success mb-3" size={40} />
-              <h5 className="fw-bold">Financial PDF</h5>
+              <FileText className="text-danger mb-3" size={40} />
+              <h5 className="fw-bold">Export Financial PDF</h5>
               <p className="small text-muted mb-4">
                 Includes profit (weekly/monthly/yearly) and revenue trend (weekly/monthly/yearly).
               </p>
             </div>
             <button
               onClick={downloadFinancialPdf}
-              className="btn btn-success btn-lg w-100 py-3 fw-bold shadow-sm"
+             className="btn btn-danger btn-lg w-100 py-3 fw-bold shadow-sm"
             >
               Download PDF
             </button>
