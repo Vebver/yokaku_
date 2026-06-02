@@ -276,11 +276,14 @@ const Notifications = () => {
                           </span>
                         </div>
                         <p className="notification-message">{notif.message}</p>
+
+                        {/* Reservation ID Badge - Restored */}
                         {reservationId && (
                           <div className="notif-res-id-badge">
-                            ID: {reservationId}
+                            Reservation ID: {reservationId}
                           </div>
                         )}
+
                         <div className="notification-actions-bottom">
                           <div className="notification-actions">
                             <button
