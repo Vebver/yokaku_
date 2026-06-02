@@ -4,6 +4,7 @@ backend/node_modules
 dist
 .vite
 .env
+.env.development
 
 # Ignore uploaded files but keep the directory
 frontend/public/uploads/*

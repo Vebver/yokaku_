@@ -88,8 +88,6 @@ const navItems = [
 
 const StatCard = ({ title, value, color, icon: Icon }) => (
   <div className="col-12 col-md-4 mb-3 mt-0">
-    {" "}
-    {/* Added mb-3 for bottom spacing */}
     <div
       className="card border-0 shadow-sm rounded-4 p-3 bg-white"
       style={{ minHeight: "100px", display: "block" }}
@@ -128,10 +126,13 @@ function AdminDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 992);
   const [loading, setLoading] = useState(true);
   const [todaySchedule, setTodaySchedule] = useState([]);
+  
+  // 1. Added weeklyRevenue to the state object
   const [stats, setStats] = useState({
     totalBookings: 0,
     activeTables: 0,
     kitchenQueue: 0,
+    weeklyRevenue: 0, 
     monthlyRevenue: 0,
     todayRevenue: 0,
     avgOrder: 0,
@@ -174,11 +175,12 @@ function AdminDashboard() {
 
       const data = statsRes.data;
 
-      // Update state using the exact keys from the controller
+      // 2. Map weeklyRevenue safely from your controller response
       setStats({
         totalBookings: data.totalBookings || 0,
         activeTables: data.activeTables || 0,
         kitchenQueue: data.kitchenQueue || 0,
+        weeklyRevenue: data.weeklyRevenue || 0, 
         monthlyRevenue: data.monthlyRevenue || 0,
         todayRevenue: data.todayRevenue || 0,
         avgOrder: data.avgOrder || 0,
@@ -201,7 +203,6 @@ function AdminDashboard() {
       maximumFractionDigits: 2,
     })}`;
 
-  // 3. SHARED CHART DATA
   const chartData = {
     labels: stats.trendLabels,
     datasets: [
@@ -240,7 +241,7 @@ function AdminDashboard() {
   const DashboardOverview = () => (
     <div className="dashboard-content">
      <h1 className="fw-bold mb-3">Welcome back, Admin</h1>
-      {/* 1. TIMELINE (Keep your existing one) */}
+      {/* 1. TIMELINE */}
       <div className="mb-4 bg-white p-3 rounded-4 shadow-sm border-start border-4 border-warning">
         <div className="d-flex align-items-center mb-2">
           <Info size={16} className="text-warning me-2" />
@@ -267,8 +268,7 @@ function AdminDashboard() {
         </div>
       </div>
 
-      {/* 2. STATS CARDS - ACCENT REMOVED */}
-      {/* TOP STATS SECTION */}
+      {/* 2. STATS CARDS */}
       <h2 className="fw-bold mb-00">Report Overview</h2>
       <div className="row g-3 mb-4">
         <StatCard
@@ -295,9 +295,10 @@ function AdminDashboard() {
       <div className="row g-3 mb-4">
         <div className="col-lg-5">
           <div className="row g-3">
+            {/* 3. Connected value strictly to stats.weeklyRevenue */}
             <MiniFinanceCard
               title="Weekly Revenue"
-              value={stats.monthlyRevenue}
+              value={stats.weeklyRevenue}
               icon={TrendingUp}
               colorClass="text-success bg-success-subtle"
             />
@@ -328,8 +329,9 @@ function AdminDashboard() {
           <div className="bg-white p-4 rounded-4 shadow-sm border h-100">
             <div className="d-flex justify-content-between align-items-center mb-4">
               <h6 className="fw-bold mb-0">Revenue Analytics</h6>
+              {/* 4. Displayed weekly total sum on chart badge */}
               <span className="badge bg-primary-subtle text-primary rounded-pill px-3 py-2">
-                Total: {formatCurrency(stats.monthlyRevenue)}
+                Total: {formatCurrency(stats.weeklyRevenue)}
               </span>
             </div>
             <div style={{ height: "220px" }}>
@@ -352,28 +354,13 @@ function AdminDashboard() {
         </div>
       </div>
 
-      {/* 4. FLOOR STATUS - FIXED BOX OVERFLOW */}
+      {/* 4. FLOOR STATUS */}
       <div className="bg-white rounded-4 shadow-sm border p-4 overflow-hidden">
-        {/* Inner container to handle the table grid */}
         <div
           className="floor-status-wrapper"
           style={{ maxHeight: "500px", overflowY: "auto", overflowX: "hidden" }}
         >
           <h2 className="fw-bold mb-3">Table Status</h2>
-           <div className="d-flex align-items-center gap-2 border-start ps-3 ms-1">
-      <div className="d-flex align-items-center gap-1">
-        <span className="rounded-circle" style={{ width: '8px', height: '8px', backgroundColor: '#10b981' }}></span>
-        <span className="text-muted fw-medium" style={{ fontSize: '0.75rem' }}>{stats.available} Available</span>
-      </div>
-      <div className="d-flex align-items-center gap-1 ms-2">
-        <span className="rounded-circle" style={{ width: '8px', height: '8px', backgroundColor: '#ef4444' }}></span>
-        <span className="text-muted fw-medium" style={{ fontSize: '0.75rem' }}>{stats.seated} Seated</span>
-      </div>
-      <div className="d-flex align-items-center gap-1 ms-2">
-        <span className="rounded-circle" style={{ width: '8px', height: '8px', backgroundColor: '#f59e0b' }}></span>
-        <span className="text-muted fw-medium" style={{ fontSize: '0.75rem' }}>{stats.confirmed} Confirmed</span>
-      </div>
-    </div>
           <TableStatus compact={true} />
         </div>
       </div>
@@ -422,7 +409,7 @@ function AdminDashboard() {
     <div
       className={`admin-app-container ${sidebarOpen ? "sb-open" : "sb-closed"}`}
     >
-      {/* Sidebar - Fix position sa kaliwa */}
+      {/* Sidebar */}
       <aside className="app-sidebar shadow">
         <div className="sidebar-header-branding">
           <div className="brand-logo">H</div>
@@ -467,7 +454,7 @@ function AdminDashboard() {
         ></div>
       )}
 
-      {/* Main Content Area - Sa kanan ng sidebar */}
+      {/* Main Content Area */}
       <div className="app-main-viewport">
         <header className="app-top-nav bg-white shadow-sm px-4">
           <button

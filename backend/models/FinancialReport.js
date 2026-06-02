@@ -2,12 +2,12 @@
 const db = require("../config/db");
 
 const FinancialReport = {
-  // 1. Used in both Reports and Dashboard
   getFinancialStats: async () => {
     const query = `
       SELECT 
           CAST(COALESCE(SUM(CASE WHEN DATE(d) = CURDATE() THEN amount ELSE 0 END), 0) AS DECIMAL(10,2)) as today_revenue,
           CAST(COALESCE(SUM(CASE WHEN MONTH(d) = MONTH(CURDATE()) AND YEAR(d) = YEAR(CURDATE()) THEN amount ELSE 0 END), 0) AS DECIMAL(10,2)) as monthly_revenue,
+          CAST(COALESCE(SUM(CASE WHEN YEAR(d) = YEAR(CURDATE()) THEN amount ELSE 0 END), 0) AS DECIMAL(10,2)) as yearly_revenue, -- ADDED THIS LINE
           COUNT(*) as total_orders,
           CAST(COALESCE(AVG(amount), 0) AS DECIMAL(10,2)) as aov
       FROM (
