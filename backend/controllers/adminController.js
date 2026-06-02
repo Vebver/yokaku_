@@ -138,12 +138,9 @@ getDashboardStats: async (req, res) => {
   // controllers/adminController.js
   getFinancialOverview: async (req, res) => {
     try {
-      console.log("!!! API CALLED: Fetching Financial Data !!!");
-
-      const [monthlyTrend, stats, paymentMethods, sources] = await Promise.all([
+      const [monthlyTrend, stats, sources] = await Promise.all([
         FinancialReport.getMonthlyTrend(),
         FinancialReport.getFinancialStats(),
-        FinancialReport.getPaymentMethods(),
         FinancialReport.getRevenueSources(),
       ]);
 
@@ -154,7 +151,6 @@ getDashboardStats: async (req, res) => {
         data: {
           summary: stats,
           monthlyTrend,
-          paymentMethods,
           sources,
         },
       });

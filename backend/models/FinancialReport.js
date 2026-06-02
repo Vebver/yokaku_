@@ -2,7 +2,8 @@
 const db = require("../config/db");
 
 const FinancialReport = {
-   getFinancialStats: async () => {
+  // 1. Fetches daily/monthly overview KPIs, total counts, and averages
+  getFinancialStats: async () => {
     const query = `
       SELECT 
           CAST(COALESCE(SUM(CASE WHEN DATE(d) = CURDATE() THEN amount ELSE 0 END), 0) AS DECIMAL(10,2)) as today_revenue,
@@ -21,6 +22,7 @@ const FinancialReport = {
     return rows[0];
   },
 
+  // 2. Fetches monthly values for the Monthly Tab & Table
   getMonthlyTrend: async () => {
     const [rows] = await db.execute(`
       SELECT DATE_FORMAT(d, '%b %Y') as label, SUM(amount) as value
@@ -33,87 +35,7 @@ const FinancialReport = {
     return rows;
   },
 
-  getPaymentMethods: async () => {
-    const [rows] = await db.execute(`
-      SELECT label, SUM(amount) as value FROM (
-        SELECT payment_method as label, amount FROM payments WHERE payment_status = 'verified'
-        UNION ALL
-        SELECT 'Cash' as label, (ko.quantity * m.price) as amount 
-        FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
-      ) as combined GROUP BY label`);
-    return rows;
-  },
-
-  getRevenueSources: async () => {
-    const [rows] = await db.execute(`
-      SELECT label, SUM(amount) as value FROM (
-        SELECT 'Reservation' as label, amount FROM payments WHERE payment_status = 'verified'
-        UNION ALL
-        SELECT 'Walk-in' as label, (ko.quantity * m.price) as amount 
-        FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
-      ) as combined GROUP BY label`);
-    return rows;
-  },
-    getRecentTrend: async () => {
-    // This query gets the last 7 days for your Weekly Chart
-    const query = `
-      SELECT DATE_FORMAT(d, '%a') as label, SUM(amount) as value
-      FROM (
-        SELECT paid_at as d, amount FROM payments WHERE payment_status = 'verified'
-        UNION ALL
-        SELECT created_at as d, (ko.quantity * m.price) as amount 
-        FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
-      ) as combined 
-      WHERE d >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
-      GROUP BY DATE(d), label
-      ORDER BY DATE(d) ASC`;
-    const [rows] = await db.execute(query);
-    return rows;
-  },
-
-  // NEW: Weekly / Monthly / Yearly profit queries (profit = revenue)
-  getProfitWeekly: async () => {
-    const [rows] = await db.execute(`
-      SELECT SUM(amount) as value
-      FROM (
-        SELECT paid_at as d, amount FROM payments WHERE payment_status = 'verified'
-        UNION ALL
-        SELECT ko.created_at as d, (ko.quantity * m.price) as amount
-        FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
-      ) as combined
-      WHERE d >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
-    `);
-    return rows[0]?.value ? Number(rows[0].value) : 0;
-  },
-
-  getProfitMonthly: async () => {
-    const [rows] = await db.execute(`
-      SELECT SUM(amount) as value
-      FROM (
-        SELECT paid_at as d, amount FROM payments WHERE payment_status = 'verified'
-        UNION ALL
-        SELECT ko.created_at as d, (ko.quantity * m.price) as amount
-        FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
-      ) as combined
-      WHERE MONTH(d) = MONTH(CURDATE()) AND YEAR(d) = YEAR(CURDATE())
-    `);
-    return rows[0]?.value ? Number(rows[0].value) : 0;
-  },
-
-  getProfitYearly: async () => {
-    const [rows] = await db.execute(`
-      SELECT SUM(amount) as value
-      FROM (
-        SELECT paid_at as d, amount FROM payments WHERE payment_status = 'verified'
-        UNION ALL
-        SELECT ko.created_at as d, (ko.quantity * m.price) as amount
-        FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
-      ) as combined
-      WHERE YEAR(d) = YEAR(CURDATE())
-    `);
-    return rows[0]?.value ? Number(rows[0].value) : 0;
-  },
-
+  // 3. Fetches daily values for the Weekly Tab & Table
   getWeeklyProfitTrend: async (days = 13) => {
     const [rows] = await db.execute(`
       SELECT DATE_FORMAT(d, '%b %e') as label, SUM(amount) as value
@@ -131,23 +53,7 @@ const FinancialReport = {
     return rows;
   },
 
-  getMonthlyProfitTrend: async (months = 6) => {
-    const [rows] = await db.execute(`
-      SELECT DATE_FORMAT(d, '%b %Y') as label, SUM(amount) as value
-      FROM (
-        SELECT paid_at as d, amount FROM payments WHERE payment_status = 'verified'
-        UNION ALL
-        SELECT ko.created_at as d, (ko.quantity * m.price) as amount
-        FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
-      ) as combined
-      WHERE d >= DATE_SUB(CURDATE(), INTERVAL ${months - 1} MONTH)
-      GROUP BY YEAR(d), MONTH(d)
-      ORDER BY YEAR(d), MONTH(d) ASC
-      LIMIT ${months}
-    `);
-    return rows;
-  },
-
+  // 4. Fetches yearly values for the Yearly Tab & Table
   getYearlyProfitTrend: async (years = 5) => {
     const [rows] = await db.execute(`
       SELECT DATE_FORMAT(d, '%Y') as label, SUM(amount) as value
