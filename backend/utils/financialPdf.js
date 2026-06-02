@@ -2,7 +2,7 @@ const PDFDocument = require("pdfkit");
 
 function formatCurrencyPHP(amount) {
   const n = Number(amount || 0);
-  // Using "PHP" instead of the "₱" symbol to avoid standard font encoding issues (the "±" bug)
+  // Using "PHP" instead of the "₱" symbol to avoid standard font encoding issues
   return `PHP ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
@@ -99,13 +99,13 @@ function buildFinancialPdf({ title, payload }) {
   }
 
   // Row 1: 3 Columns
-  renderCard(startX, "WEEKLY REVENUE", profitWeekly, null, false, cardWidth3Col);   // Changed label
-  renderCard(startX + cardWidth3Col + 12, "MONTHLY REVENUE", profitMonthly, null, false, cardWidth3Col); // Changed label
+  renderCard(startX, "WEEKLY REVENUE", profitWeekly, null, false, cardWidth3Col);   
+  renderCard(startX + cardWidth3Col + 12, "MONTHLY REVENUE", profitMonthly, null, false, cardWidth3Col); 
   renderCard(startX + (cardWidth3Col + 12) * 2, "YEARLY REVENUE", profitYearly, null, false, cardWidth3Col);
 
   cardY += 95;
 
-  // Row 2: 2 Columns (balanced across the entire page width)
+  // Row 2: 2 Columns
   renderCard(startX, "TOTAL ORDERS", totalOrders, "Completed orders", true, cardWidth2Col);
   renderCard(
     startX + cardWidth2Col + 12,
@@ -119,12 +119,11 @@ function buildFinancialPdf({ title, payload }) {
   doc.y = cardY + 95; // Reset doc cursor position below the cards
 
   // ============ SECTION DIVIDER ============
-  // Explicitly set X coordinate and width so centering spans the full page correctly
   doc
-  .fillColor("#1e293b")
-  .font("Helvetica-Bold")
-  .fontSize(22)
-  .text("Revenue Analysis", { align: "center" });
+    .fillColor("#1e293b")
+    .font("Helvetica-Bold")
+    .fontSize(18)
+    .text("Revenue Analysis", { align: "center" });
 
   doc.moveDown(0.3);
   doc
@@ -141,6 +140,15 @@ function buildFinancialPdf({ title, payload }) {
   // ============ TREND TABLES ============
   function renderTrendTable(title, trends) {
     if (!trends || trends.length === 0) return;
+
+    // Calculate total height needed for the table background & headers
+    const tableHeight = 80 + trends.length * 30;
+    const pageLimit = doc.page.height - 80;
+
+    // PAGE BUDGET CHECK: If table won't fit on this page, push it entirely to a new page
+    if (doc.y + tableHeight > pageLimit) {
+      doc.addPage();
+    }
 
     const startTableY = doc.y;
 
@@ -238,16 +246,16 @@ function buildFinancialPdf({ title, payload }) {
     .stroke();
 
   doc.moveDown(0.5);
- doc
-  .fillColor("#94a3b8")
-  .font("Helvetica")
-  .fontSize(7)
-  .text(
-    "Note: Revenue is calculated as total income from verified payments and kiosk walk-in orders.",
-    50,
-    doc.y,
-    { width: totalWidth, align: "center" },
-  );
+  doc
+    .fillColor("#94a3b8")
+    .font("Helvetica")
+    .fontSize(7)
+    .text(
+      "Note: Revenue is calculated as total income from verified payments and kiosk walk-in orders.",
+      50,
+      doc.y,
+      { width: totalWidth, align: "center" },
+    );
 
   doc.moveDown(0.3);
   doc

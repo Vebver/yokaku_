@@ -57,25 +57,22 @@ const maintenanceController = {
   },
 
   // DOWNLOAD FINANCIAL REPORT AS PDF (Profit Weekly/Monthly/Yearly + Revenue Trends)
-  exportFinancialPdf: async (req, res) => {
-    try {
-      const [
-        stats,
-        profitWeekly,
-        profitMonthly,
-        profitYearly,
-        weeklyTrend,
-        monthlyTrend,
-        yearlyTrend,
-      ] = await Promise.all([
-        FinancialReport.getFinancialStats(),
-        FinancialReport.getProfitWeekly(),
-        FinancialReport.getProfitMonthly(),
-        FinancialReport.getProfitYearly(),
-        FinancialReport.getWeeklyProfitTrend(7),
-        FinancialReport.getMonthlyProfitTrend(6),
-        FinancialReport.getYearlyProfitTrend(5),
-      ]);
+// Inside controllers/maintenanceController.js
+
+exportFinancialPdf: async (req, res) => {
+  try {
+    // 1. Get the local date string to prevent undefined bind parameters
+    const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+
+    const [stats, profitWeekly, profitMonthly, profitYearly, weeklyTrend, monthlyTrend, yearlyTrend] = await Promise.all([
+      FinancialReport.getFinancialStats(todayStr),
+      FinancialReport.getProfitWeekly(todayStr),        // Pass todayStr
+      FinancialReport.getProfitMonthly(todayStr),       // Pass todayStr
+      FinancialReport.getProfitYearly(todayStr),        // Pass todayStr
+      FinancialReport.getWeeklyProfitTrend(todayStr),   // Pass todayStr
+      FinancialReport.getMonthlyTrend(), 
+      FinancialReport.getYearlyProfitTrend(todayStr)    // Pass todayStr
+    ]);
 
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader(

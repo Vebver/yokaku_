@@ -8,11 +8,15 @@ const db = require("../config/db");
 
 
 const adminController = {
+
 getDashboardStats: async (req, res) => {
     try {
+      // Fetch the exact current date in Philippine Time (YYYY-MM-DD)
+      const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+
       const [finStats, trendData, quickStats] = await Promise.all([
-        FinancialReport.getFinancialStats(),
-        FinancialReport.getRecentTrend(),
+        FinancialReport.getFinancialStats(todayStr), // Passed todayStr
+        FinancialReport.getRecentTrend(todayStr),    // Passed todayStr
         Dashboard.getQuickStats()
       ]);
 
@@ -20,16 +24,14 @@ getDashboardStats: async (req, res) => {
       const revenueTrend = trendData ? trendData.map(t => Number(t.value || 0)) : [0,0,0,0,0,0,0];
       const trendLabels = trendData ? trendData.map(t => t.label || "") : ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 
-      // 2. Sum the 7-day trend to get the total weekly revenue
       const calculatedWeeklyTotal = revenueTrend.reduce((a, b) => a + b, 0);
 
-      // 3. Send response with both key formats to prevent dashboard state mismatches
       res.json({
         totalBookings: quickStats.totalBookings,
         activeTables: quickStats.activeTables,
         kitchenQueue: quickStats.kitchenQueue,
         
-        weeklyRevenue: calculatedWeeklyTotal, // Exposes calculated weekly total to your dashboard card
+        weeklyRevenue: calculatedWeeklyTotal,
         monthlyRevenue: Number(finStats?.monthly_revenue || 0),
         todayRevenue: Number(finStats?.today_revenue || 0),
         avgOrder: Number(finStats?.aov || 0),
@@ -136,11 +138,17 @@ getDashboardStats: async (req, res) => {
     }
   },
   // controllers/adminController.js
+  // Inside controllers/adminController.js
+
   getFinancialOverview: async (req, res) => {
     try {
+      // 1. Calculate the timezone-safe local date string
+      const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+
+      // 2. Fetch all values, passing todayStr down
       const [monthlyTrend, stats, sources] = await Promise.all([
         FinancialReport.getMonthlyTrend(),
-        FinancialReport.getFinancialStats(),
+        FinancialReport.getFinancialStats(todayStr), // Passed todayStr here
         FinancialReport.getRevenueSources(),
       ]);
 

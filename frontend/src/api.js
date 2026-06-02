@@ -1,9 +1,16 @@
 // src/api.js
 import axios from "axios";
 
-// Vite automatically loads VITE_API_URL based on development or production mode
-export const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-export const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
+// 1. Smart Detection (Declared only ONCE)
+const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+
+export const API_BASE = isLocal 
+  ? "http://localhost:5000/api" 
+  : "https://yokaku-backend.onrender.com/api";
+
+export const SOCKET_URL = isLocal 
+  ? "http://localhost:5000" 
+  : "https://yokaku-backend.onrender.com";
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -12,7 +19,7 @@ const api = axios.create({
   },
 });
 
-// Automated Token Attachment (The Interceptor)
+// 2. Automated Token Attachment (The Interceptor)
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
   if (token) {

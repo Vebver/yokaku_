@@ -4,19 +4,20 @@ const FinancialReport = require('../models/FinancialReport');
 
 const getFinancialAnalytics = async (req, res) => {
   try {
-    // 1. Fetch ALL data sets simultaneously
+    const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+
     const [topSellers, slowMoving, lowStockItems, inventoryUsage, financialStats, monthlyTrend, weeklyTrend, yearlyTrend] = await Promise.all([
       ReportModel.GetTopSellers(),
       ReportModel.GetSlowMoving(),
       InventoryModel.GetLowStockItems(),
       InventoryModel.GetInventoryUsage(),
-      FinancialReport.getFinancialStats(),
+      FinancialReport.getFinancialStats(todayStr),             
       FinancialReport.getMonthlyTrend(),
-      FinancialReport.getWeeklyProfitTrend(),
-      FinancialReport.getYearlyProfitTrend()
+      FinancialReport.getWeeklyProfitTrend(todayStr),          
+      FinancialReport.getYearlyProfitTrend(todayStr)           
     ]);
 
-    // 2. Structure response for all frontend components (Performance + Inventory)
+    // Structure response for all frontend components (Performance + Inventory)
     const responseData = {
       success: true,
       data: {
@@ -32,14 +33,26 @@ const getFinancialAnalytics = async (req, res) => {
         // --- For FinancialOverview.jsx ---
         summary: {
           daily_revenue: financialStats?.today_revenue || 0,
+          weekly_revenue: financialStats?.weekly_revenue || 0,   
           monthly_revenue: financialStats?.monthly_revenue || 0,
+          yearly_revenue: financialStats?.yearly_revenue || 0,   
           aov: financialStats?.aov || 0,
           total_orders: financialStats?.total_orders || 0
         },
-        monthlyTrend: monthlyTrend || [],
-        // Used by FinancialOverview capsule tabs
+        
+        // Map database fields to the exact keys expected by the React monthly table
+        monthlyTrend: (monthlyTrend || []).map(item => ({
+          month: item.label,
+          revenue: Number(item.value || 0)
+        })),
+        
         weeklyTrend: weeklyTrend || [],
-        yearlyTrend: yearlyTrend || []
+        
+        // Map database fields to the exact keys expected by the React yearly table
+        yearlyTrend: (yearlyTrend || []).map(item => ({
+          year: item.label,
+          revenue: Number(item.value || 0)
+        }))
       }
     };
 

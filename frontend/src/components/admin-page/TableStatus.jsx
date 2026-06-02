@@ -73,11 +73,11 @@ const TableStatus = ({ compact = false }) => {
   }, [playPaymentVerifiedAlert, authHeader]);
 
 
-  useEffect(() => {
-    fetchData();
-    const inv = setInterval(fetchData, 15000);
-    return () => clearInterval(inv);
-  }, [fetchData]);
+useEffect(() => {
+  fetchData();
+  const inv = setInterval(fetchData, 15000);
+  return () => clearInterval(inv);
+}, []); // Changed [fetchData] to [] to stop the infinite loop
 
   const handleAction = async (
     method,
