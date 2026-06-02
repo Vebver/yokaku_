@@ -55,10 +55,62 @@ const ProductPerformance = ({ data }) => {
 
   const formatNumber = (num) => new Intl.NumberFormat("en-PH").format(num);
 
+  const StatCard = ({
+    label,
+    value,
+    icon: Icon,
+    color,
+    isCurrency = true,
+    subtitle = null,
+  }) => (
+    <div className="card border-0 shadow-sm rounded-4 h-100 bg-white position-relative overflow-hidden">
+      <div
+        className={`position-absolute top-0 end-0 w-25 h-100 opacity-10 bg-${color}`}
+        style={{ clipPath: "polygon(100% 0, 0 0, 100% 100%)" }}
+      ></div>
+      <div className="card-body p-4">
+        <div className="d-flex align-items-center justify-content-between mb-3">
+          <div
+            className="rounded-3 d-flex align-items-center justify-content-center"
+            style={{
+              width: "48px",
+              height: "48px",
+              backgroundColor: `rgba(245, 158, 11, 0.1)`,
+            }}
+          >
+            <Icon
+              size={24}
+              color={
+                color === "warning"
+                  ? "#f59e0b"
+                  : color === "success"
+                    ? "#10b981"
+                    : color === "info"
+                      ? "#3b82f6"
+                      : "#f59e0b"
+              }
+            />
+          </div>
+          {subtitle && (
+            <span className="badge bg-light text-muted rounded-pill">
+              {subtitle}
+            </span>
+          )}
+        </div>
+        <h3 className="fw-bold mb-1 text-dark">
+          {isCurrency ? formatCurrency(value) : formatNumber(value)}
+        </h3>
+        <p className="text-muted small mb-0 text-uppercase fw-semibold">
+          {label}
+        </p>
+      </div>
+    </div>
+  );
+
   if (!data) return null;
 
   return (
-    <div className="product-performance-container">
+    <div className="product-performance-container p-3 p-md-4">
       {/* Header Section */}
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 pb-2 border-bottom">
         <div>
@@ -75,60 +127,37 @@ const ProductPerformance = ({ data }) => {
       <div className="row g-4 mb-4">
         {/* Total Revenue */}
         <div className="col-lg-3 col-md-6">
-          <div className="card border-0 shadow-sm rounded-4 h-100">
-            <div className="card-body p-4">
-              <div className="d-flex align-items-center justify-content-between mb-3">
-                <div className="bg-primary bg-opacity-10 rounded-3 p-2">
-                  <DollarSign size={22} className="text-primary" />
-                </div>
-                <span className="badge bg-light text-muted rounded-pill">
-                  Total
-                </span>
-              </div>
-              <h3 className="fw-bold mb-1 text-dark">
-                {formatCurrency(totalRevenue)}
-              </h3>
-              <p className="text-muted small mb-0">Total revenue generated</p>
-            </div>
-          </div>
+          <StatCard
+            label="Total Revenue"
+            value={totalRevenue}
+            icon={DollarSign}
+            color="primary"
+            subtitle="Generated"
+          />
         </div>
 
         {/* Total Items Sold */}
         <div className="col-lg-3 col-md-6">
-          <div className="card border-0 shadow-sm rounded-4 h-100">
-            <div className="card-body p-4">
-              <div className="d-flex align-items-center justify-content-between mb-3">
-                <div className="bg-success bg-opacity-10 rounded-3 p-2">
-                  <Package size={22} className="text-success" />
-                </div>
-                <span className="badge bg-light text-muted rounded-pill">
-                  Units
-                </span>
-              </div>
-              <h3 className="fw-bold mb-1 text-dark">
-                {formatNumber(totalItemsSold)}
-              </h3>
-              <p className="text-muted small mb-0">Total items sold</p>
-            </div>
-          </div>
+          <StatCard
+            label="Total Items Sold"
+            value={totalItemsSold}
+            icon={Package}
+            color="success"
+            isCurrency={false}
+            subtitle="Units"
+          />
         </div>
 
         {/* Top Selling Items */}
         <div className="col-lg-3 col-md-6">
-          <div className="card border-0 shadow-sm rounded-4 h-100">
-            <div className="card-body p-4">
-              <div className="d-flex align-items-center justify-content-between mb-3">
-                <div className="bg-warning bg-opacity-10 rounded-3 p-2">
-                  <Star size={22} className="text-warning" />
-                </div>
-                <span className="badge bg-light text-muted rounded-pill">
-                  Best Sellers
-                </span>
-              </div>
-              <h3 className="fw-bold mb-1 text-dark">{topProductCount}</h3>
-              <p className="text-muted small mb-0">Top performing items</p>
-            </div>
-          </div>
+          <StatCard
+            label="Top Selling Items"
+            value={topProductCount}
+            icon={Star}
+            color="warning"
+            isCurrency={false}
+            subtitle="Best Sellers"
+          />
         </div>
 
         {/* Slow Moving Items */}
@@ -136,16 +165,16 @@ const ProductPerformance = ({ data }) => {
           <div className="card border-0 shadow-sm rounded-4 h-100 bg-gradient-danger text-white">
             <div className="card-body p-4">
               <div className="d-flex align-items-center justify-content-between mb-3">
-                <div className="bg-white bg-opacity-25 rounded-3 p-2">
-                  <TrendingDown size={22} color="white" />
+                <div
+                  className="bg-white bg-opacity-25 rounded-3 d-flex align-items-center justify-content-center"
+                  style={{ width: "48px", height: "48px" }}
+                >
+                  <TrendingDown size={24} color="white" />
                 </div>
-                <span className="badge bg-white bg-opacity-25 text-white rounded-pill">
-                  Slow Movers
-                </span>
               </div>
               <h3 className="fw-bold mb-1">{slowProductCount}</h3>
-              <p className="mb-0 small text-white-50">
-                Items needing attention
+              <p className="mb-0 small text-white-50 text-uppercase fw-semibold">
+                Need Attention
               </p>
             </div>
           </div>
@@ -431,13 +460,16 @@ const ProductPerformance = ({ data }) => {
           transform: translateX(4px);
         }
         @media print {
+          .btn, .card-header button {
+            display: none !important;
+          }
+          .product-performance-container {
+            padding: 0 !important;
+          }
           .card {
             break-inside: avoid;
             box-shadow: none !important;
             border: 1px solid #e2e8f0 !important;
-          }
-          .btn {
-            display: none !important;
           }
         }
       `}</style>

@@ -41,10 +41,63 @@ const InventoryReport = ({ data }) => {
     (item) => item.current_stock >= 5 && item.current_stock < 10,
   ).length;
 
+  const StatCard = ({
+    label,
+    value,
+    icon: Icon,
+    color,
+    isCurrency = true,
+    subtitle = null,
+  }) => (
+    <div className="card border-0 shadow-sm rounded-4 h-100 bg-white position-relative overflow-hidden">
+      <div
+        className={`position-absolute top-0 end-0 w-25 h-100 opacity-10 bg-${color}`}
+        style={{ clipPath: "polygon(100% 0, 0 0, 100% 100%)" }}
+      ></div>
+      <div className="card-body p-4">
+        <div className="d-flex align-items-center justify-content-between mb-3">
+          <div
+            className="rounded-3 d-flex align-items-center justify-content-center"
+            style={{
+              width: "48px",
+              height: "48px",
+              backgroundColor: `rgba(245, 158, 11, 0.1)`,
+            }}
+          >
+            <Icon
+              size={24}
+              color={
+                color === "warning"
+                  ? "#f59e0b"
+                  : color === "success"
+                    ? "#10b981"
+                    : color === "info"
+                      ? "#3b82f6"
+                      : "#f59e0b"
+              }
+            />
+          </div>
+          {subtitle && (
+            <span className="badge bg-light text-muted rounded-pill">
+              {subtitle}
+            </span>
+          )}
+        </div>
+        <h3 className="fw-bold mb-1 text-dark">
+          {isCurrency ? formatCurrency(value) : formatNumber(value)}
+          {!isCurrency && label !== "Reorder Items" && " units"}
+        </h3>
+        <p className="text-muted small mb-0 text-uppercase fw-semibold">
+          {label}
+        </p>
+      </div>
+    </div>
+  );
+
   if (!data) return null;
 
   return (
-    <div className="inventory-report-container">
+    <div className="inventory-report-container p-3 p-md-4">
       {/* Header Section */}
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 pb-2 border-bottom">
         <div>
@@ -61,60 +114,37 @@ const InventoryReport = ({ data }) => {
       <div className="row g-4 mb-4">
         {/* Total Inventory Value */}
         <div className="col-lg-3 col-md-6">
-          <div className="card border-0 shadow-sm rounded-4 h-100">
-            <div className="card-body p-4">
-              <div className="d-flex align-items-center justify-content-between mb-3">
-                <div className="bg-primary bg-opacity-10 rounded-3 p-2">
-                  <Package size={22} className="text-primary" />
-                </div>
-                <span className="badge bg-light text-muted rounded-pill">
-                  Total Value
-                </span>
-              </div>
-              <h3 className="fw-bold mb-1 text-dark">
-                {formatCurrency(totalInventoryValue)}
-              </h3>
-              <p className="text-muted small mb-0">Current inventory worth</p>
-            </div>
-          </div>
+          <StatCard
+            label="Total Inventory Value"
+            value={totalInventoryValue}
+            icon={Package}
+            color="primary"
+            subtitle="Total Worth"
+          />
         </div>
 
         {/* Items Used */}
         <div className="col-lg-3 col-md-6">
-          <div className="card border-0 shadow-sm rounded-4 h-100">
-            <div className="card-body p-4">
-              <div className="d-flex align-items-center justify-content-between mb-3">
-                <div className="bg-success bg-opacity-10 rounded-3 p-2">
-                  <TrendingDown size={22} className="text-success" />
-                </div>
-                <span className="badge bg-light text-muted rounded-pill">
-                  Consumed
-                </span>
-              </div>
-              <h3 className="fw-bold mb-1 text-dark">
-                {formatNumber(totalItemsUsed)} units
-              </h3>
-              <p className="text-muted small mb-0">Items used this period</p>
-            </div>
-          </div>
+          <StatCard
+            label="Items Used"
+            value={totalItemsUsed}
+            icon={TrendingDown}
+            color="success"
+            isCurrency={false}
+            subtitle="Consumed"
+          />
         </div>
 
         {/* Consumption Rate */}
         <div className="col-lg-3 col-md-6">
-          <div className="card border-0 shadow-sm rounded-4 h-100">
-            <div className="card-body p-4">
-              <div className="d-flex align-items-center justify-content-between mb-3">
-                <div className="bg-warning bg-opacity-10 rounded-3 p-2">
-                  <BarChart3 size={22} className="text-warning" />
-                </div>
-                <span className="badge bg-light text-muted rounded-pill">
-                  Rate
-                </span>
-              </div>
-              <h3 className="fw-bold mb-1 text-dark">{consumptionRate}%</h3>
-              <p className="text-muted small mb-0">Weekly consumption rate</p>
-            </div>
-          </div>
+          <StatCard
+            label="Consumption Rate"
+            value={consumptionRate}
+            icon={BarChart3}
+            color="warning"
+            isCurrency={false}
+            subtitle="Weekly"
+          />
         </div>
 
         {/* Reorder Items */}
@@ -122,17 +152,19 @@ const InventoryReport = ({ data }) => {
           <div className="card border-0 shadow-sm rounded-4 h-100 bg-gradient-warning text-white">
             <div className="card-body p-4">
               <div className="d-flex align-items-center justify-content-between mb-3">
-                <div className="bg-white bg-opacity-25 rounded-3 p-2">
-                  <Clock size={22} color="white" />
+                <div
+                  className="bg-white bg-opacity-25 rounded-3 d-flex align-items-center justify-content-center"
+                  style={{ width: "48px", height: "48px" }}
+                >
+                  <Clock size={24} color="white" />
                 </div>
-                <span className="badge bg-white bg-opacity-25 text-white rounded-pill">
-                  Reorder
-                </span>
               </div>
               <h3 className="fw-bold mb-1">
                 {formatNumber(reorderItems)} items
               </h3>
-              <p className="mb-0 small text-white-50">Need to reorder</p>
+              <p className="mb-0 small text-white-50 text-uppercase fw-semibold">
+                Need to Reorder
+              </p>
             </div>
           </div>
         </div>
@@ -249,14 +281,9 @@ const InventoryReport = ({ data }) => {
         <div className="col-12 col-md-7">
           <div className="card border-0 shadow-sm rounded-4 h-100">
             <div className="card-header bg-white border-0 pt-4 px-4">
-              <div className="d-flex align-items-center justify-content-between">
-                <div className="d-flex align-items-center gap-2">
-                  <Activity size={18} className="text-warning" />
-                  <h6 className="fw-bold mb-0">Weekly Consumption Rate</h6>
-                </div>
-                <span className="badge bg-light text-muted rounded-pill">
-                  {usageData.length} items tracked
-                </span>
+              <div className="d-flex align-items-center gap-2">
+                <Activity size={18} className="text-warning" />
+                <h6 className="fw-bold mb-0">Weekly Consumption Rate</h6>
               </div>
             </div>
             <div className="card-body p-0">
@@ -329,7 +356,7 @@ const InventoryReport = ({ data }) => {
               </div>
             </div>
             {usageData.length > 5 && (
-              <div className="card-footer bg-white border-0 pt-0 pb-3 px-4">
+              <div className="card-footer bg-white border-0 pt-2 pb-3 px-4">
                 <small className="text-muted">
                   Showing {Math.min(usageData.length, 10)} of {usageData.length}{" "}
                   items
@@ -348,22 +375,16 @@ const InventoryReport = ({ data }) => {
         .bg-gradient-warning {
           background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
         }
-        .bg-danger-subtle {
-          background-color: rgba(220, 53, 69, 0.1);
-        }
-        .bg-success-subtle {
-          background-color: rgba(40, 167, 69, 0.1);
-        }
         .table-light th {
           font-weight: 600;
           font-size: 0.75rem;
           text-transform: uppercase;
           letter-spacing: 0.5px;
           color: #64748b;
-          padding: 12px 8px;
+          padding: 12px 16px;
         }
         .table td {
-          padding: 12px 8px;
+          padding: 12px 16px;
           vertical-align: middle;
         }
         .low-stock-list .badge {
@@ -371,6 +392,12 @@ const InventoryReport = ({ data }) => {
           font-size: 0.7rem;
         }
         @media print {
+          .btn, .card-header button {
+            display: none !important;
+          }
+          .inventory-report-container {
+            padding: 0 !important;
+          }
           .card {
             break-inside: avoid;
             box-shadow: none !important;
