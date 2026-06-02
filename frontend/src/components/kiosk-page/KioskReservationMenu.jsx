@@ -75,7 +75,6 @@ const KioskReservationMenu = () => {
   const [activeCategory, setActiveCategory] = useState("");
   const [cart, setCart] = useState([]);
   const [billItems, setBillItems] = useState([]);
-
   const [timeLeft, setTimeLeft] = useState(5400);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [showSessionModal, setShowSessionModal] = useState(false);
@@ -127,49 +126,45 @@ const KioskReservationMenu = () => {
   };
 
   const calculateSessionTotal = () => {
-    const history = billItems.length > 0 ? billItems : [];
-    const combined = [];
-    const accountedIds = new Set();
-
-    // Prioritize active items in the cart, casting IDs to string
-    cart.forEach((item) => {
-      if (item && item.id) {
-        combined.push(item);
-        accountedIds.add(String(item.id));
-      }
-    });
-
-    // Add items from the history list only if they aren't already represented in the cart
-    history.forEach((item) => {
-      if (item) {
-        const itemId = String(item.item_id || item.id);
-        if (itemId && !accountedIds.has(itemId)) {
-          combined.push(item);
-          accountedIds.add(itemId);
-        }
-      }
-    });
-
-    return combined.reduce((sum, item) => {
+    // 1. Sum up all items already saved in the database (billItems)
+    const databaseTotal = billItems.reduce((sum, item) => {
       const q = parseInt(item.quantity || item.qty || 1);
-
       let p = parseFloat(item.price);
       if (isNaN(p)) p = parseFloat(item.unit_price);
       if (isNaN(p) && item.item_price) p = parseFloat(item.item_price) / q;
       if (isNaN(p)) p = 0;
 
-      // Force price to 0 if the item is a refill record
       const isRefill =
         item.is_refill === 1 ||
         item.is_refill === true ||
         (item.customizations &&
           item.customizations.toString().includes("[REFILL]"));
-      if (isRefill) {
-        p = 0;
-      }
+          
+      if (isRefill) p = 0;
 
       return sum + p * q;
     }, 0);
+
+    // 2. Sum up only the active pending items in the tray (cart)
+    const pendingTotal = cart
+      .filter((item) => !item.is_placed)
+      .reduce((sum, item) => {
+        const q = parseInt(item.quantity || item.qty || 1);
+        let p = parseFloat(item.price);
+        if (isNaN(p)) p = 0;
+
+        const isRefill =
+          item.is_refill === 1 ||
+          item.is_refill === true ||
+          (item.customizations &&
+            item.customizations.toString().includes("[REFILL]"));
+            
+        if (isRefill) p = 0;
+
+        return sum + p * q;
+      }, 0);
+
+    return databaseTotal + pendingTotal;
   };
 
   const calculateTotalDue = () => {
@@ -199,7 +194,6 @@ const KioskReservationMenu = () => {
     } catch (e) {}
   };
 
-  // Helper to locate active Unlimited product configurations in menuData
   const findUnlimitedItem = () => {
     for (const cat of Object.keys(menuData)) {
       const found = menuData[cat].find((item) =>
@@ -210,7 +204,6 @@ const KioskReservationMenu = () => {
     return null;
   };
 
-  // Cooldown validation and initial trigger for Unlimited refills
   const handleRefillClick = () => {
     const lastRefill = storage.getItem(LAST_REFILL_KEY);
     if (lastRefill) {
@@ -239,7 +232,8 @@ const KioskReservationMenu = () => {
     setIsRefillMode(true);
     setShowFlavorModal(true);
   };
-  // Initial data fetch and mapping pre-reserved items straight into the tray (cart)
+
+  // Initial data fetch
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -279,22 +273,11 @@ const KioskReservationMenu = () => {
           return `${BASE_URL}/${cleanPath}`;
         };
 
-        // Put pre-reserved items directly into the cart tray
-        // Put pre-reserved items directly into the cart tray, marked as placed
+        // Pre-reserved items are saved as bill items (not added to active cart)
         if (resItemsRes && resItemsRes.length > 0) {
-          const reservedCartItems = resItemsRes.map((i) => ({
-            id: i.item_id,
-            name: i.item_name || i.name,
-            price: i.item_price || i.price,
-            image: getFullImage(i),
-            category: i.category_name || "Regular",
-            quantity: parseInt(i.qty || i.quantity || 1),
-            customizations: i.customizations || "",
-          }));
-
-          setCart(reservedCartItems);
           setBillItems(resItemsRes);
         }
+        setCart([]); // Ensure active tray is completely clean on mount
 
         // Group regular products
         prodRes.forEach((item) => {
@@ -342,7 +325,7 @@ const KioskReservationMenu = () => {
     setIsLoading(true);
     const isPayNow = choice === "Pay Now";
 
-    // Only send pending additions to the backend (items not yet placed)
+    // Filter out items that are already ordered (is_placed: true)
     const pendingItems = cart.filter((i) => !i.is_placed);
     const hasUnlimited = pendingItems.some((i) =>
       (i.name || "").toLowerCase().includes("unlimited"),
@@ -353,9 +336,7 @@ const KioskReservationMenu = () => {
       setIsLoading(false);
       return;
     }
-
     try {
-      // Only place order if there are pending items
       if (pendingItems.length > 0) {
         await axios.post(
           `${API_BASE}/orders/place`,
@@ -400,52 +381,16 @@ const KioskReservationMenu = () => {
         await playCashierAlert();
       }
 
-      // Refresh database records
-      const updatedBill = await fetchCurrentBill();
+      // Refresh backend bill records
+      await fetchCurrentBill();
 
-      // IMPORTANT: Mark all current cart items as placed before replacing
-      setCart((prevCart) =>
-        prevCart.map((item) => ({ ...item, is_placed: true })),
-      );
-
-      // Convert updated database items back to cart items
-      const getFullImage = (item) => {
-        const rawPath = item.local_path || item.image_url;
-        if (!rawPath) return "";
-        if (rawPath.startsWith("http")) return rawPath;
-        const cleanPath = rawPath.startsWith("/")
-          ? rawPath.substring(1)
-          : rawPath;
-        return `${BASE_URL}/${cleanPath}`;
-      };
-
-      if (updatedBill && updatedBill.length > 0) {
-        const freshCartItems = updatedBill.map((i) => ({
-          id: i.item_id,
-          name: i.item_name || i.name,
-          price: i.item_price || i.price,
-          image: getFullImage(i),
-          category: i.category_name || "Regular",
-          quantity: parseInt(i.qty || i.quantity || 1),
-          customizations: i.customizations || "",
-          is_placed: true,
-        }));
-
-        setCart(freshCartItems);
-      } else if (pendingItems.length > 0) {
-        // If no items returned from DB but we had pending items, mark them as placed
-        setCart((prevCart) =>
-          prevCart.map((item) => ({ ...item, is_placed: true })),
-        );
-      }
+      // Clear the cart tray completely now that the items are submitted
+      setCart([]); 
 
       setShowBillInfo(false);
 
       if (isPayNow) {
         setShowSessionModal(true);
-      } else {
-        // For "Pay Later", just clear pending items but keep placed items
-        setCart((prevCart) => prevCart.filter((item) => item.is_placed));
       }
     } catch (e) {
       console.error("Order submission failed:", e);
@@ -566,7 +511,6 @@ const KioskReservationMenu = () => {
           getAuthHeader(),
         );
 
-        // Set local storage cooldown upon success
         storage.setItem(LAST_REFILL_KEY, Date.now().toString());
 
         setShowFlavorModal(false);
@@ -794,10 +738,9 @@ const KioskReservationMenu = () => {
           </div>
         </main>
         <OrderSummary
-          cart={cart} // Pass full cart so reserved items stay visible in the tray
+          cart={cart}
           onRemoveItem={(id) => {
-            // Protect already placed database items from being locally cleared
-            setCart((prev) => prev.filter((i) => i.id !== id || i.is_placed));
+            setCart((prev) => prev.filter((i) => i.id !== id));
           }}
         />
       </div>
@@ -813,7 +756,10 @@ const KioskReservationMenu = () => {
           </button>
         )}
         <div className="res-action-btns" style={{ marginLeft: "auto" }}>
-          <button className="res-btn-cancel" onClick={() => setCart([])}>
+          <button 
+            className="res-btn-cancel" 
+            onClick={() => setCart([])}
+          >
             Clear Tray
           </button>
           <button
@@ -854,17 +800,14 @@ const KioskReservationMenu = () => {
               }}
             >
               {(isFinalCheckout ? billItems : cart).map((item, idx) => {
-                // 1. Get the correct quantity
                 const q = parseInt(item.quantity || item.qty || 1);
 
-                // 2. Resolve the individual unit price dynamically
                 let p = parseFloat(item.price);
                 if (isNaN(p)) p = parseFloat(item.unit_price);
                 if (isNaN(p) && item.item_price)
                   p = parseFloat(item.item_price) / q;
                 if (isNaN(p)) p = 0;
 
-                // 3. Force price to 0 if the item is a refill record
                 const isRefill =
                   item.is_refill === 1 ||
                   item.is_refill === true ||
@@ -952,20 +895,19 @@ const KioskReservationMenu = () => {
               }}
             >
               {isFinalCheckout ? (
-                /* 1. HEADER VIEW BILL / FINAL CHECKOUT MODE */
                 parseFloat(calculateTotalDue()) > 0 ? (
                   <>
                     <button
                       className="res-modal-btn-primary"
                       onClick={async () => {
-                        const totalBill = calculateSessionTotal(); // The full total subtotal (e.g., 578.00)
+                        const totalBill = calculateSessionTotal();
                         setIsLoading(true);
                         try {
                           await axios.post(
                             `${API_BASE}/billing/walkin`,
                             {
                               reservation_id: reservationId,
-                              amount: totalBill, // Overwrites database payment record with the full subtotal
+                              amount: totalBill,
                               payment_method: "Cash",
                               payment_status: "verified",
                             },
@@ -1010,7 +952,6 @@ const KioskReservationMenu = () => {
                   </>
                 )
               ) : (
-                /* 2. PLACING CURRENT ORDER TRAY MODE */
                 <>
                   <button
                     className="res-modal-btn-primary"
@@ -1038,13 +979,12 @@ const KioskReservationMenu = () => {
         </div>
       )}
 
-      {/* DYNAMIC DATABASE CUSTOMIZATION MODAL (Wings, Ramen & Drinks) */}
+      {/* DYNAMIC DATABASE CUSTOMIZATION MODAL */}
       {showFlavorModal && (
         <div className="res-modal-overlay" style={{ zIndex: 9000 }}>
           <div className="res-modal-card flavor-modal-wide">
             <h2 className="modal-title-yellow">Customize Your Order</h2>
             <div className="customization-scroll-area">
-              {/* Flavors Section */}
               <section className="modal-section">
                 <h3 className="section-label">Select Flavors (Up to 4)</h3>
                 <div className="flavor-grid">
@@ -1069,7 +1009,6 @@ const KioskReservationMenu = () => {
                 </div>
               </section>
 
-              {/* Drinks Section */}
               <section className="modal-section">
                 <h3 className="section-label">Select Drink (Choose One)</h3>
                 <div className="drink-grid">

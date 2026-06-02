@@ -41,6 +41,23 @@ const Billing = () => {
       setLoading(false);
     }
   };
+  // In Billing.jsx (inside the Billing component)
+const getItemPrice = (item) => {
+  const isRefill =
+    item.is_refill === 1 ||
+    item.is_refill === true ||
+    (item.customizations &&
+      item.customizations.toString().includes("[REFILL]"));
+      
+  return isRefill ? 0 : Number(item.price || 0);
+};
+
+const calculateItemsSum = () => {
+  return orderItems.reduce(
+    (sum, item) => sum + item.quantity * getItemPrice(item),
+    0,
+  );
+};
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -65,13 +82,6 @@ const Billing = () => {
     } finally {
       setLoadingItems(false);
     }
-  };
-
-  const calculateItemsSum = () => {
-    return orderItems.reduce(
-      (sum, item) => sum + item.quantity * item.price,
-      0,
-    );
   };
 
   if (loading)
@@ -274,44 +284,61 @@ const Billing = () => {
           ></button>
         </div>
 
-        <div className="offcanvas-body p-0 d-flex flex-column">
-          {selectedPayment && (
-            <>
-              {/* 1. ORDER ITEMS LIST */}
-              <div className="p-3 flex-grow-1 overflow-auto bg-light-subtle">
-                <span
-                  className="fw-bold text-muted text-uppercase d-block mb-3"
-                  style={{ fontSize: "0.7rem" }}
+       <div className="offcanvas-body p-0 d-flex flex-column">
+  {selectedPayment && (
+    <>
+      {/* 1. ORDER ITEMS LIST */}
+      <div className="p-3 flex-grow-1 overflow-auto bg-light-subtle">
+        <span
+          className="fw-bold text-muted text-uppercase d-block mb-3"
+          style={{ fontSize: "0.7rem" }}
+        >
+          Order Summary
+        </span>
+        {loadingItems ? (
+          <div className="text-center py-5">
+            <Loader2 className="animate-spin text-primary" />
+          </div>
+        ) : (
+          <div className="item-list">
+            {orderItems.map((item, idx) => {
+              // Check if the item is a refill record
+              const isRefill =
+                item.is_refill === 1 ||
+                item.is_refill === true ||
+                (item.customizations &&
+                  item.customizations.toString().includes("[REFILL]"));
+
+              // Force price to 0 if it is a refill, otherwise use the regular price
+              const currentPrice = isRefill ? 0 : Number(item.price || 0);
+
+              return (
+                <div
+                  key={idx}
+                  className="mb-2 p-2 bg-white rounded-2 border-bottom shadow-sm"
                 >
-                  Order Summary
-                </span>
-                {loadingItems ? (
-                  <div className="text-center py-5">
-                    <Loader2 className="animate-spin text-primary" />
+                  <div className="d-flex justify-content-between small">
+                    <div className="fw-bold text-dark">
+                      {item.name || item.item_name}{" "}
+                      <span className="text-primary ms-1">
+                        x{item.quantity}
+                      </span>
+                      {isRefill && (
+                        <span className="badge bg-success ms-2 text-uppercase" style={{ fontSize: "0.65rem" }}>
+                          Refill
+                        </span>
+                      )}
+                    </div>
+                    <div className="fw-bold">
+                      ₱{(item.quantity * currentPrice).toLocaleString()}
+                    </div>
                   </div>
-                ) : (
-                  <div className="item-list">
-                    {orderItems.map((item, idx) => (
-                      <div
-                        key={idx}
-                        className="mb-2 p-2 bg-white rounded-2 border-bottom shadow-sm"
-                      >
-                        <div className="d-flex justify-content-between small">
-                          <div className="fw-bold text-dark">
-                            {item.name || item.item_name}{" "}
-                            <span className="text-primary ms-1">
-                              x{item.quantity}
-                            </span>
-                          </div>
-                          <div className="fw-bold">
-                            ₱{(item.quantity * item.price).toLocaleString()}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
               {/* 2. PAYMENT REVIEW PANEL */}
               <div className="p-4 bg-dark text-white shadow-lg">

@@ -122,20 +122,28 @@ const CustomerProfile = () => {
 
               <div className="row mb-3">
                 <div className="col-sm-4 text-muted fw-semibold">
+                  First Name
+                </div>
+                <div className="col-sm-8 fw-bold text-break">
+                  {userData.firstName}
+                </div>
+              </div>
+              <div className="row mb-3">
+                <div className="col-sm-4 text-muted fw-semibold">
+                  Last Name
+                </div>
+                <div className="col-sm-8 fw-bold text-break">
+                  {userData.lastName}
+                </div>
+              </div>
+              <div className="row mb-3">
+                <div className="col-sm-4 text-muted fw-semibold">
                   Email Address
                 </div>
                 <div className="col-sm-8 fw-bold text-break">
                   {userData.email}
                 </div>
               </div>
-
-              <div className="row mb-4">
-                <div className="col-sm-4 text-muted fw-semibold">
-                  Phone Number
-                </div>
-                <div className="col-sm-8 fw-bold">{userData.phone}</div>
-              </div>
-
               <div className="d-grid gap-2">
                 <button
                   className="btn btn-warning fw-bold py-2 rounded-3"

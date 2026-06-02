@@ -21,7 +21,7 @@ const userController = {
         profileImage: user.profile_image || null,
         memberSince: user.created_at,
         status:
-          user.role === "Admin" ? "System Administrator" : "Active Customer",
+          user.role === "Admin" ? "System Administrator" : "Customer",
         customerId: user.role === "Customer" ? `HG-2024-${user.user_id}` : null,
       });
     } catch (error) {
@@ -65,7 +65,7 @@ const userController = {
         profileImage: updatedUser.profile_image || "",
         memberSince: updatedUser.created_at,
         status:
-          updatedUser.role === "Admin" ? "Profile Updated" : "Active Customer",
+          updatedUser.role === "Admin" ? "Profile Updated" : "Customer",
         customerId:
           updatedUser.role === "Customer"
             ? `HG-2024-${updatedUser.user_id}`
