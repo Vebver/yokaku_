@@ -82,9 +82,14 @@ const KioskMenu = () => {
     storage.getItem(PAYMENT_CHOICE_KEY) === "verified",
   );
 
-  // DECLARED: React state to track total payments in real-time
+  // Reactive state to track total payments in real-time
   const [localTotalPaid, setLocalTotalPaid] = useState(
-    parseFloat(storage.getItem(TOTAL_PAID_KEY) || 0)
+    parseFloat(storage.getItem(TOTAL_PAID_KEY) || 0),
+  );
+
+  // DECLARED HERE AT THE TOP to prevent ReferenceErrors in hooks below
+  const hasOrderedUnlimited = [...billItems, ...cart].some((item) =>
+    (item.name || item.item_name || "").toLowerCase().includes("unlimited"),
   );
 
   const [showTypeModal, setShowTypeModal] = useState(false);
@@ -111,22 +116,25 @@ const KioskMenu = () => {
   const [dynamicRamenFlavors, setDynamicRamenFlavors] = useState([]);
   const [dynamicDrinks, setDynamicDrinks] = useState([]);
   const [isRefillMode, setIsRefillMode] = useState(false);
-  
+  const [cooldownMessage, setCooldownMessage] = useState(null);
+
   const currentTableId = localStorage.getItem("tableId") || "takeout";
 
   const getAuthHeader = () => {
-    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+    const token =
+      localStorage.getItem("token") || sessionStorage.getItem("token");
     if (!token || token === "null" || token === "undefined") {
       console.warn("Authorization token is missing from browser storage.");
-      return { headers: {} }; 
+      return { headers: {} };
     }
     return { headers: { Authorization: `Bearer ${token}` } };
   };
 
   const getFetchHeaders = () => {
-    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+    const token =
+      localStorage.getItem("token") || sessionStorage.getItem("token");
     return token && token !== "null" && token !== "undefined"
-      ? { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" }
+      ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
       : { "Content-Type": "application/json" };
   };
 
@@ -153,7 +161,7 @@ const KioskMenu = () => {
     return cart.reduce((sum, item) => {
       const p = parseFloat(item.price || 0);
       const q = parseInt(item.quantity || 1);
-      return sum + (p * q);
+      return sum + p * q;
     }, 0);
   };
 
@@ -163,26 +171,28 @@ const KioskMenu = () => {
     const combined = excludeCart ? history : [...history, ...cart];
 
     return combined.reduce((sum, item) => {
-      const q = parseInt(item.quantity || item.qty || 1); 
+      const q = parseInt(item.quantity || item.qty || 1);
 
       let p = parseFloat(item.price);
       if (isNaN(p)) p = parseFloat(item.unit_price);
       if (isNaN(p) && item.item_price) p = parseFloat(item.item_price) / q;
       if (isNaN(p)) p = 0;
 
-      const isRefill = item.is_refill === 1 || 
-                       item.is_refill === true || 
-                       (item.customizations && item.customizations.toString().includes("[REFILL]"));
+      const isRefill =
+        item.is_refill === 1 ||
+        item.is_refill === true ||
+        (item.customizations &&
+          item.customizations.toString().includes("[REFILL]"));
       if (isRefill) {
         p = 0;
       }
 
-      return sum + (p * q);
+      return sum + p * q;
     }, 0);
   };
 
   const calculateTotalDue = (excludeCart = false) => {
-    const totalSession = calculateSessionTotal(excludeCart); 
+    const totalSession = calculateSessionTotal(excludeCart);
     const due = totalSession - localTotalPaid; // Calculates using the reactive state
     return due > 0 ? due.toFixed(2) : "0.00";
   };
@@ -214,22 +224,37 @@ const KioskMenu = () => {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const setupTable = params.get("setupTable");
-    
+
     if (setupTable) {
       storage.setItem(FIXED_KIOSK_KEY, setupTable);
       console.log(`Kiosk locked to Table ID: ${setupTable}`);
     }
   }, []);
 
+  useEffect(() => {
+    if (activeCategory === "Unlimited" && hasOrderedUnlimited) {
+      const fallbackCategory = Object.keys(menuData).find(
+        (cat) => !HIDDEN_CATEGORIES.includes(cat) && cat !== "Unlimited"
+      );
+      if (fallbackCategory) {
+        setActiveCategory(fallbackCategory);
+      }
+    }
+  }, [activeCategory, hasOrderedUnlimited, menuData]);
+
   const handleEndSession = async () => {
     const activeTable = storage.getItem(SAVED_TABLE_ID);
     const activeResId = storage.getItem(SAVED_RES_ID);
     if (activeResId) {
       try {
-        await axios.post(`${API_BASE}/orders/finish`, {
-          table_id: activeTable,
-          reservation_id: activeResId,
-        }, getAuthHeader());
+        await axios.post(
+          `${API_BASE}/orders/finish`,
+          {
+            table_id: activeTable,
+            reservation_id: activeResId,
+          },
+          getAuthHeader(),
+        );
       } catch (err) {
         console.error(err);
       }
@@ -249,12 +274,16 @@ const KioskMenu = () => {
     if (lastRefill) {
       const timeElapsed = Date.now() - parseInt(lastRefill, 10);
       const cooldownPeriod = 10 * 60 * 1000;
-      
+
       if (timeElapsed < cooldownPeriod) {
-        const remainingSeconds = Math.ceil((cooldownPeriod - timeElapsed) / 1000);
+        const remainingSeconds = Math.ceil(
+          (cooldownPeriod - timeElapsed) / 1000,
+        );
         const m = Math.floor(remainingSeconds / 60);
         const s = remainingSeconds % 60;
-        alert(`Refill is on cooldown. Please wait ${m}m ${s}s before requesting another.`);
+        setCooldownMessage(
+          `Refill is on cooldown. Please wait ${m}m ${s}s before requesting another.`,
+        );
         return;
       }
     }
@@ -265,11 +294,11 @@ const KioskMenu = () => {
       price: 0,
     };
 
-    setSelectedItem({ ...refillItem, price: 0 }); 
+    setSelectedItem({ ...refillItem, price: 0 });
     setSelectedFlavors([]);
     setSelectedDrink("");
     setIsRefillMode(true);
-    setShowFlavorModal(true); 
+    setShowFlavorModal(true);
   };
 
   useEffect(() => {
@@ -305,7 +334,7 @@ const KioskMenu = () => {
     try {
       const res = await axios.get(
         `${API_BASE}/orders/reservation-items/${resId}`,
-        getAuthHeader()
+        getAuthHeader(),
       );
       setBillItems(res.data || []);
       return res.data;
@@ -334,20 +363,24 @@ const KioskMenu = () => {
     const finalTableId = isNaN(parsedTableId) ? null : parsedTableId;
 
     try {
-      await axios.post(`${API_BASE}/orders/place`, {
-        reservation_id: dynamicResId,
-        table_id: finalTableId,
-        items: itemsToSubmit.map((i) => ({
-          item_id: i.id,
-          quantity: i.quantity,
-          customizations:
-            mode === "Take-Out"
-              ? `[TAKE-OUT] ${i.customizations || ""}`
-              : i.customizations,
-          is_refill: i.price === 0,
-        })),
-        allergy_note: allergyNote !== "None" ? allergyNote : null,
-      }, getAuthHeader());
+      await axios.post(
+        `${API_BASE}/orders/place`,
+        {
+          reservation_id: dynamicResId,
+          table_id: finalTableId,
+          items: itemsToSubmit.map((i) => ({
+            item_id: i.id,
+            quantity: i.quantity,
+            customizations:
+              mode === "Take-Out"
+                ? `[TAKE-OUT] ${i.customizations || ""}`
+                : i.customizations,
+            is_refill: i.price === 0,
+          })),
+          allergy_note: allergyNote !== "None" ? allergyNote : null,
+        },
+        getAuthHeader(),
+      );
 
       setLocalBillHistory((prev) => [...prev, ...itemsToSubmit]);
       setCart([]);
@@ -361,20 +394,20 @@ const KioskMenu = () => {
         setTimeLeft(DURATION / 1000);
       }
       setCart([]);
-     // 1. Handle payment updates depending on choice
+
       if (isPayNow) {
-        const outstandingBalance = parseFloat(calculateTotalDue()); 
+        const outstandingBalance = parseFloat(calculateTotalDue());
         const newTotalPaidInStorage = calculateSessionTotal();
 
         await syncWithDashboard(
           dynamicResId,
-          outstandingBalance, 
+          outstandingBalance,
           "Cash",
           "verified",
         );
 
         storage.setItem(TOTAL_PAID_KEY, newTotalPaidInStorage.toString());
-        setLocalTotalPaid(newTotalPaidInStorage); // Instantly updates paid total state
+        setLocalTotalPaid(newTotalPaidInStorage);
 
         storage.setItem(PAYMENT_CHOICE_KEY, "verified");
         setIsPaid(true);
@@ -385,12 +418,10 @@ const KioskMenu = () => {
         storage.removeItem(PAYMENT_CHOICE_KEY);
       }
 
-      // 2. Always refresh database records and clear local history on success
-      await fetchCurrentBill(); // Instantly syncs the header "PAY BILL" totals
+      await fetchCurrentBill();
       setLocalBillHistory([]);
 
       setShowPaymentModal(false);
-      // REMOVED: setShowSessionModal(true) to prevent crash
     } catch (error) {
       console.error(error);
       alert("Order failed.");
@@ -412,7 +443,7 @@ const KioskMenu = () => {
     const fetchMenu = async () => {
       try {
         const response = await fetch(`${API_BASE}/products`, {
-          headers: getFetchHeaders()
+          headers: getFetchHeaders(),
         });
         const data = await response.json();
         const grouped = data.reduce((acc, item) => {
@@ -459,13 +490,12 @@ const KioskMenu = () => {
 
   const handleItemClick = (item) => {
     if (activeCategory === "Chicken") {
-      setSelectedItem({ ...item, price: 0 }); 
+      setSelectedItem({ ...item, price: 0 });
       setSelectedFlavors([]);
       setSelectedDrink("");
       setIsRefillMode(true);
       setShowFlavorModal(true);
-    }
-    else if (
+    } else if (
       item.name.toLowerCase().includes("unlimited") ||
       item.name.toLowerCase().includes("ramen")
     ) {
@@ -473,8 +503,7 @@ const KioskMenu = () => {
       setSelectedFlavors([]);
       setSelectedDrink("");
       setShowFlavorModal(true);
-    }
-    else {
+    } else {
       setSelectedItem({ ...item, category: "Regular" });
       setIsModalOpen(true);
     }
@@ -497,7 +526,7 @@ const KioskMenu = () => {
       ...selectedItem,
       quantity: 1,
       customizations: customization,
-      price: isRefill ? 0 : selectedItem.price, 
+      price: isRefill ? 0 : selectedItem.price,
       is_refill: isRefill,
     };
 
@@ -509,25 +538,39 @@ const KioskMenu = () => {
       const finalTableId = isNaN(parsedTableId) ? null : parsedTableId;
 
       try {
-        await axios.post(`${API_BASE}/orders/place`, {
-          reservation_id: activeResId,
-          table_id: finalTableId,
-          items: [{
-            item_id: newItem.id,
-            quantity: 1,
-            customizations: newItem.customizations,
-            is_refill: true,
-          }],
-        }, getAuthHeader());
+        await axios.post(
+          `${API_BASE}/orders/place`,
+          {
+            reservation_id: activeResId,
+            table_id: finalTableId,
+            items: [
+              {
+                item_id: newItem.id,
+                quantity: 1,
+                customizations: newItem.customizations,
+                is_refill: true,
+              },
+            ],
+          },
+          getAuthHeader(),
+        );
 
-        sessionStorage.setItem("kiosk_last_refill_timestamp", Date.now().toString());
+        sessionStorage.setItem(
+          "kiosk_last_refill_timestamp",
+          Date.now().toString(),
+        );
         await fetchCurrentBill();
 
         setShowFlavorModal(false);
         setIsRefillMode(false);
-        alert("Refill order placed successfully!");
       } catch (err) {
-        alert("Refill placement failed.");
+        if (err.response?.data?.error === "Cooldown active") {
+          setCooldownMessage(err.response.data.message);
+        } else {
+          setCooldownMessage("Refill placement failed.");
+        }
+        setShowFlavorModal(false);
+        setIsRefillMode(false);
       } finally {
         setIsLoading(false);
       }
@@ -599,8 +642,11 @@ const KioskMenu = () => {
               onClick={handleHeaderPayClick}
               style={{
                 background:
-                  parseFloat(calculateTotalDue(true)) <= 0 ? "#28a745" : "#ffcc00",
-                color: parseFloat(calculateTotalDue(true)) <= 0 ? "#fff" : "#000",
+                  parseFloat(calculateTotalDue(true)) <= 0
+                    ? "#28a745"
+                    : "#ffcc00",
+                color:
+                  parseFloat(calculateTotalDue(true)) <= 0 ? "#fff" : "#000",
               }}
             >
               <CreditCard size={18} className="me-2" />
@@ -621,7 +667,9 @@ const KioskMenu = () => {
           <div className="res-category-list">
             <div className="res-cat-scroll-wrapper">
               {Object.keys(menuData)
-                .filter((cat) => !HIDDEN_CATEGORIES.includes(cat)) 
+                .filter((cat) => !HIDDEN_CATEGORIES.includes(cat))
+                // Filter out the "Unlimited" category if they already ordered it
+                .filter((cat) => !(cat === "Unlimited" && hasOrderedUnlimited))
                 .map((cat) => (
                   <button
                     key={cat}
@@ -848,7 +896,7 @@ const KioskMenu = () => {
                     setShowPaymentModal(true);
                   } else {
                     axios
-                      .get(`${API_BASE}/admin/public/getTable`, getAuthHeader()) // Restored Token Header
+                      .get(`${API_BASE}/admin/public/getTable`, getAuthHeader())
                       .then((r) => setAvailableTables(r.data));
                     setShowTypeModal(false);
                     setShowTablePicker(true);
@@ -933,7 +981,7 @@ const KioskMenu = () => {
       )}
 
       {/* Payment Choice Modal */}
-     {showPaymentModal && (
+      {showPaymentModal && (
         <div className="res-modal-overlay" style={{ zIndex: 10000 }}>
           <div className="res-modal-card">
             <Receipt
@@ -947,7 +995,6 @@ const KioskMenu = () => {
               style={{ color: "#fff", fontSize: "1.4rem", fontWeight: "bold" }}
             >
               Amount to Pay:{" "}
-              {/* Correctly displays the combined unpaid history + new cart additions */}
               <span style={{ color: "#ffcc00" }}>₱{calculateTotalDue()}</span>
             </p>
             <div
@@ -983,6 +1030,7 @@ const KioskMenu = () => {
           </div>
         </div>
       )}
+
       {/* Bill Info / Receipt Modal */}
       {showBillInfo && (
         <div className="res-modal-overlay" style={{ zIndex: 10000 }}>
@@ -996,34 +1044,52 @@ const KioskMenu = () => {
               {isFinalCheckout ? "Bill Summary" : "Current Tray"}
             </h2>
 
-          <div className="bill-scroll" style={{ maxHeight: "200px", overflowY: "auto", margin: "20px 0" }}>
+            <div
+              className="bill-scroll"
+              style={{
+                maxHeight: "200px",
+                overflowY: "auto",
+                margin: "20px 0",
+              }}
+            >
               {(isFinalCheckout ? billItems : cart).map((item, idx) => {
-                // 1. Get the correct quantity
                 const q = parseInt(item.quantity || item.qty || 1);
-                
-                // 2. Resolve the individual unit price dynamically
+
                 let p = parseFloat(item.price);
                 if (isNaN(p)) p = parseFloat(item.unit_price);
-                if (isNaN(p) && item.item_price) p = parseFloat(item.item_price) / q;
+                if (isNaN(p) && item.item_price)
+                  p = parseFloat(item.item_price) / q;
                 if (isNaN(p)) p = 0;
 
-                // 3. Force price to 0 if the item is a refill record
-                const isRefill = item.is_refill === 1 || 
-                                 item.is_refill === true || 
-                                 (item.customizations && item.customizations.toString().includes("[REFILL]"));
+                const isRefill =
+                  item.is_refill === 1 ||
+                  item.is_refill === true ||
+                  (item.customizations &&
+                    item.customizations.toString().includes("[REFILL]"));
                 if (isRefill) {
                   p = 0;
                 }
 
                 return (
-                  <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "10px 5px", color: "#fff", borderBottom: '1px solid #222' }}>
-                    <div style={{textAlign: 'left'}}>
-                      <span style={{fontWeight: 'bold', display: 'block'}}>{item.name || item.item_name}</span>
-                      <small style={{color: '#888'}}>
-                        {isRefill ? "Refill Option" : `₱${p.toFixed(2)} x ${q}`}
+                  <div
+                    key={idx}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      padding: "10px 5px",
+                      color: "#fff",
+                      borderBottom: "1px solid #222",
+                    }}
+                  >
+                    <div style={{ textAlign: "left", flex: 1 }}>
+                      <span style={{ fontWeight: "bold", display: "block" }}>
+                        {item.name || item.item_name}
+                      </span>
+                      <small style={{ color: "#888" }}>
+                        {isRefill ? "REFILL" : `₱${p.toFixed(2)} x ${q}`}
                       </small>
                     </div>
-                    <span style={{alignSelf: 'center'}}>
+                    <span style={{ alignSelf: "center" }}>
                       ₱{(p * q).toFixed(2)}
                     </span>
                   </div>
@@ -1038,11 +1104,13 @@ const KioskMenu = () => {
                 fontSize: "1.4rem",
                 fontWeight: "bold",
                 color: "#fff",
-                marginBottom: "20px"
+                marginBottom: "20px",
               }}
             >
               <span>Total Due:</span>
-              <span style={{ color: "#ffcc00" }}>₱{calculateTotalDue(isFinalCheckout)}</span>
+              <span style={{ color: "#ffcc00" }}>
+                ₱{calculateTotalDue(isFinalCheckout)}
+              </span>
             </div>
 
             <div
@@ -1053,27 +1121,25 @@ const KioskMenu = () => {
                 marginTop: "20px",
               }}
             >
-             {parseFloat(calculateTotalDue(isFinalCheckout)) > 0 ? (
+              {parseFloat(calculateTotalDue(isFinalCheckout)) > 0 ? (
                 <button
                   className="res-modal-btn-primary"
                   onClick={async () => {
-                    const totalBill = calculateSessionTotal(isFinalCheckout); 
+                    const totalBill = calculateSessionTotal(isFinalCheckout);
                     setIsLoading(true);
                     try {
                       await syncWithDashboard(
                         storage.getItem(SAVED_RES_ID),
-                        totalBill, 
+                        totalBill,
                         "Cash",
                         "verified",
                       );
-                      
-                      // 1. Instantly update storage & state to force immediate render of ₱0.00 due
-                      storage.setItem(TOTAL_PAID_KEY, totalBill.toString());
-                      setLocalTotalPaid(totalBill); 
-                      
-                      setIsLoading(false); // Turn off the loading screen immediately
 
-                      // 2. Trigger these in the background without blocking the UI thread
+                      storage.setItem(TOTAL_PAID_KEY, totalBill.toString());
+                      setLocalTotalPaid(totalBill);
+
+                      setIsLoading(false);
+
                       fetchCurrentBill();
                       playCashierAlert();
                     } catch (err) {
@@ -1082,7 +1148,8 @@ const KioskMenu = () => {
                     }
                   }}
                 >
-                  <Banknote size={18} className="me-2" /> PAY NOW (₱{calculateTotalDue(isFinalCheckout)})
+                  <Banknote size={18} className="me-2" /> PAY NOW (₱
+                  {calculateTotalDue(isFinalCheckout)})
                 </button>
               ) : (
                 <button
@@ -1106,13 +1173,14 @@ const KioskMenu = () => {
           </div>
         </div>
       )}
+
       {/* Flavor Customization Modal */}
       {showFlavorModal && (
         <div className="res-modal-overlay" style={{ zIndex: 9000 }}>
           <div className="res-modal-card flavor-modal-wide">
             <h2 className="modal-title-yellow">Customize Your Order</h2>
             <div className="customization-scroll-area">
-             <section className="modal-section">
+              <section className="modal-section">
                 <h3 className="section-label">Select Flavors (Up to 4)</h3>
                 <div className="flavor-grid">
                   {(selectedItem?.name.toLowerCase().includes("ramen")
@@ -1168,9 +1236,33 @@ const KioskMenu = () => {
                 Cancel
               </button>
               <button className="res-btn-confirm-ui" onClick={confirmFlavors}>
-                Add to Tray
+                {isRefillMode ? "Order Refill" : "Add to Tray"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* COOLDOWN FEEDBACK MODAL */}
+      {cooldownMessage && (
+        <div className="res-modal-overlay" style={{ zIndex: 12000 }}>
+          <div
+            className="res-modal-card"
+            style={{ maxWidth: "400px", textAlign: "center" }}
+          >
+            <AlertCircle
+              size={50}
+              color="#ffcc00"
+              style={{ margin: "0 auto 15px" }}
+            />
+            <h3 style={{ color: "#ffcc00" }}>Refill Cooldown</h3>
+            <p style={{ color: "#fff", margin: "15px 0" }}>{cooldownMessage}</p>
+            <button
+              className="res-modal-btn-primary"
+              onClick={() => setCooldownMessage(null)}
+            >
+              OK
+            </button>
           </div>
         </div>
       )}

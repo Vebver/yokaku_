@@ -97,7 +97,8 @@
 }
 
 /* Table ID Section */
-.header-id-section {
+/* Increased specificity for the parent section */
+.header-left-group .header-id-section {
   background: #1a1a1a;
   border: 1px solid #333;
   padding: 8px 15px;
@@ -106,17 +107,21 @@
   align-items: center;
   gap: 12px;
 }
-.id-label {
-  color: #ffcc00;
+
+/* Specific path to the label */
+.header-id-section .id-details .id-label {
+  color: #ffcc00 !important;
   font-size: 10px;
   font-weight: 900;
   text-transform: uppercase;
 }
-.id-value {
-  color: #ffffff !important; /* Forces the Table ID to be visible white */
+
+/* Specific path to the value */
+.header-id-section .id-details .id-value {
+  color: #ffffff !important;
   font-weight: 900;
   font-size: 16px;
-}
+} 
 
 /* Animations */
 .spin-fast {
