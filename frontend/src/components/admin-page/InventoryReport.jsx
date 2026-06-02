@@ -309,18 +309,24 @@ const InventoryReport = ({ data }) => {
                               {item.name}
                               {isCritical && (
                                 <span
-                                  className="ms-2 badge bg-danger bg-opacity-10 text-danger rounded-pill"
-                                  style={{ fontSize: "10px" }}
+                                  className="ms-2 badge bg-danger text-white rounded-pill"
+                                  style={{
+                                    fontSize: "10px",
+                                    fontWeight: "600",
+                                  }}
                                 >
-                                  Critical
+                                  CRITICAL
                                 </span>
                               )}
                               {!isCritical && isLowStock && (
                                 <span
-                                  className="ms-2 badge bg-warning bg-opacity-10 text-warning rounded-pill"
-                                  style={{ fontSize: "10px" }}
+                                  className="ms-2 badge bg-warning text-dark rounded-pill"
+                                  style={{
+                                    fontSize: "10px",
+                                    fontWeight: "600",
+                                  }}
                                 >
-                                  Low
+                                  LOW STOCK
                                 </span>
                               )}
                             </td>
@@ -332,7 +338,8 @@ const InventoryReport = ({ data }) => {
                             </td>
                             <td className="text-center">
                               <span
-                                className={`badge ${isCritical ? "bg-danger" : isLowStock ? "bg-warning" : "bg-light text-dark"} px-3 py-2 rounded-pill`}
+                                className={`badge ${isCritical ? "bg-danger text-white" : isLowStock ? "bg-warning text-dark" : "bg-light text-dark"} px-3 py-2 rounded-pill`}
+                                style={{ fontWeight: "600" }}
                               >
                                 {item.current_stock} {item.unit}
                               </span>

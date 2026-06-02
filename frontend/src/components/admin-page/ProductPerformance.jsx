@@ -233,9 +233,10 @@ const ProductPerformance = ({ data }) => {
                                 <div
                                   className={`rounded-circle d-flex align-items-center justify-content-center fw-bold ${rank === 1 ? "bg-warning text-white" : "bg-light text-dark"}`}
                                   style={{
-                                    width: "28px",
-                                    height: "28px",
-                                    fontSize: "12px",
+                                    width: "32px",
+                                    height: "32px",
+                                    fontSize: "14px",
+                                    flexShrink: 0,
                                   }}
                                 >
                                   {rank === 1 ? "👑" : rank}
@@ -243,12 +244,18 @@ const ProductPerformance = ({ data }) => {
                                 <div>
                                   <div className="fw-semibold text-dark">
                                     {p.name}
+                                    {rank === 1 && (
+                                      <span
+                                        className="ms-2 badge bg-warning text-dark rounded-pill"
+                                        style={{
+                                          fontSize: "10px",
+                                          fontWeight: "600",
+                                        }}
+                                      >
+                                        BEST SELLER
+                                      </span>
+                                    )}
                                   </div>
-                                  {rank === 1 && (
-                                    <small className="text-warning">
-                                      Best Seller
-                                    </small>
-                                  )}
                                 </div>
                               </div>
                             </td>
