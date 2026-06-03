@@ -75,6 +75,7 @@ const KioskReservationMenu = () => {
   const [activeCategory, setActiveCategory] = useState("");
   const [cart, setCart] = useState([]);
   const [billItems, setBillItems] = useState([]);
+   const [localBillHistory, setLocalBillHistory] = useState([]);
   const [timeLeft, setTimeLeft] = useState(5400);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [showSessionModal, setShowSessionModal] = useState(false);
@@ -421,9 +422,15 @@ const KioskReservationMenu = () => {
         TOTAL_PAID_KEY,
         LAST_REFILL_KEY,
       ].forEach((k) => localStorage.removeItem(k));
+
+      setCart([]);
+      setBillItems([]);
+      setLocalBillHistory([]);
       window.location.href = "/kiosk-selection";
     } catch (e) {
       localStorage.removeItem("resId");
+      setCart([]);
+      setBillItems([]);
       window.location.href = "/kiosk-selection";
     } finally {
       setIsLoading(false);
