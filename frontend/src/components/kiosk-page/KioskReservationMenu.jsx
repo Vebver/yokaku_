@@ -352,16 +352,16 @@ const KioskReservationMenu = () => {
     fetchData();
   }, [reservationId]);
 
-const confirmPaymentChoice = async (choice) => {
+  const confirmPaymentChoice = async (choice) => {
     setIsLoading(true);
     const isPayNow = choice === "Pay Now";
 
     // 1. Filter out items that are already ordered (is_placed: true)
     const pendingItems = cart.filter((i) => !i.is_placed);
-    
+
     // Check if they have an unlimited package anywhere (pre-reserved or new)
     const hasUnlimitedPackage = [...billItems, ...cart].some((item) =>
-      (item.name || item.item_name || "").toLowerCase().includes("unlimited")
+      (item.name || item.item_name || "").toLowerCase().includes("unlimited"),
     );
 
     try {
@@ -380,7 +380,7 @@ const confirmPaymentChoice = async (choice) => {
           getAuthHeader(),
         );
       }
-     // 3. START the timer if they have an unlimited package and it's not already running
+      // 3. START the timer if they have an unlimited package and it's not already running
       if (hasUnlimitedPackage && !storage.getItem(TIMER_KEY)) {
         const endTime = Date.now() + 1.5 * 60 * 60 * 1000; // 1 Hour and 30 Minutes in milliseconds (90 mins)
         storage.setItem(TIMER_KEY, endTime.toString());
@@ -978,7 +978,7 @@ const confirmPaymentChoice = async (choice) => {
                       style={{ background: "#28a745" }}
                       onClick={handleEndSession}
                     >
-                      FINISH SESSION
+                      FINISH
                     </button>
                     <button
                       className="res-btn-cancel"

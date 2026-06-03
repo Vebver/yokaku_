@@ -448,26 +448,6 @@ const FinancialOverview = ({ data }) => {
               </div>
             </div>
           )}
-
-        {/* Summary Note */}
-        <div className="col-12">
-          <div className="alert alert-light border rounded-4 p-4 mb-0">
-            <div className="d-flex align-items-start gap-3">
-              <div className="bg-warning bg-opacity-10 rounded-3 p-2">
-                <DollarSign size={20} className="text-warning" />
-              </div>
-              <div>
-                <h6 className="fw-bold mb-1">Calculation Note</h6>
-                <p className="text-muted small mb-0">
-                  Profit is calculated as total revenue from verified payments
-                  and kiosk walk-in orders. No operational expenses have been
-                  deducted from these figures. All amounts are in Philippine
-                  Peso (₱).
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Custom CSS for styling */}

@@ -40,7 +40,7 @@ const HIDDEN_CATEGORIES = [
   "Ramen",
 ];
 
-const DURATION = 1.5* 60 * 60 * 1000; // 1:30 Hours in milliseconds
+const DURATION = 1.5 * 60 * 60 * 1000; // 1:30 Hours in milliseconds
 
 const categoryIcons = {
   "Best Seller": <Flame />,
@@ -243,7 +243,7 @@ const KioskMenu = () => {
     }
   }, [activeCategory, hasOrderedUnlimited, menuData]);
 
-const handleEndSession = async () => {
+  const handleEndSession = async () => {
     const activeTable = storage.getItem(SAVED_TABLE_ID);
     const activeResId = storage.getItem(SAVED_RES_ID);
     if (activeResId) {
@@ -260,7 +260,7 @@ const handleEndSession = async () => {
         console.error(err);
       }
     }
-    
+
     // Clear all session states including the refill cooldown keys
     [
       TIMER_KEY,
@@ -269,7 +269,7 @@ const handleEndSession = async () => {
       PAYMENT_CHOICE_KEY,
       TOTAL_PAID_KEY,
       LAST_REFILL_KEY,
-      "kiosk_last_refill_timestamp"
+      "kiosk_last_refill_timestamp",
     ].forEach((k) => {
       storage.removeItem(k);
       sessionStorage.removeItem(k);
@@ -283,28 +283,30 @@ const handleEndSession = async () => {
 
     window.location.href = "/kiosk-selection";
   };
-// Helper to locate the unlimited package from your loaded menuData
+  // Helper to locate the unlimited package from your loaded menuData
   const findUnlimitedItem = () => {
     for (const cat of Object.keys(menuData)) {
       const found = menuData[cat].find((item) =>
-        (item.name || "").toLowerCase().includes("unlimited")
+        (item.name || "").toLowerCase().includes("unlimited"),
       );
       if (found) return found;
     }
     return null;
   };
 
- const handleRefillClick = () => {
+  const handleRefillClick = () => {
     const lastRefill = storage.getItem(LAST_REFILL_KEY);
     if (lastRefill) {
       const timeElapsed = Date.now() - parseInt(lastRefill, 10);
-      
+
       // Cooldown period set back to 10 Minutes (10 * 60 * 1000)
       const cooldownPeriod = 10 * 60 * 1000;
 
       if (timeElapsed < cooldownPeriod) {
-        const remainingSeconds = Math.ceil((cooldownPeriod - timeElapsed) / 1000);
-        
+        const remainingSeconds = Math.ceil(
+          (cooldownPeriod - timeElapsed) / 1000,
+        );
+
         // Format the remaining time into minutes and seconds
         const m = Math.floor(remainingSeconds / 60);
         const s = remainingSeconds % 60;
@@ -537,7 +539,7 @@ const handleEndSession = async () => {
     }
   };
 
-const confirmFlavors = async () => {
+  const confirmFlavors = async () => {
     if (selectedFlavors.length === 0) {
       setCooldownMessage("Please select at least one flavor.");
       return;
@@ -583,10 +585,7 @@ const confirmFlavors = async () => {
           getAuthHeader(),
         );
 
-        sessionStorage.setItem(
-          LAST_REFILL_KEY,
-          Date.now().toString(),
-        );
+        sessionStorage.setItem(LAST_REFILL_KEY, Date.now().toString());
         await fetchCurrentBill();
 
         setShowFlavorModal(false);
@@ -917,7 +916,7 @@ const confirmFlavors = async () => {
               <button
                 className="res-modal-btn-primary"
                 onClick={() => {
-                 const fixed = window.localStorage.getItem(FIXED_KIOSK_KEY);
+                  const fixed = window.localStorage.getItem(FIXED_KIOSK_KEY);
                   if (fixed) {
                     setPendingOrderDetails({ tableId: fixed, mode: "Dine-In" });
                     setShowTypeModal(false);
@@ -1185,7 +1184,7 @@ const confirmFlavors = async () => {
                   style={{ background: "#28a745" }}
                   onClick={handleEndSession}
                 >
-                  FINISH SESSION
+                  FINISH
                 </button>
               )}
 
@@ -1224,7 +1223,9 @@ const confirmFlavors = async () => {
                           }
                           if (prev.length >= 4) {
                             // REPLACED: Use state-driven notice modal instead of standard alert
-                            setCooldownMessage("You can select a maximum of 4 flavors.");
+                            setCooldownMessage(
+                              "You can select a maximum of 4 flavors.",
+                            );
                             return prev;
                           }
                           return [...prev, f];
@@ -1271,7 +1272,7 @@ const confirmFlavors = async () => {
           </div>
         </div>
       )}
-{/* COOLDOWN & NOTICE FEEDBACK MODAL */}
+      {/* COOLDOWN & NOTICE FEEDBACK MODAL */}
       {cooldownMessage && (
         <div className="res-modal-overlay" style={{ zIndex: 12000 }}>
           <div
@@ -1285,7 +1286,9 @@ const confirmFlavors = async () => {
             />
             {/* Dynamically toggle header between Cooldown and standard Notice */}
             <h3 style={{ color: "#ffcc00" }}>
-              {cooldownMessage.toLowerCase().includes("cooldown") ? "Refill Cooldown" : "Notice"}
+              {cooldownMessage.toLowerCase().includes("cooldown")
+                ? "Refill Cooldown"
+                : "Notice"}
             </h3>
             <p style={{ color: "#fff", margin: "15px 0" }}>{cooldownMessage}</p>
             <button
