@@ -234,7 +234,7 @@ const KioskMenu = () => {
   useEffect(() => {
     if (activeCategory === "Unlimited" && hasOrderedUnlimited) {
       const fallbackCategory = Object.keys(menuData).find(
-        (cat) => !HIDDEN_CATEGORIES.includes(cat) && cat !== "Unlimited"
+        (cat) => !HIDDEN_CATEGORIES.includes(cat) && cat !== "Unlimited",
       );
       if (fallbackCategory) {
         setActiveCategory(fallbackCategory);
@@ -266,6 +266,12 @@ const KioskMenu = () => {
       PAYMENT_CHOICE_KEY,
       TOTAL_PAID_KEY,
     ].forEach((k) => storage.removeItem(k));
+
+    // Clear all state to prevent old data from reappearing in new sessions
+    setCart([]);
+    setBillItems([]);
+    setLocalBillHistory([]);
+
     window.location.href = "/kiosk-selection";
   };
 
