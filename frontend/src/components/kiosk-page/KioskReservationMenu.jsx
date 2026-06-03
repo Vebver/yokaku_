@@ -75,7 +75,6 @@ const KioskReservationMenu = () => {
   const [activeCategory, setActiveCategory] = useState("");
   const [cart, setCart] = useState([]);
   const [billItems, setBillItems] = useState([]);
-  const [localBillHistory, setLocalBillHistory] = useState([]);
   const [timeLeft, setTimeLeft] = useState(5400);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [showSessionModal, setShowSessionModal] = useState(false);
@@ -140,7 +139,7 @@ const KioskReservationMenu = () => {
         item.is_refill === true ||
         (item.customizations &&
           item.customizations.toString().includes("[REFILL]"));
-
+          
       if (isRefill) p = 0;
 
       return sum + p * q;
@@ -159,7 +158,7 @@ const KioskReservationMenu = () => {
           item.is_refill === true ||
           (item.customizations &&
             item.customizations.toString().includes("[REFILL]"));
-
+            
         if (isRefill) p = 0;
 
         return sum + p * q;
@@ -386,7 +385,7 @@ const KioskReservationMenu = () => {
       await fetchCurrentBill();
 
       // Clear the cart tray completely now that the items are submitted
-      setCart([]);
+      setCart([]); 
 
       setShowBillInfo(false);
 
@@ -414,7 +413,6 @@ const KioskReservationMenu = () => {
         getAuthHeader(),
       );
 
-      // Clear all storage items
       [
         "resId",
         "tableId",
@@ -423,17 +421,9 @@ const KioskReservationMenu = () => {
         TOTAL_PAID_KEY,
         LAST_REFILL_KEY,
       ].forEach((k) => localStorage.removeItem(k));
-
-      // Clear all state to prevent old data from reappearing in new sessions
-      setCart([]);
-      setBillItems([]);
-      setLocalBillHistory([]);
-
       window.location.href = "/kiosk-selection";
     } catch (e) {
       localStorage.removeItem("resId");
-      setCart([]);
-      setBillItems([]);
       window.location.href = "/kiosk-selection";
     } finally {
       setIsLoading(false);
@@ -766,7 +756,10 @@ const KioskReservationMenu = () => {
           </button>
         )}
         <div className="res-action-btns" style={{ marginLeft: "auto" }}>
-          <button className="res-btn-cancel" onClick={() => setCart([])}>
+          <button 
+            className="res-btn-cancel" 
+            onClick={() => setCart([])}
+          >
             Clear Tray
           </button>
           <button
