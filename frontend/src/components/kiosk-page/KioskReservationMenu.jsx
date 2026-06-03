@@ -75,7 +75,7 @@ const KioskReservationMenu = () => {
   const [activeCategory, setActiveCategory] = useState("");
   const [cart, setCart] = useState([]);
   const [billItems, setBillItems] = useState([]);
-   const [localBillHistory, setLocalBillHistory] = useState([]);
+  const [localBillHistory, setLocalBillHistory] = useState([]);
   const [timeLeft, setTimeLeft] = useState(5400);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [showSessionModal, setShowSessionModal] = useState(false);
@@ -90,6 +90,9 @@ const KioskReservationMenu = () => {
   const [isRefillMode, setIsRefillMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isPaymentProcessing, setIsPaymentProcessing] = useState(false);
+  const hasOrderedUnlimited = [...billItems, ...cart].some((item) =>
+    (item.name || item.item_name || "").toLowerCase().includes("unlimited"),
+  );
 
   // Database-driven customization states
   const [dynamicFlavors, setDynamicFlavors] = useState([]);
@@ -140,7 +143,7 @@ const KioskReservationMenu = () => {
         item.is_refill === true ||
         (item.customizations &&
           item.customizations.toString().includes("[REFILL]"));
-          
+
       if (isRefill) p = 0;
 
       return sum + p * q;
@@ -159,7 +162,7 @@ const KioskReservationMenu = () => {
           item.is_refill === true ||
           (item.customizations &&
             item.customizations.toString().includes("[REFILL]"));
-            
+
         if (isRefill) p = 0;
 
         return sum + p * q;
@@ -208,7 +211,7 @@ const KioskReservationMenu = () => {
   const handleRefillClick = () => {
     const lastRefill = storage.getItem(LAST_REFILL_KEY);
     if (lastRefill) {
-      const timeElapsed = Date.now() - parseInt(lastRefill);
+      const timeElapsed = Date.now() - parseInt(lastRefill, 10);
       const tenMinutes = 10 * 60 * 1000;
       if (timeElapsed < tenMinutes) {
         const remainingSeconds = Math.ceil((tenMinutes - timeElapsed) / 1000);
@@ -223,7 +226,9 @@ const KioskReservationMenu = () => {
 
     const unlimitedItem = findUnlimitedItem();
     if (!unlimitedItem) {
-      alert("No active Unlimited package found in the system registry.");
+      setCooldownMessage(
+        "No active Unlimited package found in the system registry.",
+      );
       return;
     }
 
@@ -233,8 +238,17 @@ const KioskReservationMenu = () => {
     setIsRefillMode(true);
     setShowFlavorModal(true);
   };
-
-  // Initial data fetch
+  useEffect(() => {
+    if (activeCategory === "Unlimited" && hasOrderedUnlimited) {
+      const fallbackCategory = Object.keys(menuData).find(
+        (cat) => !HIDDEN_CATEGORIES.includes(cat) && cat !== "Unlimited",
+      );
+      if (fallbackCategory) {
+        setActiveCategory(fallbackCategory);
+      }
+    }
+  }, [activeCategory, hasOrderedUnlimited, menuData]);
+  // Initial data fetch and Tray/Cart synchronization
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -274,11 +288,27 @@ const KioskReservationMenu = () => {
           return `${BASE_URL}/${cleanPath}`;
         };
 
-        // Pre-reserved items are saved as bill items (not added to active cart)
+        // Sync database items
         if (resItemsRes && resItemsRes.length > 0) {
+          // Initialize active bill history with already-reserved items
           setBillItems(resItemsRes);
+
+          // Load pre-reserved items into the active cart flagged as "is_placed: true"
+          // This displays them in the tray while preventing duplicate database postings
+          setCart(
+            resItemsRes.map((i) => ({
+              id: i.item_id,
+              name: i.item_name || i.name,
+              price: i.item_price || i.price,
+              quantity: parseInt(i.qty || i.quantity || 1),
+              customizations: i.customizations,
+              is_placed: true, // Correctly flagged as already ordered
+            })),
+          );
+        } else {
+          setCart([]);
+          setBillItems([]);
         }
-        setCart([]); // Ensure active tray is completely clean on mount
 
         // Group regular products
         prodRes.forEach((item) => {
@@ -322,22 +352,20 @@ const KioskReservationMenu = () => {
     fetchData();
   }, [reservationId]);
 
-  const confirmPaymentChoice = async (choice) => {
+const confirmPaymentChoice = async (choice) => {
     setIsLoading(true);
     const isPayNow = choice === "Pay Now";
 
-    // Filter out items that are already ordered (is_placed: true)
+    // 1. Filter out items that are already ordered (is_placed: true)
     const pendingItems = cart.filter((i) => !i.is_placed);
-    const hasUnlimited = pendingItems.some((i) =>
-      (i.name || "").toLowerCase().includes("unlimited"),
+    
+    // Check if they have an unlimited package anywhere (pre-reserved or new)
+    const hasUnlimitedPackage = [...billItems, ...cart].some((item) =>
+      (item.name || item.item_name || "").toLowerCase().includes("unlimited")
     );
 
-    if (pendingItems.length === 0 && !isPayNow) {
-      alert("No new items in the tray to place.");
-      setIsLoading(false);
-      return;
-    }
     try {
+      // 2. Only post new items to the kitchen if there are actually new items in the tray
       if (pendingItems.length > 0) {
         await axios.post(
           `${API_BASE}/orders/place`,
@@ -351,15 +379,16 @@ const KioskReservationMenu = () => {
           },
           getAuthHeader(),
         );
-
-        if (hasUnlimited && !storage.getItem(TIMER_KEY)) {
-          const endTime = Date.now() + 2 * 60 * 60 * 1000;
-          storage.setItem(TIMER_KEY, endTime.toString());
-          setTimeLeft(7200);
-          setIsTimerRunning(true);
-        }
+      }
+     // 3. START the timer if they have an unlimited package and it's not already running
+      if (hasUnlimitedPackage && !storage.getItem(TIMER_KEY)) {
+        const endTime = Date.now() + 1.5 * 60 * 60 * 1000; // 1 Hour and 30 Minutes in milliseconds (90 mins)
+        storage.setItem(TIMER_KEY, endTime.toString());
+        setTimeLeft(5400); // 1.5 Hours in seconds (5400s)
+        setIsTimerRunning(true);
       }
 
+      // 4. Process payments only if choosing "Pay Now"
       const totalSessionAmount = calculateSessionTotal();
       const alreadyPaid = parseFloat(storage.getItem(TOTAL_PAID_KEY) || 0);
       const newPendingAmount = totalSessionAmount - alreadyPaid;
@@ -382,12 +411,11 @@ const KioskReservationMenu = () => {
         await playCashierAlert();
       }
 
-      // Refresh backend bill records
+      // 5. Refresh backend bill records and synchronize tray states
       await fetchCurrentBill();
 
       // Clear the cart tray completely now that the items are submitted
-      setCart([]); 
-
+      setCart([]);
       setShowBillInfo(false);
 
       if (isPayNow) {
@@ -421,7 +449,11 @@ const KioskReservationMenu = () => {
         PAYMENT_CHOICE_KEY,
         TOTAL_PAID_KEY,
         LAST_REFILL_KEY,
-      ].forEach((k) => localStorage.removeItem(k));
+        "kiosk_last_refill_timestamp",
+      ].forEach((k) => {
+        localStorage.removeItem(k);
+        sessionStorage.removeItem(k);
+      });
 
       setCart([]);
       setBillItems([]);
@@ -436,7 +468,6 @@ const KioskReservationMenu = () => {
       setIsLoading(false);
     }
   };
-
   const handleHeaderPayClick = async () => {
     setIsPaymentProcessing(false);
     await fetchCurrentBill();
@@ -480,11 +511,11 @@ const KioskReservationMenu = () => {
 
   const confirmFlavors = async () => {
     if (selectedFlavors.length === 0) {
-      alert(`Select at least one flavor`);
+      setCooldownMessage("Please select at least one flavor.");
       return;
     }
     if (selectedFlavors.length > 4) {
-      alert(`You can select up to 4 flavors`);
+      setCooldownMessage("You can select a maximum of 4 flavors.");
       return;
     }
 
@@ -528,7 +559,7 @@ const KioskReservationMenu = () => {
           setCooldownMessage(e.response.data.message);
           setShowFlavorModal(false);
         } else {
-          alert("Refill failed.");
+          setCooldownMessage("Refill failed.");
         }
       } finally {
         setIsLoading(false);
@@ -703,6 +734,8 @@ const KioskReservationMenu = () => {
             <div className="res-cat-scroll-wrapper">
               {Object.keys(menuData)
                 .filter((cat) => !HIDDEN_CATEGORIES.includes(cat))
+                // Filter out the "Unlimited" category if they already ordered it
+                .filter((cat) => !(cat === "Unlimited" && hasOrderedUnlimited))
                 .map((cat) => (
                   <button
                     key={cat}
@@ -763,10 +796,7 @@ const KioskReservationMenu = () => {
           </button>
         )}
         <div className="res-action-btns" style={{ marginLeft: "auto" }}>
-          <button 
-            className="res-btn-cancel" 
-            onClick={() => setCart([])}
-          >
+          <button className="res-btn-cancel" onClick={() => setCart([])}>
             Clear Tray
           </button>
           <button
@@ -968,7 +998,7 @@ const KioskReservationMenu = () => {
                   </button>
                   <button
                     className="res-modal-btn-primary"
-                    style={{ background: "#444" }}
+                    style={{ background: "#ffcc00" }}
                     onClick={() => confirmPaymentChoice("Pay Later")}
                   >
                     ORDER NOW, PAY LATER
@@ -1002,11 +1032,18 @@ const KioskReservationMenu = () => {
                     <button
                       key={f}
                       onClick={() =>
-                        setSelectedFlavors((prev) =>
-                          prev.includes(f)
-                            ? prev.filter((x) => x !== f)
-                            : [...prev, f],
-                        )
+                        setSelectedFlavors((prev) => {
+                          if (prev.includes(f)) {
+                            return prev.filter((x) => x !== f);
+                          }
+                          if (prev.length >= 4) {
+                            setCooldownMessage(
+                              "You can select a maximum of 4 flavors.",
+                            );
+                            return prev;
+                          }
+                          return [...prev, f];
+                        })
                       }
                       className={`flavor-btn ${selectedFlavors.includes(f) ? "active" : ""}`}
                     >
@@ -1050,7 +1087,7 @@ const KioskReservationMenu = () => {
         </div>
       )}
 
-      {/* COOLDOWN FEEDBACK MODAL */}
+      {/* COOLDOWN & NOTICE FEEDBACK MODAL */}
       {cooldownMessage && (
         <div className="res-modal-overlay" style={{ zIndex: 12000 }}>
           <div
@@ -1062,7 +1099,12 @@ const KioskReservationMenu = () => {
               color="#ffcc00"
               style={{ margin: "0 auto 15px" }}
             />
-            <h3 style={{ color: "#ffcc00" }}>Refill Cooldown</h3>
+            {/* Dynamically toggle header between Cooldown and standard Notice */}
+            <h3 style={{ color: "#ffcc00" }}>
+              {cooldownMessage.toLowerCase().includes("cooldown")
+                ? "Refill Cooldown"
+                : "Notice"}
+            </h3>
             <p style={{ color: "#fff", margin: "15px 0" }}>{cooldownMessage}</p>
             <button
               className="res-modal-btn-primary"

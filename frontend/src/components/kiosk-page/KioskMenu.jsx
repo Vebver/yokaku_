@@ -40,7 +40,7 @@ const HIDDEN_CATEGORIES = [
   "Ramen",
 ];
 
-const DURATION = 2 * 60 * 60 * 1000; // 2 Hours in milliseconds
+const DURATION = 1.5* 60 * 60 * 1000; // 1:30 Hours in milliseconds
 
 const categoryIcons = {
   "Best Seller": <Flame />,
@@ -68,6 +68,7 @@ const KioskMenu = () => {
   const FIXED_KIOSK_KEY = "kiosk_fixed_table_id";
   const PAYMENT_CHOICE_KEY = "kiosk_payment_choice";
   const TOTAL_PAID_KEY = "kiosk_total_paid";
+  const LAST_REFILL_KEY = "kiosk_last_refill_timestamp";
 
   const [timeLeft, setTimeLeft] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
@@ -226,7 +227,7 @@ const KioskMenu = () => {
     const setupTable = params.get("setupTable");
 
     if (setupTable) {
-      storage.setItem(FIXED_KIOSK_KEY, setupTable);
+      window.localStorage.setItem(FIXED_KIOSK_KEY, setupTable);
       console.log(`Kiosk locked to Table ID: ${setupTable}`);
     }
   }, []);
@@ -242,7 +243,7 @@ const KioskMenu = () => {
     }
   }, [activeCategory, hasOrderedUnlimited, menuData]);
 
-  const handleEndSession = async () => {
+const handleEndSession = async () => {
     const activeTable = storage.getItem(SAVED_TABLE_ID);
     const activeResId = storage.getItem(SAVED_RES_ID);
     if (activeResId) {
@@ -259,13 +260,21 @@ const KioskMenu = () => {
         console.error(err);
       }
     }
+    
+    // Clear all session states including the refill cooldown keys
     [
       TIMER_KEY,
       SAVED_TABLE_ID,
       SAVED_RES_ID,
       PAYMENT_CHOICE_KEY,
       TOTAL_PAID_KEY,
-    ].forEach((k) => storage.removeItem(k));
+      LAST_REFILL_KEY,
+      "kiosk_last_refill_timestamp"
+    ].forEach((k) => {
+      storage.removeItem(k);
+      sessionStorage.removeItem(k);
+      localStorage.removeItem(k);
+    });
 
     // Clear all state to prevent old data from reappearing in new sessions
     setCart([]);
@@ -274,19 +283,32 @@ const KioskMenu = () => {
 
     window.location.href = "/kiosk-selection";
   };
+// Helper to locate the unlimited package from your loaded menuData
+  const findUnlimitedItem = () => {
+    for (const cat of Object.keys(menuData)) {
+      const found = menuData[cat].find((item) =>
+        (item.name || "").toLowerCase().includes("unlimited")
+      );
+      if (found) return found;
+    }
+    return null;
+  };
 
-  const handleRefillClick = () => {
-    const lastRefill = sessionStorage.getItem("kiosk_last_refill_timestamp");
+ const handleRefillClick = () => {
+    const lastRefill = storage.getItem(LAST_REFILL_KEY);
     if (lastRefill) {
       const timeElapsed = Date.now() - parseInt(lastRefill, 10);
+      
+      // Cooldown period set back to 10 Minutes (10 * 60 * 1000)
       const cooldownPeriod = 10 * 60 * 1000;
 
       if (timeElapsed < cooldownPeriod) {
-        const remainingSeconds = Math.ceil(
-          (cooldownPeriod - timeElapsed) / 1000,
-        );
+        const remainingSeconds = Math.ceil((cooldownPeriod - timeElapsed) / 1000);
+        
+        // Format the remaining time into minutes and seconds
         const m = Math.floor(remainingSeconds / 60);
         const s = remainingSeconds % 60;
+
         setCooldownMessage(
           `Refill is on cooldown. Please wait ${m}m ${s}s before requesting another.`,
         );
@@ -294,13 +316,13 @@ const KioskMenu = () => {
       }
     }
 
-    const refillItem = menuData["Chicken"]?.[0] || {
-      id: 162,
-      name: "Chicken Wings",
-      price: 0,
-    };
+    const unlimitedItem = findUnlimitedItem();
+    if (!unlimitedItem) {
+      alert("No active Unlimited package found in the system registry.");
+      return;
+    }
 
-    setSelectedItem({ ...refillItem, price: 0 });
+    setSelectedItem(unlimitedItem);
     setSelectedFlavors([]);
     setSelectedDrink("");
     setIsRefillMode(true);
@@ -515,13 +537,13 @@ const KioskMenu = () => {
     }
   };
 
-  const confirmFlavors = async () => {
+const confirmFlavors = async () => {
     if (selectedFlavors.length === 0) {
-      alert("Please select at least one flavor.");
+      setCooldownMessage("Please select at least one flavor.");
       return;
     }
     if (selectedFlavors.length > 4) {
-      alert("You can select a maximum of 4 flavors.");
+      setCooldownMessage("You can select a maximum of 4 flavors.");
       return;
     }
 
@@ -562,7 +584,7 @@ const KioskMenu = () => {
         );
 
         sessionStorage.setItem(
-          "kiosk_last_refill_timestamp",
+          LAST_REFILL_KEY,
           Date.now().toString(),
         );
         await fetchCurrentBill();
@@ -895,7 +917,7 @@ const KioskMenu = () => {
               <button
                 className="res-modal-btn-primary"
                 onClick={() => {
-                  const fixed = storage.getItem(FIXED_KIOSK_KEY);
+                 const fixed = window.localStorage.getItem(FIXED_KIOSK_KEY);
                   if (fixed) {
                     setPendingOrderDetails({ tableId: fixed, mode: "Dine-In" });
                     setShowTypeModal(false);
@@ -1201,7 +1223,8 @@ const KioskMenu = () => {
                             return prev.filter((x) => x !== f);
                           }
                           if (prev.length >= 4) {
-                            alert("You can select a maximum of 4 flavors.");
+                            // REPLACED: Use state-driven notice modal instead of standard alert
+                            setCooldownMessage("You can select a maximum of 4 flavors.");
                             return prev;
                           }
                           return [...prev, f];
@@ -1248,8 +1271,7 @@ const KioskMenu = () => {
           </div>
         </div>
       )}
-
-      {/* COOLDOWN FEEDBACK MODAL */}
+{/* COOLDOWN & NOTICE FEEDBACK MODAL */}
       {cooldownMessage && (
         <div className="res-modal-overlay" style={{ zIndex: 12000 }}>
           <div
@@ -1261,7 +1283,10 @@ const KioskMenu = () => {
               color="#ffcc00"
               style={{ margin: "0 auto 15px" }}
             />
-            <h3 style={{ color: "#ffcc00" }}>Refill Cooldown</h3>
+            {/* Dynamically toggle header between Cooldown and standard Notice */}
+            <h3 style={{ color: "#ffcc00" }}>
+              {cooldownMessage.toLowerCase().includes("cooldown") ? "Refill Cooldown" : "Notice"}
+            </h3>
             <p style={{ color: "#fff", margin: "15px 0" }}>{cooldownMessage}</p>
             <button
               className="res-modal-btn-primary"
