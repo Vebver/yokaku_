@@ -2130,9 +2130,10 @@ select:disabled {
 
 .reservation-type-cards {
   display: flex;
+  flex-direction: row;
   gap: 30px;
   justify-content: center;
-  align-items: center;
+  align-items: stretch;
   flex-wrap: wrap;
   max-width: 900px;
   margin: 0 auto;
@@ -2150,6 +2151,8 @@ select:disabled {
   transition: all 0.3s ease;
   border: 3px solid #e0e0e0;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
 }
 
 .reservation-type-card:hover {
@@ -2185,6 +2188,7 @@ select:disabled {
   color: #666;
   margin: 0 0 20px 0;
   line-height: 1.5;
+  flex: 1;
 }
 
 .card-badge {
@@ -2195,6 +2199,7 @@ select:disabled {
   font-size: 12px;
   font-weight: 500;
   color: #f38d31;
+  margin-top: auto;
 }
 
 .card-badge span {
