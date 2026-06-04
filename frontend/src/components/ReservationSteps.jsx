@@ -1,4 +1,4 @@
-// ReservationSteps.jsx (Updated - Removed Event Reservation step)
+// ReservationSteps.jsx (Updated with dynamic steps for Per Table vs Event)
 
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import axios from "axios";
@@ -61,8 +61,13 @@ const getSteps = (reservationType) => {
   const baseSteps = ["Reservation Type", "Choose Date"];
 
   if (reservationType === "event") {
-    // Event flow: No separate Event Reservation step - goes directly to Your Details
-    return [...baseSteps, "Your Details", "Order Menu", "Reservation Summary"];
+    return [
+      ...baseSteps,
+      "Event Reservation",
+      "Your Details",
+      "Order Menu",
+      "Reservation Summary",
+    ];
   }
   // Default for "per_table" or null
   return [
@@ -100,7 +105,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   const [allReservationsByDate, setAllReservationsByDate] = useState({});
   const [receiptFile, setReceiptFile] = useState(null);
 
-  // Event reservation specific state (will be included in Your Details)
+  // Event reservation specific state
   const [eventDetails, setEventDetails] = useState({
     eventName: "",
     eventType: "",
@@ -190,7 +195,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       setupTime: "",
       specialRequests: "",
     });
-    // DO NOT automatically go to next step - user must click Next
+    // DO NOT automatically mark step as completed or go to next step
+    // Just update the selected type
   };
 
   // ============ CLOSE PICKERS WHEN CLICKING OUTSIDE ============
@@ -476,8 +482,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
 
   // ============ STEP VALIDATION ============
   const validateCurrentStep = () => {
-    const isEventFlow = reservationType === "event";
-
     switch (currentStep) {
       case 0:
         return reservationType !== null;
@@ -486,28 +490,13 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           form.date && form.date !== "" && !blockedDates.includes(form.date)
         );
       case 2:
-        if (isEventFlow) {
-          // Your Details step for event flow
-          const isStartTimeValid = form.startTime && form.startTime !== "";
-          const isEndTimeValid = form.endTime && form.endTime !== "";
-          const isTimeValid = (() => {
-            if (!form.startTime || !form.endTime) return false;
-            const s = timeToMin(form.startTime);
-            const e = timeToMin(form.endTime);
-            return e - s >= 30;
-          })();
-          const isMuniValid = form.muni && form.muni !== "";
-          const isBrgyValid = form.brgy && form.brgy !== "";
+        if (reservationType === "event") {
+          // Validate Event Reservation step
           return (
-            isFirstNameValid &&
-            isLastNameValid &&
-            isEmailValid &&
-            isPhoneValid &&
-            isMuniValid &&
-            isBrgyValid &&
-            isStartTimeValid &&
-            isEndTimeValid &&
-            isTimeValid
+            eventDetails.eventName.trim() !== "" &&
+            eventDetails.eventType.trim() !== "" &&
+            eventDetails.expectedGuests !== "" &&
+            parseInt(eventDetails.expectedGuests) > 0
           );
         } else {
           // Validate Select Table step for per_table
@@ -516,61 +505,40 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           return selectedId !== null && isPaxValid;
         }
       case 3:
-        if (isEventFlow) {
-          // Order Menu step for event flow
-          const hasItems = selectedItems.length > 0;
-          const termsAgreed = agreeToTerms;
-          let meetsDownpaymentRequirement = true;
-          if (orderSummary.durationHours >= 2) {
-            meetsDownpaymentRequirement =
-              orderSummary.downpayment >=
-              orderSummary.requiredMinimumDownpayment;
-          }
-          return hasItems && termsAgreed && meetsDownpaymentRequirement;
-        } else {
-          // Your Details step for per_table
-          const isStartTimeValid = form.startTime && form.startTime !== "";
-          const isEndTimeValid = form.endTime && form.endTime !== "";
-          const isTimeValid = (() => {
-            if (!form.startTime || !form.endTime) return false;
-            const s = timeToMin(form.startTime);
-            const e = timeToMin(form.endTime);
-            return e - s >= 30;
-          })();
-          const isMuniValid = form.muni && form.muni !== "";
-          const isBrgyValid = form.brgy && form.brgy !== "";
-          return (
-            isFirstNameValid &&
-            isLastNameValid &&
-            isEmailValid &&
-            isPhoneValid &&
-            isMuniValid &&
-            isBrgyValid &&
-            isStartTimeValid &&
-            isEndTimeValid &&
-            isTimeValid
-          );
-        }
+        // Your Details step
+        const isStartTimeValid = form.startTime && form.startTime !== "";
+        const isEndTimeValid = form.endTime && form.endTime !== "";
+        const isTimeValid = (() => {
+          if (!form.startTime || !form.endTime) return false;
+          const s = timeToMin(form.startTime);
+          const e = timeToMin(form.endTime);
+          return e - s >= 30;
+        })();
+        const isMuniValid = form.muni && form.muni !== "";
+        const isBrgyValid = form.brgy && form.brgy !== "";
+        return (
+          isFirstNameValid &&
+          isLastNameValid &&
+          isEmailValid &&
+          isPhoneValid &&
+          isMuniValid &&
+          isBrgyValid &&
+          isStartTimeValid &&
+          isEndTimeValid &&
+          isTimeValid
+        );
       case 4:
-        if (isEventFlow) {
-          // Reservation Summary step for event flow
-          const isPaymentMethodSelected = paymentMethod !== null;
-          const isReceiptUploaded = receiptFile !== null;
-          return isPaymentMethodSelected && isReceiptUploaded;
-        } else {
-          // Order Menu step for per_table
-          const hasItems = selectedItems.length > 0;
-          const termsAgreed = agreeToTerms;
-          let meetsDownpaymentRequirement = true;
-          if (orderSummary.durationHours >= 2) {
-            meetsDownpaymentRequirement =
-              orderSummary.downpayment >=
-              orderSummary.requiredMinimumDownpayment;
-          }
-          return hasItems && termsAgreed && meetsDownpaymentRequirement;
+        // Order Menu step
+        const hasItems = selectedItems.length > 0;
+        const termsAgreed = agreeToTerms;
+        let meetsDownpaymentRequirement = true;
+        if (orderSummary.durationHours >= 2) {
+          meetsDownpaymentRequirement =
+            orderSummary.downpayment >= orderSummary.requiredMinimumDownpayment;
         }
+        return hasItems && termsAgreed && meetsDownpaymentRequirement;
       case 5:
-        // Reservation Summary step for per_table
+        // Reservation Summary step
         const isPaymentMethodSelected = paymentMethod !== null;
         const isReceiptUploaded = receiptFile !== null;
         return isPaymentMethodSelected && isReceiptUploaded;
@@ -581,54 +549,34 @@ export default function ReservationSteps({ onClose, onSuccess }) {
 
   // Auto-mark step as completed
   useEffect(() => {
-    const isEventFlow = reservationType === "event";
+    // Remove the auto-completion for step 0
+    // if (currentStep === 0 && reservationType !== null) {
+    //   markStepCompleted(0);
+    // }
 
     if (currentStep === 1 && form.date && !blockedDates.includes(form.date)) {
       markStepCompleted(1);
     }
     if (currentStep === 2) {
-      if (isEventFlow) {
-        const isValid =
-          isFirstNameValid &&
-          isLastNameValid &&
-          isEmailValid &&
-          isPhoneValid &&
-          form.muni &&
-          form.muni !== "" &&
-          form.brgy &&
-          form.brgy !== "" &&
-          form.startTime &&
-          form.startTime !== "" &&
-          form.endTime &&
-          form.endTime !== "";
-        if (isValid) markStepCompleted(2);
+      if (reservationType === "event") {
+        if (
+          eventDetails.eventName.trim() !== "" &&
+          eventDetails.eventType.trim() !== "" &&
+          eventDetails.expectedGuests !== "" &&
+          parseInt(eventDetails.expectedGuests) > 0
+        ) {
+          markStepCompleted(2);
+        }
       } else {
         if (selectedId && form.pax && parseInt(form.pax) > 0) {
           markStepCompleted(2);
         }
       }
     }
-    if (currentStep === 3) {
-      if (isEventFlow) {
-        if (selectedItems.length > 0) markStepCompleted(3);
-      } else {
-        const isValid =
-          isFirstNameValid &&
-          isLastNameValid &&
-          isEmailValid &&
-          isPhoneValid &&
-          form.muni &&
-          form.muni !== "" &&
-          form.brgy &&
-          form.brgy !== "" &&
-          form.startTime &&
-          form.startTime !== "" &&
-          form.endTime &&
-          form.endTime !== "";
-        if (isValid) markStepCompleted(3);
-      }
+    if (currentStep === 3 && validateCurrentStep()) {
+      markStepCompleted(3);
     }
-    if (currentStep === 4 && selectedItems.length > 0 && !isEventFlow) {
+    if (currentStep === 4 && selectedItems.length > 0) {
       markStepCompleted(4);
     }
   }, [
@@ -642,9 +590,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     agreeToTerms,
     blockedDates,
     form.pax,
-    form.muni,
-    form.brgy,
-    user,
+    eventDetails,
   ]);
 
   // ============ INITIAL LOADING ============
@@ -1232,6 +1178,90 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     return "";
   };
 
+  // ============ RENDER EVENT RESERVATION STEP ============
+  const renderEventReservationStep = () => {
+    return (
+      <div className="step-content step-event-reservation">
+        <div className="event-reservation-container">
+          <div className="event-reservation-header">
+            <Gift size={32} />
+            <h3>Event Reservation Details</h3>
+            <p>Please provide the details for your event</p>
+          </div>
+
+          <div className="event-form-grid">
+            <div className="input-group">
+              <label>Event Name *</label>
+              <input
+                type="text"
+                name="eventName"
+                value={eventDetails.eventName}
+                onChange={handleInputChange}
+                placeholder="e.g., John & Jane's Wedding, Company Christmas Party"
+                className={!eventDetails.eventName ? "input-error" : ""}
+              />
+            </div>
+
+            <div className="input-group">
+              <label>Event Type *</label>
+              <select
+                name="eventType"
+                value={eventDetails.eventType}
+                onChange={handleInputChange}
+                className="res-input-dropdown"
+              >
+                <option value="">Select event type</option>
+                <option value="Birthday">Birthday</option>
+                <option value="Wedding">Wedding</option>
+                <option value="Anniversary">Anniversary</option>
+                <option value="Corporate Event">Corporate Event</option>
+                <option value="Graduation">Graduation</option>
+                <option value="Reunion">Reunion</option>
+                <option value="Christmas Party">Christmas Party</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div className="input-group">
+              <label>Expected Number of Guests *</label>
+              <input
+                type="number"
+                name="expectedGuests"
+                value={eventDetails.expectedGuests}
+                onChange={handleInputChange}
+                min="1"
+                placeholder="Enter expected number of guests"
+                className={!eventDetails.expectedGuests ? "input-error" : ""}
+              />
+            </div>
+
+            <div className="input-group">
+              <label>Setup Time</label>
+              <input
+                type="text"
+                name="setupTime"
+                value={eventDetails.setupTime}
+                onChange={handleInputChange}
+                placeholder="e.g., 2 hours before event starts"
+              />
+            </div>
+
+            <div className="input-group full-width">
+              <label>Special Requests</label>
+              <textarea
+                name="specialRequests"
+                value={eventDetails.specialRequests}
+                onChange={handleInputChange}
+                placeholder="Any special requests or requirements for your event..."
+                rows="4"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // ============ RENDER RESERVATION TYPE STEP ============
   const renderReservationTypeStep = () => {
     return (
@@ -1292,8 +1322,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
 
   // ============ RENDER STEP CONTENT ============
   const renderStepContent = () => {
-    const isEventFlow = reservationType === "event";
-
     switch (currentStep) {
       case 0:
         return renderReservationTypeStep();
@@ -1679,404 +1707,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         );
 
       case 2:
-        if (isEventFlow) {
-          // Your Details step for event flow
-          return (
-            <div className="step-content step-details">
-              <div className="reservation-form-grid">
-                {/* Event Details Section */}
-                <div
-                  className="event-details-section"
-                  style={{
-                    marginBottom: "20px",
-                    padding: "15px",
-                    background: "#f8f9fa",
-                    borderRadius: "12px",
-                  }}
-                >
-                  <h4
-                    style={{
-                      marginBottom: "15px",
-                      color: "#f38d31",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                    }}
-                  >
-                    <Gift size={20} /> Event Details
-                  </h4>
-                  <div style={{ display: "grid", gap: "15px" }}>
-                    <div className="input-group">
-                      <label>Event Name *</label>
-                      <input
-                        type="text"
-                        name="eventName"
-                        value={eventDetails.eventName}
-                        onChange={handleInputChange}
-                        placeholder="e.g., John & Jane's Wedding, Company Christmas Party"
-                        className={!eventDetails.eventName ? "input-error" : ""}
-                      />
-                    </div>
-
-                    <div className="input-group">
-                      <label>Event Type *</label>
-                      <select
-                        name="eventType"
-                        value={eventDetails.eventType}
-                        onChange={handleInputChange}
-                        className="res-input-dropdown"
-                      >
-                        <option value="">Select event type</option>
-                        <option value="Birthday">Birthday</option>
-                        <option value="Wedding">Wedding</option>
-                        <option value="Anniversary">Anniversary</option>
-                        <option value="Corporate Event">Corporate Event</option>
-                        <option value="Graduation">Graduation</option>
-                        <option value="Reunion">Reunion</option>
-                        <option value="Christmas Party">Christmas Party</option>
-                        <option value="Other">Other</option>
-                      </select>
-                    </div>
-
-                    <div className="input-group">
-                      <label>Expected Number of Guests *</label>
-                      <input
-                        type="number"
-                        name="expectedGuests"
-                        value={eventDetails.expectedGuests}
-                        onChange={handleInputChange}
-                        min="1"
-                        placeholder="Enter expected number of guests"
-                        className={
-                          !eventDetails.expectedGuests ? "input-error" : ""
-                        }
-                      />
-                    </div>
-
-                    <div className="input-group">
-                      <label>Setup Time</label>
-                      <input
-                        type="text"
-                        name="setupTime"
-                        value={eventDetails.setupTime}
-                        onChange={handleInputChange}
-                        placeholder="e.g., 2 hours before event starts"
-                      />
-                    </div>
-
-                    <div className="input-group full-width">
-                      <label>Special Requests</label>
-                      <textarea
-                        name="specialRequests"
-                        value={eventDetails.specialRequests}
-                        onChange={handleInputChange}
-                        placeholder="Any special requests or requirements for your event..."
-                        rows="3"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Customer Details Section */}
-                <div
-                  style={{
-                    marginTop: "20px",
-                    paddingTop: "20px",
-                    borderTop: "1px solid #eee",
-                  }}
-                >
-                  <h4 style={{ marginBottom: "15px", color: "#f38d31" }}>
-                    Your Information
-                  </h4>
-
-                  <div className="time-selection-row">
-                    <div className="input-group">
-                      <label>
-                        <Clock size={12} /> START TIME
-                      </label>
-                      <select
-                        name="startTime"
-                        className="res-input-dropdown"
-                        value={form.startTime}
-                        onChange={handleInputChange}
-                      >
-                        <option value="">Select start time</option>
-                        {availableStartTimeOptions.map((t) => (
-                          <option key={t} value={t}>
-                            {t}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="input-group">
-                      <label>
-                        <Clock size={12} /> END TIME
-                      </label>
-                      <select
-                        name="endTime"
-                        className="res-input-dropdown"
-                        value={form.endTime}
-                        onChange={handleInputChange}
-                        disabled={!form.startTime}
-                      >
-                        <option value="">Select end time</option>
-                        {filteredEndTimeOptions.map((t) => (
-                          <option key={t} value={t}>
-                            {t}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="input-group">
-                    <div className="label-with-icon">
-                      <label>FIRST NAME</label>
-                      <Pencil
-                        size={16}
-                        className={`edit-toggle-icon ${ui.editingFirstName ? "active" : ""}`}
-                        onClick={() =>
-                          setUi((p) => ({
-                            ...p,
-                            editingFirstName: !p.editingFirstName,
-                          }))
-                        }
-                      />
-                    </div>
-                    <input
-                      type="text"
-                      name="firstName"
-                      value={user.firstName}
-                      onChange={handleInputChange}
-                      disabled={!ui.editingFirstName}
-                      className={
-                        !isFirstNameValid && user.firstName ? "input-error" : ""
-                      }
-                    />
-                  </div>
-
-                  <div className="input-group">
-                    <div className="label-with-icon">
-                      <label>LAST NAME</label>
-                      <Pencil
-                        size={16}
-                        className={`edit-toggle-icon ${ui.editingLastName ? "active" : ""}`}
-                        onClick={() =>
-                          setUi((p) => ({
-                            ...p,
-                            editingLastName: !p.editingLastName,
-                          }))
-                        }
-                      />
-                    </div>
-                    <input
-                      type="text"
-                      name="lastName"
-                      value={user.lastName}
-                      onChange={handleInputChange}
-                      disabled={!ui.editingLastName}
-                      className={
-                        !isLastNameValid && user.lastName ? "input-error" : ""
-                      }
-                    />
-                  </div>
-
-                  <div className="input-group">
-                    <label>
-                      <Mail size={12} /> EMAIL
-                    </label>
-                    <input
-                      type="email"
-                      name="email"
-                      value={user.email}
-                      disabled
-                      className={
-                        !isEmailValid && user.email ? "input-error" : ""
-                      }
-                    />
-                  </div>
-
-                  <div className="input-group">
-                    <label>
-                      <Phone size={12} /> CONTACT
-                    </label>
-                    <input
-                      type="text"
-                      name="phone"
-                      value={user.phone}
-                      onChange={handleInputChange}
-                      className={
-                        !isPhoneValid && user.phone !== "09"
-                          ? "input-error"
-                          : ""
-                      }
-                    />
-                    <small className="input-hint">
-                      11 digits starting with 09
-                    </small>
-                  </div>
-
-                  <div className="input-row">
-                    <div className="input-group">
-                      <label>
-                        <MapPin size={12} /> CITY
-                      </label>
-                      <select
-                        name="muni"
-                        className="res-input-dropdown"
-                        value={form.muni}
-                        onChange={handleInputChange}
-                      >
-                        <option value="">Select City</option>
-                        {addressData.municipalities.map((m) => (
-                          <option key={m.code} value={m.code}>
-                            {m.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="input-group">
-                      <label>
-                        <MapPin size={12} /> BARANGAY
-                      </label>
-                      <select
-                        name="brgy"
-                        className="res-input-dropdown"
-                        value={form.brgy}
-                        onChange={handleInputChange}
-                        disabled={!form.muni}
-                      >
-                        <option value="">Select Barangay</option>
-                        {addressData.barangays.map((b) => (
-                          <option key={b.code} value={b.code}>
-                            {b.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="input-group">
-                    <label>
-                      <Baby size={12} /> HIGH CHAIR NEEDED?
-                    </label>
-                    <div className="radio-group-horizontal">
-                      {["Yes", "No"].map((opt) => (
-                        <label key={opt} className="custom-radio">
-                          <input
-                            type="radio"
-                            name="highChair"
-                            value={opt}
-                            checked={form.highChair === opt}
-                            onChange={handleInputChange}
-                          />
-                          <span>{opt}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="input-group">
-                    <label>
-                      <PartyPopper size={12} /> OCCASION
-                    </label>
-                    <select
-                      name="occasion"
-                      className="res-input-dropdown"
-                      value={form.occasion}
-                      onChange={handleInputChange}
-                    >
-                      {OCCASION_OPTIONS.map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt}
-                        </option>
-                      ))}
-                    </select>
-                    {form.occasion === "Other" && (
-                      <input
-                        type="text"
-                        name="customOccasion"
-                        placeholder="Specify occasion"
-                        value={form.customOccasion}
-                        onChange={handleInputChange}
-                      />
-                    )}
-                  </div>
-
-                  <div className="input-group">
-                    <label>
-                      <AlertCircle size={12} /> ALLERGIES
-                    </label>
-                    <select
-                      name="allergy"
-                      className="res-input-dropdown"
-                      value={form.allergy}
-                      onChange={handleInputChange}
-                    >
-                      {ALLERGY_OPTIONS.map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt}
-                        </option>
-                      ))}
-                    </select>
-                    {form.allergy === "Specify all Allergy" && (
-                      <small className="allergy-hint">
-                        Please specify all allergies in your group
-                      </small>
-                    )}
-                    {form.allergy === "Specify all Allergy" && (
-                      <input
-                        type="text"
-                        name="customAllergy"
-                        placeholder="Please specify all allergies (e.g., Peanuts, Shellfish, Dairy)"
-                        value={form.customAllergy}
-                        onChange={handleInputChange}
-                        className="custom-allergy-input"
-                      />
-                    )}
-                    {form.allergy !== "None" && (
-                      <div className="allergy-count-field">
-                        <label className="allergy-count-label">
-                          <Users size={14} /> How many people have this allergy?
-                        </label>
-                        <div className="allergy-count-input-wrapper">
-                          <input
-                            type="number"
-                            name="allergyCount"
-                            className="allergy-count-input"
-                            min="1"
-                            max={parseInt(form.pax) || totalSeats || 10}
-                            value={form.allergyCount}
-                            onChange={handleInputChange}
-                            placeholder={`Enter number (1-${parseInt(form.pax) || totalSeats || 10})`}
-                          />
-                          <span className="allergy-count-hint">
-                            Out of {parseInt(form.pax) || totalSeats || 0} total
-                            guest(s)
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                    {form.allergy !== "None" && (
-                      <div className="allergy-disclaimer">
-                        <AlertCircle size={12} className="disclaimer-icon" />
-                        <span>
-                          Disclaimer: If you have allergies related to certain
-                          ingredients, substitutions or ingredient removals may
-                          be necessary, which can slightly change the taste,
-                          texture, or overall flavor compared to the original
-                          product. Hangout Resto Bar will not be held
-                          responsible if a customer consumes food that may cause
-                          allergic reactions, including food ordered by or
-                          shared with their companions or friends.
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
+        if (reservationType === "event") {
+          return renderEventReservationStep();
         } else {
           // Original Select Table step for per_table
           return form.date ? (
@@ -2201,6 +1833,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                           now.getHours() * 60 + now.getMinutes();
                         const todayStrDate = now.toISOString().split("T")[0];
                         const isToday = form.date === todayStrDate;
+
                         if (isToday) {
                           return endM > currentTime;
                         }
@@ -2232,6 +1865,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     const currentTime = now.getHours() * 60 + now.getMinutes();
                     const todayStrDate = now.toISOString().split("T")[0];
                     const isToday = form.date === todayStrDate;
+
                     if (isToday) {
                       return endM > currentTime;
                     }
@@ -2277,6 +1911,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   const isSelected = selectedId === t.id;
                   const isLinked = linkedIds.includes(t.id);
                   const isMaintenance = t.status === "maintenance";
+
                   let cardCls = "",
                     dotColor = "";
                   if (isSelected) {
@@ -2298,6 +1933,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     cardCls = "available";
                     dotColor = "available";
                   }
+
                   return (
                     <div
                       key={t.id}
@@ -2345,313 +1981,491 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         }
 
       case 3:
-        if (isEventFlow) {
-          // Order Menu step for event flow
-          const meetsDownpaymentRequirement = () => {
-            if (orderSummary.durationHours >= 2) {
-              return (
-                orderSummary.downpayment >=
-                orderSummary.requiredMinimumDownpayment
-              );
-            }
-            return true;
-          };
-          const isDownpaymentRequirementMet = meetsDownpaymentRequirement();
-          return (
-            <div className="step-content step-package">
-              <button
-                className="btn-link-mode"
-                onClick={() => setUi((p) => ({ ...p, menu: true }))}
-              >
-                <Layers size={16} />{" "}
-                {selectedItems.length > 0
-                  ? `${selectedItems.length} Selected`
-                  : "View Menu"}
-              </button>
-              {selectedItems.length > 0 && (
-                <div className="package-summary">
-                  <div className="order-summary-header">
-                    <h4>Your Order</h4>
-                    <button
-                      className="edit-order-btn"
-                      onClick={() => setUi((p) => ({ ...p, menu: true }))}
-                    >
-                      Edit
-                    </button>
-                  </div>
-                  {selectedItems.map((item, idx) => (
-                    <div key={idx} className="package-item">
-                      <span>
-                        {item.name} x{item.quantity}
-                      </span>
-                      <span>₱{(item.price * item.quantity).toFixed(2)}</span>
-                    </div>
-                  ))}
-                  <div className="package-total">
-                    <strong>
-                      Total: ₱{orderSummary.totalOrderPrice.toFixed(2)}
-                    </strong>
-                  </div>
-                  {orderSummary.durationHours >= 2 && (
-                    <div className="duration-info">
-                      <Clock size={14} />
-                      <span>
-                        Reservation Duration: {orderSummary.durationHours}{" "}
-                        hour(s)
-                      </span>
-                    </div>
-                  )}
-                  <div className="package-downpayment">
-                    <div className="downpayment-row">
-                      <span style={{ color: "#f38d31", fontWeight: "800" }}>
-                        Downpayment (20%):
-                      </span>
-                      <strong style={{ color: "#f38d31" }}>
-                        ₱{orderSummary.downpayment.toFixed(2)}
-                      </strong>
-                    </div>
-                    {orderSummary.durationHours >= 2 &&
-                      orderSummary.requiredMinimumDownpayment >
-                        orderSummary.downpayment && (
-                        <div className="required-minimum-warning">
-                          <span className="required-label">
-                            Minimum Required:
-                          </span>
-                          <span className="required-amount">
-                            ₱
-                            {orderSummary.requiredMinimumDownpayment.toFixed(2)}
-                          </span>
-                        </div>
-                      )}
-                  </div>
-                  <div className="package-balance">
-                    <span style={{ color: "#666" }}>Remaining Balance:</span>
-                    <strong>₱{orderSummary.balance.toFixed(2)}</strong>
-                  </div>
-                  {orderSummary.durationHours >= 2 && (
-                    <div
-                      className={`duration-requirement ${!isDownpaymentRequirementMet ? "warning" : "success"}`}
-                    >
+        return (
+          <div className="step-content step-details">
+            <div className="reservation-form-grid">
+              <div className="time-selection-row">
+                <div className="input-group">
+                  <label>
+                    <Clock size={12} /> START TIME
+                  </label>
+                  <select
+                    name="startTime"
+                    className="res-input-dropdown"
+                    value={form.startTime}
+                    onChange={(e) => {
+                      handleInputChange(e);
+                    }}
+                  >
+                    <option value="">Select start time</option>
+                    {availableStartTimeOptions.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="input-group">
+                  <label>
+                    <Clock size={12} /> END TIME
+                  </label>
+                  <select
+                    name="endTime"
+                    className="res-input-dropdown"
+                    value={form.endTime}
+                    onChange={(e) => {
+                      handleInputChange(e);
+                    }}
+                    disabled={!form.startTime}
+                  >
+                    <option value="">Select end time</option>
+                    {filteredEndTimeOptions.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="input-group">
+                <div className="label-with-icon">
+                  <label>FIRST NAME</label>
+                  <Pencil
+                    size={16}
+                    className={`edit-toggle-icon ${ui.editingFirstName ? "active" : ""}`}
+                    onClick={() =>
+                      setUi((p) => ({
+                        ...p,
+                        editingFirstName: !p.editingFirstName,
+                      }))
+                    }
+                  />
+                </div>
+                <input
+                  type="text"
+                  name="firstName"
+                  value={user.firstName}
+                  onChange={handleInputChange}
+                  disabled={!ui.editingFirstName}
+                  className={
+                    !isFirstNameValid && user.firstName ? "input-error" : ""
+                  }
+                />
+              </div>
+
+              <div className="input-group">
+                <div className="label-with-icon">
+                  <label>LAST NAME</label>
+                  <Pencil
+                    size={16}
+                    className={`edit-toggle-icon ${ui.editingLastName ? "active" : ""}`}
+                    onClick={() =>
+                      setUi((p) => ({
+                        ...p,
+                        editingLastName: !p.editingLastName,
+                      }))
+                    }
+                  />
+                </div>
+                <input
+                  type="text"
+                  name="lastName"
+                  value={user.lastName}
+                  onChange={handleInputChange}
+                  disabled={!ui.editingLastName}
+                  className={
+                    !isLastNameValid && user.lastName ? "input-error" : ""
+                  }
+                />
+              </div>
+
+              <div className="input-group">
+                <label>
+                  <Mail size={12} /> EMAIL
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  value={user.email}
+                  disabled
+                  className={!isEmailValid && user.email ? "input-error" : ""}
+                />
+              </div>
+
+              <div className="input-group">
+                <label>
+                  <Phone size={12} /> CONTACT
+                </label>
+                <input
+                  type="text"
+                  name="phone"
+                  value={user.phone}
+                  onChange={handleInputChange}
+                  className={
+                    !isPhoneValid && user.phone !== "09" ? "input-error" : ""
+                  }
+                />
+                <small className="input-hint">11 digits starting with 09</small>
+              </div>
+
+              <div className="input-row">
+                <div className="input-group">
+                  <label>
+                    <MapPin size={12} /> CITY
+                  </label>
+                  <select
+                    name="muni"
+                    className="res-input-dropdown"
+                    value={form.muni}
+                    onChange={handleInputChange}
+                  >
+                    <option value="">Select City</option>
+                    {addressData.municipalities.map((m) => (
+                      <option key={m.code} value={m.code}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="input-group">
+                  <label>
+                    <MapPin size={12} /> BARANGAY
+                  </label>
+                  <select
+                    name="brgy"
+                    className="res-input-dropdown"
+                    value={form.brgy}
+                    onChange={handleInputChange}
+                    disabled={!form.muni}
+                  >
+                    <option value="">Select Barangay</option>
+                    {addressData.barangays.map((b) => (
+                      <option key={b.code} value={b.code}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="input-group guests-auto-field">
+                <label>
+                  <Users size={12} /> GUESTS
+                </label>
+                <div className="guests-auto-display">
+                  <input
+                    type="text"
+                    value={
+                      form.pax && parseInt(form.pax) > 0
+                        ? `${form.pax} guest(s)`
+                        : "Not specified yet"
+                    }
+                    readOnly
+                    className={`guests-auto-input ${!form.pax || parseInt(form.pax) <= 0 ? "empty-value" : ""}`}
+                  />
+                  {!form.pax || parseInt(form.pax) <= 0 ? (
+                    <div className="guests-hint-warning">
                       <AlertCircle size={14} />
                       <span>
-                        {!isDownpaymentRequirementMet ? (
-                          <>
-                            ⚠️ Minimum downpayment of ₱
-                            {orderSummary.requiredMinimumDownpayment} required
-                            for {orderSummary.durationHours} hour reservation.
-                            Please add more items (minimum order of ₱
-                            {orderSummary.minimumOrderNeeded})
-                          </>
-                        ) : (
-                          <>
-                            ✓ Minimum downpayment requirement met for{" "}
-                            {orderSummary.durationHours} hour reservation
-                          </>
-                        )}
+                        Please enter number of guests in Step 2 (Select Table)
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="guests-hint-success">
+                      <CheckCircle size={14} />
+                      <span>
+                        Auto-populated from Pax field in previous step
                       </span>
                     </div>
                   )}
-                  {orderSummary.durationHours >= 2 &&
-                    !isDownpaymentRequirementMet && (
-                      <div className="requirement-blocked-warning">
-                        <AlertCircle size={16} />
-                        <span>
-                          You cannot proceed until the minimum downpayment
-                          requirement is met.
-                        </span>
-                      </div>
-                    )}
-                  <div className="terms-checkbox-wrapper">
-                    <label className="terms-checkbox-label">
-                      <input
-                        type="checkbox"
-                        checked={agreeToTerms}
-                        onChange={(e) => setAgreeToTerms(e.target.checked)}
-                      />
-                      <span>
-                        I have read and agree to the{" "}
-                        <button
-                          type="button"
-                          className="terms-link-btn"
-                          onClick={() => setUi((p) => ({ ...p, terms: true }))}
-                        >
-                          Terms and Conditions
-                        </button>
-                      </span>
-                    </label>
-                  </div>
                 </div>
-              )}
-            </div>
-          );
-        } else {
-          // Your Details step for per_table (same as original)
-          return (
-            <div className="step-content step-details">
-              <div className="reservation-form-grid">
-                {/* Same as original Your Details content */}
+              </div>
+
+              <div className="input-group">
+                <label>
+                  <Baby size={12} /> HIGH CHAIR NEEDED?
+                </label>
+                <div className="radio-group-horizontal">
+                  {["Yes", "No"].map((opt) => (
+                    <label key={opt} className="custom-radio">
+                      <input
+                        type="radio"
+                        name="highChair"
+                        value={opt}
+                        checked={form.highChair === opt}
+                        onChange={handleInputChange}
+                      />
+                      <span>{opt}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="input-group">
+                <label>
+                  <PartyPopper size={12} /> OCCASION
+                </label>
+                <select
+                  name="occasion"
+                  className="res-input-dropdown"
+                  value={form.occasion}
+                  onChange={handleInputChange}
+                >
+                  {OCCASION_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+                {form.occasion === "Other" && (
+                  <input
+                    type="text"
+                    name="customOccasion"
+                    placeholder="Specify occasion"
+                    value={form.customOccasion}
+                    onChange={handleInputChange}
+                  />
+                )}
+              </div>
+
+              <div className="input-group">
+                <label>
+                  <AlertCircle size={12} /> ALLERGIES
+                </label>
+                <select
+                  name="allergy"
+                  className="res-input-dropdown"
+                  value={form.allergy}
+                  onChange={handleInputChange}
+                >
+                  {ALLERGY_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+
+                {form.allergy === "Specify all Allergy" && (
+                  <small className="allergy-hint">
+                    Please specify all allergies in your group
+                  </small>
+                )}
+
+                {form.allergy === "Specify all Allergy" && (
+                  <input
+                    type="text"
+                    name="customAllergy"
+                    placeholder="Please specify all allergies (e.g., Peanuts, Shellfish, Dairy)"
+                    value={form.customAllergy}
+                    onChange={handleInputChange}
+                    className="custom-allergy-input"
+                  />
+                )}
+
+                {form.allergy !== "None" && (
+                  <div className="allergy-count-field">
+                    <label className="allergy-count-label">
+                      <Users size={14} /> How many people have this allergy?
+                    </label>
+                    <div className="allergy-count-input-wrapper">
+                      <input
+                        type="number"
+                        name="allergyCount"
+                        className="allergy-count-input"
+                        min="1"
+                        max={parseInt(form.pax) || totalSeats || 10}
+                        value={form.allergyCount}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          const maxPax = parseInt(form.pax) || totalSeats || 10;
+                          if (
+                            value === "" ||
+                            (parseInt(value) >= 1 && parseInt(value) <= maxPax)
+                          ) {
+                            handleInputChange(e);
+                          }
+                        }}
+                        placeholder={`Enter number (1-${parseInt(form.pax) || totalSeats || 10})`}
+                      />
+                      <span className="allergy-count-hint">
+                        Out of {parseInt(form.pax) || totalSeats || 0} total
+                        guest(s)
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {form.allergy !== "None" && (
+                  <div className="allergy-disclaimer">
+                    <AlertCircle size={12} className="disclaimer-icon" />
+                    <span>
+                      Disclaimer: If you have allergies related to certain
+                      ingredients, substitutions or ingredient removals may be
+                      necessary, which can slightly change the taste, texture,
+                      or overall flavor compared to the original product.
+                      Hangout Resto Bar will not be held responsible if a
+                      customer consumes food that may cause allergic reactions,
+                      including food ordered by or shared with their companions
+                      or friends.
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
-          );
-        }
+          </div>
+        );
 
       case 4:
-        if (isEventFlow) {
-          // Reservation Summary for event flow
-          return (
-            <div className="step-content step-summary">
-              <ReservationSummary
-                orderSummary={orderSummary}
-                reservationData={fullReservationData}
-                paymentMethod={paymentMethod}
-                setPaymentMethod={setPaymentMethod}
-                onReceiptChange={(receipt) => setReceiptFile(receipt)}
-              />
-            </div>
-          );
-        } else {
-          // Order Menu for per_table
-          const meetsDownpaymentRequirement = () => {
-            if (orderSummary.durationHours >= 2) {
-              return (
-                orderSummary.downpayment >=
-                orderSummary.requiredMinimumDownpayment
-              );
-            }
-            return true;
-          };
-          const isDownpaymentRequirementMet = meetsDownpaymentRequirement();
-          return (
-            <div className="step-content step-package">
-              <button
-                className="btn-link-mode"
-                onClick={() => setUi((p) => ({ ...p, menu: true }))}
-              >
-                <Layers size={16} />{" "}
-                {selectedItems.length > 0
-                  ? `${selectedItems.length} Selected`
-                  : "View Menu"}
-              </button>
-              {selectedItems.length > 0 && (
-                <div className="package-summary">
-                  <div className="order-summary-header">
-                    <h4>Your Order</h4>
-                    <button
-                      className="edit-order-btn"
-                      onClick={() => setUi((p) => ({ ...p, menu: true }))}
-                    >
-                      Edit
-                    </button>
+        const meetsDownpaymentRequirement = () => {
+          if (orderSummary.durationHours >= 2) {
+            return (
+              orderSummary.downpayment >=
+              orderSummary.requiredMinimumDownpayment
+            );
+          }
+          return true;
+        };
+
+        const isDownpaymentRequirementMet = meetsDownpaymentRequirement();
+
+        return (
+          <div className="step-content step-package">
+            <button
+              className="btn-link-mode"
+              onClick={() => setUi((p) => ({ ...p, menu: true }))}
+            >
+              <Layers size={16} />{" "}
+              {selectedItems.length > 0
+                ? `${selectedItems.length} Selected`
+                : "View Menu"}
+            </button>
+
+            {selectedItems.length > 0 && (
+              <div className="package-summary">
+                <div className="order-summary-header">
+                  <h4>Your Order</h4>
+                  <button
+                    className="edit-order-btn"
+                    onClick={() => setUi((p) => ({ ...p, menu: true }))}
+                  >
+                    Edit
+                  </button>
+                </div>
+
+                {selectedItems.map((item, idx) => (
+                  <div key={idx} className="package-item">
+                    <span>
+                      {item.name} x{item.quantity}
+                    </span>
+                    <span>₱{(item.price * item.quantity).toFixed(2)}</span>
                   </div>
-                  {selectedItems.map((item, idx) => (
-                    <div key={idx} className="package-item">
-                      <span>
-                        {item.name} x{item.quantity}
-                      </span>
-                      <span>₱{(item.price * item.quantity).toFixed(2)}</span>
-                    </div>
-                  ))}
-                  <div className="package-total">
-                    <strong>
-                      Total: ₱{orderSummary.totalOrderPrice.toFixed(2)}
+                ))}
+
+                <div className="package-total">
+                  <strong>
+                    Total: ₱{orderSummary.totalOrderPrice.toFixed(2)}
+                  </strong>
+                </div>
+
+                {orderSummary.durationHours >= 2 && (
+                  <div className="duration-info">
+                    <Clock size={14} />
+                    <span>
+                      Reservation Duration: {orderSummary.durationHours} hour(s)
+                    </span>
+                  </div>
+                )}
+
+                <div className="package-downpayment">
+                  <div className="downpayment-row">
+                    <span style={{ color: "#f38d31", fontWeight: "800" }}>
+                      Downpayment (20%):
+                    </span>
+                    <strong style={{ color: "#f38d31" }}>
+                      ₱{orderSummary.downpayment.toFixed(2)}
                     </strong>
                   </div>
-                  {orderSummary.durationHours >= 2 && (
-                    <div className="duration-info">
-                      <Clock size={14} />
-                      <span>
-                        Reservation Duration: {orderSummary.durationHours}{" "}
-                        hour(s)
-                      </span>
-                    </div>
-                  )}
-                  <div className="package-downpayment">
-                    <div className="downpayment-row">
-                      <span style={{ color: "#f38d31", fontWeight: "800" }}>
-                        Downpayment (20%):
-                      </span>
-                      <strong style={{ color: "#f38d31" }}>
-                        ₱{orderSummary.downpayment.toFixed(2)}
-                      </strong>
-                    </div>
-                    {orderSummary.durationHours >= 2 &&
-                      orderSummary.requiredMinimumDownpayment >
-                        orderSummary.downpayment && (
-                        <div className="required-minimum-warning">
-                          <span className="required-label">
-                            Minimum Required:
-                          </span>
-                          <span className="required-amount">
-                            ₱
-                            {orderSummary.requiredMinimumDownpayment.toFixed(2)}
-                          </span>
-                        </div>
-                      )}
-                  </div>
-                  <div className="package-balance">
-                    <span style={{ color: "#666" }}>Remaining Balance:</span>
-                    <strong>₱{orderSummary.balance.toFixed(2)}</strong>
-                  </div>
-                  {orderSummary.durationHours >= 2 && (
-                    <div
-                      className={`duration-requirement ${!isDownpaymentRequirementMet ? "warning" : "success"}`}
-                    >
-                      <AlertCircle size={14} />
-                      <span>
-                        {!isDownpaymentRequirementMet ? (
-                          <>
-                            ⚠️ Minimum downpayment of ₱
-                            {orderSummary.requiredMinimumDownpayment} required
-                            for {orderSummary.durationHours} hour reservation.
-                            Please add more items (minimum order of ₱
-                            {orderSummary.minimumOrderNeeded})
-                          </>
-                        ) : (
-                          <>
-                            ✓ Minimum downpayment requirement met for{" "}
-                            {orderSummary.durationHours} hour reservation
-                          </>
-                        )}
-                      </span>
-                    </div>
-                  )}
+
                   {orderSummary.durationHours >= 2 &&
-                    !isDownpaymentRequirementMet && (
-                      <div className="requirement-blocked-warning">
-                        <AlertCircle size={16} />
-                        <span>
-                          You cannot proceed until the minimum downpayment
-                          requirement is met.
+                    orderSummary.requiredMinimumDownpayment >
+                      orderSummary.downpayment && (
+                      <div className="required-minimum-warning">
+                        <span className="required-label">
+                          Minimum Required:
+                        </span>
+                        <span className="required-amount">
+                          ₱{orderSummary.requiredMinimumDownpayment.toFixed(2)}
                         </span>
                       </div>
                     )}
-                  <div className="terms-checkbox-wrapper">
-                    <label className="terms-checkbox-label">
-                      <input
-                        type="checkbox"
-                        checked={agreeToTerms}
-                        onChange={(e) => setAgreeToTerms(e.target.checked)}
-                      />
-                      <span>
-                        I have read and agree to the{" "}
-                        <button
-                          type="button"
-                          className="terms-link-btn"
-                          onClick={() => setUi((p) => ({ ...p, terms: true }))}
-                        >
-                          Terms and Conditions
-                        </button>
-                      </span>
-                    </label>
-                  </div>
                 </div>
-              )}
-            </div>
-          );
-        }
+
+                <div className="package-balance">
+                  <span style={{ color: "#666" }}>Remaining Balance:</span>
+                  <strong>₱{orderSummary.balance.toFixed(2)}</strong>
+                </div>
+
+                {orderSummary.durationHours >= 2 && (
+                  <div
+                    className={`duration-requirement ${!isDownpaymentRequirementMet ? "warning" : "success"}`}
+                  >
+                    <AlertCircle size={14} />
+                    <span>
+                      {!isDownpaymentRequirementMet ? (
+                        <>
+                          ⚠️ Minimum downpayment of ₱
+                          {orderSummary.requiredMinimumDownpayment} required for{" "}
+                          {orderSummary.durationHours} hour reservation. Please
+                          add more items (minimum order of ₱
+                          {orderSummary.minimumOrderNeeded})
+                        </>
+                      ) : (
+                        <>
+                          ✓ Minimum downpayment requirement met for{" "}
+                          {orderSummary.durationHours} hour reservation
+                        </>
+                      )}
+                    </span>
+                  </div>
+                )}
+
+                {orderSummary.durationHours >= 2 &&
+                  !isDownpaymentRequirementMet && (
+                    <div className="requirement-blocked-warning">
+                      <AlertCircle size={16} />
+                      <span>
+                        You cannot proceed until the minimum downpayment
+                        requirement is met.
+                      </span>
+                    </div>
+                  )}
+
+                <div className="terms-checkbox-wrapper">
+                  <label className="terms-checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={agreeToTerms}
+                      onChange={(e) => setAgreeToTerms(e.target.checked)}
+                    />
+                    <span>
+                      I have read and agree to the{" "}
+                      <button
+                        type="button"
+                        className="terms-link-btn"
+                        onClick={() => setUi((p) => ({ ...p, terms: true }))}
+                      >
+                        Terms and Conditions
+                      </button>
+                    </span>
+                  </label>
+                </div>
+              </div>
+            )}
+          </div>
+        );
 
       case 5:
-        // Reservation Summary for per_table
         return (
           <div className="step-content step-summary">
             <ReservationSummary
