@@ -2445,7 +2445,7 @@ select:disabled {
     height: 8px;
   }
   .reservation-type-cards {
-    flex-direction: column;
+    flex-direction: row;
     gap: 20px;
   }
   .reservation-type-card {
@@ -2460,6 +2460,17 @@ select:disabled {
   }
   .event-form-grid .full-width {
     grid-column: span 1;
+  }
+}
+
+@media (max-width: 600px) {
+  .reservation-type-cards {
+    flex-direction: column;
+    align-items: center;
+  }
+  .reservation-type-card {
+    width: 100%;
+    max-width: 320px;
   }
 }
 
@@ -2561,5 +2572,13 @@ select:disabled {
   .guests-hint-warning,
   .guests-hint-success {
     font-size: 0.6rem;
+  }
+  .reservation-type-cards {
+    flex-direction: column;
+    align-items: center;
+  }
+  .reservation-type-card {
+    width: 100%;
+    max-width: 320px;
   }
 }
