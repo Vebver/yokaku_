@@ -1,4 +1,5 @@
-// ReservationSteps.jsx (Updated with Time Selection moved to Step 3)
+// ReservationSteps.jsx (Updated with dynamic steps for Per Table vs Event)
+
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import axios from "axios";
 import {
@@ -21,6 +22,9 @@ import {
   Users,
   User,
   ShoppingBag,
+  Table,
+  Calendar as CalendarIcon,
+  Gift,
 } from "lucide-react";
 import StepProgress from "./StepProgress";
 import "../Style/TableReservation.css";
@@ -52,16 +56,32 @@ import { useSocket, useAddressData } from "./TableReservationHooks";
 
 const API_BASE = "https://yokaku-backend.onrender.com/api";
 
-const STEPS = [
-  "Choose Date",
-  "Select Table",
-  "Your Details",
-  "Order Menu",
-  "Reservation Summary",
-];
+// Dynamic steps based on reservation type
+const getSteps = (reservationType) => {
+  const baseSteps = ["Reservation Type", "Choose Date"];
+
+  if (reservationType === "event") {
+    return [
+      ...baseSteps,
+      "Event Reservation",
+      "Your Details",
+      "Order Menu",
+      "Reservation Summary",
+    ];
+  }
+  // Default for "per_table" or null
+  return [
+    ...baseSteps,
+    "Select Table",
+    "Your Details",
+    "Order Menu",
+    "Reservation Summary",
+  ];
+};
 
 export default function ReservationSteps({ onClose, onSuccess }) {
   // ============ STATE ============
+  const [reservationType, setReservationType] = useState(null); // "per_table" or "event"
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [linkedIds, setLinkedIds] = useState([]);
@@ -85,11 +105,26 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   const [allReservationsByDate, setAllReservationsByDate] = useState({});
   const [receiptFile, setReceiptFile] = useState(null);
 
+  // Event reservation specific state
+  const [eventDetails, setEventDetails] = useState({
+    eventName: "",
+    eventType: "",
+    expectedGuests: "",
+    setupTime: "",
+    specialRequests: "",
+  });
+
   // Add after other state declarations
   const [currentMinutes, setCurrentMinutes] = useState(() => {
     const now = new Date();
     return now.getHours() * 60 + now.getMinutes();
   });
+
+  // Dynamic steps based on selected reservation type
+  const currentSteps = useMemo(
+    () => getSteps(reservationType),
+    [reservationType],
+  );
 
   // Real-time clock effect to update minutes every minute
   useEffect(() => {
@@ -97,7 +132,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       const now = new Date();
       const newCurrentMinutes = now.getHours() * 60 + now.getMinutes();
       setCurrentMinutes(newCurrentMinutes);
-    }, 60000); // Update every minute
+    }, 60000);
 
     return () => clearInterval(interval);
   }, []);
@@ -146,6 +181,23 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   const socket = useSocket();
   const { addressData, fetchBarangays } = useAddressData();
   const todayStr = new Date().toLocaleDateString("en-CA");
+
+  // ============ RESERVATION TYPE SELECTION ============
+  const handleReservationTypeSelect = (type) => {
+    setReservationType(type);
+    // Reset relevant state when changing reservation type
+    setSelectedId(null);
+    setLinkedIds([]);
+    setEventDetails({
+      eventName: "",
+      eventType: "",
+      expectedGuests: "",
+      setupTime: "",
+      specialRequests: "",
+    });
+    markStepCompleted(0);
+    setCurrentStep(1); // Move to next step (Date selection)
+  };
 
   // ============ CLOSE PICKERS WHEN CLICKING OUTSIDE ============
   useEffect(() => {
@@ -221,12 +273,9 @@ export default function ReservationSteps({ onClose, onSuccess }) {
 
     setIsLoadingReservations(true);
     try {
-      // Get current time to check against reservation end times
       const now = new Date();
       const currentTime = now.getHours() * 60 + now.getMinutes();
       const todayStrDate = now.toISOString().split("T")[0];
-
-      // Check if the selected date is today
       const isToday = date === todayStrDate;
       const checkDate = new Date(date);
       const todayDate = new Date();
@@ -234,10 +283,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       const isPastDate = checkDate < todayDate;
 
       if (allReservationsByDate[date]) {
-        // Filter reservations - only show active ones (not completed/cancelled/done)
         let activeReservations = [...allReservationsByDate[date]];
 
-        // Filter out cancelled or completed reservations
         activeReservations = activeReservations.filter((res) => {
           if (
             res.status === "Cancelled" ||
@@ -250,7 +297,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         });
 
         if (isToday) {
-          // For today: only show reservations that haven't ended yet
           activeReservations = activeReservations.filter((res) => {
             const endM = timeToMin(res.endTime);
             return endM > currentTime;
@@ -258,7 +304,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         }
 
         if (isPastDate) {
-          // For past dates: show no reservations (all are done)
           activeReservations = [];
         }
 
@@ -281,7 +326,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         if (response.data && Array.isArray(response.data)) {
           let activeReservations = [...response.data];
 
-          // Filter out cancelled or completed reservations
           activeReservations = activeReservations.filter((res) => {
             if (
               res.status === "Cancelled" ||
@@ -294,7 +338,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           });
 
           if (isToday) {
-            // For today: filter out completed reservations
             activeReservations = activeReservations.filter((res) => {
               const endM = timeToMin(res.endTime);
               return endM > currentTime;
@@ -302,7 +345,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           }
 
           if (isPastDate) {
-            // For past dates: show no reservations
             activeReservations = [];
           }
 
@@ -335,7 +377,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     }
   };
 
-  // Helper function to convert 24-hour time to 12-hour format
   const formatTime12Hour = (timeStr) => {
     if (!timeStr) return "";
     const [hours, minutes] = timeStr.split(":");
@@ -345,7 +386,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     return `${hour12}:${minutes} ${ampm}`;
   };
 
-  // Helper function to calculate duration between two times
   const calculateDuration = (startTime, endTime) => {
     if (!startTime || !endTime) return "";
     const start = timeToMin(startTime);
@@ -359,7 +399,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     return `${hours} hour${hours > 1 ? "s" : ""} ${minutes} min`;
   };
 
-  // Get active reservation count for a date (only active, not completed)
   const getActiveReservationCountForDate = (dateStr) => {
     if (!allReservationsByDate[dateStr]) return 0;
 
@@ -372,11 +411,9 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     todayDate.setHours(0, 0, 0, 0);
     const isPastDate = checkDate < todayDate;
 
-    // Past dates have no active reservations
     if (isPastDate) return 0;
 
     let activeCount = allReservationsByDate[dateStr].filter((res) => {
-      // Skip cancelled or completed reservations
       if (
         res.status === "Cancelled" ||
         res.status === "Completed" ||
@@ -385,7 +422,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         return false;
       }
 
-      // For today, check if end time has passed
       if (isToday) {
         const endM = timeToMin(res.endTime);
         if (endM <= currentTime) return false;
@@ -397,18 +433,15 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     return activeCount;
   };
 
-  // Get total tables count (excluding maintenance)
   const totalTablesCount = TABLES_DATA.filter(
     (t) => t.status !== "maintenance",
   ).length;
 
-  // Check if date is fully booked (based on active reservations only)
   const isDateFullyBooked = (dateStr) => {
     const activeCount = getActiveReservationCountForDate(dateStr);
     return activeCount >= totalTablesCount;
   };
 
-  // ============ CHECK TIME SLOT AVAILABILITY FOR SELECTED TABLE ============
   const isTimeSlotAvailableForSelectedTable = (startTime, endTime) => {
     if (!selectedId) return true;
 
@@ -416,11 +449,9 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     const startM = timeToMin(startTime);
     const endM = timeToMin(endTime);
 
-    // Check if the selected time slot overlaps with any existing reservation
     return !schedules.some((reservation) => {
       const resStartM = timeToMin(reservation.startTime);
       const resEndM = timeToMin(reservation.endTime);
-      // Overlap condition: new start < existing end AND new end > existing start
       return startM < resEndM && endM > resStartM;
     });
   };
@@ -435,7 +466,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   const goToNextStep = () => {
     if (validateCurrentStep()) {
       markStepCompleted(currentStep);
-      setCurrentStep((prev) => Math.min(prev + 1, STEPS.length - 1));
+      setCurrentStep((prev) => Math.min(prev + 1, currentSteps.length - 1));
     }
   };
 
@@ -453,16 +484,28 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   const validateCurrentStep = () => {
     switch (currentStep) {
       case 0:
+        return reservationType !== null;
+      case 1:
         return (
           form.date && form.date !== "" && !blockedDates.includes(form.date)
         );
-      case 1:
-        // Step 1: Select Table - need table selected and PAX
-        const isPaxValid =
-          form.pax && parseInt(form.pax) >= 1 && parseInt(form.pax) <= 38;
-        return selectedId !== null && isPaxValid;
       case 2:
-        // Step 2: Your Details - need all details + time selection
+        if (reservationType === "event") {
+          // Validate Event Reservation step
+          return (
+            eventDetails.eventName.trim() !== "" &&
+            eventDetails.eventType.trim() !== "" &&
+            eventDetails.expectedGuests !== "" &&
+            parseInt(eventDetails.expectedGuests) > 0
+          );
+        } else {
+          // Validate Select Table step for per_table
+          const isPaxValid =
+            form.pax && parseInt(form.pax) >= 1 && parseInt(form.pax) <= 38;
+          return selectedId !== null && isPaxValid;
+        }
+      case 3:
+        // Your Details step
         const isStartTimeValid = form.startTime && form.startTime !== "";
         const isEndTimeValid = form.endTime && form.endTime !== "";
         const isTimeValid = (() => {
@@ -484,8 +527,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           isEndTimeValid &&
           isTimeValid
         );
-      case 3:
-        // Step 3: Order Menu - need items, terms, and meet downpayment requirement
+      case 4:
+        // Order Menu step
         const hasItems = selectedItems.length > 0;
         const termsAgreed = agreeToTerms;
         let meetsDownpaymentRequirement = true;
@@ -494,8 +537,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
             orderSummary.downpayment >= orderSummary.requiredMinimumDownpayment;
         }
         return hasItems && termsAgreed && meetsDownpaymentRequirement;
-      case 4:
-        // Step 4: Reservation Summary - need payment method and receipt
+      case 5:
+        // Reservation Summary step
         const isPaymentMethodSelected = paymentMethod !== null;
         const isReceiptUploaded = receiptFile !== null;
         return isPaymentMethodSelected && isReceiptUploaded;
@@ -506,20 +549,37 @@ export default function ReservationSteps({ onClose, onSuccess }) {
 
   // Auto-mark step as completed
   useEffect(() => {
-    if (currentStep === 0 && form.date && !blockedDates.includes(form.date)) {
+    if (currentStep === 0 && reservationType !== null) {
       markStepCompleted(0);
     }
-    if (currentStep === 1 && selectedId && form.pax && parseInt(form.pax) > 0) {
+    if (currentStep === 1 && form.date && !blockedDates.includes(form.date)) {
       markStepCompleted(1);
     }
-    if (currentStep === 2 && validateCurrentStep()) {
-      markStepCompleted(2);
+    if (currentStep === 2) {
+      if (reservationType === "event") {
+        if (
+          eventDetails.eventName.trim() !== "" &&
+          eventDetails.eventType.trim() !== "" &&
+          eventDetails.expectedGuests !== "" &&
+          parseInt(eventDetails.expectedGuests) > 0
+        ) {
+          markStepCompleted(2);
+        }
+      } else {
+        if (selectedId && form.pax && parseInt(form.pax) > 0) {
+          markStepCompleted(2);
+        }
+      }
     }
-    if (currentStep === 3 && selectedItems.length > 0) {
+    if (currentStep === 3 && validateCurrentStep()) {
       markStepCompleted(3);
+    }
+    if (currentStep === 4 && selectedItems.length > 0) {
+      markStepCompleted(4);
     }
   }, [
     currentStep,
+    reservationType,
     form.date,
     form.startTime,
     form.endTime,
@@ -528,6 +588,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     agreeToTerms,
     blockedDates,
     form.pax,
+    eventDetails,
   ]);
 
   // ============ INITIAL LOADING ============
@@ -537,7 +598,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   }, []);
 
   // ============ FETCH ADDRESS DATA ============
-  // FIXED: Removed fetchBarangays from dependencies to prevent infinite loop
   useEffect(() => {
     if (form.muni) {
       fetchBarangays(form.muni);
@@ -551,7 +611,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       setIsDateLoading(true);
       const schedules = {};
 
-      // Check if selected date is today
       const now = new Date();
       const currentTime = now.getHours() * 60 + now.getMinutes();
       const todayStrDate = now.toISOString().split("T")[0];
@@ -568,7 +627,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
 
           let activeSchedules = [];
           if (Array.isArray(response.data)) {
-            // Filter out cancelled/completed reservations first
             let filtered = response.data.filter((res) => {
               return (
                 res.status !== "Cancelled" &&
@@ -578,13 +636,11 @@ export default function ReservationSteps({ onClose, onSuccess }) {
             });
 
             if (isToday) {
-              // For today: only show reservations that haven't ended yet
               filtered = filtered.filter((res) => {
                 const endM = timeToMin(res.endTime);
                 return endM > currentTime;
               });
             }
-            // For future dates: show ALL active reservations (no time filtering)
             activeSchedules = filtered;
           }
           schedules[table.id] = activeSchedules;
@@ -619,7 +675,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     const poll = async () => {
       if (!form.date) return;
       try {
-        // Get current time for filtering
         const now = new Date();
         const currentTime = now.getHours() * 60 + now.getMinutes();
         const todayStrDate = now.toISOString().split("T")[0];
@@ -649,10 +704,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           }
         }
 
-        // Filter out completed reservations from schedule
         const processedSchedule = (schedRes.data || [])
           .filter((res) => {
-            // First filter out cancelled/completed reservations
             if (
               res.status === "Cancelled" ||
               res.status === "Completed" ||
@@ -661,11 +714,9 @@ export default function ReservationSteps({ onClose, onSuccess }) {
               return false;
             }
             const endM = timeToMin(res.endTime);
-            // For today only, check if end time has passed
             if (isToday) {
               return endM > currentTime;
             }
-            // For future dates, show all active reservations
             return true;
           })
           .map((res) => ({ ...res }));
@@ -676,7 +727,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         const month = calendarMonth.getMonth();
         fetchAllReservationsForMonth(year, month);
 
-        // Also refresh the selected date reservations if needed
         if (selectedReservationDate) {
           await fetchReservationsForDate(selectedReservationDate);
         }
@@ -685,7 +735,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       }
     };
     poll();
-    const pollInterval = setInterval(poll, 5000); // Changed to 5 seconds for faster updates
+    const pollInterval = setInterval(poll, 5000);
     return () => clearInterval(pollInterval);
   }, [
     form.date,
@@ -768,7 +818,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     );
   }, [selectedId, linkedIds, primaryTable]);
 
-  // Calculate duration in hours from startTime and endTime
   const calculateDurationInHours = useMemo(() => {
     if (!form.startTime || !form.endTime) return 0;
     const start = timeToMin(form.startTime);
@@ -784,10 +833,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     );
     const total = Math.round(rawTotal * 100) / 100;
 
-    // Calculate 20% of order total (this is the ACTUAL downpayment)
     const twentyPercentOfOrder = total * 0.2;
 
-    // Calculate minimum required downpayment based on duration
     let requiredMinimumDownpayment = 0;
     const durationHours = calculateDurationInHours;
 
@@ -797,8 +844,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       requiredMinimumDownpayment += additionalHours * 50;
     }
 
-    // For 1 hour: no minimum requirement
-    // For 2+ hours: downpayment is 20% of order, but must meet minimum requirement
     const needsMoreItems =
       durationHours >= 2 && twentyPercentOfOrder < requiredMinimumDownpayment;
 
@@ -819,11 +864,15 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     () => [selectedId, ...linkedIds].filter((id) => id !== null),
     [selectedId, linkedIds],
   );
+
   const productDisplayName = useMemo(() => {
-    if (selectedItems.length === 0) return "Table Reservation";
+    if (selectedItems.length === 0)
+      return reservationType === "event"
+        ? "Event Reservation"
+        : "Table Reservation";
     if (selectedItems.length === 1) return selectedItems[0].name;
     return `${selectedItems[0].name} + ${selectedItems.length - 1} more`;
-  }, [selectedItems]);
+  }, [selectedItems, reservationType]);
 
   const getFinalAllergy = useMemo(() => {
     if (form.allergy === "Other" && form.customAllergy)
@@ -841,6 +890,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     () => ({
       ...user,
       ...form,
+      ...(reservationType === "event" && { eventDetails }),
+      reservationType: reservationType,
       userId: localStorage.getItem("userId"),
       guestCount: parseInt(form.pax) || totalSeats,
       tableLabel: primaryTable?.label,
@@ -869,6 +920,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     [
       user,
       form,
+      reservationType,
+      eventDetails,
       totalSeats,
       primaryTable,
       linkedIds,
@@ -912,10 +965,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       return minEndM <= maxEndTimeMinutes;
     });
 
-    // Filter out start times that conflict with existing reservations for selected table
-    if (selectedId) {
+    if (selectedId && reservationType === "per_table") {
       filtered = filtered.filter((startTime) => {
-        // For each potential start time, check if there's ANY possible end time available
         const possibleEndTimes = timeOptions.filter((endTime) => {
           const endM = timeToMin(endTime);
           const startM = timeToMin(startTime);
@@ -932,7 +983,14 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     }
 
     return filtered;
-  }, [timeOptions, form.date, todayStr, selectedId, tableSchedules]);
+  }, [
+    timeOptions,
+    form.date,
+    todayStr,
+    selectedId,
+    tableSchedules,
+    reservationType,
+  ]);
 
   const filteredEndTimeOptions = useMemo(() => {
     if (!form.startTime) return [];
@@ -954,15 +1012,20 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       return endM >= startM + 30 && endM <= absoluteMaxEnd;
     });
 
-    // Filter out end times that conflict with existing reservations for selected table
-    if (selectedId && form.startTime) {
+    if (selectedId && form.startTime && reservationType === "per_table") {
       filtered = filtered.filter((endTime) => {
         return isTimeSlotAvailableForSelectedTable(form.startTime, endTime);
       });
     }
 
     return filtered;
-  }, [form.startTime, timeOptions, selectedId, tableSchedules]);
+  }, [
+    form.startTime,
+    timeOptions,
+    selectedId,
+    tableSchedules,
+    reservationType,
+  ]);
 
   // ============ HANDLERS ============
   const handleInputChange = (e) => {
@@ -985,14 +1048,14 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       }
     } else if (name in user) {
       setUser((prev) => ({ ...prev, [name]: value }));
+    } else if (name in eventDetails) {
+      setEventDetails((prev) => ({ ...prev, [name]: value }));
     } else {
       setForm((prev) => ({ ...prev, [name]: value }));
     }
   };
 
-  // ============ HANDLE BACK BUTTON ============
   const handleBackButton = () => {
-    // Close the entire reservation flow
     onClose();
   };
 
@@ -1043,6 +1106,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       const submission = {
         ...user,
         ...form,
+        ...(reservationType === "event" && { eventDetails }),
+        reservationType: reservationType,
         userId: userId,
         guests: parseInt(form.pax) || totalSeats,
         pax: form.pax || totalSeats,
@@ -1111,10 +1176,155 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     return "";
   };
 
+  // ============ RENDER EVENT RESERVATION STEP ============
+  const renderEventReservationStep = () => {
+    return (
+      <div className="step-content step-event-reservation">
+        <div className="event-reservation-container">
+          <div className="event-reservation-header">
+            <Gift size={32} />
+            <h3>Event Reservation Details</h3>
+            <p>Please provide the details for your event</p>
+          </div>
+
+          <div className="event-form-grid">
+            <div className="input-group">
+              <label>Event Name *</label>
+              <input
+                type="text"
+                name="eventName"
+                value={eventDetails.eventName}
+                onChange={handleInputChange}
+                placeholder="e.g., John & Jane's Wedding, Company Christmas Party"
+                className={!eventDetails.eventName ? "input-error" : ""}
+              />
+            </div>
+
+            <div className="input-group">
+              <label>Event Type *</label>
+              <select
+                name="eventType"
+                value={eventDetails.eventType}
+                onChange={handleInputChange}
+                className="res-input-dropdown"
+              >
+                <option value="">Select event type</option>
+                <option value="Birthday">Birthday</option>
+                <option value="Wedding">Wedding</option>
+                <option value="Anniversary">Anniversary</option>
+                <option value="Corporate Event">Corporate Event</option>
+                <option value="Graduation">Graduation</option>
+                <option value="Reunion">Reunion</option>
+                <option value="Christmas Party">Christmas Party</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div className="input-group">
+              <label>Expected Number of Guests *</label>
+              <input
+                type="number"
+                name="expectedGuests"
+                value={eventDetails.expectedGuests}
+                onChange={handleInputChange}
+                min="1"
+                placeholder="Enter expected number of guests"
+                className={!eventDetails.expectedGuests ? "input-error" : ""}
+              />
+            </div>
+
+            <div className="input-group">
+              <label>Setup Time</label>
+              <input
+                type="text"
+                name="setupTime"
+                value={eventDetails.setupTime}
+                onChange={handleInputChange}
+                placeholder="e.g., 2 hours before event starts"
+              />
+            </div>
+
+            <div className="input-group full-width">
+              <label>Special Requests</label>
+              <textarea
+                name="specialRequests"
+                value={eventDetails.specialRequests}
+                onChange={handleInputChange}
+                placeholder="Any special requests or requirements for your event..."
+                rows="4"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ============ RENDER RESERVATION TYPE STEP ============
+  const renderReservationTypeStep = () => {
+    return (
+      <div className="step-content step-reservation-type">
+        <div className="reservation-type-cards">
+          {/* Per Table Card */}
+          <div
+            className={`reservation-type-card ${reservationType === "per_table" ? "selected" : ""}`}
+            onClick={() => handleReservationTypeSelect("per_table")}
+          >
+            <div className="card-icon">
+              <Table size={48} />
+            </div>
+            <div className="card-content">
+              <h3>Per Table</h3>
+              <p className="card-description">
+                Reserve a specific table for your group
+              </p>
+              <div className="card-badge">
+                <span>Reservation per table</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Event Card */}
+          <div
+            className={`reservation-type-card ${reservationType === "event" ? "selected" : ""}`}
+            onClick={() => handleReservationTypeSelect("event")}
+          >
+            <div className="card-icon">
+              <CalendarIcon size={48} />
+            </div>
+            <div className="card-content">
+              <h3>Event</h3>
+              <p className="card-description">
+                Reserve the store for a certain event or occasion
+              </p>
+              <div className="card-badge">
+                <span>Reservation for Event/Occasion</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {reservationType && (
+          <div className="reservation-type-selected">
+            <CheckCircle size={20} />
+            <span>
+              {reservationType === "per_table"
+                ? "Per Table reservation selected"
+                : "Event reservation selected"}
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // ============ RENDER STEP CONTENT ============
   const renderStepContent = () => {
     switch (currentStep) {
       case 0:
+        return renderReservationTypeStep();
+
+      case 1:
         return (
           <div className="step-content step-date">
             <div className="calendar-container">
@@ -1494,282 +1704,284 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           </div>
         );
 
-      case 1:
-        return form.date ? (
-          <div className="step-content step-tables">
-            <div className="pax-field-container">
-              <div className="input-group pax-input-group">
-                <label>
-                  <Users size={12} /> NUMBER OF GUESTS (PAX)
-                  {!selectedId && (
-                    <span className="pax-field-hint">
-                      {" "}
-                      (Select a table first)
-                    </span>
-                  )}
-                </label>
-                <div className="pax-input-wrapper">
-                  <button
-                    type="button"
-                    className="pax-btn pax-btn-decrease"
-                    onClick={() => {
-                      const currentPax = parseInt(form.pax) || 0;
-                      if (currentPax > 1) {
-                        setForm((prev) => ({
-                          ...prev,
-                          pax: String(currentPax - 1),
-                        }));
-                      }
-                    }}
-                    disabled={
-                      !selectedId || !form.pax || parseInt(form.pax) <= 1
-                    }
-                  >
-                    -
-                  </button>
-                  <input
-                    type="number"
-                    name="pax"
-                    className="pax-input"
-                    min="1"
-                    max="38"
-                    value={form.pax}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (value === "") {
-                        setForm((prev) => ({ ...prev, pax: "" }));
-                      } else {
-                        const numValue = parseInt(value);
-                        if (
-                          !isNaN(numValue) &&
-                          numValue >= 1 &&
-                          numValue <= 38
-                        ) {
-                          setForm((prev) => ({ ...prev, pax: value }));
+      case 2:
+        if (reservationType === "event") {
+          return renderEventReservationStep();
+        } else {
+          // Original Select Table step for per_table
+          return form.date ? (
+            <div className="step-content step-tables">
+              <div className="pax-field-container">
+                <div className="input-group pax-input-group">
+                  <label>
+                    <Users size={12} /> NUMBER OF GUESTS (PAX)
+                    {!selectedId && (
+                      <span className="pax-field-hint">
+                        {" "}
+                        (Select a table first)
+                      </span>
+                    )}
+                  </label>
+                  <div className="pax-input-wrapper">
+                    <button
+                      type="button"
+                      className="pax-btn pax-btn-decrease"
+                      onClick={() => {
+                        const currentPax = parseInt(form.pax) || 0;
+                        if (currentPax > 1) {
+                          setForm((prev) => ({
+                            ...prev,
+                            pax: String(currentPax - 1),
+                          }));
                         }
+                      }}
+                      disabled={
+                        !selectedId || !form.pax || parseInt(form.pax) <= 1
                       }
-                    }}
-                    onKeyDown={(e) => {
-                      if (
-                        e.key === "e" ||
-                        e.key === "E" ||
-                        e.key === "-" ||
-                        e.key === "+" ||
-                        e.key === "."
-                      ) {
-                        e.preventDefault();
+                    >
+                      -
+                    </button>
+                    <input
+                      type="number"
+                      name="pax"
+                      className="pax-input"
+                      min="1"
+                      max="38"
+                      value={form.pax}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value === "") {
+                          setForm((prev) => ({ ...prev, pax: "" }));
+                        } else {
+                          const numValue = parseInt(value);
+                          if (
+                            !isNaN(numValue) &&
+                            numValue >= 1 &&
+                            numValue <= 38
+                          ) {
+                            setForm((prev) => ({ ...prev, pax: value }));
+                          }
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (
+                          e.key === "e" ||
+                          e.key === "E" ||
+                          e.key === "-" ||
+                          e.key === "+" ||
+                          e.key === "."
+                        ) {
+                          e.preventDefault();
+                        }
+                      }}
+                      placeholder={
+                        selectedId
+                          ? "Enter number of guests (1-38)"
+                          : "Select a table first"
                       }
-                    }}
-                    placeholder={
-                      selectedId
-                        ? "Enter number of guests (1-38)"
-                        : "Select a table first"
-                    }
-                    disabled={!selectedId}
-                  />
-                  <button
-                    type="button"
-                    className="pax-btn pax-btn-increase"
-                    onClick={() => {
-                      const currentPax = parseInt(form.pax) || 0;
-                      if (currentPax < 38) {
-                        setForm((prev) => ({
-                          ...prev,
-                          pax: String(currentPax + 1),
-                        }));
+                      disabled={!selectedId}
+                    />
+                    <button
+                      type="button"
+                      className="pax-btn pax-btn-increase"
+                      onClick={() => {
+                        const currentPax = parseInt(form.pax) || 0;
+                        if (currentPax < 38) {
+                          setForm((prev) => ({
+                            ...prev,
+                            pax: String(currentPax + 1),
+                          }));
+                        }
+                      }}
+                      disabled={
+                        !selectedId || !form.pax || parseInt(form.pax) >= 38
                       }
-                    }}
-                    disabled={
-                      !selectedId || !form.pax || parseInt(form.pax) >= 38
-                    }
-                  >
-                    +
-                  </button>
+                    >
+                      +
+                    </button>
+                  </div>
+                  {!selectedId && (
+                    <div className="pax-warning">
+                      <AlertCircle size={12} />
+                      <span>
+                        Please select a table before entering number of guests
+                      </span>
+                    </div>
+                  )}
+                  {selectedId && (
+                    <div className="pax-hint">
+                      <Users size={12} />
+                      <span>Minimum 1 guest, Maximum 38 guests</span>
+                    </div>
+                  )}
                 </div>
-                {!selectedId && (
-                  <div className="pax-warning">
-                    <AlertCircle size={12} />
-                    <span>
-                      Please select a table before entering number of guests
-                    </span>
+              </div>
+
+              {selectedId && data.schedule && data.schedule.length > 0 && (
+                <div className="table-schedule-section">
+                  <h4 className="schedule-header">
+                    <Clock size={14} /> Active Slots for {primaryTable?.label}
+                  </h4>
+                  <div className="schedule-list">
+                    {data.schedule
+                      .filter((res) => {
+                        const endM = timeToMin(res.endTime);
+                        const now = new Date();
+                        const currentTime =
+                          now.getHours() * 60 + now.getMinutes();
+                        const todayStrDate = now.toISOString().split("T")[0];
+                        const isToday = form.date === todayStrDate;
+
+                        if (isToday) {
+                          return endM > currentTime;
+                        }
+                        return true;
+                      })
+                      .map((res, i) => {
+                        const itemClass = getScheduleItemClassWithColor(res);
+                        const displayText = getStatusDisplayText(res);
+                        return (
+                          <div
+                            key={i}
+                            className={`schedule-item-3d ${itemClass}`}
+                          >
+                            <Clock size={12} />
+                            <span className="schedule-time">
+                              {formatTime(res.startTime)} -{" "}
+                              {formatTime(res.endTime)}
+                            </span>
+                            <span className="schedule-status">
+                              {displayText}
+                            </span>
+                          </div>
+                        );
+                      })}
                   </div>
-                )}
-                {selectedId && (
-                  <div className="pax-hint">
-                    <Users size={12} />
-                    <span>Minimum 1 guest, Maximum 38 guests</span>
-                  </div>
-                )}
-              </div>
-            </div>
+                  {data.schedule.filter((res) => {
+                    const endM = timeToMin(res.endTime);
+                    const now = new Date();
+                    const currentTime = now.getHours() * 60 + now.getMinutes();
+                    const todayStrDate = now.toISOString().split("T")[0];
+                    const isToday = form.date === todayStrDate;
 
-            {selectedId && data.schedule && data.schedule.length > 0 && (
-              <div className="table-schedule-section">
-                <h4 className="schedule-header">
-                  <Clock size={14} /> Active Slots for {primaryTable?.label}
-                </h4>
-                <div className="schedule-list">
-                  {data.schedule
-                    .filter((res) => {
-                      const endM = timeToMin(res.endTime);
-                      const now = new Date();
-                      const currentTime =
-                        now.getHours() * 60 + now.getMinutes();
-                      const todayStrDate = now.toISOString().split("T")[0];
-                      const isToday = form.date === todayStrDate;
-
-                      // Only filter by time for TODAY's date
-                      if (isToday) {
-                        return endM > currentTime;
-                      }
-                      // For future dates, show all reservations
-                      return true;
-                    })
-                    .map((res, i) => {
-                      const itemClass = getScheduleItemClassWithColor(res);
-                      const displayText = getStatusDisplayText(res);
-                      return (
-                        <div
-                          key={i}
-                          className={`schedule-item-3d ${itemClass}`}
-                        >
-                          <Clock size={12} />
-                          <span className="schedule-time">
-                            {formatTime(res.startTime)} -{" "}
-                            {formatTime(res.endTime)}
-                          </span>
-                          <span className="schedule-status">{displayText}</span>
-                        </div>
-                      );
-                    })}
-                </div>
-                {data.schedule.filter((res) => {
-                  const endM = timeToMin(res.endTime);
-                  const now = new Date();
-                  const currentTime = now.getHours() * 60 + now.getMinutes();
-                  const todayStrDate = now.toISOString().split("T")[0];
-                  const isToday = form.date === todayStrDate;
-
-                  // Only filter by time for TODAY's date
-                  if (isToday) {
-                    return endM > currentTime;
-                  }
-                  // For future dates, show all reservations
-                  return true;
-                }).length === 0 && (
-                  <div className="no-active-slots">
-                    <CheckCircle size={16} />
-                    <span>No active reservations for this table</span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div className="table-legend">
-              <div className="legend-item">
-                <span className="legend-dot available"></span>
-                <span>Available</span>
-              </div>
-              <div className="legend-item">
-                <span className="legend-dot reserved"></span>
-                <span>Reserved</span>
-              </div>
-              <div className="legend-item">
-                <span className="legend-dot occupied"></span>
-                <span>Occupied/Ongoing</span>
-              </div>
-              <div className="legend-item">
-                <span className="legend-dot selected"></span>
-                <span>Selected</span>
-              </div>
-              {isLinkMode && (
-                <div className="legend-item">
-                  <span className="legend-dot linked"></span>
-                  <span>Linked</span>
+                    if (isToday) {
+                      return endM > currentTime;
+                    }
+                    return true;
+                  }).length === 0 && (
+                    <div className="no-active-slots">
+                      <CheckCircle size={16} />
+                      <span>No active reservations for this table</span>
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
 
-            <div className="table-selection-grid">
-              {TABLES_DATA.map((t) => {
-                const hasAnyReservation = hasActiveReservationForTable(t.id);
-                const hasOngoing = hasOngoingReservation(t.id);
-                const isSelected = selectedId === t.id;
-                const isLinked = linkedIds.includes(t.id);
-                const isMaintenance = t.status === "maintenance";
-
-                let cardCls = "",
-                  dotColor = "";
-                if (isSelected) {
-                  cardCls = "selected";
-                  dotColor = "selected";
-                } else if (isLinked) {
-                  cardCls = "linked";
-                  dotColor = "linked";
-                } else if (isMaintenance) {
-                  cardCls = "maintenance";
-                  dotColor = "maintenance";
-                } else if (hasOngoing && !isLinkMode) {
-                  cardCls = "occupied";
-                  dotColor = "occupied";
-                } else if (hasAnyReservation && !isLinkMode) {
-                  cardCls = "reserved";
-                  dotColor = "reserved";
-                } else {
-                  cardCls = "available";
-                  dotColor = "available";
-                }
-
-                return (
-                  <div
-                    key={t.id}
-                    className={`table-list-card ${cardCls}`}
-                    onClick={() => onTableClick(t)}
-                    style={{
-                      cursor: isMaintenance ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    <div className="table-card-content">
-                      <div className="table-details">
-                        <div className="table-title-row">
-                          <Armchair size={16} />
-                          <strong>{t.label}</strong>
-                        </div>
-                        <span>{t.seats} Seats</span>
-                        {hasOngoing && !isLinkMode && !isMaintenance && (
-                          <div className="ongoing-badge">
-                            <AlertCircle size={10} />
-                            <span>Ongoing</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className={`status-dot ${dotColor}`}></div>
+              <div className="table-legend">
+                <div className="legend-item">
+                  <span className="legend-dot available"></span>
+                  <span>Available</span>
+                </div>
+                <div className="legend-item">
+                  <span className="legend-dot reserved"></span>
+                  <span>Reserved</span>
+                </div>
+                <div className="legend-item">
+                  <span className="legend-dot occupied"></span>
+                  <span>Occupied/Ongoing</span>
+                </div>
+                <div className="legend-item">
+                  <span className="legend-dot selected"></span>
+                  <span>Selected</span>
+                </div>
+                {isLinkMode && (
+                  <div className="legend-item">
+                    <span className="legend-dot linked"></span>
+                    <span>Linked</span>
                   </div>
-                );
-              })}
+                )}
+              </div>
+
+              <div className="table-selection-grid">
+                {TABLES_DATA.map((t) => {
+                  const hasAnyReservation = hasActiveReservationForTable(t.id);
+                  const hasOngoing = hasOngoingReservation(t.id);
+                  const isSelected = selectedId === t.id;
+                  const isLinked = linkedIds.includes(t.id);
+                  const isMaintenance = t.status === "maintenance";
+
+                  let cardCls = "",
+                    dotColor = "";
+                  if (isSelected) {
+                    cardCls = "selected";
+                    dotColor = "selected";
+                  } else if (isLinked) {
+                    cardCls = "linked";
+                    dotColor = "linked";
+                  } else if (isMaintenance) {
+                    cardCls = "maintenance";
+                    dotColor = "maintenance";
+                  } else if (hasOngoing && !isLinkMode) {
+                    cardCls = "occupied";
+                    dotColor = "occupied";
+                  } else if (hasAnyReservation && !isLinkMode) {
+                    cardCls = "reserved";
+                    dotColor = "reserved";
+                  } else {
+                    cardCls = "available";
+                    dotColor = "available";
+                  }
+
+                  return (
+                    <div
+                      key={t.id}
+                      className={`table-list-card ${cardCls}`}
+                      onClick={() => onTableClick(t)}
+                      style={{
+                        cursor: isMaintenance ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      <div className="table-card-content">
+                        <div className="table-details">
+                          <div className="table-title-row">
+                            <Armchair size={16} />
+                            <strong>{t.label}</strong>
+                          </div>
+                          <span>{t.seats} Seats</span>
+                          {hasOngoing && !isLinkMode && !isMaintenance && (
+                            <div className="ongoing-badge">
+                              <AlertCircle size={10} />
+                              <span>Ongoing</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className={`status-dot ${dotColor}`}></div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {selectedId && (
+                <button
+                  className={`btn-link-mode ${isLinkMode ? "active" : ""}`}
+                  onClick={() => setIsLinkMode(!isLinkMode)}
+                  style={{ marginTop: "20px" }}
+                >
+                  <LinkIcon size={18} />{" "}
+                  {isLinkMode ? "Finish Linking" : "Link Tables"}
+                </button>
+              )}
             </div>
+          ) : (
+            <div className="step-warning">Please select a date first</div>
+          );
+        }
 
-            {selectedId && (
-              <button
-                className={`btn-link-mode ${isLinkMode ? "active" : ""}`}
-                onClick={() => setIsLinkMode(!isLinkMode)}
-                style={{ marginTop: "20px" }}
-              >
-                <LinkIcon size={18} />{" "}
-                {isLinkMode ? "Finish Linking" : "Link Tables"}
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="step-warning">Please select a date first</div>
-        );
-
-      case 2:
+      case 3:
         return (
           <div className="step-content step-details">
             <div className="reservation-form-grid">
-              {/* Time Selection Row - MOVED TO STEP 3 */}
               <div className="time-selection-row">
                 <div className="input-group">
                   <label>
@@ -2102,7 +2314,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           </div>
         );
 
-      case 3: // ORDER MENU
+      case 4:
         const meetsDownpaymentRequirement = () => {
           if (orderSummary.durationHours >= 2) {
             return (
@@ -2154,7 +2366,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   </strong>
                 </div>
 
-                {/* Duration info */}
                 {orderSummary.durationHours >= 2 && (
                   <div className="duration-info">
                     <Clock size={14} />
@@ -2164,7 +2375,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   </div>
                 )}
 
-                {/* Downpayment display */}
                 <div className="package-downpayment">
                   <div className="downpayment-row">
                     <span style={{ color: "#f38d31", fontWeight: "800" }}>
@@ -2253,7 +2463,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           </div>
         );
 
-      case 4: // RESERVATION SUMMARY
+      case 5:
         return (
           <div className="step-content step-summary">
             <ReservationSummary
@@ -2288,7 +2498,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       {isProcessing && <LoadingSpinner />}
       {isDateLoading && <DateLoadingSpinner />}
 
-      {/* Dynamic Back/Cancel Button - Hidden when PackageModal is open */}
       {!ui.menu && (
         <button className="page-back-btn" onClick={handleBackButton}>
           <ArrowLeft size={18} /> Cancel
@@ -2297,7 +2506,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
 
       <div className="reservation-flow-container">
         <StepProgress
-          steps={STEPS}
+          steps={currentSteps}
           currentStep={currentStep}
           completedSteps={completedSteps}
           onStepClick={goToStep}
@@ -2322,7 +2531,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           >
             <ChevronLeft size={18} /> Previous
           </button>
-          {currentStep === STEPS.length - 1 ? (
+          {currentStep === currentSteps.length - 1 ? (
             <button
               className="nav-btn nav-btn-next"
               onClick={() => {

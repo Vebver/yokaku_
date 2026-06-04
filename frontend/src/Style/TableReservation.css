@@ -592,7 +592,7 @@ select:disabled {
 }
 .status-dot.occupied {
   background-color: #e63946;
-  box-shadow: 0 0 0 2px rgba(230, Systems, 70, 0.2);
+  box-shadow: 0 0 0 2px rgba(230, 57, 70, 0.2);
   animation: pulse 1.5s infinite;
 }
 .status-dot.selected {
@@ -695,26 +695,22 @@ select:disabled {
   background: #fff5f5 !important;
   border-left: 4px solid #e63946 !important;
   border-radius: 8px;
-  animation: none !important;
 }
 
 .schedule-item-3d.ongoing .schedule-status {
   background: #e63946 !important;
   color: white !important;
-  animation: none !important;
 }
 
 .schedule-item-3d.reserved {
   background: #fffef5 !important;
   border-left: 4px solid #ffcc00 !important;
   border-radius: 8px;
-  animation: none !important;
 }
 
 .schedule-item-3d.reserved .schedule-status {
   background: #ffcc00 !important;
   color: #1a1a1a !important;
-  animation: none !important;
 }
 
 .schedule-item-3d svg {
@@ -2120,6 +2116,191 @@ select:disabled {
 }
 
 /* ============================================ */
+/* RESERVATION TYPE STEP STYLES                */
+/* ============================================ */
+
+.step-reservation-type {
+  padding: 20px;
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.reservation-type-cards {
+  display: flex;
+  gap: 30px;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.reservation-type-card {
+  flex: 1;
+  min-width: 280px;
+  max-width: 350px;
+  background: white;
+  border-radius: 20px;
+  padding: 30px 25px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 3px solid #e0e0e0;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.reservation-type-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  border-color: #f38d31;
+}
+
+.reservation-type-card.selected {
+  border-color: #f38d31;
+  background: linear-gradient(135deg, #fff8f0 0%, #fff 100%);
+  box-shadow: 0 8px 25px rgba(243, 141, 49, 0.2);
+}
+
+.card-icon {
+  margin-bottom: 20px;
+  color: #f38d31;
+}
+
+.card-icon svg {
+  stroke-width: 1.5;
+}
+
+.reservation-type-card h3 {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0 0 10px 0;
+  color: #333;
+}
+
+.card-description {
+  font-size: 14px;
+  color: #666;
+  margin: 0 0 20px 0;
+  line-height: 1.5;
+}
+
+.card-badge {
+  display: inline-block;
+  background: #f5f5f5;
+  padding: 8px 16px;
+  border-radius: 30px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #f38d31;
+}
+
+.card-badge span {
+  display: inline-block;
+}
+
+.reservation-type-selected {
+  margin-top: 30px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  background: #e8f5e9;
+  border-radius: 50px;
+  color: #2e7d32;
+  font-weight: 500;
+}
+
+.reservation-type-selected svg {
+  color: #4caf50;
+}
+
+/* ============================================ */
+/* EVENT RESERVATION STEP STYLES               */
+/* ============================================ */
+
+.step-event-reservation {
+  padding: 20px;
+}
+
+.event-reservation-container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.event-reservation-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.event-reservation-header svg {
+  color: #f38d31;
+  margin-bottom: 15px;
+}
+
+.event-reservation-header h3 {
+  font-size: 24px;
+  color: #333;
+  margin: 0 0 10px 0;
+}
+
+.event-reservation-header p {
+  color: #666;
+  font-size: 14px;
+}
+
+.event-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.event-form-grid .input-group {
+  margin-bottom: 0;
+}
+
+.event-form-grid .full-width {
+  grid-column: span 2;
+}
+
+.event-form-grid textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-family: inherit;
+  resize: vertical;
+  transition: border-color 0.3s;
+}
+
+.event-form-grid textarea:focus {
+  outline: none;
+  border-color: #f38d31;
+}
+
+.event-form-grid input,
+.event-form-grid select {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: border-color 0.3s;
+}
+
+.event-form-grid input:focus,
+.event-form-grid select:focus {
+  outline: none;
+  border-color: #f38d31;
+}
+
+.event-form-grid .input-error {
+  border-color: #dc3545;
+}
+
+/* ============================================ */
 /* RESPONSIVE MEDIA QUERIES                    */
 /* ============================================ */
 
@@ -2257,6 +2438,23 @@ select:disabled {
   .calendar-legend-dot {
     width: 8px;
     height: 8px;
+  }
+  .reservation-type-cards {
+    flex-direction: column;
+    gap: 20px;
+  }
+  .reservation-type-card {
+    min-width: 250px;
+    padding: 25px 20px;
+  }
+  .reservation-type-card h3 {
+    font-size: 20px;
+  }
+  .event-form-grid {
+    grid-template-columns: 1fr;
+  }
+  .event-form-grid .full-width {
+    grid-column: span 1;
   }
 }
 
