@@ -813,26 +813,6 @@ export default function TableReservation({ onClose, onSuccess }) {
                   />
                 </div>
 
-                <div className="input-group">
-                  <label style={{ display: "block", marginBottom: "8px" }}>
-                    <Baby size={12} /> HIGH CHAIR NEEDED?
-                  </label>
-                  <div className="radio-group-horizontal">
-                    {["Yes", "No"].map((opt) => (
-                      <label key={opt} className="custom-radio">
-                        <input
-                          type="radio"
-                          name="highChair"
-                          value={opt}
-                          checked={form.highChair === opt}
-                          onChange={handleInputChange}
-                        />{" "}
-                        <span>{opt}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
                 {/* OCCASION DROPDOWN FIELD */}
                 <div className="input-group">
                   <label style={{ display: "block", marginBottom: "8px" }}>

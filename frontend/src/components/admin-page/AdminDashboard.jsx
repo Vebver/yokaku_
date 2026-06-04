@@ -15,12 +15,12 @@ import { Line } from "react-chartjs-2";
 import {
   Info,
   TrendingUp,
-  DollarSign,
   ShoppingBag,
   CreditCard,
   Menu,
   LogOut,
   ChevronLeft,
+  PhilippinePeso,
 } from "lucide-react";
 
 // Internal Components
@@ -67,22 +67,27 @@ const Icons = {
 };
 
 const navItems = [
+  // MAIN VIEW
   { id: "dashboard", label: "Dashboard", icon: Icons.Dashboard },
-  { id: "categories", label: "Categories", icon: Icons.Categories },
-  { id: "inventory", label: "Inventory", icon: Icons.Inventory },
-  { id: "recipe", label: "Recipes", icon: Icons.Recipe },
-  { id: "products", label: "Menu Items", icon: Icons.Products },
-  { id: "report", label: "Reports", icon: Icons.Sales },
+  //FLOOR OPERATION
+  { id: "table-status", label: "Table Status", icon: Icons.Dashboard },
   {
     id: "online-reservations",
     label: "Online Bookings",
     icon: Icons.Reservations,
   },
   { id: "walk-ins", label: "Walk-ins / Kiosk", icon: Icons.Billing },
+  // TRANSACTION & INSIGHTS
   { id: "billing", label: "Payments", icon: Icons.Billing },
-  { id: "profile", label: "Admin Profile", icon: Icons.Profile },
+  { id: "report", label: "Reports", icon: Icons.Sales },
+  // MENU INVENTORY
+  { id: "products", label: "Menu Items", icon: Icons.Products },
+  { id: "recipe", label: "Recipes", icon: Icons.Recipe },
+  { id: "categories", label: "Categories", icon: Icons.Categories },
+  { id: "inventory", label: "Inventory", icon: Icons.Inventory },
+  //ADMIN
   { id: "account", label: "Account Manage", icon: Icons.Account },
-  { id: "table-status", label: "Table Status", icon: Icons.Dashboard },
+  { id: "profile", label: "Admin Profile", icon: Icons.Profile },
   { id: "maintenance", label: "Maintenance", icon: Icons.Maintenance },
 ];
 
@@ -126,13 +131,13 @@ function AdminDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 992);
   const [loading, setLoading] = useState(true);
   const [todaySchedule, setTodaySchedule] = useState([]);
-  
+
   // 1. Added weeklyRevenue to the state object
   const [stats, setStats] = useState({
     totalBookings: 0,
     activeTables: 0,
     kitchenQueue: 0,
-    weeklyRevenue: 0, 
+    weeklyRevenue: 0,
     monthlyRevenue: 0,
     todayRevenue: 0,
     avgOrder: 0,
@@ -180,7 +185,7 @@ function AdminDashboard() {
         totalBookings: data.totalBookings || 0,
         activeTables: data.activeTables || 0,
         kitchenQueue: data.kitchenQueue || 0,
-        weeklyRevenue: data.weeklyRevenue || 0, 
+        weeklyRevenue: data.weeklyRevenue || 0,
         monthlyRevenue: data.monthlyRevenue || 0,
         todayRevenue: data.todayRevenue || 0,
         avgOrder: data.avgOrder || 0,
@@ -240,7 +245,7 @@ function AdminDashboard() {
 
   const DashboardOverview = () => (
     <div className="dashboard-content">
-     <h1 className="fw-bold mb-3">Welcome back, Admin</h1>
+      <h1 className="fw-bold mb-3">Welcome back, Admin</h1>
       {/* 1. TIMELINE */}
       <div className="mb-4 bg-white p-3 rounded-4 shadow-sm border-start border-4 border-warning">
         <div className="d-flex align-items-center mb-2">
@@ -251,7 +256,7 @@ function AdminDashboard() {
           {todaySchedule.length > 0 ? (
             todaySchedule.map((res, i) => (
               <div
-                key={i} 
+                key={i}
                 className="timeline-badge bg-light px-3 py-1 rounded-pill border small fw-semibold"
               >
                 <span className="text-primary">
@@ -305,7 +310,7 @@ function AdminDashboard() {
             <MiniFinanceCard
               title="Today's Revenue"
               value={stats.todayRevenue}
-              icon={DollarSign}
+              icon={PhilippinePeso}
               colorClass="text-primary bg-primary-subtle"
             />
             <MiniFinanceCard

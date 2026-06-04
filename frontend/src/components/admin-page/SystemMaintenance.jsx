@@ -3,7 +3,7 @@ import axios from "axios";
 import {
   FileSpreadsheet,
   Archive,
-  RefreshCcw, // Added for the Reset card
+  RefreshCcw,
   AlertTriangle,
   Settings,
   FileText
@@ -24,8 +24,6 @@ const SystemMaintenance = () => {
       
       alert("Success: " + res.data.message);
       
-      // FIX: Force the dashboard to re-fetch the data from the database
-      // This will update the "1 Seated" count to "0 Seated"
       if (endpoint === 'reset') {
         window.location.reload(); 
       }
@@ -81,18 +79,18 @@ const SystemMaintenance = () => {
   };
 
   return (
-    <div className="card shadow-sm border-0 p-3 p-md-4 mt-4">
+    <div className="card shadow-sm border-0 p-3 p-md-4 mt-4" style={{ borderRadius: "12px" }}>
       <div className="d-flex align-items-center mb-4">
         <Settings className="text-secondary me-2" size={24} />
-        <h5 className="mb-0 fw-bold text-dark">Maintenance</h5>
+        <h5 className="mb-0 fw-bold text-dark">System Maintenance</h5>
       </div>
 
-      {/* Grid: 1 column on mobile, 2 on tablet, 3 on desktop */}
-      <div className="row g-3">
+      {/* Grid: 2 columns on tablets/desktops, 1 column on mobile */}
+      <div className="row g-4">
         
         {/* 1. EXPORT DATA */}
-        <div className="col-12 col-md-6 col-lg-4">
-          <div className="p-4 border rounded text-center h-100 bg-white shadow-sm d-flex flex-column justify-content-between">
+        <div className="col-12 col-md-6">
+          <div className="p-4 border rounded text-center h-100 bg-white shadow-sm d-flex flex-column justify-content-between" style={{ borderRadius: "8px" }}>
             <div>
               <FileSpreadsheet className="text-success mb-3" size={40} />
               <h5 className="fw-bold">Export Records</h5>
@@ -103,6 +101,7 @@ const SystemMaintenance = () => {
             <button
               onClick={downloadReport}
               className="btn btn-success btn-lg w-100 py-3 fw-bold shadow-sm"
+              style={{ borderRadius: "8px" }}
             >
               Download Report
             </button>
@@ -110,13 +109,13 @@ const SystemMaintenance = () => {
         </div>
 
         {/* 2. ARCHIVE DATA */}
-        <div className="col-12 col-md-6 col-lg-4">
-          <div className="p-4 border rounded text-center h-100 bg-white shadow-sm d-flex flex-column justify-content-between">
+        <div className="col-12 col-md-6">
+          <div className="p-4 border rounded text-center h-100 bg-white shadow-sm d-flex flex-column justify-content-between" style={{ borderRadius: "8px" }}>
             <div>
               <Archive className="text-primary mb-3" size={40} />
               <h5 className="fw-bold">Archive History</h5>
               <p className="small text-muted mb-4">
-                Clean your dashboard by moving records older than 1 month to history.
+                Clean your reservation dashboard by moving records older than 1 month to history.
               </p>
             </div>
             <button
@@ -128,6 +127,7 @@ const SystemMaintenance = () => {
                 )
               }
               className="btn btn-primary btn-lg w-100 py-3 fw-bold shadow-sm"
+              style={{ borderRadius: "8px" }}
             >
               Run Archiving
             </button>
@@ -135,18 +135,19 @@ const SystemMaintenance = () => {
         </div>
 
         {/* 3. FINANCIAL PDF */}
-        <div className="col-12 col-md-6 col-lg-4">
-          <div className="p-4 border rounded text-center h-100 bg-white shadow-sm d-flex flex-column justify-content-between">
+        <div className="col-12 col-md-6">
+          <div className="p-4 border rounded text-center h-100 bg-white shadow-sm d-flex flex-column justify-content-between" style={{ borderRadius: "8px" }}>
             <div>
               <FileText className="text-danger mb-3" size={40} />
               <h5 className="fw-bold">Export Financial PDF</h5>
               <p className="small text-muted mb-4">
-                Includes profit (weekly/monthly/yearly) and revenue trend (weekly/monthly/yearly).
+                Download revenue trend (weekly/monthly/yearly).
               </p>
             </div>
             <button
               onClick={downloadFinancialPdf}
-             className="btn btn-danger btn-lg w-100 py-3 fw-bold shadow-sm"
+              className="btn btn-danger btn-lg w-100 py-3 fw-bold shadow-sm"
+              style={{ borderRadius: "8px" }}
             >
               Download PDF
             </button>
@@ -154,8 +155,8 @@ const SystemMaintenance = () => {
         </div>
 
         {/* 4. SHIFT RESET */}
-        <div className="col-12 col-md-12 col-lg-4">
-          <div className="p-4 border rounded text-center h-100 bg-white shadow-sm d-flex flex-column justify-content-between">
+        <div className="col-12 col-md-6">
+          <div className="p-4 border rounded text-center h-100 bg-white shadow-sm d-flex flex-column justify-content-between" style={{ borderRadius: "8px" }}>
             <div>
               <RefreshCcw className="text-warning mb-3" size={40} />
               <h5 className="fw-bold">Table Reset</h5>
@@ -171,12 +172,14 @@ const SystemMaintenance = () => {
                   "Warning: This will set all tables to 'Available'.",
                 )
               }
-              className="btn btn-warning btn-lg w-100 py-3 fw-bold shadow-sm"
+              className="btn btn-warning btn-lg w-100 py-3 fw-bold shadow-sm text-dark"
+              style={{ borderRadius: "8px" }}
             >
               Start New Shift
             </button>
           </div>
         </div>
+
       </div>
 
       {/* Warning Footer */}

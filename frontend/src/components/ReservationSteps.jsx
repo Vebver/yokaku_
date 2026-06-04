@@ -1106,12 +1106,12 @@ export default function ReservationSteps({ onClose, onSuccess }) {
             <CalendarIcon size={48} />
           </div>
           <div className="card-content">
-            <h3>Event</h3>
+            <h3>Private Event</h3>
             <p className="card-description">
-              Reserve the store for a certain event or occasion
+              Book our entire venue for your next party or gathering.
             </p>
             <div className="card-badge">
-              <span>Reservation for Event/Occasion</span>
+              <span>Book now</span>
             </div>
           </div>
         </div>
@@ -1671,25 +1671,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                         </span>
                       </div>
                     )}
-                  </div>
-                </div>
-                <div className="input-group">
-                  <label>
-                    <Baby size={12} /> HIGH CHAIR NEEDED?
-                  </label>
-                  <div className="radio-group-horizontal">
-                    {["Yes", "No"].map((opt) => (
-                      <label key={opt} className="custom-radio">
-                        <input
-                          type="radio"
-                          name="highChair"
-                          value={opt}
-                          checked={form.highChair === opt}
-                          onChange={handleInputChange}
-                        />
-                        <span>{opt}</span>
-                      </label>
-                    ))}
                   </div>
                 </div>
                 <div className="input-group">

@@ -550,15 +550,6 @@ const MyReservation = () => {
                       </div>
                     )}
 
-                  {selectedReservation.highChair && (
-                    <div className="detail-row">
-                      <span className="detail-label">High Chair:</span>
-                      <span className="detail-value">
-                        {selectedReservation.highChair}
-                      </span>
-                    </div>
-                  )}
-
                   <div className="detail-row">
                     <span className="detail-label">Full Address:</span>
                     <span className="detail-value">

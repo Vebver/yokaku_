@@ -11,7 +11,7 @@ function Product() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(8);
+  const [itemsPerPage] = useState(15);
   const [isEditing, setIsEditing] = useState(false);
   const [editId, setEditId] = useState(null);
 
@@ -36,7 +36,10 @@ function Product() {
       if (catRes.data.length > 0 && !isEditing) {
         setNewItem(prev => ({ ...prev, category_id: catRes.data[0].category_id }));
       }
-    } catch (err) { console.error(err); } 
+    } catch (err) { 
+      console.error(err); 
+      alert("Error loading menu data. Please try refreshing the page.");
+    } 
     finally { setLoading(false); }
   };
 
@@ -71,71 +74,78 @@ function Product() {
     setNewItem({ name: "", description: "", price: "", category_id: categories[0]?.category_id || "", image: null, is_available: 1, is_featured: 0 });
   };
 
-const handleAddOrUpdateMenuItem = async (e) => {
-  e.preventDefault();
-  
-  // 1. Get the token from localStorage
-  const token = localStorage.getItem("token");
+  const handleAddOrUpdateMenuItem = async (e) => {
+    e.preventDefault();
+    const token = localStorage.getItem("token");
 
-  // 2. Setup the config with the header
-  const config = {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      // Note: Do NOT set Content-Type here; 
-      // Axios handles it automatically when sending FormData
-    },
-  };
+    const config = {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    };
 
-  const formData = new FormData();
-  Object.keys(newItem).forEach((key) => {
-    if (newItem[key] !== null) formData.append(key, newItem[key]);
-  });
+    const formData = new FormData();
+    Object.keys(newItem).forEach((key) => {
+      if (newItem[key] !== null) formData.append(key, newItem[key]);
+    });
 
-  try {
-    if (isEditing) {
-      // 3. Pass 'config' as the 3rd argument for PUT
-      await axios.put(`${API_BASE}/products/${editId}`, formData, config);
-      alert("Dish Updated Successfully!");
-    } else {
-      // 3. Pass 'config' as the 3rd argument for POST
-      await axios.post(`${API_BASE}/products`, formData, config);
-      alert("New Dish Added Successfully!");
-    }
-    
-    fetchData();
-    resetForm();
-    if (closeBtnRef.current) closeBtnRef.current.click();
-  } catch (err) {
-    console.error(err);
-    alert(err.response?.data?.error || "Error saving item.");
-  }
-};
-
-const deleteMenuItem = async (id) => {
-  if (window.confirm("Remove item?")) {
     try {
-      // 1. Get the token from local storage
-      const token = localStorage.getItem("token");
-
-      // 2. Attach it to the delete request
-      await axios.delete(`${API_BASE}/products/${id}`, {
-        headers: { 
-          Authorization: `Bearer ${token}` // This is the "Token" it is looking for
-        }
-      });
-
-      fetchData(); // Refresh the list
-      alert("Deleted successfully");
+      if (isEditing) {
+        await axios.put(`${API_BASE}/products/${editId}`, formData, config);
+        alert("Dish updated successfully!");
+      } else {
+        await axios.post(`${API_BASE}/products`, formData, config);
+        alert("New dish added successfully!");
+      }
+      
+      fetchData();
+      resetForm();
+      if (closeBtnRef.current) closeBtnRef.current.click();
     } catch (err) {
       console.error(err);
-      alert("Error deleting item. Check if you are logged in.");
+      alert(err.response?.data?.error || "Error saving item. Check if you are logged in.");
     }
-  }
-};
+  };
+
+  const deleteMenuItem = async (id) => {
+    if (window.confirm("Remove item?")) {
+      try {
+        const token = localStorage.getItem("token");
+        await axios.delete(`${API_BASE}/products/${id}`, {
+          headers: { 
+            Authorization: `Bearer ${token}` 
+          }
+        });
+
+        alert("Dish deleted successfully!");
+        fetchData(); 
+      } catch (err) {
+        console.error(err);
+        alert("Error deleting item. Please check your connection or authorization.");
+      }
+    }
+  };
 
   const toggleFeature = async (id, currentStatus) => {
-    try { await axios.put(`${API_BASE}/products/${id}/feature`, { is_featured: currentStatus === 1 ? 0 : 1 }); fetchData(); } 
-    catch (err) { alert("Error."); }
+    try { 
+      const token = localStorage.getItem("token");
+      const config = {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      };
+
+      const newStatus = currentStatus === 1 ? 0 : 1;
+      await axios.put(`${API_BASE}/products/${id}/feature`, { is_featured: newStatus }, config); 
+      
+      // Success Alert
+      alert(newStatus === 1 ? "Added to featured items!" : "Removed from featured items!");
+      fetchData(); 
+    } 
+    catch (err) { 
+      console.error(err);
+      alert("Error updating featured status. Please check if you are logged in."); 
+    }
   };
 
   const getImageUrl = (item, BASE_URL) => {
@@ -149,7 +159,7 @@ const deleteMenuItem = async (id) => {
 
   return (
     <div className="container-fluid p-3 p-md-4 bg-light">
-      {/* 1. RESPONSIVE HEADER */}
+      {/* HEADER */}
       <div className="row g-3 align-items-center mb-4">
         <div className="col-12 col-lg-4">
           <h2 className="fw-bold mb-0">Menu Items</h2>
@@ -157,33 +167,21 @@ const deleteMenuItem = async (id) => {
         </div>
 
         <div className="col-12 col-md-8 col-lg-5">
-  {/* Custom Flex Container for the Search Bar */}
-  <div 
-    className="d-flex align-items-center bg-white rounded-3 border shadow-sm px-3" 
-    style={{ height: '48px' }}
-  >
-    {/* Icon - Flex-shrink-0 prevents it from squashing */}
-    <Search size={20} className="text-muted flex-shrink-0" />
-    
-    {/* Input - Forces Black text and occupies all remaining space */}
-    <input
-      type="text"
-      className="form-control border-0 bg-transparent shadow-none w-100 ms-2"
-      style={{ 
-        color: "#212529", // Explicit Dark Gray/Black text
-        fontSize: "16px",  // Large enough to see clearly
-        fontWeight: "500",
-        height: "100%"     // Take up full height of container
-      }}
-      placeholder="Search dishes or categories..."
-      value={searchTerm}
-      onChange={(e) => {
-        setSearchTerm(e.target.value);
-        setCurrentPage(1);
-      }}
-    />
-  </div>
-</div>
+          <div className="d-flex align-items-center bg-white rounded-3 border shadow-sm px-3" style={{ height: '48px' }}>
+            <Search size={20} className="text-muted flex-shrink-0" />
+            <input
+              type="text"
+              className="form-control border-0 bg-transparent shadow-none w-100 ms-2"
+              style={{ color: "#212529", fontSize: "16px", fontWeight: "500", height: "100%" }}
+              placeholder="Search dishes or categories..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+            />
+          </div>
+        </div>
 
         <div className="col-12 col-md-4 col-lg-3 text-md-end">
           <button className="btn btn-primary w-100 w-md-auto px-4 py-2 fw-bold" data-bs-toggle="offcanvas" data-bs-target="#addMenuDrawer" onClick={resetForm}>
@@ -192,7 +190,7 @@ const deleteMenuItem = async (id) => {
         </div>
       </div>
 
-      {/* 2. PRODUCT TABLE */}
+      {/* TABLE */}
       <div className="card shadow-sm border-0" style={{ borderRadius: "12px" }}>
         <div className="table-responsive">
           <table className="table table-hover align-middle mb-0" style={{ minWidth: '600px' }}>
@@ -242,50 +240,33 @@ const deleteMenuItem = async (id) => {
         </div>
       </div>
 
-      {/* 3. RESPONSIVE PAGINATION */}
-     {/* Standardized Pagination Wrapper */}
-<div className="mt-4 px-3 d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
-  {/* 1. Showing X of Y Text */}
-  <div className="text-muted small">
-    Showing <strong>{indexOfFirstItem + 1}</strong> to <strong>{Math.min(indexOfLastItem, filteredItems.length)}</strong> of <strong>{filteredItems.length}</strong> items
-  </div>
+      {/* PAGINATION */}
+      <div className="mt-4 px-3 d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
+        <div className="text-muted small">
+          Showing <strong>{indexOfFirstItem + 1}</strong> to <strong>{Math.min(indexOfLastItem, filteredItems.length)}</strong> of <strong>{filteredItems.length}</strong> items
+        </div>
+        <nav>
+          <ul className="pagination pagination-sm mb-0 shadow-sm border rounded bg-white overflow-hidden">
+            <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
+              <button className="page-link border-0 px-3 py-2" onClick={() => setCurrentPage(prev => prev - 1)} disabled={currentPage === 1}>
+                <ChevronLeft size={16} />
+              </button>
+            </li>
+            <li className="page-item disabled">
+              <span className="page-link border-0 text-dark fw-bold px-3 py-2 bg-white">
+                Page {currentPage} of {totalPages || 1}
+              </span>
+            </li>
+            <li className={`page-item ${currentPage === totalPages || totalPages === 0 ? "disabled" : ""}`}>
+              <button className="page-link border-0 px-3 py-2" onClick={() => setCurrentPage(prev => prev + 1)} disabled={currentPage >= totalPages}>
+                <ChevronRight size={16} />
+              </button>
+            </li>
+          </ul>
+        </nav>
+      </div>
 
-  {/* 2. Unified Button Group Nav */}
-  <nav>
-    <ul className="pagination pagination-sm mb-0 shadow-sm border rounded bg-white overflow-hidden">
-      {/* Previous Button */}
-      <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
-        <button 
-          className="page-link border-0 px-3 py-2" 
-          onClick={() => setCurrentPage(prev => prev - 1)}
-          disabled={currentPage === 1}
-        >
-          <ChevronLeft size={16} />
-        </button>
-      </li>
-      
-      {/* Current Page Indicator */}
-      <li className="page-item disabled">
-        <span className="page-link border-0 text-dark fw-bold px-3 py-2 bg-white">
-          Page {currentPage} of {totalPages || 1}
-        </span>
-      </li>
-
-      {/* Next Button */}
-      <li className={`page-item ${currentPage === totalPages || totalPages === 0 ? "disabled" : ""}`}>
-        <button 
-          className="page-link border-0 px-3 py-2" 
-          onClick={() => setCurrentPage(prev => prev + 1)}
-          disabled={currentPage >= totalPages}
-        >
-          <ChevronRight size={16} />
-        </button>
-      </li>
-    </ul>
-  </nav>
-</div>
-
-      {/* 4. DRAWER (RESPONSIVE WIDTH) */}
+      {/* DRAWER */}
       <div className="offcanvas offcanvas-end shadow" tabIndex="-1" id="addMenuDrawer" style={{ width: "min(100%, 450px)" }}>
         <div className="offcanvas-header border-bottom">
           <h5 className="fw-bold mb-0">{isEditing ? "Edit Menu Item" : "Add New Dish"}</h5>

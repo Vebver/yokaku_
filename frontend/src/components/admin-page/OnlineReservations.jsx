@@ -20,7 +20,7 @@ const OnlineReservations = () => {
   const [orderItems, setOrderItems] = useState([]);
   const [loadingItems, setLoadingItems] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+  const [itemsPerPage] = useState(13);
 
   useEffect(() => {
     fetchReservations();

@@ -5,7 +5,6 @@ import { Save, Smartphone, Wallet, CreditCard, Cog } from "lucide-react";
 // Components
 import SystemMaintenance from "./SystemMaintenance"; // Renamed from DatabaseMaintenance
 import HolidayMaintenance from "./HolidayMaintenance";
-import PricingMaintenance from "./PricingMaintenance";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
@@ -13,8 +12,6 @@ const Maintenance = () => {
   const [settings, setSettings] = useState({
     gcash_number: "",
     gcash_name: "",
-    maya_number: "",
-    maya_name: "",
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -29,8 +26,6 @@ const Maintenance = () => {
       setSettings({
         gcash_number: res.data.gcash_number || "",
         gcash_name: res.data.gcash_name || "",
-        maya_number: res.data.maya_number || "",
-        maya_name: res.data.maya_name || "",
       });
       setLoading(false);
     } catch (err) {
@@ -57,12 +52,13 @@ const Maintenance = () => {
     }
   };
 
-  if (loading) return (
-    <div className="p-5 d-flex align-items-center">
+  if (loading)
+    return (
+      <div className="p-5 d-flex align-items-center">
         <div className="spinner-border spinner-border-sm text-primary me-2"></div>
         <span>Loading Operations Management...</span>
-    </div>
-  );
+      </div>
+    );
 
   return (
     <div className="container-fluid p-3 p-md-4 bg-light min-vh-100">
@@ -76,20 +72,29 @@ const Maintenance = () => {
         <div className="card shadow-sm border-0 p-4">
           <div className="d-flex align-items-center mb-4">
             <Wallet className="text-primary me-2" size={20} />
-            <h5 className="mb-0 text-dark fw-bold">Customer Payment Accounts</h5>
+            <h5 className="mb-0 text-dark fw-bold">Payment Account</h5>
           </div>
-          
+
           <form onSubmit={handleUpdate}>
-            <div className="row g-4">
-              {/* GCash Section */}
-              <div className="col-12 col-lg-6">
+            <div className="row g-4 justify-content-center">
+              {/* GCash Section - Centered using grid columns */}
+              <div className="col-12 col-md-8 col-lg-6">
                 <div className="p-4 border rounded bg-white shadow-sm h-100">
                   <div className="d-flex align-items-center mb-3">
-                    <div className="bg-primary text-white p-2 rounded me-2">G</div>
+                    {/* Made the 'G' icon circular and centered */}
+                    <div
+                      className="bg-primary text-white p-2 rounded-circle me-2 fw-bold d-flex align-items-center justify-content-center"
+                      style={{ width: "36px", height: "36px" }}
+                    >
+                      G
+                    </div>
                     <h6 className="fw-bold mb-0">GCash Business Details</h6>
                   </div>
+
                   <div className="mb-3">
-                    <label className="form-label small fw-bold text-muted">Phone Number</label>
+                    <label className="form-label small fw-bold text-muted">
+                      Phone Number
+                    </label>
                     <input
                       type="text"
                       name="gcash_number"
@@ -99,8 +104,11 @@ const Maintenance = () => {
                       onChange={handleChange}
                     />
                   </div>
+
                   <div>
-                    <label className="form-label small fw-bold text-muted">Account Name</label>
+                    <label className="form-label small fw-bold text-muted">
+                      Account Name
+                    </label>
                     <input
                       type="text"
                       name="gcash_name"
@@ -112,41 +120,10 @@ const Maintenance = () => {
                   </div>
                 </div>
               </div>
-
-              {/* Maya Section */}
-              <div className="col-12 col-lg-6">
-                <div className="p-4 border rounded bg-white shadow-sm h-100">
-                    <div className="d-flex align-items-center mb-3">
-                        <div className="bg-success text-white p-2 rounded me-2">M</div>
-                        <h6 className="fw-bold mb-0">Maya Business Details</h6>
-                    </div>
-                  <div className="mb-3">
-                    <label className="form-label small fw-bold text-muted">Phone Number</label>
-                    <input
-                      type="text"
-                      name="maya_number"
-                      className="form-control form-control-lg"
-                      placeholder="09XX XXX XXXX"
-                      value={settings.maya_number}
-                      onChange={handleChange}
-                    />
-                  </div>
-                  <div>
-                    <label className="form-label small fw-bold text-muted">Account Name</label>
-                    <input
-                      type="text"
-                      name="maya_name"
-                      className="form-control form-control-lg"
-                      placeholder="e.g., JUAN DELA CRUZ"
-                      value={settings.maya_name}
-                      onChange={handleChange}
-                    />
-                  </div>
-                </div>
-              </div>
             </div>
 
-            <div className="mt-4 text-center text-md-end">
+            {/* Aligned the button to center for a more balanced design */}
+            <div className="mt-4 text-center">
               <button
                 type="submit"
                 className="btn btn-primary px-5 py-3 fw-bold shadow-sm rounded-pill"
@@ -159,10 +136,6 @@ const Maintenance = () => {
         </div>
       </section>
 
-      {/* SECTION 2: Pricing Logic */}
-      <section className="mb-5">
-        <PricingMaintenance />
-      </section>
 
       {/* SECTION 3: System Housekeeping (Archive, Reset, Export) */}
       <section className="mb-5">

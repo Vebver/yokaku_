@@ -18,7 +18,7 @@ const AccountManagement = () => {
   const [updatingUserId, setUpdatingUserId] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [usersPerPage] = useState(8);
+  const [usersPerPage] = useState(15);
 
   useEffect(() => { fetchUsers(); }, []);
 

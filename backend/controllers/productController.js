@@ -1,5 +1,6 @@
 const Product = require("../models/Product");
-const PriceMaintenance = require("../models/PriceMaintenance");
+// Commented out unused model during peak-pricing disablement
+// const PriceMaintenance = require("../models/PriceMaintenance");
 const Setting = require("../models/Settings"); 
 const cloudinary = require('cloudinary').v2;
 
@@ -9,74 +10,63 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_SECRET,
 });
 
-// --- HELPER FUNCTION (Declare this ONLY ONCE) ---
-const applyPeakPricing = async (products) => {
-  if (!Array.isArray(products)) return products;
-
-  try {
-    const settings = await PriceMaintenance.getSettings();
-    
-    // 1. DATABASE CHECK: If settings is null, the row ID 1 is missing
-    if (!settings) {
-      console.log("❌ PEAK ERROR: Row ID 1 missing in price_maintenance table.");
-      return products;
-    }
-
-    // 2. TIMEZONE & FORMAT FIX: Get Manila Time in HH:mm:ss
-    const now = new Date();
-    const currentTime = now.toLocaleTimeString("en-GB", { 
-      timeZone: "Asia/Manila", 
-      hour12: false 
-    }); // returns "18:30:05"
-
-    // 3. DATA TYPE FIX: Ensure values are numbers
-    const isPeakEnabled = Number(settings.is_peak_enabled) === 1;
-    
-    // 4. FORMAT ALIGNMENT: Ensure DB times have seconds for string comparison
-    // If DB has "17:00", this makes it "17:00:00"
-    const startTime = settings.peak_start_time.length === 5 ? settings.peak_start_time + ":00" : settings.peak_start_time;
-    const endTime = settings.peak_end_time.length === 5 ? settings.peak_end_time + ":00" : settings.peak_end_time;
-
-    const isWithinTimeRange = currentTime >= startTime && currentTime <= endTime;
-    const isPeakActive = isPeakEnabled && isWithinTimeRange;
-
-    // --- CRITICAL DEBUG LOGS ---
-    // Check your terminal (VS Code or Render Logs) for these:
-    console.log("-----------------------------------------");
-    console.log("PEAK STATUS:", isPeakEnabled ? "ENABLED" : "DISABLED");
-    console.log("CURRENT TIME (Manila):", currentTime);
-    console.log("PEAK RANGE:", startTime, "to", endTime);
-    console.log("IS PEAK ACTIVE? ->", isPeakActive);
-    console.log("-----------------------------------------");
-
-    return products.map(p => {
-      let finalPrice = parseFloat(p.price) || 0;
-      
-      if (isPeakActive) {
-        const increasePercent = parseInt(settings.peak_increase_percent) || 0;
-        finalPrice = finalPrice * (1 + (increasePercent / 100));
-      }
-
-      return {
-        ...p,
-        original_price: p.price, 
-        price: finalPrice.toFixed(2), 
-        isPeakActive: isPeakActive 
-      };
-    });
-  } catch (err) {
-    console.error("Peak Pricing Logic Error:", err);
-    return products;
-  }
-};
+// // --- HELPER FUNCTION (Declare this ONLY ONCE) ---
+// // COMMENTED OUT: Peak Pricing helper is disabled
+// const applyPeakPricing = async (products) => {
+//   if (!Array.isArray(products)) return products;
+//   try {
+//     const settings = await PriceMaintenance.getSettings();
+//     if (!settings) {
+//       console.log("❌ PEAK ERROR: Row ID 1 missing in price_maintenance table.");
+//       return products;
+//     }
+//     const now = new Date();
+//     const currentTime = now.toLocaleTimeString("en-GB", { 
+//       timeZone: "Asia/Manila", 
+//       hour12: false 
+//     });
+//     const isPeakEnabled = Number(settings.is_peak_enabled) === 1;
+//     const startTime = settings.peak_start_time.length === 5 ? settings.peak_start_time + ":00" : settings.peak_start_time;
+//     const endTime = settings.peak_end_time.length === 5 ? settings.peak_end_time + ":00" : settings.peak_end_time;
+//     const isWithinTimeRange = currentTime >= startTime && currentTime <= endTime;
+//     const isPeakActive = isPeakEnabled && isWithinTimeRange;
+//     console.log("-----------------------------------------");
+//     console.log("PEAK STATUS:", isPeakEnabled ? "ENABLED" : "DISABLED");
+//     console.log("CURRENT TIME (Manila):", currentTime);
+//     console.log("PEAK RANGE:", startTime, "to", endTime);
+//     console.log("IS PEAK ACTIVE? ->", isPeakActive);
+//     console.log("-----------------------------------------");
+//     return products.map(p => {
+//       let finalPrice = parseFloat(p.price) || 0;
+//       if (isPeakActive) {
+//         const increasePercent = parseInt(settings.peak_increase_percent) || 0;
+//         finalPrice = finalPrice * (1 + (increasePercent / 100));
+//       }
+//       return {
+//         ...p,
+//         original_price: p.price, 
+//         price: finalPrice.toFixed(2), 
+//         isPeakActive: isPeakActive 
+//       };
+//     });
+//   } catch (err) {
+//     console.error("Peak Pricing Logic Error:", err);
+//     return products;
+//   }
+// };
 
 // --- CONTROLLER OBJECT ---
 const productController = {
   getProducts: async (req, res) => {
     try {
       const products = await Product.getAll();
-      const adjusted = await applyPeakPricing(Array.isArray(products) ? products : []);
-      res.json(adjusted);
+      
+      // COMMENTED OUT: Peak Pricing adjustment
+      // const adjusted = await applyPeakPricing(Array.isArray(products) ? products : []);
+      // res.json(adjusted);
+      
+      // Send raw unadjusted products directly
+      res.json(products);
     } catch (error) {
       console.error("getProducts Error:", error);
       res.status(500).json({ error: error.message });
@@ -86,8 +76,13 @@ const productController = {
   getFeaturedProducts: async (req, res) => {
     try {
       const items = await Product.getFeatured();
-      const adjusted = await applyPeakPricing(Array.isArray(items) ? items : []);
-      res.status(200).json(adjusted);
+      
+      // COMMENTED OUT: Peak Pricing adjustment
+      // const adjusted = await applyPeakPricing(Array.isArray(items) ? items : []);
+      // res.status(200).json(adjusted);
+      
+      // Send raw unadjusted items directly
+      res.status(200).json(items);
     } catch (error) {
       console.error("Featured Error:", error);
       res.status(500).json({ error: "Failed to fetch items" });
