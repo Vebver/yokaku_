@@ -797,6 +797,12 @@ select:disabled {
   animation: fadeInStep 0.3s ease;
 }
 
+/* Override max-width for reservation type step only */
+.step-content.step-reservation-type {
+  max-width: 1000px;
+  width: 100%;
+}
+
 .step-warning {
   text-align: center;
   padding: 40px;
@@ -2115,8 +2121,6 @@ select:disabled {
   opacity: 0.5;
 }
 
-/* Replace the RESERVATION TYPE STEP STYLES section in your CSS with this: */
-
 /* ============================================ */
 /* RESERVATION TYPE STEP STYLES                */
 /* ============================================ */
@@ -2128,6 +2132,7 @@ select:disabled {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  width: 100%;
 }
 
 .reservation-type-cards {
@@ -2138,6 +2143,7 @@ select:disabled {
   align-items: stretch;
   flex-wrap: nowrap !important;
   max-width: 900px;
+  width: 100%;
   margin: 0 auto;
 }
 
@@ -2226,10 +2232,16 @@ select:disabled {
 
 /* Responsive - only stack on mobile */
 @media (max-width: 768px) {
+  .step-reservation-type {
+    padding: 20px 15px;
+  }
+
   .reservation-type-cards {
     flex-direction: column !important;
     flex-wrap: wrap !important;
     align-items: center;
+    justify-content: center;
+    gap: 20px;
   }
 
   .reservation-type-card {
