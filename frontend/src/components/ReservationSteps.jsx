@@ -61,17 +61,11 @@ const getSteps = (reservationType) => {
   const baseSteps = ["Reservation Type", "Choose Date"];
 
   if (reservationType === "event") {
-    // Event flow: Skip Select Table
+    // Event flow: Skip Select Table, keep Order Menu (5 steps total)
     return [...baseSteps, "Your Details", "Order Menu", "Reservation Summary"];
   }
-  // Default for "per_table"
-  return [
-    ...baseSteps,
-    "Select Table",
-    "Your Details",
-    "Order Menu",
-    "Reservation Summary",
-  ];
+  // Default for "per_table" - removed Order Menu step (5 steps total)
+  return [...baseSteps, "Select Table", "Your Details", "Reservation Summary"];
 };
 
 export default function ReservationSteps({ onClose, onSuccess }) {
@@ -406,8 +400,10 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     }
   };
 
+  // ============ STEP VALIDATION ============
   const validateCurrentStep = () => {
     const isEventFlow = reservationType === "event";
+
     switch (currentStep) {
       case 0:
         return reservationType !== null;
@@ -417,6 +413,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         );
       case 2:
         if (isEventFlow) {
+          // Your Details step for event flow (unchanged)
           const isStartTimeValid = form.startTime && form.startTime !== "";
           const isEndTimeValid = form.endTime && form.endTime !== "";
           const isTimeValid = (() => {
@@ -439,12 +436,14 @@ export default function ReservationSteps({ onClose, onSuccess }) {
             isTimeValid
           );
         } else {
+          // Select Table step for per_table (unchanged, now step 2)
           const isPaxValid =
             form.pax && parseInt(form.pax) >= 1 && parseInt(form.pax) <= 38;
           return selectedId !== null && isPaxValid;
         }
       case 3:
         if (isEventFlow) {
+          // Order Menu step for event flow (unchanged, step 3)
           const hasItems = selectedItems.length > 0;
           const termsAgreed = agreeToTerms;
           let meetsDownpaymentRequirement = true;
@@ -455,6 +454,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           }
           return hasItems && termsAgreed && meetsDownpaymentRequirement;
         } else {
+          // Your Details step for per_table (now step 3)
           const isStartTimeValid = form.startTime && form.startTime !== "";
           const isEndTimeValid = form.endTime && form.endTime !== "";
           const isTimeValid = (() => {
@@ -478,32 +478,22 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           );
         }
       case 4:
-        if (isEventFlow) {
-          return paymentMethod !== null && receiptFile !== null;
-        } else {
-          const hasItems = selectedItems.length > 0;
-          const termsAgreed = agreeToTerms;
-          let meetsDownpaymentRequirement = true;
-          if (orderSummary.durationHours >= 2) {
-            meetsDownpaymentRequirement =
-              orderSummary.downpayment >=
-              orderSummary.requiredMinimumDownpayment;
-          }
-          return hasItems && termsAgreed && meetsDownpaymentRequirement;
-        }
-      case 5:
+        // Reservation Summary step for both flows (step 4 for per_table, step 4 for event)
         return paymentMethod !== null && receiptFile !== null;
       default:
         return true;
     }
   };
 
+  // Auto-mark step as completed
   useEffect(() => {
     const isEventFlow = reservationType === "event";
+
     if (currentStep === 1 && form.date && !blockedDates.includes(form.date))
       markStepCompleted(1);
     if (currentStep === 2) {
       if (isEventFlow) {
+        // Your Details validation for event (unchanged)
         const isValid =
           isFirstNameValid &&
           isLastNameValid &&
@@ -519,14 +509,17 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           form.endTime !== "";
         if (isValid) markStepCompleted(2);
       } else {
+        // Select Table validation for per_table (unchanged)
         if (selectedId && form.pax && parseInt(form.pax) > 0)
           markStepCompleted(2);
       }
     }
     if (currentStep === 3) {
       if (isEventFlow) {
+        // Order Menu validation for event (unchanged)
         if (selectedItems.length > 0) markStepCompleted(3);
       } else {
+        // Your Details validation for per_table (now step 3)
         const isValid =
           isFirstNameValid &&
           isLastNameValid &&
@@ -543,8 +536,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         if (isValid) markStepCompleted(3);
       }
     }
-    if (currentStep === 4 && selectedItems.length > 0 && !isEventFlow)
-      markStepCompleted(4);
   }, [
     currentStep,
     reservationType,
@@ -1021,7 +1012,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       return [endTimeString];
     }
 
-    // Original logic for PER_TABLE flow
+    // For PER_TABLE flow: allow end times from start+30 min up to 10:00 PM (22:00)
+    // Removed the 3-hour limit (startM + 180)
     if (startM >= 21 * 60 + 30) {
       if (maxEndTimeMinutes >= startM + 30) {
         const tenThirtyPM = timeOptions.find(
@@ -1031,11 +1023,14 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       }
       return [];
     }
-    const absoluteMaxEnd = Math.min(maxEndTimeMinutes, startM + 180);
+
+    // Filter end times from start+30 minutes up to maxEndTimeMinutes (10:30 PM)
     let filtered = timeOptions.filter((endTime) => {
       const endM = timeToMin(endTime);
-      return endM >= startM + 30 && endM <= absoluteMaxEnd;
+      // Minimum 30 minutes duration, maximum up to business closing time (10:30 PM)
+      return endM >= startM + 30 && endM <= maxEndTimeMinutes;
     });
+
     if (selectedId && form.startTime && reservationType === "per_table") {
       filtered = filtered.filter((endTime) =>
         isTimeSlotAvailableForSelectedTable(form.startTime, endTime),
@@ -1232,7 +1227,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     </div>
   );
 
-  // ============ RENDER STEP CONTENT ============
   const renderStepContent = () => {
     const isEventFlow = reservationType === "event";
 
@@ -1583,7 +1577,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         );
       case 2:
         if (isEventFlow) {
-          // Your Details step
+          // Your Details step for EVENT (unchanged)
           return (
             <div className="step-content step-details">
               <div className="reservation-form-grid">
@@ -1876,7 +1870,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
             </div>
           );
         } else {
-          // Select Table step
+          // Select Table step for PER TABLE (unchanged, now step 2)
           return form.date ? (
             <div className="step-content step-tables">
               <div className="pax-field-container">
@@ -2131,7 +2125,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         }
       case 3:
         if (isEventFlow) {
-          // Order Menu step
+          // Order Menu step for EVENT (unchanged)
           const meetsDownpaymentRequirement = () => {
             if (orderSummary.durationHours >= 2)
               return (
@@ -2269,7 +2263,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
             </div>
           );
         } else {
-          // Your Details step
+          // Your Details step for PER TABLE (now step 3, was step 4)
           return (
             <div className="step-content step-details">
               <div className="reservation-form-grid">
@@ -2583,7 +2577,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         }
       case 4:
         if (isEventFlow) {
-          // Reservation Summary step
+          // Reservation Summary step for EVENT (step 4, unchanged)
           return (
             <div className="step-content step-summary">
               <ReservationSummary
@@ -2596,157 +2590,19 @@ export default function ReservationSteps({ onClose, onSuccess }) {
             </div>
           );
         } else {
-          // Order Menu step
-          const meetsDownpaymentRequirement = () => {
-            if (orderSummary.durationHours >= 2)
-              return (
-                orderSummary.downpayment >=
-                orderSummary.requiredMinimumDownpayment
-              );
-            return true;
-          };
-          const isDownpaymentRequirementMet = meetsDownpaymentRequirement();
+          // Reservation Summary step for PER TABLE (now step 4, was step 6 - Order Menu removed)
           return (
-            <div className="step-content step-package">
-              <button
-                className="btn-link-mode"
-                onClick={() => setUi((p) => ({ ...p, menu: true }))}
-              >
-                <Layers size={16} />{" "}
-                {selectedItems.length > 0
-                  ? `${selectedItems.length} Selected`
-                  : "View Menu"}
-              </button>
-              {selectedItems.length > 0 && (
-                <div className="package-summary">
-                  <div className="order-summary-header">
-                    <h4>Your Order</h4>
-                    <button
-                      className="edit-order-btn"
-                      onClick={() => setUi((p) => ({ ...p, menu: true }))}
-                    >
-                      Edit
-                    </button>
-                  </div>
-                  {selectedItems.map((item, idx) => (
-                    <div key={idx} className="package-item">
-                      <span>
-                        {item.name} x{item.quantity}
-                      </span>
-                      <span>₱{(item.price * item.quantity).toFixed(2)}</span>
-                    </div>
-                  ))}
-                  <div className="package-total">
-                    <strong>
-                      Total: ₱{orderSummary.totalOrderPrice.toFixed(2)}
-                    </strong>
-                  </div>
-                  {orderSummary.durationHours >= 2 && (
-                    <div className="duration-info">
-                      <Clock size={14} />
-                      <span>
-                        Reservation Duration: {orderSummary.durationHours}{" "}
-                        hour(s)
-                      </span>
-                    </div>
-                  )}
-                  <div className="package-downpayment">
-                    <div className="downpayment-row">
-                      <span style={{ color: "#f38d31", fontWeight: "800" }}>
-                        Downpayment (20%):
-                      </span>
-                      <strong style={{ color: "#f38d31" }}>
-                        ₱{orderSummary.downpayment.toFixed(2)}
-                      </strong>
-                    </div>
-                    {orderSummary.durationHours >= 2 &&
-                      orderSummary.requiredMinimumDownpayment >
-                        orderSummary.downpayment && (
-                        <div className="required-minimum-warning">
-                          <span className="required-label">
-                            Minimum Required:
-                          </span>
-                          <span className="required-amount">
-                            ₱
-                            {orderSummary.requiredMinimumDownpayment.toFixed(2)}
-                          </span>
-                        </div>
-                      )}
-                  </div>
-                  <div className="package-balance">
-                    <span style={{ color: "#666" }}>Remaining Balance:</span>
-                    <strong>₱{orderSummary.balance.toFixed(2)}</strong>
-                  </div>
-                  {orderSummary.durationHours >= 2 && (
-                    <div
-                      className={`duration-requirement ${!isDownpaymentRequirementMet ? "warning" : "success"}`}
-                    >
-                      <AlertCircle size={14} />
-                      <span>
-                        {!isDownpaymentRequirementMet ? (
-                          <>
-                            ⚠️ Minimum downpayment of ₱
-                            {orderSummary.requiredMinimumDownpayment} required
-                            for {orderSummary.durationHours} hour reservation.
-                            Please add more items (minimum order of ₱
-                            {orderSummary.minimumOrderNeeded})
-                          </>
-                        ) : (
-                          <>
-                            ✓ Minimum downpayment requirement met for{" "}
-                            {orderSummary.durationHours} hour reservation
-                          </>
-                        )}
-                      </span>
-                    </div>
-                  )}
-                  {orderSummary.durationHours >= 2 &&
-                    !isDownpaymentRequirementMet && (
-                      <div className="requirement-blocked-warning">
-                        <AlertCircle size={16} />
-                        <span>
-                          You cannot proceed until the minimum downpayment
-                          requirement is met.
-                        </span>
-                      </div>
-                    )}
-                  <div className="terms-checkbox-wrapper">
-                    <label className="terms-checkbox-label">
-                      <input
-                        type="checkbox"
-                        checked={agreeToTerms}
-                        onChange={(e) => setAgreeToTerms(e.target.checked)}
-                      />
-                      <span>
-                        I have read and agree to the{" "}
-                        <button
-                          type="button"
-                          className="terms-link-btn"
-                          onClick={() => setUi((p) => ({ ...p, terms: true }))}
-                        >
-                          Terms and Conditions
-                        </button>
-                      </span>
-                    </label>
-                  </div>
-                </div>
-              )}
+            <div className="step-content step-summary">
+              <ReservationSummary
+                orderSummary={orderSummary}
+                reservationData={fullReservationData}
+                paymentMethod={paymentMethod}
+                setPaymentMethod={setPaymentMethod}
+                onReceiptChange={(receipt) => setReceiptFile(receipt)}
+              />
             </div>
           );
         }
-      case 5:
-        // Reservation Summary step for per_table
-        return (
-          <div className="step-content step-summary">
-            <ReservationSummary
-              orderSummary={orderSummary}
-              reservationData={fullReservationData}
-              paymentMethod={paymentMethod}
-              setPaymentMethod={setPaymentMethod}
-              onReceiptChange={(receipt) => setReceiptFile(receipt)}
-            />
-          </div>
-        );
       default:
         return null;
     }
