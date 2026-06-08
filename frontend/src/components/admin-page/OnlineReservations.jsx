@@ -11,7 +11,7 @@ import {
   Info,
   AlertTriangle,
 } from "lucide-react";
-
+import { generateIncidentReportPDF } from "../../utils/irGenerator";
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const OnlineReservations = () => {
@@ -323,11 +323,17 @@ const OnlineReservations = () => {
                     CUSTOMER CANCELLED RESERVATION
                   </div>
                   <div className="small text-dark mb-1">
-                    <strong>Reason:</strong> {selectedRes.cancellation_reason || "No cancellation reason specified."}
+                    <strong>Reason:</strong>{" "}
+                    {selectedRes.cancellation_reason ||
+                      "No cancellation reason specified."}
                   </div>
                   {selectedRes.cancelled_at && (
-                    <div className="x-small text-muted" style={{ fontSize: "0.72rem" }}>
-                      Cancelled at: {new Date(selectedRes.cancelled_at).toLocaleString()}
+                    <div
+                      className="x-small text-muted"
+                      style={{ fontSize: "0.72rem" }}
+                    >
+                      Cancelled at:{" "}
+                      {new Date(selectedRes.cancelled_at).toLocaleString()}
                     </div>
                   )}
                 </div>
@@ -438,15 +444,14 @@ const OnlineReservations = () => {
                   </span>
                 </div>
 
-                {/* INCIDENT REPORT (IR) TRIGGER BUTTON */}
                 <button
                   className="btn btn-warning w-100 fw-bold py-2 mb-2 d-flex align-items-center justify-content-center gap-2 border-0"
                   onClick={() => {
                     const confirmIR = window.confirm(
-                      `File an Incident Report (IR) for ${selectedRes.first_name} ${selectedRes.last_name} (${selectedRes.reservation_id})?`
+                      `File and download an Incident Report (IR) for ${selectedRes.first_name} ${selectedRes.last_name} (${selectedRes.reservation_id})?`,
                     );
                     if (confirmIR) {
-                      alert("Incident Report filed in backend system.");
+                      generateIncidentReportPDF(selectedRes);
                     }
                   }}
                 >
