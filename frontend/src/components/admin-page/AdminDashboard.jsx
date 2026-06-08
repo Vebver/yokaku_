@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
-import io from "socket.io-client"; // Imported socket.io-client
+import io from "socket.io-client";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -24,6 +24,7 @@ import {
   PhilippinePeso,
   Bell,
   Check,
+  RefreshCw, // Imported RefreshCw icon
 } from "lucide-react";
 
 // Internal Components
@@ -186,7 +187,6 @@ function AdminDashboard() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Connects Admin to socket.io to receive live booking and rejection alerts
   const initializeSocket = () => {
     const token = localStorage.getItem("token");
     const userId = localStorage.getItem("userId");
@@ -271,6 +271,12 @@ function AdminDashboard() {
     }
   };
 
+  // Helper function to manually trigger a data refresh across all systems
+  const handleRefreshAll = () => {
+    fetchDashboardData();
+    fetchNotifications();
+  };
+
   const formatCurrency = (val) =>
     `₱${Number(val || 0).toLocaleString(undefined, {
       minimumFractionDigits: 2,
@@ -315,7 +321,14 @@ function AdminDashboard() {
   const formatTimeAgo = (dateString) => {
     const date = new Date(dateString);
     const now = new Date();
-    const diffMs = now - date;
+
+    let diffMs = now.getTime() - date.getTime();
+    const timezoneOffsetMs = now.getTimezoneOffset() * 60000;
+    
+    if (diffMs < 0 || (diffMs > 7 * 3600000 && diffMs < 9 * 3600000)) {
+      diffMs = Math.abs(diffMs + timezoneOffsetMs);
+    }
+
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
 
@@ -552,6 +565,16 @@ function AdminDashboard() {
 
           <div className="ms-auto d-flex align-items-center gap-3">
             
+            {/* MANUAL REFRESH BUTTON */}
+            <button 
+              className="btn btn-light p-0 rounded-circle border-0 d-flex align-items-center justify-content-center"
+              onClick={handleRefreshAll}
+              style={{ width: "40px", height: "40px", backgroundColor: "#f8f9fa" }}
+              title="Refresh Data"
+            >
+              <RefreshCw size={18} className="text-secondary" />
+            </button>
+
             {/* REAL-TIME NOTIFICATION BELL dropdown widget */}
             <div className="position-relative me-2" ref={notificationRef}>
               <button 
@@ -595,12 +618,30 @@ function AdminDashboard() {
                           className={`px-3 py-2 border-bottom hover-bg transition-all ${!notif.is_read ? 'bg-light-subtle fw-semibold' : ''}`}
                           style={{ cursor: "pointer" }}
                           onClick={() => {
-                            // Route admin to billing review drawer if it is a payment issue
-                            if (notif.title?.toLowerCase().includes("payment") || notif.title?.toLowerCase().includes("proof")) {
+                            const title = notif.title?.toLowerCase() || "";
+                            
+                            // 1. Route to Payments (Billing) for payment proofs, uploads, or receipts
+                            if (
+                              title.includes("payment") || 
+                              title.includes("proof") || 
+                              title.includes("upload") || 
+                              title.includes("receipt")
+                            ) {
                               setActiveSection("billing");
-                            } else {
+                            } 
+                            // 2. Route to Online Bookings for reservations and cancellations
+                            else if (
+                              title.includes("cancel") || 
+                              title.includes("reserve") || 
+                              title.includes("booking")
+                            ) {
                               setActiveSection("online-reservations");
+                            } 
+                            // 3. Default fallback
+                            else {
+                              setActiveSection("dashboard");
                             }
+                            
                             setShowNotifications(false);
                           }}
                         >
@@ -637,10 +678,9 @@ function AdminDashboard() {
             </div>
 
             <div className="text-end d-none d-sm-block">
-              <p className="mb-0 fw-bold small text-dark">Admin User</p>
-              <p className="mb-0 text-muted smaller">System Administrator</p>
+              <p className="mb-0 fw-bold small text-dark">HANGOUT MANAGER</p>
             </div>
-            <div className="avatar-circle">A</div>
+            <div className="avatar-circle">H</div>
           </div>
         </header>
 

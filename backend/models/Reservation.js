@@ -107,37 +107,70 @@ const Reservation = {
     return rows;
   },
 
-  // ==================== STATUS MANAGEMENT ====================
-  updateStatus: async (id, status) => {
+// ==================== STATUS MANAGEMENT ====================
+  updateStatus: async (id, status, cancellationReason = null, cancelledAt = null) => {
     const conn = await db.getConnection();
     try {
       await conn.beginTransaction();
       const bStatus = status.toLowerCase();
-      await conn.execute(
-        "UPDATE reservations SET status = ? WHERE reservation_id = ?",
-        [status, id],
-      );
+
+      // 1. If status is cancelled, update status along with cancellation reason and timestamp
+      if (bStatus === "cancelled") {
+        await conn.execute(
+          `UPDATE reservations 
+           SET status = ?, cancellation_reason = ?, cancelled_at = ? 
+           WHERE reservation_id = ?`,
+          [status, cancellationReason, cancelledAt || new Date(), id]
+        );
+
+        // 2. Write "Reservation Cancelled" notification rows for all administrators
+        try {
+          const [admins] = await conn.query("SELECT user_id FROM users WHERE role = 'admin'");
+          const notifMessage = `Reservation ${id} has been cancelled by the customer. Reason: ${cancellationReason || "No reason specified."}`;
+
+          for (const admin of admins) {
+            await conn.query(
+              `INSERT INTO notifications (user_id, reservation_id, title, message, is_read, created_at) 
+               VALUES (?, ?, 'Reservation Cancelled', ?, 0, NOW())`,
+              [admin.user_id, id, notifMessage]
+            );
+          }
+        } catch (notifErr) {
+          console.error("Non-blocking Admin Notification error inside model:", notifErr.message);
+        }
+      } else {
+        await conn.execute(
+          "UPDATE reservations SET status = ? WHERE reservation_id = ?",
+          [status, id]
+        );
+      }
+
+      // 3. Update reservation tables bindings
       await conn.execute(
         "UPDATE reservation_tables SET status = ? WHERE reservation_id = ?",
-        [bStatus, id],
+        [bStatus, id]
       );
 
+      // 4. Update table occupancy status
       if (bStatus === "seated") {
         await conn.execute(
-          `
-          UPDATE tables t JOIN reservation_tables rt ON t.table_id = rt.table_id 
-          SET t.status = 'occupied' WHERE rt.reservation_id = ?`,
-          [id],
+          `UPDATE tables t 
+           JOIN reservation_tables rt ON t.table_id = rt.table_id 
+           SET t.status = 'occupied' WHERE rt.reservation_id = ?`,
+          [id]
         );
       } else if (["completed", "rejected", "cancelled"].includes(bStatus)) {
         await conn.execute(
-          `
-          UPDATE tables t JOIN reservation_tables rt ON t.table_id = rt.table_id 
-          SET t.status = 'available', t.available_seats = t.capacity WHERE rt.reservation_id = ?`,
-          [id],
+          `UPDATE tables t 
+           JOIN reservation_tables rt ON t.table_id = rt.table_id 
+           SET t.status = 'available', t.available_seats = t.capacity 
+           WHERE rt.reservation_id = ?`,
+          [id]
         );
       }
+
       await conn.commit();
+      return true;
     } catch (err) {
       await conn.rollback();
       throw err;

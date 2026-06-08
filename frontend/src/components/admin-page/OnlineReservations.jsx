@@ -9,7 +9,9 @@ import {
   Clock,
   ReceiptText,
   Info,
+  AlertTriangle,
 } from "lucide-react";
+import { generateIncidentReportPDF } from "../../utils/irGenerator";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
@@ -21,6 +23,7 @@ const OnlineReservations = () => {
   const [loadingItems, setLoadingItems] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(13);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     fetchReservations();
@@ -47,6 +50,14 @@ const OnlineReservations = () => {
     }
   };
 
+  // Filter bookings based on guest name or reservation ID
+  const filteredInquiries = inquiries.filter((item) => {
+    const fullName = `${item.first_name || ""} ${item.last_name || ""}`.toLowerCase();
+    const resId = (item.reservation_id || "").toLowerCase();
+    const term = searchQuery.toLowerCase();
+    return fullName.includes(term) || resId.includes(term);
+  });
+
   const fetchItems = async (resId) => {
     setOrderItems([]);
     setLoadingItems(true);
@@ -62,10 +73,10 @@ const OnlineReservations = () => {
       setLoadingItems(false);
     }
   };
+
   const formatTime = (timeStr) => {
     if (!timeStr) return "--:--";
 
-    // Split the time string (e.g. "17:00" or "17:00:00")
     const parts = timeStr.split(":");
     if (parts.length < 2) return timeStr;
 
@@ -74,12 +85,11 @@ const OnlineReservations = () => {
     const ampm = hours >= 12 ? "PM" : "AM";
 
     hours = hours % 12;
-    hours = hours ? hours : 12; // Convert '0' to '12'
+    hours = hours ? hours : 12;
 
     return `${hours}:${minutes} ${ampm}`;
   };
 
-  // Helper for Status Colors
   const getStatusBadge = (s) => {
     const status = s?.toLowerCase();
     if (status === "confirmed" || status === "verified")
@@ -91,11 +101,11 @@ const OnlineReservations = () => {
   };
 
   const indexOfLastItem = currentPage * itemsPerPage;
-  const currentItems = inquiries.slice(
+  const currentItems = filteredInquiries.slice(
     (currentPage - 1) * itemsPerPage,
     indexOfLastItem,
   );
-  const totalPages = Math.ceil(inquiries.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredInquiries.length / itemsPerPage);
 
   if (loading)
     return (
@@ -111,14 +121,28 @@ const OnlineReservations = () => {
         <div className="col">
           <h2 className="fw-bold mb-1">Online Reservations</h2>
           <p className="text-muted small mb-0">
-            Manage website bookings and customer downpayments
+            Manage bookings and check their details.
           </p>
         </div>
         <div className="col-auto">
           <div className="bg-white border rounded-pill px-3 py-1 shadow-sm small fw-bold">
-            {inquiries.length} Bookings
+            {filteredInquiries.length} Bookings
           </div>
         </div>
+      </div>
+
+      {/* SEARCH BAR */}
+      <div className="mb-3 px-2" style={{ maxWidth: "320px" }}>
+        <input
+          type="text"
+          className="form-control shadow-sm border py-2 fw-semibold"
+          placeholder="Search by guest name or ID..."
+          value={searchQuery}
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+            setCurrentPage(1); // Reset to page 1 during active search
+          }}
+        />
       </div>
 
       {/* TABLE */}
@@ -204,7 +228,7 @@ const OnlineReservations = () => {
       {/* PAGINATION */}
       <div className="mt-4 px-3 d-flex justify-content-between align-items-center">
         <span className="small text-muted">
-          Showing {currentItems.length} of {inquiries.length} items
+          Showing {currentItems.length} of {filteredInquiries.length} items
         </span>
         <div className="btn-group shadow-sm bg-white rounded border">
           <button
@@ -227,7 +251,7 @@ const OnlineReservations = () => {
         </div>
       </div>
 
-      {/* DRAWER (Fixed Structure) */}
+      {/* DRAWER */}
       <div
         className="offcanvas offcanvas-end border-0 shadow-sm"
         tabIndex="-1"
@@ -263,7 +287,6 @@ const OnlineReservations = () => {
                     <div className="x-small text-muted text-truncate mb-1">
                       {selectedRes.email}
                     </div>
-                    {/* ADDED PHONE NUMBER HERE */}
                     <div className="d-flex align-items-center gap-1">
                       <a
                         href={`tel:${selectedRes.phone_number || selectedRes.phone}`}
@@ -316,7 +339,31 @@ const OnlineReservations = () => {
                 </div>
               </div>
 
-              {/* 2. TIMELINE & ALLERGIES */}
+              {/* 2. CANCELLATION DETAILS (Visible only if status is cancelled) */}
+              {selectedRes.status?.toLowerCase() === "cancelled" && (
+                <div className="p-3 bg-danger-subtle text-danger border-bottom border-danger-subtle">
+                  <div className="small fw-bold d-flex align-items-center mb-1">
+                    <AlertTriangle size={15} className="me-2" />
+                    CUSTOMER CANCELLED RESERVATION
+                  </div>
+                  <div className="small text-dark mb-1">
+                    <strong>Reason:</strong>{" "}
+                    {selectedRes.cancellation_reason ||
+                      "No cancellation reason specified."}
+                  </div>
+                  {selectedRes.cancelled_at && (
+                    <div
+                      className="x-small text-muted"
+                      style={{ fontSize: "0.72rem" }}
+                    >
+                      Cancelled at:{" "}
+                      {new Date(selectedRes.cancelled_at).toLocaleString()}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 3. TIMELINE & ALLERGIES */}
               <div className="p-3 border-bottom">
                 <div className="d-flex justify-content-between align-items-center mb-2">
                   <div className="d-flex align-items-center gap-2">
@@ -361,7 +408,7 @@ const OnlineReservations = () => {
                 )}
               </div>
 
-              {/* 3. ORDERS */}
+              {/* 4. ORDERS */}
               <div className="p-3 flex-grow-1 overflow-auto">
                 <span className="x-small fw-bold text-muted text-uppercase d-block mb-2">
                   Orders
@@ -398,8 +445,8 @@ const OnlineReservations = () => {
                 )}
               </div>
 
-              {/* 4. FOOTER */}
-              <div className="p-3 bg-dark text-white sticky-bottom">
+              {/* 5. STICKY FOOTER */}
+              <div className="p-3 bg-dark text-white sticky-bottom mt-auto">
                 <div className="d-flex justify-content-between align-items-center mb-3">
                   <div>
                     <div className="x-small text-white-50 text-uppercase fw-bold">
@@ -420,6 +467,24 @@ const OnlineReservations = () => {
                     {selectedRes.status?.toUpperCase()}
                   </span>
                 </div>
+
+                {/* FILE INCIDENT REPORT (IR) BUTTON - Rendered ONLY if status is cancelled */}
+                {selectedRes.status?.toLowerCase() === "cancelled" && (
+                  <button
+                    className="btn btn-warning w-100 fw-bold py-2 mb-2 d-flex align-items-center justify-content-center gap-2 border-0"
+                    onClick={() => {
+                      const confirmIR = window.confirm(
+                        `File and download an Incident Report (IR) for ${selectedRes.first_name} ${selectedRes.last_name} (${selectedRes.reservation_id})?`,
+                      );
+                      if (confirmIR) {
+                        generateIncidentReportPDF(selectedRes);
+                      }
+                    }}
+                  >
+                    <AlertTriangle size={16} /> File Incident Report (IR)
+                  </button>
+                )}
+
                 <button
                   className="btn btn-dark btn-sm w-100 fw-bold border border-white border-opacity-25 py-2"
                   data-bs-dismiss="offcanvas"

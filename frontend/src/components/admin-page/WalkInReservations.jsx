@@ -19,6 +19,7 @@ const WalkInReservations = () => {
   const [selectedRes, setSelectedRes] = useState(null);
   const [orderItems, setOrderItems] = useState([]);
   const [loadingItems, setLoadingItems] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -51,6 +52,14 @@ const WalkInReservations = () => {
       setLoading(false);
     }
   };
+
+  // Filter bookings based on guest name or reservation ID
+  const filteredInquiries = inquiries.filter((item) => {
+    const fullName = `${item.first_name || ""} ${item.last_name || ""}`.toLowerCase();
+    const resId = (item.reservation_id || "").toLowerCase();
+    const term = searchQuery.toLowerCase();
+    return fullName.includes(term) || resId.includes(term);
+  });
 
   const fetchItems = async (resId) => {
     setOrderItems([]);
@@ -98,6 +107,20 @@ const WalkInReservations = () => {
             {inquiries.length} Orders
           </div>
         </div>
+      </div>
+
+      {/* SEARCH BAR */}
+      <div className="mb-3 px-2" style={{ maxWidth: "320px" }}>
+        <input
+          type="text"
+          className="form-control shadow-sm border py-2 fw-semibold"
+          placeholder="Search by guest name or ID..."
+          value={searchQuery}
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+            setCurrentPage(1); // Reset to page 1 during active search
+          }}
+        />
       </div>
 
       {/* TABLE SECTION */}

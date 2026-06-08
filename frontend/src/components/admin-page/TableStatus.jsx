@@ -145,7 +145,7 @@ useEffect(() => {
             <h1 className="fw-bold mb-0" style={{ fontSize: "2rem" }}>
               Table Management
             </h1>
-            <p className="text-muted small mb-0">Live Floor occupancy</p>
+            <p className="text-muted small mb-0">Check Floor occupancy</p>
           </div>
           <div className="d-flex align-items-center gap-2 border-start ps-3 ms-1">
             <div className="d-flex align-items-center gap-1">
