@@ -282,113 +282,6 @@ createReservation: async (req, res) => {
     console.error("Create reservation error:", error);
     res.status(500).json({ error: error.message });
   }
-},createReservation: async (req, res) => {
-  try {
-    const body = req.body;
-    const userId = body.userId;
-
-    if (userId && userId !== "null") {
-      const noShowCount = await Reservation.countNoShows(userId);
-      if (noShowCount >= 3) {
-        return res.status(403).json({
-          error: "Booking Restricted",
-          message:
-            "You have 3 or more no-shows. Please contact management to re-enable your account.",
-        });
-      }
-    }
-
-    const items =
-      typeof body.selectedItems === "string"
-        ? JSON.parse(body.selectedItems)
-        : body.selectedItems || [];
-    const tableIdsArray =
-      typeof body.tableIds === "string"
-        ? JSON.parse(body.tableIds)
-        : body.tableIds || [];
-
-    // Calculate duration in hours from start and end time
-    const startDateTime = new Date(`${body.date} ${body.startTime}`);
-    const endDateTime = new Date(`${body.date} ${body.endTime}`);
-    const durationHours = (endDateTime - startDateTime) / (1000 * 60 * 60);
-
-    // Calculate total order amount from items
-    let totalOrderAmount = 0;
-    if (items.length > 0) {
-      totalOrderAmount = items.reduce((sum, item) => {
-        return sum + parseFloat(item.price) * (item.quantity || 1);
-      }, 0);
-    } else if (body.totalAmount) {
-      totalOrderAmount = parseFloat(body.totalAmount);
-    }
-
-    // Calculate downpayment based on duration and order amount
-    const calculatedDownpayment = calculateDownpayment(
-      durationHours,
-      totalOrderAmount,
-    );
-
-    const dbStart = startDateTime.toTimeString().split(" ")[0];
-    const dbEnd = endDateTime.toTimeString().split(" ")[0];
-
-    let finalPackageName = body.packageName;
-    if (!finalPackageName || finalPackageName === "Table Reservation") {
-      if (items.length > 0) {
-        finalPackageName = items[0].name || items[0].item_name || "Order";
-        if (items.length > 1) finalPackageName += " + Others";
-      } else {
-        finalPackageName = "Table Reservation";
-      }
-    }
-
-    const reservationData = {
-      ...body,
-      userId: body.userId || req.user?.userId,
-      startTime: dbStart,
-      endTime: dbEnd,
-      durationHours: durationHours,
-      totalAmount: totalOrderAmount,
-      downpayment: calculatedDownpayment,
-      packageName: finalPackageName,
-      tableIds: tableIdsArray,
-      selectedItems: items,
-      receiptPath: req.file ? req.file.path : null,
-    };
-
-    console.log("Saving receipt URL to DB:", reservationData.receiptPath);
-
-    // 1. Create the database records
-    const newId = await Reservation.create(reservationData);
-
-    // 2. Emit real-time updates to all administrators via socket.io
-    try {
-      const [admins] = await db.execute("SELECT user_id FROM users WHERE role = 'admin'");
-      const io = req.app.get("socketio");
-
-      if (io) {
-        const numGuests = reservationData.pax || reservationData.guests || reservationData.num_guests || 1;
-        const notifMessage = `New reservation created by ${reservationData.firstName} ${reservationData.lastName || ""} for ${numGuests} guests on ${reservationData.date}.`;
-
-        admins.forEach((admin) => {
-          io.to(admin.user_id.toString()).emit("new_notification", {
-            reservation_id: newId,
-            user_id: admin.user_id,
-            title: "New Reservation Booking",
-            message: notifMessage,
-            is_read: 0,
-            created_at: new Date().toISOString()
-          });
-        });
-      }
-    } catch (socketError) {
-      console.warn("Non-blocking Socket emission error:", socketError.message);
-    }
-
-    return res.status(201).json({ id: newId });
-  } catch (error) {
-    console.error("Create reservation error:", error);
-    res.status(500).json({ error: error.message });
-  }
 },
   // ==================== ADMIN FUNCTIONS ====================
   getReservations: async (req, res) => {
@@ -400,11 +293,11 @@ createReservation: async (req, res) => {
     }
   },
 
-  updateStatus: async (req, res) => {
+updateStatus: async (req, res) => {
     console.log("HIT THE STATUS UPDATE ROUTE!");
     try {
       const { id } = req.params;
-      const { status } = req.body;
+      const { status, cancellation_reason, cancelled_at } = req.body; // Added cancellation_reason and cancelled_at
       const currentUser = req.user;
 
       const reservation = await Reservation.findById(id);
@@ -435,7 +328,8 @@ createReservation: async (req, res) => {
         }
       }
 
-      await Reservation.updateStatus(id, status);
+      // Pass the cancellation parameters down to the database model
+      await Reservation.updateStatus(id, status, cancellation_reason, cancelled_at);
       res.json({ success: true, message: "Status updated." });
     } catch (error) {
       res.status(500).json({ error: error.message });

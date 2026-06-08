@@ -108,36 +108,53 @@ const Reservation = {
   },
 
   // ==================== STATUS MANAGEMENT ====================
-  updateStatus: async (id, status) => {
+  updateStatus: async (id, status, cancellationReason = null, cancelledAt = null) => {
     const conn = await db.getConnection();
     try {
       await conn.beginTransaction();
       const bStatus = status.toLowerCase();
-      await conn.execute(
-        "UPDATE reservations SET status = ? WHERE reservation_id = ?",
-        [status, id],
-      );
+
+      // 1. If status is cancelled, update status along with cancellation reason and timestamp
+      if (bStatus === "cancelled") {
+        await conn.execute(
+          `UPDATE reservations 
+           SET status = ?, cancellation_reason = ?, cancelled_at = ? 
+           WHERE reservation_id = ?`,
+          [status, cancellationReason, cancelledAt || new Date(), id]
+        );
+      } else {
+        await conn.execute(
+          "UPDATE reservations SET status = ? WHERE reservation_id = ?",
+          [status, id]
+        );
+      }
+
+      // 2. Update reservation tables bindings
       await conn.execute(
         "UPDATE reservation_tables SET status = ? WHERE reservation_id = ?",
-        [bStatus, id],
+        [bStatus, id]
       );
 
+      // 3. Update table occupancy status
       if (bStatus === "seated") {
         await conn.execute(
-          `
-          UPDATE tables t JOIN reservation_tables rt ON t.table_id = rt.table_id 
-          SET t.status = 'occupied' WHERE rt.reservation_id = ?`,
-          [id],
+          `UPDATE tables t 
+           JOIN reservation_tables rt ON t.table_id = rt.table_id 
+           SET t.status = 'occupied' WHERE rt.reservation_id = ?`,
+          [id]
         );
       } else if (["completed", "rejected", "cancelled"].includes(bStatus)) {
         await conn.execute(
-          `
-          UPDATE tables t JOIN reservation_tables rt ON t.table_id = rt.table_id 
-          SET t.status = 'available', t.available_seats = t.capacity WHERE rt.reservation_id = ?`,
-          [id],
+          `UPDATE tables t 
+           JOIN reservation_tables rt ON t.table_id = rt.table_id 
+           SET t.status = 'available', t.available_seats = t.capacity 
+           WHERE rt.reservation_id = ?`,
+          [id]
         );
       }
+
       await conn.commit();
+      return true;
     } catch (err) {
       await conn.rollback();
       throw err;

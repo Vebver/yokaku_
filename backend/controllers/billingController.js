@@ -70,15 +70,58 @@ exports.settleFullBill = async (req, res) => {
   }
 };
 
+// PUT: Verify Payment and Notify Customer
 exports.updatePaymentStatusByReservation = async (req, res) => {
   try {
     const { resId } = req.params;
     const payment_status = req.body.payment_status || 'verified';
 
+    // 1. Update Payment Status in Database
     const paymentUpdated = await Billing.updatePaymentStatusByReservation(resId, payment_status);
     
     if (paymentUpdated) {
+      // 2. Set Reservation status to 'Confirmed'
       await Billing.confirmReservationStatus(resId);
+
+      // 3. Write Notification and Emit Real-Time Socket Event to the Customer
+      try {
+        // Fetch the customer's user_id and reservation details
+        const [rows] = await db.execute(
+          `SELECT user_id, 
+                  DATE_FORMAT(reservation_date, '%Y-%m-%d') as r_date, 
+                  TIME_FORMAT(reservation_time, '%h:%i %p') as r_time 
+           FROM reservations WHERE reservation_id = ?`,
+          [resId]
+        );
+
+        if (rows.length > 0) {
+          const { user_id, r_date, r_time } = rows[0];
+          const notifMessage = `Your proof of payment for reservation ${resId} has been successfully verified! Your booking on ${r_date} at ${r_time} is officially confirmed.`;
+
+          // Write notification record for the customer
+          const [notifResult] = await db.execute(
+            `INSERT INTO notifications (user_id, reservation_id, title, message, is_read, created_at) 
+             VALUES (?, ?, 'Payment Verified', ?, 0, NOW())`,
+            [user_id, resId, notifMessage]
+          );
+
+          // Emit real-time update to Customer's connected client
+          const io = req.app.get("socketio");
+          if (io) {
+            io.to(user_id.toString()).emit("new_notification", {
+              notification_id: notifResult.insertId,
+              user_id: user_id,
+              reservation_id: resId,
+              title: "Payment Verified",
+              message: notifMessage,
+              is_read: 0,
+              created_at: new Date().toISOString()
+            });
+          }
+        }
+      } catch (notifErr) {
+        console.warn("Non-blocking Verification Notification Error:", notifErr.message);
+      }
 
       res.json({ 
         success: true, 
@@ -155,24 +198,24 @@ exports.rejectPaymentByReservation = async (req, res) => {
   }
 };
 // PUT: Process receipt re-upload, reset payment status to 'pending', reset reservation to 'Pending'
+// PUT: Process receipt re-upload, reset statuses, and notify admin
 exports.reuploadPaymentProof = async (req, res) => {
   try {
     const { resId } = req.params;
     
-    // Extract the new file path from your file upload middleware (supports Cloudinary or local Storage)
     const receiptPath = req.file ? (req.file.path || req.file.filename) : null;
 
     if (!receiptPath) {
       return res.status(400).json({ error: "Please upload a valid receipt image." });
     }
 
-    // 1. Update the receipt path in your database records
+    // 1. Update the receipt path
     await db.execute(
       "UPDATE reservations SET receipt_path = ? WHERE reservation_id = ?",
       [receiptPath, resId]
     );
 
-    // 2. Set the payment status back to 'pending' so it displays in the admin's portal again
+    // 2. Set the payment status back to 'pending'
     await db.execute(
       "UPDATE payments SET payment_status = 'pending' WHERE reservation_id = ?",
       [resId]
@@ -184,6 +227,35 @@ exports.reuploadPaymentProof = async (req, res) => {
       [resId]
     );
 
+    // 4. Notify all Administrators of the re-uploaded proof
+    try {
+      const [admins] = await db.execute("SELECT user_id FROM users WHERE role = 'admin'");
+      const notifMessage = `Customer re-uploaded a new proof of payment for reservation ${resId}. Please review it in your Billing portal.`;
+      const io = req.app.get("socketio");
+
+      for (const admin of admins) {
+        const [notifResult] = await db.execute(
+          `INSERT INTO notifications (user_id, reservation_id, title, message, is_read, created_at) 
+           VALUES (?, ?, 'New Proof Uploaded', ?, 0, NOW())`,
+          [admin.user_id, resId, notifMessage]
+        );
+
+        if (io) {
+          io.to(admin.user_id.toString()).emit("new_notification", {
+            notification_id: notifResult.insertId,
+            user_id: admin.user_id,
+            reservation_id: resId,
+            title: "New Proof Uploaded",
+            message: notifMessage,
+            is_read: 0,
+            created_at: new Date().toISOString()
+          });
+        }
+      }
+    } catch (adminNotifErr) {
+      console.warn("Non-blocking Admin Notification on reupload failed:", adminNotifErr.message);
+    }
+
     return res.status(200).json({ 
       success: true, 
       message: "Proof of payment successfully updated." 
@@ -192,4 +264,4 @@ exports.reuploadPaymentProof = async (req, res) => {
     console.error("Error in reuploadPaymentProof:", error);
     return res.status(500).json({ error: error.message });
   }
-};  
+}; 
