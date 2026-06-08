@@ -106,30 +106,29 @@ const Reservation = {
     const [rows] = await db.execute(sql, [tableId, date]);
     return rows;
   },
-
-// ==================== STATUS MANAGEMENT ====================
-  updateStatus: async (id, status, cancellationReason = null, cancelledAt = null) => {
+ // ==================== STATUS MANAGEMENT ====================
+  updateStatus: async (id, status, cancellationReason = null) => {
     const conn = await db.getConnection();
     try {
       await conn.beginTransaction();
       const bStatus = status.toLowerCase();
 
-      // 1. If status is cancelled, update status along with cancellation reason and timestamp
+      // 1. If status is cancelled, update status along with cancellation reason and NOW() timestamp
       if (bStatus === "cancelled") {
         await conn.execute(
           `UPDATE reservations 
-           SET status = ?, cancellation_reason = ?, cancelled_at = ? 
+           SET status = ?, cancellation_reason = ?, cancelled_at = NOW() 
            WHERE reservation_id = ?`,
-          [status, cancellationReason, cancelledAt || new Date(), id]
+          [status, cancellationReason, id]
         );
 
         // 2. Write "Reservation Cancelled" notification rows for all administrators
         try {
-          const [admins] = await conn.query("SELECT user_id FROM users WHERE role = 'admin'");
+          const [admins] = await conn.execute("SELECT user_id FROM users WHERE role = 'admin'");
           const notifMessage = `Reservation ${id} has been cancelled by the customer. Reason: ${cancellationReason || "No reason specified."}`;
 
           for (const admin of admins) {
-            await conn.query(
+            await conn.execute(
               `INSERT INTO notifications (user_id, reservation_id, title, message, is_read, created_at) 
                VALUES (?, ?, 'Reservation Cancelled', ?, 0, NOW())`,
               [admin.user_id, id, notifMessage]
