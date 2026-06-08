@@ -2577,7 +2577,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         }
       case 4:
         if (isEventFlow) {
-          // Reservation Summary step for EVENT (step 4, unchanged)
+          // Reservation Summary step for EVENT (with order and payment breakdown)
           return (
             <div className="step-content step-summary">
               <ReservationSummary
@@ -2586,11 +2586,12 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                 paymentMethod={paymentMethod}
                 setPaymentMethod={setPaymentMethod}
                 onReceiptChange={(receipt) => setReceiptFile(receipt)}
+                showOrderDetails={true} // Show for EVENT
               />
             </div>
           );
         } else {
-          // Reservation Summary step for PER TABLE (now step 4, was step 6 - Order Menu removed)
+          // Reservation Summary step for PER TABLE (without order and payment breakdown)
           return (
             <div className="step-content step-summary">
               <ReservationSummary
@@ -2599,6 +2600,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                 paymentMethod={paymentMethod}
                 setPaymentMethod={setPaymentMethod}
                 onReceiptChange={(receipt) => setReceiptFile(receipt)}
+                showOrderDetails={false} // Hide for PER TABLE
               />
             </div>
           );
