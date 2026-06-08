@@ -864,9 +864,16 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     ],
   );
 
+  // Update the timeOptions useMemo - replace the existing one with this:
+
   const timeOptions = useMemo(() => {
     const opts = [];
-    for (let h = 10; h <= 22; h++) {
+    // For Per Table: start from 2:00 PM (14:00) to 10:00 PM (22:00)
+    // For Event: keep original time range 10:00 AM to 10:00 PM
+    const isPerTable = reservationType === "per_table";
+    const startHour = isPerTable ? 14 : 10; // 2:00 PM for Per Table, 10:00 AM for Event
+
+    for (let h = startHour; h <= 22; h++) {
       for (let m = 0; m < 60; m += 15) {
         if (h === 22 && m > 30) break;
         const hour12 = h % 12 || 12;
@@ -877,21 +884,73 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       }
     }
     return opts;
-  }, []);
-  const maxEndTimeMinutes = 22 * 60 + 30;
+  }, [reservationType]);
+  // Update maxEndTimeMinutes - keep at 10:00 PM (22:00)
+  const maxEndTimeMinutes = 22 * 60 + 30; // 10:30 PM max
+
+  // Update the availableStartTimeOptions useMemo - add availability checking for EVENT:
 
   const availableStartTimeOptions = useMemo(() => {
     let filtered = timeOptions;
+
+    // For Per Table, ensure start time is at least 2:00 PM (14:00)
+    const isPerTable = reservationType === "per_table";
+    const isEventFlow = reservationType === "event";
+    const minStartTimeMinutes = isPerTable ? 14 * 60 : 10 * 60; // 2:00 PM for Per Table, 10:00 AM for Event
+
     if (form.date === todayStr) {
       const thresh = new Date().getHours() * 60 + new Date().getMinutes() + 15;
-      filtered = filtered.filter((t) => timeToMin(t) >= thresh);
+      filtered = filtered.filter(
+        (t) => timeToMin(t) >= Math.max(thresh, minStartTimeMinutes),
+      );
+    } else {
+      // For future dates, filter by minimum start time
+      filtered = filtered.filter((t) => timeToMin(t) >= minStartTimeMinutes);
     }
-    filtered = filtered.filter((startTime) => {
-      const startM = timeToMin(startTime);
-      if (startM > 22 * 60) return false;
-      const minEndM = startM + 30;
-      return minEndM <= maxEndTimeMinutes;
-    });
+
+    // For EVENT flow, check availability and filter out booked time slots
+    if (isEventFlow) {
+      filtered = filtered.filter((startTime) => {
+        const startM = timeToMin(startTime);
+        const endM = startM + 180; // 3 hours later
+
+        // Check if end time exceeds business hours
+        if (endM > maxEndTimeMinutes) return false;
+
+        // Check if this time slot conflicts with any existing reservation
+        // Get all reservations for the selected date
+        const reservations = allReservationsByDate[form.date] || [];
+
+        // Check if any reservation overlaps with this time slot
+        const isOverlapping = reservations.some((reservation) => {
+          // Skip cancelled or completed reservations
+          if (
+            reservation.status === "Cancelled" ||
+            reservation.status === "Completed" ||
+            reservation.status === "Done"
+          ) {
+            return false;
+          }
+
+          const resStartM = timeToMin(reservation.startTime);
+          const resEndM = timeToMin(reservation.endTime);
+
+          // Overlap condition: new start < existing end AND new end > existing start
+          return startM < resEndM && endM > resStartM;
+        });
+
+        return !isOverlapping;
+      });
+    } else {
+      // Original filtering for PER_TABLE
+      filtered = filtered.filter((startTime) => {
+        const startM = timeToMin(startTime);
+        if (startM > 22 * 60) return false;
+        const minEndM = startM + 30;
+        return minEndM <= maxEndTimeMinutes;
+      });
+    }
+
     if (selectedId && reservationType === "per_table") {
       filtered = filtered.filter((startTime) => {
         const possibleEndTimes = timeOptions.filter((endTime) => {
@@ -916,11 +975,53 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     selectedId,
     tableSchedules,
     reservationType,
+    allReservationsByDate,
+    maxEndTimeMinutes,
   ]);
+
+  // Update the filteredEndTimeOptions useMemo:
 
   const filteredEndTimeOptions = useMemo(() => {
     if (!form.startTime) return [];
     const startM = timeToMin(form.startTime);
+
+    // For EVENT flow: automatically calculate end time as start time + 3 hours
+    const isEventFlow = reservationType === "event";
+
+    if (isEventFlow) {
+      // Calculate end time exactly 3 hours (180 minutes) after start time
+      const endM = startM + 180;
+
+      // Check if this time slot would overlap with any existing reservation
+      const reservations = allReservationsByDate[form.date] || [];
+      const isOverlapping = reservations.some((reservation) => {
+        if (
+          reservation.status === "Cancelled" ||
+          reservation.status === "Completed" ||
+          reservation.status === "Done"
+        ) {
+          return false;
+        }
+        const resStartM = timeToMin(reservation.startTime);
+        const resEndM = timeToMin(reservation.endTime);
+        return startM < resEndM && endM > resStartM;
+      });
+
+      // If overlapping, this start time shouldn't be available, return empty
+      if (isOverlapping) return [];
+
+      // Format the end time to display in dropdown
+      const endHour = Math.floor(endM / 60);
+      const endMinute = endM % 60;
+      const endHour12 = endHour % 12 || 12;
+      const endPeriod = endHour < 12 ? "AM" : "PM";
+      const endTimeString = `${endHour12.toString().padStart(2, "0")}:${endMinute.toString().padStart(2, "0")} ${endPeriod}`;
+
+      // Return only the calculated end time as the only option
+      return [endTimeString];
+    }
+
+    // Original logic for PER_TABLE flow
     if (startM >= 21 * 60 + 30) {
       if (maxEndTimeMinutes >= startM + 30) {
         const tenThirtyPM = timeOptions.find(
@@ -947,6 +1048,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     selectedId,
     tableSchedules,
     reservationType,
+    allReservationsByDate,
+    maxEndTimeMinutes,
   ]);
 
   const handleInputChange = (e) => {
