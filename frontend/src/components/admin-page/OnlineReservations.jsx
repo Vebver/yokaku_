@@ -12,6 +12,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { generateIncidentReportPDF } from "../../utils/irGenerator";
+
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const OnlineReservations = () => {
@@ -21,7 +22,8 @@ const OnlineReservations = () => {
   const [orderItems, setOrderItems] = useState([]);
   const [loadingItems, setLoadingItems] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(13);
+  const [itemsPerPage] = useState(13);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     fetchReservations();
@@ -47,6 +49,14 @@ const OnlineReservations = () => {
       setLoading(false);
     }
   };
+
+  // Filter bookings based on guest name or reservation ID
+  const filteredInquiries = inquiries.filter((item) => {
+    const fullName = `${item.first_name || ""} ${item.last_name || ""}`.toLowerCase();
+    const resId = (item.reservation_id || "").toLowerCase();
+    const term = searchQuery.toLowerCase();
+    return fullName.includes(term) || resId.includes(term);
+  });
 
   const fetchItems = async (resId) => {
     setOrderItems([]);
@@ -91,11 +101,11 @@ const OnlineReservations = () => {
   };
 
   const indexOfLastItem = currentPage * itemsPerPage;
-  const currentItems = inquiries.slice(
+  const currentItems = filteredInquiries.slice(
     (currentPage - 1) * itemsPerPage,
     indexOfLastItem,
   );
-  const totalPages = Math.ceil(inquiries.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredInquiries.length / itemsPerPage);
 
   if (loading)
     return (
@@ -111,14 +121,28 @@ const OnlineReservations = () => {
         <div className="col">
           <h2 className="fw-bold mb-1">Online Reservations</h2>
           <p className="text-muted small mb-0">
-            Manage website bookings and customer downpayments
+            Manage bookings and check their details.
           </p>
         </div>
         <div className="col-auto">
           <div className="bg-white border rounded-pill px-3 py-1 shadow-sm small fw-bold">
-            {inquiries.length} Bookings
+            {filteredInquiries.length} Bookings
           </div>
         </div>
+      </div>
+
+      {/* SEARCH BAR */}
+      <div className="mb-3 px-2" style={{ maxWidth: "320px" }}>
+        <input
+          type="text"
+          className="form-control shadow-sm border py-2 fw-semibold"
+          placeholder="Search by guest name or ID..."
+          value={searchQuery}
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+            setCurrentPage(1); // Reset to page 1 during active search
+          }}
+        />
       </div>
 
       {/* TABLE */}
@@ -204,7 +228,7 @@ const OnlineReservations = () => {
       {/* PAGINATION */}
       <div className="mt-4 px-3 d-flex justify-content-between align-items-center">
         <span className="small text-muted">
-          Showing {currentItems.length} of {inquiries.length} items
+          Showing {currentItems.length} of {filteredInquiries.length} items
         </span>
         <div className="btn-group shadow-sm bg-white rounded border">
           <button
@@ -444,19 +468,22 @@ const OnlineReservations = () => {
                   </span>
                 </div>
 
-                <button
-                  className="btn btn-warning w-100 fw-bold py-2 mb-2 d-flex align-items-center justify-content-center gap-2 border-0"
-                  onClick={() => {
-                    const confirmIR = window.confirm(
-                      `File and download an Incident Report (IR) for ${selectedRes.first_name} ${selectedRes.last_name} (${selectedRes.reservation_id})?`,
-                    );
-                    if (confirmIR) {
-                      generateIncidentReportPDF(selectedRes);
-                    }
-                  }}
-                >
-                  <AlertTriangle size={16} /> File Incident Report (IR)
-                </button>
+                {/* FILE INCIDENT REPORT (IR) BUTTON - Rendered ONLY if status is cancelled */}
+                {selectedRes.status?.toLowerCase() === "cancelled" && (
+                  <button
+                    className="btn btn-warning w-100 fw-bold py-2 mb-2 d-flex align-items-center justify-content-center gap-2 border-0"
+                    onClick={() => {
+                      const confirmIR = window.confirm(
+                        `File and download an Incident Report (IR) for ${selectedRes.first_name} ${selectedRes.last_name} (${selectedRes.reservation_id})?`,
+                      );
+                      if (confirmIR) {
+                        generateIncidentReportPDF(selectedRes);
+                      }
+                    }}
+                  >
+                    <AlertTriangle size={16} /> File Incident Report (IR)
+                  </button>
+                )}
 
                 <button
                   className="btn btn-dark btn-sm w-100 fw-bold border border-white border-opacity-25 py-2"

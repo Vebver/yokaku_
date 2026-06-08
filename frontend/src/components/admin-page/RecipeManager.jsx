@@ -1,6 +1,16 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { Trash2, Plus, Info, BookOpen, Loader2, Package, Edit2, Check, X } from "lucide-react";
+import { 
+  Trash2, 
+  Plus, 
+  Info, 
+  BookOpen, 
+  Loader2, 
+  Package, 
+  Edit2, 
+  Check, 
+  X 
+} from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
@@ -12,6 +22,12 @@ function RecipeManager() {
   const [loading, setLoading] = useState(true);
   const [loadingRecipe, setLoadingRecipe] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  
+  // State to filter the ingredients list (table)
+  const [ingredientSearchTerm, setIngredientSearchTerm] = useState("");
+
+  // New state to filter the raw materials SELECT dropdown menu
+  const [materialFilterTerm, setMaterialFilterTerm] = useState("");
 
   // Edit Link State
   const [editingRecipeId, setEditingRecipeId] = useState(null);
@@ -31,8 +47,14 @@ function RecipeManager() {
   }, []);
 
   useEffect(() => {
-    if (selectedItemId) fetchCurrentRecipe();
-    else setCurrentRecipe([]);
+    if (selectedItemId) {
+      fetchCurrentRecipe();
+    } else {
+      setCurrentRecipe([]);
+    }
+    // Clear search filters when switching dishes
+    setIngredientSearchTerm(""); 
+    setMaterialFilterTerm("");
   }, [selectedItemId]);
 
   const fetchBaseData = async () => {
@@ -79,19 +101,18 @@ function RecipeManager() {
       );
       setQtyNeeded("");
       setIngredientId("");
+      setMaterialFilterTerm(""); // Reset material filter on success
       fetchCurrentRecipe();
     } catch (err) {
       alert("Error adding ingredient");
     }
   };
 
-  // Turn on edit mode for selected ingredient
   const startEditIngredient = (ing) => {
     setEditingRecipeId(ing.recipe_id);
     setEditQty(ing.quantity_required);
   };
 
-  // Submit PUT request to update ingredient quantity
   const saveEditedIngredient = async (recipeId) => {
     if (!editQty || Number(editQty) <= 0) return alert("Enter a valid quantity");
     try {
@@ -120,9 +141,13 @@ function RecipeManager() {
     }
   };
 
+  const filteredRecipe = currentRecipe.filter((ing) =>
+    ing.item_name.toLowerCase().includes(ingredientSearchTerm.toLowerCase())
+  );
+
   if (loading) return (
     <div className="d-flex justify-content-center align-items-center vh-100">
-      <Loader2 className="spinner-border text-primary" />
+      <Loader2 className="spinner-border text-primary animate-spin" />
     </div>
   );
 
@@ -140,6 +165,7 @@ function RecipeManager() {
       </div>
 
       <div className="row g-3 px-2">
+        {/* LEFT COLUMN: DISH SELECTION */}
         <div className="col-12 col-lg-4">
           <div className="card border-0 shadow-sm rounded-4 h-100 overflow-hidden">
             <div className="bg-primary p-3 text-white d-flex align-items-center gap-2">
@@ -184,6 +210,7 @@ function RecipeManager() {
           </div>
         </div>
 
+        {/* RIGHT COLUMN: INGREDIENTS LIST */}
         <div className="col-12 col-lg-8">
           <div className="card border-0 shadow-sm rounded-4 h-100 overflow-hidden bg-white">
             <div className="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center">
@@ -197,9 +224,20 @@ function RecipeManager() {
             <div className="card-body p-3 p-md-4">
               {selectedItemId ? (
                 <>
+                  {/* ADD INGREDIENT FORM */}
                   <form className="row g-2 mb-4 p-3 bg-light rounded-3 border" onSubmit={handleAddIngredient}>
                     <div className="col-12 col-md-6">
                       <label className="x-small fw-bold text-muted mb-1 d-block">SELECT MATERIAL</label>
+                      
+                      {/* Search box to dynamically filter select dropdown options */}
+                      <input
+                        type="text"
+                        className="form-control form-control-sm mb-2 shadow-sm"
+                        placeholder="Type to filter inventory..."
+                        value={materialFilterTerm}
+                        onChange={(e) => setMaterialFilterTerm(e.target.value)}
+                      />
+
                       <select
                         className="form-select form-select-sm shadow-sm"
                         value={ingredientId}
@@ -207,11 +245,15 @@ function RecipeManager() {
                         required
                       >
                         <option value="">Choose Inventory...</option>
-                        {inventoryItems.map((inv) => (
-                          <option key={inv.inventory_id} value={inv.inventory_id}>
-                            {inv.item_name} ({inv.quantity} {inv.unit} left)
-                          </option>
-                        ))}
+                        {inventoryItems
+                          .filter((inv) => 
+                            inv.item_name.toLowerCase().includes(materialFilterTerm.toLowerCase())
+                          )
+                          .map((inv) => (
+                            <option key={inv.inventory_id} value={inv.inventory_id}>
+                              {inv.item_name} ({inv.quantity} {inv.unit} left)
+                            </option>
+                          ))}
                       </select>
                     </div>
                     <div className="col-6 col-md-3">
@@ -233,6 +275,21 @@ function RecipeManager() {
                     </div>
                   </form>
 
+                  {/* INGREDIENT LIST SEARCH FILTER BAR */}
+                  {currentRecipe.length > 0 && (
+                    <div className="mb-4">
+                      <label className="form-label small fw-bold text-muted">SEARCH INGREDIENTS</label>
+                      <input
+                        type="text"
+                        className="form-control form-control-lg shadow-sm"
+                        placeholder="Search raw materials..."
+                        value={ingredientSearchTerm}
+                        onChange={(e) => setIngredientSearchTerm(e.target.value)}
+                      />
+                    </div>
+                  )}
+
+                  {/* INGREDIENTS TABLE */}
                   <div className="table-responsive">
                     <table className="table table-hover align-middle mb-0">
                       <thead className="bg-light">
@@ -245,8 +302,8 @@ function RecipeManager() {
                       <tbody>
                         {loadingRecipe ? (
                           <tr><td colSpan="3" className="text-center py-5"><Loader2 className="animate-spin text-primary mx-auto" /></td></tr>
-                        ) : currentRecipe.length > 0 ? (
-                          currentRecipe.map((ing) => (
+                        ) : filteredRecipe.length > 0 ? (
+                          filteredRecipe.map((ing) => (
                             <tr key={ing.recipe_id}>
                               <td className="ps-3 fw-bold small text-dark">{ing.item_name}</td>
                               
@@ -304,7 +361,13 @@ function RecipeManager() {
                             </tr>
                           ))
                         ) : (
-                          <tr><td colSpan="3" className="text-center py-5 text-muted small">No ingredients linked yet. Add one above!</td></tr>
+                          <tr>
+                            <td colSpan="3" className="text-center py-5 text-muted small">
+                              {currentRecipe.length > 0 
+                                ? "No matching ingredients found." 
+                                : "No ingredients linked yet. Add one above!"}
+                            </td>
+                          </tr>
                         )}
                       </tbody>
                     </table>

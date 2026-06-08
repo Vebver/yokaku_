@@ -197,7 +197,7 @@ exports.rejectPaymentByReservation = async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 };
-// PUT: Process receipt re-upload, reset payment status to 'pending', reset reservation to 'Pending'
+
 // PUT: Process receipt re-upload, reset statuses, and notify admin
 exports.reuploadPaymentProof = async (req, res) => {
   try {
@@ -264,4 +264,50 @@ exports.reuploadPaymentProof = async (req, res) => {
     console.error("Error in reuploadPaymentProof:", error);
     return res.status(500).json({ error: error.message });
   }
-}; 
+};
+// PUT: Update downpayment amount manually by admin
+exports.updatePaymentAmount = async (req, res) => {
+  const { resId } = req.params;
+  const { amount } = req.body;
+
+  if (amount === undefined || isNaN(Number(amount))) {
+    return res.status(400).json({ error: "Invalid amount provided." });
+  }
+
+  try {
+    const sql = "UPDATE payments SET amount = ? WHERE reservation_id = ?";
+    const [result] = await db.execute(sql, [amount, resId]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Payment record not found." });
+    }
+
+    return res.status(200).json({ success: true, message: "Downpayment amount updated successfully." });
+  } catch (err) {
+    console.error("SQL Error in updatePaymentAmount:", err.message);
+    return res.status(500).json({ error: "Failed to update payment amount." });
+  }
+};
+
+exports.updatePaymentAmount = async (req, res) => {
+  const { resId } = req.params;
+  const { amount } = req.body;
+
+  if (amount === undefined || isNaN(Number(amount))) {
+    return res.status(400).json({ error: "Invalid amount provided." });
+  }
+
+  try {
+    const sql = "UPDATE payments SET amount = ? WHERE reservation_id = ?";
+    const [result] = await db.execute(sql, [amount, resId]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Payment record not found." });
+    }
+
+    return res.status(200).json({ success: true, message: "Downpayment amount updated successfully." });
+  } catch (err) {
+    console.error("SQL Error in updatePaymentAmount:", err.message);
+    return res.status(500).json({ error: "Failed to update payment amount." });
+  }
+};

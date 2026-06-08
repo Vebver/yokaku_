@@ -26,6 +26,9 @@ const Billing = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const closeBtnRef = useRef(null);
+  const [isEditingAmount, setIsEditingAmount] = useState(false);
+  const [tempAmount, setTempAmount] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   // States for the in-app rejection form UI
   const [showRejectForm, setShowRejectForm] = useState(false);
@@ -34,6 +37,15 @@ const Billing = () => {
   useEffect(() => {
     fetchPayments();
   }, []);
+
+  useEffect(() => {
+    return () => {
+      const backdrops = document.querySelectorAll(".offcanvas-backdrop");
+      backdrops.forEach((el) => el.remove());
+      document.body.style.overflow = "";
+      document.body.style.paddingRight = "";
+    };
+  }, [payments]);
 
   const fetchPayments = async () => {
     setLoading(true);
@@ -50,6 +62,14 @@ const Billing = () => {
       setLoading(false);
     }
   };
+
+// Filter payments list by guest name or reservation ID
+  const filteredPayments = payments.filter((p) => {
+    const fullName = `${p.first_name || ""} ${p.last_name || ""}`.toLowerCase();
+    const resId = (p.reservation_id || "").toLowerCase();
+    const term = searchQuery.toLowerCase();
+    return fullName.includes(term) || resId.includes(term);
+  });
 
   const getItemPrice = (item) => {
     const isRefill =
@@ -88,9 +108,9 @@ const Billing = () => {
     setSelectedPayment(p);
     setOrderItems([]);
     setLoadingItems(true);
-    
-    // Reset rejection states on review open
     setShowRejectForm(false);
+    setIsEditingAmount(false); // Reset edit state
+    setTempAmount(""); 
     setRejectReason("The receipt image is unclear or details do not match.");
     
     try {
@@ -163,6 +183,20 @@ const Billing = () => {
         >
           <RefreshCw size={15} className="me-2 text-primary" /> Refresh Data
         </button>
+      </div>
+
+      {/* SEARCH BAR */}
+      <div className="mb-3 px-2" style={{ maxWidth: "320px" }}>
+        <input
+          type="text"
+          className="form-control shadow-sm border py-2 fw-semibold"
+          placeholder="Search by guest name or ID..."
+          value={searchQuery}
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+            setCurrentPage(1); // Reset to page 1 during active search
+          }}
+        />
       </div>
 
       {/* TABLE CARD */}
@@ -381,16 +415,103 @@ const Billing = () => {
               <div className="p-4 bg-dark text-white rounded-top-4 shadow-lg mt-auto">
                 
                 {/* FINANCIAL SUMMARY */}
+             {/* FINANCIAL SUMMARY WITH INLINE DOWNPAYMENT EDITOR */}
                 <div className="card bg-secondary bg-opacity-25 border-secondary border-opacity-25 p-3 mb-3">
-                  <div className="d-flex justify-content-between mb-1 text-white-50 small">
+                  <div className="d-flex justify-content-between mb-1.5 text-white-50 small">
                     <span>Total Bill</span>
                     <span className="text-white">₱{calculateItemsSum().toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                   </div>
-                  <div className="d-flex justify-content-between mb-2 text-white-50 small pb-2 border-bottom border-secondary border-opacity-50">
-                    <span>Downpayment Paid</span>
-                    <span className="text-success-emphasis fw-semibold">
-                      ₱{Number(selectedPayment?.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    </span>
+                  
+                  <div className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom border-secondary border-opacity-50">
+                    <span className="text-white-50 small">Downpayment Paid</span>
+                    {isEditingAmount ? (
+                      <div className="d-flex align-items-center gap-2 animate-fade-in">
+                        {/* Custom inline input block (Bypasses Bootstrap input-group bugs) */}
+                        <div 
+                          className="d-flex align-items-center gap-1 bg-dark px-2 rounded border border-secondary" 
+                          style={{ height: "30px" }}
+                        >
+                          <span className="small fw-bold" style={{ color: "#e0842d" }}>₱</span>
+                          <input
+                            type="number"
+                            className="bg-transparent border-0 fw-semibold text-end"
+                            style={{ 
+                              width: "55px", 
+                              fontSize: "0.85rem", 
+                              outline: "none",
+                              boxShadow: "none",
+                              color: "#d87b24" // Your custom text color
+                            }}
+                            value={tempAmount}
+                            onChange={(e) => setTempAmount(e.target.value)}
+                          />
+                        </div>
+                        <button
+                          className="btn btn-sm btn-success px-2 py-1 fw-bold text-uppercase"
+                          style={{ fontSize: "0.7rem", height: "30px" }}
+                         onClick={async () => {
+                            const newAmount = parseFloat(tempAmount);
+                            if (isNaN(newAmount) || newAmount < 0) {
+                              return alert("Please enter a valid numeric amount.");
+                            }
+                            
+                            try {
+                              const token = localStorage.getItem("token");
+                              await axios.put(
+                                `${API_BASE}/billing/update-amount/${selectedPayment.reservation_id}`,
+                                { amount: newAmount },
+                                { headers: { Authorization: `Bearer ${token}` } }
+                              );
+
+                              // Instantly update local state
+                              setSelectedPayment((prev) => ({
+                                ...prev,
+                                amount: newAmount
+                              }));
+
+                              setIsEditingAmount(false);
+                              
+                              // Force clean any stuck dark backdrop overlays
+                              const backdrops = document.querySelectorAll(".offcanvas-backdrop");
+                              backdrops.forEach((el) => el.remove());
+                              document.body.style.overflow = "";
+                              document.body.style.paddingRight = "";
+
+                              await fetchPayments(); // Refresh parent list
+                            } catch (err) {
+                              console.error("Error updating payment amount:", err);
+                              alert("Failed to update downpayment amount.");
+                            }
+                          }}
+                        >
+                          Save
+                        </button>
+                        <button
+                          className="btn btn-sm btn-outline-secondary text-white-50 px-2 py-1"
+                          style={{ fontSize: "0.7rem", height: "30px" }}
+                          onClick={() => setIsEditingAmount(false)}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="d-flex align-items-center gap-2">
+                        {/* Replaced class with style so you can customize the HEX color directly */}
+                        <span className="fw-semibold" style={{ color: "#198754" }}>
+                          ₱{Number(selectedPayment?.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </span>
+                        <button
+                          className="btn btn-link p-0 text-white-50 text-decoration-none small hover-white"
+                          style={{ fontSize: "0.75rem", borderBottom: "1px dashed rgba(255,255,255,0.25)" }}
+                          onClick={() => {
+                            setTempAmount(selectedPayment?.amount || 0);
+                            setIsEditingAmount(true);
+                          }}
+                        >
+                          Edit
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* REMAINING BALANCE CALCULATION */}
@@ -414,7 +535,6 @@ const Billing = () => {
                     </div>
                   )}
                 </div>
-
                 {/* ALERT BLOCK FOR REJECTED ATTEMPTS */}
                 {selectedPayment?.payment_status === "rejected" && !showRejectForm && (
                   <div className="alert alert-danger border-0 bg-danger bg-opacity-10 text-white p-3 mb-3 rounded-3">

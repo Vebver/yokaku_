@@ -107,7 +107,7 @@ const Reservation = {
     return rows;
   },
 
-  // ==================== STATUS MANAGEMENT ====================
+// ==================== STATUS MANAGEMENT ====================
   updateStatus: async (id, status, cancellationReason = null, cancelledAt = null) => {
     const conn = await db.getConnection();
     try {
@@ -122,6 +122,22 @@ const Reservation = {
            WHERE reservation_id = ?`,
           [status, cancellationReason, cancelledAt || new Date(), id]
         );
+
+        // 2. Write "Reservation Cancelled" notification rows for all administrators
+        try {
+          const [admins] = await conn.query("SELECT user_id FROM users WHERE role = 'admin'");
+          const notifMessage = `Reservation ${id} has been cancelled by the customer. Reason: ${cancellationReason || "No reason specified."}`;
+
+          for (const admin of admins) {
+            await conn.query(
+              `INSERT INTO notifications (user_id, reservation_id, title, message, is_read, created_at) 
+               VALUES (?, ?, 'Reservation Cancelled', ?, 0, NOW())`,
+              [admin.user_id, id, notifMessage]
+            );
+          }
+        } catch (notifErr) {
+          console.error("Non-blocking Admin Notification error inside model:", notifErr.message);
+        }
       } else {
         await conn.execute(
           "UPDATE reservations SET status = ? WHERE reservation_id = ?",
@@ -129,13 +145,13 @@ const Reservation = {
         );
       }
 
-      // 2. Update reservation tables bindings
+      // 3. Update reservation tables bindings
       await conn.execute(
         "UPDATE reservation_tables SET status = ? WHERE reservation_id = ?",
         [bStatus, id]
       );
 
-      // 3. Update table occupancy status
+      // 4. Update table occupancy status
       if (bStatus === "seated") {
         await conn.execute(
           `UPDATE tables t 
