@@ -12,7 +12,8 @@ import {
   Calendar,
   Layers,
   XCircle,
-  CornerDownRight
+  CornerDownRight,
+  Eye
 } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
@@ -551,39 +552,63 @@ const Billing = () => {
                     </div>
                   </div>
                 )}
-
-                {/* IMAGE OF PAYMENT DISPLAY */}
                 {!showRejectForm && (
                   <div className="mt-2 mb-4">
-                    <span className="text-white-50 small d-block mb-2">Proof of Payment Attachment</span>
-                    {selectedPayment?.receipt_path ? (
-                      <div className="position-relative">
-                        <img
-                          src={
-                            selectedPayment.receipt_path?.startsWith("http")
-                              ? selectedPayment.receipt_path
-                              : selectedPayment.receipt_path?.includes("restaurant_")
-                                ? `https://res.cloudinary.com/dfajhhh84/image/upload/${selectedPayment.receipt_path}`
-                                : `${API_BASE.replace("/api", "")}/uploads/${selectedPayment.receipt_path}`
-                          }
-                          alt="Payment receipt"
-                          className="w-100 rounded-3 border border-secondary shadow-sm"
-                          style={{
-                            maxHeight: 180,
-                            objectFit: "contain",
-                            background: "#121212",
-                          }}
-                          onError={(e) => {
-                            console.error("Image failed to load:", e.currentTarget.src);
-                            e.currentTarget.src = "https://placehold.co/400x250/222/888?text=Image+Not+Found";
-                          }}
-                        />
-                      </div>
-                    ) : (
-                      <div className="py-4 text-center border border-secondary border-dashed rounded-3 text-white-50 small">
-                        No receipt uploaded.
-                      </div>
-                    )}
+                    {/* Calculate full image URL path */}
+                    {(() => {
+                      const receiptUrl = selectedPayment?.receipt_path
+                        ? selectedPayment.receipt_path.startsWith("http")
+                          ? selectedPayment.receipt_path
+                          : selectedPayment.receipt_path.includes("restaurant_")
+                            ? `https://res.cloudinary.com/dfajhhh84/image/upload/${selectedPayment.receipt_path}`
+                            : `${API_BASE.replace("/api", "")}/uploads/${selectedPayment.receipt_path}`
+                        : null;
+
+                      return (
+                        <>
+                          <div className="d-flex justify-content-between align-items-center mb-2">
+                            <span className="text-white-50 small">Proof of Payment Attachment</span>
+                            {receiptUrl && (
+                              <a
+                                href={receiptUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-primary text-decoration-none small d-flex align-items-center gap-1 hover-white"
+                                style={{ fontSize: "0.75rem", borderBottom: "1px dashed rgba(13, 110, 253, 0.3)" }}
+                              >
+                                <Eye size={12} /> View Full Size
+                              </a>
+                            )}
+                          </div>
+                          
+                          {selectedPayment?.receipt_path ? (
+                            <div className="position-relative">
+                              <a href={receiptUrl} target="_blank" rel="noreferrer" title="Click to view full size">
+                                <img
+                                  src={receiptUrl}
+                                  alt="Payment receipt"
+                                  className="w-100 rounded-3 border border-secondary shadow-sm"
+                                  style={{
+                                    maxHeight: 180,
+                                    objectFit: "contain",
+                                    background: "#121212",
+                                    cursor: "zoom-in"
+                                  }}
+                                  onError={(e) => {
+                                    console.error("Image failed to load:", e.currentTarget.src);
+                                    e.currentTarget.src = "https://placehold.co/400x250/222/888?text=Image+Not+Found";
+                                  }}
+                                />
+                              </a>
+                            </div>
+                          ) : (
+                            <div className="py-4 text-center border border-secondary border-dashed rounded-3 text-white-50 small">
+                              No receipt uploaded.
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                 )}
 

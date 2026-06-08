@@ -49,6 +49,25 @@ const OnlineReservations = () => {
       setLoading(false);
     }
   };
+// === REPLACE THIS METHOD IN OnlineReservations.jsx ===
+  const formatCancelledAt = (dateStr) => {
+    if (!dateStr) return "";
+    
+    // Parse the database timestamp
+    const date = new Date(dateStr);
+    
+    // Adjust by +8 hours to align perfectly with Philippine Standard Time (PHT)
+    date.setHours(date.getHours() + 8);
+    
+    return date.toLocaleString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
 
   // Filter bookings based on guest name or reservation ID
   const filteredInquiries = inquiries.filter((item) => {
@@ -356,8 +375,8 @@ const OnlineReservations = () => {
                       className="x-small text-muted"
                       style={{ fontSize: "0.72rem" }}
                     >
-                      Cancelled at:{" "}
-                      {new Date(selectedRes.cancelled_at).toLocaleString()}
+                      {/* Changed to use formatCancelledAt helper */}
+                      Cancelled at: {formatCancelledAt(selectedRes.cancelled_at)}
                     </div>
                   )}
                 </div>
