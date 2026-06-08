@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
+import io from "socket.io-client"; // Imported socket.io-client
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -21,7 +22,8 @@ import {
   LogOut,
   ChevronLeft,
   PhilippinePeso,
-  Bell, // Imported Bell for notifications
+  Bell,
+  Check,
 } from "lucide-react";
 
 // Internal Components
@@ -40,6 +42,7 @@ import WalkInReservations from "./WalkInReservations";
 
 import "../../Style/AdminDashboard.css";
 
+const SOCKET_URL = "https://yokaku-backend.onrender.com";
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 ChartJS.register(
@@ -99,7 +102,6 @@ const StatCard = ({ title, value, color, icon: Icon }) => (
       style={{ minHeight: "100px", display: "block" }}
     >
       <div className="d-flex align-items-center h-100 gap-3">
-        {/* Icon Box */}
         <div
           className={`bg-${color}-subtle text-${color} d-flex align-items-center justify-content-center flex-shrink-0`}
           style={{ width: "48px", height: "48px", borderRadius: "12px" }}
@@ -107,7 +109,6 @@ const StatCard = ({ title, value, color, icon: Icon }) => (
           <Icon size={22} />
         </div>
 
-        {/* Text Content */}
         <div className="overflow-hidden">
           <p
             className="text-muted fw-bold text-uppercase mb-1"
@@ -133,7 +134,9 @@ function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [todaySchedule, setTodaySchedule] = useState([]);
   
-  // Notification drawer state
+  // Real-time notifications state
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
   const notificationRef = useRef(null);
 
@@ -156,13 +159,14 @@ function AdminDashboard() {
     if (token && role === "admin") {
       setIsAuthenticated(true);
       fetchDashboardData();
+      fetchNotifications();
+      initializeSocket();
     } else {
       setIsAuthenticated(false);
       setLoading(false);
     }
   }, []);
 
-  // Handle click outside to close the notification popup
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (notificationRef.current && !notificationRef.current.contains(event.target)) {
@@ -181,6 +185,57 @@ function AdminDashboard() {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  // Connects Admin to socket.io to receive live booking and rejection alerts
+  const initializeSocket = () => {
+    const token = localStorage.getItem("token");
+    const userId = localStorage.getItem("userId");
+
+    if (token && userId) {
+      const socket = io(SOCKET_URL, {
+        transports: ["websocket", "polling"],
+      });
+
+      socket.on("connect", () => {
+        console.log("Admin socket connection established.");
+        socket.emit("join_user", userId);
+      });
+
+      socket.on("new_notification", (notification) => {
+        console.log("Admin received live notification:", notification);
+        setNotifications((prev) => [notification, ...prev]);
+        setUnreadCount((prev) => prev + 1);
+      });
+    }
+  };
+
+  const fetchNotifications = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await axios.get(`${API_BASE}/notifications`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setNotifications(res.data);
+      setUnreadCount(res.data.filter((n) => !n.is_read).length);
+    } catch (err) {
+      console.error("Error fetching notifications:", err);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      await axios.put(
+        `${API_BASE}/notifications/read-all`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setNotifications(notifications.map((n) => ({ ...n, is_read: 1 })));
+      setUnreadCount(0);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const fetchDashboardData = async () => {
     try {
@@ -256,6 +311,19 @@ function AdminDashboard() {
       </div>
     </div>
   );
+
+  const formatTimeAgo = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+
+    if (diffMins < 1) return "JUST NOW";
+    if (diffMins < 60) return `${diffMins}m AGO`;
+    if (diffHours < 24) return `${diffHours}h AGO`;
+    return date.toLocaleDateString();
+  };
 
   const DashboardOverview = () => (
     <div className="dashboard-content">
@@ -484,7 +552,7 @@ function AdminDashboard() {
 
           <div className="ms-auto d-flex align-items-center gap-3">
             
-            {/* NOTIFICATION BELL dropdown widget */}
+            {/* REAL-TIME NOTIFICATION BELL dropdown widget */}
             <div className="position-relative me-2" ref={notificationRef}>
               <button 
                 className="btn btn-light position-relative p-0 rounded-circle border-0 d-flex align-items-center justify-content-center"
@@ -492,12 +560,12 @@ function AdminDashboard() {
                 style={{ width: "40px", height: "40px", backgroundColor: "#f8f9fa" }}
               >
                 <Bell size={20} className="text-secondary" />
-                {todaySchedule.length > 0 && (
+                {unreadCount > 0 && (
                   <span 
                     className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-white" 
                     style={{ fontSize: "0.65rem", padding: "0.25em 0.5em" }}
                   >
-                    {todaySchedule.length}
+                    {unreadCount}
                   </span>
                 )}
               </button>
@@ -508,37 +576,48 @@ function AdminDashboard() {
                   style={{ width: "320px", zIndex: 1050, fontSize: "0.85rem", right: 0 }}
                 >
                   <div className="px-3 py-2 border-bottom d-flex justify-content-between align-items-center bg-light rounded-top-4">
-                    <span className="fw-bold text-dark">Today's Schedule</span>
-                    <span className="badge bg-primary text-white">{todaySchedule.length} active</span>
+                    <span className="fw-bold text-dark">Notifications Inbox</span>
+                    {unreadCount > 0 && (
+                      <button 
+                        className="btn btn-link btn-xs text-decoration-none p-0 text-primary fw-bold"
+                        onClick={markAllAsRead}
+                        style={{ fontSize: "0.75rem" }}
+                      >
+                        Mark all as read
+                      </button>
+                    )}
                   </div>
                   <div className="overflow-auto custom-scrollbar" style={{ maxHeight: "280px" }}>
-                    {todaySchedule.length > 0 ? (
-                      todaySchedule.map((res, index) => (
+                    {notifications.length > 0 ? (
+                      notifications.map((notif, index) => (
                         <div 
                           key={index} 
-                          className="px-3 py-2 border-bottom hover-bg transition-all"
+                          className={`px-3 py-2 border-bottom hover-bg transition-all ${!notif.is_read ? 'bg-light-subtle fw-semibold' : ''}`}
                           style={{ cursor: "pointer" }}
                           onClick={() => {
-                            setActiveSection("online-reservations");
+                            // Route admin to billing review drawer if it is a payment issue
+                            if (notif.title?.toLowerCase().includes("payment") || notif.title?.toLowerCase().includes("proof")) {
+                              setActiveSection("billing");
+                            } else {
+                              setActiveSection("online-reservations");
+                            }
                             setShowNotifications(false);
                           }}
                         >
                           <div className="d-flex justify-content-between align-items-center mb-1">
-                            <span className="fw-bold text-dark">{res.first_name} {res.last_name || ""}</span>
-                            <span className="badge bg-primary-subtle text-primary fw-bold" style={{ fontSize: "0.7rem" }}>
-                              {res.reservation_time?.substring(0, 5)}
+                            <span className="text-dark small">{notif.title}</span>
+                            <span className="text-muted smaller" style={{ fontSize: "0.7rem" }}>
+                              {formatTimeAgo(notif.created_at)}
                             </span>
                           </div>
-                          <div className="text-muted d-flex align-items-center gap-2 smaller" style={{ fontSize: "0.78rem" }}>
-                            <span>Table: <strong className="text-dark">T-{res.table_names}</strong></span>
-                            <span>•</span>
-                            <span>Guests: <strong className="text-dark">{res.num_guests || 1}</strong></span>
-                          </div>
+                          <p className="text-muted text-truncate mb-0 smaller" style={{ fontSize: "0.75rem" }}>
+                            {notif.message}
+                          </p>
                         </div>
                       ))
                     ) : (
                       <div className="text-center py-4 text-muted">
-                        <p className="mb-0 small">No reservations scheduled for today.</p>
+                        <p className="mb-0 small">Your inbox is empty.</p>
                       </div>
                     )}
                   </div>

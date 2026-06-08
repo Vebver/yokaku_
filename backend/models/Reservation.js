@@ -201,9 +201,10 @@ const Reservation = {
   create: async (data) => {
     const conn = await db.getConnection();
     try {
+      await conn.beginTransaction();
       const customId = generateRandomId();
 
-      // 1. Insert into reservations with new columns
+      // 1. Insert into reservations
       const resQuery = `INSERT INTO reservations (
         reservation_id, user_id, first_name, last_name, email, phone, 
         reservation_date, reservation_time, end_time, num_guests, 
@@ -264,7 +265,7 @@ const Reservation = {
         }
       }
 
-      // 4. Insert payment record with calculated downpayment
+      // 4. Insert payment record
       await conn.query(
         `INSERT INTO payments 
          (reservation_id, amount, total_bill, payment_method, payment_status, paid_at) 
@@ -277,7 +278,7 @@ const Reservation = {
         ],
       );
 
-      // 5. Insert notification
+      // 5. Insert notification for Customer
       if (data.userId && data.userId !== "null") {
         const notifSql = `
           INSERT INTO notifications 
@@ -290,6 +291,22 @@ const Reservation = {
           "Reservation Confirmed",
           `Your reservation for ${data.date} at ${data.startTime} has been successfully placed. Downpayment: ₱${(data.downpayment || 0).toFixed(2)}`,
         ]);
+      }
+
+      // 6. Insert notifications for all Administrators
+      try {
+        const [admins] = await conn.query("SELECT user_id FROM users WHERE role = 'admin'");
+        const notifMessage = `New reservation created by ${data.firstName} ${data.lastName || ""} for ${data.pax || data.guests || data.num_guests} guests on ${data.date}.`;
+
+        for (const admin of admins) {
+          await conn.query(
+            `INSERT INTO notifications (user_id, reservation_id, title, message, type, is_read, created_at) 
+             VALUES (?, ?, 'New Reservation Booking', ?, 'info', 0, NOW())`,
+            [admin.user_id, customId, notifMessage]
+          );
+        }
+      } catch (adminNotifErr) {
+        console.error("Non-blocking Admin Notification SQL error inside model:", adminNotifErr.message);
       }
 
       await conn.commit();
