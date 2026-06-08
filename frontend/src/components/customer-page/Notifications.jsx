@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react"; // Added useRef
 import axios from "axios";
 import io from "socket.io-client";
 import { Trash2, Archive } from "lucide-react";
@@ -7,6 +7,7 @@ import "../../Style/Notifications.css";
 
 const SOCKET_URL = "https://yokaku-backend.onrender.com";
 const API_BASE = "https://yokaku-backend.onrender.com/api";
+
 const Notifications = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -18,6 +19,10 @@ const Notifications = () => {
   const [showDeletedModal, setShowDeletedModal] = useState(false);
   const [notificationToDelete, setNotificationToDelete] = useState(null);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+
+  // States for re-uploading proof within the notification details modal
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -117,7 +122,6 @@ const Notifications = () => {
     }
   };
 
-  // Soft delete notification (move to trash)
   const handleDeleteNotification = async () => {
     if (!notificationToDelete) return;
 
@@ -143,7 +147,6 @@ const Notifications = () => {
     setShowConfirmDelete(true);
   };
 
-  // Fetch and show reservation details
   const handleViewReservation = async (reservationId) => {
     setModalLoading(true);
     try {
@@ -164,12 +167,45 @@ const Notifications = () => {
     }
   };
 
+  // Handler for uploading proof within the notification modal
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploading(true);
+    const formData = new FormData();
+    formData.append("receipt", file);
+
+    try {
+      const token = localStorage.getItem("token");
+      
+     await axios.put(
+  `${API_BASE}/billing/reupload-proof/${selectedReservation.reservation_id}`,
+  formData,
+  {
+    headers: {
+      "Content-Type": "multipart/form-data",
+      Authorization: `Bearer ${token}`,
+    },
+  }
+);
+      alert("New proof of payment uploaded. Admin will review your transaction shortly.");
+      
+      fetchNotifications();
+      closeModal();
+    } catch (error) {
+      console.error("Error re-uploading proof:", error);
+      alert("Failed to submit receipt. Please try again.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const closeModal = () => {
     setShowReservationModal(false);
     setSelectedReservation(null);
   };
 
-  // Format time difference
   const formatTimeAgo = (dateString) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -185,7 +221,6 @@ const Notifications = () => {
     return `${diffDays} DAY${diffDays > 1 ? "S" : ""} AGO`;
   };
 
-  // Format date to "April 24, 2026"
   const formatDateReadable = (dateString) => {
     if (!dateString) return "N/A";
     const date = new Date(dateString);
@@ -196,7 +231,6 @@ const Notifications = () => {
     });
   };
 
-  // Format time from "10:00:00" to "10:00 AM"
   const formatTimeDisplay = (timeStr) => {
     if (!timeStr) return "";
     if (timeStr.includes("AM") || timeStr.includes("PM")) return timeStr;
@@ -208,22 +242,17 @@ const Notifications = () => {
     return `${hour12}:${minutes} ${ampm}`;
   };
 
-  // Extract reservation ID from notification (checks multiple sources)
   const getReservationId = (notification) => {
-    // First check if the notification has a reservation_id field
     if (notification.reservation_id && notification.reservation_id !== "null") {
       return notification.reservation_id;
     }
 
-    // Then try to find in message
     let match = notification.message?.match(/Reservation ID: ([A-Z0-9-]+)/i);
     if (match) return match[1];
 
-    // Try to find in title
     match = notification.title?.match(/([A-Z0-9-]+)/i);
     if (match) return match[1];
 
-    // Try to find any alphanumeric pattern that looks like an ID (8+ characters)
     match = notification.message?.match(/([A-Z0-9]{8,})/i);
     if (match) return match[1];
 
@@ -293,7 +322,6 @@ const Notifications = () => {
                         </div>
                         <p className="notification-message">{notif.message}</p>
 
-                        {/* Reservation ID Badge - Restored */}
                         {reservationId && (
                           <div className="notif-res-id-badge">
                             Reservation ID: {reservationId}
@@ -348,7 +376,6 @@ const Notifications = () => {
         </div>
       </div>
 
-      {/* Delete Confirmation Modal */}
       {showConfirmDelete && (
         <div
           className="confirm-modal-overlay"
@@ -458,12 +485,52 @@ const Notifications = () => {
                     </span>
                   </div>
                 )}
-                {selectedReservation.payment_status && (
-                  <div className="reservation-detail-row">
-                    <span className="detail-label">Payment Status:</span>
-                    <span className="detail-value">
-                      {selectedReservation.payment_status}
-                    </span>
+                <div className="reservation-detail-row">
+                  <span className="detail-label">Payment Status:</span>
+                  <span className="detail-value">
+                    {selectedReservation.payment_status || "Pending"}
+                  </span>
+                </div>
+
+                {/* EMEDDED RE-UPLOAD INTERACTIVE CARD inside the notification's detail view */}
+                {selectedReservation.payment_status?.toLowerCase() === "rejected" && (
+                  <div 
+                    className="reupload-proof-box p-3 my-3 rounded-3" 
+                    style={{ 
+                      backgroundColor: "rgba(220, 53, 69, 0.08)", 
+                      border: "1px solid rgba(220, 53, 69, 0.25)" 
+                    }}
+                  >
+                    <div className="text-danger fw-bold mb-1 small d-flex align-items-center">
+                      ⚠️ PROOF OF PAYMENT REJECTED
+                    </div>
+                    <p className="text-muted mb-3" style={{ fontSize: "0.8rem", textAlign: "left" }}>
+                      Reason: <strong className="text-dark">{selectedReservation.rejection_reason || "Receipt details mismatch."}</strong>
+                    </p>
+
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      ref={fileInputRef} 
+                      style={{ display: "none" }} 
+                      onChange={handleFileChange}
+                    />
+
+                    <button
+                      className="btn btn-sm btn-danger fw-bold w-100 py-2"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                      style={{ fontSize: "0.8rem", width: "100%", cursor: "pointer" }}
+                    >
+                      {uploading ? (
+                        <>
+                          <span className="spinner-border spinner-border-sm me-2"></span>
+                          Uploading Proof...
+                        </>
+                      ) : (
+                        "Upload New Receipt Proof"
+                      )}
+                    </button>
                   </div>
                 )}
               </div>
@@ -482,7 +549,6 @@ const Notifications = () => {
         </div>
       )}
 
-      {/* Deleted Notifications Modal */}
       {showDeletedModal && (
         <DeletedNotifications
           onClose={() => setShowDeletedModal(false)}

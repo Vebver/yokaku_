@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import {
   Calendar,
@@ -9,6 +9,7 @@ import {
   X,
   AlertCircle,
   Edit,
+  Upload, // Added Upload icon
 } from "lucide-react";
 import TermsModal from "../TermsModal";
 import "../../Style/MyReservation.css";
@@ -30,15 +31,19 @@ const MyReservation = () => {
   const [noShowCount, setNoShowCount] = useState(0);
   const [cancellationCount, setCancellationCount] = useState(0);
   const MAX_STRIKES = 3;
-  const [isCancelling, setIsCancelling] = useState(false); // Loading state for cancel button
+  const [isCancelling, setIsCancelling] = useState(false);
 
   // New state for cancellation limit
   const [cancellationsLeft, setCancellationsLeft] = useState(3);
   const [showLimitWarning, setShowLimitWarning] = useState(false);
-  const [cooldownTimeLeft, setCooldownTimeLeft] = useState(0); // Cooldown timer in seconds
+  const [cooldownTimeLeft, setCooldownTimeLeft] = useState(0);
   const MAX_CANCELLATIONS = 3;
   const COOLDOWN_HOURS = 24;
   const COOLDOWN_SECONDS = COOLDOWN_HOURS * 60 * 60;
+
+  // New states for re-uploading payment proof
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   const cancelReasons = [
     "Change of plans",
@@ -56,14 +61,12 @@ const MyReservation = () => {
     fetchCancellationCount();
   }, []);
 
-  // Check cooldown timer every second
   useEffect(() => {
     let timer;
     if (cooldownTimeLeft > 0) {
       timer = setInterval(() => {
         setCooldownTimeLeft((prev) => {
           if (prev <= 1) {
-            // Cooldown finished, refresh cancellation count
             fetchCancellationCount();
             return 0;
           }
@@ -74,7 +77,6 @@ const MyReservation = () => {
     return () => clearInterval(timer);
   }, [cooldownTimeLeft]);
 
-  // Fetch user's cancellation count with cooldown check
   const fetchCancellationCount = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -95,7 +97,6 @@ const MyReservation = () => {
 
       setCancellationsLeft(cancellationsLeftValue);
 
-      // Check if user has reached limit and calculate cooldown
       if (cancellationsLeftValue === 0 && lastCancellationTime) {
         const lastTime = new Date(lastCancellationTime).getTime();
         const now = Date.now();
@@ -155,6 +156,42 @@ const MyReservation = () => {
     }
   };
 
+  // Re-upload handlers
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploading(true);
+    const formData = new FormData();
+    formData.append("receipt", file);
+
+    try {
+      const token = localStorage.getItem("token");
+      
+     await axios.put(
+  `${API_BASE}/billing/reupload-proof/${selectedReservation.reservation_id}`,
+  formData,
+  {
+    headers: {
+      "Content-Type": "multipart/form-data",
+      Authorization: `Bearer ${token}`,
+    },
+  }
+);
+
+      alert("New proof of payment uploaded. Admin will review your transaction shortly.");
+      
+      await fetchUserReservations();
+      handleCloseCancelModal();
+      closeModal();
+    } catch (error) {
+      console.error("Error re-uploading proof:", error);
+      alert("Failed to submit receipt. Please check file properties and try again.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleViewDetails = (reservation) => {
     setSelectedReservation(reservation);
     setShowDetailModal(true);
@@ -171,13 +208,11 @@ const MyReservation = () => {
   };
 
   const handleCancelClick = () => {
-    // Check if user has reached cancellation limit
     if (cancellationsLeft <= 0) {
       setShowLimitWarning(true);
       return;
     }
 
-    // Check if on cooldown
     if (cooldownTimeLeft > 0) {
       alert(
         `You need to wait ${formatCooldownTime(cooldownTimeLeft)} before you can cancel another reservation.`,
@@ -217,7 +252,6 @@ const MyReservation = () => {
     setShowTermsFromCancel(false);
   };
 
-  // Format cooldown time from seconds to readable format
   const formatCooldownTime = (seconds) => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -231,14 +265,13 @@ const MyReservation = () => {
     return `${secs}s`;
   };
 
-  // Check if confirm button should be disabled
   const isConfirmDisabled = () => {
     const finalReason =
       cancelReason === "Other" ? cancelReasonText : cancelReason;
     if (!finalReason) return true;
     if (!agreeToTerms) return true;
     if (cancelReason === "Other" && !cancelReasonText.trim()) return true;
-    if (isCancelling) return true; // Prevent during cancellation
+    if (isCancelling) return true;
     return false;
   };
 
@@ -250,13 +283,12 @@ const MyReservation = () => {
   };
 
   const handleProceedToCancellation = async (finalReason) => {
-    setIsCancelling(true); // Set loading state
+    setIsCancelling(true);
 
     try {
       const token = localStorage.getItem("token");
       const userId = localStorage.getItem("userId");
 
-      // Cancel the reservation
       await axios.put(
         `${API_BASE}/reservations/${selectedReservation.reservation_id}/status`,
         {
@@ -269,7 +301,6 @@ const MyReservation = () => {
         },
       );
 
-      // Record cancellation (increment count)
       await axios.post(
         `${API_BASE}/reservations/record-cancellation`,
         { userId },
@@ -297,7 +328,7 @@ const MyReservation = () => {
       console.error("Error cancelling reservation:", error);
       alert("Failed to cancel reservation. Please try again.");
     } finally {
-      setIsCancelling(false); // Reset loading state
+      setIsCancelling(false);
     }
   };
 
@@ -580,6 +611,52 @@ const MyReservation = () => {
                       <span className="detail-value">
                         {selectedReservation.payment_method}
                       </span>
+                    </div>
+                  )}
+
+                  {/* RE-UPLOAD MODULE (VISIBLE ONCE STATUS IS 'REJECTED') */}
+                  {selectedReservation.payment_status?.toLowerCase() === "rejected" && (
+                    <div 
+                      className="reupload-proof-card p-3 my-3 rounded-3" 
+                      style={{ 
+                        backgroundColor: "rgba(220, 53, 69, 0.08)", 
+                        border: "1px solid rgba(220, 53, 69, 0.25)" 
+                      }}
+                    >
+                      <div className="d-flex align-items-center text-danger fw-bold mb-1 small">
+                        <AlertCircle size={15} className="me-2" />
+                        PROOF OF PAYMENT REJECTED
+                      </div>
+                      <p className="text-muted mb-3" style={{ fontSize: "0.8rem" }}>
+                        Reason: <strong className="text-dark">{selectedReservation.rejection_reason || "Receipt details do not match your order."}</strong>
+                      </p>
+
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        ref={fileInputRef} 
+                        style={{ display: "none" }} 
+                        onChange={handleFileChange}
+                      />
+
+                      <button
+                        className="btn btn-sm btn-danger fw-bold w-100 py-2 d-flex align-items-center justify-content-center gap-2"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploading}
+                        style={{ fontSize: "0.8rem" }}
+                      >
+                        {uploading ? (
+                          <>
+                            <span className="spinner-border spinner-border-sm"></span>
+                            Uploading Proof...
+                          </>
+                        ) : (
+                          <>
+                            <Upload size={14} />
+                            Upload New Receipt Proof
+                          </>
+                        )}
+                      </button>
                     </div>
                   )}
                 </div>

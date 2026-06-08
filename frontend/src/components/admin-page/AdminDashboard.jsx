@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import {
   Chart as ChartJS,
@@ -21,6 +21,7 @@ import {
   LogOut,
   ChevronLeft,
   PhilippinePeso,
+  Bell, // Imported Bell for notifications
 } from "lucide-react";
 
 // Internal Components
@@ -131,8 +132,11 @@ function AdminDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 992);
   const [loading, setLoading] = useState(true);
   const [todaySchedule, setTodaySchedule] = useState([]);
+  
+  // Notification drawer state
+  const [showNotifications, setShowNotifications] = useState(false);
+  const notificationRef = useRef(null);
 
-  // 1. Added weeklyRevenue to the state object
   const [stats, setStats] = useState({
     totalBookings: 0,
     activeTables: 0,
@@ -158,6 +162,17 @@ function AdminDashboard() {
     }
   }, []);
 
+  // Handle click outside to close the notification popup
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setShowNotifications(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth <= 992) setSidebarOpen(false);
@@ -180,7 +195,6 @@ function AdminDashboard() {
 
       const data = statsRes.data;
 
-      // 2. Map weeklyRevenue safely from your controller response
       setStats({
         totalBookings: data.totalBookings || 0,
         activeTables: data.activeTables || 0,
@@ -246,7 +260,8 @@ function AdminDashboard() {
   const DashboardOverview = () => (
     <div className="dashboard-content">
       <h1 className="fw-bold mb-3">Welcome back, Admin</h1>
-      {/* 1. TIMELINE */}
+      
+      {/* TIMELINE */}
       <div className="mb-4 bg-white p-3 rounded-4 shadow-sm border-start border-4 border-warning">
         <div className="d-flex align-items-center mb-2">
           <Info size={16} className="text-warning me-2" />
@@ -273,7 +288,7 @@ function AdminDashboard() {
         </div>
       </div>
 
-      {/* 2. STATS CARDS */}
+      {/* STATS CARDS */}
       <h2 className="fw-bold mb-00">Report Overview</h2>
       <div className="row g-3 mb-4">
         <StatCard
@@ -296,11 +311,10 @@ function AdminDashboard() {
         />
       </div>
 
-      {/* 3. FINANCIAL SECTION & CHART */}
+      {/* FINANCIAL SECTION & CHART */}
       <div className="row g-3 mb-4">
         <div className="col-lg-5">
           <div className="row g-3">
-            {/* 3. Connected value strictly to stats.weeklyRevenue */}
             <MiniFinanceCard
               title="Weekly Revenue"
               value={stats.weeklyRevenue}
@@ -334,7 +348,6 @@ function AdminDashboard() {
           <div className="bg-white p-4 rounded-4 shadow-sm border h-100">
             <div className="d-flex justify-content-between align-items-center mb-4">
               <h6 className="fw-bold mb-0">Revenue Analytics</h6>
-              {/* 4. Displayed weekly total sum on chart badge */}
               <span className="badge bg-primary-subtle text-primary rounded-pill px-3 py-2">
                 Total: {formatCurrency(stats.weeklyRevenue)}
               </span>
@@ -359,7 +372,7 @@ function AdminDashboard() {
         </div>
       </div>
 
-      {/* 4. FLOOR STATUS */}
+      {/* FLOOR STATUS */}
       <div className="bg-white rounded-4 shadow-sm border p-4 overflow-hidden">
         <div
           className="floor-status-wrapper"
@@ -470,6 +483,80 @@ function AdminDashboard() {
           </button>
 
           <div className="ms-auto d-flex align-items-center gap-3">
+            
+            {/* NOTIFICATION BELL dropdown widget */}
+            <div className="position-relative me-2" ref={notificationRef}>
+              <button 
+                className="btn btn-light position-relative p-0 rounded-circle border-0 d-flex align-items-center justify-content-center"
+                onClick={() => setShowNotifications(!showNotifications)}
+                style={{ width: "40px", height: "40px", backgroundColor: "#f8f9fa" }}
+              >
+                <Bell size={20} className="text-secondary" />
+                {todaySchedule.length > 0 && (
+                  <span 
+                    className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-white" 
+                    style={{ fontSize: "0.65rem", padding: "0.25em 0.5em" }}
+                  >
+                    {todaySchedule.length}
+                  </span>
+                )}
+              </button>
+
+              {showNotifications && (
+                <div 
+                  className="card shadow-lg border-0 rounded-4 position-absolute end-0 mt-2 py-2"
+                  style={{ width: "320px", zIndex: 1050, fontSize: "0.85rem", right: 0 }}
+                >
+                  <div className="px-3 py-2 border-bottom d-flex justify-content-between align-items-center bg-light rounded-top-4">
+                    <span className="fw-bold text-dark">Today's Schedule</span>
+                    <span className="badge bg-primary text-white">{todaySchedule.length} active</span>
+                  </div>
+                  <div className="overflow-auto custom-scrollbar" style={{ maxHeight: "280px" }}>
+                    {todaySchedule.length > 0 ? (
+                      todaySchedule.map((res, index) => (
+                        <div 
+                          key={index} 
+                          className="px-3 py-2 border-bottom hover-bg transition-all"
+                          style={{ cursor: "pointer" }}
+                          onClick={() => {
+                            setActiveSection("online-reservations");
+                            setShowNotifications(false);
+                          }}
+                        >
+                          <div className="d-flex justify-content-between align-items-center mb-1">
+                            <span className="fw-bold text-dark">{res.first_name} {res.last_name || ""}</span>
+                            <span className="badge bg-primary-subtle text-primary fw-bold" style={{ fontSize: "0.7rem" }}>
+                              {res.reservation_time?.substring(0, 5)}
+                            </span>
+                          </div>
+                          <div className="text-muted d-flex align-items-center gap-2 smaller" style={{ fontSize: "0.78rem" }}>
+                            <span>Table: <strong className="text-dark">T-{res.table_names}</strong></span>
+                            <span>•</span>
+                            <span>Guests: <strong className="text-dark">{res.num_guests || 1}</strong></span>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-4 text-muted">
+                        <p className="mb-0 small">No reservations scheduled for today.</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="px-3 pt-2 text-center border-top">
+                    <button 
+                      className="btn btn-link btn-sm text-decoration-none text-primary fw-bold p-0"
+                      onClick={() => {
+                        setActiveSection("online-reservations");
+                        setShowNotifications(false);
+                      }}
+                    >
+                      Open Reservation Manager
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="text-end d-none d-sm-block">
               <p className="mb-0 fw-bold small text-dark">Admin User</p>
               <p className="mb-0 text-muted smaller">System Administrator</p>
@@ -488,6 +575,14 @@ function AdminDashboard() {
           )}
         </main>
       </div>
+
+      <style>{`
+        .hover-bg { transition: background-color 0.15s ease-in-out; }
+        .hover-bg:hover { background-color: #f8f9fa; }
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #dee2e6; border-radius: 10px; }
+      `}</style>
     </div>
   );
 }

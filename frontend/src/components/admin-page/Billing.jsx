@@ -6,6 +6,13 @@ import {
   ReceiptText,
   ChevronLeft,
   ChevronRight,
+  User,
+  AlertTriangle,
+  CheckCircle2,
+  Calendar,
+  Layers,
+  XCircle,
+  CornerDownRight
 } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
@@ -16,11 +23,13 @@ const Billing = () => {
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [orderItems, setOrderItems] = useState([]);
   const [loadingItems, setLoadingItems] = useState(false);
-
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
-
   const closeBtnRef = useRef(null);
+
+  // States for the in-app rejection form UI
+  const [showRejectForm, setShowRejectForm] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
 
   useEffect(() => {
     fetchPayments();
@@ -41,35 +50,49 @@ const Billing = () => {
       setLoading(false);
     }
   };
-  // In Billing.jsx (inside the Billing component)
-const getItemPrice = (item) => {
-  const isRefill =
-    item.is_refill === 1 ||
-    item.is_refill === true ||
-    (item.customizations &&
-      item.customizations.toString().includes("[REFILL]"));
-      
-  return isRefill ? 0 : Number(item.price || 0);
-};
 
-const calculateItemsSum = () => {
-  return orderItems.reduce(
-    (sum, item) => sum + item.quantity * getItemPrice(item),
-    0,
-  );
-};
+  const getItemPrice = (item) => {
+    const isRefill =
+      item.is_refill === 1 ||
+      item.is_refill === true ||
+      (item.customizations &&
+        item.customizations.toString().includes("[REFILL]"));
+    return isRefill ? 0 : Number(item.price || 0);
+  };
+
+  const calculateItemsSum = () => {
+    return orderItems.reduce(
+      (sum, item) => sum + item.quantity * getItemPrice(item),
+      0,
+    );
+  };
+
+  const getRemainingBalanceInfo = () => {
+    const total = calculateItemsSum();
+    const paid = Number(selectedPayment?.amount || 0);
+    const exceeds = total > paid;
+    return {
+      remaining: exceeds ? total - paid : 0,
+      exceeds,
+      overpaid: paid > total ? paid - total : 0
+    };
+  };
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentPayments = payments.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(payments.length / itemsPerPage);
-
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   const handleReviewClick = async (p) => {
     setSelectedPayment(p);
     setOrderItems([]);
     setLoadingItems(true);
+    
+    // Reset rejection states on review open
+    setShowRejectForm(false);
+    setRejectReason("The receipt image is unclear or details do not match.");
+    
     try {
       const token = localStorage.getItem("token");
       const res = await axios.get(
@@ -84,138 +107,163 @@ const calculateItemsSum = () => {
     }
   };
 
+  // Submit the rejected status with our state-managed text
+  const submitRejection = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return alert("Please log in again.");
+
+    const finalReason = rejectReason.trim() || "Invalid proof of payment. Please re-upload within 12 hours.";
+
+    try {
+      await axios.put(
+        `${API_BASE}/billing/reject/${selectedPayment.reservation_id}`,
+        { reason: finalReason },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+
+      setSelectedPayment((prev) => ({
+        ...prev,
+        payment_status: "rejected",
+        rejection_reason: finalReason,
+      }));
+
+      await fetchPayments();
+      setShowRejectForm(false);
+    } catch (err) {
+      console.error("Rejection error:", err);
+      alert("Failed to reject payment.");
+    }
+  };
+
   if (loading)
     return (
-      <div className="d-flex justify-content-center align-items-center vh-100">
-        <Loader2 className="animate-spin text-primary" size={40} />
+      <div className="d-flex justify-content-center align-items-center vh-100 bg-light">
+        <div className="text-center">
+          <Loader2 className="animate-spin text-primary mb-2" size={40} />
+          <div className="text-muted small fw-semibold">Loading transactions...</div>
+        </div>
       </div>
     );
 
+  const balanceInfo = getRemainingBalanceInfo();
+
   return (
-    <div
-      className="container-fluid py-4 bg-light"
-      style={{ minHeight: "100vh" }}
-    >
-      <div className="d-flex justify-content-between align-items-center mb-4 px-2">
-        <div>
-          <h2 className="fw-bold mb-1">Billing & Transactions</h2>
+    <div className="container-fluid py-4 bg-light" style={{ minHeight: "100vh" }}>
+      {/* HEADER SECTION */}
+      <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 px-3">
+        <div className="mb-3 mb-md-0">
+          <span className="badge bg-primary-subtle text-primary mb-2 px-3 py-2 fw-bold text-uppercase tracking-wider">
+            Finance Portal
+          </span>
+          <h2 className="fw-bold mb-1 text-dark">Billing & Transactions</h2>
           <p className="text-muted small mb-0">
-            Manage payments for Online Bookings and Walk-in Kiosks
+            Monitor incoming payments, verify customer receipts, and manage order settlements.
           </p>
         </div>
         <button
-          className="btn btn-white border shadow-sm fw-bold"
+          className="btn btn-white border shadow-sm fw-bold px-4 py-2 text-dark bg-white d-flex align-items-center align-self-start"
           onClick={fetchPayments}
         >
-          <RefreshCw size={16} className="me-2" /> Refresh
+          <RefreshCw size={15} className="me-2 text-primary" /> Refresh Data
         </button>
       </div>
 
+      {/* TABLE CARD */}
       <div className="card border-0 shadow-sm rounded-4 overflow-hidden mx-2">
         <div className="table-responsive">
-          <table
-            className="table table-hover align-middle mb-0"
-            style={{ minWidth: "1100px" }}
-          >
-            <thead className="bg-light border-bottom">
-              <tr
-                className="text-muted small text-uppercase"
-                style={{ fontSize: "0.7rem", letterSpacing: "0.8px" }}
-              >
-                <th className="ps-4 py-3">Customer</th>
+          <table className="table table-hover align-middle mb-0" style={{ minWidth: "1100px" }}>
+            <thead className="bg-light-subtle border-bottom">
+              <tr className="text-muted small text-uppercase" style={{ fontSize: "0.72rem", letterSpacing: "0.8px" }}>
+                <th className="ps-4 py-3">Customer Profile</th>
                 <th>Method</th>
-                <th>Amount Paid</th>
-                <th>Pay Status</th>
-                <th>Settlement</th>
-                <th className="text-center">Order Status</th>
+                <th>Downpayment Paid</th>
+                <th>Payment Proof</th>
+                <th>Settlement Status</th>
+                <th className="text-center">Order status</th>
                 <th className="text-end pe-4">Action</th>
               </tr>
             </thead>
             <tbody>
               {currentPayments.length > 0 ? (
-                currentPayments.map((p) => (
-                  <tr key={p.payment_id}>
-                    <td className="ps-4 py-3">
-                      <div className="fw-bold">
-                        {p.first_name === "Walk-in"
-                          ? `Kiosk (Table ${p.table_number || "?"})`
-                          : `${p.first_name || "Guest"} ${p.last_name || ""}`}
-                      </div>
-                      <small className="text-muted">{p.reservation_id}</small>
-                    </td>
-                    <td>
-                      <span className="badge bg-white text-dark border font-monospace">
-                        {p.payment_method
-                          ? p.payment_method.toUpperCase()
-                          : "PENDING"}
-                      </span>
-                    </td>
-                    <td className="fw-bold text-primary">
-                      ₱{p.amount ? Number(p.amount).toLocaleString() : "0.00"}
-                    </td>
-                    <td>
-                      <span
-                        className={`badge rounded-pill px-3 ${
-                          p.payment_status === "verified"
-                            ? "bg-success"
-                            : p.payment_status === "rejected"
-                              ? "bg-danger"
-                              : "bg-warning text-dark"
-                        }`}
-                      >
-                        {(p.payment_status || "PENDING").toUpperCase()}
-                      </span>
-                    </td>
+                currentPayments.map((p) => {
+                  const payStatus = (p.payment_status || "PENDING").toLowerCase();
+                  const isCompleted = (p.order_status || p.status || "").toLowerCase() === "completed";
 
-                    {/* NEW SETTLEMENT COLUMN LOGIC */}
-                    <td>
-                      {/* FIX: Convert to lowercase before comparing */}
-                      {p.order_status?.toLowerCase() === "completed" ||
-                      p.status?.toLowerCase() === "completed" ? (
-                        <span className="badge bg-primary-subtle text-primary border border-primary-subtle px-3">
-                          FULL PAID
+                  return (
+                    <tr key={p.payment_id} className="transition-all">
+                      <td className="ps-4 py-3">
+                        <div className="d-flex align-items-center">
+                          <div className="avatar bg-light rounded-circle p-2 me-3 text-secondary d-flex align-items-center justify-content-center" style={{ width: 38, height: 38 }}>
+                            <User size={16} />
+                          </div>
+                          <div>
+                            <div className="fw-bold text-dark mb-0">
+                              {p.first_name === "Walk-in"
+                                ? `Kiosk (Table ${p.table_number || "?"})`
+                                : `${p.first_name || "Guest"} ${p.last_name || ""}`}
+                            </div>
+                            <small className="text-muted font-monospace" style={{ fontSize: "0.75rem" }}>
+                              ID: {p.reservation_id}
+                            </small>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span className="badge bg-light text-dark border px-2 py-1 font-monospace" style={{ fontSize: "0.75rem" }}>
+                          {p.payment_method ? p.payment_method.toUpperCase() : "PENDING"}
                         </span>
-                      ) : (
-                        <span className="badge bg-light text-muted border px-3">
-                          PARTIAL
+                      </td>
+                      <td>
+                        <div className="fw-bold text-dark">
+                          ₱{p.amount ? Number(p.amount).toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00"}
+                        </div>
+                      </td>
+                      <td>
+                        <span className={`badge rounded-pill px-3 py-1.5 fw-semibold ${
+                          payStatus === "verified"
+                            ? "bg-success-subtle text-success"
+                            : payStatus === "rejected"
+                              ? "bg-danger-subtle text-danger"
+                              : "bg-warning-subtle text-warning-emphasis"
+                        }`}>
+                          {payStatus.toUpperCase()}
                         </span>
-                      )}
-                    </td>
-
-                    <td className="text-center">
-                      {(() => {
-                        const statusText = (
-                          p.order_status ||
-                          p.status ||
-                          "PENDING"
-                        ).toLowerCase();
-                        const isCompleted = statusText === "completed";
-
-                        return (
-                          <span
-                            className={`badge rounded-pill px-3 ${isCompleted ? "bg-success" : "bg-dark"}`}
-                          >
-                            {statusText.toUpperCase()}
+                      </td>
+                      <td>
+                        {isCompleted ? (
+                          <span className="badge bg-info-subtle text-info border border-info-subtle px-3 py-1.5 fw-semibold">
+                            FULLY PAID
                           </span>
-                        );
-                      })()}
-                    </td>
-                    <td className="text-end pe-4">
-                      <button
-                        className="btn btn-sm btn-dark px-3 fw-bold shadow-sm"
-                        data-bs-toggle="offcanvas"
-                        data-bs-target="#billingDrawer"
-                        onClick={() => handleReviewClick(p)}
-                      >
-                        Review
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                        ) : (
+                          <span className="badge bg-light text-muted border px-3 py-1.5 fw-semibold">
+                            PARTIAL BILL
+                          </span>
+                        )}
+                      </td>
+                      <td className="text-center">
+                        <span className={`badge rounded-pill px-3 py-1.5 fw-semibold ${isCompleted ? "bg-success text-white" : "bg-secondary text-white"}`}>
+                          {(p.order_status || p.status || "PENDING").toUpperCase()}
+                        </span>
+                      </td>
+                      <td className="text-end pe-4">
+                        <button
+                          className="btn btn-sm btn-dark px-3 fw-bold shadow-sm rounded-3 py-1.5"
+                          data-bs-toggle="offcanvas"
+                          data-bs-target="#billingDrawer"
+                          onClick={() => handleReviewClick(p)}
+                        >
+                          Review
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
                   <td colSpan="7" className="text-center py-5 text-muted">
-                    No transactions found.
+                    <div className="py-3">
+                      <p className="mb-0 fw-semibold">No transactions available</p>
+                    </div>
                   </td>
                 </tr>
               )}
@@ -225,35 +273,24 @@ const calculateItemsSum = () => {
 
         {/* PAGINATION */}
         {payments.length > itemsPerPage && (
-          <div className="p-3 border-top bg-white d-flex justify-content-between align-items-center">
+          <div className="p-3 border-top bg-white d-flex flex-column flex-sm-row justify-content-between align-items-center gap-2">
             <span className="text-muted small">
-              Showing {indexOfFirstItem + 1} to{" "}
-              {Math.min(indexOfLastItem, payments.length)} of {payments.length}
+              Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, payments.length)} of {payments.length}
             </span>
             <nav>
               <ul className="pagination pagination-sm mb-0">
-                <li
-                  className={`page-item ${currentPage === 1 ? "disabled" : ""}`}
-                >
-                  <button
-                    className="page-link"
-                    onClick={() => paginate(currentPage - 1)}
-                  >
+                <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
+                  <button className="page-link rounded-3 me-1" onClick={() => paginate(currentPage - 1)}>
                     <ChevronLeft size={14} />
                   </button>
                 </li>
                 <li className="page-item disabled">
-                  <span className="page-link text-dark fw-bold">
+                  <span className="page-link text-dark fw-bold border-0 bg-transparent px-3">
                     Page {currentPage} of {totalPages}
                   </span>
                 </li>
-                <li
-                  className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}
-                >
-                  <button
-                    className="page-link"
-                    onClick={() => paginate(currentPage + 1)}
-                  >
+                <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
+                  <button className="page-link rounded-3" onClick={() => paginate(currentPage + 1)}>
                     <ChevronRight size={14} />
                   </button>
                 </li>
@@ -262,7 +299,8 @@ const calculateItemsSum = () => {
           </div>
         )}
       </div>
-      {/* FIXED OFFCANVAS ELEMENT */}
+
+      {/* OFFCANVAS DRAWER */}
       <div
         className="offcanvas offcanvas-end border-0 shadow-lg"
         tabIndex="-1"
@@ -271,10 +309,9 @@ const calculateItemsSum = () => {
         data-bs-scroll="true"
         style={{ width: "min(100%, 500px)" }}
       >
-        <div className="offcanvas-header border-bottom bg-white">
-          <h5 className="fw-bold m-0">
-            <ReceiptText size={20} className="me-2 text-primary" /> Financial
-            Review
+        <div className="offcanvas-header border-bottom bg-white py-3">
+          <h5 className="fw-bold m-0 d-flex align-items-center text-dark">
+            <ReceiptText size={20} className="me-2 text-primary" /> Financial Review
           </h5>
           <button
             type="button"
@@ -284,220 +321,278 @@ const calculateItemsSum = () => {
           ></button>
         </div>
 
-       <div className="offcanvas-body p-0 d-flex flex-column">
-  {selectedPayment && (
-    <>
-      {/* 1. ORDER ITEMS LIST */}
-      <div className="p-3 flex-grow-1 overflow-auto bg-light-subtle">
-        <span
-          className="fw-bold text-muted text-uppercase d-block mb-3"
-          style={{ fontSize: "0.7rem" }}
-        >
-          Order Summary
-        </span>
-        {loadingItems ? (
-          <div className="text-center py-5">
-            <Loader2 className="animate-spin text-primary" />
-          </div>
-        ) : (
-          <div className="item-list">
-            {orderItems.map((item, idx) => {
-              // Check if the item is a refill record
-              const isRefill =
-                item.is_refill === 1 ||
-                item.is_refill === true ||
-                (item.customizations &&
-                  item.customizations.toString().includes("[REFILL]"));
-
-              // Force price to 0 if it is a refill, otherwise use the regular price
-              const currentPrice = isRefill ? 0 : Number(item.price || 0);
-
-              return (
-                <div
-                  key={idx}
-                  className="mb-2 p-2 bg-white rounded-2 border-bottom shadow-sm"
-                >
-                  <div className="d-flex justify-content-between small">
-                    <div className="fw-bold text-dark">
-                      {item.name || item.item_name}{" "}
-                      <span className="text-primary ms-1">
-                        x{item.quantity}
-                      </span>
-                      {isRefill && (
-                        <span className="badge bg-success ms-2 text-uppercase" style={{ fontSize: "0.65rem" }}>
-                          Refill
-                        </span>
-                      )}
-                    </div>
-                    <div className="fw-bold">
-                      ₱{(item.quantity * currentPrice).toLocaleString()}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-              {/* 2. PAYMENT REVIEW PANEL */}
-              <div className="p-4 bg-dark text-white shadow-lg">
-                <div className="d-flex justify-content-between border-bottom border-secondary pb-2 mb-3">
-                  <span className="text-white-50 small">Total Bill</span>
-                  <span className="fw-bold fs-5 text-warning">
-                    ₱{calculateItemsSum().toLocaleString()}
+        <div className="offcanvas-body p-0 d-flex flex-column bg-light-subtle">
+          {selectedPayment && (
+            <>
+              {/* 1. ORDER SUMMARY SECTION */}
+              <div className="p-4 flex-grow-1 overflow-auto">
+                <div className="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
+                  <span className="fw-bold text-muted text-uppercase tracking-wider" style={{ fontSize: "0.7rem" }}>
+                    Order Items
+                  </span>
+                  <span className="badge bg-secondary-subtle text-secondary font-monospace" style={{ fontSize: "0.7rem" }}>
+                    ID: {selectedPayment.reservation_id}
                   </span>
                 </div>
 
-                {/* CLOUDINARY IMAGE DISPLAY */}
-                <div className="mt-2">
-                  <span className="text-white-50 small">Proof of Payment</span>
-                  {selectedPayment?.receipt_path ? (
-                    <img
-                      src={
-                        selectedPayment.receipt_path?.startsWith("http")
-                          ? selectedPayment.receipt_path
-                          : selectedPayment.receipt_path?.includes(
-                                "restaurant_",
-                              ) // FIX: Use "restaurant_" to catch all Cloudinary folders
-                            ? `https://res.cloudinary.com/dfajhhh84/image/upload/${selectedPayment.receipt_path}`
-                            : `${API_BASE.replace("/api", "")}/uploads/${selectedPayment.receipt_path}`
-                      }
-                      alt="Payment receipt"
-                      className="w-100 rounded-3 border border-secondary shadow"
-                      style={{
-                        maxHeight: 250,
-                        objectFit: "contain",
-                        background: "#1a1a1a",
-                      }}
-                      onError={(e) => {
-                        console.error(
-                          "Image failed to load at URL:",
-                          e.currentTarget.src,
-                        );
-                        e.currentTarget.src =
-                          "https://placehold.co/400x250/222/888?text=Image+Not+Found";
-                      }}
-                    />
-                  ) : (
-                    <div className="py-4 text-center border border-secondary border-dashed rounded-3 text-white-50 small">
-                      No receipt uploaded.
+                {loadingItems ? (
+                  <div className="text-center py-5">
+                    <Loader2 className="animate-spin text-primary" />
+                    <div className="text-muted small mt-2">Loading itemized summary...</div>
+                  </div>
+                ) : (
+                  <div className="item-list">
+                    {orderItems.map((item, idx) => {
+                      const isRefill =
+                        item.is_refill === 1 ||
+                        item.is_refill === true ||
+                        (item.customizations &&
+                          item.customizations.toString().includes("[REFILL]"));
+                      const currentPrice = isRefill ? 0 : Number(item.price || 0);
+
+                      return (
+                        <div key={idx} className="mb-2 p-3 bg-white rounded-3 border shadow-sm">
+                          <div className="d-flex justify-content-between align-items-center">
+                            <div>
+                              <div className="fw-bold text-dark small">
+                                {item.name || item.item_name}
+                                {isRefill && (
+                                  <span className="badge bg-success-subtle text-success ms-2 text-uppercase" style={{ fontSize: "0.65rem" }}>
+                                    Refill
+                                  </span>
+                                )}
+                              </div>
+                              <small className="text-muted">
+                                Unit Price: ₱{currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              </small>
+                            </div>
+                            <div className="text-end">
+                              <span className="badge bg-light text-dark border me-2">x{item.quantity}</span>
+                              <span className="fw-bold text-dark small">
+                                ₱{(item.quantity * currentPrice).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* 2. RECEIPT & METADATA SECTION */}
+              <div className="p-4 bg-dark text-white rounded-top-4 shadow-lg mt-auto">
+                
+                {/* FINANCIAL SUMMARY */}
+                <div className="card bg-secondary bg-opacity-25 border-secondary border-opacity-25 p-3 mb-3">
+                  <div className="d-flex justify-content-between mb-1 text-white-50 small">
+                    <span>Total Bill</span>
+                    <span className="text-white">₱{calculateItemsSum().toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="d-flex justify-content-between mb-2 text-white-50 small pb-2 border-bottom border-secondary border-opacity-50">
+                    <span>Downpayment Paid</span>
+                    <span className="text-success-emphasis fw-semibold">
+                      ₱{Number(selectedPayment?.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+
+                  {/* REMAINING BALANCE CALCULATION */}
+                  <div className="d-flex justify-content-between align-items-center">
+                    <span className="small fw-semibold text-white-50">Remaining Balance</span>
+                    {balanceInfo.exceeds ? (
+                      <span className="fw-bold text-warning fs-5">
+                        ₱{balanceInfo.remaining.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </span>
+                    ) : (
+                      <span className="badge bg-success-subtle text-success fw-semibold">
+                        ₱0.00 (Paid in Full)
+                      </span>
+                    )}
+                  </div>
+                  
+                  {balanceInfo.exceeds && (
+                    <div className="mt-2 text-warning-emphasis small d-flex align-items-center" style={{ fontSize: "0.75rem" }}>
+                      <AlertTriangle size={12} className="me-1 text-warning" />
+                      Amount exceeds downpayment. Collect remainder at settlement.
                     </div>
                   )}
                 </div>
 
-                {/* ACTION BUTTONS (Verify & Reject) */}
-                <div className="mt-4 d-grid gap-2">
-                  {/* --- 1. PROOF VERIFICATION BLOCK --- */}
-                  {/* Disappears once the receipt is verified */}
-                  {selectedPayment?.payment_status !== "verified" && (
+                {/* ALERT BLOCK FOR REJECTED ATTEMPTS */}
+                {selectedPayment?.payment_status === "rejected" && !showRejectForm && (
+                  <div className="alert alert-danger border-0 bg-danger bg-opacity-10 text-white p-3 mb-3 rounded-3">
+                    <div className="d-flex align-items-center mb-1 text-danger">
+                      <XCircle size={16} className="me-2" />
+                      <span className="fw-bold small text-uppercase tracking-wider">Proof Rejected</span>
+                    </div>
+                    <div className="text-white-50 small mb-2 text-start px-1" style={{ fontSize: "0.8rem" }}>
+                      <strong>Reason: </strong> {selectedPayment.rejection_reason || "Invalid receipt upload."}
+                    </div>
+                    <div className="text-warning small d-flex align-items-center bg-warning bg-opacity-10 rounded p-1.5" style={{ fontSize: "0.72rem" }}>
+                      <Calendar size={12} className="me-1" />
+                      Customer notified. 12-hour grace period active.
+                    </div>
+                  </div>
+                )}
+
+                {/* IMAGE OF PAYMENT DISPLAY */}
+                {!showRejectForm && (
+                  <div className="mt-2 mb-4">
+                    <span className="text-white-50 small d-block mb-2">Proof of Payment Attachment</span>
+                    {selectedPayment?.receipt_path ? (
+                      <div className="position-relative">
+                        <img
+                          src={
+                            selectedPayment.receipt_path?.startsWith("http")
+                              ? selectedPayment.receipt_path
+                              : selectedPayment.receipt_path?.includes("restaurant_")
+                                ? `https://res.cloudinary.com/dfajhhh84/image/upload/${selectedPayment.receipt_path}`
+                                : `${API_BASE.replace("/api", "")}/uploads/${selectedPayment.receipt_path}`
+                          }
+                          alt="Payment receipt"
+                          className="w-100 rounded-3 border border-secondary shadow-sm"
+                          style={{
+                            maxHeight: 180,
+                            objectFit: "contain",
+                            background: "#121212",
+                          }}
+                          onError={(e) => {
+                            console.error("Image failed to load:", e.currentTarget.src);
+                            e.currentTarget.src = "https://placehold.co/400x250/222/888?text=Image+Not+Found";
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <div className="py-4 text-center border border-secondary border-dashed rounded-3 text-white-50 small">
+                        No receipt uploaded.
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* IN-APP CUSTOM REJECTION FORM (REPLACES WINDOW.PROMPT) */}
+                {showRejectForm && (
+                  <div className="card bg-danger bg-opacity-10 border border-danger border-opacity-25 p-3 mb-3 rounded-3 animate-fade-in">
+                    <div className="text-danger fw-bold small mb-2 d-flex align-items-center">
+                      <CornerDownRight size={14} className="me-1" /> Specify Rejection Reason
+                    </div>
+                    <textarea
+                      className="form-control form-control-sm bg-dark text-white border-secondary mb-3 shadow-inner"
+                      rows="3"
+                      style={{ fontSize: "0.85rem", resize: "none" }}
+                      placeholder="Write feedback for the customer..."
+                      value={rejectReason}
+                      onChange={(e) => setRejectReason(e.target.value)}
+                    />
+                    <div className="d-flex gap-2">
+                      <button
+                        className="btn btn-danger btn-sm fw-bold flex-grow-1"
+                        onClick={submitRejection}
+                      >
+                        Submit Rejection
+                      </button>
+                      <button
+                        className="btn btn-outline-secondary btn-sm text-white-50"
+                        onClick={() => setShowRejectForm(false)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* ACTION CONTROLS */}
+                <div className="d-grid gap-2">
+                  {!showRejectForm && selectedPayment?.payment_status !== "verified" && (
                     <>
                       <button
-                        className="btn btn-success btn-lg fw-bold"
+                        className="btn btn-success btn-lg fw-bold fs-6 py-2.5 shadow-sm d-flex align-items-center justify-content-center"
                         onClick={async () => {
                           const token = localStorage.getItem("token");
-                          if (
-                            !token ||
-                            !window.confirm("Verify this payment proof?")
-                          )
-                            return;
+                          if (!token || !window.confirm("Verify this proof of payment?")) return;
                           try {
                             await axios.put(
                               `${API_BASE}/billing/verify/${selectedPayment.reservation_id}`,
                               {},
                               { headers: { Authorization: `Bearer ${token}` } },
                             );
-                            fetchPayments();
+                            
+                            setSelectedPayment((prev) => ({
+                              ...prev,
+                              payment_status: "verified"
+                            }));
+                            
+                            await fetchPayments();
                             closeBtnRef.current?.click();
                           } catch (err) {
                             alert("Failed to verify.");
                           }
                         }}
                       >
-                        Verify Payment Proof
+                        <CheckCircle2 size={16} className="me-2" /> Verify Payment Proof
                       </button>
 
-                      <button
-                        className="btn btn-outline-danger fw-bold"
-                        onClick={async () => {
-                          const token = localStorage.getItem("token");
-                          if (!token || !window.confirm("Reject this payment?"))
-                            return;
-                          try {
-                            await axios.put(
-                              `${API_BASE}/billing/reject/${selectedPayment.reservation_id}`,
-                              {},
-                              { headers: { Authorization: `Bearer ${token}` } },
-                            );
-                            fetchPayments();
-                            closeBtnRef.current?.click();
-                          } catch (err) {
-                            alert("Failed to reject.");
-                          }
-                        }}
-                      >
-                        Reject Payment
-                      </button>
+                      {selectedPayment?.payment_status !== "rejected" && (
+                        <button
+                          className="btn btn-outline-danger fw-bold py-2 border-secondary"
+                          onClick={() => setShowRejectForm(true)} // Open the embedded UI form instead
+                        >
+                          Reject Proof
+                        </button>
+                      )}
                     </>
                   )}
 
-                  {/* --- 2. SETTLE BILL BLOCK --- */}
-                  {/* This button will disappear ONLY when the order_status/status is 'completed' */}
-                  {selectedPayment?.order_status?.toLowerCase() !==
-                    "completed" &&
-                  selectedPayment?.status?.toLowerCase() !== "completed" ? (
-                    <button
-                      className="btn btn-primary fw-bold py-2"
-                      onClick={async () => {
-                        const token = localStorage.getItem("token");
-                        if (!token) return alert("Please log in again.");
-                        if (
-                          !window.confirm("Mark as FULLY PAID and COMPLETED?")
-                        )
-                          return;
+                  {/* SETTLE COMPLETED TRANSACTION PANEL */}
+                  {!showRejectForm && (
+                    selectedPayment?.order_status?.toLowerCase() !== "completed" &&
+                    selectedPayment?.status?.toLowerCase() !== "completed" ? (
+                      <button
+                        className="btn btn-primary fw-bold py-2.5 d-flex align-items-center justify-content-center"
+                        onClick={async () => {
+                          const token = localStorage.getItem("token");
+                          if (!token) return alert("Please log in again.");
+                          if (!window.confirm("Mark this transaction as FULLY PAID and COMPLETED?")) return;
 
-                        try {
-                          await axios.put(
-                            `${API_BASE}/billing/settle/${selectedPayment.reservation_id}`,
-                            {},
-                            { headers: { Authorization: `Bearer ${token}` } },
-                          );
+                          try {
+                            await axios.put(
+                              `${API_BASE}/billing/settle/${selectedPayment.reservation_id}`,
+                              {},
+                              { headers: { Authorization: `Bearer ${token}` } },
+                            );
 
-                          // FIX 1: Manually update the selectedPayment state so the button disappears
-                          setSelectedPayment((prev) => ({
-                            ...prev,
-                            order_status: "completed", // Match your SQL alias
-                            payment_status: "verified",
-                          }));
+                            setSelectedPayment((prev) => ({
+                              ...prev,
+                              order_status: "completed",
+                              payment_status: "verified",
+                            }));
 
-                          // FIX 2: Refresh the main list
-                          await fetchPayments();
-
-                          alert("Transaction Settled!");
-                          // Optional: closeBtnRef.current?.click();
-                        } catch (err) {
-                          console.error("Settle error:", err.response?.data);
-                          alert("Failed to settle bill.");
-                        }
-                      }}
-                    >
-                      Verify Full Paid (Settle)
-                    </button>
-                  ) : (
-                    /* This message shows when the Settle button disappears */
-                    <div className="alert alert-success border-0 py-3 text-center mb-0">
-                      <div className="fw-bold">✓ TRANSACTION COMPLETED</div>
-                      <small className="opacity-75">
-                        This bill has been fully settled.
-                      </small>
-                    </div>
+                            await fetchPayments();
+                            alert("Transaction Settled!");
+                          } catch (err) {
+                            console.error("Settle error:", err.response?.data);
+                            alert("Failed to settle bill.");
+                          }
+                        }}
+                      >
+                        <Layers size={16} className="me-2" /> Settle Bill (Fully Paid)
+                      </button>
+                    ) : (
+                      <div className="alert alert-success border-0 py-3 text-center mb-0 d-flex flex-column align-items-center bg-success bg-opacity-10 text-success">
+                        <CheckCircle2 size={24} className="mb-2" />
+                        <div className="fw-bold small text-uppercase tracking-wide">Transaction Settle Complete</div>
+                        <small className="opacity-75" style={{ fontSize: "0.75rem" }}>
+                          This bill has been paid and completed.
+                        </small>
+                      </div>
+                    )
                   )}
 
                   <button
-                    className="btn btn-secondary mt-2"
+                    className="btn btn-outline-secondary text-white-50 border-0 mt-1 py-2 btn-sm"
                     data-bs-dismiss="offcanvas"
                   >
-                    Close
+                    Close Drawer
                   </button>
                 </div>
               </div>
@@ -507,9 +602,18 @@ const calculateItemsSum = () => {
       </div>
 
       <style>{`
-        .page-link { color: #6c757d; transition: all 0.2s; }
-        .page-link:hover { background-color: #e9ecef; }
-        .page-item.active .page-link { box-shadow: 0 4px 10px rgba(13, 110, 253, 0.2); }
+        .transition-all { transition: all 0.2s ease-in-out; }
+        .transition-all:hover { background-color: rgba(0, 0, 0, 0.015); }
+        .page-link { color: #495057; border: 1px solid #dee2e6; background-color: #fff; }
+        .page-link:hover { background-color: #f8f9fa; color: #212529; }
+        .page-item.disabled .page-link { color: #6c757d; pointer-events: none; background-color: #fff; border-color: #dee2e6; }
+        .animate-fade-in {
+          animation: fadeIn 0.25s ease-out forwards;
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(5px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
       `}</style>
     </div>
   );
