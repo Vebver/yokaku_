@@ -102,7 +102,7 @@ const productController = {
 
   createProduct: async (req, res) => {
     try {
-      const { name, description, price, category_id, is_available, is_featured } = req.body;
+      const { menu_name, description, price, category_id, is_available, is_featured } = req.body;
       if (!req.file) return res.status(400).json({ error: "No image file provided." });
       const local_disk_path = `/uploads/${req.file.filename}`;
       let cloudinary_url = null;
@@ -112,7 +112,7 @@ const productController = {
       } catch (cloudErr) { console.error("Cloudinary Error:", cloudErr.message); }
 
       const newId = await Product.create({
-        name, description, price: parseFloat(price) || 0,
+        menu_name, description, price: parseFloat(price) || 0,
         category_id: parseInt(category_id), image_url: local_disk_path, 
         local_path: cloudinary_url, is_available: parseInt(is_available) || 1,
         is_featured: parseInt(is_featured) || 0,
@@ -131,8 +131,8 @@ const productController = {
   updateProduct: async (req, res) => {
     try {
       const { id } = req.params;
-      const { name, description, price, category_id, is_available, is_featured } = req.body;
-      const data = { name, description, price: parseFloat(price) || 0.0, category_id: parseInt(category_id), is_available: parseInt(is_available), is_featured: parseInt(is_featured) };
+      const { menu_name, description, price, category_id, is_available, is_featured } = req.body;
+      const data = { menu_name, description, price: parseFloat(price) || 0.0, category_id: parseInt(category_id), is_available: parseInt(is_available), is_featured: parseInt(is_featured) };
       if (req.file) {
         data.image_url = `/uploads/${req.file.filename}`;
         try {

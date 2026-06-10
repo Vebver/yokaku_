@@ -2460,20 +2460,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   <label>
                     <Baby size={12} /> HIGH CHAIR NEEDED?
                   </label>
-                  <div className="radio-group-horizontal">
-                    {["Yes", "No"].map((opt) => (
-                      <label key={opt} className="custom-radio">
-                        <input
-                          type="radio"
-                          name="highChair"
-                          value={opt}
-                          checked={form.highChair === opt}
-                          onChange={handleInputChange}
-                        />
-                        <span>{opt}</span>
-                      </label>
-                    ))}
-                  </div>
                 </div>
                 <div className="input-group">
                   <label>

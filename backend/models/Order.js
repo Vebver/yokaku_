@@ -230,7 +230,7 @@ const Order = {
       ko.customizations,
       ko.allergy_note,
       ko.created_at as timestamp,
-      mi.name as item_name,
+      mi.menu_name as item_name,
       mi.price,
       CASE 
         WHEN rt.table_id IS NOT NULL THEN CONCAT('Table ', rt.table_id)

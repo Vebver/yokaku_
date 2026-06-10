@@ -71,11 +71,11 @@ const orderController = {
 
       for (const item of items) {
         const [menuData] = await conn.execute(
-          "SELECT name FROM menu_items WHERE item_id = ?",
+          "SELECT menu_name FROM menu_items WHERE item_id = ?",
           [item.item_id || item.id],
         );
 
-        const itemName = menuData[0]?.name || "Unknown Item";
+        const itemName = menuData[0]?.menu_name || "Unknown Item";
 
         // Save the order to DB
         await Order.createOrderEntry(

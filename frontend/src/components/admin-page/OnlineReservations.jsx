@@ -336,25 +336,6 @@ const OnlineReservations = () => {
                       {selectedRes.num_guests || "0"} Pax
                     </div>
                   </div>
-                  <div className="col-4">
-                    <div className="x-small text-muted text-uppercase">
-                      High Chair
-                    </div>
-                    <div className="small fw-bold">
-                      {(() => {
-                        const v = selectedRes.highChair;
-                        if (v === true) return "Yes";
-                        if (typeof v === "string") {
-                          const s = v.trim().toLowerCase();
-                          if (["yes", "y", "true", "1"].includes(s))
-                            return "Yes";
-                          if (["no", "n", "false", "0", ""].includes(s))
-                            return "No";
-                        }
-                        return "No";
-                      })()}
-                    </div>
-                  </div>
                 </div>
               </div>
 
