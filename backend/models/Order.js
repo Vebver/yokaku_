@@ -202,21 +202,21 @@ const Order = {
     }
   },
 
-  getPreReservedItems: async (reservationId) => {
-    const query = `
-      SELECT m.*, ri.quantity, ri.customizations 
-      FROM menu_items m 
-      JOIN reservation_items ri ON m.item_id = ri.product_id 
-      WHERE ri.reservation_id = ?
-      UNION ALL
-      SELECT m.*, ko.quantity, ko.customizations 
-      FROM menu_items m 
-      JOIN kiosk_orders ko ON m.item_id = ko.item_id 
-      WHERE ko.reservation_id = ?
-    `;
-    const [rows] = await db.execute(query, [reservationId, reservationId]);
-    return rows;
-  },
+  // getPreReservedItems: async (reservationId) => {
+  //   const query = `
+  //     SELECT m.*, ri.quantity, ri.customizations 
+  //     FROM menu_items m 
+  //     JOIN reservation_items ri ON m.item_id = ri.product_id 
+  //     WHERE ri.reservation_id = ?
+  //     UNION ALL
+  //     SELECT m.*, ko.quantity, ko.customizations 
+  //     FROM menu_items m 
+  //     JOIN kiosk_orders ko ON m.item_id = ko.item_id 
+  //     WHERE ko.reservation_id = ?
+  //   `;
+  //   const [rows] = await db.execute(query, [reservationId, reservationId]);
+  //   return rows;
+  // },
 
   // 10. Get all active orders (for Kitchen page)
   getActiveOrders: async () => {

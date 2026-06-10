@@ -362,10 +362,10 @@ const KioskMenu = () => {
     const resId = storage.getItem(SAVED_RES_ID);
     if (!resId) return [];
     try {
-      const res = await axios.get(
-        `${API_BASE}/orders/reservation-items/${resId}`,
-        getAuthHeader(),
-      );
+      // const res = await axios.get(
+      //   `${API_BASE}/orders/reservation-items/${resId}`,
+      //   getAuthHeader(),
+      // );
       setBillItems(res.data || []);
       return res.data;
     } catch (err) {

@@ -180,10 +180,10 @@ const KioskReservationMenu = () => {
 
   const fetchCurrentBill = async () => {
     try {
-      const res = await axios.get(
-        `${API_BASE}/orders/reservation-items/${reservationId}`,
-        getAuthHeader(),
-      );
+      // const res = await axios.get(
+      //   `${API_BASE}/orders/reservation-items/${reservationId}`,
+      //   getAuthHeader(),
+      // );
       if (res.data) setBillItems(res.data);
       return res.data;
     } catch (err) {
@@ -256,12 +256,12 @@ const KioskReservationMenu = () => {
           fetch(`${API_BASE}/products`, { headers: getFetchHeaders() }).then(
             (r) => r.json(),
           ),
-          axios
-            .get(
-              `${API_BASE}/orders/reservation-items/${reservationId}`,
-              getAuthHeader(),
-            )
-            .then((r) => r.data),
+          // axios
+          //   .get(
+          //     `${API_BASE}/orders/reservation-items/${reservationId}`,
+          //     getAuthHeader(),
+          //   )
+          //   .then((r) => r.data),
           axios
             .get(`${API_BASE}/reservations/${reservationId}`, getAuthHeader())
             .then((r) => r.data)
