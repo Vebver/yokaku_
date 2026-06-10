@@ -7,7 +7,7 @@ const Category = {
   },
   
   create: async (data) => {
-    const sql = 'INSERT INTO categories (name, description) VALUES (?, ?)';
+    const sql = 'INSERT INTO categories (category_name, description) VALUES (?, ?)';
     const [result] = await db.execute(sql, [data.name, data.description]);
     return { category_id: result.insertId, ...data };
   },

@@ -46,7 +46,7 @@ const inventoryController = {
         unit,
         unit_price,
         expiry_date,
-        supplier,
+        //supplier
         storage_location,
         reorder_level,
       } = req.body;
@@ -59,7 +59,7 @@ const inventoryController = {
         unit,
         unit_price,
         expiry_date,
-        supplier,
+        //supplier,
         storage_location,
         reorder_level,
       });

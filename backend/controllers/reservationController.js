@@ -227,7 +227,7 @@ createReservation: async (req, res) => {
     let finalPackageName = body.packageName;
     if (!finalPackageName || finalPackageName === "Table Reservation") {
       if (items.length > 0) {
-        finalPackageName = items[0].name || items[0].item_name || "Order";
+        finalPackageName = items[0].menu_name || items[0].item_name || "Order";
         if (items.length > 1) finalPackageName += " + Others";
       } else {
         finalPackageName = "Table Reservation";
