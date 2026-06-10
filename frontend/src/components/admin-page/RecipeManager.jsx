@@ -191,11 +191,11 @@ function RecipeManager() {
                 <option value="">-- Select Product --</option>
                 {menuItems
                   .filter((item) =>
-                    item.name.toLowerCase().includes(searchTerm.toLowerCase())
+                    item.menu_name.toLowerCase().includes(searchTerm.toLowerCase())
                   )
                   .map((item) => (
                     <option key={item.item_id} value={item.item_id}>
-                      {item.name}
+                      {item.menu_name}
                     </option>
                   ))}
               </select>

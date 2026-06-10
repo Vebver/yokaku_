@@ -245,6 +245,7 @@ function LoginSection({ onClose }) {
                       setError("");
                     }}
                     required
+                    autoComplete="email"
                   />
 
                   {/* PASSWORD FIELD */}
@@ -257,6 +258,7 @@ function LoginSection({ onClose }) {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
+                      autoComplete="current-password"
                     />
                     <EyeIcon
                       visible={showPassword}
@@ -288,6 +290,7 @@ function LoginSection({ onClose }) {
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
                           required
+                          autoComplete="current-password"
                         />
                         <EyeIcon
                           visible={showConfirmPassword}

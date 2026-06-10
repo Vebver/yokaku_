@@ -44,7 +44,7 @@ function Product() {
   };
 
   const filteredItems = menuItems.filter(item =>
-    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.menu_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     item.category_name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -282,7 +282,7 @@ function Product() {
               <div className="col-6">
                 <label className="form-label small fw-bold">Category</label>
                 <select name="category_id" className="form-select" value={newItem.category_id} onChange={handleInputChange} required>
-                  {categories.map((cat) => <option key={cat.category_id} value={cat.category_id}>{cat.name}</option>)}
+                  {categories.map((cat) => <option key={cat.category_id} value={cat.category_id}>{cat.category_name}</option>)}
                 </select>
               </div>
               <div className="col-6">
