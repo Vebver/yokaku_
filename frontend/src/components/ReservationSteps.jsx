@@ -867,18 +867,19 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     ],
   );
 
-  // Update the timeOptions useMemo - replace the existing one with this:
-
   const timeOptions = useMemo(() => {
     const opts = [];
-    // For Per Table: start from 2:00 PM (14:00) to 10:00 PM (22:00)
-    // For Event: keep original time range 10:00 AM to 10:00 PM
     const isPerTable = reservationType === "per_table";
-    const startHour = isPerTable ? 14 : 10; // 2:00 PM for Per Table, 10:00 AM for Event
+    const isEventFlow = reservationType === "event";
+    const stepMinutes = isEventFlow ? 60 : 15;
+    // For Per Table: start at 2:00 PM (14:00), end at 10:00 PM (22:00)
+    // For EVENT: start at 10:00 AM (10:00), end at 9:00 PM (21:00) so end time is 12:00 AM
+    const actualStartHour = isPerTable ? 14 : 10;
+    const actualEndHour = isPerTable ? 22 : 21; // EVENT ends at 9:00 PM
 
-    for (let h = startHour; h <= 22; h++) {
-      for (let m = 0; m < 60; m += 15) {
-        if (h === 22 && m > 30) break;
+    for (let h = actualStartHour; h <= actualEndHour; h++) {
+      for (let m = 0; m < 60; m += stepMinutes) {
+        if (h === actualEndHour && m > 30) break;
         const hour12 = h % 12 || 12;
         const period = h < 12 ? "AM" : "PM";
         opts.push(
@@ -888,18 +889,22 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     }
     return opts;
   }, [reservationType]);
-  // Update maxEndTimeMinutes - keep at 10:00 PM (22:00)
-  const maxEndTimeMinutes = 22 * 60 + 30; // 10:30 PM max
 
-  // Update the availableStartTimeOptions useMemo - add availability checking for EVENT:
+  // Update maxEndTimeMinutes - for EVENT allow up to 12:00 AM (24:00)
+  const maxEndTimeMinutes = useMemo(() => {
+    const isEventFlow = reservationType === "event";
+    // For EVENT: allow up to 12:00 AM (24:00 or 1440 minutes)
+    // For Per Table: keep at 10:30 PM (22:30 or 1350 minutes)
+    return isEventFlow ? 24 * 60 : 22 * 60 + 30;
+  }, [reservationType]);
 
   const availableStartTimeOptions = useMemo(() => {
     let filtered = timeOptions;
 
-    // For Per Table, ensure start time is at least 2:00 PM (14:00)
     const isPerTable = reservationType === "per_table";
     const isEventFlow = reservationType === "event";
-    const minStartTimeMinutes = isPerTable ? 14 * 60 : 10 * 60; // 2:00 PM for Per Table, 10:00 AM for Event
+    const minStartTimeMinutes = isPerTable ? 14 * 60 : 10 * 60;
+    const currentMaxEndTime = isEventFlow ? 24 * 60 : 22 * 60 + 30;
 
     if (form.date === todayStr) {
       const thresh = new Date().getHours() * 60 + new Date().getMinutes() + 15;
@@ -907,26 +912,22 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         (t) => timeToMin(t) >= Math.max(thresh, minStartTimeMinutes),
       );
     } else {
-      // For future dates, filter by minimum start time
       filtered = filtered.filter((t) => timeToMin(t) >= minStartTimeMinutes);
     }
 
-    // For EVENT flow, check availability and filter out booked time slots
     if (isEventFlow) {
       filtered = filtered.filter((startTime) => {
         const startM = timeToMin(startTime);
         const endM = startM + 180; // 3 hours later
 
-        // Check if end time exceeds business hours
-        if (endM > maxEndTimeMinutes) return false;
+        // Add 1 hour buffer (60 minutes) for cleanup/setup between events
+        const bufferedStartM = startM;
+        const bufferedEndM = endM;
 
-        // Check if this time slot conflicts with any existing reservation
-        // Get all reservations for the selected date
+        // Check if this time slot (with buffer) conflicts with any existing reservation
         const reservations = allReservationsByDate[form.date] || [];
 
-        // Check if any reservation overlaps with this time slot
         const isOverlapping = reservations.some((reservation) => {
-          // Skip cancelled or completed reservations
           if (
             reservation.status === "Cancelled" ||
             reservation.status === "Completed" ||
@@ -938,19 +939,22 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           const resStartM = timeToMin(reservation.startTime);
           const resEndM = timeToMin(reservation.endTime);
 
-          // Overlap condition: new start < existing end AND new end > existing start
-          return startM < resEndM && endM > resStartM;
+          // Add 1 hour buffer AFTER each existing reservation
+          // So if reservation ends at 1:00 PM, next available is 2:00 PM (1:00 PM + 60 min)
+          const resEndWithBuffer = resEndM + 60; // 1 hour buffer
+
+          // Check if new slot overlaps with existing reservation OR its buffer zone
+          return startM < resEndWithBuffer && endM > resStartM;
         });
 
         return !isOverlapping;
       });
     } else {
-      // Original filtering for PER_TABLE
       filtered = filtered.filter((startTime) => {
         const startM = timeToMin(startTime);
         if (startM > 22 * 60) return false;
         const minEndM = startM + 30;
-        return minEndM <= maxEndTimeMinutes;
+        return minEndM <= currentMaxEndTime;
       });
     }
 
@@ -960,7 +964,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           const endM = timeToMin(endTime);
           const startM = timeToMin(startTime);
           const durationValid = endM >= startM + 30 && endM <= startM + 180;
-          const withinBusinessHours = endM <= maxEndTimeMinutes;
+          const withinBusinessHours = endM <= currentMaxEndTime;
           return (
             durationValid &&
             withinBusinessHours &&
@@ -979,23 +983,17 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     tableSchedules,
     reservationType,
     allReservationsByDate,
-    maxEndTimeMinutes,
   ]);
-
-  // Update the filteredEndTimeOptions useMemo:
 
   const filteredEndTimeOptions = useMemo(() => {
     if (!form.startTime) return [];
     const startM = timeToMin(form.startTime);
-
-    // For EVENT flow: automatically calculate end time as start time + 3 hours
     const isEventFlow = reservationType === "event";
+    const currentMaxEndTime = isEventFlow ? 24 * 60 : 22 * 60 + 30;
 
     if (isEventFlow) {
-      // Calculate end time exactly 3 hours (180 minutes) after start time
       const endM = startM + 180;
 
-      // Check if this time slot would overlap with any existing reservation
       const reservations = allReservationsByDate[form.date] || [];
       const isOverlapping = reservations.some((reservation) => {
         if (
@@ -1010,24 +1008,23 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         return startM < resEndM && endM > resStartM;
       });
 
-      // If overlapping, this start time shouldn't be available, return empty
       if (isOverlapping) return [];
 
-      // Format the end time to display in dropdown
       const endHour = Math.floor(endM / 60);
       const endMinute = endM % 60;
-      const endHour12 = endHour % 12 || 12;
-      const endPeriod = endHour < 12 ? "AM" : "PM";
-      const endTimeString = `${endHour12.toString().padStart(2, "0")}:${endMinute.toString().padStart(2, "0")} ${endPeriod}`;
+      const endHour12 = endHour % 12 === 0 ? 12 : endHour % 12;
+      const endPeriod = endHour >= 12 ? "AM" : "AM";
+      // Handle 12:00 AM display
+      const displayHour = endHour === 0 || endHour === 24 ? 12 : endHour12;
+      const displayPeriod =
+        endHour === 0 || endHour === 24 ? "AM" : endHour >= 12 ? "PM" : "AM";
+      const endTimeString = `${displayHour.toString().padStart(2, "0")}:${endMinute.toString().padStart(2, "0")} ${displayPeriod}`;
 
-      // Return only the calculated end time as the only option
       return [endTimeString];
     }
 
-    // For PER_TABLE flow: allow end times from start+30 min up to 10:00 PM (22:00)
-    // Removed the 3-hour limit (startM + 180)
     if (startM >= 21 * 60 + 30) {
-      if (maxEndTimeMinutes >= startM + 30) {
+      if (currentMaxEndTime >= startM + 30) {
         const tenThirtyPM = timeOptions.find(
           (t) => t.includes("10:30") && t.includes("PM"),
         );
@@ -1036,11 +1033,9 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       return [];
     }
 
-    // Filter end times from start+30 minutes up to maxEndTimeMinutes (10:30 PM)
     let filtered = timeOptions.filter((endTime) => {
       const endM = timeToMin(endTime);
-      // Minimum 30 minutes duration, maximum up to business closing time (10:30 PM)
-      return endM >= startM + 30 && endM <= maxEndTimeMinutes;
+      return endM >= startM + 30 && endM <= currentMaxEndTime;
     });
 
     if (selectedId && form.startTime && reservationType === "per_table") {
@@ -1056,7 +1051,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     tableSchedules,
     reservationType,
     allReservationsByDate,
-    maxEndTimeMinutes,
   ]);
 
   const handleInputChange = (e) => {
@@ -1083,6 +1077,27 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       setForm((prev) => ({ ...prev, [name]: value }));
     }
   };
+
+  // Auto-set end time for EVENT when start time changes
+  useEffect(() => {
+    if (reservationType === "event" && form.startTime) {
+      const startM = timeToMin(form.startTime);
+      const endM = startM + 180;
+      const endHour = Math.floor(endM / 60);
+      const endMinute = endM % 60;
+      // Handle 12:00 AM display (hour 0 or 24 should show as 12)
+      const displayHour =
+        endHour === 0 || endHour === 24 ? 12 : endHour % 12 || 12;
+      const displayPeriod =
+        endHour === 0 || endHour === 24 ? "AM" : endHour >= 12 ? "PM" : "AM";
+      const endTimeString = `${displayHour.toString().padStart(2, "0")}:${endMinute.toString().padStart(2, "0")} ${displayPeriod}`;
+
+      setForm((prev) => ({
+        ...prev,
+        endTime: endTimeString,
+      }));
+    }
+  }, [form.startTime, reservationType]);
 
   const handleBackButton = () => onClose();
 
@@ -1249,7 +1264,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         return (
           <div className="step-content step-date">
             <div className="calendar-container">
-              {/* Calendar header */}
               <div className="calendar-header">
                 <button
                   type="button"
@@ -1365,7 +1379,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   <ChevronRight size={18} />
                 </button>
               </div>
-              {/* Calendar legend */}
               <div className="calendar-legend">
                 <div className="calendar-legend-item">
                   <div className="calendar-legend-dot normal"></div>
@@ -1388,7 +1401,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   <span>Selected</span>
                 </div>
               </div>
-              {/* Calendar weekdays */}
               <div className="calendar-weekdays">
                 {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
                   <div key={day} className="calendar-weekday">
@@ -1396,7 +1408,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   </div>
                 ))}
               </div>
-              {/* Calendar days */}
               <div className="calendar-days">
                 {(() => {
                   const today = new Date();
@@ -1589,7 +1600,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         );
       case 2:
         if (isEventFlow) {
-          // Your Details step for EVENT (unchanged except Guests field)
+          // Your Details step for EVENT with disabled end time
           return (
             <div className="step-content step-details">
               <div className="reservation-form-grid">
@@ -1621,7 +1632,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                       className="res-input-dropdown"
                       value={form.endTime}
                       onChange={handleInputChange}
-                      disabled={!form.startTime}
+                      disabled={true}
                     >
                       <option value="">Select end time</option>
                       {filteredEndTimeOptions.map((t) => (
@@ -1630,6 +1641,17 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                         </option>
                       ))}
                     </select>
+                    <small
+                      className="end-time-hint"
+                      style={{
+                        display: "block",
+                        marginTop: "5px",
+                        color: "#f38d31",
+                        fontSize: "11px",
+                      }}
+                    >
+                      End time is automatically set to 3 hours after start time
+                    </small>
                   </div>
                 </div>
                 <div className="input-group">
@@ -1750,8 +1772,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     </select>
                   </div>
                 </div>
-
-                {/* UPDATED GUESTS FIELD FOR EVENT - Auto-filled to 35, read-only */}
                 <div className="input-group guests-auto-field">
                   <label>
                     <Users size={12} /> GUESTS
@@ -1775,7 +1795,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     </div>
                   </div>
                 </div>
-
                 <div className="input-group">
                   <label>
                     <PartyPopper size={12} /> OCCASION
@@ -1875,7 +1894,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
             </div>
           );
         } else {
-          // Select Table step for PER TABLE (unchanged, now step 2)
+          // Select Table step for PER TABLE
           return form.date ? (
             <div className="step-content step-tables">
               <div className="pax-field-container">
@@ -2142,7 +2161,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           };
           const isDownpaymentRequirementMet = meetsDownpaymentRequirement();
 
-          // Percentage options
           const percentageOptions = [20, 30, 40, 50, 60, 70, 80, 90, 100];
 
           return (
@@ -2194,7 +2212,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     </div>
                   )}
 
-                  {/* Downpayment Percentage Selection */}
                   <div className="downpayment-percentage-section">
                     <label className="percentage-label">
                       <span style={{ fontWeight: "600", color: "#f38d31" }}>
@@ -2323,7 +2340,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
             </div>
           );
         } else {
-          // Your Details step for PER TABLE (now step 3, was step 4)
+          // Your Details step for PER TABLE
           return (
             <div className="step-content step-details">
               <div className="reservation-form-grid">
@@ -2623,7 +2640,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         }
       case 4:
         if (isEventFlow) {
-          // Reservation Summary step for EVENT (with order and payment breakdown)
           return (
             <div className="step-content step-summary">
               <ReservationSummary
@@ -2632,12 +2648,11 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                 paymentMethod={paymentMethod}
                 setPaymentMethod={setPaymentMethod}
                 onReceiptChange={(receipt) => setReceiptFile(receipt)}
-                showOrderDetails={true} // Show for EVENT
+                showOrderDetails={true}
               />
             </div>
           );
         } else {
-          // Reservation Summary step for PER TABLE (without order and payment breakdown)
           return (
             <div className="step-content step-summary">
               <ReservationSummary
@@ -2646,7 +2661,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                 paymentMethod={paymentMethod}
                 setPaymentMethod={setPaymentMethod}
                 onReceiptChange={(receipt) => setReceiptFile(receipt)}
-                showOrderDetails={false} // Hide for PER TABLE
+                showOrderDetails={false}
               />
             </div>
           );
