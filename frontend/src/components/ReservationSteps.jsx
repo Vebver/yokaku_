@@ -93,6 +93,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   const [dateReservationCounts, setDateReservationCounts] = useState({});
   const [allReservationsByDate, setAllReservationsByDate] = useState({});
   const [receiptFile, setReceiptFile] = useState(null);
+  const [downpaymentPercentage, setDownpaymentPercentage] = useState(20);
 
   const [currentMinutes, setCurrentMinutes] = useState(() => {
     const now = new Date();
@@ -443,7 +444,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         }
       case 3:
         if (isEventFlow) {
-          // Order Menu step for event flow (unchanged, step 3)
+          // Order Menu step for event flow with downpayment percentage
           const hasItems = selectedItems.length > 0;
           const termsAgreed = agreeToTerms;
           let meetsDownpaymentRequirement = true;
@@ -762,7 +763,12 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       0,
     );
     const total = Math.round(rawTotal * 100) / 100;
-    const twentyPercentOfOrder = total * 0.2;
+
+    // Calculate downpayment based on selected percentage (for EVENT flow)
+    const selectedPercentage =
+      reservationType === "event" ? downpaymentPercentage : 20;
+    const calculatedDownpayment = total * (selectedPercentage / 100);
+
     let requiredMinimumDownpayment = 0;
     const durationHours = calculateDurationInHours;
     if (durationHours >= 2) {
@@ -771,8 +777,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       requiredMinimumDownpayment += additionalHours * 50;
     }
     const needsMoreItems =
-      durationHours >= 2 && twentyPercentOfOrder < requiredMinimumDownpayment;
-    const actualDownpayment = twentyPercentOfOrder;
+      durationHours >= 2 && calculatedDownpayment < requiredMinimumDownpayment;
+    const actualDownpayment = calculatedDownpayment;
     return {
       totalOrderPrice: total,
       downpayment: Math.round(actualDownpayment * 100) / 100,
@@ -781,8 +787,14 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       durationHours: durationHours,
       needsMoreItems: needsMoreItems,
       minimumOrderNeeded: requiredMinimumDownpayment * 5,
+      selectedPercentage: selectedPercentage,
     };
-  }, [selectedItems, calculateDurationInHours]);
+  }, [
+    selectedItems,
+    calculateDurationInHours,
+    reservationType,
+    downpaymentPercentage,
+  ]);
 
   const tableIdsArray = useMemo(
     () => [selectedId, ...linkedIds].filter((id) => id !== null),
@@ -1577,7 +1589,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         );
       case 2:
         if (isEventFlow) {
-          // Your Details step for EVENT (unchanged)
+          // Your Details step for EVENT (unchanged except Guests field)
           return (
             <div className="step-content step-details">
               <div className="reservation-form-grid">
@@ -1738,6 +1750,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     </select>
                   </div>
                 </div>
+
+                {/* UPDATED GUESTS FIELD FOR EVENT - Auto-filled to 35, read-only */}
                 <div className="input-group guests-auto-field">
                   <label>
                     <Users size={12} /> GUESTS
@@ -1745,31 +1759,23 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   <div className="guests-auto-display">
                     <input
                       type="text"
-                      value={
-                        form.pax && parseInt(form.pax) > 0
-                          ? `${form.pax} guest(s)`
-                          : "Not specified yet"
-                      }
+                      value="35 guest(s)"
                       readOnly
-                      className={`guests-auto-input ${!form.pax || parseInt(form.pax) <= 0 ? "empty-value" : ""}`}
+                      className="guests-auto-input"
+                      style={{
+                        backgroundColor: "#f5f5f5",
+                        cursor: "not-allowed",
+                      }}
                     />
-                    {!form.pax || parseInt(form.pax) <= 0 ? (
-                      <div className="guests-hint-warning">
-                        <AlertCircle size={14} />
-                        <span>
-                          Please enter number of guests in Step 2 (Select Table)
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="guests-hint-success">
-                        <CheckCircle size={14} />
-                        <span>
-                          Auto-populated from Pax field in previous step
-                        </span>
-                      </div>
-                    )}
+                    <div className="guests-hint-success">
+                      <CheckCircle size={14} />
+                      <span>
+                        Event reservation: Fixed at 35 guests (maximum capacity)
+                      </span>
+                    </div>
                   </div>
                 </div>
+
                 <div className="input-group">
                   <label>
                     <PartyPopper size={12} /> OCCASION
@@ -1838,14 +1844,13 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                           name="allergyCount"
                           className="allergy-count-input"
                           min="1"
-                          max={parseInt(form.pax) || totalSeats || 10}
+                          max={35}
                           value={form.allergyCount}
                           onChange={handleInputChange}
-                          placeholder={`Enter number (1-${parseInt(form.pax) || totalSeats || 10})`}
+                          placeholder="Enter number (1-35)"
                         />
                         <span className="allergy-count-hint">
-                          Out of {parseInt(form.pax) || totalSeats || 0} total
-                          guest(s)
+                          Out of 35 total guest(s)
                         </span>
                       </div>
                     </div>
@@ -2125,16 +2130,21 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         }
       case 3:
         if (isEventFlow) {
-          // Order Menu step for EVENT (unchanged)
+          // Order Menu step for EVENT with downpayment percentage options
           const meetsDownpaymentRequirement = () => {
-            if (orderSummary.durationHours >= 2)
+            if (orderSummary.durationHours >= 2) {
               return (
                 orderSummary.downpayment >=
                 orderSummary.requiredMinimumDownpayment
               );
+            }
             return true;
           };
           const isDownpaymentRequirementMet = meetsDownpaymentRequirement();
+
+          // Percentage options
+          const percentageOptions = [20, 30, 40, 50, 60, 70, 80, 90, 100];
+
           return (
             <div className="step-content step-package">
               <button
@@ -2146,6 +2156,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   ? `${selectedItems.length} Selected`
                   : "View Menu"}
               </button>
+
               {selectedItems.length > 0 && (
                 <div className="package-summary">
                   <div className="order-summary-header">
@@ -2157,6 +2168,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                       Edit
                     </button>
                   </div>
+
                   {selectedItems.map((item, idx) => (
                     <div key={idx} className="package-item">
                       <span>
@@ -2165,11 +2177,13 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                       <span>₱{(item.price * item.quantity).toFixed(2)}</span>
                     </div>
                   ))}
+
                   <div className="package-total">
                     <strong>
                       Total: ₱{orderSummary.totalOrderPrice.toFixed(2)}
                     </strong>
                   </div>
+
                   {orderSummary.durationHours >= 2 && (
                     <div className="duration-info">
                       <Clock size={14} />
@@ -2179,15 +2193,58 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                       </span>
                     </div>
                   )}
+
+                  {/* Downpayment Percentage Selection */}
+                  <div className="downpayment-percentage-section">
+                    <label className="percentage-label">
+                      <span style={{ fontWeight: "600", color: "#f38d31" }}>
+                        Select Downpayment Percentage:
+                      </span>
+                    </label>
+                    <div className="percentage-buttons">
+                      {percentageOptions.map((percent) => (
+                        <button
+                          key={percent}
+                          type="button"
+                          className={`percentage-btn ${downpaymentPercentage === percent ? "active" : ""}`}
+                          onClick={() => setDownpaymentPercentage(percent)}
+                          style={{
+                            padding: "8px 16px",
+                            borderRadius: "8px",
+                            border:
+                              downpaymentPercentage === percent
+                                ? "2px solid #f38d31"
+                                : "1px solid #ddd",
+                            background:
+                              downpaymentPercentage === percent
+                                ? "#fff8f0"
+                                : "#fff",
+                            color:
+                              downpaymentPercentage === percent
+                                ? "#f38d31"
+                                : "#666",
+                            cursor: "pointer",
+                            fontWeight:
+                              downpaymentPercentage === percent ? "600" : "400",
+                            transition: "all 0.2s",
+                          }}
+                        >
+                          {percent}%
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   <div className="package-downpayment">
                     <div className="downpayment-row">
                       <span style={{ color: "#f38d31", fontWeight: "800" }}>
-                        Downpayment (20%):
+                        Downpayment ({orderSummary.selectedPercentage}%):
                       </span>
                       <strong style={{ color: "#f38d31" }}>
                         ₱{orderSummary.downpayment.toFixed(2)}
                       </strong>
                     </div>
+
                     {orderSummary.durationHours >= 2 &&
                       orderSummary.requiredMinimumDownpayment >
                         orderSummary.downpayment && (
@@ -2202,10 +2259,12 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                         </div>
                       )}
                   </div>
+
                   <div className="package-balance">
                     <span style={{ color: "#666" }}>Remaining Balance:</span>
                     <strong>₱{orderSummary.balance.toFixed(2)}</strong>
                   </div>
+
                   {orderSummary.durationHours >= 2 && (
                     <div
                       className={`duration-requirement ${!isDownpaymentRequirementMet ? "warning" : "success"}`}
@@ -2217,18 +2276,18 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                             ⚠️ Minimum downpayment of ₱
                             {orderSummary.requiredMinimumDownpayment} required
                             for {orderSummary.durationHours} hour reservation.
-                            Please add more items (minimum order of ₱
-                            {orderSummary.minimumOrderNeeded})
+                            Please select a higher percentage.
                           </>
                         ) : (
                           <>
-                            ✓ Minimum downpayment requirement met for{" "}
+                            ✓ Downpayment requirement met for{" "}
                             {orderSummary.durationHours} hour reservation
                           </>
                         )}
                       </span>
                     </div>
                   )}
+
                   {orderSummary.durationHours >= 2 &&
                     !isDownpaymentRequirementMet && (
                       <div className="requirement-blocked-warning">
@@ -2239,6 +2298,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                         </span>
                       </div>
                     )}
+
                   <div className="terms-checkbox-wrapper">
                     <label className="terms-checkbox-label">
                       <input
