@@ -1669,7 +1669,7 @@ select:disabled {
   background: #fff8e8;
   border-left: 4px solid #ffcc00;
   border-radius: 10px;
-  font-size: 0.7rem;
+  font-size: 1.2rem;
   line-height: 1.5;
   color: #8a6e00;
   animation: fadeIn 0.3s ease;
@@ -2225,7 +2225,47 @@ select:disabled {
   color: #2e7d32;
   font-weight: 500;
 }
+/* Downpayment Percentage Section */
+.downpayment-percentage-section {
+  margin-top: 15px;
+  padding: 15px 0;
+  border-top: 1px solid #eee;
+}
 
+.percentage-label {
+  display: block;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
+.percentage-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.percentage-btn {
+  flex: 1;
+  min-width: 70px;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.percentage-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+@media (max-width: 480px) {
+  .percentage-buttons {
+    gap: 8px;
+  }
+  .percentage-btn {
+    min-width: 55px;
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+}
 .reservation-type-selected svg {
   color: #4caf50;
 }
