@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2, AlertCircle } from "lucide-react";
 import "../../Style/KioskReservation.css";
@@ -11,7 +11,10 @@ const KioskReservation = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Function to validate ID with database
+  // 1. Parse and preserve the physical table config (e.g. ?setupTable=2)
+  const queryParams = useMemo(() => new URLSearchParams(window.location.search), []);
+  const setupTable = queryParams.get("setupTable");
+
   const validateAndProceed = async (id) => {
     setLoading(true);
     setError("");
@@ -31,7 +34,10 @@ const KioskReservation = () => {
       if (response.ok) {
         localStorage.setItem("resId", id);
         localStorage.setItem("kiosk_mode", "reservation");
-        navigate("/kiosk-selection/kiosk-reservation-menu");
+
+        // 2. Append setupTable to the path so the menu page doesn't lose the config
+        const searchString = setupTable ? `?setupTable=${setupTable}` : "";
+        navigate(`/kiosk-selection/kiosk-reservation-menu${searchString}`);
       } else {
         setError(
           data.message || "Reservation not found. Please check your ID.",
@@ -54,7 +60,28 @@ const KioskReservation = () => {
     <div className="kiosk-res-wrapper">
       <div className="kiosk-background-overlay"></div>
 
-      <button className="back-btn" onClick={() => navigate("/kiosk-selection")}>
+      {/* 3. Full-Screen Loading Overlay */}
+      {loading && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "rgba(0, 0, 0, 0.8)",
+          zIndex: 9999,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "20px"
+        }}>
+          <Loader2 className="spinner-loader" color="#ffcc00" size={60} style={{ animation: "spin 1.2s linear infinite" }} />
+          <h2 style={{ color: "#ffcc00", fontSize: "1.5rem", fontWeight: "bold" }}>Verifying Reservation...</h2>
+        </div>
+      )}
+
+      <button className="back-btn" onClick={() => navigate(`/kiosk-selection${setupTable ? "?setupTable=" + setupTable : ""}`)}>
         <ArrowLeft size={24} />
         <span>BACK</span>
       </button>
@@ -71,7 +98,6 @@ const KioskReservation = () => {
         </div>
 
         <div className="res-card fade-in">
-          {/* Error Message Display */}
           {error && (
             <div className="res-error-msg">
               <AlertCircle size={18} />
@@ -93,11 +119,18 @@ const KioskReservation = () => {
               disabled={!resId.trim() || loading}
               onClick={handleConfirmClick}
             >
-              {loading ? "Verifying..." : "Confirm Reservation"}
+              Confirm Reservation
             </button>
           </div>
         </div>
       </div>
+
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 };
