@@ -1,4 +1,4 @@
-import React from "react";
+import React, {useState, useEffect} from "react";
 import axios from "axios";
 import {
   FileSpreadsheet,
@@ -11,9 +11,9 @@ import {
 } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-const [kioskReservationId, setKioskReservationId] = useState("");
 
 const SystemMaintenance = () => {
+  const [kioskReservationId, setKioskReservationId] = useState("");
   const runTask = async (endpoint, taskName, warningText) => {
     const confirmed = window.confirm(
       `Action: ${taskName}\n\n${warningText}\n\nAre you sure?`,
