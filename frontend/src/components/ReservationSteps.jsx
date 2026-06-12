@@ -118,7 +118,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     date: "",
     startTime: "",
     endTime: "",
-    highChair: "No",
     muni: "",
     brgy: "",
     allergy: "None",
@@ -2579,11 +2578,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                       </div>
                     )}
                   </div>
-                </div>
-                <div className="input-group">
-                  <label>
-                    <Baby size={12} /> HIGH CHAIR NEEDED?
-                  </label>
                 </div>
                 <div className="input-group">
                   <label>

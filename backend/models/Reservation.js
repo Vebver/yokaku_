@@ -241,7 +241,7 @@ const Reservation = {
         reservation_id, user_id, first_name, last_name, email, phone, 
         reservation_date, reservation_time, end_time, num_guests, 
         package_name, status, receipt_path, brgy_code, allergy, 
-        allergy_count, occasion, highChair, duration_hours, downpayment_amount
+        allergy_count, occasion, duration_hours, downpayment_amount
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
       await conn.query(resQuery, [
@@ -262,7 +262,6 @@ const Reservation = {
         data.allergy,
         data.allergyCount || 0,
         data.occasion || "Casual Dining",
-        data.highChair || "No",
         data.durationHours || 1.0,
         data.downpayment || 0,
       ]);

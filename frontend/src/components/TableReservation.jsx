@@ -60,7 +60,6 @@ export default function TableReservation({ onClose, onSuccess }) {
     date: "",
     startTime: "",
     endTime: "",
-    highChair: "No",
     muni: "",
     brgy: "",
     allergy: "",
