@@ -1419,6 +1419,15 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   const daysInMonth = new Date(year, month + 1, 0).getDate();
                   const calendarDays = [];
                   const prevMonthDays = new Date(year, month, 0).getDate();
+
+                  const isPerTable = reservationType === "per_table";
+                  const isEventFlow = reservationType === "event";
+
+                  // Calculate min allowed date for EVENT (2 weeks from today)
+                  const minEventDate = new Date();
+                  minEventDate.setHours(0, 0, 0, 0);
+                  minEventDate.setDate(minEventDate.getDate() + 14); // 2 weeks from now
+
                   for (let i = startDayOfWeek - 1; i >= 0; i--) {
                     const dayNum = prevMonthDays - i;
                     const date = new Date(year, month - 1, dayNum);
@@ -1427,6 +1436,17 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                       dateStr,
                       currentMinutes,
                     );
+                    const currentDate = new Date(dateStr);
+                    currentDate.setHours(0, 0, 0, 0);
+                    const isFutureDate = currentDate > today;
+                    const isEventDateValid = isEventFlow
+                      ? currentDate >= minEventDate
+                      : true;
+                    const isDisabledForPerTable = isPerTable && isFutureDate;
+                    const isDisabledForEvent = isEventFlow && !isEventDateValid;
+                    const isDisabled =
+                      isDisabledForPerTable || isDisabledForEvent;
+
                     calendarDays.push({
                       day: dayNum,
                       date: dateStr,
@@ -1436,6 +1456,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                       isBlocked: blockedDates.includes(dateStr) || isTimeClosed,
                       isPast: date < today,
                       isTimeClosed,
+                      isDisabled,
                     });
                   }
                   for (let i = 1; i <= daysInMonth; i++) {
@@ -1448,6 +1469,17 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                       dateStr,
                       currentMinutes,
                     );
+                    const currentDate = new Date(dateStr);
+                    currentDate.setHours(0, 0, 0, 0);
+                    const isFutureDate = currentDate > today;
+                    const isEventDateValid = isEventFlow
+                      ? currentDate >= minEventDate
+                      : true;
+                    const isDisabledForPerTable = isPerTable && isFutureDate;
+                    const isDisabledForEvent = isEventFlow && !isEventDateValid;
+                    const isDisabled =
+                      isDisabledForPerTable || isDisabledForEvent;
+
                     calendarDays.push({
                       day: i,
                       date: dateStr,
@@ -1460,6 +1492,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                       reservationCount,
                       isFullyBooked,
                       hasReservations: reservationCount > 0 && !isFullyBooked,
+                      isDisabled,
                     });
                   }
                   const remainingCells = 42 - calendarDays.length;
@@ -1470,6 +1503,17 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                       dateStr,
                       currentMinutes,
                     );
+                    const currentDate = new Date(dateStr);
+                    currentDate.setHours(0, 0, 0, 0);
+                    const isFutureDate = currentDate > today;
+                    const isEventDateValid = isEventFlow
+                      ? currentDate >= minEventDate
+                      : true;
+                    const isDisabledForPerTable = isPerTable && isFutureDate;
+                    const isDisabledForEvent = isEventFlow && !isEventDateValid;
+                    const isDisabled =
+                      isDisabledForPerTable || isDisabledForEvent;
+
                     calendarDays.push({
                       day: i,
                       date: dateStr,
@@ -1479,6 +1523,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                       isBlocked: blockedDates.includes(dateStr) || isTimeClosed,
                       isPast: date < today,
                       isTimeClosed,
+                      isDisabled,
                     });
                   }
                   return calendarDays.map((day, idx) => (
@@ -1489,13 +1534,15 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                       disabled={
                         day.isBlocked ||
                         (day.isPast && !day.isSelected) ||
-                        day.isTimeClosed
+                        day.isTimeClosed ||
+                        day.isDisabled
                       }
                       onClick={async () => {
                         if (
                           !day.isBlocked &&
                           !(day.isPast && !day.isSelected) &&
-                          !day.isTimeClosed
+                          !day.isTimeClosed &&
+                          !day.isDisabled
                         ) {
                           const syntheticEvent = {
                             target: { name: "date", value: day.date },
