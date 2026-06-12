@@ -62,13 +62,18 @@ const KioskReservationMenu = () => {
   const navigate = useNavigate();
   const timerRef = useRef(null);
   const audioObj = useMemo(() => new Audio(alertMusicFile), []);
-
   const storage = window.localStorage;
-  
-  // Track active reservation ID state instead of using static lookup
-  const [activeResId, setActiveResId] = useState(localStorage.getItem("resId") || null);
 
-  const reservationId = activeResId;
+  // 1. Extract physical table assignment from URL
+  const queryParams = useMemo(() => new URLSearchParams(window.location.search), []);
+  const setupTable = queryParams.get("setupTable");
+
+  // 2. Track kiosk modes and assignments
+  const [activeResId, setActiveResId] = useState(localStorage.getItem("resId") || null);
+  const [kioskMode, setKioskMode] = useState("loading"); // "loading" | "event_waiting" | "active"
+
+  // 3. Fallback to "GUEST" for normal table walk-in view
+  const reservationId = activeResId || "GUEST";
   const TIMER_KEY = `kiosk_res_timer_${reservationId}`;
   const PAYMENT_CHOICE_KEY = `kiosk_pay_choice_${reservationId}`;
   const TOTAL_PAID_KEY = `kiosk_total_paid_${reservationId}`;
@@ -98,7 +103,6 @@ const KioskReservationMenu = () => {
     (item.name || item.item_name || "").toLowerCase().includes("unlimited"),
   );
 
-  // Database-driven customization states
   const [dynamicFlavors, setDynamicFlavors] = useState([]);
   const [dynamicRamenFlavors, setDynamicRamenFlavors] = useState([]);
   const [dynamicDrinks, setDynamicDrinks] = useState([]);
@@ -132,29 +136,52 @@ const KioskReservationMenu = () => {
       : { "Content-Type": "application/json" };
   };
 
-  // ==================== POLLING SYSTEM ASSIGNMENT ====================
+  // ==================== POLLING & MODE DETECTOR ====================
   useEffect(() => {
-    if (activeResId) return; // Stop polling if already locked into a reservation
-
     const checkActiveKiosk = async () => {
       try {
-        const res = await axios.get(`${API_BASE}/reservations/active-kiosk`);
+        const res = await axios.get(`${API_BASE}/reservations/active-kiosk`, {
+          params: { tableId: setupTable }
+        });
+
         if (res.data && res.data.success) {
-          const { reservation_id, table_id } = res.data.reservation;
-          localStorage.setItem("resId", reservation_id);
-          if (table_id) localStorage.setItem("tableId", table_id.toString());
-          setActiveResId(reservation_id);
-          window.location.reload(); // Reload once to refresh context/states
+          const { mode, reservation } = res.data;
+
+          if (mode === "event_waiting") {
+            // An event is scheduled now, block the physical table view
+            if (activeResId) {
+              localStorage.removeItem("resId");
+              localStorage.removeItem("tableId");
+              setActiveResId(null);
+            }
+            setKioskMode("event_waiting");
+          } 
+          else if (mode === "event_active" || mode === "table_assigned") {
+            // Event has been activated by the admin, unlock immediately
+            const { reservation_id, table_id } = reservation;
+            if (activeResId !== reservation_id) {
+              localStorage.setItem("resId", reservation_id);
+              if (table_id) localStorage.setItem("tableId", table_id.toString());
+              setActiveResId(reservation_id);
+            }
+            setKioskMode("active");
+          } 
+          else if (mode === "table_default") {
+            // No event active, show the default user lookup screen ("the usual look")
+            setKioskMode("active");
+          }
         }
       } catch (err) {
-        console.error("Kiosk polling error:", err);
+        console.error("Kiosk state check error:", err);
+      } finally {
+        setLoading(false);
       }
     };
 
-    // Poll the backend every 3 seconds for admin assignment
+    checkActiveKiosk();
     const pollInterval = setInterval(checkActiveKiosk, 3000);
     return () => clearInterval(pollInterval);
-  }, [activeResId]);
+  }, [activeResId, setupTable]);
 
   const calculateSessionTotal = () => {
     const databaseTotal = billItems.reduce((sum, item) => {
@@ -309,7 +336,6 @@ const KioskReservationMenu = () => {
           return `${BASE_URL}/${cleanPath}`;
         };
 
-        // Sync database items
         if (resItemsRes && resItemsRes.length > 0) {
           setBillItems(resItemsRes);
           setCart(
@@ -440,8 +466,6 @@ const KioskReservationMenu = () => {
     setIsLoading(true);
     try {
       let currentTableId = localStorage.getItem("tableId");
-      
-      // Tell backend to clear the assignment
       await axios.post(
         `${API_BASE}/orders/finish`,
         {
@@ -467,7 +491,7 @@ const KioskReservationMenu = () => {
       setCart([]);
       setBillItems([]);
       setLocalBillHistory([]);
-      setActiveResId(null); // Direct state back to resting/waiting screen
+      setActiveResId(null);
     } catch (e) {
       localStorage.removeItem("resId");
       setCart([]);
@@ -595,10 +619,13 @@ const KioskReservationMenu = () => {
     }
   };
 
-  if (loading) return <div className="loading-container">Loading Menu...</div>;
+  // ==================== LOADING RENDER ====================
+  if (loading || kioskMode === "loading") {
+    return <div className="loading-container">Loading Menu...</div>;
+  }
 
-  // ==================== RENDER RESTING / WAITING VIEW ====================
-  if (!activeResId) {
+  // ==================== EVENT WAITING LOCKOUT SCREEN ====================
+  if (kioskMode === "event_waiting") {
     return (
       <div className="kiosk-resting-screen" style={{
         display: "flex",
@@ -621,10 +648,10 @@ const KioskReservationMenu = () => {
         }}>
           <UtensilsCrossed size={80} color="#ffcc00" style={{ margin: "0 auto 20px" }} />
           <h1 style={{ fontSize: "2.5rem", fontWeight: "900", color: "#fff", margin: "10px 0" }}>
-            Welcome to <span style={{ color: "#ffcc00" }}>Hangout</span>
+            Event Setup Active
           </h1>
           <p style={{ color: "#888", fontSize: "1.2rem", margin: "15px 0 30px" }}>
-            Please contact our counter staff or wait here while we assign your table reservation.
+            This kiosk is temporarily locked during our private event. Please wait for our staff to activate your session.
           </p>
           <div style={{
             display: "inline-flex",
@@ -637,7 +664,7 @@ const KioskReservationMenu = () => {
           }}>
             <RefreshCw size={18} color="#ffcc00" className="spinner-loader" />
             <span style={{ color: "#ffcc00", fontWeight: "bold" }}>
-              Waiting for system setup...
+              Waiting for host activation...
             </span>
           </div>
         </div>
@@ -850,7 +877,7 @@ const KioskReservationMenu = () => {
           <button
             className="res-btn-cancel"
             style={{ marginRight: "auto", background: "#444" }}
-            onClick={() => setActiveResId(null)} // Reset back to resting screen
+            onClick={() => setActiveResId(null)}
           >
             <ArrowLeft size={18} className="me-2" /> Exit Kiosk
           </button>

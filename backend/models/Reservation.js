@@ -214,16 +214,54 @@ const Reservation = {
     }
   },
 
-  getActiveKioskReservation: async () => {
-    const sql = `
-      SELECT r.reservation_id, rt.table_id 
+ getActiveKioskReservation: async (tableId) => {
+    const today = new Date().toISOString().split("T")[0];
+    const now = new Date().toTimeString().slice(0, 8); // Formats to 'HH:MM:SS'
+
+    // 1. Check if there is an active event reservation scheduled for right now
+    const eventSql = `
+      SELECT r.* 
       FROM reservations r
-      LEFT JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
-      WHERE r.is_kiosk_active = 1 
+      WHERE r.reservation_type = 'event' 
+        AND r.status IN ('Confirmed', 'Seated', 'Pending')
+        AND r.reservation_date = ?
+        AND r.reservation_time <= ? 
+        AND r.end_time >= ?
       LIMIT 1
     `;
-    const [rows] = await db.execute(sql);
-    return rows[0];
+    const [events] = await db.execute(eventSql, [today, now, now]);
+
+    if (events.length > 0) {
+      const event = events[0];
+      // If the admin has set the Event to active, unlock the kiosk
+      if (event.is_kiosk_active === 1) {
+        return { mode: "event_active", reservation: event };
+      } else {
+        // Otherwise, lock the kiosk in the waiting screen
+        return { mode: "event_waiting", reservation: event };
+      }
+    }
+
+    // 2. If no event is currently running, check if a table reservation was pushed to this specific table
+    if (tableId) {
+      const tableSql = `
+        SELECT r.*, rt.table_id 
+        FROM reservations r
+        JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
+        WHERE rt.table_id = ? 
+          AND r.is_kiosk_active = 1
+          AND r.status IN ('Confirmed', 'Seated', 'Pending')
+          AND r.reservation_date = ?
+        LIMIT 1
+      `;
+      const [tables] = await db.execute(tableSql, [tableId, today]);
+      if (tables.length > 0) {
+        return { mode: "table_assigned", reservation: tables[0] };
+      }
+    }
+
+    // 3. No events or active table assignments found. Trigger "usual look"
+    return { mode: "table_default" };
   },
 
   // ==================== CRUD OPERATIONS ====================

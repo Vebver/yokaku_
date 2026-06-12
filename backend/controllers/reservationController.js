@@ -175,14 +175,12 @@ const reservationController = {
   // },
 getActiveKiosk: async (req, res) => {
     try {
-      const active = await Reservation.getActiveKioskReservation();
-      if (!active) {
-        return res.json({ success: false, message: "No active kiosk reservation." });
-      }
-      res.json({ success: true, reservation: active });
+      const { tableId } = req.query;
+      const result = await Reservation.getActiveKioskReservation(tableId);
+      res.json({ success: true, ...result });
     } catch (error) {
-      console.error("Fetch active kiosk error:", error);
-      res.status(500).json({ error: "Failed to fetch active kiosk reservation." });
+      console.error("Fetch active kiosk state error:", error);
+      res.status(500).json({ error: "Failed to fetch active kiosk state." });
     }
   },
   // ==================== CREATE RESERVATION ====================
