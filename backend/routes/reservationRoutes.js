@@ -21,8 +21,6 @@ router.get(
 );
 router.get("/user/:userId", protect, reservationController.getUserReservations);
 
-// Add these lines after the existing routes (around line 20)
-
 // ==================== CALENDAR ROUTES ====================
 router.get("/by-date-range", reservationController.getReservationsByDateRange);
 router.get("/by-date/:date", reservationController.getReservationsByDate);
@@ -48,14 +46,19 @@ router.delete(
 );
 
 // ==================== GENERAL PROTECTED ROUTES ====================
-//router.get("/:id/items", protect, reservationController.getReservationItems);
+
+// 1. Static and Specific routes first
+router.get('/active-kiosk', reservationController.getActiveKiosk);
+router.get("/:id/items", protect, reservationController.getReservationItems);
+
+// 2. POST actions
 router.post(
   "/table",
-  // Cloudinary-backed upload so we store a secure_url in reservations.receipt_path
   uploadReceiptToCloudinary.single("receipt"),
   reservationController.createReservation,
 );
 
 router.get("/active-kiosk", reservationController.getActiveKiosk);
 router.get("/:id", reservationController.checkReservationId);
+
 module.exports = router;

@@ -106,14 +106,14 @@ const Reservation = {
     const [rows] = await db.execute(sql, [tableId, date]);
     return rows;
   },
- // ==================== STATUS MANAGEMENT ====================
+
+  // ==================== STATUS MANAGEMENT ====================
   updateStatus: async (id, status, cancellationReason = null) => {
     const conn = await db.getConnection();
     try {
       await conn.beginTransaction();
       const bStatus = status.toLowerCase();
 
-      // 1. If status is cancelled, update status along with cancellation reason and NOW() timestamp
       if (bStatus === "cancelled") {
         await conn.execute(
           `UPDATE reservations 
@@ -122,7 +122,6 @@ const Reservation = {
           [status, cancellationReason, id]
         );
 
-        // 2. Write "Reservation Cancelled" notification rows for all administrators
         try {
           const [admins] = await conn.execute("SELECT user_id FROM users WHERE role = 'admin'");
           const notifMessage = `Reservation ${id} has been cancelled by the customer. Reason: ${cancellationReason || "No reason specified."}`;
@@ -144,13 +143,12 @@ const Reservation = {
         );
       }
 
-      // 3. Update reservation tables bindings
       await conn.execute(
         "UPDATE reservation_tables SET status = ? WHERE reservation_id = ?",
         [bStatus, id]
       );
 
-      // 4. Update table occupancy status
+      // Updates status of all linked tables to occupied/available
       if (bStatus === "seated") {
         await conn.execute(
           `UPDATE tables t 
@@ -214,11 +212,10 @@ const Reservation = {
     }
   },
 
- getActiveKioskReservation: async (tableId) => {
+  getActiveKioskReservation: async (tableId) => {
     const today = new Date().toISOString().split("T")[0];
-    const now = new Date().toTimeString().slice(0, 8); // Formats to 'HH:MM:SS'
+    const now = new Date().toTimeString().slice(0, 8);
 
-    // 1. Check if there is an active event reservation scheduled for right now
     const eventSql = `
       SELECT r.* 
       FROM reservations r
@@ -233,16 +230,13 @@ const Reservation = {
 
     if (events.length > 0) {
       const event = events[0];
-      // If the admin has set the Event to active, unlock the kiosk
       if (event.is_kiosk_active === 1) {
         return { mode: "event_active", reservation: event };
       } else {
-        // Otherwise, lock the kiosk in the waiting screen
         return { mode: "event_waiting", reservation: event };
       }
     }
 
-    // 2. If no event is currently running, check if a table reservation was pushed to this specific table
     if (tableId) {
       const tableSql = `
         SELECT r.*, rt.table_id 
@@ -260,39 +254,31 @@ const Reservation = {
       }
     }
 
-    // 3. No events or active table assignments found. Trigger "usual look"
     return { mode: "table_default" };
   },
 
   // ==================== CRUD OPERATIONS ====================
-  // getItemsByReservationId: async (id) => {
-  //   const sql = `
-  //     SELECT mi.name, ri.quantity, mi.price, ri.customizations FROM reservation_items ri
-  //     JOIN menu_items mi ON ri.product_id = mi.item_id WHERE ri.reservation_id = ?
-  //     UNION ALL
-  //     SELECT mi.name, ko.quantity, mi.price, ko.customizations FROM kiosk_orders ko
-  //     JOIN menu_items mi ON ko.item_id = mi.item_id WHERE ko.reservation_id = ?
-  //     UNION ALL
-  //     SELECT package_name AS name, 1, 0, NULL FROM reservations WHERE reservation_id = ? 
-  //     AND NOT EXISTS (SELECT 1 FROM reservation_items WHERE reservation_id = ?) 
-  //     AND NOT EXISTS (SELECT 1 FROM kiosk_orders WHERE reservation_id = ?)`;
-  //   const [rows] = await db.execute(sql, [id, id, id, id, id]);
-  //   return rows;
-  // },
-
-create: async (data) => {
+ create: async (data) => {
     const conn = await db.getConnection();
     try {
       await conn.beginTransaction();
       const customId = generateRandomId();
 
-      // 1. Insert into reservations (Exactly 19 columns and 19 placeholders)
+      // DEBUG: Log what reservation_type value we're about to insert
+      const finalReservationType = data.reservationType || data.reservation_type || "per_table";
+      console.log("=== RESERVATION.CREATE DEBUG ===");
+      console.log("data.reservationType:", data.reservationType);
+      console.log("data.reservation_type:", data.reservation_type);
+      console.log("Final value to insert:", finalReservationType);
+
+      // 1. Insert into reservations (Updated to 20 columns and 20 placeholders)
       const resQuery = `INSERT INTO reservations (
         reservation_id, user_id, first_name, last_name, email, phone, 
         reservation_date, reservation_time, end_time, num_guests, 
         package_name, status, receipt_path, brgy_code, allergy, 
-        allergy_count, occasion, duration_hours, downpayment_amount
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        allergy_count, occasion, duration_hours, downpayment_amount,
+        reservation_type
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
       await conn.query(resQuery, [
         customId,
@@ -314,11 +300,23 @@ create: async (data) => {
         data.occasion || "Casual Dining",
         data.durationHours || 1.0,
         data.downpayment || 0,
+        finalReservationType,
       ]);
 
-      // 2. Insert tables
-      if (data.tableIds?.length > 0) {
-        for (const tid of data.tableIds) {
+      // 2. Fetch and Insert Table Assignments
+      let finalTableIds = [];
+
+      // If reservation type is an Event, query all active tables to block them out
+      if (data.reservationType === "event" || data.reservation_type === "event") {
+        const [allTables] = await conn.query("SELECT table_id FROM tables WHERE status != 'maintenance'");
+        finalTableIds = allTables.map(t => t.table_id);
+      } else if (data.tableIds?.length > 0) {
+        // Otherwise, use the specifically selected table IDs
+        finalTableIds = data.tableIds;
+      }
+
+      if (finalTableIds.length > 0) {
+        for (const tid of finalTableIds) {
           await conn.query(
             `INSERT INTO reservation_tables 
              (reservation_id, table_id, customer_name, status, check_in_time) 
@@ -383,6 +381,22 @@ create: async (data) => {
     }
   },
 
+// In models/Reservation.js (inside the Reservation object):
+
+ getItemsByReservationId: async (id) => {
+    const sql = `
+      SELECT mi.menu_name, mi.menu_name AS item_name, ko.quantity, mi.price, ko.customizations 
+      FROM kiosk_orders ko
+      JOIN menu_items mi ON ko.item_id = mi.item_id 
+      WHERE ko.reservation_id = ?
+      UNION ALL
+      SELECT package_name, package_name AS item_name, 1, 0, NULL 
+      FROM reservations 
+      WHERE reservation_id = ? 
+      AND NOT EXISTS (SELECT 1 FROM kiosk_orders WHERE reservation_id = ?)`;
+    const [rows] = await db.execute(sql, [id, id, id]);
+    return rows;
+  },
   countNoShows: async (userId) => {
     if (!userId || userId === "null") return 0;
     const sql = `SELECT COUNT(*) as count FROM reservations WHERE user_id = ? AND status = 'no-show'`;

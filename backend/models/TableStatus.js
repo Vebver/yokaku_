@@ -117,8 +117,7 @@ const TableStatus = {
       conn.release();
     }
   },
-
-  // 4. CHECKOUT
+ // 4. CHECKOUT (Updated to automatically clear active kiosk flag)
   checkoutTable: async (tableId) => {
     try {
       const [rows] = await db.query(
@@ -131,8 +130,9 @@ const TableStatus = {
       if (rows.length > 0 && rows[0].reservation_id) {
         const resId = rows[0].reservation_id;
 
+        // UPDATED: Reset is_kiosk_active to 0 when table is checked out
         await db.query(
-          "UPDATE reservations SET status = 'Completed' WHERE reservation_id = ?",
+          "UPDATE reservations SET status = 'Completed', is_kiosk_active = 0 WHERE reservation_id = ?",
           [resId]
         );
 

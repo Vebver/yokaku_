@@ -165,14 +165,16 @@ const reservationController = {
   },
 
   // ==================== RESERVATION ITEMS ====================
-  // getReservationItems: async (req, res) => {
-  //   try {
-  //     const items = await Reservation.getItemsByReservationId(req.params.id);
-  //     res.json(items);
-  //   } catch (error) {
-  //     res.status(500).json({ error: "Internal Server Error" });
-  //   }
-  // },
+  getReservationItems: async (req, res) => {
+    try {
+      const items = await Reservation.getItemsByReservationId(req.params.id);
+      res.json(items);
+    } catch (error) {
+      console.error("Error fetching reservation items:", error);
+      res.status(500).json({ error: "Internal Server Error" });
+    }
+  },
+
 getActiveKiosk: async (req, res) => {
     try {
       const { tableId } = req.query;
@@ -187,6 +189,14 @@ getActiveKiosk: async (req, res) => {
 createReservation: async (req, res) => {
   try {
     const body = req.body;
+    
+    // LOG ALL INCOMING FIELDS FOR DEBUG
+    console.log("=== INCOMING REQUEST BODY ===");
+    console.log("All fields:", Object.keys(body));
+    console.log("reservationType:", body.reservationType);
+    console.log("reservation_type:", body.reservation_type);
+    console.log("Full body keys/values:", JSON.stringify(body, null, 2));
+    
     const userId = body.userId;
 
     if (userId && userId !== "null") {
@@ -243,8 +253,18 @@ createReservation: async (req, res) => {
       }
     }
 
+    // Normalize reservation type coming from frontend (accept both camelCase and snake_case)
+    const rawReservationType = body.reservationType || body.reservation_type || "per_table";
+    const normalizedReservationType =
+      typeof rawReservationType === "string"
+        ? rawReservationType.toLowerCase()
+        : rawReservationType;
+
     const reservationData = {
       ...body,
+      // ensure both keys are present and normalized
+      reservation_type: normalizedReservationType,
+      reservationType: normalizedReservationType,
       userId: body.userId || req.user?.userId,
       startTime: dbStart,
       endTime: dbEnd,
@@ -257,7 +277,12 @@ createReservation: async (req, res) => {
       receiptPath: req.file ? req.file.path : null,
     };
 
-    console.log("Saving receipt URL to DB:", reservationData.receiptPath);
+    console.log(
+      "Saving reservation - incoming:",
+      { bodyReservationType: body.reservationType, body_reservation_type: body.reservation_type },
+      "-> normalized:",
+      normalizedReservationType,
+    );
 
     // 1. Create the database records
     const newId = await Reservation.create(reservationData);
