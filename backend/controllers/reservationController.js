@@ -173,7 +173,18 @@ const reservationController = {
   //     res.status(500).json({ error: "Internal Server Error" });
   //   }
   // },
-
+getActiveKiosk: async (req, res) => {
+    try {
+      const active = await Reservation.getActiveKioskReservation();
+      if (!active) {
+        return res.json({ success: false, message: "No active kiosk reservation." });
+      }
+      res.json({ success: true, reservation: active });
+    } catch (error) {
+      console.error("Fetch active kiosk error:", error);
+      res.status(500).json({ error: "Failed to fetch active kiosk reservation." });
+    }
+  },
   // ==================== CREATE RESERVATION ====================
 createReservation: async (req, res) => {
   try {

@@ -26,7 +26,7 @@ router.put('/users/:userId/update-role', protect, adminOnly, adminController.upd
 router.get('/users', protect, adminOnly, adminController.getAllUsers);
 
 // --- MAINTENANCE ROUTES (Keep protected) ---
-router.post('/set-kiosk-reservation', adminOnly, maintenanceController.updateKioskReservation);
+router.post('/set-kiosk-reservation',protect, adminOnly, maintenanceController.updateKioskReservation);
 router.post('/reset', protect, adminOnly, maintenanceController.reset);
 router.get('/export-csv', protect, adminOnly, maintenanceController.exportData);
 router.get('/export-financial-pdf', protect, adminOnly, maintenanceController.exportFinancialPdf);

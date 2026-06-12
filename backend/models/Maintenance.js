@@ -10,7 +10,7 @@ const Maintenance = {
     );
 
     // 2. Set the newly selected reservation as active for the kiosk
-    const sql = "UPDATE reservations SET is_kiosk_active = 1 WHERE id = ?";
+    const sql = "UPDATE reservations SET is_kiosk_active = 1 WHERE reservation_id = ?";
     const [result] = await db.execute(sql, [reservationId]);
 
     return result.affectedRows;

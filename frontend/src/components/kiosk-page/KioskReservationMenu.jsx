@@ -63,8 +63,12 @@ const KioskReservationMenu = () => {
   const timerRef = useRef(null);
   const audioObj = useMemo(() => new Audio(alertMusicFile), []);
 
-  const reservationId = localStorage.getItem("resId") || "GUEST";
   const storage = window.localStorage;
+  
+  // Track active reservation ID state instead of using static lookup
+  const [activeResId, setActiveResId] = useState(localStorage.getItem("resId") || null);
+
+  const reservationId = activeResId;
   const TIMER_KEY = `kiosk_res_timer_${reservationId}`;
   const PAYMENT_CHOICE_KEY = `kiosk_pay_choice_${reservationId}`;
   const TOTAL_PAID_KEY = `kiosk_total_paid_${reservationId}`;
@@ -115,7 +119,6 @@ const KioskReservationMenu = () => {
     const token =
       localStorage.getItem("token") || sessionStorage.getItem("token");
     if (!token || token === "null" || token === "undefined") {
-      console.warn("Authorization token is missing from browser storage.");
       return { headers: {} };
     }
     return { headers: { Authorization: `Bearer ${token}` } };
@@ -129,8 +132,31 @@ const KioskReservationMenu = () => {
       : { "Content-Type": "application/json" };
   };
 
+  // ==================== POLLING SYSTEM ASSIGNMENT ====================
+  useEffect(() => {
+    if (activeResId) return; // Stop polling if already locked into a reservation
+
+    const checkActiveKiosk = async () => {
+      try {
+        const res = await axios.get(`${API_BASE}/reservations/active-kiosk`);
+        if (res.data && res.data.success) {
+          const { reservation_id, table_id } = res.data.reservation;
+          localStorage.setItem("resId", reservation_id);
+          if (table_id) localStorage.setItem("tableId", table_id.toString());
+          setActiveResId(reservation_id);
+          window.location.reload(); // Reload once to refresh context/states
+        }
+      } catch (err) {
+        console.error("Kiosk polling error:", err);
+      }
+    };
+
+    // Poll the backend every 3 seconds for admin assignment
+    const pollInterval = setInterval(checkActiveKiosk, 3000);
+    return () => clearInterval(pollInterval);
+  }, [activeResId]);
+
   const calculateSessionTotal = () => {
-    // 1. Sum up all items already saved in the database (billItems)
     const databaseTotal = billItems.reduce((sum, item) => {
       const q = parseInt(item.quantity || item.qty || 1);
       let p = parseFloat(item.price);
@@ -149,7 +175,6 @@ const KioskReservationMenu = () => {
       return sum + p * q;
     }, 0);
 
-    // 2. Sum up only the active pending items in the tray (cart)
     const pendingTotal = cart
       .filter((item) => !item.is_placed)
       .reduce((sum, item) => {
@@ -180,10 +205,6 @@ const KioskReservationMenu = () => {
 
   const fetchCurrentBill = async () => {
     try {
-      // const res = await axios.get(
-      //   `${API_BASE}/orders/reservation-items/${reservationId}`,
-      //   getAuthHeader(),
-      // );
       if (res.data) setBillItems(res.data);
       return res.data;
     } catch (err) {
@@ -238,6 +259,7 @@ const KioskReservationMenu = () => {
     setIsRefillMode(true);
     setShowFlavorModal(true);
   };
+
   useEffect(() => {
     if (activeCategory === "Unlimited" && hasOrderedUnlimited) {
       const fallbackCategory = Object.keys(menuData).find(
@@ -248,20 +270,19 @@ const KioskReservationMenu = () => {
       }
     }
   }, [activeCategory, hasOrderedUnlimited, menuData]);
+
   // Initial data fetch and Tray/Cart synchronization
   useEffect(() => {
+    if (!activeResId) {
+      setLoading(false);
+      return;
+    }
     const fetchData = async () => {
       try {
         const [prodRes, resItemsRes, reservationRes] = await Promise.all([
           fetch(`${API_BASE}/products`, { headers: getFetchHeaders() }).then(
             (r) => r.json(),
           ),
-          // axios
-          //   .get(
-          //     `${API_BASE}/orders/reservation-items/${reservationId}`,
-          //     getAuthHeader(),
-          //   )
-          //   .then((r) => r.data),
           axios
             .get(`${API_BASE}/reservations/${reservationId}`, getAuthHeader())
             .then((r) => r.data)
@@ -290,11 +311,7 @@ const KioskReservationMenu = () => {
 
         // Sync database items
         if (resItemsRes && resItemsRes.length > 0) {
-          // Initialize active bill history with already-reserved items
           setBillItems(resItemsRes);
-
-          // Load pre-reserved items into the active cart flagged as "is_placed: true"
-          // This displays them in the tray while preventing duplicate database postings
           setCart(
             resItemsRes.map((i) => ({
               id: i.item_id,
@@ -302,7 +319,7 @@ const KioskReservationMenu = () => {
               price: i.item_price || i.price,
               quantity: parseInt(i.qty || i.quantity || 1),
               customizations: i.customizations,
-              is_placed: true, // Correctly flagged as already ordered
+              is_placed: true,
             })),
           );
         } else {
@@ -310,7 +327,6 @@ const KioskReservationMenu = () => {
           setBillItems([]);
         }
 
-        // Group regular products
         prodRes.forEach((item) => {
           const cat = item.category_name || "General";
           if (!grouped[cat]) grouped[cat] = [];
@@ -350,22 +366,17 @@ const KioskReservationMenu = () => {
       }
     };
     fetchData();
-  }, [reservationId]);
+  }, [activeResId, reservationId]);
 
   const confirmPaymentChoice = async (choice) => {
     setIsLoading(true);
     const isPayNow = choice === "Pay Now";
-
-    // 1. Filter out items that are already ordered (is_placed: true)
     const pendingItems = cart.filter((i) => !i.is_placed);
-
-    // Check if they have an unlimited package anywhere (pre-reserved or new)
     const hasUnlimitedPackage = [...billItems, ...cart].some((item) =>
       (item.name || item.item_name || "").toLowerCase().includes("unlimited"),
     );
 
     try {
-      // 2. Only post new items to the kitchen if there are actually new items in the tray
       if (pendingItems.length > 0) {
         await axios.post(
           `${API_BASE}/orders/place`,
@@ -380,15 +391,14 @@ const KioskReservationMenu = () => {
           getAuthHeader(),
         );
       }
-      // 3. START the timer if they have an unlimited package and it's not already running
+
       if (hasUnlimitedPackage && !storage.getItem(TIMER_KEY)) {
-        const endTime = Date.now() + 1.5 * 60 * 60 * 1000; // 1 Hour and 30 Minutes in milliseconds (90 mins)
+        const endTime = Date.now() + 1.5 * 60 * 60 * 1000;
         storage.setItem(TIMER_KEY, endTime.toString());
-        setTimeLeft(5400); // 1.5 Hours in seconds (5400s)
+        setTimeLeft(5400);
         setIsTimerRunning(true);
       }
 
-      // 4. Process payments only if choosing "Pay Now"
       const totalSessionAmount = calculateSessionTotal();
       const alreadyPaid = parseFloat(storage.getItem(TOTAL_PAID_KEY) || 0);
       const newPendingAmount = totalSessionAmount - alreadyPaid;
@@ -411,10 +421,7 @@ const KioskReservationMenu = () => {
         await playCashierAlert();
       }
 
-      // 5. Refresh backend bill records and synchronize tray states
       await fetchCurrentBill();
-
-      // Clear the cart tray completely now that the items are submitted
       setCart([]);
       setShowBillInfo(false);
 
@@ -433,6 +440,8 @@ const KioskReservationMenu = () => {
     setIsLoading(true);
     try {
       let currentTableId = localStorage.getItem("tableId");
+      
+      // Tell backend to clear the assignment
       await axios.post(
         `${API_BASE}/orders/finish`,
         {
@@ -458,16 +467,17 @@ const KioskReservationMenu = () => {
       setCart([]);
       setBillItems([]);
       setLocalBillHistory([]);
-      window.location.href = "/kiosk-selection";
+      setActiveResId(null); // Direct state back to resting/waiting screen
     } catch (e) {
       localStorage.removeItem("resId");
       setCart([]);
       setBillItems([]);
-      window.location.href = "/kiosk-selection";
+      setActiveResId(null);
     } finally {
       setIsLoading(false);
     }
   };
+
   const handleHeaderPayClick = async () => {
     setIsPaymentProcessing(false);
     await fetchCurrentBill();
@@ -478,6 +488,7 @@ const KioskReservationMenu = () => {
   };
 
   useEffect(() => {
+    if (!activeResId) return;
     const savedEndTime = storage.getItem(TIMER_KEY);
     if (savedEndTime) {
       const remaining = Math.floor(
@@ -488,7 +499,7 @@ const KioskReservationMenu = () => {
         setIsTimerRunning(true);
       }
     }
-  }, []);
+  }, [activeResId]);
 
   useEffect(() => {
     if (isTimerRunning) {
@@ -586,6 +597,56 @@ const KioskReservationMenu = () => {
 
   if (loading) return <div className="loading-container">Loading Menu...</div>;
 
+  // ==================== RENDER RESTING / WAITING VIEW ====================
+  if (!activeResId) {
+    return (
+      <div className="kiosk-resting-screen" style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        height: "100vh",
+        background: "#080808",
+        color: "#fff",
+        textAlign: "center",
+        padding: "20px"
+      }}>
+        <div style={{
+          background: "#111",
+          border: "2px solid #222",
+          padding: "40px 60px",
+          borderRadius: "20px",
+          maxWidth: "600px",
+          boxShadow: "0 10px 30px rgba(0,0,0,0.5)"
+        }}>
+          <UtensilsCrossed size={80} color="#ffcc00" style={{ margin: "0 auto 20px" }} />
+          <h1 style={{ fontSize: "2.5rem", fontWeight: "900", color: "#fff", margin: "10px 0" }}>
+            Welcome to <span style={{ color: "#ffcc00" }}>Hangout</span>
+          </h1>
+          <p style={{ color: "#888", fontSize: "1.2rem", margin: "15px 0 30px" }}>
+            Please contact our counter staff or wait here while we assign your table reservation.
+          </p>
+          <div style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "10px",
+            background: "#1e1a05",
+            border: "1px solid #443c0c",
+            padding: "10px 20px",
+            borderRadius: "50px"
+          }}>
+            <RefreshCw size={18} color="#ffcc00" className="spinner-loader" />
+            <span style={{ color: "#ffcc00", fontWeight: "bold" }}>
+              Waiting for system setup...
+            </span>
+          </div>
+        </div>
+        <style>{` .spinner-loader { animation: spin 1.5s linear infinite; } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } `}</style>
+      </div>
+    );
+  }
+
+  // ==================== STANDARD KIOSK ACTIVE VIEW ====================
   return (
     <div className="res-kiosk-container">
       {/* HEADER */}
@@ -734,7 +795,6 @@ const KioskReservationMenu = () => {
             <div className="res-cat-scroll-wrapper">
               {Object.keys(menuData)
                 .filter((cat) => !HIDDEN_CATEGORIES.includes(cat))
-                // Filter out the "Unlimited" category if they already ordered it
                 .filter((cat) => !(cat === "Unlimited" && hasOrderedUnlimited))
                 .map((cat) => (
                   <button
@@ -790,7 +850,7 @@ const KioskReservationMenu = () => {
           <button
             className="res-btn-cancel"
             style={{ marginRight: "auto", background: "#444" }}
-            onClick={() => navigate("/kiosk-selection")}
+            onClick={() => setActiveResId(null)} // Reset back to resting screen
           >
             <ArrowLeft size={18} className="me-2" /> Exit Kiosk
           </button>
@@ -1099,7 +1159,6 @@ const KioskReservationMenu = () => {
               color="#ffcc00"
               style={{ margin: "0 auto 15px" }}
             />
-            {/* Dynamically toggle header between Cooldown and standard Notice */}
             <h3 style={{ color: "#ffcc00" }}>
               {cooldownMessage.toLowerCase().includes("cooldown")
                 ? "Refill Cooldown"

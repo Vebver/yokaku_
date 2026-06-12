@@ -214,6 +214,18 @@ const Reservation = {
     }
   },
 
+  getActiveKioskReservation: async () => {
+    const sql = `
+      SELECT r.reservation_id, rt.table_id 
+      FROM reservations r
+      LEFT JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
+      WHERE r.is_kiosk_active = 1 
+      LIMIT 1
+    `;
+    const [rows] = await db.execute(sql);
+    return rows[0];
+  },
+
   // ==================== CRUD OPERATIONS ====================
   // getItemsByReservationId: async (id) => {
   //   const sql = `

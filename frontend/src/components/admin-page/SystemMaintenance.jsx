@@ -181,41 +181,6 @@ const SystemMaintenance = () => {
             </button>
           </div>
         </div>
-        <div className="col-12 col-md-6">
-          <div
-            className="p-4 border rounded text-center h-100 bg-white shadow-sm d-flex flex-column justify-content-between"
-            style={{ borderRadius: "8px" }}
-          >
-            <div>
-              <Monitor className="text-primary mb-3" size={40} />
-              <h5 className="fw-bold">Set Kiosk Reservation</h5>
-              <p className="small text-muted mb-4">
-                Input the reservation ID to route this specific record directly
-                to the active kiosk.
-              </p>
-              <input
-                type="text"
-                className="form-control mb-3 text-center"
-                placeholder="Enter Reservation ID"
-                value={kioskReservationId}
-                onChange={(e) => setKioskReservationId(e.target.value)}
-                style={{
-                  borderRadius: "8px",
-                  maxWidth: "250px",
-                  margin: "0 auto",
-                }}
-              />
-            </div>
-            <button
-              onClick={handleSetKioskReservation}
-              className="btn btn-primary btn-lg w-100 py-3 fw-bold shadow-sm"
-              style={{ borderRadius: "8px" }}
-              disabled={!kioskReservationId.trim()}
-            >
-              Assign to Kiosk
-            </button>
-          </div>
-        </div>
 
         {/* 3. FINANCIAL PDF */}
         <div className="col-12 col-md-6">
