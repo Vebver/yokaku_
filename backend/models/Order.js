@@ -74,7 +74,7 @@ const Order = {
         reservation_id, first_name, last_name, email, phone, status, 
         reservation_date, reservation_time, brgy_code, num_guests, package_name, occasion
       ) 
-      VALUES (?, ?, '', '', '', 'seated', CURDATE(), CURTIME(), NULL, 1, 'walk-in', 'none', 'no')
+      VALUES (?, ?, '', '', '', 'seated', CURDATE(), CURTIME(), NULL, 1, 'walk-in', 'none')
     `;
     return await conn.execute(query, [reservationId, firstName]);
   },

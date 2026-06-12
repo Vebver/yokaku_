@@ -230,19 +230,19 @@ const Reservation = {
     return rows;
   },
 
-  create: async (data) => {
+create: async (data) => {
     const conn = await db.getConnection();
     try {
       await conn.beginTransaction();
       const customId = generateRandomId();
 
-      // 1. Insert into reservations
+      // 1. Insert into reservations (Exactly 19 columns and 19 placeholders)
       const resQuery = `INSERT INTO reservations (
         reservation_id, user_id, first_name, last_name, email, phone, 
         reservation_date, reservation_time, end_time, num_guests, 
         package_name, status, receipt_path, brgy_code, allergy, 
         allergy_count, occasion, duration_hours, downpayment_amount
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
       await conn.query(resQuery, [
         customId,
@@ -351,12 +351,12 @@ const Reservation = {
     }
   },
 
-  countNoShows: async (userId) => {
-    if (!userId || userId === "null") return 0;
-    const sql = `SELECT COUNT(*) as count FROM reservations WHERE user_id = ? AND status = 'no-show'`;
-    const [rows] = await db.execute(sql, [userId]);
-    return rows[0].count;
-  },
+  // countNoShows: async (userId) => {
+  //   if (!userId || userId === "null") return 0;
+  //   const sql = `SELECT COUNT(*) as count FROM reservations WHERE user_id = ? AND status = 'no-show'`;
+  //   const [rows] = await db.execute(sql, [userId]);
+  //   return rows[0].count;
+  // },
 
   getAll: async () => {
     const sql = `SELECT r.*, p.payment_status, p.amount, GROUP_CONCAT(DISTINCT t.table_number SEPARATOR ' + ') AS assigned_tables FROM reservations r LEFT JOIN payments p ON r.reservation_id = p.reservation_id LEFT JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id LEFT JOIN tables t ON rt.table_id = t.table_id GROUP BY r.reservation_id ORDER BY r.created_at DESC`;

@@ -297,7 +297,7 @@ updateStatus: async (req, res) => {
     console.log("HIT THE STATUS UPDATE ROUTE!");
     try {
       const { id } = req.params;
-      const { status, cancellation_reason, cancelled_at } = req.body; // Added cancellation_reason and cancelled_at
+      const { status, cancellation_reason } = req.body;
       const currentUser = req.user;
 
       const reservation = await Reservation.findById(id);
@@ -329,7 +329,7 @@ updateStatus: async (req, res) => {
       }
 
       // Pass the cancellation parameters down to the database model
-      await Reservation.updateStatus(id, status, cancellation_reason, cancelled_at);
+      await Reservation.updateStatus(id, status, cancellation_reason);
       res.json({ success: true, message: "Status updated." });
     } catch (error) {
       res.status(500).json({ error: error.message });
