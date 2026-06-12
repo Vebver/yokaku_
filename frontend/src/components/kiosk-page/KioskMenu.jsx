@@ -83,12 +83,10 @@ const KioskMenu = () => {
     storage.getItem(PAYMENT_CHOICE_KEY) === "verified",
   );
 
-  // Reactive state to track total payments in real-time
   const [localTotalPaid, setLocalTotalPaid] = useState(
     parseFloat(storage.getItem(TOTAL_PAID_KEY) || 0),
   );
 
-  // DECLARED HERE AT THE TOP to prevent ReferenceErrors in hooks below
   const hasOrderedUnlimited = [...billItems, ...cart].some((item) =>
     (item.name || item.item_name || "").toLowerCase().includes("unlimited"),
   );
@@ -125,7 +123,6 @@ const KioskMenu = () => {
     const token =
       localStorage.getItem("token") || sessionStorage.getItem("token");
     if (!token || token === "null" || token === "undefined") {
-      console.warn("Authorization token is missing from browser storage.");
       return { headers: {} };
     }
     return { headers: { Authorization: `Bearer ${token}` } };
@@ -157,7 +154,6 @@ const KioskMenu = () => {
     }
   };
 
-  // Calculates the cost of the items currently inside your interactive tray
   const calculateCartTotal = () => {
     return cart.reduce((sum, item) => {
       const p = parseFloat(item.price || 0);
@@ -168,7 +164,6 @@ const KioskMenu = () => {
 
   const calculateSessionTotal = (excludeCart = false) => {
     const history = billItems.length > 0 ? billItems : localBillHistory;
-    // If excludeCart is true (like on Pay Bill), we only sum already placed history items
     const combined = excludeCart ? history : [...history, ...cart];
 
     return combined.reduce((sum, item) => {
@@ -194,7 +189,7 @@ const KioskMenu = () => {
 
   const calculateTotalDue = (excludeCart = false) => {
     const totalSession = calculateSessionTotal(excludeCart);
-    const due = totalSession - localTotalPaid; // Calculates using the reactive state
+    const due = totalSession - localTotalPaid;
     return due > 0 ? due.toFixed(2) : "0.00";
   };
 
@@ -261,7 +256,6 @@ const KioskMenu = () => {
       }
     }
 
-    // Clear all session states including the refill cooldown keys
     [
       TIMER_KEY,
       SAVED_TABLE_ID,
@@ -276,14 +270,13 @@ const KioskMenu = () => {
       localStorage.removeItem(k);
     });
 
-    // Clear all state to prevent old data from reappearing in new sessions
     setCart([]);
     setBillItems([]);
     setLocalBillHistory([]);
 
     window.location.href = "/kiosk-selection";
   };
-  // Helper to locate the unlimited package from your loaded menuData
+
   const findUnlimitedItem = () => {
     for (const cat of Object.keys(menuData)) {
       const found = menuData[cat].find((item) =>
@@ -298,8 +291,6 @@ const KioskMenu = () => {
     const lastRefill = storage.getItem(LAST_REFILL_KEY);
     if (lastRefill) {
       const timeElapsed = Date.now() - parseInt(lastRefill, 10);
-
-      // Cooldown period set back to 10 Minutes (10 * 60 * 1000)
       const cooldownPeriod = 10 * 60 * 1000;
 
       if (timeElapsed < cooldownPeriod) {
@@ -307,7 +298,6 @@ const KioskMenu = () => {
           (cooldownPeriod - timeElapsed) / 1000,
         );
 
-        // Format the remaining time into minutes and seconds
         const m = Math.floor(remainingSeconds / 60);
         const s = remainingSeconds % 60;
 
@@ -360,19 +350,24 @@ const KioskMenu = () => {
 
   const fetchCurrentBill = async () => {
     const resId = storage.getItem(SAVED_RES_ID);
-    if (!resId) return [];
+
+    // SAFE CHECK: If it is a WALK-IN guest, skip the request (walk-ins have no reservations)
+    if (!resId || resId.startsWith("WALK-")) {
+      return [];
+    }
+
     try {
-      // const res = await axios.get(
-      //   `${API_BASE}/orders/reservation-items/${resId}`,
-      //   getAuthHeader(),
-      // );
+      const res = await axios.get(
+        `${API_BASE}/orders/reservation-items/${resId}`,
+        getAuthHeader(),
+      );
       setBillItems(res.data || []);
       return res.data;
     } catch (err) {
+      console.warn("Could not fetch billing items:", err.message);
       return [];
     }
   };
-
   const confirmPaymentChoice = async (choice) => {
     if (isLoading) return;
     const itemsToSubmit = [...cart];
@@ -384,10 +379,10 @@ const KioskMenu = () => {
     const dynamicResId = activeResId || `WALK-${Date.now()}`;
     const isPayNow = choice === "Pay Now";
 
+    // SAFE CHECK: Prevents crash if 'name' property is null or undefined
     const hasUnlimited = itemsToSubmit.some((i) =>
-      i.name.toLowerCase().includes("unlimited"),
+      (i?.name || i?.item_name || "").toLowerCase().includes("unlimited"),
     );
-
     const rawTableId = tableId || currentTableId;
     const parsedTableId = parseInt(rawTableId, 10);
     const finalTableId = isNaN(parsedTableId) ? null : parsedTableId;
@@ -449,7 +444,7 @@ const KioskMenu = () => {
       }
 
       await fetchCurrentBill();
-      setLocalBillHistory([]);
+      // REMOVED: setLocalBillHistory([]); -> Preserves order history for walk-in summaries
 
       setShowPaymentModal(false);
     } catch (error) {
@@ -476,6 +471,8 @@ const KioskMenu = () => {
           headers: getFetchHeaders(),
         });
         const data = await response.json();
+       // Inside KioskMenu.jsx (inside the fetchMenu useEffect block):
+
         const grouped = data.reduce((acc, item) => {
           const cat = item.category_name || "General";
           if (!acc[cat]) acc[cat] = [];
@@ -489,7 +486,8 @@ const KioskMenu = () => {
           }
           acc[cat].push({
             id: item.item_id,
-            name: item.name,
+            // UPDATED: Fallback to item.menu_name to support your database schema
+            name: item.menu_name || item.name, 
             image: img,
             price: item.price,
             category: cat,
@@ -518,17 +516,18 @@ const KioskMenu = () => {
     fetchMenu();
   }, []);
 
+  // Safe Item click handler that handles undefined database properties without throwing crashes
   const handleItemClick = (item) => {
+    console.log("Kiosk Item Clicked:", item); // Safe Diagnostic Log
+    const itemName = (item?.name || "").toLowerCase();
+
     if (activeCategory === "Chicken") {
       setSelectedItem({ ...item, price: 0 });
       setSelectedFlavors([]);
       setSelectedDrink("");
       setIsRefillMode(true);
       setShowFlavorModal(true);
-    } else if (
-      item.name.toLowerCase().includes("unlimited") ||
-      item.name.toLowerCase().includes("ramen")
-    ) {
+    } else if (itemName.includes("unlimited") || itemName.includes("ramen")) {
       setSelectedItem(item);
       setSelectedFlavors([]);
       setSelectedDrink("");
@@ -625,7 +624,6 @@ const KioskMenu = () => {
   return (
     <div className="res-kiosk-container">
       <div className="kiosk-timer-wrapper">
-        {/* LEFT */}
         <div className="header-left-group">
           <div className="header-id-section">
             <ShoppingBag size={20} color="#ffcc00" />
@@ -640,7 +638,6 @@ const KioskMenu = () => {
           </div>
         </div>
 
-        {/* CENTER */}
         <div className="header-center-group">
           {isTimerRunning && (
             <>
@@ -661,7 +658,6 @@ const KioskMenu = () => {
           )}
         </div>
 
-        {/* RIGHT */}
         <div className="header-right-group">
           {storage.getItem(SAVED_RES_ID) && (
             <button
@@ -684,7 +680,7 @@ const KioskMenu = () => {
           )}
         </div>
       </div>
-      {/* 2. MAIN CONTENT (Sidebar + Menu Grid + Summary) */}
+
       <div className="res-main-layout">
         <aside className="res-sidebar">
           <div className="res-brand">
@@ -695,7 +691,6 @@ const KioskMenu = () => {
             <div className="res-cat-scroll-wrapper">
               {Object.keys(menuData)
                 .filter((cat) => !HIDDEN_CATEGORIES.includes(cat))
-                // Filter out the "Unlimited" category if they already ordered it
                 .filter((cat) => !(cat === "Unlimited" && hasOrderedUnlimited))
                 .map((cat) => (
                   <button
@@ -748,7 +743,6 @@ const KioskMenu = () => {
         />
       </div>
 
-      {/* 3. BOTTOM ACTION BAR */}
       <footer className="res-bottom-bar">
         {!storage.getItem(SAVED_RES_ID) && (
           <button
@@ -779,8 +773,6 @@ const KioskMenu = () => {
           </button>
         </div>
       </footer>
-
-      {/* 4. MODALS */}
 
       {/* Allergy Modal */}
       {showAllergyModal && (
@@ -1059,6 +1051,7 @@ const KioskMenu = () => {
       )}
 
       {/* Bill Info / Receipt Modal */}
+
       {showBillInfo && (
         <div className="res-modal-overlay" style={{ zIndex: 10000 }}>
           <div className="res-modal-card">
@@ -1079,7 +1072,11 @@ const KioskMenu = () => {
                 margin: "20px 0",
               }}
             >
-              {(isFinalCheckout ? billItems : cart).map((item, idx) => {
+              {/* FALLBACK: If billItems is empty (walk-ins), map over localBillHistory */}
+              {(isFinalCheckout 
+                ? (billItems.length > 0 ? billItems : localBillHistory) 
+                : cart
+              ).map((item, idx) => {
                 const q = parseInt(item.quantity || item.qty || 1);
 
                 let p = parseFloat(item.price);
@@ -1109,13 +1106,14 @@ const KioskMenu = () => {
                     }}
                   >
                     <div style={{ textAlign: "left", flex: 1 }}>
-                      <span style={{ fontWeight: "bold", display: "block" }}>
-                        {item.name || item.item_name}
-                      </span>
-                      <small style={{ color: "#888" }}>
-                        {isRefill ? "REFILL" : `₱${p.toFixed(2)} x ${q}`}
-                      </small>
-                    </div>
+          {/* Added color: "#ffffff" to force text visibility on dark background */}
+          <span style={{ fontWeight: "bold", display: "block", color: "#ffffff" }}>
+            {item.name || item.item_name || item.menu_name || "Ordered Item"}
+          </span>
+          <small style={{ color: "#888" }}>
+            {isRefill ? "REFILL" : `₱${p.toFixed(2)} x ${q}`}
+          </small>
+        </div>
                     <span style={{ alignSelf: "center" }}>
                       ₱{(p * q).toFixed(2)}
                     </span>
@@ -1222,7 +1220,6 @@ const KioskMenu = () => {
                             return prev.filter((x) => x !== f);
                           }
                           if (prev.length >= 4) {
-                            // REPLACED: Use state-driven notice modal instead of standard alert
                             setCooldownMessage(
                               "You can select a maximum of 4 flavors.",
                             );
@@ -1284,7 +1281,6 @@ const KioskMenu = () => {
               color="#ffcc00"
               style={{ margin: "0 auto 15px" }}
             />
-            {/* Dynamically toggle header between Cooldown and standard Notice */}
             <h3 style={{ color: "#ffcc00" }}>
               {cooldownMessage.toLowerCase().includes("cooldown")
                 ? "Refill Cooldown"
@@ -1321,7 +1317,25 @@ const KioskMenu = () => {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         item={selectedItem}
-        onAdd={(i) => setCart([...cart, i])}
+        onAdd={(newItem) => {
+          setCart((prevCart) => {
+            const existingIdx = prevCart.findIndex(
+              (i) =>
+                i.id === newItem.id &&
+                i.customizations === newItem.customizations,
+            );
+
+            if (existingIdx > -1) {
+              const updated = [...prevCart];
+              updated[existingIdx].quantity += newItem.quantity || 1;
+              return updated;
+            }
+            return [
+              ...prevCart,
+              { ...newItem, quantity: newItem.quantity || 1 },
+            ];
+          });
+        }}
         allProducts={menuData}
       />
 

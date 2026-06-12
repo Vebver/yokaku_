@@ -449,7 +449,7 @@ useEffect(() => {
                           {bill.items.map((item, i) => (
                             <tr key={i}>
                               <td className="fw-bold small">
-                                {item.name || item.item_name}
+                                {item.menu_name || item.package_name}
                               </td>
                               <td className="text-center small">
                                 x{item.quantity}

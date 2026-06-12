@@ -1164,6 +1164,14 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       Object.entries(submission).forEach(([k, v]) => {
         if (v !== undefined && v !== null) payload.append(k, v);
       });
+      // Also append snake_case variant to be explicit for backend form parsers
+      if (reservationType) {
+        try {
+          payload.append("reservation_type", String(reservationType).toLowerCase());
+        } catch (err) {
+          // ignore FormData append failures silently
+        }
+      }
       const res = await axios.post(`${API_BASE}/reservations/table`, payload);
       if (socket) {
         socket.emit("new_reservation", {

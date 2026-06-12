@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Loader2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Loader2, AlertCircle, UtensilsCrossed, RefreshCw } from "lucide-react";
+import axios from "axios";
 import "../../Style/KioskReservation.css";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
@@ -11,10 +12,53 @@ const KioskReservation = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // 1. Parse and preserve the physical table config (e.g. ?setupTable=2)
+  // Track if an event has locked down the entry interface
+  const [eventMode, setEventMode] = useState("default"); // "default" | "event_waiting"
+
+  // 1. Parse physical table config from URL parameters
   const queryParams = useMemo(() => new URLSearchParams(window.location.search), []);
   const setupTable = queryParams.get("setupTable");
 
+  // ==================== RESTAURANT-WIDE EVENT MONITORING ====================
+  useEffect(() => {
+    const checkActiveEventState = async () => {
+      try {
+        const res = await axios.get(`${API_BASE}/reservations/active-kiosk`, {
+          params: { tableId: setupTable }
+        });
+
+        if (res.data && res.data.success) {
+          const { mode, reservation } = res.data;
+
+          if (mode === "event_waiting") {
+            // Lock this entry interface down into the event waiting screen
+            setEventMode("event_waiting");
+          } 
+          else if (mode === "event_active") {
+            // Admin just activated the event! Auto-lock the kiosk and load the menu
+            localStorage.setItem("resId", reservation.reservation_id);
+            if (reservation.table_id) {
+              localStorage.setItem("tableId", reservation.table_id.toString());
+            }
+            const searchString = setupTable ? `?setupTable=${setupTable}` : "";
+            navigate(`/kiosk-selection/kiosk-reservation-menu${searchString}`);
+          } 
+          else {
+            // No events scheduled. Stay on the standard table check-in screen
+            setEventMode("default");
+          }
+        }
+      } catch (err) {
+        console.error("Kiosk event polling error:", err);
+      }
+    };
+
+    checkActiveEventState();
+    const pollInterval = setInterval(checkActiveEventState, 3000);
+    return () => clearInterval(pollInterval);
+  }, [setupTable, navigate]);
+
+  // Function to validate custom table reservation ID with database
   const validateAndProceed = async (id) => {
     setLoading(true);
     setError("");
@@ -35,7 +79,6 @@ const KioskReservation = () => {
         localStorage.setItem("resId", id);
         localStorage.setItem("kiosk_mode", "reservation");
 
-        // 2. Append setupTable to the path so the menu page doesn't lose the config
         const searchString = setupTable ? `?setupTable=${setupTable}` : "";
         navigate(`/kiosk-selection/kiosk-reservation-menu${searchString}`);
       } else {
@@ -56,11 +99,60 @@ const KioskReservation = () => {
     }
   };
 
+  // ==================== 1. EVENT LOCKOUT VIEW (BLOCKS ENTRY FORM) ====================
+  if (eventMode === "event_waiting") {
+    return (
+      <div className="kiosk-resting-screen" style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        height: "100vh",
+        background: "#080808",
+        color: "#fff",
+        textAlign: "center",
+        padding: "20px"
+      }}>
+        <div style={{
+          background: "#111",
+          border: "2px solid #222",
+          padding: "40px 60px",
+          borderRadius: "20px",
+          maxWidth: "600px",
+          boxShadow: "0 10px 30px rgba(0,0,0,0.5)"
+        }}>
+          <UtensilsCrossed size={80} color="#ffcc00" style={{ margin: "0 auto 20px" }} />
+          <h1 style={{ fontSize: "2.5rem", fontWeight: "900", color: "#fff", margin: "10px 0" }}>
+            Event Setup Active
+          </h1>
+          <p style={{ color: "#888", fontSize: "1.2rem", margin: "15px 0 30px" }}>
+            This kiosk is temporarily locked during our private event. Please wait for our staff to activate your session.
+          </p>
+          <div style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "10px",
+            background: "#1e1a05",
+            border: "1px solid #443c0c",
+            padding: "10px 20px",
+            borderRadius: "50px"
+          }}>
+            <RefreshCw size={18} color="#ffcc00" className="spinner-loader" />
+            <span style={{ color: "#ffcc00", fontWeight: "bold" }}>
+              Waiting for host activation...
+            </span>
+          </div>
+        </div>
+        <style>{` .spinner-loader { animation: spin 1.5s linear infinite; } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } `}</style>
+      </div>
+    );
+  }
+
+  // ==================== 2. THE USUAL LOOK (TABLE CHECK-IN FORM) ====================
   return (
     <div className="kiosk-res-wrapper">
       <div className="kiosk-background-overlay"></div>
 
-      {/* 3. Full-Screen Loading Overlay */}
       {loading && (
         <div style={{
           position: "fixed",

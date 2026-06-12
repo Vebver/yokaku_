@@ -128,6 +128,21 @@ const KioskReservationMenu = () => {
     return { headers: { Authorization: `Bearer ${token}` } };
   };
 
+  const handleExitKiosk = () => {
+    // 1. Remove all session keys from localStorage
+    localStorage.removeItem("resId");
+    localStorage.removeItem("tableId");
+    
+    // 2. Clear state variables
+    setActiveResId(null);
+    setCart([]);
+    setBillItems([]);
+
+    // 3. Redirect back to manual reservation entry screen with table assignment
+    const searchString = setupTable ? `?setupTable=${setupTable}` : "";
+    navigate(`/kiosk-selection/kiosk-reservation${searchString}`);
+  };
+
   const getFetchHeaders = () => {
     const token =
       localStorage.getItem("token") || sessionStorage.getItem("token");
@@ -232,13 +247,18 @@ const KioskReservationMenu = () => {
 
   const fetchCurrentBill = async () => {
     try {
+      const res = await axios.get(
+        // CHANGE THIS PATH TO /reservations/
+        `${API_BASE}/reservations/${reservationId}/items`,
+        getAuthHeader()
+      );
       if (res.data) setBillItems(res.data);
       return res.data;
     } catch (err) {
+      console.warn("Error fetching items:", err);
       return [];
     }
   };
-
   const playCashierAlert = async () => {
     try {
       audioObj.currentTime = 0;
@@ -300,20 +320,24 @@ const KioskReservationMenu = () => {
 
   // Initial data fetch and Tray/Cart synchronization
   useEffect(() => {
-    if (!activeResId) {
-      setLoading(false);
-      return;
-    }
     const fetchData = async () => {
       try {
         const [prodRes, resItemsRes, reservationRes] = await Promise.all([
           fetch(`${API_BASE}/products`, { headers: getFetchHeaders() }).then(
             (r) => r.json(),
           ),
-          axios
-            .get(`${API_BASE}/reservations/${reservationId}`, getAuthHeader())
-            .then((r) => r.data)
-            .catch(() => null),
+          activeResId && activeResId !== "GUEST"
+            ? axios
+                .get(`${API_BASE}/orders/reservation-items/${activeResId}`, getAuthHeader())
+                .then((r) => r.data)
+                .catch(() => null)
+            : Promise.resolve(null),
+          activeResId && activeResId !== "GUEST"
+            ? axios
+                .get(`${API_BASE}/reservations/${activeResId}`, getAuthHeader())
+                .then((r) => r.data)
+                .catch(() => null)
+            : Promise.resolve(null),
         ]);
 
         if (reservationRes) {
@@ -324,17 +348,6 @@ const KioskReservationMenu = () => {
           );
           storage.setItem(TOTAL_PAID_KEY, paidAmount.toString());
         }
-
-        const grouped = {};
-        const getFullImage = (item) => {
-          const rawPath = item.local_path || item.image_url;
-          if (!rawPath) return "";
-          if (rawPath.startsWith("http")) return rawPath;
-          const cleanPath = rawPath.startsWith("/")
-            ? rawPath.substring(1)
-            : rawPath;
-          return `${BASE_URL}/${cleanPath}`;
-        };
 
         if (resItemsRes && resItemsRes.length > 0) {
           setBillItems(resItemsRes);
@@ -348,10 +361,33 @@ const KioskReservationMenu = () => {
               is_placed: true,
             })),
           );
+
+          // === AUTO TRIGGER TIMER FOR PRE-BOOKED UNLIMITED RESERVATIONS ===
+          const hasUnlimitedPreBooked = resItemsRes.some((item) =>
+            (item.item_name || item.name || "").toLowerCase().includes("unlimited")
+          );
+          const currentTimerKey = `kiosk_res_timer_${activeResId}`;
+          if (hasUnlimitedPreBooked && !storage.getItem(currentTimerKey)) {
+            const endTime = Date.now() + 1.5 * 60 * 60 * 1000; // 90 minutes
+            storage.setItem(currentTimerKey, endTime.toString());
+            setTimeLeft(5400);
+            setIsTimerRunning(true);
+          }
         } else {
           setCart([]);
           setBillItems([]);
         }
+
+        const grouped = {};
+        const getFullImage = (item) => {
+          const rawPath = item.local_path || item.image_url;
+          if (!rawPath) return "";
+          if (rawPath.startsWith("http")) return rawPath;
+          const cleanPath = rawPath.startsWith("/")
+            ? rawPath.substring(1)
+            : rawPath;
+          return `${BASE_URL}/${cleanPath}`;
+        };
 
         prodRes.forEach((item) => {
           const cat = item.category_name || "General";
@@ -448,15 +484,42 @@ const KioskReservationMenu = () => {
       }
 
       await fetchCurrentBill();
+      setLocalBillHistory([]);
       setCart([]);
       setShowBillInfo(false);
 
       if (isPayNow) {
-        setShowSessionModal(true);
+        const outstandingBalance = parseFloat(calculateTotalDue());
+        const newTotalPaidInStorage = calculateSessionTotal();
+
+        await syncWithDashboard(
+          dynamicResId,
+          outstandingBalance,
+          "Cash",
+          "verified",
+        );
+
+        storage.setItem(TOTAL_PAID_KEY, newTotalPaidInStorage.toString());
+        setLocalTotalPaid(newTotalPaidInStorage);
+
+        storage.setItem(PAYMENT_CHOICE_KEY, "verified");
+        setIsPaid(true);
+        await playCashierAlert();
+        setShowBillInfo(true);
+      } else {
+        setIsPaid(false);
+        storage.removeItem(PAYMENT_CHOICE_KEY);
       }
-    } catch (e) {
-      console.error("Order submission failed:", e);
-      alert("Order submission failed.");
+
+      await fetchCurrentBill();
+      
+      // REMOVED / COMMENTED OUT: Keeping localBillHistory active tracks walk-in orders dynamically
+      // setLocalBillHistory([]);
+
+      setShowPaymentModal(false);
+    } catch (error) {
+      console.error(error);
+      alert("Order failed.");
     } finally {
       setIsLoading(false);
     }
@@ -668,7 +731,7 @@ const KioskReservationMenu = () => {
             </span>
           </div>
         </div>
-        <style>{` .spinner-loader { animation: spin 1.5s linear infinite; } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } `}</style>
+        <style>{` .spinner-loader { animation: spin 1s linear infinite; } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } `}</style>
       </div>
     );
   }
@@ -877,7 +940,7 @@ const KioskReservationMenu = () => {
           <button
             className="res-btn-cancel"
             style={{ marginRight: "auto", background: "#444" }}
-            onClick={() => setActiveResId(null)}
+            onClick={handleExitKiosk}
           >
             <ArrowLeft size={18} className="me-2" /> Exit Kiosk
           </button>
