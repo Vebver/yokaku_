@@ -3,15 +3,27 @@ const FinancialReport = require('../models/FinancialReport');
 const { buildFinancialPdf } = require('../utils/financialPdf');
 
 const maintenanceController = {
-  // ARCHIVE OLD RECORDS
-  archiveRecords: async (req, res) => {
-    try {
-      const count = await Maintenance.archiveOldRecords();
-      res.json({ message: `System Archive Complete. Moved ${count} old records to history.` });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to archive records." });
+ // kiosk reservation
+updateKioskReservation: async (req, res) => {
+  const { reservationId } = req.body;
+
+  if (!reservationId) {
+    return res.status(400).json({ error: "Reservation ID is required." });
+  }
+
+  try {
+    const affectedRows = await Maintenance.setKioskReservation(reservationId);
+    
+    if (affectedRows === 0) {
+      return res.status(404).json({ error: "Reservation ID not found." });
     }
-  },
+
+    res.json({ message: `Kiosk updated successfully with Reservation ID ${reservationId}.` });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to update kiosk reservation." });
+  }
+},
 
   // OPTIMIZE STORAGE
  reset: async (req, res) => {

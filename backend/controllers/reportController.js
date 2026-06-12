@@ -73,8 +73,6 @@ const getFinancialAnalytics = async (req, res) => {
 
         low_stock_list: lowStockItems,
         inventory_usage: inventoryUsage,
-
-        // --- For FinancialOverview.jsx & Nested summaries ---
         // --- For FinancialOverview.jsx & Nested summaries ---
         summary: {
           total_revenue: Number(performanceSummary?.total_revenue || 0),

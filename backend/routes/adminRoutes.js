@@ -3,7 +3,6 @@ const router = express.Router();
 const adminController = require('../controllers/adminController');
 const maintenanceController = require('../controllers/maintenanceController');
 const blockedDateController = require('../controllers/blockedDateController');
-const reportController = require('../controllers/reportController');
 const { getFinancialAnalytics } = require('../controllers/reportController');
 const { protect, adminOnly } = require("../middleware/authMiddleware");
 
@@ -14,7 +13,7 @@ router.get('/reports/financial', protect, adminOnly, adminController.getFinancia
 router.get('/table-status', protect, adminOnly, adminController.getTable);
 router.get('/getTable', protect, adminOnly, adminController.getTable);
 router.get('/public/getTable', adminController.getTable);
-router.get('/reports/financial-analytics', protect, adminOnly, reportController.getFinancialAnalytics);
+router.get('/reports/financial-analytics', protect, adminOnly, getFinancialAnalytics);
 
 // --- OPERATIONAL ROUTES (Walk-in / Checkout) ---
 router.post('/walk-in/:tableId', protect, adminOnly, adminController.Walkin);
@@ -27,7 +26,7 @@ router.put('/users/:userId/update-role', protect, adminOnly, adminController.upd
 router.get('/users', protect, adminOnly, adminController.getAllUsers);
 
 // --- MAINTENANCE ROUTES (Keep protected) ---
-router.post('/archive', protect, adminOnly, maintenanceController.archiveRecords);
+router.post('/set-kiosk-reservation', adminOnly, maintenanceController.updateKioskReservation);
 router.post('/reset', protect, adminOnly, maintenanceController.reset);
 router.get('/export-csv', protect, adminOnly, maintenanceController.exportData);
 router.get('/export-financial-pdf', protect, adminOnly, maintenanceController.exportFinancialPdf);
