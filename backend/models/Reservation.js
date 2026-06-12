@@ -215,20 +215,20 @@ const Reservation = {
   },
 
   // ==================== CRUD OPERATIONS ====================
-  getItemsByReservationId: async (id) => {
-    const sql = `
-      SELECT mi.name, ri.quantity, mi.price, ri.customizations FROM reservation_items ri
-      JOIN menu_items mi ON ri.product_id = mi.item_id WHERE ri.reservation_id = ?
-      UNION ALL
-      SELECT mi.name, ko.quantity, mi.price, ko.customizations FROM kiosk_orders ko
-      JOIN menu_items mi ON ko.item_id = mi.item_id WHERE ko.reservation_id = ?
-      UNION ALL
-      SELECT package_name AS name, 1, 0, NULL FROM reservations WHERE reservation_id = ? 
-      AND NOT EXISTS (SELECT 1 FROM reservation_items WHERE reservation_id = ?) 
-      AND NOT EXISTS (SELECT 1 FROM kiosk_orders WHERE reservation_id = ?)`;
-    const [rows] = await db.execute(sql, [id, id, id, id, id]);
-    return rows;
-  },
+  // getItemsByReservationId: async (id) => {
+  //   const sql = `
+  //     SELECT mi.name, ri.quantity, mi.price, ri.customizations FROM reservation_items ri
+  //     JOIN menu_items mi ON ri.product_id = mi.item_id WHERE ri.reservation_id = ?
+  //     UNION ALL
+  //     SELECT mi.name, ko.quantity, mi.price, ko.customizations FROM kiosk_orders ko
+  //     JOIN menu_items mi ON ko.item_id = mi.item_id WHERE ko.reservation_id = ?
+  //     UNION ALL
+  //     SELECT package_name AS name, 1, 0, NULL FROM reservations WHERE reservation_id = ? 
+  //     AND NOT EXISTS (SELECT 1 FROM reservation_items WHERE reservation_id = ?) 
+  //     AND NOT EXISTS (SELECT 1 FROM kiosk_orders WHERE reservation_id = ?)`;
+  //   const [rows] = await db.execute(sql, [id, id, id, id, id]);
+  //   return rows;
+  // },
 
 create: async (data) => {
     const conn = await db.getConnection();
@@ -274,24 +274,6 @@ create: async (data) => {
              (reservation_id, table_id, customer_name, status, check_in_time) 
              VALUES (?, ?, ?, 'confirmed', NOW())`,
             [customId, tid, `${data.firstName} ${data.lastName}`],
-          );
-        }
-      }
-
-      // 3. Insert selected items
-      if (data.selectedItems?.length > 0) {
-        for (const item of data.selectedItems) {
-          await conn.query(
-            `INSERT INTO reservation_items 
-             (reservation_id, product_id, quantity, price, customizations) 
-             VALUES (?, ?, ?, ?, ?)`,
-            [
-              customId,
-              item.item_id || item.id,
-              item.quantity,
-              item.price,
-              JSON.stringify(item.customizations),
-            ],
           );
         }
       }

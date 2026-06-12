@@ -165,14 +165,14 @@ const reservationController = {
   },
 
   // ==================== RESERVATION ITEMS ====================
-  getReservationItems: async (req, res) => {
-    try {
-      const items = await Reservation.getItemsByReservationId(req.params.id);
-      res.json(items);
-    } catch (error) {
-      res.status(500).json({ error: "Internal Server Error" });
-    }
-  },
+  // getReservationItems: async (req, res) => {
+  //   try {
+  //     const items = await Reservation.getItemsByReservationId(req.params.id);
+  //     res.json(items);
+  //   } catch (error) {
+  //     res.status(500).json({ error: "Internal Server Error" });
+  //   }
+  // },
 
   // ==================== CREATE RESERVATION ====================
 createReservation: async (req, res) => {

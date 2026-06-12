@@ -48,7 +48,7 @@ router.delete(
 );
 
 // ==================== GENERAL PROTECTED ROUTES ====================
-router.get("/:id/items", protect, reservationController.getReservationItems);
+//router.get("/:id/items", protect, reservationController.getReservationItems);
 router.post(
   "/table",
   // Cloudinary-backed upload so we store a secure_url in reservations.receipt_path
