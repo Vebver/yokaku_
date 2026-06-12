@@ -56,7 +56,6 @@ router.post(
   reservationController.createReservation,
 );
 
+router.get("/active-kiosk", reservationController.getActiveKiosk);
 router.get("/:id", reservationController.checkReservationId);
-router.get('/active-kiosk', reservationController.getActiveKiosk);
-
 module.exports = router;
