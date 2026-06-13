@@ -212,10 +212,13 @@ const Reservation = {
     }
   },
 
+ // Replace getActiveKioskReservation in models/Reservation.js with this:
+
   getActiveKioskReservation: async (tableId) => {
     const today = new Date().toISOString().split("T")[0];
-    const now = new Date().toTimeString().slice(0, 8);
+    const now = new Date().toTimeString().slice(0, 8); // 'HH:MM:SS'
 
+    // 1. Check if there is an active event reservation scheduled for right now
     const eventSql = `
       SELECT r.* 
       FROM reservations r
@@ -237,26 +240,22 @@ const Reservation = {
       }
     }
 
-    if (tableId) {
-      const tableSql = `
-        SELECT r.*, rt.table_id 
-        FROM reservations r
-        JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
-        WHERE rt.table_id = ? 
-          AND r.is_kiosk_active = 1
-          AND r.status IN ('Confirmed', 'Seated', 'Pending')
-          AND r.reservation_date = ?
-        LIMIT 1
-      `;
-      const [tables] = await db.execute(tableSql, [tableId, today]);
-      if (tables.length > 0) {
-        return { mode: "table_assigned", reservation: tables[0] };
-      }
+    // 2. Check globally if there is any reservation actively pushed to the kiosk by the admin
+    const activeSql = `
+      SELECT r.* 
+      FROM reservations r
+      WHERE r.is_kiosk_active = 1
+        AND r.status IN ('Confirmed', 'Seated', 'Pending')
+        AND r.reservation_date = ?
+      LIMIT 1
+    `;
+    const [actives] = await db.execute(activeSql, [today]);
+    if (actives.length > 0) {
+      return { mode: "table_assigned", reservation: actives[0] };
     }
 
     return { mode: "table_default" };
   },
-
   // ==================== CRUD OPERATIONS ====================
  create: async (data) => {
     const conn = await db.getConnection();

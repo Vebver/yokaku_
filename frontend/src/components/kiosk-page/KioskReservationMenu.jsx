@@ -163,7 +163,7 @@ const KioskReservationMenu = () => {
     const checkActiveKiosk = async () => {
       try {
         const res = await axios.get(`${API_BASE}/reservations/active-kiosk`, {
-          params: { tableId: setupTable },
+          params: { tableId: setupTable }
         });
 
         if (res.data && res.data.success) {
@@ -177,18 +177,19 @@ const KioskReservationMenu = () => {
               setActiveResId(null);
             }
             setKioskMode("event_waiting");
-          } else if (mode === "event_active" || mode === "table_assigned") {
-            // Event has been activated by the admin, unlock immediately
+          } 
+          // EXCLUSIVELY FOR ACTIVE PRIVATE EVENTS: Auto-unlocks and loads menu
+          else if (mode === "event_active") {
             const { reservation_id, table_id } = reservation;
             if (activeResId !== reservation_id) {
               localStorage.setItem("resId", reservation_id);
-              if (table_id)
-                localStorage.setItem("tableId", table_id.toString());
+              if (table_id) localStorage.setItem("tableId", table_id.toString());
               setActiveResId(reservation_id);
             }
             setKioskMode("active");
-          } else if (mode === "table_default") {
-            // No event active, show the default user lookup screen ("the usual look")
+          } 
+          else {
+            // "table_default" / "table_assigned" - Let manual table check-ins run normally
             setKioskMode("active");
           }
         }

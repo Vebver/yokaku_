@@ -18,8 +18,7 @@ const KioskReservation = () => {
   // 1. Parse physical table config from URL parameters
   const queryParams = useMemo(() => new URLSearchParams(window.location.search), []);
   const setupTable = queryParams.get("setupTable");
-
-  // ==================== RESTAURANT-WIDE EVENT MONITORING ====================
+ // ==================== RESTAURANT-WIDE EVENT MONITORING ====================
   useEffect(() => {
     const checkActiveEventState = async () => {
       try {
@@ -34,8 +33,8 @@ const KioskReservation = () => {
             // Lock this entry interface down into the event waiting screen
             setEventMode("event_waiting");
           } 
+          // EXCLUSIVELY FOR PRIVATE EVENTS: Auto-unlocks and enters the menu
           else if (mode === "event_active") {
-            // Admin just activated the event! Auto-lock the kiosk and load the menu
             localStorage.setItem("resId", reservation.reservation_id);
             if (reservation.table_id) {
               localStorage.setItem("tableId", reservation.table_id.toString());
@@ -44,7 +43,7 @@ const KioskReservation = () => {
             navigate(`/kiosk-selection/kiosk-reservation-menu${searchString}`);
           } 
           else {
-            // No events scheduled. Stay on the standard table check-in screen
+            // "table_default" / "table_assigned" - Stay on the manual check-in screen
             setEventMode("default");
           }
         }
@@ -58,7 +57,7 @@ const KioskReservation = () => {
     return () => clearInterval(pollInterval);
   }, [setupTable, navigate]);
 
-  // Function to validate custom table reservation ID with database
+  // Function to validate custom table reservation ID manually with database
   const validateAndProceed = async (id) => {
     setLoading(true);
     setError("");
