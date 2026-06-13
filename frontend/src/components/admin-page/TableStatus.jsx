@@ -472,6 +472,64 @@ useEffect(() => {
                             })}
                         </span>
                       </div>
+
+                      {/* ==================== MINIMUM SPEND TRACKER ==================== */}
+                      {(() => {
+                        const totalBill = bill.items.reduce((s, i) => s + i.price * i.quantity, 0);
+                        
+                        // Check if the seated guest is an Event
+                        const isEvent = selectedTable?.reservation_type === "event" 
+                          || selectedTable?.reservationType === "event"
+                          || selectedTable?.package_name?.toLowerCase().includes("event");
+
+                        if (!isEvent) return null; // Only show for private events
+
+                        const targetLimit = 10000;
+                        const percentage = Math.min(100, (totalBill / targetLimit) * 100);
+                        const isNearing = totalBill >= 8500 && totalBill < targetLimit; // Warn at ₱8,500+
+                        const isMet = totalBill >= targetLimit;
+
+                        return (
+                          <div className="mt-3 p-3 bg-white border rounded-3 shadow-sm">
+                            <div className="d-flex justify-content-between align-items-center mb-1">
+                              <span className="small fw-bold text-secondary" style={{ fontSize: "0.75rem" }}>
+                                EVENT SPEND PROGRESS
+                              </span>
+                              <span className="small fw-bold" style={{ color: isMet ? "#10b981" : "#f59e0b", fontSize: "0.8rem" }}>
+                                {percentage.toFixed(0)}%
+                              </span>
+                            </div>
+                            
+                            <div className="progress mb-2" style={{ height: "10px", borderRadius: "50px" }}>
+                              <div 
+                                className={`progress-bar ${isMet ? "bg-success" : isNearing ? "bg-warning" : "bg-primary"}`}
+                                role="progressbar"
+                                style={{ width: `${percentage}%`, borderRadius: "50px", transition: "width 0.4s ease" }}
+                              ></div>
+                            </div>
+
+                            <div className="d-flex justify-content-between align-items-center">
+                              <span className="text-muted" style={{ fontSize: "0.75rem" }}>
+                                Target Limit: ₱10,000.00
+                              </span>
+                              {isMet ? (
+                                <span className="badge bg-success-subtle text-success border border-success-subtle rounded-pill" style={{ fontSize: "0.7rem", padding: "4px 10px" }}>
+                                  ✓ Target Met
+                                </span>
+                              ) : isNearing ? (
+                                <span className="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill" style={{ fontSize: "0.7rem", padding: "4px 10px" }}>
+                                  ⚠️ Approaching Target
+                                </span>
+                              ) : (
+                                <span className="badge bg-light text-secondary border rounded-pill" style={{ fontSize: "0.7rem", padding: "4px 10px" }}>
+                                  In Progress
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
                       <button
                         className="btn btn-danger w-100 py-2 fw-bold mt-3"
                         onClick={() => {
