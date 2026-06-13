@@ -175,6 +175,23 @@ const reservationController = {
     }
   },
 
+  updateKioskReservation: async (req, res) => {
+    const { reservationId } = req.body;
+    if (!reservationId) {
+      return res.status(400).json({ error: "Reservation ID is required." });
+    }
+    try {
+      const affectedRows = await Reservation.setKioskReservation(reservationId);
+      if (affectedRows === 0) {
+        return res.status(404).json({ error: "Reservation not found." });
+      }
+      res.json({ message: `Kiosk updated successfully for Reservation ID ${reservationId}.` });
+    } catch (error) {
+      console.error("Set kiosk reservation error:", error);
+      res.status(500).json({ error: error.message || "Failed to update kiosk reservation." });
+    }
+  },
+
 getActiveKiosk: async (req, res) => {
     try {
       const { tableId } = req.query;
@@ -380,7 +397,7 @@ updateStatus: async (req, res) => {
   },
 
   // ==================== KIOSK VERIFICATION ====================
-  checkReservationId: async (req, res) => {
+ checkReservationId: async (req, res) => {
     try {
       const reservation = await Reservation.findById(req.params.id);
 
@@ -390,13 +407,11 @@ updateStatus: async (req, res) => {
           .json({ success: false, message: "Invalid Reservation ID." });
       }
 
-      if (
-        reservation.status === "Seated" ||
-        reservation.status === "Completed"
-      ) {
+      // REMOVED 'Seated' from this block. Active seated guests must be allowed to access the menu.
+      if (reservation.status === "Completed") {
         return res.status(400).json({
           success: false,
-          message: "This reservation is already active or completed.",
+          message: "This reservation is already completed.",
         });
       }
 
@@ -432,6 +447,11 @@ updateStatus: async (req, res) => {
           message:
             "Reservation expired. You are more than 1 hour late and marked as a No-Show.",
         });
+      }
+
+      // Auto-seat the reservation if it is still marked as 'Confirmed'
+      if (reservation.status !== "Seated") {
+        await Reservation.updateStatus(reservation.reservation_id, "Seated");
       }
 
       res.json({ success: true, reservation });

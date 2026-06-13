@@ -33,10 +33,10 @@ const KioskSelection = () => {
             setEventMode("event_waiting");
           } 
           else if (mode === "event_active") {
-            // Event has been activated by the admin, auto-redirect directly to menu
-            localStorage.setItem("resId", reservation.reservation_id);
+            // Event has been activated by the admin, auto-redirect directly to menu using sessionStorage
+            sessionStorage.setItem("resId", reservation.reservation_id);
             if (reservation.table_id) {
-              localStorage.setItem("tableId", reservation.table_id.toString());
+              sessionStorage.setItem("tableId", reservation.table_id.toString());
             }
             const searchString = setupTable ? `?setupTable=${setupTable}` : "";
             navigate(`/kiosk-selection/kiosk-reservation-menu${searchString}`);
@@ -69,20 +69,22 @@ const KioskSelection = () => {
     const searchString = setupTable ? `?setupTable=${setupTable}` : "";
 
     if (type === 'menu') {
-      // MODE: WALK-IN 
-      localStorage.removeItem("resId"); 
-      localStorage.setItem("kiosk_mode", "walkin");
+      // MODE: WALK-IN (sessionStorage)
+      sessionStorage.removeItem("resId"); 
+      sessionStorage.setItem("kiosk_mode", "walkin");
       navigate(`/kiosk-selection/kiosk-menu${searchString}`); 
     } 
     else if (type === 'reservation') {
-      localStorage.setItem("kiosk_mode", "reservation");
+      sessionStorage.setItem("kiosk_mode", "reservation");
 
       // BYPASS CHECK: If admin has already assigned a Table Reservation on the dashboard
       if (kioskDetails && kioskDetails.mode === "table_assigned") {
         const { reservation_id, table_id } = kioskDetails.reservation;
-        localStorage.setItem("resId", reservation_id);
+        
+        // Write to sessionStorage so the menu page can read it successfully
+        sessionStorage.setItem("resId", reservation_id);
         if (table_id) {
-          localStorage.setItem("tableId", table_id.toString());
+          sessionStorage.setItem("tableId", table_id.toString());
         }
         
         // Auto-unlock: Skip the ID typing page and open the menu immediately

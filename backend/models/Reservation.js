@@ -212,11 +212,17 @@ const Reservation = {
     }
   },
 
- // Replace getActiveKioskReservation in models/Reservation.js with this:
-
   getActiveKioskReservation: async (tableId) => {
-    const today = new Date().toISOString().split("T")[0];
-    const now = new Date().toTimeString().slice(0, 8); // 'HH:MM:SS'
+    // Force date and time to align with Asia/Manila local timezone
+    const today = new Date().toLocaleDateString("en-CA", {
+      timeZone: "Asia/Manila",
+    });
+    const now = new Date().toLocaleTimeString("en-US", {
+      hour12: false,
+      timeZone: "Asia/Manila"
+    });
+
+    // console.log(`Checking kiosk state for local date: ${today}, local time: ${now}`);
 
     // 1. Check if there is an active event reservation scheduled for right now
     const eventSql = `
@@ -239,17 +245,14 @@ const Reservation = {
         return { mode: "event_waiting", reservation: event };
       }
     }
-
-    // 2. Check globally if there is any reservation actively pushed to the kiosk by the admin
+    // 2. Check globally if there is any reservation actively pushed to the kiosk by the admin (fail-safe version)
     const activeSql = `
       SELECT r.* 
       FROM reservations r
       WHERE r.is_kiosk_active = 1
-        AND r.status IN ('Confirmed', 'Seated', 'Pending')
-        AND r.reservation_date = ?
       LIMIT 1
     `;
-    const [actives] = await db.execute(activeSql, [today]);
+    const [actives] = await db.execute(activeSql); // Removed [today] argument constraint
     if (actives.length > 0) {
       return { mode: "table_assigned", reservation: actives[0] };
     }

@@ -63,6 +63,9 @@ const KioskReservationMenu = () => {
   const timerRef = useRef(null);
   const audioObj = useMemo(() => new Audio(alertMusicFile), []);
   const storage = window.localStorage;
+  const [activeResId, setActiveResId] = useState(
+    sessionStorage.getItem("resId") || null,
+  );
 
   // 1. Extract physical table assignment from URL
   const queryParams = useMemo(
@@ -70,11 +73,6 @@ const KioskReservationMenu = () => {
     [],
   );
   const setupTable = queryParams.get("setupTable");
-
-  // 2. Track kiosk modes and assignments
-  const [activeResId, setActiveResId] = useState(
-    localStorage.getItem("resId") || null,
-  );
   const [kioskMode, setKioskMode] = useState("loading"); // "loading" | "event_waiting" | "active"
 
   // 3. Fallback to "GUEST" for normal table walk-in view
@@ -136,18 +134,25 @@ const KioskReservationMenu = () => {
   };
 
   const handleExitKiosk = () => {
-    // 1. Remove all session keys from localStorage
-    localStorage.removeItem("resId");
-    localStorage.removeItem("tableId");
+    sessionStorage.removeItem("resId");
+    sessionStorage.removeItem("tableId");
 
-    // 2. Clear state variables
-    setActiveResId(null);
-    setCart([]);
-    setBillItems([]);
+    // Update handleEndSession on lines 541-550:
+    [
+      "resId",
+      "tableId",
+      TIMER_KEY,
+      PAYMENT_CHOICE_KEY,
+      TOTAL_PAID_KEY,
+      LAST_REFILL_KEY,
+      "kiosk_last_refill_timestamp",
+    ].forEach((k) => {
+      sessionStorage.removeItem(k); // Clears sessionStorage
+    });
 
     // 3. Redirect back to manual reservation entry screen with table assignment
     const searchString = setupTable ? `?setupTable=${setupTable}` : "";
-    navigate(`/kiosk-selection/kiosk-reservation${searchString}`);
+    navigate(`/kiosk-selection${searchString}`);
   };
 
   const getFetchHeaders = () => {
@@ -163,7 +168,7 @@ const KioskReservationMenu = () => {
     const checkActiveKiosk = async () => {
       try {
         const res = await axios.get(`${API_BASE}/reservations/active-kiosk`, {
-          params: { tableId: setupTable }
+          params: { tableId: setupTable },
         });
 
         if (res.data && res.data.success) {
@@ -177,18 +182,18 @@ const KioskReservationMenu = () => {
               setActiveResId(null);
             }
             setKioskMode("event_waiting");
-          } 
+          }
           // EXCLUSIVELY FOR ACTIVE PRIVATE EVENTS: Auto-unlocks and loads menu
           else if (mode === "event_active") {
             const { reservation_id, table_id } = reservation;
             if (activeResId !== reservation_id) {
-              localStorage.setItem("resId", reservation_id);
-              if (table_id) localStorage.setItem("tableId", table_id.toString());
+              sessionStorage.setItem("resId", reservation_id);
+              if (table_id)
+                sessionStorage.setItem("tableId", table_id.toString());
               setActiveResId(reservation_id);
             }
             setKioskMode("active");
-          } 
-          else {
+          } else {
             // "table_default" / "table_assigned" - Let manual table check-ins run normally
             setKioskMode("active");
           }
@@ -336,11 +341,14 @@ const KioskReservationMenu = () => {
   // Inside KioskReservationMenu.jsx (around line 320):
 
   // Initial data fetch and Tray/Cart synchronization
-  useEffect(() => {
+ useEffect(() => {
     if (!activeResId) {
-      setLoading(false);
+      // AUTO-REDIRECT: No active session. Redirect back to selection landing page safely
+      const searchString = setupTable ? `?setupTable=${setupTable}` : "";
+      navigate(`/kiosk-selection${searchString}`);
       return;
     }
+    
     const fetchData = async () => {
       try {
         const [prodRes, resItemsRes, reservationRes] = await Promise.all([

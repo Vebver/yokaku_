@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   PlusSquare,
@@ -72,6 +72,13 @@ const KioskMenu = () => {
 
   const [timeLeft, setTimeLeft] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
+
+  // 1. ADD THIS: Extract physical table configuration from URL
+  const queryParams = useMemo(
+    () => new URLSearchParams(window.location.search),
+    [],
+  );
+  const setupTable = queryParams.get("setupTable");
 
   const [menuData, setMenuData] = useState({});
   const [loading, setLoading] = useState(true);
@@ -471,7 +478,7 @@ const KioskMenu = () => {
           headers: getFetchHeaders(),
         });
         const data = await response.json();
-       // Inside KioskMenu.jsx (inside the fetchMenu useEffect block):
+        // Inside KioskMenu.jsx (inside the fetchMenu useEffect block):
 
         const grouped = data.reduce((acc, item) => {
           const cat = item.category_name || "General";
@@ -487,7 +494,7 @@ const KioskMenu = () => {
           acc[cat].push({
             id: item.item_id,
             // UPDATED: Fallback to item.menu_name to support your database schema
-            name: item.menu_name || item.name, 
+            name: item.menu_name || item.name,
             image: img,
             price: item.price,
             category: cat,
@@ -619,20 +626,26 @@ const KioskMenu = () => {
     }
   }, [cart, billItems, localTotalPaid]);
 
+  const displayTable =
+    storage.getItem(SAVED_TABLE_ID) ||
+    setupTable ||
+    window.localStorage.getItem(FIXED_KIOSK_KEY);
+
   if (loading) return <div className="loading-container">Loading Menu...</div>;
 
   return (
     <div className="res-kiosk-container">
       <div className="kiosk-timer-wrapper">
+        {/* LEFT */}
         <div className="header-left-group">
           <div className="header-id-section">
             <ShoppingBag size={20} color="#ffcc00" />
             <div className="id-details">
               <span className="id-label">ORDER MODE</span>
               <span className="id-value">
-                {storage.getItem(SAVED_TABLE_ID) === "takeout"
+                {displayTable === "takeout"
                   ? "TAKE-OUT"
-                  : `TABLE ${storage.getItem(SAVED_TABLE_ID) || "?"}`}
+                  : `TABLE ${displayTable || "?"}`}
               </span>
             </div>
           </div>
@@ -809,7 +822,6 @@ const KioskMenu = () => {
                 <X size={24} />
               </button>
             </div>
-
             <p
               style={{
                 color: "#aaa",
@@ -820,7 +832,6 @@ const KioskMenu = () => {
               Please let us know if you have any food allergies. This
               information will be shared with our kitchen staff.
             </p>
-
             <div
               className="allergy-input-group"
               style={{ marginBottom: "25px" }}
@@ -860,7 +871,7 @@ const KioskMenu = () => {
                 specify
               </p>
             </div>
-
+            // Inside KioskMenu.jsx (under Allergy Modal JSX rendering):
             <div style={{ display: "flex", gap: "15px" }}>
               <button
                 className="res-btn-cancel"
@@ -873,6 +884,8 @@ const KioskMenu = () => {
                 className="res-modal-btn-primary"
                 onClick={() => {
                   setShowAllergyModal(false);
+
+                  // If they are checking out an existing active order session
                   if (storage.getItem(SAVED_RES_ID)) {
                     setPendingOrderDetails({
                       tableId: storage.getItem(SAVED_TABLE_ID),
@@ -883,7 +896,22 @@ const KioskMenu = () => {
                     });
                     setShowPaymentModal(true);
                   } else {
-                    setShowTypeModal(true);
+                    // AUTOMATIC BYPASS: Check if the kiosk is locked to a physical table
+                    const fixedTable =
+                      setupTable ||
+                      window.localStorage.getItem(FIXED_KIOSK_KEY);
+
+                    if (fixedTable) {
+                      // Lock into physical table automatically, bypassing the table picker grid
+                      setPendingOrderDetails({
+                        tableId: fixedTable,
+                        mode: "Dine-In",
+                      });
+                      setShowPaymentModal(true);
+                    } else {
+                      // Standard flow: Ask user to choose order mode and select table
+                      setShowTypeModal(true);
+                    }
                   }
                 }}
                 style={{ flex: 1 }}
@@ -1034,7 +1062,7 @@ const KioskMenu = () => {
               <button
                 className="res-modal-btn-primary"
                 disabled={isLoading}
-                style={{ background: "#444" }}
+                style={{ background: "#ffcc00" }}
                 onClick={() => confirmPaymentChoice("Pay Later")}
               >
                 <Clock size={18} className="me-2" /> ORDER NOW, PAY LATER
@@ -1073,8 +1101,10 @@ const KioskMenu = () => {
               }}
             >
               {/* FALLBACK: If billItems is empty (walk-ins), map over localBillHistory */}
-              {(isFinalCheckout 
-                ? (billItems.length > 0 ? billItems : localBillHistory) 
+              {(isFinalCheckout
+                ? billItems.length > 0
+                  ? billItems
+                  : localBillHistory
                 : cart
               ).map((item, idx) => {
                 const q = parseInt(item.quantity || item.qty || 1);
@@ -1106,14 +1136,23 @@ const KioskMenu = () => {
                     }}
                   >
                     <div style={{ textAlign: "left", flex: 1 }}>
-          {/* Added color: "#ffffff" to force text visibility on dark background */}
-          <span style={{ fontWeight: "bold", display: "block", color: "#ffffff" }}>
-            {item.name || item.item_name || item.menu_name || "Ordered Item"}
-          </span>
-          <small style={{ color: "#888" }}>
-            {isRefill ? "REFILL" : `₱${p.toFixed(2)} x ${q}`}
-          </small>
-        </div>
+                      {/* Added color: "#ffffff" to force text visibility on dark background */}
+                      <span
+                        style={{
+                          fontWeight: "bold",
+                          display: "block",
+                          color: "#ffffff",
+                        }}
+                      >
+                        {item.name ||
+                          item.item_name ||
+                          item.menu_name ||
+                          "Ordered Item"}
+                      </span>
+                      <small style={{ color: "#888" }}>
+                        {isRefill ? "REFILL" : `₱${p.toFixed(2)} x ${q}`}
+                      </small>
+                    </div>
                     <span style={{ alignSelf: "center" }}>
                       ₱{(p * q).toFixed(2)}
                     </span>
