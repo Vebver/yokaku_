@@ -2442,6 +2442,24 @@ select:disabled {
   color: #4caf50;
 }
 
+/* EVENT disabled future dates (less than 2 weeks away) - grayed out */
+.calendar-day.event-disabled {
+  background-color: #e8e8e8 !important;
+  color: #999 !important;
+  cursor: not-allowed !important;
+  opacity: 0.6;
+}
+
+.calendar-day.event-disabled .calendar-day-number {
+  color: #999 !important;
+}
+
+.calendar-day.event-disabled:hover {
+  background-color: #e8e8e8 !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
 /* PER TABLE disabled future dates - grayed out */
 .calendar-day.per-table-disabled {
   color: #999 !important;

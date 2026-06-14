@@ -238,6 +238,24 @@ export default function ReservationSteps({ onClose, onSuccess }) {
 
       if (allReservationsByDate[date]) {
         let activeReservations = [...allReservationsByDate[date]];
+
+        // Filter by reservation type to only show reservations that match current flow
+        activeReservations = activeReservations.filter((res) => {
+          // For EVENT flow, only show EVENT reservations
+          // For PER TABLE flow, only show PER TABLE reservations
+          if (reservationType === "event") {
+            return (
+              res.reservationType === "event" ||
+              res.reservation_type === "event"
+            );
+          } else {
+            return (
+              res.reservationType === "per_table" ||
+              res.reservation_type === "per_table"
+            );
+          }
+        });
+
         activeReservations = activeReservations.filter((res) => {
           if (
             res.status === "Cancelled" ||
@@ -247,6 +265,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
             return false;
           return true;
         });
+
         if (isToday) {
           activeReservations = activeReservations.filter((res) => {
             const endM = timeToMin(res.endTime);
@@ -267,11 +286,28 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         }));
         setReservationsForDate(formattedReservations);
       } else {
+        // Similar filtering for API response
         const response = await axios.get(
           `${API_BASE}/reservations/by-date/${date}`,
         );
         if (response.data && Array.isArray(response.data)) {
           let activeReservations = [...response.data];
+
+          // Filter by reservation type
+          activeReservations = activeReservations.filter((res) => {
+            if (reservationType === "event") {
+              return (
+                res.reservationType === "event" ||
+                res.reservation_type === "event"
+              );
+            } else {
+              return (
+                res.reservationType === "per_table" ||
+                res.reservation_type === "per_table"
+              );
+            }
+          });
+
           activeReservations = activeReservations.filter((res) => {
             if (
               res.status === "Cancelled" ||
@@ -344,7 +380,20 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     todayDate.setHours(0, 0, 0, 0);
     const isPastDate = checkDate < todayDate;
     if (isPastDate) return 0;
+
     let activeCount = allReservationsByDate[dateStr].filter((res) => {
+      // Filter by reservation type based on current flow
+      if (reservationType === "event") {
+        if (res.reservationType !== "event" && res.reservation_type !== "event")
+          return false;
+      } else {
+        if (
+          res.reservationType !== "per_table" &&
+          res.reservation_type !== "per_table"
+        )
+          return false;
+      }
+
       if (
         res.status === "Cancelled" ||
         res.status === "Completed" ||
@@ -363,19 +412,23 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   const totalTablesCount = TABLES_DATA.filter(
     (t) => t.status !== "maintenance",
   ).length;
-  const isDateFullyBooked = (dateStr) =>
-    getActiveReservationCountForDate(dateStr) >= totalTablesCount;
 
-  const isTimeSlotAvailableForSelectedTable = (startTime, endTime) => {
-    if (!selectedId) return true;
-    const schedules = tableSchedules[selectedId] || [];
-    const startM = timeToMin(startTime);
-    const endM = timeToMin(endTime);
-    return !schedules.some((reservation) => {
-      const resStartM = timeToMin(reservation.startTime);
-      const resEndM = timeToMin(reservation.endTime);
-      return startM < resEndM && endM > resStartM;
-    });
+  const isDateFullyBooked = (dateStr) => {
+    const isEventFlow = reservationType === "event";
+
+    if (isEventFlow) {
+      // For EVENT: Check if there's ANY event reservation on this date
+      const reservations = allReservationsByDate[dateStr] || [];
+      const eventReservations = reservations.filter(
+        (res) =>
+          res.reservationType === "event" || res.reservation_type === "event",
+      );
+      // If there's at least one event reservation, the date is fully booked
+      return eventReservations.length > 0;
+    } else {
+      // For PER TABLE: Check if all tables are booked
+      return getActiveReservationCountForDate(dateStr) >= totalTablesCount;
+    }
   };
 
   const markStepCompleted = (step) => {
@@ -1559,7 +1612,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     <button
                       key={idx}
                       type="button"
-                      className={`calendar-day ${day.isSelected ? "selected" : ""} ${day.isBlocked ? "blocked" : ""} ${day.isToday ? "today" : ""} ${!day.isCurrentMonth ? "other-month" : ""} ${day.isPast && !day.isSelected ? "past" : ""} ${day.isTimeClosed && !day.isSelected ? "time-closed" : ""} ${day.hasReservations && !day.isSelected && !day.isBlocked ? "has-reservations" : ""} ${day.isFullyBooked && !day.isSelected && !day.isBlocked ? "fully-booked" : ""} ${day.isDisabled && reservationType === "per_table" ? "per-table-disabled" : ""}`}
+                      className={`calendar-day ${day.isSelected ? "selected" : ""} ${day.isBlocked ? "blocked" : ""} ${day.isToday ? "today" : ""} ${!day.isCurrentMonth ? "other-month" : ""} ${day.isPast && !day.isSelected ? "past" : ""} ${day.isTimeClosed && !day.isSelected ? "time-closed" : ""} ${day.hasReservations && !day.isSelected && !day.isBlocked ? "has-reservations" : ""} ${day.isFullyBooked && !day.isSelected && !day.isBlocked ? "fully-booked" : ""} ${day.isDisabled && reservationType === "per_table" ? "per-table-disabled" : ""} ${day.isDisabled && reservationType === "event" ? "event-disabled" : ""}`}
                       disabled={
                         day.isBlocked ||
                         (day.isPast && !day.isSelected) ||
