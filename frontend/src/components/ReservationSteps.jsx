@@ -2298,13 +2298,13 @@ export default function ReservationSteps({ onClose, onSuccess }) {
               id: "standard",
               name: "Standard Package",
               price: 10000,
-              description: "₱10,000 Consume",
+              description: "₱10,000 Unlimited, Foods & Drinks to Consume",
             },
             {
               id: "premium",
               name: "Premium Package",
               price: 12500,
-              description: "₱12,500 Consume",
+              description: "₱12,500 Foods & Drinks to Consume",
             },
           ];
 
