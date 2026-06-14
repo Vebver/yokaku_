@@ -2444,7 +2444,6 @@ select:disabled {
 
 /* PER TABLE disabled future dates - grayed out */
 .calendar-day.per-table-disabled {
-  background-color: #e8e8e8 !important;
   color: #999 !important;
   cursor: not-allowed !important;
   opacity: 0.6;
@@ -2455,7 +2454,6 @@ select:disabled {
 }
 
 .calendar-day.per-table-disabled:hover {
-  background-color: #e8e8e8 !important;
   transform: none !important;
   box-shadow: none !important;
 }

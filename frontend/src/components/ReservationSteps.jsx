@@ -1132,14 +1132,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       const payload = new FormData();
       const userId = localStorage.getItem("userId");
 
-      // Only check for receipt file for EVENT reservations
-      if (reservationType === "event" && !receiptFile) {
-        alert("Please upload your payment receipt.");
-        setIsProcessing(false);
-        setUi((p) => ({ ...p, loading: false }));
-        return;
-      }
-
       const finalAllergy =
         form.allergy === "Other" && form.customAllergy
           ? `Other: ${form.customAllergy}`
@@ -1170,12 +1162,20 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         occasion: finalOccasion,
       };
 
-      // Only add payment method and receipt for EVENT reservations
-      if (reservationType === "event") {
-        submission.paymentMethod = paymentMethod || "Maya";
-        if (receiptFile) {
-          payload.append("receipt", receiptFile);
+      // For PER TABLE, send default payment method (no receipt needed)
+      if (reservationType === "per_table") {
+        submission.paymentMethod = "Cash";
+        // No receipt for PER TABLE
+      } else {
+        // For EVENT, require payment method and receipt
+        if (!receiptFile) {
+          alert("Please upload your payment receipt.");
+          setIsProcessing(false);
+          setUi((p) => ({ ...p, loading: false }));
+          return;
         }
+        submission.paymentMethod = paymentMethod || "Maya";
+        payload.append("receipt", receiptFile);
       }
 
       Object.entries(submission).forEach(([k, v]) => {
