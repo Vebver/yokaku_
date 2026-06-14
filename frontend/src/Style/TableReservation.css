@@ -2442,6 +2442,40 @@ select:disabled {
   color: #4caf50;
 }
 
+/* PER TABLE disabled future dates - grayed out */
+.calendar-day.per-table-disabled {
+  background-color: #e8e8e8 !important;
+  color: #999 !important;
+  cursor: not-allowed !important;
+  opacity: 0.6;
+}
+
+.calendar-day.per-table-disabled .calendar-day-number {
+  color: #999 !important;
+}
+
+.calendar-day.per-table-disabled:hover {
+  background-color: #e8e8e8 !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Keep today's date normal color for PER TABLE */
+.calendar-day.today:not(.per-table-disabled) .calendar-day-number {
+  color: #f38d31 !important;
+  font-weight: 700;
+}
+
+/* Past dates styling */
+.calendar-day.past {
+  background-color: #f5f5f5;
+  opacity: 0.5;
+}
+
+.calendar-day.past .calendar-day-number {
+  color: #ccc;
+}
+
 @media (max-width: 768px) {
   .event-package-cards {
     flex-direction: column;

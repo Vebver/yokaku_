@@ -20,8 +20,8 @@ const ReservationSummary = ({
   reservationData,
   paymentMethod,
   setPaymentMethod,
-  onReceiptChange, // New prop to notify parent about receipt
-  showOrderDetails = true, // Default to true for backward compatibility (EVENT), false for PER TABLE
+  onReceiptChange,
+  showOrderDetails = true,
 }) => {
   const [receipt, setReceipt] = useState(null);
   const fileInputRef = useRef(null);

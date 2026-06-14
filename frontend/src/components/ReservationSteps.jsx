@@ -1131,12 +1131,15 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     try {
       const payload = new FormData();
       const userId = localStorage.getItem("userId");
-      if (!receiptFile) {
+
+      // Only check for receipt file for EVENT reservations
+      if (reservationType === "event" && !receiptFile) {
         alert("Please upload your payment receipt.");
         setIsProcessing(false);
         setUi((p) => ({ ...p, loading: false }));
         return;
       }
+
       const finalAllergy =
         form.allergy === "Other" && form.customAllergy
           ? `Other: ${form.customAllergy}`
@@ -1145,6 +1148,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         form.occasion === "Other" && form.customOccasion
           ? `Other: ${form.customOccasion}`
           : form.occasion || "Casual Dining";
+
       const submission = {
         ...user,
         ...form,
@@ -1158,7 +1162,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         amount: orderSummary.downpayment,
         downpayment: orderSummary.downpayment,
         durationHours: orderSummary.durationHours,
-        paymentMethod: paymentMethod || "Maya",
         tableIds: JSON.stringify(tableIdsArray),
         selectedItems: JSON.stringify(selectedItems),
         status: "Confirmed",
@@ -1166,10 +1169,19 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         allergy: finalAllergy,
         occasion: finalOccasion,
       };
-      if (receiptFile) payload.append("receipt", receiptFile);
+
+      // Only add payment method and receipt for EVENT reservations
+      if (reservationType === "event") {
+        submission.paymentMethod = paymentMethod || "Maya";
+        if (receiptFile) {
+          payload.append("receipt", receiptFile);
+        }
+      }
+
       Object.entries(submission).forEach(([k, v]) => {
         if (v !== undefined && v !== null) payload.append(k, v);
       });
+
       // Also append snake_case variant to be explicit for backend form parsers
       if (reservationType) {
         try {
@@ -1181,6 +1193,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           // ignore FormData append failures silently
         }
       }
+
       const res = await axios.post(`${API_BASE}/reservations/table`, payload);
       if (socket) {
         socket.emit("new_reservation", {
@@ -1546,7 +1559,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     <button
                       key={idx}
                       type="button"
-                      className={`calendar-day ${day.isSelected ? "selected" : ""} ${day.isBlocked ? "blocked" : ""} ${day.isToday ? "today" : ""} ${!day.isCurrentMonth ? "other-month" : ""} ${day.isPast && !day.isSelected ? "past" : ""} ${day.isTimeClosed && !day.isSelected ? "time-closed" : ""} ${day.hasReservations && !day.isSelected && !day.isBlocked ? "has-reservations" : ""} ${day.isFullyBooked && !day.isSelected && !day.isBlocked ? "fully-booked" : ""}`}
+                      className={`calendar-day ${day.isSelected ? "selected" : ""} ${day.isBlocked ? "blocked" : ""} ${day.isToday ? "today" : ""} ${!day.isCurrentMonth ? "other-month" : ""} ${day.isPast && !day.isSelected ? "past" : ""} ${day.isTimeClosed && !day.isSelected ? "time-closed" : ""} ${day.hasReservations && !day.isSelected && !day.isBlocked ? "has-reservations" : ""} ${day.isFullyBooked && !day.isSelected && !day.isBlocked ? "fully-booked" : ""} ${day.isDisabled && reservationType === "per_table" ? "per-table-disabled" : ""}`}
                       disabled={
                         day.isBlocked ||
                         (day.isPast && !day.isSelected) ||
@@ -2748,6 +2761,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         }
       case 4:
         if (isEventFlow) {
+          // EVENT - full summary with payment method and receipt upload
           return (
             <div className="step-content step-summary">
               <ReservationSummary
@@ -2767,9 +2781,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
               <ReservationSummary
                 orderSummary={orderSummary}
                 reservationData={fullReservationData}
-                paymentMethod={paymentMethod}
-                setPaymentMethod={setPaymentMethod}
-                onReceiptChange={(receipt) => setReceiptFile(receipt)}
                 showOrderDetails={false}
               />
             </div>
