@@ -2373,7 +2373,86 @@ select:disabled {
 .event-form-grid .input-error {
   border-color: #dc3545;
 }
+/* Event Package Cards */
+.event-package-cards {
+  display: flex;
+  gap: 30px;
+  justify-content: center;
+  align-items: stretch;
+  margin-bottom: 30px;
+  flex-wrap: wrap;
+}
 
+.package-card {
+  flex: 1;
+  min-width: 250px;
+  max-width: 350px;
+  background: white;
+  border-radius: 20px;
+  padding: 30px 25px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 3px solid #e0e0e0;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  position: relative;
+}
+
+.package-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  border-color: #f38d31;
+}
+
+.package-card.selected {
+  border-color: #f38d31;
+  background: linear-gradient(135deg, #fff8f0 0%, #fff 100%);
+  box-shadow: 0 8px 25px rgba(243, 141, 49, 0.2);
+}
+
+.package-card-header h3 {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0 0 15px 0;
+  color: #333;
+}
+
+.package-card-price {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.package-card-price .price {
+  font-size: 32px;
+  font-weight: 800;
+  color: #f38d31;
+}
+
+.package-card-price .price-type {
+  font-size: 14px;
+  color: #666;
+}
+
+.package-card-check {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  color: #4caf50;
+}
+
+@media (max-width: 768px) {
+  .event-package-cards {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .package-card {
+    width: 100%;
+    max-width: 320px;
+  }
+}
 /* ============================================ */
 /* RESPONSIVE MEDIA QUERIES                    */
 /* ============================================ */

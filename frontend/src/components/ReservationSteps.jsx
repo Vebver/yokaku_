@@ -94,6 +94,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   const [allReservationsByDate, setAllReservationsByDate] = useState({});
   const [receiptFile, setReceiptFile] = useState(null);
   const [downpaymentPercentage, setDownpaymentPercentage] = useState(20);
+  const [selectedPackage, setSelectedPackage] = useState(null);
 
   const [currentMinutes, setCurrentMinutes] = useState(() => {
     const now = new Date();
@@ -413,7 +414,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         );
       case 2:
         if (isEventFlow) {
-          // Your Details step for event flow (unchanged)
+          // Your Details step for event flow
           const isStartTimeValid = form.startTime && form.startTime !== "";
           const isEndTimeValid = form.endTime && form.endTime !== "";
           const isTimeValid = (() => {
@@ -436,14 +437,14 @@ export default function ReservationSteps({ onClose, onSuccess }) {
             isTimeValid
           );
         } else {
-          // Select Table step for per_table (unchanged, now step 2)
+          // Select Table step for per_table
           const isPaxValid =
             form.pax && parseInt(form.pax) >= 1 && parseInt(form.pax) <= 38;
           return selectedId !== null && isPaxValid;
         }
       case 3:
         if (isEventFlow) {
-          // Order Menu step for event flow with downpayment percentage
+          // Order Menu step for event flow
           const hasItems = selectedItems.length > 0;
           const termsAgreed = agreeToTerms;
           let meetsDownpaymentRequirement = true;
@@ -454,7 +455,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           }
           return hasItems && termsAgreed && meetsDownpaymentRequirement;
         } else {
-          // Your Details step for per_table (now step 3)
+          // Your Details step for per_table
           const isStartTimeValid = form.startTime && form.startTime !== "";
           const isEndTimeValid = form.endTime && form.endTime !== "";
           const isTimeValid = (() => {
@@ -478,8 +479,13 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           );
         }
       case 4:
-        // Reservation Summary step for both flows (step 4 for per_table, step 4 for event)
-        return paymentMethod !== null && receiptFile !== null;
+        if (isEventFlow) {
+          // Reservation Summary step for EVENT - requires payment method and receipt
+          return paymentMethod !== null && receiptFile !== null;
+        } else {
+          // Reservation Summary step for PER TABLE - NO payment method or receipt required
+          return true;
+        }
       default:
         return true;
     }
@@ -1167,7 +1173,10 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       // Also append snake_case variant to be explicit for backend form parsers
       if (reservationType) {
         try {
-          payload.append("reservation_type", String(reservationType).toLowerCase());
+          payload.append(
+            "reservation_type",
+            String(reservationType).toLowerCase(),
+          );
         } catch (err) {
           // ignore FormData append failures silently
         }
@@ -2203,7 +2212,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         }
       case 3:
         if (isEventFlow) {
-          // Order Menu step for EVENT with downpayment percentage options
+          // Order Menu step for EVENT with package selection cards
           const meetsDownpaymentRequirement = () => {
             if (orderSummary.durationHours >= 2) {
               return (
@@ -2217,42 +2226,92 @@ export default function ReservationSteps({ onClose, onSuccess }) {
 
           const percentageOptions = [20, 30, 40, 50, 60, 70, 80, 90, 100];
 
+          // Package options
+          const packageOptions = [
+            {
+              id: "standard",
+              name: "Standard Package",
+              price: 10000,
+              description: "₱10,000 Consume",
+            },
+            {
+              id: "premium",
+              name: "Premium Package",
+              price: 12500,
+              description: "₱12,500 Consume",
+            },
+          ];
+
           return (
             <div className="step-content step-package">
-              <button
-                className="btn-link-mode"
-                onClick={() => setUi((p) => ({ ...p, menu: true }))}
-              >
-                <Layers size={16} />{" "}
-                {selectedItems.length > 0
-                  ? `${selectedItems.length} Selected`
-                  : "View Menu"}
-              </button>
+              {/* Package Selection Cards */}
+              <div className="event-package-cards">
+                {packageOptions.map((pkg) => (
+                  <div
+                    key={pkg.id}
+                    className={`package-card ${selectedPackage === pkg.id ? "selected" : ""}`}
+                    onClick={() => {
+                      const newSelectedPackage =
+                        selectedPackage === pkg.id ? null : pkg.id;
+                      setSelectedPackage(newSelectedPackage);
+                      if (newSelectedPackage) {
+                        const packageItem = {
+                          name: pkg.name,
+                          price: pkg.price,
+                          quantity: 1,
+                          id: pkg.id,
+                        };
+                        setSelectedItems([packageItem]);
+                      } else {
+                        setSelectedItems([]);
+                      }
+                    }}
+                  >
+                    <div className="package-card-header">
+                      <h3>{pkg.name}</h3>
+                    </div>
+                    <div className="package-card-price">
+                      <span className="price">
+                        ₱{pkg.price.toLocaleString()}
+                      </span>
+                      <span className="price-type">Consume</span>
+                    </div>
+                    {selectedPackage === pkg.id && (
+                      <div className="package-card-check">
+                        <CheckCircle size={24} />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
 
-              {selectedItems.length > 0 && (
+              {selectedPackage && (
                 <div className="package-summary">
                   <div className="order-summary-header">
-                    <h4>Your Order</h4>
-                    <button
-                      className="edit-order-btn"
-                      onClick={() => setUi((p) => ({ ...p, menu: true }))}
-                    >
-                      Edit
-                    </button>
+                    <h4>Selected Package</h4>
                   </div>
 
-                  {selectedItems.map((item, idx) => (
-                    <div key={idx} className="package-item">
-                      <span>
-                        {item.name} x{item.quantity}
-                      </span>
-                      <span>₱{(item.price * item.quantity).toFixed(2)}</span>
-                    </div>
-                  ))}
+                  <div className="package-item">
+                    <span>
+                      {selectedPackage === "standard"
+                        ? "Standard Package"
+                        : "Premium Package"}{" "}
+                      x1
+                    </span>
+                    <span>
+                      ₱
+                      {(selectedPackage === "standard" ? 10000 : 12500).toFixed(
+                        2,
+                      )}
+                    </span>
+                  </div>
 
                   <div className="package-total">
                     <strong>
-                      Total: ₱{orderSummary.totalOrderPrice.toFixed(2)}
+                      Total: ₱
+                      {(selectedPackage === "standard" ? 10000 : 12500).toFixed(
+                        2,
+                      )}
                     </strong>
                   </div>
 
@@ -2702,6 +2761,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
             </div>
           );
         } else {
+          // PER TABLE - simplified summary without payment method and receipt upload
           return (
             <div className="step-content step-summary">
               <ReservationSummary
