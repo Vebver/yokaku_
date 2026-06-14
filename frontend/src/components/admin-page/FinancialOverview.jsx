@@ -215,7 +215,6 @@ const FinancialOverview = ({ data }) => {
             value={getProfitLabel()}
             icon={TrendingUp}
             color="warning"
-            subtitle="Net Revenue"
           />
         </div>
         <div className="col-lg-3 col-md-6">

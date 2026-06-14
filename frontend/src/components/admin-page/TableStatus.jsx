@@ -441,7 +441,7 @@ useEffect(() => {
                         <thead>
                           <tr className="text-muted small">
                             <th>ITEM</th>
-                            <th className="text-center">QTY</th>
+                            <th className="text-center">QUANTITY</th>
                             <th className="text-end">TOTAL</th>
                           </tr>
                         </thead>
@@ -472,28 +472,40 @@ useEffect(() => {
                             })}
                         </span>
                       </div>
-
-                      {/* ==================== MINIMUM SPEND TRACKER ==================== */}
+                      {/* ==================== DYNAMIC EVENT SPEND TRACKER ==================== */}
                       {(() => {
                         const totalBill = bill.items.reduce((s, i) => s + i.price * i.quantity, 0);
                         
-                        // Check if the seated guest is an Event
-                        const isEvent = selectedTable?.reservation_type === "event" 
-                          || selectedTable?.reservationType === "event"
-                          || selectedTable?.package_name?.toLowerCase().includes("event");
+                        // Checks table properties, falling back to bill items list
+                        const rawPackageName = selectedTable?.package_name 
+                          || selectedTable?.packageName 
+                          || bill.items.find(item => (item.name || "").toLowerCase().includes("event"))?.name 
+                          || "";
+                          
+                        const pkgName = rawPackageName.toLowerCase().trim();
+                        const isEvent = pkgName.includes("event");
 
                         if (!isEvent) return null; // Only show for private events
 
-                        const targetLimit = 10000;
+                        // DEFINE YOUR EVENT LIMITS HERE:
+                        const eventLimits = {
+                          "event_a": 10000, // Limit for Event A
+                          "event_b": 12500, // Limit for Event B (Edit as needed)
+                        };
+
+                        // Fallback to 10,000 if the package name doesn't match Event A or B
+                        const targetLimit = eventLimits[pkgName] || 10000;
+
                         const percentage = Math.min(100, (totalBill / targetLimit) * 100);
-                        const isNearing = totalBill >= 8500 && totalBill < targetLimit; // Warn at ₱8,500+
+                        const warningThreshold = targetLimit * 0.85; // Warn at 85% of target
+                        const isNearing = totalBill >= warningThreshold && totalBill < targetLimit;
                         const isMet = totalBill >= targetLimit;
 
                         return (
                           <div className="mt-3 p-3 bg-white border rounded-3 shadow-sm">
                             <div className="d-flex justify-content-between align-items-center mb-1">
                               <span className="small fw-bold text-secondary" style={{ fontSize: "0.75rem" }}>
-                                EVENT SPEND PROGRESS
+                                {rawPackageName.toUpperCase()} SPEND PROGRESS
                               </span>
                               <span className="small fw-bold" style={{ color: isMet ? "#10b981" : "#f59e0b", fontSize: "0.8rem" }}>
                                 {percentage.toFixed(0)}%
@@ -510,7 +522,7 @@ useEffect(() => {
 
                             <div className="d-flex justify-content-between align-items-center">
                               <span className="text-muted" style={{ fontSize: "0.75rem" }}>
-                                Target Limit: ₱10,000.00
+                                Target Limit: ₱{targetLimit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                               </span>
                               {isMet ? (
                                 <span className="badge bg-success-subtle text-success border border-success-subtle rounded-pill" style={{ fontSize: "0.7rem", padding: "4px 10px" }}>

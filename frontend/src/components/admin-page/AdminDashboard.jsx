@@ -197,12 +197,10 @@ function AdminDashboard() {
       });
 
       socket.on("connect", () => {
-        console.log("Admin socket connection established.");
         socket.emit("join_user", userId);
       });
 
       socket.on("new_notification", (notification) => {
-        console.log("Admin received live notification:", notification);
         setNotifications((prev) => [notification, ...prev]);
         setUnreadCount((prev) => prev + 1);
       });
@@ -318,24 +316,18 @@ function AdminDashboard() {
     </div>
   );
 
-  const formatTimeAgo = (dateString) => {
-    const date = new Date(dateString);
-    const now = new Date();
-
-    let diffMs = now.getTime() - date.getTime();
-    const timezoneOffsetMs = now.getTimezoneOffset() * 60000;
+  const formatTime12Hour = (timeStr) => {
+    if (!timeStr) return "";
+    const [hoursStr, minutesStr] = timeStr.split(":");
+    let hour = parseInt(hoursStr, 10);
+    const minutes = minutesStr ? minutesStr.substring(0, 2) : "00";
     
-    if (diffMs < 0 || (diffMs > 7 * 3600000 && diffMs < 9 * 3600000)) {
-      diffMs = Math.abs(diffMs + timezoneOffsetMs);
-    }
-
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-
-    if (diffMins < 1) return "JUST NOW";
-    if (diffMins < 60) return `${diffMins}m AGO`;
-    if (diffHours < 24) return `${diffHours}h AGO`;
-    return date.toLocaleDateString();
+    // Add +8 hours offset (handles midnight wraps automatically)
+    hour = (hour + 8) % 24;
+    
+    const ampm = hour >= 12 ? "PM" : "AM";
+    hour = hour % 12 || 12;
+    return `${hour}:${minutes} ${ampm}`;
   };
 
   const DashboardOverview = () => (
@@ -353,10 +345,12 @@ function AdminDashboard() {
             todaySchedule.map((res, i) => (
               <div
                 key={i}
-                className="timeline-badge bg-light px-3 py-1 rounded-pill border small fw-semibold"
+                // Added d-flex align-items-center and whiteSpace nowrap to prevent alignment wrap
+                className="timeline-badge bg-light px-3 py-1 rounded-pill border small fw-semibold d-flex align-items-center"
+                style={{ whiteSpace: "nowrap" }}
               >
                 <span className="text-primary">
-                  {res.reservation_time?.substring(0, 5)}
+                  {formatTime12Hour(res.reservation_time)}
                 </span>
                 <span className="mx-2 opacity-50">|</span>
                 <span>{res.first_name}</span>

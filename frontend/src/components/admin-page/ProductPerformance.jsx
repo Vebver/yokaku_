@@ -126,68 +126,47 @@ const ProductPerformance = ({ data }) => {
       {/* KPI Cards Row */}
       <div className="row g-4 mb-4">
         {/* Total Revenue */}
-        <div className="col-lg-3 col-md-6">
+        <div className="col-lg-4 col-md-6">
           <StatCard
             label="Total Revenue"
             value={totalRevenue}
             icon={DollarSign}
             color="primary"
-            subtitle="Generated"
           />
         </div>
 
         {/* Total Items Sold */}
-        <div className="col-lg-3 col-md-6">
+        <div className="col-lg-4 col-md-6">
           <StatCard
             label="Total Items Sold"
             value={totalItemsSold}
             icon={Package}
             color="success"
             isCurrency={false}
-            subtitle="Units"
           />
         </div>
 
         {/* Top Selling Items */}
-        <div className="col-lg-3 col-md-6">
+        <div className="col-lg-4 col-md-12">
           <StatCard
             label="Top Selling Items"
             value={topProductCount}
             icon={Star}
             color="warning"
             isCurrency={false}
-            subtitle="Best Sellers"
           />
         </div>
 
-        {/* Slow Moving Items */}
-        <div className="col-lg-3 col-md-6">
-          <div className="card border-0 shadow-sm rounded-4 h-100 bg-gradient-danger text-white">
-            <div className="card-body p-4">
-              <div className="d-flex align-items-center justify-content-between mb-3">
-                <div
-                  className="bg-white bg-opacity-25 rounded-3 d-flex align-items-center justify-content-center"
-                  style={{ width: "48px", height: "48px" }}
-                >
-                  <TrendingDown size={24} color="white" />
-                </div>
-              </div>
-              <h3 className="fw-bold mb-1">{slowProductCount}</h3>
-              <p className="mb-0 small text-white-50 text-uppercase fw-semibold">
-                Need Attention
-              </p>
-            </div>
-          </div>
-        </div>
+
       </div>
 
       {/* Main Content Row */}
-      <div className="row g-4">
+      <div className="row g-3">
         {/* Top Sellers Section */}
-        <div className="col-12 col-lg-6">
+        <div className="col-12 col-lg-12">
           <div className="card border-0 shadow-sm rounded-4 h-100">
             <div className="card-header bg-white border-0 pt-4 px-4">
-              <div className="d-flex align-items-center justify-content-between">
+              <div className="d-flex align-items-center justify-content-between w-100">
                 <div className="d-flex align-items-center gap-2">
                   <Award size={18} className="text-warning" />
                   <h6 className="fw-bold mb-0">Top Selling Items</h6>
@@ -195,19 +174,19 @@ const ProductPerformance = ({ data }) => {
                 <div className="d-flex gap-1">
                   <button
                     className="btn btn-light btn-sm rounded-circle p-1 border shadow-none"
-                    style={{ width: "28px", height: "28px" }}
+                    style={{ width: "30px", height: "30px" }}
                     disabled={topPage === 1}
                     onClick={() => setTopPage((p) => p - 1)}
                   >
-                    <ChevronLeft size={14} />
+                    <ChevronLeft size={20} />
                   </button>
                   <button
                     className="btn btn-light btn-sm rounded-circle p-1 border shadow-none"
-                    style={{ width: "28px", height: "28px" }}
+                    style={{ width: "30px", height: "30px" }}
                     disabled={topPage >= totalTopPages}
                     onClick={() => setTopPage((p) => p + 1)}
                   >
-                    <ChevronRight size={14} />
+                    <ChevronRight size={20} />
                   </button>
                 </div>
               </div>
@@ -239,12 +218,11 @@ const ProductPerformance = ({ data }) => {
                   flexShrink: 0,
                 }}
               >
-                {/* Changed from {rank === 1 ? "👑" : rank} to just {rank} */}
                 {rank}
               </div>
               <div>
                 <div className="fw-semibold text-dark">
-                  {p.name}
+                  {p.menu_name}
                   {rank === 1 && (
                     <span
                       className="ms-2 badge bg-warning text-dark rounded-pill"
@@ -312,124 +290,6 @@ const ProductPerformance = ({ data }) => {
                       </button>
                     ))}
                     {totalTopPages > 3 && (
-                      <span className="mx-1 text-muted">...</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Slow Moving Section */}
-        <div className="col-12 col-lg-6">
-          <div className="card border-0 shadow-sm rounded-4 h-100">
-            <div className="card-header bg-white border-0 pt-4 px-4">
-              <div className="d-flex align-items-center justify-content-between">
-                <div className="d-flex align-items-center gap-2">
-                  <ArrowDown size={18} className="text-danger" />
-                  <h6 className="fw-bold mb-0 text-danger">
-                    Slow Moving Items
-                  </h6>
-                </div>
-                <div className="d-flex gap-1">
-                  <button
-                    className="btn btn-light btn-sm rounded-circle p-1 border shadow-none"
-                    style={{ width: "28px", height: "28px" }}
-                    disabled={slowPage === 1}
-                    onClick={() => setSlowPage((p) => p - 1)}
-                  >
-                    <ChevronLeft size={14} />
-                  </button>
-                  <button
-                    className="btn btn-light btn-sm rounded-circle p-1 border shadow-none"
-                    style={{ width: "28px", height: "28px" }}
-                    disabled={slowPage >= totalSlowPages}
-                    onClick={() => setSlowPage((p) => p + 1)}
-                  >
-                    <ChevronRight size={14} />
-                  </button>
-                </div>
-              </div>
-              <p className="text-muted small mb-0 mt-1">
-                Items with low sales volume
-              </p>
-            </div>
-            <div className="card-body p-0">
-              {currentSlowItems.length > 0 ? (
-                <div className="list-group list-group-flush">
-                  {currentSlowItems.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="list-group-item d-flex justify-content-between align-items-center px-4 py-3 border-bottom"
-                    >
-                      <div>
-                        <div className="fw-semibold text-dark">{item.name}</div>
-                        <div className="d-flex align-items-center gap-2 mt-1">
-                          <span
-                            className="badge bg-danger bg-opacity-10 text-danger rounded-pill px-2 py-1"
-                            style={{ fontSize: "11px" }}
-                          >
-                            {item.total_sold} sold
-                          </span>
-                          <span
-                            className="text-muted"
-                            style={{ fontSize: "11px" }}
-                          >
-                            this period
-                          </span>
-                        </div>
-                      </div>
-                      <div className="text-end">
-                        <div className="text-muted small">Revenue</div>
-                        <div className="fw-semibold text-danger">
-                          {formatCurrency(item.total_revenue || 0)}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-5">
-                  <div
-                    className="bg-success bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3"
-                    style={{ width: "60px", height: "60px" }}
-                  >
-                    <TrendingUp size={28} className="text-success" />
-                  </div>
-                  <h6 className="fw-bold text-success mb-1">
-                    All Items Performing Well!
-                  </h6>
-                  <p className="text-muted small mb-0">
-                    No slow-moving items detected
-                  </p>
-                </div>
-              )}
-            </div>
-            {totalSlowPages > 1 && currentSlowItems.length > 0 && (
-              <div className="card-footer bg-white border-0 pt-2 pb-3 px-4">
-                <div className="d-flex justify-content-between align-items-center">
-                  <small className="text-muted">
-                    Showing {slowIndexOfFirstItem + 1} -{" "}
-                    {Math.min(slowIndexOfLastItem, slowMoving.length)} of{" "}
-                    {slowMoving.length} items
-                  </small>
-                  <div className="d-flex gap-1">
-                    {[...Array(Math.min(totalSlowPages, 3))].map((_, idx) => (
-                      <button
-                        key={idx}
-                        className={`btn btn-sm rounded-circle p-0 ${slowPage === idx + 1 ? "btn-danger text-white" : "btn-light"}`}
-                        style={{
-                          width: "28px",
-                          height: "28px",
-                          fontSize: "12px",
-                        }}
-                        onClick={() => setSlowPage(idx + 1)}
-                      >
-                        {idx + 1}
-                      </button>
-                    ))}
-                    {totalSlowPages > 3 && (
                       <span className="mx-1 text-muted">...</span>
                     )}
                   </div>

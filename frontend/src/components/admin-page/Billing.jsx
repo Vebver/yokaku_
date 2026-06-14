@@ -225,9 +225,6 @@ const Billing = () => {
                     <tr key={p.payment_id} className="transition-all">
                       <td className="ps-4 py-3">
                         <div className="d-flex align-items-center">
-                          <div className="avatar bg-light rounded-circle p-2 me-3 text-secondary d-flex align-items-center justify-content-center" style={{ width: 38, height: 38 }}>
-                            <User size={16} />
-                          </div>
                           <div>
                             <div className="fw-bold text-dark mb-0">
                               {p.first_name === "Walk-in"

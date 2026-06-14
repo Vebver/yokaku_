@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { UtensilsCrossed, RefreshCw } from "lucide-react";
+import { RefreshCw, ShoppingBag, Calendar } from "lucide-react";
 import axios from "axios";
 import "../../Style/KioskSelection.css";
 
@@ -8,7 +8,7 @@ const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const KioskSelection = () => {
   const navigate = useNavigate();
-  const [eventMode, setEventMode] = useState("loading"); // "loading" | "event_waiting" | "default"
+  const [eventMode, setEventMode] = useState("loading"); // "loading" | "default"
   
   // Track active reservation/event data details from backend polling
   const [kioskDetails, setKioskDetails] = useState(null);
@@ -29,10 +29,7 @@ const KioskSelection = () => {
           const { mode, reservation } = res.data;
           setKioskDetails(res.data); // Save the active state details locally
 
-          if (mode === "event_waiting") {
-            setEventMode("event_waiting");
-          } 
-          else if (mode === "event_active") {
+          if (mode === "event_active") {
             // Event has been activated by the admin, auto-redirect directly to menu using sessionStorage
             sessionStorage.setItem("resId", reservation.reservation_id);
             if (reservation.table_id) {
@@ -103,55 +100,6 @@ const KioskSelection = () => {
         <div style={{ textProject: "center" }}>
           <RefreshCw size={40} className="spinner-loader" color="#ffcc00" />
           <p style={{ marginTop: "15px", color: "#fff" }}>Loading Kiosk System...</p>
-        </div>
-        <style>{` .spinner-loader { animation: spin 1.5s linear infinite; } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } `}</style>
-      </div>
-    );
-  }
-
-  // ==================== EVENT LOCKOUT VIEW ====================
-  if (eventMode === "event_waiting") {
-    return (
-      <div className="kiosk-resting-screen" style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        height: "100vh",
-        background: "#080808",
-        color: "#fff",
-        textAlign: "center",
-        padding: "20px"
-      }}>
-        <div style={{
-          background: "#111",
-          border: "2px solid #222",
-          padding: "40px 60px",
-          borderRadius: "20px",
-          maxWidth: "600px",
-          boxShadow: "0 10px 30px rgba(0,0,0,0.5)"
-        }}>
-          <UtensilsCrossed size={80} color="#ffcc00" style={{ margin: "0 auto 20px" }} />
-          <h1 style={{ fontSize: "2.5rem", fontWeight: "900", color: "#fff", margin: "10px 0" }}>
-            Event Setup Active
-          </h1>
-          <p style={{ color: "#888", fontSize: "1.2rem", margin: "15px 0 30px" }}>
-            This kiosk is temporarily locked during our private event. Please wait for our staff to activate your session.
-          </p>
-          <div style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "10px",
-            background: "#1e1a05",
-            border: "1px solid #443c0c",
-            padding: "10px 20px",
-            borderRadius: "50px"
-          }}>
-            <RefreshCw size={18} color="#ffcc00" className="spinner-loader" />
-            <span style={{ color: "#ffcc00", fontWeight: "bold" }}>
-              Waiting for host activation...
-            </span>
-          </div>
         </div>
         <style>{` .spinner-loader { animation: spin 1.5s linear infinite; } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } `}</style>
       </div>

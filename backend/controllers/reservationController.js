@@ -311,7 +311,7 @@ createReservation: async (req, res) => {
 
       if (io) {
         const numGuests = reservationData.pax || reservationData.guests || reservationData.num_guests || 1;
-        const notifMessage = `New reservation created by ${reservationData.firstName} ${reservationData.lastName || ""} for ${numGuests} guests on ${reservationData.date}.`;
+        const notifMessage = `Reservation from ${reservationData.firstName} ${reservationData.lastName || ""} for ${numGuests} guests on ${reservationData.date}.`;
 
         admins.forEach((admin) => {
           io.to(admin.user_id.toString()).emit("new_notification", {

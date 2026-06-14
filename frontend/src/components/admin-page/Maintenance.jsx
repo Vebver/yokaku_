@@ -129,7 +129,7 @@ const Maintenance = () => {
                 className="btn btn-primary px-5 py-3 fw-bold shadow-sm rounded-pill"
                 disabled={saving}
               >
-                {saving ? "Updating..." : "Update Payment Accounts"}
+                {saving ? "Updating..." : "Update Payment Account"}
               </button>
             </div>
           </form>

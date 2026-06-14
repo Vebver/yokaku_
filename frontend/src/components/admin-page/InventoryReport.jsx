@@ -132,7 +132,6 @@ const InventoryReport = ({ data }) => {
             value={totalInventoryValue}
             icon={Package}
             color="primary"
-            subtitle="Total Worth"
           />
         </div>
 
@@ -144,7 +143,6 @@ const InventoryReport = ({ data }) => {
             icon={TrendingDown}
             color="success"
             isCurrency={false}
-            subtitle="Consumed"
           />
         </div>
 
@@ -156,7 +154,6 @@ const InventoryReport = ({ data }) => {
             icon={BarChart3}
             color="warning"
             isCurrency={false}
-            subtitle="Weekly"
           />
         </div>
 
@@ -296,7 +293,7 @@ const InventoryReport = ({ data }) => {
                       <th className="fw-semibold ps-4">Ingredient</th>
                       <th className="fw-semibold text-center">Starting</th>
                       <th className="fw-semibold text-center">Used</th>
-                      <th className="fw-semibold text-center">Ending</th>
+                      <th className="fw-semibold text-center">Current</th>
                       <th className="fw-semibold text-end pe-4">Value</th>
                     </tr>
                   </thead>
