@@ -1283,7 +1283,7 @@ select:disabled {
 .calendar-day-number {
   font-size: 0.9rem;
   font-weight: 500;
-  color: #333;
+  color: green;
 }
 .calendar-day.today {
   background: rgba(243, 141, 49, 0.1);
