@@ -239,22 +239,18 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       if (allReservationsByDate[date]) {
         let activeReservations = [...allReservationsByDate[date]];
 
-        // Filter by reservation type to only show reservations that match current flow
-        activeReservations = activeReservations.filter((res) => {
-          // For EVENT flow, only show EVENT reservations
-          // For PER TABLE flow, only show PER TABLE reservations
-          if (reservationType === "event") {
+        // FIX: For PER TABLE view, ONLY exclude EVENT reservations (show all table reservations)
+        // For EVENT view, ONLY show EVENT reservations
+        if (reservationType === "event") {
+          activeReservations = activeReservations.filter((res) => {
             return (
               res.reservationType === "event" ||
               res.reservation_type === "event"
             );
-          } else {
-            return (
-              res.reservationType === "per_table" ||
-              res.reservation_type === "per_table"
-            );
-          }
-        });
+          });
+        }
+        // For PER TABLE view: Do NOT filter by reservation type at all
+        // This way, all table reservations (including "per_table" type) will show
 
         activeReservations = activeReservations.filter((res) => {
           if (
@@ -286,27 +282,23 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         }));
         setReservationsForDate(formattedReservations);
       } else {
-        // Similar filtering for API response
+        // Similar fix for API response
         const response = await axios.get(
           `${API_BASE}/reservations/by-date/${date}`,
         );
         if (response.data && Array.isArray(response.data)) {
           let activeReservations = [...response.data];
 
-          // Filter by reservation type
-          activeReservations = activeReservations.filter((res) => {
-            if (reservationType === "event") {
+          // FIX: Same logic - for PER TABLE, don't filter by reservation type
+          if (reservationType === "event") {
+            activeReservations = activeReservations.filter((res) => {
               return (
                 res.reservationType === "event" ||
                 res.reservation_type === "event"
               );
-            } else {
-              return (
-                res.reservationType === "per_table" ||
-                res.reservation_type === "per_table"
-              );
-            }
-          });
+            });
+          }
+          // For PER TABLE: Show all table reservations
 
           activeReservations = activeReservations.filter((res) => {
             if (
@@ -382,17 +374,13 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     if (isPastDate) return 0;
 
     let activeCount = allReservationsByDate[dateStr].filter((res) => {
-      // Filter by reservation type based on current flow
+      // FIX: For PER TABLE, count all table reservations (don't filter by type)
+      // For EVENT, only count EVENT reservations
       if (reservationType === "event") {
         if (res.reservationType !== "event" && res.reservation_type !== "event")
           return false;
-      } else {
-        if (
-          res.reservationType !== "per_table" &&
-          res.reservation_type !== "per_table"
-        )
-          return false;
       }
+      // For PER TABLE: Count ALL reservations (no type filter)
 
       if (
         res.status === "Cancelled" ||
@@ -423,11 +411,28 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         (res) =>
           res.reservationType === "event" || res.reservation_type === "event",
       );
-      // If there's at least one event reservation, the date is fully booked
       return eventReservations.length > 0;
     } else {
       // For PER TABLE: Check if all tables are booked
-      return getActiveReservationCountForDate(dateStr) >= totalTablesCount;
+      // FIX: Count ALL reservations for PER TABLE (including all types except EVENT)
+      const reservations = allReservationsByDate[dateStr] || [];
+      const tableReservations = reservations.filter((res) => {
+        // Exclude EVENT reservations from count
+        if (
+          res.reservationType === "event" ||
+          res.reservation_type === "event"
+        ) {
+          return false;
+        }
+        if (
+          res.status === "Cancelled" ||
+          res.status === "Completed" ||
+          res.status === "Done"
+        )
+          return false;
+        return true;
+      });
+      return tableReservations.length >= totalTablesCount;
     }
   };
 
