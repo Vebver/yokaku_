@@ -769,6 +769,19 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       (r) => startM < timeToMin(r.endTime) && endM > timeToMin(r.startTime),
     );
   };
+  // ADD THE MISSING FUNCTION HERE
+  const isTimeSlotAvailableForSelectedTable = (startTime, endTime) => {
+    if (!selectedId) return true;
+    const schedules = tableSchedules[selectedId] || [];
+    const startM = timeToMin(startTime);
+    const endM = timeToMin(endTime);
+    return !schedules.some((reservation) => {
+      const resStartM = timeToMin(reservation.startTime);
+      const resEndM = timeToMin(reservation.endTime);
+      return startM < resEndM && endM > resStartM;
+    });
+  };
+
   const isTableAvailableAtSelectedTime = (tableId) => {
     if (!form.startTime || !form.endTime) return true;
     return isTableAvailableForTime(tableId, form.startTime, form.endTime);
@@ -1041,6 +1054,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     tableSchedules,
     reservationType,
     allReservationsByDate,
+    isTimeSlotAvailableForSelectedTable,
   ]);
 
   const filteredEndTimeOptions = useMemo(() => {
@@ -1109,6 +1123,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     tableSchedules,
     reservationType,
     allReservationsByDate,
+    isTimeSlotAvailableForSelectedTable,
   ]);
 
   const handleInputChange = (e) => {
