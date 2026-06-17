@@ -1541,8 +1541,9 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     const currentDate = new Date(dateStr);
                     currentDate.setHours(0, 0, 0, 0);
                     const isFutureDate = currentDate > today;
+                    // FIX: Use .getTime() for proper date comparison
                     const isEventDateValid = isEventFlow
-                      ? currentDate >= minEventDate
+                      ? currentDate.getTime() >= minEventDate.getTime()
                       : true;
                     const isDisabledForPerTable = isPerTable && isFutureDate;
                     const isDisabledForEvent = isEventFlow && !isEventDateValid;
@@ -1574,8 +1575,9 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     const currentDate = new Date(dateStr);
                     currentDate.setHours(0, 0, 0, 0);
                     const isFutureDate = currentDate > today;
+                    // FIX: Use .getTime() for proper date comparison
                     const isEventDateValid = isEventFlow
-                      ? currentDate >= minEventDate
+                      ? currentDate.getTime() >= minEventDate.getTime()
                       : true;
                     const isDisabledForPerTable = isPerTable && isFutureDate;
                     const isDisabledForEvent = isEventFlow && !isEventDateValid;
@@ -1608,8 +1610,9 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     const currentDate = new Date(dateStr);
                     currentDate.setHours(0, 0, 0, 0);
                     const isFutureDate = currentDate > today;
+                    // FIX: Use .getTime() for proper date comparison
                     const isEventDateValid = isEventFlow
-                      ? currentDate >= minEventDate
+                      ? currentDate.getTime() >= minEventDate.getTime()
                       : true;
                     const isDisabledForPerTable = isPerTable && isFutureDate;
                     const isDisabledForEvent = isEventFlow && !isEventDateValid;
