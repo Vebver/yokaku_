@@ -214,85 +214,63 @@ createReservation: async (req, res) => {
     // Safety check for dates
     const startDateTime = new Date(`${body.date} ${body.startTime}`);
     const endDateTime = new Date(`${body.date} ${body.endTime}`);
-    const durationHours = (endDateTime - startDateTime) / (1000 * 60 * 60) || 2;
-
-    let totalOrderAmount = 0;
-    if (items.length > 0) {
-      totalOrderAmount = items.reduce((sum, item) => sum + parseFloat(item.price) * (item.quantity || 1), 0);
-    } else if (body.totalAmount) {
-      totalOrderAmount = parseFloat(body.totalAmount);
-    }
-
-    const calculatedDownpayment = calculateDownpayment(durationHours, totalOrderAmount);
     const dbStart = startDateTime.toTimeString().split(" ")[0];
     const dbEnd = endDateTime.toTimeString().split(" ")[0];
 
-    let finalPackageName = body.packageName;
-    if (!finalPackageName || finalPackageName === "Table Reservation") {
-      if (items.length > 0) {
-        finalPackageName = items[0].menu_name || items[0].item_name || "Order";
-        if (items.length > 1) finalPackageName += " + Others";
-      } else {
-        finalPackageName = "Table Reservation";
-      }
-    }
-
-    const rawReservationType = body.reservationType || body.reservation_type || "per_table";
-    const normalizedReservationType = typeof rawReservationType === "string" ? rawReservationType.toLowerCase() : rawReservationType;
-
     const reservationData = {
       ...body,
-      reservation_type: normalizedReservationType,
+      reservation_type: (body.reservationType || body.reservation_type || "per_table").toLowerCase(),
       userId: body.userId || req.user?.userId,
       startTime: dbStart,
       endTime: dbEnd,
-      totalAmount: totalOrderAmount,
-      downpayment: calculatedDownpayment,
-      packageName: finalPackageName,
-      tableIds: tableIdsArray,
-      selectedItems: items,
       receiptPath: req.file ? req.file.path : null,
     };
 
-    // 1. Create the database records
+    // 1. Create the database record for the reservation
     const newId = await Reservation.create(reservationData);
 
-    // --- FIX 1: Normalize Name for the notification ---
+    // --- NOTIFICATION FIX START ---
     const fName = body.firstName || body.first_name || "Guest";
     const lName = body.lastName || body.last_name || "";
     const fullName = `${fName} ${lName}`.trim();
+    
+    // Create ONE timestamp for both DB and Socket
+    const nowISO = new Date().toISOString(); 
 
-    // 2. SAVE TO NOTIFICATIONS TABLE (So it persists in the database)
+    let notificationId = null;
+
+    // 2. SAVE TO NOTIFICATIONS TABLE
     try {
-      await db.execute(
-        "INSERT INTO notifications (title, message, type, is_read, created_at) VALUES (?, ?, ?, ?, UTC_TIMESTAMP())",
+      // Use the nowISO variable to ensure exact matching
+      const [notifResult] = await db.execute(
+        "INSERT INTO notifications (title, message, type, is_read, created_at) VALUES (?, ?, ?, ?, ?)",
         [
           "New Reservation",
-          `New booking from ${fullName} for ${body.guests || 1} guests.`,
+          `New booking from ${fullName}`,
           "reservation",
-          0 // is_read = false
+          0,
+          nowISO // MySQL will handle the conversion, but the socket will have the 'Z'
         ]
       );
+      notificationId = notifResult.insertId; // Capture the real database ID
     } catch (dbErr) {
       console.error("Notification DB Error:", dbErr.message);
     }
 
     // 3. BROADCAST REAL-TIME VIA SOCKET.IO
-    // FIX 2: Use "io" because that's what you used in app.set("io", io) in index.js
     const io = req.app.get("io"); 
 
     if (io) {
       io.emit("new_notification", {
+        id: notificationId, // Send the REAL ID so the frontend can check for duplicates
         title: "New Reservation",
         message: `New booking from ${fullName}`,
         type: "reservation",
         is_read: 0,
-        created_at: new Date().toISOString()
+        created_at: nowISO // Send with the 'Z' included
       });
-      console.log("📡 Socket: Notification emitted to Admin Dashboard");
-    } else {
-      console.warn("⚠️ Socket.io instance not found in app.get('io')");
     }
+    // --- NOTIFICATION FIX END ---
 
     return res.status(201).json({ id: newId });
   } catch (error) {

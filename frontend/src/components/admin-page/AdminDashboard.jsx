@@ -313,15 +313,17 @@ const initializeSocket = () => {
     </div>
   );
 
- const formatTimeAgo = (dateStr) => {
+const formatTimeAgo = (dateStr) => {
   if (!dateStr) return "";
 
   let date;
-  // If it's already an ISO string (has T and Z), parse it directly
-  if (typeof dateStr === "string" && dateStr.includes("Z")) {
+  // If the string already has Z, it's from the Socket
+  if (dateStr.toString().includes("Z")) {
     date = new Date(dateStr);
   } else {
-    const utcStr = dateStr.replace(" ", "T") + "Z";
+    // If it's from the Database (Refresh), it won't have Z
+    // We add 'Z' to tell the browser this is UTC
+    const utcStr = dateStr.toString().replace(" ", "T") + "Z";
     date = new Date(utcStr);
   }
 
@@ -331,14 +333,11 @@ const initializeSocket = () => {
   if (diffInSeconds < 30) return "just now";
   if (diffInSeconds < 60) return `${diffInSeconds}s ago`;
 
-  const diffInMinutes = Math.floor(diffInSeconds / 60);
-  if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+  const minutes = Math.floor(diffInSeconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
 
-  const diffInHours = Math.floor(diffInMinutes / 60);
-  if (diffInHours < 24) return `${diffInHours}h ago`;
-
-  const diffInDays = Math.floor(diffInHours / 24);
-  if (diffInDays < 7) return `${diffInDays}d ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
 
   return date.toLocaleDateString();
 };
