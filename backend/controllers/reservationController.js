@@ -9,7 +9,7 @@ const formatTimeTo24h = (timeStr) => {
   if (!timeStr) return null;
   const [time, modifier] = timeStr.split(" ");
   let [hours, minutes] = time.split(":");
-  if (hours === "12") hours = "00"; 
+  if (hours === "12") hours = "00";
   if (modifier === "PM") hours = parseInt(hours, 10) + 12;
   return `${String(hours).padStart(2, "0")}:${minutes}:00`;
 };
@@ -185,14 +185,18 @@ const reservationController = {
       if (affectedRows === 0) {
         return res.status(404).json({ error: "Reservation not found." });
       }
-      res.json({ message: `Kiosk updated successfully for Reservation ID ${reservationId}.` });
+      res.json({
+        message: `Kiosk updated successfully for Reservation ID ${reservationId}.`,
+      });
     } catch (error) {
       console.error("Set kiosk reservation error:", error);
-      res.status(500).json({ error: error.message || "Failed to update kiosk reservation." });
+      res.status(500).json({
+        error: error.message || "Failed to update kiosk reservation.",
+      });
     }
   },
 
-getActiveKiosk: async (req, res) => {
+  getActiveKiosk: async (req, res) => {
     try {
       const { tableId } = req.query;
       const result = await Reservation.getActiveKioskReservation(tableId);
@@ -203,81 +207,94 @@ getActiveKiosk: async (req, res) => {
     }
   },
   // ==================== CREATE RESERVATION ====================
-createReservation: async (req, res) => {
-  try {
-    const body = req.body;
-    const userId = body.userId;
-
-    const items = typeof body.selectedItems === "string" ? JSON.parse(body.selectedItems) : body.selectedItems || [];
-    const tableIdsArray = typeof body.tableIds === "string" ? JSON.parse(body.tableIds) : body.tableIds || [];
-
-    // Safety check for dates
-    const startDateTime = new Date(`${body.date} ${body.startTime}`);
-    const endDateTime = new Date(`${body.date} ${body.endTime}`);
-    const dbStart = startDateTime.toTimeString().split(" ")[0];
-    const dbEnd = endDateTime.toTimeString().split(" ")[0];
-
-    const reservationData = {
-      ...body,
-      reservation_type: (body.reservationType || body.reservation_type || "per_table").toLowerCase(),
-      userId: body.userId || req.user?.userId,
-      startTime: dbStart,
-      endTime: dbEnd,
-      receiptPath: req.file ? req.file.path : null,
-    };
-
-    // 1. Create the database record for the reservation
-    const newId = await Reservation.create(reservationData);
-
-    // --- NOTIFICATION FIX START ---
-    const fName = body.firstName || body.first_name || "Guest";
-    const lName = body.lastName || body.last_name || "";
-    const fullName = `${fName} ${lName}`.trim();
-    
-    // Create ONE timestamp for both DB and Socket
-    const nowISO = new Date().toISOString(); 
-
-    let notificationId = null;
-
-    // 2. SAVE TO NOTIFICATIONS TABLE
+  createReservation: async (req, res) => {
     try {
-      // Use the nowISO variable to ensure exact matching
-      const [notifResult] = await db.execute(
-        "INSERT INTO notifications (title, message, type, is_read, created_at) VALUES (?, ?, ?, ?, ?)",
-        [
-          "New Reservation",
-          `New booking from ${fullName}`,
-          "reservation",
-          0,
-          nowISO // MySQL will handle the conversion, but the socket will have the 'Z'
-        ]
-      );
-      notificationId = notifResult.insertId; // Capture the real database ID
-    } catch (dbErr) {
-      console.error("Notification DB Error:", dbErr.message);
+      const body = req.body;
+      const userId = body.userId;
+
+      const items =
+        typeof body.selectedItems === "string"
+          ? JSON.parse(body.selectedItems)
+          : body.selectedItems || [];
+      const tableIdsArray =
+        typeof body.tableIds === "string"
+          ? JSON.parse(body.tableIds)
+          : body.tableIds || [];
+
+      // Safety check for dates
+      const startDateTime = new Date(`${body.date} ${body.startTime}`);
+      const endDateTime = new Date(`${body.date} ${body.endTime}`);
+      const dbStart = startDateTime.toTimeString().split(" ")[0];
+      const dbEnd = endDateTime.toTimeString().split(" ")[0];
+
+      const reservationData = {
+        ...body,
+        reservation_type: (
+          body.reservationType ||
+          body.reservation_type ||
+          "per_table"
+        ).toLowerCase(),
+        userId: body.userId || req.user?.userId,
+        startTime: dbStart,
+        endTime: dbEnd,
+        receiptPath: req.file ? req.file.path : null,
+      };
+
+      // 1. Create the database record for the reservation
+      const newId = await Reservation.create(reservationData);
+
+      // --- NOTIFICATION FIX START ---
+      const fName = body.firstName || body.first_name || "Guest";
+      const lName = body.lastName || body.last_name || "";
+      const fullName = `${fName} ${lName}`.trim();
+
+      // Create timestamps for DB and Socket
+      const now = new Date();
+      // For MySQL DATETIME (no timezone info) - format: YYYY-MM-DD HH:MM:SS
+      const mysqlDateTime = now.toISOString().slice(0, 19).replace("T", " ");
+      // For Socket (with timezone info) - format: YYYY-MM-DDTHH:MM:SS.ZZZZ
+      const isoDateTime = now.toISOString();
+
+      let notificationId = null;
+
+      // 2. SAVE TO NOTIFICATIONS TABLE - Use MySQL DATETIME format
+      try {
+        const [notifResult] = await db.execute(
+          "INSERT INTO notifications (title, message, type, is_read, created_at) VALUES (?, ?, ?, ?, ?)",
+          [
+            "New Reservation",
+            `New booking from ${fullName}`,
+            "reservation",
+            0,
+            mysqlDateTime, // Store in MySQL DATETIME format (no 'Z')
+          ],
+        );
+        notificationId = notifResult.insertId;
+      } catch (dbErr) {
+        console.error("Notification DB Error:", dbErr.message);
+      }
+
+      // 3. BROADCAST REAL-TIME VIA SOCKET.IO - Send ISO format with timezone
+      const io = req.app.get("io");
+
+      if (io) {
+        io.emit("new_notification", {
+          id: notificationId,
+          title: "New Reservation",
+          message: `New booking from ${fullName}`,
+          type: "reservation",
+          is_read: 0,
+          created_at: isoDateTime, // Send with 'Z' so frontend knows it's UTC
+        });
+      }
+      // --- NOTIFICATION FIX END ---
+
+      return res.status(201).json({ id: newId });
+    } catch (error) {
+      console.error("Create reservation error:", error);
+      res.status(500).json({ error: error.message });
     }
-
-    // 3. BROADCAST REAL-TIME VIA SOCKET.IO
-    const io = req.app.get("io"); 
-
-    if (io) {
-      io.emit("new_notification", {
-        id: notificationId, // Send the REAL ID so the frontend can check for duplicates
-        title: "New Reservation",
-        message: `New booking from ${fullName}`,
-        type: "reservation",
-        is_read: 0,
-        created_at: nowISO // Send with the 'Z' included
-      });
-    }
-    // --- NOTIFICATION FIX END ---
-
-    return res.status(201).json({ id: newId });
-  } catch (error) {
-    console.error("Create reservation error:", error);
-    res.status(500).json({ error: error.message });
-  }
-},
+  },
   // ==================== ADMIN FUNCTIONS ====================
   getReservations: async (req, res) => {
     try {
@@ -288,7 +305,7 @@ createReservation: async (req, res) => {
     }
   },
 
-updateStatus: async (req, res) => {
+  updateStatus: async (req, res) => {
     console.log("HIT THE STATUS UPDATE ROUTE!");
     try {
       const { id } = req.params;
@@ -341,7 +358,7 @@ updateStatus: async (req, res) => {
   },
 
   // ==================== KIOSK VERIFICATION ====================
- checkReservationId: async (req, res) => {
+  checkReservationId: async (req, res) => {
     try {
       const reservation = await Reservation.findById(req.params.id);
 
