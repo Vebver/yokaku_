@@ -1,4 +1,5 @@
 require("dotenv").config();
+process.env.TZ = "UTC";
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
@@ -139,7 +140,7 @@ app.use("/api/reviews", reviewRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/settings", settingRoutes);
 app.use("/api/orders", orderRoutes);
-app.use("/api/price",priceRoutes)
+app.use("/api/price", priceRoutes);
 
 app.get("/api/protected", protect, (req, res) => {
   res.json({ message: "Protected data", user: req.user });
