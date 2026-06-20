@@ -1,5 +1,4 @@
 import React, {useState, useEffect} from "react";
-import axios from "axios";
 import {
   FileSpreadsheet,
   Archive,
@@ -9,8 +8,7 @@ import {
   FileText,
   Monitor,
 } from "lucide-react";
-
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+import api from "../../api";
 
 const SystemMaintenance = () => {
   const [kioskReservationId, setKioskReservationId] = useState("");
@@ -22,8 +20,8 @@ const SystemMaintenance = () => {
 
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.post(
-        `${API_BASE}/admin/${endpoint}`,
+      const res = await api.post(
+        `/admin/${endpoint}`,
         {},
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -49,8 +47,8 @@ const SystemMaintenance = () => {
 
   try {
     const token = localStorage.getItem("token");
-    const res = await axios.post(
-      `${API_BASE}/admin/set-kiosk-reservation`, 
+    const res = await api.post(
+      `/admin/set-kiosk-reservation`, 
       { reservationId: kioskReservationId }, 
       { headers: { Authorization: `Bearer ${token}` } }
     );
@@ -66,8 +64,8 @@ const SystemMaintenance = () => {
   const downloadFinancialPdf = async () => {
     try {
       const token = localStorage.getItem("token");
-      const response = await axios.get(
-        `${API_BASE}/admin/export-financial-pdf`,
+      const response = await api.get(
+        `/admin/export-financial-pdf`,
         {
           headers: { Authorization: `Bearer ${token}` },
           responseType: "blob",
@@ -91,7 +89,7 @@ const SystemMaintenance = () => {
   const downloadReport = async () => {
     try {
       const token = localStorage.getItem("token");
-      const response = await axios.get(`${API_BASE}/admin/export-csv`, {
+      const response = await api.get(`/admin/export-csv`, {
         headers: { Authorization: `Bearer ${token}` },
         responseType: "blob",
       });

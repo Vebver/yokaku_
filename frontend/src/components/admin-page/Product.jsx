@@ -1,9 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import axios from "axios";
+import api , { SOCKET_URL } from "../../api";
 import { Star, Trash2, Edit3, Search, ChevronLeft, ChevronRight, Plus } from "lucide-react";
-
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-const BASE_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
 
 function Product() {
   const [menuItems, setMenuItems] = useState([]);
@@ -28,8 +25,8 @@ function Product() {
     try {
       setLoading(true);
       const [catRes, menuRes] = await Promise.all([
-        axios.get(`${API_BASE}/categories`),
-        axios.get(`${API_BASE}/products`)
+        api.get(`/categories`),
+        api.get(`/products`)
       ]);
       setCategories(catRes.data);
       setMenuItems(menuRes.data.sort((a, b) => b.item_id - a.item_id));
@@ -91,10 +88,10 @@ function Product() {
 
     try {
       if (isEditing) {
-        await axios.put(`${API_BASE}/products/${editId}`, formData, config);
+        await api.put(`/products/${editId}`, formData, config);
         alert("Dish updated successfully!");
       } else {
-        await axios.post(`${API_BASE}/products`, formData, config);
+        await api.post(`/products`, formData, config);
         alert("New dish added successfully!");
       }
       
@@ -111,12 +108,7 @@ function Product() {
     if (window.confirm("Remove item?")) {
       try {
         const token = localStorage.getItem("token");
-        await axios.delete(`${API_BASE}/products/${id}`, {
-          headers: { 
-            Authorization: `Bearer ${token}` 
-          }
-        });
-
+        await api.delete(`/products/${id}`);
         alert("Dish deleted successfully!");
         fetchData(); 
       } catch (err) {
@@ -128,15 +120,8 @@ function Product() {
 
   const toggleFeature = async (id, currentStatus) => {
     try { 
-      const token = localStorage.getItem("token");
-      const config = {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      };
-
       const newStatus = currentStatus === 1 ? 0 : 1;
-      await axios.put(`${API_BASE}/products/${id}/feature`, { is_featured: newStatus }, config); 
+      await api.put(`/products/${id}/feature`, { is_featured: newStatus }); 
       
       // Success Alert
       alert(newStatus === 1 ? "Added to featured items!" : "Removed from featured items!");
@@ -148,11 +133,11 @@ function Product() {
     }
   };
 
-  const getImageUrl = (item, BASE_URL) => {
+  const getImageUrl = (item, SOCKET_URL) => {
     if (item.image instanceof File) return URL.createObjectURL(item.image);
     const path = item.local_path || item.image_url;
     if (!path) return "https://placehold.co/150?text=No+Image";
-    return path.startsWith("http") ? path : `${BASE_URL}/${path.replace(/^\//, "")}`;
+    return path.startsWith("http") ? path : `${SOCKET_URL}/${path.replace(/^\//, "")}`;
   };
 
   if (loading) return <div className="p-5 text-center">Loading Menu...</div>;
@@ -209,7 +194,7 @@ function Product() {
                 <tr key={item.item_id}>
                   <td className="ps-4">
                     <div className="d-flex align-items-center py-2">
-                      <img src={getImageUrl(item, BASE_URL)} alt="" className="rounded shadow-sm me-3 border" width="48" height="48" style={{ objectFit: "cover" }} />
+                      <img src={getImageUrl(item, SOCKET_URL)} alt="" className="rounded shadow-sm me-3 border" width="48" height="48" style={{ objectFit: "cover" }} />
                       <div>
                         <div className="fw-bold text-dark lh-1 mb-1">{item.name}</div>
                       </div>
@@ -292,7 +277,7 @@ function Product() {
             </div>
             <div className="mb-4 text-center">
                <div className="bg-light p-3 rounded border mb-2">
-                  <img src={getImageUrl(newItem, BASE_URL)} alt="Preview" className="img-thumbnail" style={{ height: "140px", width: "100%", objectFit: "cover" }} />
+                  <img src={getImageUrl(newItem, SOCKET_URL)} alt="Preview" className="img-thumbnail" style={{ height: "140px", width: "100%", objectFit: "cover" }} />
                </div>
                <input type="file" className="form-control" accept="image/*" onChange={(e) => setNewItem({ ...newItem, image: e.target.files[0] })} />
             </div>

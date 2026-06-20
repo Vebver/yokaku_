@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../../api";
 import { 
   Search, 
   ChevronLeft, 
@@ -7,9 +7,7 @@ import {
   UserCircle, 
   ShieldCheck, 
   Loader2 
-} from "lucide-react";
-
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+} from "lucide-react"
 
 const AccountManagement = () => {
   const [users, setUsers] = useState([]);
@@ -26,9 +24,7 @@ const AccountManagement = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
-      const res = await axios.get(`${API_BASE}/admin/users`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await api.get(`/admin/users`);
       setUsers(res.data);
     } catch (err) {
       setStatus({ type: "danger", msg: "Failed to load users." });
@@ -42,10 +38,9 @@ const AccountManagement = () => {
     try {
       setUpdatingUserId(userId);
       const token = localStorage.getItem("token");
-      await axios.put(
-        `${API_BASE}/admin/users/${userId}/update-role`,
-        { role: newRole },
-        { headers: { Authorization: `Bearer ${token}` } }
+      await api.put(
+        `/admin/users/${userId}/update-role`,
+        { role: newRole }
       );
       setUsers(users.map((u) => (u.user_id === userId ? { ...u, role: newRole } : u)));
       setStatus({ type: "success", msg: "User role updated successfully!" });

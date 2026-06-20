@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../../api";
 import { 
   Trash2, 
   Plus, 
@@ -11,8 +11,6 @@ import {
   Check, 
   X 
 } from "lucide-react";
-
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 function RecipeManager() {
   const [menuItems, setMenuItems] = useState([]);
@@ -61,8 +59,8 @@ function RecipeManager() {
     try {
       setLoading(true);
       const [menuRes, invRes] = await Promise.all([
-        axios.get(`${API_BASE}/products`, getAuthHeader()),
-        axios.get(`${API_BASE}/inventory`, getAuthHeader()),
+        api.get(`/products`, getAuthHeader()),
+        api.get(`/inventory`, getAuthHeader()),
       ]);
       setMenuItems(menuRes.data);
       setInventoryItems(invRes.data);
@@ -76,8 +74,8 @@ function RecipeManager() {
   const fetchCurrentRecipe = async () => {
     try {
       setLoadingRecipe(true);
-      const res = await axios.get(
-        `${API_BASE}/products/${selectedItemId}/ingredients`,
+      const res = await api.get(
+        `/products/${selectedItemId}/ingredients`,
         getAuthHeader()
       );
       setCurrentRecipe(res.data);
@@ -94,8 +92,8 @@ function RecipeManager() {
       return alert("Fill all fields");
 
     try {
-      await axios.post(
-        `${API_BASE}/products/${selectedItemId}/ingredients`,
+      await api.post(
+        `/products/${selectedItemId}/ingredients`,
         { inventory_id: ingredientId, quantity_required: qtyNeeded },
         getAuthHeader()
       );
@@ -116,8 +114,8 @@ function RecipeManager() {
   const saveEditedIngredient = async (recipeId) => {
     if (!editQty || Number(editQty) <= 0) return alert("Enter a valid quantity");
     try {
-      await axios.put(
-        `${API_BASE}/products/ingredients/${recipeId}`,
+      await api.put(
+        `/products/ingredients/${recipeId}`,
         { quantity_required: editQty },
         getAuthHeader()
       );
@@ -131,8 +129,8 @@ function RecipeManager() {
   const removeIngredient = async (recipeId) => {
     if (!window.confirm("Remove this ingredient?")) return;
     try {
-      await axios.delete(
-        `${API_BASE}/products/ingredients/${recipeId}`,
+      await api.delete(
+        `/products/ingredients/${recipeId}`,
         getAuthHeader()
       );
       fetchCurrentRecipe();

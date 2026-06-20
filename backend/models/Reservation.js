@@ -1,12 +1,12 @@
 const db = require("../config/db");
 
-const generateRandomId = () => {
+const generateRandomId = (prefix = "RES") => {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let result = "";
   for (let i = 0; i < 6; i++) {
     result += chars.charAt(Math.floor(Math.random() * chars.length));
   }
-  return `RES-${result}`;
+  return `${prefix}-${result}`;
 };
 
 const Reservation = {
@@ -264,8 +264,8 @@ const Reservation = {
     const conn = await db.getConnection();
     try {
       await conn.beginTransaction();
-      const customId = generateRandomId();
-
+      const idPrefix = data.isWalkin ? "WALK" : "RES";
+      const customId = generateRandomId(idPrefix);
       // DEBUG: Log what reservation_type value we're about to insert
       const finalReservationType = data.reservationType || data.reservation_type || "per_table";
       console.log("=== RESERVATION.CREATE DEBUG ===");
@@ -337,7 +337,7 @@ const Reservation = {
           customId,
           data.downpayment || 0,
           data.totalAmount || data.amount || 0,
-          data.paymentMethod || "Maya",
+          data.paymentMethod || "Cash",
         ],
       );
 
@@ -399,12 +399,12 @@ const Reservation = {
     const [rows] = await db.execute(sql, [id, id, id]);
     return rows;
   },
-  countNoShows: async (userId) => {
-    if (!userId || userId === "null") return 0;
-    const sql = `SELECT COUNT(*) as count FROM reservations WHERE user_id = ? AND status = 'no-show'`;
-    const [rows] = await db.execute(sql, [userId]);
-    return rows[0].count;
-  },
+  // countNoShows: async (userId) => {
+  //   if (!userId || userId === "null") return 0;
+  //   const sql = `SELECT COUNT(*) as count FROM reservations WHERE user_id = ? AND status = 'no-show'`;
+  //   const [rows] = await db.execute(sql, [userId]);
+  //   return rows[0].count;
+  // },
 
   getAll: async () => {
     const sql = `SELECT r.*, p.payment_status, p.amount, GROUP_CONCAT(DISTINCT t.table_number SEPARATOR ' + ') AS assigned_tables FROM reservations r LEFT JOIN payments p ON r.reservation_id = p.reservation_id LEFT JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id LEFT JOIN tables t ON rt.table_id = t.table_id GROUP BY r.reservation_id ORDER BY r.created_at DESC`;

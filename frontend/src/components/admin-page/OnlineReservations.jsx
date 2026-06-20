@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
-import {
+import api from "../../api";import {
   Armchair,
   User,
   Package,
@@ -12,8 +11,6 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { generateIncidentReportPDF } from "../../utils/irGenerator";
-
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const OnlineReservations = () => {
   const [inquiries, setInquiries] = useState([]);
@@ -32,9 +29,7 @@ const OnlineReservations = () => {
   const fetchReservations = async () => {
     try {
       const token = localStorage.getItem("token");
-      const response = await axios.get(`${API_BASE}/reservations`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await api.get(`/reservations`);
 
       // Filter: Online only (Exclude WALK)
       const filtered = response.data.filter(
@@ -82,7 +77,7 @@ const OnlineReservations = () => {
     setLoadingItems(true);
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.get(`${API_BASE}/reservations/${resId}/items`, {
+      const res = await api.get(`/reservations/${resId}/items`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setOrderItems(res.data);

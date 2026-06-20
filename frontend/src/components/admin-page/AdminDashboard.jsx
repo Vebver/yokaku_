@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import axios from "axios";
+import api, { SOCKET_URL } from "../../api";
 import io from "socket.io-client";
 import {
   Chart as ChartJS,
@@ -42,9 +42,6 @@ import OnlineReservations from "./OnlineReservations";
 import WalkInReservations from "./WalkInReservations";
 
 import "../../Style/AdminDashboard.css";
-
-const SOCKET_URL = "https://yokaku-backend.onrender.com";
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 ChartJS.register(
   CategoryScale,
@@ -134,7 +131,7 @@ function AdminDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 992);
   const [loading, setLoading] = useState(true);
   const [todaySchedule, setTodaySchedule] = useState([]);
-  
+
   // Real-time notifications state
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -170,7 +167,10 @@ function AdminDashboard() {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+      if (
+        notificationRef.current &&
+        !notificationRef.current.contains(event.target)
+      ) {
         setShowNotifications(false);
       }
     };
@@ -187,32 +187,34 @@ function AdminDashboard() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const initializeSocket = () => {
-    const token = localStorage.getItem("token");
-    const userId = localStorage.getItem("userId");
+const initializeSocket = () => {
+  const socket = io(SOCKET_URL, { transports: ["websocket"] });
 
-    if (token && userId) {
-      const socket = io(SOCKET_URL, {
-        transports: ["websocket", "polling"],
-      });
+  socket.on("new_notification", (notification) => {
+    setNotifications((prev) => {
+      // FIX: Check if notification ID already exists in the current list
+      // If your notifications don't have an 'id' yet, use the message and time as a unique check
+      const isDuplicate = prev.some(n => 
+        (n.id && n.id === notification.id) || 
+        (n.message === notification.message && n.created_at === notification.created_at)
+      );
 
-      socket.on("connect", () => {
-        socket.emit("join_user", userId);
-      });
+      if (isDuplicate) return prev;
+      return [notification, ...prev];
+    });
 
-      socket.on("new_notification", (notification) => {
-        setNotifications((prev) => [notification, ...prev]);
-        setUnreadCount((prev) => prev + 1);
-      });
-    }
-  };
+    setUnreadCount((prev) => prev + 1);
+    
+    // Optional: Play sound only once
+    const audio = new Audio("/notification-light.mp3");
+    audio.play().catch(() => {});
+  });
+};
 
   const fetchNotifications = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.get(`${API_BASE}/notifications`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await api.get(`/notifications`);
       setNotifications(res.data);
       setUnreadCount(res.data.filter((n) => !n.is_read).length);
     } catch (err) {
@@ -223,11 +225,7 @@ function AdminDashboard() {
   const markAllAsRead = async () => {
     try {
       const token = localStorage.getItem("token");
-      await axios.put(
-        `${API_BASE}/notifications/read-all`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await api.put(`/notifications/read-all`, {});
       setNotifications(notifications.map((n) => ({ ...n, is_read: 1 })));
       setUnreadCount(0);
     } catch (err) {
@@ -239,11 +237,10 @@ function AdminDashboard() {
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
-      const config = { headers: { Authorization: `Bearer ${token}` } };
 
       const [statsRes, scheduleRes] = await Promise.all([
-        axios.get(`${API_BASE}/admin/stats`, config),
-        axios.get(`${API_BASE}/admin/today-schedule`, config),
+        api.get(`/admin/stats`),
+        api.get(`/admin/today-schedule`),
       ]);
 
       const data = statsRes.data;
@@ -316,24 +313,58 @@ function AdminDashboard() {
     </div>
   );
 
-  const formatTime12Hour = (timeStr) => {
-    if (!timeStr) return "";
-    const [hoursStr, minutesStr] = timeStr.split(":");
+ const formatTimeAgo = (dateStr) => {
+  if (!dateStr) return "";
+
+  let date;
+  // If it's already an ISO string (has T and Z), parse it directly
+  if (typeof dateStr === "string" && dateStr.includes("Z")) {
+    date = new Date(dateStr);
+  } else {
+    const utcStr = dateStr.replace(" ", "T") + "Z";
+    date = new Date(utcStr);
+  }
+
+  const now = new Date();
+  const diffInSeconds = Math.floor((now - date) / 1000);
+
+  if (diffInSeconds < 30) return "just now";
+  if (diffInSeconds < 60) return `${diffInSeconds}s ago`;
+
+  const diffInMinutes = Math.floor(diffInSeconds / 60);
+  if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+
+  const diffInHours = Math.floor(diffInMinutes / 60);
+  if (diffInHours < 24) return `${diffInHours}h ago`;
+
+  const diffInDays = Math.floor(diffInHours / 24);
+  if (diffInDays < 7) return `${diffInDays}d ago`;
+
+  return date.toLocaleDateString();
+};
+
+ const formatTime12Hour = (timeStr) => {
+    if (!timeStr) return "--:--";
+
+    // If it's a full ISO string from the DB, extract the time part
+    const timePart = timeStr.includes("T") ? timeStr.split("T")[1] : timeStr;
+    const [hoursStr, minutesStr] = timePart.split(":");
+    
     let hour = parseInt(hoursStr, 10);
     const minutes = minutesStr ? minutesStr.substring(0, 2) : "00";
-    
-    // Add +8 hours offset (handles midnight wraps automatically)
-    hour = (hour + 8) % 24;
-    
-    const ampm = hour >= 12 ? "PM" : "AM";
-    hour = hour % 12 || 12;
-    return `${hour}:${minutes} ${ampm}`;
-  };
 
+    // IMPORTANT: If your DB stores arrival times in UTC, 
+    // you need to manually add the 8 hours here to show PH time
+    // hour = (hour + 8) % 24; 
+
+    const ampm = hour >= 12 ? "PM" : "AM";
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${minutes} ${ampm}`;
+  };
   const DashboardOverview = () => (
     <div className="dashboard-content">
       <h1 className="fw-bold mb-3">Welcome back, Admin</h1>
-      
+
       {/* TIMELINE */}
       <div className="mb-4 bg-white p-3 rounded-4 shadow-sm border-start border-4 border-warning">
         <div className="d-flex align-items-center mb-2">
@@ -558,12 +589,15 @@ function AdminDashboard() {
           </button>
 
           <div className="ms-auto d-flex align-items-center gap-3">
-            
             {/* MANUAL REFRESH BUTTON */}
-            <button 
+            <button
               className="btn btn-light p-0 rounded-circle border-0 d-flex align-items-center justify-content-center"
               onClick={handleRefreshAll}
-              style={{ width: "40px", height: "40px", backgroundColor: "#f8f9fa" }}
+              style={{
+                width: "40px",
+                height: "40px",
+                backgroundColor: "#f8f9fa",
+              }}
               title="Refresh Data"
             >
               <RefreshCw size={18} className="text-secondary" />
@@ -571,15 +605,19 @@ function AdminDashboard() {
 
             {/* REAL-TIME NOTIFICATION BELL dropdown widget */}
             <div className="position-relative me-2" ref={notificationRef}>
-              <button 
+              <button
                 className="btn btn-light position-relative p-0 rounded-circle border-0 d-flex align-items-center justify-content-center"
                 onClick={() => setShowNotifications(!showNotifications)}
-                style={{ width: "40px", height: "40px", backgroundColor: "#f8f9fa" }}
+                style={{
+                  width: "40px",
+                  height: "40px",
+                  backgroundColor: "#f8f9fa",
+                }}
               >
                 <Bell size={20} className="text-secondary" />
                 {unreadCount > 0 && (
-                  <span 
-                    className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-white" 
+                  <span
+                    className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-white"
                     style={{ fontSize: "0.65rem", padding: "0.25em 0.5em" }}
                   >
                     {unreadCount}
@@ -588,14 +626,21 @@ function AdminDashboard() {
               </button>
 
               {showNotifications && (
-                <div 
+                <div
                   className="card shadow-lg border-0 rounded-4 position-absolute end-0 mt-2 py-2"
-                  style={{ width: "320px", zIndex: 1050, fontSize: "0.85rem", right: 0 }}
+                  style={{
+                    width: "320px",
+                    zIndex: 1050,
+                    fontSize: "0.85rem",
+                    right: 0,
+                  }}
                 >
                   <div className="px-3 py-2 border-bottom d-flex justify-content-between align-items-center bg-light rounded-top-4">
-                    <span className="fw-bold text-dark">Notifications Inbox</span>
+                    <span className="fw-bold text-dark">
+                      Notifications Inbox
+                    </span>
                     {unreadCount > 0 && (
-                      <button 
+                      <button
                         className="btn btn-link btn-xs text-decoration-none p-0 text-primary fw-bold"
                         onClick={markAllAsRead}
                         style={{ fontSize: "0.75rem" }}
@@ -604,48 +649,80 @@ function AdminDashboard() {
                       </button>
                     )}
                   </div>
-                  <div className="overflow-auto custom-scrollbar" style={{ maxHeight: "280px" }}>
+                  <div
+                    className="overflow-auto custom-scrollbar"
+                    style={{ maxHeight: "280px" }}
+                  >
                     {notifications.length > 0 ? (
                       notifications.map((notif, index) => (
-                        <div 
-                          key={index} 
-                          className={`px-3 py-2 border-bottom hover-bg transition-all ${!notif.is_read ? 'bg-light-subtle fw-semibold' : ''}`}
+                        <div
+                          key={index}
+                          className={`px-3 py-2 border-bottom hover-bg transition-all ${!notif.is_read ? "bg-light-subtle fw-semibold" : ""}`}
                           style={{ cursor: "pointer" }}
                           onClick={() => {
-                            const title = notif.title?.toLowerCase() || "";
-                            
-                            // 1. Route to Payments (Billing) for payment proofs, uploads, or receipts
+                            // 1. Get the title and message safely
+                            const title = (notif.title || "").toLowerCase();
+                            const message = (notif.message || "").toLowerCase();
+
+                            console.log(
+                              "🔔 Notification Clicked. Title:",
+                              title,
+                            );
+
+                            // 2. Routing Logic
+                            // Check if it's related to Payments (Billing)
                             if (
-                              title.includes("payment") || 
-                              title.includes("proof") || 
-                              title.includes("upload") || 
-                              title.includes("receipt")
+                              title.includes("payment") ||
+                              title.includes("receipt") ||
+                              title.includes("proof") ||
+                              message.includes("paid")
                             ) {
+                              console.log("➡️ Routing to: billing");
                               setActiveSection("billing");
-                            } 
-                            // 2. Route to Online Bookings for reservations and cancellations
+                            }
+                            // Check if it's related to Reservations
                             else if (
-                              title.includes("cancel") || 
-                              title.includes("reserve") || 
-                              title.includes("booking")
+                              title.includes("reserve") ||
+                              title.includes("booking") ||
+                              title.includes("new reservation") ||
+                              title.includes("cancel")
                             ) {
+                              console.log("➡️ Routing to: online-reservations");
                               setActiveSection("online-reservations");
-                            } 
-                            // 3. Default fallback
-                            else {
+                            }
+                            // Check if it's related to Stock/Inventory
+                            else if (
+                              title.includes("stock") ||
+                              title.includes("inventory")
+                            ) {
+                              console.log("➡️ Routing to: inventory");
+                              setActiveSection("inventory");
+                            } else {
+                              console.log(
+                                "➡️ Routing to: dashboard (fallback)",
+                              );
                               setActiveSection("dashboard");
                             }
-                            
+
+                            // 3. Close the notification dropdown
                             setShowNotifications(false);
-                          }}
+                          }}    
                         >
                           <div className="d-flex justify-content-between align-items-center mb-1">
-                            <span className="text-dark small">{notif.title}</span>
-                            <span className="text-muted smaller" style={{ fontSize: "0.7rem" }}>
+                            <span className="text-dark small">
+                              {notif.title}
+                            </span>
+                            <span
+                              className="text-muted smaller"
+                              style={{ fontSize: "0.7rem" }}
+                            >
                               {formatTimeAgo(notif.created_at)}
                             </span>
                           </div>
-                          <p className="text-muted text-truncate mb-0 smaller" style={{ fontSize: "0.75rem" }}>
+                          <p
+                            className="text-muted text-truncate mb-0 smaller"
+                            style={{ fontSize: "0.75rem" }}
+                          >
                             {notif.message}
                           </p>
                         </div>
@@ -657,7 +734,7 @@ function AdminDashboard() {
                     )}
                   </div>
                   <div className="px-3 pt-2 text-center border-top">
-                    <button 
+                    <button
                       className="btn btn-link btn-sm text-decoration-none text-primary fw-bold p-0"
                       onClick={() => {
                         setActiveSection("online-reservations");

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
 import {
   Armchair,
   User,
@@ -9,9 +8,10 @@ import {
   Clock,
   ReceiptText,
   Info,
+  Plus, // Added for the button
+  CalendarCheck, // Added for modal icon
 } from "lucide-react";
-
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+import api from "../../api";
 
 const WalkInReservations = () => {
   const [inquiries, setInquiries] = useState([]);
@@ -20,6 +20,22 @@ const WalkInReservations = () => {
   const [orderItems, setOrderItems] = useState([]);
   const [loadingItems, setLoadingItems] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // --- NEW STATE FOR ADDING RESERVATION ---
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [newRes, setNewRes] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    date: "",
+    startTime: "",
+    guests: 1,
+    bookingType: "table", // 'table' or 'event'
+    packageName: "Regular Table",
+    paymentMethod: "Cash",
+  });
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -32,11 +48,10 @@ const WalkInReservations = () => {
   const fetchWalkIns = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.get(`${API_BASE}/reservations`, {
+      const res = await api.get(`/reservations`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      // Filter for IDs containing "WALK"
       const filtered = res.data.filter(
         (item) =>
           item.reservation_id?.toString().includes("WALK") ||
@@ -53,20 +68,50 @@ const WalkInReservations = () => {
     }
   };
 
-  // Filter bookings based on guest name or reservation ID
-  const filteredInquiries = inquiries.filter((item) => {
-    const fullName = `${item.first_name || ""} ${item.last_name || ""}`.toLowerCase();
-    const resId = (item.reservation_id || "").toLowerCase();
-    const term = searchQuery.toLowerCase();
-    return fullName.includes(term) || resId.includes(term);
-  });
+  // --- HANDLERS FOR NEW RESERVATION ---
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    if (name === "bookingType") {
+      setNewRes({
+        ...newRes,
+        bookingType: value,
+        packageName: value === "table" ? "Regular Table" : "Event Package A",
+      });
+    } else {
+      setNewRes({ ...newRes, [name]: value });
+    }
+  };
+
+  const handleAddReservation = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      // 1. Prepare the data with the Walk-in flag
+      const payload = {
+        ...newRes,
+        isWalkin: true // <--- THIS IS THE KEY
+      };
+
+      // 2. Send to backend
+      await api.post("/reservations", payload);
+      
+      alert("Manual Reservation Created!");
+      setShowAddModal(false);
+      fetchWalkIns(); // Refresh the list on this page
+    } catch (err) {
+      console.error(err);
+      alert("Error creating reservation.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const fetchItems = async (resId) => {
     setOrderItems([]);
     setLoadingItems(true);
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.get(`${API_BASE}/reservations/${resId}/items`, {
+      const res = await api.get(`/reservations/${resId}/items`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setOrderItems(res.data);
@@ -77,10 +122,21 @@ const WalkInReservations = () => {
     }
   };
 
+  const filteredInquiries = inquiries.filter((item) => {
+    const fullName =
+      `${item.first_name || ""} ${item.last_name || ""}`.toLowerCase();
+    const resId = (item.reservation_id || "").toLowerCase();
+    const term = searchQuery.toLowerCase();
+    return fullName.includes(term) || resId.includes(term);
+  });
+
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = inquiries.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(inquiries.length / itemsPerPage);
+  const currentItems = filteredInquiries.slice(
+    indexOfFirstItem,
+    indexOfLastItem,
+  );
+  const totalPages = Math.ceil(filteredInquiries.length / itemsPerPage);
 
   if (loading)
     return (
@@ -102,8 +158,16 @@ const WalkInReservations = () => {
             Monitor instant orders and on-site customers
           </p>
         </div>
-        <div className="col-auto">
-          <div className="bg-primary text-white border-0 rounded-pill px-3 py-1 shadow-sm small fw-bold">
+        <div className="col-auto d-flex gap-2">
+          {/* NEW MAKE RESERVATION BUTTON */}
+          <button
+            className="btn btn-primary fw-bold shadow-sm d-flex align-items-center gap-2"
+            data-bs-toggle="offcanvas"
+            data-bs-target="#addReservationDrawer" // Matches the ID below
+          >
+            <Plus size={18} /> Make a Reservation
+          </button>
+          <div className="bg-white border rounded-pill px-3 py-1 shadow-sm small fw-bold d-flex align-items-center">
             {inquiries.length} Orders
           </div>
         </div>
@@ -118,12 +182,12 @@ const WalkInReservations = () => {
           value={searchQuery}
           onChange={(e) => {
             setSearchQuery(e.target.value);
-            setCurrentPage(1); // Reset to page 1 during active search
+            setCurrentPage(1);
           }}
         />
       </div>
 
-      {/* TABLE SECTION */}
+      {/* TABLE */}
       <div className="card border-0 shadow-sm rounded-4 overflow-hidden mx-2">
         <div className="table-responsive">
           <table
@@ -156,7 +220,7 @@ const WalkInReservations = () => {
                   <td>
                     <div className="d-flex align-items-center gap-2">
                       <Armchair size={14} className="text-muted" />
-                      <span className="fw-bold small">
+                      <span className="small fw-bold">
                         {item.assigned_tables || "T-?"}
                       </span>
                     </div>
@@ -192,7 +256,195 @@ const WalkInReservations = () => {
           </table>
         </div>
       </div>
+      {/* --- ADD RESERVATION SIDEBAR --- */}
+      <div
+        className="offcanvas offcanvas-end border-0 shadow-lg"
+        tabIndex="-1"
+        id="addReservationDrawer"
+        style={{ width: "min(100%, 450px)" }}
+      >
+        <div className="offcanvas-header border-bottom bg-dark text-white">
+          <h5 className="fw-bold m-0 d-flex align-items-center">
+            <CalendarCheck size={20} className="me-2 text-warning" />
+            New Reservation
+          </h5>
+          <button
+            type="button"
+            className="btn-close btn-close-white shadow-none"
+            data-bs-dismiss="offcanvas"
+          ></button>
+        </div>
 
+        <div className="offcanvas-body p-0 bg-light">
+          <form
+            onSubmit={handleAddReservation}
+            className="d-flex flex-column h-100"
+          >
+            <div className="p-4 flex-grow-1 overflow-auto">
+              {/* SECTION: CUSTOMER */}
+              <p className="x-small fw-bold text-muted text-uppercase mb-3">
+                Customer Information
+              </p>
+              <div className="row g-3 mb-4">
+                <div className="col-6">
+                  <label className="form-label small fw-bold">First Name</label>
+                  <input
+                    type="text"
+                    name="firstName"
+                    className="form-control form-control-sm"
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+                <div className="col-6">
+                  <label className="form-label small fw-bold">Last Name</label>
+                  <input
+                    type="text"
+                    name="lastName"
+                    className="form-control form-control-sm"
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+                <div className="col-12">
+                  <label className="form-label small fw-bold">Email</label>
+                  <input
+                    type="email"
+                    name="email"
+                    className="form-control form-control-sm"
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+                <div className="col-12">
+                  <label className="form-label small fw-bold">
+                    Phone Number
+                  </label>
+                  <input
+                    type="text"
+                    name="phone"
+                    className="form-control form-control-sm"
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+              </div>
+
+              <hr />
+
+              {/* SECTION: BOOKING DETAILS */}
+              <p className="x-small fw-bold text-primary text-uppercase mb-3">
+                Booking Details
+              </p>
+              <div className="mb-3">
+                <label className="form-label small fw-bold">
+                  Reservation Type
+                </label>
+                <select
+                  name="bookingType"
+                  className="form-select fw-bold border-primary"
+                  value={newRes.bookingType}
+                  onChange={handleInputChange}
+                >
+                  <option value="table">Per Table (Dining)</option>
+                  <option value="event">Special Event</option>
+                </select>
+              </div>
+
+              {newRes.bookingType === "event" && (
+                <div className="mb-3 p-3 bg-warning-subtle rounded-3 border border-warning-subtle animate-fade-in">
+                  <label className="form-label small fw-bold">
+                    Select Event Package
+                  </label>
+                  <select
+                    name="packageName"
+                    className="form-select bg-white"
+                    value={newRes.packageName}
+                    onChange={handleInputChange}
+                  >
+                    <option value="Event Package A">Event A</option>
+                    <option value="Event Package B">Event B</option>
+                  </select>
+                </div>
+              )}
+
+              {/* NEW SECTION: PAYMENT METHOD */}
+              <div className="mb-4">
+                <label className="form-label small fw-bold text-success text-uppercase">
+                  Payment Method
+                </label>
+                <select
+                  name="paymentMethod"
+                  className="form-select border-success fw-bold"
+                  value={newRes.paymentMethod}
+                  onChange={handleInputChange}
+                >
+                  <option value="Cash">Cash (Paid at Counter)</option>
+                  <option value="GCash">GCash</option>
+                  <option value="Bank Transfer">Bank Transfer</option>
+                </select>
+                <div className="x-small text-muted mt-1 italic">
+                  * Manual entries are automatically verified.
+                </div>
+              </div>
+
+              <div className="row g-3">
+                <div className="col-6">
+                  <label className="form-label small fw-bold">Date</label>
+                  <input
+                    type="date"
+                    name="date"
+                    className="form-control"
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+                <div className="col-6">
+                  <label className="form-label small fw-bold">Time</label>
+                  <input
+                    type="time"
+                    name="startTime"
+                    className="form-control"
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+                <div className="col-12">
+                  <label className="form-label small fw-bold">
+                    Number of Guests
+                  </label>
+                  <input
+                    type="number"
+                    name="guests"
+                    className="form-control"
+                    min="1"
+                    value={newRes.guests}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="p-3 bg-white border-top mt-auto">
+              <button
+                type="submit"
+                className="btn btn-primary w-100 py-2 fw-bold mb-2 shadow-sm"
+                disabled={submitting}
+              >
+                {submitting ? "Creating..." : "Confirm Reservation"}
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline-secondary w-100 py-2 fw-bold border-0"
+                data-bs-dismiss="offcanvas"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
       {/* PAGINATION */}
       <div className="mt-4 px-3 d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
         <div className="text-muted small">
@@ -231,7 +483,7 @@ const WalkInReservations = () => {
         </nav>
       </div>
 
-      {/* COMPRESSED DRAWER */}
+      {/* COMPRESSED DRAWER (OFFCANVAS) */}
       <div
         className="offcanvas offcanvas-end border-0 shadow-sm"
         tabIndex="-1"
@@ -358,30 +610,7 @@ const WalkInReservations = () => {
 
               <div className="p-3 bg-dark text-white sticky-bottom">
                 <div className="d-flex justify-content-between align-items-center mb-3">
-                  <div>
-                    <div className="x-small text-white-50 text-uppercase fw-bold">
-                      Total Bill
-                    </div>
-                    <h3 className="fw-bold mb-0">
-                      ₱
-                      {orderItems
-                        .reduce((total, item) => {
-                          const isRefill =
-                            item.is_refill === 1 ||
-                            item.is_refill === true ||
-                            (item.customizations &&
-                              item.customizations
-                                .toString()
-                                .includes("[REFILL]"));
-
-                          const price = isRefill ? 0 : Number(item.price);
-                          return total + price * item.quantity;
-                        }, 0)
-                        .toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                        })}
-                    </h3>
-                  </div>
+                  <h3 className="fw-bold mb-0">Total Bill</h3>
                   <span className={`badge py-2 px-3 bg-success`}>PAID</span>
                 </div>
                 <button
@@ -395,11 +624,6 @@ const WalkInReservations = () => {
           )}
         </div>
       </div>
-
-      <style>{`
-        .x-small { font-size: 0.65rem; }
-        .btn-outline-light:hover { background: rgba(255,255,255,0.1) !important; color: white !important; }
-      `}</style>
     </div>
   );
 };

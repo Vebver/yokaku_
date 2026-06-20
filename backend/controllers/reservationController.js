@@ -9,7 +9,7 @@ const formatTimeTo24h = (timeStr) => {
   if (!timeStr) return null;
   const [time, modifier] = timeStr.split(" ");
   let [hours, minutes] = time.split(":");
-  if (hours === "12") hours = "00";
+  if (hours === "12") hours = "00"; 
   if (modifier === "PM") hours = parseInt(hours, 10) + 12;
   return `${String(hours).padStart(2, "0")}:${minutes}:00`;
 };
@@ -206,57 +206,24 @@ getActiveKiosk: async (req, res) => {
 createReservation: async (req, res) => {
   try {
     const body = req.body;
-    
-    // LOG ALL INCOMING FIELDS FOR DEBUG
-    console.log("=== INCOMING REQUEST BODY ===");
-    console.log("All fields:", Object.keys(body));
-    console.log("reservationType:", body.reservationType);
-    console.log("reservation_type:", body.reservation_type);
-    console.log("Full body keys/values:", JSON.stringify(body, null, 2));
-    
     const userId = body.userId;
 
-    if (userId && userId !== "null") {
-      const noShowCount = await Reservation.countNoShows(userId);
-      if (noShowCount >= 3) {
-        return res.status(403).json({
-          error: "Booking Restricted",
-          message:
-            "You have 3 or more no-shows. Please contact management to re-enable your account.",
-        });
-      }
-    }
+    const items = typeof body.selectedItems === "string" ? JSON.parse(body.selectedItems) : body.selectedItems || [];
+    const tableIdsArray = typeof body.tableIds === "string" ? JSON.parse(body.tableIds) : body.tableIds || [];
 
-    const items =
-      typeof body.selectedItems === "string"
-        ? JSON.parse(body.selectedItems)
-        : body.selectedItems || [];
-    const tableIdsArray =
-      typeof body.tableIds === "string"
-        ? JSON.parse(body.tableIds)
-        : body.tableIds || [];
-
-    // Calculate duration in hours from start and end time
+    // Safety check for dates
     const startDateTime = new Date(`${body.date} ${body.startTime}`);
     const endDateTime = new Date(`${body.date} ${body.endTime}`);
-    const durationHours = (endDateTime - startDateTime) / (1000 * 60 * 60);
+    const durationHours = (endDateTime - startDateTime) / (1000 * 60 * 60) || 2;
 
-    // Calculate total order amount from items
     let totalOrderAmount = 0;
     if (items.length > 0) {
-      totalOrderAmount = items.reduce((sum, item) => {
-        return sum + parseFloat(item.price) * (item.quantity || 1);
-      }, 0);
+      totalOrderAmount = items.reduce((sum, item) => sum + parseFloat(item.price) * (item.quantity || 1), 0);
     } else if (body.totalAmount) {
       totalOrderAmount = parseFloat(body.totalAmount);
     }
 
-    // Calculate downpayment based on duration and order amount
-    const calculatedDownpayment = calculateDownpayment(
-      durationHours,
-      totalOrderAmount,
-    );
-
+    const calculatedDownpayment = calculateDownpayment(durationHours, totalOrderAmount);
     const dbStart = startDateTime.toTimeString().split(" ")[0];
     const dbEnd = endDateTime.toTimeString().split(" ")[0];
 
@@ -270,22 +237,15 @@ createReservation: async (req, res) => {
       }
     }
 
-    // Normalize reservation type coming from frontend (accept both camelCase and snake_case)
     const rawReservationType = body.reservationType || body.reservation_type || "per_table";
-    const normalizedReservationType =
-      typeof rawReservationType === "string"
-        ? rawReservationType.toLowerCase()
-        : rawReservationType;
+    const normalizedReservationType = typeof rawReservationType === "string" ? rawReservationType.toLowerCase() : rawReservationType;
 
     const reservationData = {
       ...body,
-      // ensure both keys are present and normalized
       reservation_type: normalizedReservationType,
-      reservationType: normalizedReservationType,
       userId: body.userId || req.user?.userId,
       startTime: dbStart,
       endTime: dbEnd,
-      durationHours: durationHours,
       totalAmount: totalOrderAmount,
       downpayment: calculatedDownpayment,
       packageName: finalPackageName,
@@ -294,38 +254,44 @@ createReservation: async (req, res) => {
       receiptPath: req.file ? req.file.path : null,
     };
 
-    console.log(
-      "Saving reservation - incoming:",
-      { bodyReservationType: body.reservationType, body_reservation_type: body.reservation_type },
-      "-> normalized:",
-      normalizedReservationType,
-    );
-
     // 1. Create the database records
     const newId = await Reservation.create(reservationData);
 
-    // 2. Emit real-time updates to all administrators via socket.io
+    // --- FIX 1: Normalize Name for the notification ---
+    const fName = body.firstName || body.first_name || "Guest";
+    const lName = body.lastName || body.last_name || "";
+    const fullName = `${fName} ${lName}`.trim();
+
+    // 2. SAVE TO NOTIFICATIONS TABLE (So it persists in the database)
     try {
-      const [admins] = await db.execute("SELECT user_id FROM users WHERE role = 'admin'");
-      const io = req.app.get("socketio");
+      await db.execute(
+        "INSERT INTO notifications (title, message, type, is_read, created_at) VALUES (?, ?, ?, ?, UTC_TIMESTAMP())",
+        [
+          "New Reservation",
+          `New booking from ${fullName} for ${body.guests || 1} guests.`,
+          "reservation",
+          0 // is_read = false
+        ]
+      );
+    } catch (dbErr) {
+      console.error("Notification DB Error:", dbErr.message);
+    }
 
-      if (io) {
-        const numGuests = reservationData.pax || reservationData.guests || reservationData.num_guests || 1;
-        const notifMessage = `Reservation from ${reservationData.firstName} ${reservationData.lastName || ""} for ${numGuests} guests on ${reservationData.date}.`;
+    // 3. BROADCAST REAL-TIME VIA SOCKET.IO
+    // FIX 2: Use "io" because that's what you used in app.set("io", io) in index.js
+    const io = req.app.get("io"); 
 
-        admins.forEach((admin) => {
-          io.to(admin.user_id.toString()).emit("new_notification", {
-            reservation_id: newId,
-            user_id: admin.user_id,
-            title: "New Reservation Booking",
-            message: notifMessage,
-            is_read: 0,
-            created_at: new Date().toISOString()
-          });
-        });
-      }
-    } catch (socketError) {
-      console.warn("Non-blocking Socket emission error:", socketError.message);
+    if (io) {
+      io.emit("new_notification", {
+        title: "New Reservation",
+        message: `New booking from ${fullName}`,
+        type: "reservation",
+        is_read: 0,
+        created_at: new Date().toISOString()
+      });
+      console.log("📡 Socket: Notification emitted to Admin Dashboard");
+    } else {
+      console.warn("⚠️ Socket.io instance not found in app.get('io')");
     }
 
     return res.status(201).json({ id: newId });

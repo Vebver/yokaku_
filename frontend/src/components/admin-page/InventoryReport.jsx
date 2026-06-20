@@ -12,7 +12,7 @@ import {
   Download,
   Printer,
 } from "lucide-react";
-
+import api from "../../api";
 const InventoryReport = ({ data }) => {
   const lowStockCount = data?.low_stock_count || 0;
   const lowStockList = data?.low_stock_list || [];
@@ -27,11 +27,7 @@ const InventoryReport = ({ data }) => {
 
   const fetchReportData = async () => {
   try {
-    const response = await axios.get(`${API_BASE}/reports`, getAuthHeader());
-    
-    // Add this line to inspect the exact payload in your browser console:
-    console.log("INVENTORY REPORT DATA RECEIVED:", response.data);
-    
+    const response = await api.get(`/reports`, getAuthHeader());
     setReportData(response.data.data);
   } catch (err) {
     console.error(err);

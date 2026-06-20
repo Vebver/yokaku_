@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import axios from "axios";
+import api from "../../api";
 import {
   Trash2,
   Package,
@@ -12,8 +12,6 @@ import {
   Box,
   Edit2,
 } from "lucide-react";
-
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 function Inventory() {
   const [inventory, setInventory] = useState([]);
@@ -38,11 +36,6 @@ function Inventory() {
 
   const closeBtnRef = useRef(null);
 
-  const getAuthHeader = () => {
-    const token = localStorage.getItem("token");
-    return { headers: { Authorization: `Bearer ${token}` } };
-  };
-
   useEffect(() => {
     fetchInventory();
   }, []);
@@ -50,9 +43,8 @@ function Inventory() {
   const fetchInventory = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(
-        `${API_BASE}/inventory`,
-        getAuthHeader(),
+      const response = await api.get(
+        `/inventory`
       );
       const mappedData = response.data.map((item) => ({
         id: item.inventory_id,
@@ -122,13 +114,12 @@ function Inventory() {
     e.preventDefault();
     try {
       if (isEditMode) {
-        await axios.put(
-          `${API_BASE}/inventory/${editItemId}`,
-          newItem,
-          getAuthHeader(),
+        await api.put(
+          `/inventory/${editItemId}`,
+          newItem
         );
       } else {
-        await axios.post(`${API_BASE}/inventory`, newItem, getAuthHeader());
+        await api.post(`/inventory`, newItem);
       }
       fetchInventory();
       if (closeBtnRef.current) closeBtnRef.current.click();
@@ -140,7 +131,7 @@ function Inventory() {
   const deleteItem = async (id) => {
     if (window.confirm("Remove this item?")) {
       try {
-        await axios.delete(`${API_BASE}/inventory/${id}`, getAuthHeader());
+        await api.delete(`/inventory/${id}`);
         fetchInventory();
       } catch (err) {
         alert("Error deleting item.");

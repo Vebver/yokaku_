@@ -28,8 +28,6 @@ const ReservationSummary = ({
   const [paymentSettings, setPaymentSettings] = useState({
     gcash_number: "",
     gcash_name: "",
-    maya_number: "",
-    maya_name: "",
   });
 
   // Fetch payment settings
@@ -69,11 +67,6 @@ const ReservationSummary = ({
       return {
         number: paymentSettings.gcash_number || "Loading...",
         name: paymentSettings.gcash_name || "Loading...",
-      };
-    } else if (paymentMethod === "Maya") {
-      return {
-        number: paymentSettings.maya_number || "Loading...",
-        name: paymentSettings.maya_name || "Loading...",
       };
     }
     return null;
@@ -303,7 +296,7 @@ const ReservationSummary = ({
 
           <label className="payment-method-label">Select Payment Method</label>
           <div style={{ display: "flex", gap: "12px", marginBottom: "15px" }}>
-            {["Gcash", "Maya"].map((method) => (
+            {["Gcash"].map((method) => (
               <div
                 key={method}
                 onClick={() => {

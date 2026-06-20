@@ -321,7 +321,7 @@ export default function TableReservation({ onClose, onSuccess }) {
       amount: orderSummary.downpayment,
       totalAmount: orderSummary.totalOrderPrice,
       downpayment: orderSummary.downpayment,
-      paymentMethod: paymentMethod || "Maya",
+      paymentMethod: paymentMethod || "Gcash",
       municipality:
         addressData.municipalities.find((m) => m.code === form.muni)?.name ||
         "",
@@ -514,7 +514,7 @@ export default function TableReservation({ onClose, onSuccess }) {
         packageName: productDisplayName,
         totalAmount: orderSummary.totalOrderPrice,
         amount: orderSummary.downpayment,
-        paymentMethod: method || paymentMethod || "Maya",
+        paymentMethod: method || paymentMethod || "Gcash",
         tableIds: JSON.stringify(tableIdsArray),
         selectedItems: JSON.stringify(selectedItems),
         status: "Confirmed",

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+import api from "../../api";
 function Profile() {
   const [profile, setProfile] = useState({
     firstName: "",
@@ -20,7 +19,7 @@ function Profile() {
     const fetchProfile = async () => {
       try {
         const token = localStorage.getItem("token");
-        const res = await axios.get(`${API_BASE}/profile`, {
+        const res = await api.get(`/profile`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setProfile(res.data);
@@ -39,7 +38,7 @@ function Profile() {
     setIsSaving(true);
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.put(`${API_BASE}/profile`, profile, {
+      const res = await api.put(`/profile`, profile, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setProfile(res.data);
@@ -211,7 +210,7 @@ function Profile() {
                     }
                     required
                   />
-                </div>  
+                </div>
               </div>
               <div className="mt-5">
                 <button

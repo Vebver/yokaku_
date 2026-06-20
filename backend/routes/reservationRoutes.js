@@ -37,6 +37,7 @@ router.post(
 
 // ==================== ADMIN ROUTES ====================
 router.get("/", protect, adminOnly, reservationController.getReservations);
+router.post("/", protect, adminOnly, reservationController.createReservation); 
 router.put("/:id/status", protect, reservationController.updateStatus);
 router.delete(
   "/:id",

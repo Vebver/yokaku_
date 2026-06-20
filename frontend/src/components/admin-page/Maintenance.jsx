@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../../api";
 import { Save, Smartphone, Wallet, CreditCard, Cog } from "lucide-react";
 
 // Components
 import SystemMaintenance from "./SystemMaintenance"; // Renamed from DatabaseMaintenance
 import HolidayMaintenance from "./HolidayMaintenance";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const Maintenance = () => {
   const [settings, setSettings] = useState({
@@ -22,7 +21,7 @@ const Maintenance = () => {
 
   const fetchSettings = async () => {
     try {
-      const res = await axios.get(`${API_BASE}/settings`);
+      const res = await api.get(`/settings`);
       setSettings({
         gcash_number: res.data.gcash_number || "",
         gcash_name: res.data.gcash_name || "",
@@ -43,7 +42,7 @@ const Maintenance = () => {
     e.preventDefault();
     setSaving(true);
     try {
-      await axios.put(`${API_BASE}/settings`, { settings });
+      await api.put(`/settings`, { settings });
       alert("Success: Payment details updated.");
     } catch (err) {
       alert("Failed to update payment details.");

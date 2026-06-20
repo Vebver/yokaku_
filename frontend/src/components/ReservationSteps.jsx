@@ -917,7 +917,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       amount: orderSummary.downpayment,
       totalAmount: orderSummary.totalOrderPrice,
       downpayment: orderSummary.downpayment,
-      paymentMethod: paymentMethod || "Maya",
+      paymentMethod: paymentMethod || "Gcash",
       municipality:
         addressData.municipalities.find((m) => m.code === form.muni)?.name ||
         "",
@@ -1247,7 +1247,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           setUi((p) => ({ ...p, loading: false }));
           return;
         }
-        submission.paymentMethod = paymentMethod || "Maya";
+        submission.paymentMethod = paymentMethod || "Gcash";
         payload.append("receipt", receiptFile);
       }
 

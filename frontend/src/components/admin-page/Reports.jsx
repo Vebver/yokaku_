@@ -1,117 +1,121 @@
-    import React, { useState, useEffect } from "react";
-    import axios from "axios";
-    import FinancialOverview from "./FinancialOverview";
-    import ProductPerformance from "./ProductPerformance";
-    import InventoryReport from "./InventoryReport";
-    import { RefreshCw, DollarSign, Package, BarChart2 } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import api from "../../api";
+import FinancialOverview from "./FinancialOverview";
+import ProductPerformance from "./ProductPerformance";
+import InventoryReport from "./InventoryReport";
+import { RefreshCw, DollarSign, Package, BarChart2 } from "lucide-react";
 
-    const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+function Reports() {
+  const [financialData, setFinancialData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("financial"); // Current view state
 
-    function Reports() {
-      const [financialData, setFinancialData] = useState(null);
-      const [loading, setLoading] = useState(true);
-      const [activeTab, setActiveTab] = useState("financial"); // Current view state
+  const fetchReportData = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("token");
+      const res = await api.get(
+        `/admin/reports/financial-analytics`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
 
-      const fetchReportData = async () => {
-        try {
-          setLoading(true);
-          const token = localStorage.getItem("token");
-          const res = await axios.get(`${API_BASE}/admin/reports/financial-analytics`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
+      if (res.data.success) {
+        setFinancialData(res.data.data);
+      }
+    } catch (err) {
+      console.error("Fetch error:", err.response?.data || err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-          if (res.data.success) {
-            setFinancialData(res.data.data);
-          }
-        } catch (err) {
-          console.error("Fetch error:", err.response?.data || err.message);
-        } finally {
-          setLoading(false);
-        }
-      };
+  useEffect(() => {
+    fetchReportData();
+  }, []);
 
-      useEffect(() => {
-        fetchReportData();
-      }, []);
+  // Helper to render the selected component
+  const renderActiveReport = () => {
+    if (!financialData) return null;
 
-      // Helper to render the selected component
-      const renderActiveReport = () => {
-        if (!financialData) return null;
+    switch (activeTab) {
+      case "financial":
+        return <FinancialOverview data={financialData} />;
+      case "products":
+        return <ProductPerformance data={financialData} />;
+      case "inventory":
+        return <InventoryReport data={financialData} />;
+      default:
+        return <FinancialOverview data={financialData} />;
+    }
+  };
 
-        switch (activeTab) {
-          case "financial":
-            return <FinancialOverview data={financialData} />;
-          case "products":
-            return <ProductPerformance data={financialData} />;
-          case "inventory":
-            return <InventoryReport data={financialData} />;
-          default:
-            return <FinancialOverview data={financialData} />;
-        }
-      };
+  return (
+    <div className="reports-container p-3 pt-2">
+      {/* HEADER WITH REFRESH */}
+      <div className="d-flex justify-content-between align-items-center mb-2">
+        <div>
+          <h2 className="fw-bold mb-0 text-dark">Business Reports</h2>
+          <p className="text-muted small mb-0">
+            Select a category to view detailed analytics
+          </p>
+        </div>
+        <button
+          onClick={fetchReportData}
+          className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2"
+          disabled={loading}
+        >
+          <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+          Refresh
+        </button>
+      </div>
 
-      return (
-        <div className="reports-container p-3 pt-2">
-          {/* HEADER WITH REFRESH */}
-          <div className="d-flex justify-content-between align-items-center mb-2">
-            <div>
-              <h2 className="fw-bold mb-0 text-dark">Business Reports</h2>
-              <p className="text-muted small mb-0">Select a category to view detailed analytics</p>
-            </div>
-            <button 
-              onClick={fetchReportData} 
-              className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2"
-              disabled={loading}
-            >
-              <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-              Refresh
-            </button>
+      {/* SEGMENTED TAB NAVIGATION */}
+      <div className="report-tabs-wrapper mb-2">
+        <div className="report-tabs-container">
+          <button
+            className={`report-tab-btn ${activeTab === "financial" ? "active" : ""}`}
+            onClick={() => setActiveTab("financial")}
+          >
+            <DollarSign size={18} />
+            <span>Financials</span>
+          </button>
+
+          <button
+            className={`report-tab-btn ${activeTab === "products" ? "active" : ""}`}
+            onClick={() => setActiveTab("products")}
+          >
+            <BarChart2 size={18} />
+            <span>Products</span>
+          </button>
+
+          <button
+            className={`report-tab-btn ${activeTab === "inventory" ? "active" : ""}`}
+            onClick={() => setActiveTab("inventory")}
+          >
+            <Package size={18} />
+            <span>Inventory</span>
+          </button>
+        </div>
+      </div>
+
+      {/* CONTENT AREA */}
+      <div className="report-content-card shadow-sm border p-0">
+        {loading && !financialData ? (
+          <div className="text-center py-5">
+            <div
+              className="spinner-border text-warning mb-3"
+              role="status"
+            ></div>
+            <p className="text-muted fw-bold">Generating Report...</p>
           </div>
+        ) : (
+          <div className="fade-in-animation">{renderActiveReport()}</div>
+        )}
+      </div>
 
-          {/* SEGMENTED TAB NAVIGATION */}
-          <div className="report-tabs-wrapper mb-2">
-            <div className="report-tabs-container">
-              <button 
-                className={`report-tab-btn ${activeTab === "financial" ? "active" : ""}`}
-                onClick={() => setActiveTab("financial")}
-              >
-                <DollarSign size={18} />
-                <span>Financials</span>
-              </button>
-              
-              <button 
-                className={`report-tab-btn ${activeTab === "products" ? "active" : ""}`}
-                onClick={() => setActiveTab("products")}
-              >
-                <BarChart2 size={18} />
-                <span>Products</span>
-              </button>
-              
-              <button 
-                className={`report-tab-btn ${activeTab === "inventory" ? "active" : ""}`}
-                onClick={() => setActiveTab("inventory")}
-              >
-                <Package size={18} />
-                <span>Inventory</span>
-              </button>
-            </div>
-          </div>
-
-          {/* CONTENT AREA */}
-          <div className="report-content-card shadow-sm border p-0">
-            {loading && !financialData ? (
-              <div className="text-center py-5">
-                <div className="spinner-border text-warning mb-3" role="status"></div>
-                <p className="text-muted fw-bold">Generating Report...</p>
-              </div>
-            ) : (
-              <div className="fade-in-animation">
-                {renderActiveReport()}
-              </div>
-            )}
-          </div>
-
-          <style>{`
+      <style>{`
             .report-tabs-wrapper {
               background: #e9ecef;
               padding: 5px;
@@ -171,8 +175,8 @@
               .report-tab-btn { flex: 1; justify-content: center; padding: 10px 5px; font-size: 12px; }
             }
           `}</style>
-        </div>
-      );  
-    }
+    </div>
+  );
+}
 
-    export default Reports;
+export default Reports;

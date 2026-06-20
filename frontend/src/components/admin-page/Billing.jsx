@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import axios from "axios";
+import api from "../../api";
 import {
   Loader2,
   RefreshCw,
@@ -15,8 +15,6 @@ import {
   CornerDownRight,
   Eye
 } from "lucide-react";
-
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const Billing = () => {
   const [payments, setPayments] = useState([]);
@@ -52,9 +50,7 @@ const Billing = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.get(`${API_BASE}/billing`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await api.get(`/billing`);
       setPayments(res.data.sort((a, b) => b.payment_id - a.payment_id));
       setCurrentPage(1);
     } catch (err) {
@@ -116,9 +112,8 @@ const Billing = () => {
     
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.get(
-        `${API_BASE}/reservations/${p.reservation_id}/items`,
-        { headers: { Authorization: `Bearer ${token}` } },
+      const res = await api.get(
+        `/reservations/${p.reservation_id}/items`
       );
       setOrderItems(res.data);
     } catch (err) {
@@ -136,10 +131,9 @@ const Billing = () => {
     const finalReason = rejectReason.trim() || "Invalid proof of payment. Please re-upload within 12 hours.";
 
     try {
-      await axios.put(
-        `${API_BASE}/billing/reject/${selectedPayment.reservation_id}`,
+      await api.put(
+        `/billing/reject/${selectedPayment.reservation_id}`,
         { reason: finalReason },
-        { headers: { Authorization: `Bearer ${token}` } },
       );
 
       setSelectedPayment((prev) => ({
@@ -455,10 +449,9 @@ const Billing = () => {
                             
                             try {
                               const token = localStorage.getItem("token");
-                              await axios.put(
-                                `${API_BASE}/billing/update-amount/${selectedPayment.reservation_id}`,
+                              await api.put(
+                                `/billing/update-amount/${selectedPayment.reservation_id}`,
                                 { amount: newAmount },
-                                { headers: { Authorization: `Bearer ${token}` } }
                               );
 
                               // Instantly update local state
@@ -650,10 +643,9 @@ const Billing = () => {
                           const token = localStorage.getItem("token");
                           if (!token || !window.confirm("Verify this proof of payment?")) return;
                           try {
-                            await axios.put(
-                              `${API_BASE}/billing/verify/${selectedPayment.reservation_id}`,
+                            await api.put(
+                              `/billing/verify/${selectedPayment.reservation_id}`,
                               {},
-                              { headers: { Authorization: `Bearer ${token}` } },
                             );
                             
                             setSelectedPayment((prev) => ({
@@ -694,10 +686,9 @@ const Billing = () => {
                           if (!window.confirm("Mark this transaction as FULLY PAID and COMPLETED?")) return;
 
                           try {
-                            await axios.put(
-                              `${API_BASE}/billing/settle/${selectedPayment.reservation_id}`,
+                            await api.put(
+                              `/billing/settle/${selectedPayment.reservation_id}`,
                               {},
-                              { headers: { Authorization: `Bearer ${token}` } },
                             );
 
                             setSelectedPayment((prev) => ({

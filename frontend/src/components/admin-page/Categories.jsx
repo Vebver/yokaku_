@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import axios from "axios";
+import api from "../../api";
 import { 
   Search, 
   Trash2, 
@@ -9,8 +9,6 @@ import {
   Loader2, 
   Tag
 } from "lucide-react";
-
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 function Categories() {
   const [categories, setCategories] = useState([]);
@@ -26,17 +24,12 @@ function Categories() {
 
   const closeBtnRef = useRef(null);
 
-  const getAuthHeader = () => {
-    const token = localStorage.getItem("token");
-    return { headers: { Authorization: `Bearer ${token}` } };
-  };
-
   useEffect(() => { fetchCategories(); }, []);
 
   const fetchCategories = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_BASE}/categories`, getAuthHeader());
+      const response = await api.get(`/categories`);
       
       // FIX 1: Ensure the mapped keys match what the UI calls
       const mappedData = response.data.map((cat, index) => ({
@@ -61,8 +54,7 @@ function Categories() {
   const handleAddCategory = async (e) => {
     e.preventDefault();
     try {
-      // FIX 2: Send category_name to backend
-      await axios.post(`${API_BASE}/categories`, newCategory, getAuthHeader());
+      await api.post(`/categories`, newCategory, getAuthHeader());
       fetchCategories();
       setNewCategory({ category_name: "", description: "" });
       if (closeBtnRef.current) closeBtnRef.current.click();
@@ -74,7 +66,7 @@ function Categories() {
   const deleteCategory = async (id) => {
     if (window.confirm("Delete this category?")) {
       try {
-        await axios.delete(`${API_BASE}/categories/${id}`, getAuthHeader());
+        await api.delete(`/categories/${id}`);
         setCategories(categories.filter((c) => c.id !== id));
       } catch (err) {
         alert("Error deleting category.");
