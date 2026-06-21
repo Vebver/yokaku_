@@ -2,49 +2,54 @@ const db = require("../config/db");
 
 const TableStatus = {
   // 1. GET FLOOR PLAN (Table Cards)
-  getTableStatus: async () => {
+ getTableStatus: async () => {
     const query = `
       SELECT 
           t.table_id, 
           t.table_number, 
           t.capacity, 
           
-          /* Get current occupant details */
-          IFNULL(ANY_VALUE(rt.status), 'available') AS bridge_status,    
-          ANY_VALUE(r.first_name) AS first_name,
-          ANY_VALUE(r.last_name) AS last_name,
-          ANY_VALUE(r.reservation_time) AS reservation_time,
-          ANY_VALUE(r.end_time) AS end_time,
-          ANY_VALUE(r.reservation_id) AS reservation_id,
+          /* 1. Get the most relevant status for the table */
+          COALESCE(
+            (SELECT status FROM reservation_tables 
+             WHERE table_id = t.table_id 
+             AND status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
+             ORDER BY FIELD(status, 'seated', 'Seated', 'confirmed', 'Confirmed') 
+             LIMIT 1),
+            'available'
+          ) AS bridge_status,    
 
-          /* QUEUE COUNT: How many bookings total for this table today */
+          /* 2. Get occupant details from the active session */
+          (SELECT r.first_name FROM reservations r 
+           JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
+           WHERE rt.table_id = t.table_id AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
+           ORDER BY FIELD(rt.status, 'seated', 'Seated', 'confirmed', 'Confirmed') LIMIT 1) AS first_name,
+
+          (SELECT r.reservation_id FROM reservations r 
+           JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
+           WHERE rt.table_id = t.table_id AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
+           ORDER BY FIELD(rt.status, 'seated', 'Seated', 'confirmed', 'Confirmed') LIMIT 1) AS reservation_id,
+
+          /* 3. Get the payment status (important for your audio alert) */
+          (SELECT p.payment_status FROM payments p 
+           JOIN reservation_tables rt ON p.reservation_id = rt.reservation_id
+           WHERE rt.table_id = t.table_id AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
+           LIMIT 1) AS payment_status,
+
+          /* 4. QUEUE COUNT for today */
           (SELECT COUNT(*) 
            FROM reservation_tables rt2 
            JOIN reservations r2 ON rt2.reservation_id = r2.reservation_id
            WHERE rt2.table_id = t.table_id 
            AND r2.reservation_date = CURDATE()
            AND r2.status IN ('Confirmed', 'Seated', 'confirmed', 'seated')
-          ) AS queue_count,
-
-          /* NEXT RESERVATION: The time of the next guest scheduled for this table */
-          (SELECT MIN(r3.reservation_time) 
-           FROM reservation_tables rt3
-           JOIN reservations r3 ON rt3.reservation_id = r3.reservation_id
-           WHERE rt3.table_id = t.table_id
-           AND r3.reservation_date = CURDATE()
-           AND r3.status = 'Confirmed'
-           AND r3.reservation_time > IFNULL(ANY_VALUE(r.reservation_time), '00:00:00')
-          ) AS next_reservation_time
+          ) AS queue_count
 
       FROM tables t
-      LEFT JOIN reservation_tables rt ON t.table_id = rt.table_id 
-           AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
-      LEFT JOIN reservations r ON rt.reservation_id = r.reservation_id
       GROUP BY t.table_id
-      /* Order by table number numerically (T1, T2, T10) */
       ORDER BY CAST(REGEXP_REPLACE(t.table_number, '[^0-9]', '') AS UNSIGNED) ASC;
     `;
-    
+
     const [rows] = await db.query(query);
     return rows;
   },
@@ -79,7 +84,7 @@ const TableStatus = {
     try {
       await conn.beginTransaction();
       const resId = `WALK-${Date.now()}`;
-      
+
       // Store walk-in reservation_time in UTC to eliminate timezone drift.
       // UI should convert to the desired timezone.
       const resQuery = `
@@ -91,11 +96,7 @@ const TableStatus = {
         )
       `;
 
-
-
-
       await conn.execute(resQuery, [resId, customerName]);
-
 
       const bridgeQuery = `
         INSERT INTO reservation_tables (reservation_id, table_id, customer_name, status, check_in_time)
@@ -117,14 +118,14 @@ const TableStatus = {
       conn.release();
     }
   },
- // 4. CHECKOUT (Updated to automatically clear active kiosk flag)
+  // 4. CHECKOUT (Updated to automatically clear active kiosk flag)
   checkoutTable: async (tableId) => {
     try {
       const [rows] = await db.query(
         `SELECT reservation_id FROM reservation_tables 
          WHERE table_id = ? AND LOWER(status) IN ('seated', 'confirmed') 
          LIMIT 1`,
-        [tableId]
+        [tableId],
       );
 
       if (rows.length > 0 && rows[0].reservation_id) {
@@ -133,23 +134,23 @@ const TableStatus = {
         // UPDATED: Reset is_kiosk_active to 0 when table is checked out
         await db.query(
           "UPDATE reservations SET status = 'Completed', is_kiosk_active = 0 WHERE reservation_id = ?",
-          [resId]
+          [resId],
         );
 
         await db.query(
           "UPDATE reservation_tables SET status = 'completed' WHERE reservation_id = ?",
-          [resId]
+          [resId],
         );
       } else {
         await db.query(
           "UPDATE reservation_tables SET status = 'completed' WHERE table_id = ? AND status = 'seated'",
-          [tableId]
+          [tableId],
         );
       }
 
       await db.query(
         "UPDATE tables SET status = 'available', available_seats = capacity WHERE table_id = ?",
-        [tableId]
+        [tableId],
       );
 
       return { success: true };
@@ -165,8 +166,17 @@ const TableStatus = {
         INSERT INTO tables (table_number, capacity, available_seats, status)
         VALUES (?, ?, ?, 'available')
       `;
-      const [result] = await db.execute(query, [tableNumber, capacity, capacity]);
-      return { table_id: result.insertId, table_number: tableNumber, capacity, status: 'available' };
+      const [result] = await db.execute(query, [
+        tableNumber,
+        capacity,
+        capacity,
+      ]);
+      return {
+        table_id: result.insertId,
+        table_number: tableNumber,
+        capacity,
+        status: "available",
+      };
     } catch (err) {
       throw err;
     }

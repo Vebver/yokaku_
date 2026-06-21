@@ -26,46 +26,32 @@ const orderController = {
 
     try {
       await conn.beginTransaction();
-      //COOLDOWN REFILL
-      const hasRefill = items.some((item) => item.is_refill === true);
 
-      if (hasRefill) {
-        // Query the database for the last refill for this specific reservation
-        const [lastRefill] = await conn.execute(
-          `SELECT created_at FROM kiosk_orders 
-         WHERE reservation_id = ? AND is_refill = 1
-         ORDER BY created_at DESC LIMIT 1`,
-          [reservation_id],
-        );
+      // ... (Keep your existing Cooldown Refill logic here) ...
 
-        if (lastRefill.length > 0) {
-          const lastTime = new Date(lastRefill[0].created_at);
-          const now = new Date();
-          const diffInMinutes = Math.floor((now - lastTime) / (1000 * 60));
-
-          // 15 MINUTE RULE
-          if (diffInMinutes < 15) {
-            const remaining = 15 - diffInMinutes;
-            // IMPORTANT: Rollback and release if we block the order
-            await conn.rollback();
-            conn.release();
-            return res.status(429).json({
-              error: "Cooldown active",
-              message: `Please wait ${remaining} more minutes before your next refill.`,
-            });
-          }
-        }
-      }
-      // --- YOUR EXISTING LOGIC ---
+      // 1. Check if reservation exists
       const [existing] = await conn.execute(
-        "SELECT reservation_id FROM reservations WHERE reservation_id = ?",
-        [reservation_id],
-      );
-      if (existing.length === 0) {
-        await Order.createWalkinSession(conn, reservation_id);
-        if (table_id)
-          await Order.linkTableToSession(conn, reservation_id, table_id);
-      }
+  "SELECT reservation_id FROM reservations WHERE reservation_id = ?",
+  [reservation_id]
+);
+
+if (existing.length === 0) {
+  await Order.createWalkinSession(conn, reservation_id);
+}
+
+// 2. FORCE the table to be 'seated' in the bridge table
+if (table_id && table_id !== "takeout" && table_id !== "null") {
+  await conn.execute(
+    `INSERT INTO reservation_tables (reservation_id, table_id, status, check_in_time)
+     VALUES (?, ?, 'seated', NOW())
+     ON DUPLICATE KEY UPDATE status = 'seated'`,
+    [reservation_id, table_id]
+  );
+
+  await conn.execute("UPDATE tables SET status = 'occupied' WHERE table_id = ?", [table_id]);
+  await conn.execute("UPDATE reservations SET status = 'Seated' WHERE reservation_id = ?", [reservation_id]);
+}
+      // --- FIX ENDS HERE ---
 
       const enrichedItems = [];
 
@@ -77,7 +63,6 @@ const orderController = {
 
         const itemName = menuData[0]?.menu_name || "Unknown Item";
 
-        // Save the order to DB
         await Order.createOrderEntry(
           conn,
           reservation_id,
@@ -85,7 +70,7 @@ const orderController = {
           item.quantity,
           item.customizations,
           item.is_refill ? 1 : 0,
-          req.body.allergy_note, // ← ADD THIS LINE - passes allergy_note from request
+          req.body.allergy_note,
         );
 
         enrichedItems.push({
@@ -106,15 +91,14 @@ const orderController = {
           timestamp: new Date(),
           items: enrichedItems,
         });
-
-        io.emit("send_order", {
-          table: table_id || "Walk-in",
-          items: enrichedItems,
-        });
+        io.emit("table_updated");
+        console.log("📡 [Socket] Table update signal sent to Admin"); 
       }
+
       res.status(201).json({ success: true });
     } catch (error) {
       await conn.rollback();
+      console.error("Order Error:", error);
       res.status(400).json({ error: error.message });
     } finally {
       conn.release();

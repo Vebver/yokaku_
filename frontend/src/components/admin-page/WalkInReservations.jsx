@@ -68,6 +68,25 @@ const WalkInReservations = () => {
     }
   };
 
+  const formatTime = (timeStr) => {
+    if (!timeStr) return "--:--";
+
+    // Check if it's a full ISO string or just HH:MM:SS
+    const timePart = timeStr.includes("T") ? timeStr.split("T")[1] : timeStr;
+    const parts = timePart.split(":");
+
+    if (parts.length < 2) return timeStr;
+
+    let hours = parseInt(parts[0], 10);
+    const minutes = parts[1];
+    const ampm = hours >= 12 ? "PM" : "AM";
+
+    hours = hours % 12;
+    hours = hours ? hours : 12; // convert 0 to 12
+
+    return `${hours}:${minutes} ${ampm}`;
+  };
+
   // --- HANDLERS FOR NEW RESERVATION ---
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -89,12 +108,12 @@ const WalkInReservations = () => {
       // 1. Prepare the data with the Walk-in flag
       const payload = {
         ...newRes,
-        isWalkin: true // <--- THIS IS THE KEY
+        isWalkin: true, // <--- THIS IS THE KEY
       };
 
       // 2. Send to backend
       await api.post("/reservations", payload);
-      
+
       alert("Manual Reservation Created!");
       setShowAddModal(false);
       fetchWalkIns(); // Refresh the list on this page
@@ -529,27 +548,34 @@ const WalkInReservations = () => {
                   </div>
                   <div className="small fw-bold">
                     {(() => {
-                      // reservation_time is stored as UTC (see backend change).
-                      // Convert UTC -> Asia/Manila by adding +8 hours.
-                      const MANILA_OFFSET_HOURS = 8;
-
-                      const toManilaClock = (t) => {
+                      const toStandardTime = (t) => {
                         if (!t) return "--:--";
+
+                        // Split the time string (expected format "HH:mm:ss")
                         const parts = String(t).split(":");
                         if (parts.length < 2) return String(t);
+
                         let hh = parseInt(parts[0], 10);
-                        const mm = parseInt(parts[1], 10);
-                        if (Number.isNaN(hh) || Number.isNaN(mm))
-                          return String(t);
+                        const mm = parts[1];
 
-                        hh = (hh + MANILA_OFFSET_HOURS) % 24;
-
-                        const hour12 = hh % 12 || 12;
+                        // Determine AM or PM
                         const ampm = hh >= 12 ? "PM" : "AM";
-                        return `${hour12}:${String(mm).padStart(2, "0")} ${ampm}`;
+
+                        // Convert to 12-hour format
+                        hh = hh % 12;
+                        hh = hh ? hh : 12; // The hour '0' should be '12'
+
+                        return `${hh}:${mm.padStart(2, "0")} ${ampm}`;
                       };
 
-                      return `${toManilaClock(selectedRes.reservation_time)} - ${selectedRes.time_ended ? toManilaClock(selectedRes.time_ended) : "Now"}`;
+                      const startTime = toStandardTime(
+                        selectedRes.reservation_time,
+                      );
+                      const endTime = selectedRes.time_ended
+                        ? toStandardTime(selectedRes.time_ended)
+                        : "Now";
+
+                      return `${startTime} - ${endTime}`;
                     })()}
                   </div>
                 </div>

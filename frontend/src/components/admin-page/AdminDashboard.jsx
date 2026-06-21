@@ -211,6 +211,18 @@ const initializeSocket = () => {
   });
 };
 
+// --- FIXED: Use fetchDashboardData instead of fetchData ---
+  useEffect(() => {
+    const socket = io(SOCKET_URL, { transports: ["websocket", "polling"] });
+    
+    socket.on("table_updated", () => {
+      console.log("🔄 Table status updated via socket, refreshing dashboard...");
+      fetchDashboardData(); 
+    });
+
+    return () => socket.disconnect();
+  }, []); // Empty dependency array is fine here
+
   const fetchNotifications = async () => {
     try {
       const token = localStorage.getItem("token");

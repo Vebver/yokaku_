@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
-import api from "../../api";
+import io from "socket.io-client"; // <--- ADD THIS
+import api, { SOCKET_URL } from "../../api";
 import {
   Plus,
   Armchair,
@@ -43,34 +44,52 @@ const TableStatus = ({ compact = false }) => {
     }
   };
 
-  const authHeader = () => ({
-    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+// TableStatus.jsx snippet
+
+const fetchData = useCallback(async () => {
+  try {
+    const [tRes, sRes] = await Promise.all([
+      api.get("/admin/table-status"),
+      api.get("/admin/today-schedule"),
+    ]);
+
+    setData({ 
+      tables: tRes.data || [], 
+      schedule: sRes.data || [] 
+    });
+  } catch (err) {
+    console.error("Fetch Error", err);
+  } finally {
+    setUi((prev) => ({ ...prev, loading: false }));
+  }
+}, []); // Removed audio dependencies for stability
+
+useEffect(() => {
+  const socket = io(SOCKET_URL, { transports: ["websocket", "polling"] });
+
+  socket.on("table_updated", () => {
+    console.log("📡 Table update signal received from Kiosk!");
+    fetchData(); // Instant refresh
   });
 
-  const fetchData = useCallback(async () => {
-    try {
-      const [tRes, sRes] = await Promise.all([
-        api.get("/admin/table-status"),
-        api.get("/admin/today-schedule", authHeader()),
-      ]);
+  return () => socket.disconnect();
+}, [fetchData]);
 
-      const tables = tRes.data || [];
-      // Detect kiosk “Pay Now” -> payment_status verified changes.
-      const verifiedCount = tables.filter(
-        (t) => (t.payment_status || "").toLowerCase() === "verified",
-      ).length;
+// TableStatus.jsx
 
-      if (verifiedCount > prevVerifiedCount.current) {
-        await playPaymentVerifiedAlert();
-      }
-      prevVerifiedCount.current = verifiedCount;
+useEffect(() => {
+  // Connect to the socket
+  const socket = io(SOCKET_URL, { transports: ["websocket", "polling"] });
 
-      setData({ tables, schedule: sRes.data });
-    } catch (err) {
-      console.error("Fetch Error", err);
-    }
-    setUi((prev) => ({ ...prev, loading: false }));
-  }, [playPaymentVerifiedAlert, authHeader]);
+  // Listen for the signal from the backend
+  socket.on("table_updated", () => {
+    console.log("🔄 Real-time Update: Refreshing floor plan...");
+    fetchData(); // This calls your fetchData function immediately
+  });
+
+  // Cleanup on unmount
+  return () => socket.disconnect();
+}, [fetchData]); // Dependency on fetchData
 
 
 useEffect(() => {
