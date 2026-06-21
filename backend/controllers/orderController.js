@@ -35,14 +35,14 @@ const orderController = {
   [reservation_id]
 );
 
-if (existing.length === 0) {
-  await Order.createWalkinSession(conn, reservation_id);
-}
+await conn.execute(
+  "UPDATE reservations SET status = 'Seated' WHERE reservation_id = ?",
+  [reservation_id]
+);
 
-// --- ADD THIS BLOCK HERE ---
-// This ensures that NO MATTER WHAT, if an order is placed at a table,
-// that table is now officially SEATED in the database.
+// 2. Force the 'seated' status on the bridge table (Admin UI looks here)
 if (table_id && table_id !== "takeout" && table_id !== "null") {
+  // Use lowercase 'seated' to be consistent with the bridge table logic
   await conn.execute(
     `INSERT INTO reservation_tables (reservation_id, table_id, status, check_in_time)
      VALUES (?, ?, 'seated', NOW())
@@ -50,11 +50,17 @@ if (table_id && table_id !== "takeout" && table_id !== "null") {
     [reservation_id, table_id]
   );
 
-  // Mark table as occupied in the master list
-  await conn.execute("UPDATE tables SET status = 'occupied' WHERE table_id = ?", [table_id]);
-  
-  // Update the reservation status itself
-  await conn.execute("UPDATE reservations SET status = 'Seated' WHERE reservation_id = ?", [reservation_id]);
+  // Update the master tables table
+  await conn.execute(
+    "UPDATE tables SET status = 'occupied' WHERE table_id = ?",
+    [table_id]
+  );
+
+  // Update the main reservations table (Capital 'Seated' for history view)
+  await conn.execute(
+    "UPDATE reservations SET status = 'Seated' WHERE reservation_id = ?",
+    [reservation_id]
+  );
 }
       // --- FIX ENDS HERE ---
 

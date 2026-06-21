@@ -163,6 +163,13 @@ const KioskReservationMenu = () => {
       : { "Content-Type": "application/json" };
   };
 
+  const getCurrentTableId = () => {
+    const rawTableId =
+      sessionStorage.getItem("tableId") || localStorage.getItem("tableId");
+    const parsed = parseInt(rawTableId, 10);
+    return Number.isInteger(parsed) ? parsed : null;
+  };
+
   // ==================== POLLING & MODE DETECTOR ====================
   useEffect(() => {
     const checkActiveKiosk = async () => {
@@ -478,11 +485,13 @@ const KioskReservationMenu = () => {
 
     try {
       // 2. Only post new items to the kitchen if there are actually new items in the tray
+      const tableId = getCurrentTableId();
       if (pendingItems.length > 0) {
         await axios.post(
           `${API_BASE}/orders/place`,
           {
             reservation_id: reservationId,
+            table_id: tableId,
             items: pendingItems.map((i) => ({
               item_id: i.id,
               quantity: i.quantity,
@@ -545,7 +554,7 @@ const KioskReservationMenu = () => {
   const handleEndSession = async () => {
     setIsLoading(true);
     try {
-      let currentTableId = localStorage.getItem("tableId");
+      const currentTableId = getCurrentTableId();
       await axios.post(
         `${API_BASE}/orders/finish`,
         {
@@ -659,6 +668,7 @@ const KioskReservationMenu = () => {
           `${API_BASE}/orders/place`,
           {
             reservation_id: reservationId,
+            table_id: getCurrentTableId(),
             items: [
               {
                 item_id: newItem.id,

@@ -64,32 +64,32 @@ const fetchData = useCallback(async () => {
   }
 }, []); // Removed audio dependencies for stability
 
+// Inside TableStatus component
 useEffect(() => {
-  const socket = io(SOCKET_URL, { transports: ["websocket", "polling"] });
-
-  socket.on("table_updated", () => {
-    console.log("📡 Table update signal received from Kiosk!");
-    fetchData(); // Instant refresh
+  const socket = io(SOCKET_URL, { 
+    transports: ["websocket", "polling"],
+    reconnection: true 
   });
 
-  return () => socket.disconnect();
-}, [fetchData]);
-
-// TableStatus.jsx
-
-useEffect(() => {
-  // Connect to the socket
-  const socket = io(SOCKET_URL, { transports: ["websocket", "polling"] });
-
-  // Listen for the signal from the backend
+  // Listen for the signal that a Kiosk order was placed
   socket.on("table_updated", () => {
-    console.log("🔄 Real-time Update: Refreshing floor plan...");
-    fetchData(); // This calls your fetchData function immediately
+    console.log("🔄 Real-time Update: Table status changed via Kiosk");
+    fetchData(); // Trigger immediate refresh
   });
 
-  // Cleanup on unmount
-  return () => socket.disconnect();
-}, [fetchData]); // Dependency on fetchData
+  // Listen for the signal that a new payment was verified
+  socket.on("new_notification", (notif) => {
+    if (notif.title?.toLowerCase().includes("payment")) {
+      fetchData();
+    }
+  });
+
+  return () => {
+    socket.off("table_updated");
+    socket.off("new_notification");
+    socket.disconnect();
+  };
+}, [fetchData]); // Dependency on fetchData (which is wrapped in useCallback)   
 
 
 useEffect(() => {
