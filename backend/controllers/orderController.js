@@ -39,7 +39,9 @@ if (existing.length === 0) {
   await Order.createWalkinSession(conn, reservation_id);
 }
 
-// 2. FORCE the table to be 'seated' in the bridge table
+// --- ADD THIS BLOCK HERE ---
+// This ensures that NO MATTER WHAT, if an order is placed at a table,
+// that table is now officially SEATED in the database.
 if (table_id && table_id !== "takeout" && table_id !== "null") {
   await conn.execute(
     `INSERT INTO reservation_tables (reservation_id, table_id, status, check_in_time)
@@ -48,7 +50,10 @@ if (table_id && table_id !== "takeout" && table_id !== "null") {
     [reservation_id, table_id]
   );
 
+  // Mark table as occupied in the master list
   await conn.execute("UPDATE tables SET status = 'occupied' WHERE table_id = ?", [table_id]);
+  
+  // Update the reservation status itself
   await conn.execute("UPDATE reservations SET status = 'Seated' WHERE reservation_id = ?", [reservation_id]);
 }
       // --- FIX ENDS HERE ---

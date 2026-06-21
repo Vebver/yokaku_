@@ -2,57 +2,43 @@ const db = require("../config/db");
 
 const TableStatus = {
   // 1. GET FLOOR PLAN (Table Cards)
- getTableStatus: async () => {
-    const query = `
-      SELECT 
-          t.table_id, 
-          t.table_number, 
-          t.capacity, 
-          
-          /* 1. Get the most relevant status for the table */
-          COALESCE(
-            (SELECT status FROM reservation_tables 
-             WHERE table_id = t.table_id 
-             AND status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
-             ORDER BY FIELD(status, 'seated', 'Seated', 'confirmed', 'Confirmed') 
-             LIMIT 1),
-            'available'
-          ) AS bridge_status,    
+// models/TableStatus.js -> Replace getTableStatus
+getTableStatus: async () => {
+  const query = `
+    SELECT 
+        t.table_id, 
+        t.table_number, 
+        t.capacity, 
+        
+        /* 1. FORCE prioritization: 'seated' beats 'confirmed' */
+        COALESCE(
+          (SELECT status FROM reservation_tables 
+           WHERE table_id = t.table_id 
+           AND status IN ('confirmed', 'seated', 'Confirmed', 'Seated', 'Walk-in')
+           ORDER BY FIELD(LOWER(status), 'seated', 'walk-in', 'confirmed') 
+           LIMIT 1),
+          'available'
+        ) AS bridge_status,    
 
-          /* 2. Get occupant details from the active session */
-          (SELECT r.first_name FROM reservations r 
-           JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
-           WHERE rt.table_id = t.table_id AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
-           ORDER BY FIELD(rt.status, 'seated', 'Seated', 'confirmed', 'Confirmed') LIMIT 1) AS first_name,
+        /* 2. Get guest name from the ACTIVE session */
+        (SELECT r.first_name FROM reservations r 
+         JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
+         WHERE rt.table_id = t.table_id AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
+         ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed') LIMIT 1) AS first_name,
 
-          (SELECT r.reservation_id FROM reservations r 
-           JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
-           WHERE rt.table_id = t.table_id AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
-           ORDER BY FIELD(rt.status, 'seated', 'Seated', 'confirmed', 'Confirmed') LIMIT 1) AS reservation_id,
+        /* 3. Get reservation ID for the Bill/Checkout functions */
+        (SELECT r.reservation_id FROM reservations r 
+         JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
+         WHERE rt.table_id = t.table_id AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
+         ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed') LIMIT 1) AS reservation_id
 
-          /* 3. Get the payment status (important for your audio alert) */
-          (SELECT p.payment_status FROM payments p 
-           JOIN reservation_tables rt ON p.reservation_id = rt.reservation_id
-           WHERE rt.table_id = t.table_id AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
-           LIMIT 1) AS payment_status,
-
-          /* 4. QUEUE COUNT for today */
-          (SELECT COUNT(*) 
-           FROM reservation_tables rt2 
-           JOIN reservations r2 ON rt2.reservation_id = r2.reservation_id
-           WHERE rt2.table_id = t.table_id 
-           AND r2.reservation_date = CURDATE()
-           AND r2.status IN ('Confirmed', 'Seated', 'confirmed', 'seated')
-          ) AS queue_count
-
-      FROM tables t
-      GROUP BY t.table_id
-      ORDER BY CAST(REGEXP_REPLACE(t.table_number, '[^0-9]', '') AS UNSIGNED) ASC;
-    `;
-
-    const [rows] = await db.query(query);
-    return rows;
-  },
+    FROM tables t
+    GROUP BY t.table_id
+    ORDER BY CAST(REGEXP_REPLACE(t.table_number, '[^0-9]', '') AS UNSIGNED) ASC;
+  `;
+  const [rows] = await db.query(query);
+  return rows;
+},
 
   // 2. GET TIMELINE (Top Bar)
   // Fixed: Removed (req, res) because this is a Model, not a Controller
