@@ -109,14 +109,19 @@ const Order = {
     );
   },
 
-  // 8. Update Kitchen Status, Reservation Status, and Notify (Deduction Added)
+  // 8. Update Kitchen Status, Reservation Status, and Notify (Deduction Added
   updateStatus: async (reservationId, status) => {
-    const cleanStatus = status.toLowerCase(); // pending, preparing, ready, served
+    const cleanStatus = status.toLowerCase(); // pending, preparing, ready, served, completed
 
-    let reservationStatus = "seated";
-    if (cleanStatus === "served" || cleanStatus === "completed") {
+    // --- FIX STARTS HERE ---
+    let reservationStatus = "seated"; 
+
+    // ONLY mark as 'completed' if the status is explicitly 'completed' (from Checkout)
+    // Do NOT include 'served' here.
+    if (cleanStatus === "completed") {
       reservationStatus = "completed";
     }
+    // --- FIX ENDS HERE ---
 
     let notifType = "info";
     if (cleanStatus === "ready") {
@@ -129,10 +134,9 @@ const Order = {
     try {
       await conn.beginTransaction();
 
-      // --- INVENTORY DEDUCTION TRANSACTION ---
-      // If status transitions to served or completed, we deduct linked ingredients
+      // --- INVENTORY DEDUCTION ---
+      // This part is good - we deduct stock when food is served
       if (cleanStatus === "served" || cleanStatus === "completed") {
-        // Select active items to deduct. Excluding already served/completed orders avoids double deduction.
         const [orders] = await conn.execute(
           `SELECT item_id, quantity 
            FROM kiosk_orders 
@@ -141,43 +145,34 @@ const Order = {
         );
 
         for (const order of orders) {
-          // Look up linked recipe ingredients
           const ingredients = await Order.getIngredients(conn, order.item_id);
-          
           for (const ingredient of ingredients) {
-            // total amount consumed = ordered quantity * ingredient amount per serving
             const totalUsed = order.quantity * ingredient.quantity_required;
-            
-            // Run deduction and update status ('low stock', 'out of stock', or 'available')
             await Order.updateInventory(conn, ingredient.inventory_id, totalUsed);
           }
         }
       }
 
-      // 1. Update kitchen status for all items in that reservation
+      // 1. Update kitchen status for the items
       await conn.execute(
         `UPDATE kiosk_orders SET kitchen_status = ? WHERE reservation_id = ?`,
         [cleanStatus, reservationId],
       );
 
       // 2. Update the main reservation status
+      // With the fix above, this will now remain 'seated' if cleanStatus is 'served'
       await conn.execute(
         `UPDATE reservations SET status = ? WHERE reservation_id = ?`,
         [reservationStatus, reservationId],
       );
 
-      // 3. Get user_id from reservation before creating notification
+      // 3. Notification Logic (Keep as is...)
       const [resData] = await conn.execute(
         `SELECT user_id FROM reservations WHERE reservation_id = ?`,
         [reservationId],
       );
 
-      // 4. Only create notification if user_id exists
-      if (
-        resData.length > 0 &&
-        resData[0].user_id &&
-        resData[0].user_id !== "null"
-      ) {
+      if (resData.length > 0 && resData[0].user_id && resData[0].user_id !== "null") {
         await conn.execute(
           `INSERT INTO notifications (user_id, reservation_id, title, message, type, is_read, created_at) 
            VALUES (?, ?, ?, ?, ?, 0, NOW())`,
@@ -195,7 +190,6 @@ const Order = {
       return true;
     } catch (error) {
       await conn.rollback();
-      console.error("Database Transaction Error:", error);
       throw error; 
     } finally {
       conn.release();
