@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const productController = require('../controllers/productController');
+const inventoryController = require('../controllers/inventoryController');
 const { protect, adminOnly } = require("../middleware/authMiddleware");
 const upload = require('../middleware/upload'); 
 
@@ -14,6 +15,7 @@ router.get('/featured', productController.getFeaturedProducts);
 router.get('/:id/ingredients', protect, adminOnly, productController.getIngredients);
 router.post('/:id/ingredients', protect, adminOnly, productController.addIngredient);
 router.delete('/ingredients/:recipeId', protect, adminOnly, productController.removeIngredient);
+router.put('/ingredients/:recipeId', protect, adminOnly, inventoryController.updateRecipeIngredient);
 
 // Product Management
 router.post('/', protect, adminOnly, upload.single('image'), productController.createProduct);

@@ -1,47 +1,98 @@
-const db = require('../config/db');
-const fs = require('fs');
-const path = require('path');
+const db = require("../config/db")
 
 const Maintenance = {
-    cleanReserve: async () => {
-    const sql = `
-      DELETE FROM reservations 
-      WHERE status = 'Seated' 
-      AND created_at < NOW() - INTERVAL 2 HOUR
-    `;
-    const [result] = await db.execute(sql);
-    return result.affectedRows;
+  setKioskReservation: async (reservationId) => {
+    const conn = await db.getConnection();
+    try {
+      await conn.beginTransaction();
+
+      // 1. Reset any previous active kiosk reservations
+      await conn.execute(
+        "UPDATE reservations SET is_kiosk_active = 0 WHERE is_kiosk_active = 1",
+      );
+
+      // 2. Set the newly selected reservation as active for the kiosk
+      const sql = "UPDATE reservations SET is_kiosk_active = 1 WHERE reservation_id = ?";
+      const [result] = await conn.execute(sql, [reservationId]);
+
+      // 3. AUTO-SEAT: Automatically transition this reservation's status to 'Seated'
+      if (result.affectedRows > 0) {
+        // Update reservations status to Seated
+        await conn.execute(
+          "UPDATE reservations SET status = 'Seated' WHERE reservation_id = ?",
+          [reservationId]
+        );
+
+        // Update reservation tables binding to seated
+        await conn.execute(
+          "UPDATE reservation_tables SET status = 'seated' WHERE reservation_id = ?",
+          [reservationId]
+        );
+
+        // Update physical tables status to occupied (turning them red on the dashboard)
+        await conn.execute(
+          `UPDATE tables t 
+           JOIN reservation_tables rt ON t.table_id = rt.table_id 
+           SET t.status = 'occupied' WHERE rt.reservation_id = ?`,
+          [reservationId]
+        );
+      }
+
+      await conn.commit();
+      return result.affectedRows;
+    } catch (error) {
+      await conn.rollback();
+      console.error("Set Kiosk Reservation Transaction Error:", error);
+      throw error;
+    } finally {
+      conn.release();
+    }
   },
 
- // 2. Storage Management: Delete receipt files of Completed/Rejected orders older than 3 months
-  cleanOldReceipts: async () => {
-    // Get list of file paths from DB for old/finished reservations
-    const sql = `
-      SELECT receipt_path FROM reservations 
-      WHERE (status = 'Completed' OR status = 'Rejected' OR status = 'Done')
-      AND created_at < NOW() - INTERVAL 3 MONTH
-      AND receipt_path IS NOT NULL
-    `;
-    const [rows] = await db.execute(sql);
-    
-    let deletedCount = 0;
-    rows.forEach(row => {
-      const filePath = path.join(__dirname, '../uploads/', row.receipt_path);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath); // Delete file from folder
-        deletedCount++;
-      }
-    });
+  // Resets and refresh the tables for a new shift
+ // Inside models/Maintenance.js (under resetFloorStatus):
 
-    // Remove the paths from DB so we don't try to delete them again
-    await db.execute(`
-      UPDATE reservations SET receipt_path = NULL 
-      WHERE (status = 'Completed' OR status = 'Rejected' OR status = 'Done')
-      AND created_at < NOW() - INTERVAL 3 MONTH
-    `);
+  resetFloorStatus: async () => {
+    try {
+      // 1. Reset the physical table status (Turns the card Green on admin panel)
+      const resetTablesSql = `
+        UPDATE tables 
+        SET status = 'Available', 
+            available_seats = capacity
+      `;
+      await db.execute(resetTablesSql);
 
-    return deletedCount;
-  }
+      // 2. Clear the active guests
+      const clearReservationsSql = `
+        UPDATE reservation_tables 
+        SET status = 'completed' 
+        WHERE status = 'seated' OR status = 'confirmed'
+      `;
+      const [result] = await db.execute(clearReservationsSql);
+
+      // 3. ADDED: Clear all active kiosk pushed configurations (Exits the kiosk back to selection screen)
+      const clearKiosksSql = `
+        UPDATE reservations 
+        SET is_kiosk_active = 0 
+        WHERE is_kiosk_active = 1
+      `;
+      await db.execute(clearKiosksSql);
+
+      // Return how many guests were cleared
+      return result.affectedRows;
+    } catch (error) {
+      console.error("Shift Reset Error:", error);
+      throw error;
+    }
+  },
+
+  // 3. Data Export: Get all records for CSV
+  getExportData: async () => {
+    const [rows] = await db.execute(
+      "SELECT * FROM reservations ORDER BY created_at DESC",
+    );
+    return rows;
+  },
 };
 
 module.exports = Maintenance;

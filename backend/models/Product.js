@@ -4,12 +4,12 @@ const Product = {
   create: async (data) => {
     const sql = `
       INSERT INTO menu_items 
-      (category_id, name, description, price, image_url, is_available, is_featured, local_path) 
+      (category_id, menu_name, description, price, image_url, is_available, is_featured, local_path) 
       VALUES (?, ?, ?, ?, ?, ?, ?,?)
     `;
     const values = [
       data.category_id,
-      data.name,
+      data.menu_name,
       data.description,
       data.price,
       data.image_url,
@@ -27,8 +27,6 @@ const Product = {
     return true;
   },
   update: async (id, data) => {
-    // --- TINY IMPROVEMENT: DATA CLEANING ---
-    // Ensure numbers are actually numbers before sending to SQL
     const clean_category = parseInt(data.category_id);
     const clean_price = parseFloat(data.price) || 0.0;
     const clean_available = parseInt(data.is_available) === 1 ? 1 : 0;
@@ -41,11 +39,11 @@ const Product = {
       // If a new image was uploaded, we update the paths too
       sql = `
         UPDATE menu_items 
-        SET category_id=?, name=?, description=?, price=?, image_url=?, is_available=?, is_featured=?, local_path=?
+        SET category_id=?, menu_name=?, description=?, price=?, image_url=?, is_available=?, is_featured=?, local_path=?
         WHERE item_id=?`;
       values = [
         clean_category,
-        data.name,
+        data.menu_name,
         data.description,
         clean_price,
         data.image_url,
@@ -58,11 +56,11 @@ const Product = {
       // If no new image was uploaded, we ONLY update the text/status fields
       sql = `
         UPDATE menu_items 
-        SET category_id=?, name=?, description=?, price=?, is_available=?, is_featured=? 
+        SET category_id=?, menu_name=?, description=?, price=?, is_available=?, is_featured=? 
         WHERE item_id=?`;
       values = [
         clean_category,
-        data.name,
+        data.menu_name,
         data.description,
         clean_price,
         clean_available,
@@ -78,7 +76,7 @@ const Product = {
     const sql = `
       SELECT 
         menu_items.*, 
-        categories.name AS category_name 
+        categories.category_name
       FROM menu_items 
       LEFT JOIN categories ON menu_items.category_id = categories.category_id
     `;
@@ -90,7 +88,7 @@ const Product = {
     const sql = `
     SELECT 
       item_id AS id,
-      name, 
+      menu_name, 
       description, 
       price, 
       image_url,

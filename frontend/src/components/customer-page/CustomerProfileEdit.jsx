@@ -4,8 +4,7 @@ const CustomerProfileEdit = ({ userData, onSave, onCancel }) => {
   const [formData, setFormData] = useState({
     firstName: userData.firstName || '',
     lastName: userData.lastName || '',
-    email: userData.email || '',
-    phone: userData.phone || ''
+    email: userData.email || ''
   });
 
   const handleChange = (e) => {
@@ -83,21 +82,6 @@ const CustomerProfileEdit = ({ userData, onSave, onCancel }) => {
                   value={formData.email}
                   onChange={handleChange}
                   required
-                />
-              </div>
-
-              {/* Phone Number */}
-              <div className="mb-4">
-                <label className="form-label text-muted fw-semibold small d-flex align-items-center">
-                  <i className="bi bi-telephone-fill me-2 text-warning"></i> Phone Number
-                </label>
-                <input 
-                  type="tel" 
-                  className="form-control border-0 bg-light fw-bold py-2 shadow-sm"
-                  name="phone"
-                  placeholder="Enter phone number"
-                  value={formData.phone}
-                  onChange={handleChange}
                 />
               </div>
 

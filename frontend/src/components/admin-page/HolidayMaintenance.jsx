@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../../api";
 import { CalendarOff, Trash2, Plus } from "lucide-react";
-
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const HolidayMaintenance = () => {
   const [holidays, setHolidays] = useState([]);
@@ -14,7 +12,7 @@ const HolidayMaintenance = () => {
 
   const fetchHolidays = async () => {
     try {
-      const res = await axios.get(`${API_BASE}/admin/blocked-dates`);
+      const res = await api.get(`/admin/blocked-dates`);
       setHolidays(res.data);
     } catch (err) {
       console.error(err);
@@ -24,7 +22,7 @@ const HolidayMaintenance = () => {
   const handleAdd = async () => {
     if (!newHoliday.date) return alert("Select a date");
     try {
-      await axios.post(`${API_BASE}/admin/blocked-dates`, newHoliday);
+      await api.post(`/admin/blocked-dates`, newHoliday);
       setNewHoliday({ date: "", reason: "" });
       fetchHolidays();
     } catch (err) {
@@ -34,7 +32,7 @@ const HolidayMaintenance = () => {
 
   const handleDelete = async (id) => {
     if (!window.confirm("Unblock this date?")) return;
-    await axios.delete(`${API_BASE}/admin/blocked-dates/${id}`);
+    await api.delete(`/admin/blocked-dates/${id}`);
     fetchHolidays();
   };
 

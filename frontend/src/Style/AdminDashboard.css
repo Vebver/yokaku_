@@ -1,208 +1,293 @@
-/* --- Variables --- */
 :root {
-  --sidebar-width: 260px;
-  --sidebar-collapsed-width: 80px;
-  --bg-body: #f4f7f6;
-  --primary: #10b981;
-  --dark-sidebar: #111827;
-  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --sidebar-width: 260px;
+    --sidebar-collapsed: 85px;
+    --primary-blue: #0d6efd;
+    --sidebar-bg: #111827;
+    --body-bg: #f4f7fe;
+    --nav-text: #9ca3af;
 }
 
-/* --- Layout --- */
-.admin-layout {
-  display: flex;
-  height: 100vh; /* Changed from min-height to height to prevent page-level scroll */
-  width: 100vw;
-  overflow: hidden; /* Prevents the whole page from scrolling */
-  background-color: var(--bg-body);
-  font-family: "Inter", "Segoe UI", sans-serif;
+
+/* Base Layout */
+
+.admin-app-container {
+    display: flex;
+    min-height: 100vh;
+    background-color: var(--body-bg);
 }
 
-/* --- Sidebar --- */
-.admin-sidebar {
-  height: 100vh;
-  display: flex;
-  flex-direction: column; /* Stacks Header, Nav, and Footer */
-  background: var(--dark-sidebar);
-  color: white;
-  transition: var(--transition);
-  z-index: 1050;
-  flex-shrink: 0;
-}
 
-.sidebar-header {
-  height: 70px;
-  display: flex;
-  align-items: center;
-  padding: 0 20px;
-  flex-shrink: 0; /* Header stays at the top */
-}
+/* SIDEBAR STYLES */
 
-/* --- THE FIX: Independent Scroll for Nav Items --- */
-.sidebar-nav-container {
-  flex-grow: 1; /* Takes up all available middle space */
-  overflow-y: auto; /* Adds scroll if items too long */
-  overflow-x: hidden;
-  padding-top: 10px;
-}
-
-/* Custom Scrollbar for Sidebar */
-.sidebar-nav-container::-webkit-scrollbar {
-  width: 4px;
-}
-.sidebar-nav-container::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-}
-
-.sidebar-footer {
-  flex-shrink: 0; /* Keeps logout button at the very bottom */
-  padding: 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.admin-sidebar.expanded {
-  width: var(--sidebar-width);
-}
-.admin-sidebar.collapsed {
-  width: var(--sidebar-collapsed-width);
-}
-
-.nav-link {
-  color: #9ca3af !important;
-  border-radius: 8px;
-  margin: 4px 12px;
-  padding: 12px 16px;
-  display: flex;
-  align-items: center;
-  transition: var(--transition);
-  white-space: nowrap;
-  border: none;
-  font-weight: 500;
-  background: transparent;
-}
-
-.nav-link:hover,
-.nav-link.active {
-  background-color: var(--primary) !important;
-  color: white !important;
-}
-
-.nav-link.active {
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
-}
-
-/* --- Main Content Area --- */
-.main-container {
-  flex-grow: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  overflow-y: auto; /* Main dashboard content scrolls here */
-}
-
-main {
-  padding: 2rem;
-  animation: fadeIn 0.4s ease-in;
-}
-
-/* --- THE 4 BIG BOXES (NO MOVEMENT) --- */
-.card {
-  border: none;
-  border-radius: 1.25rem;
-}
-
-.card:hover {
-  transform: none !important;
-  transition: none !important;
-}
-
-.display-5 {
-  font-size: 2.5rem;
-  font-weight: 800;
-}
-
-/* --- Logout Button Refinement --- */
-.btn-outline-danger {
-  border-color: #ef4444 !important;
-  color: #ef4444 !important;
-}
-
-.btn-outline-danger:hover {
-  background-color: #ef4444 !important;
-  color: white !important;
-}
-
-/* Subtle backgrounds for icons */
-.bg-primary-subtle {
-  background-color: #e0f2fe;
-}
-.bg-success-subtle {
-  background-color: #dcfce7;
-}
-.bg-warning-subtle {
-  background-color: #fef3c7;
-}
-.bg-danger-subtle {
-  background-color: #fee2e2;
-}
-
-/* --- Animations --- */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@media (max-width: 768px) {
-  .admin-sidebar {
-    position: fixed; /* Floats over content */
-    left: -260px;    /* Hidden by default */
-    width: 260px !important;
-  }
-
-  /* When sidebar is toggled open on mobile */
-  .sidebar-open .admin-sidebar {
-    left: 0;
-  }
-
-  /* Main container takes full width on mobile */
-  .main-container {
-    width: 100%;
-    margin-left: 0 !important;
-  }
-
-  /* Show the mobile overlay shadow */
-  .sidebar-overlay {
-    display: none;
+.app-sidebar {
+    width: var(--sidebar-width);
+    background-color: var(--sidebar-bg);
+    height: 100vh;
     position: fixed;
-    top: 0;
     left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0,0,0,0.5);
-    z-index: 999;
-  }
-  
-  .sidebar-overlay.show {
-    display: block;
-  }
-
-  /* Hide the desktop collapse button on mobile */
-  .sidebar-header .btn-sm {
-    display: none;
-  }
+    top: 0;
+    z-index: 1050;
+    display: flex;
+    flex-direction: column;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+/* Removes the glowing yellow shadow from the stat icons */
+.icon-circle {
+    box-shadow: none !important;
+    filter: none !important;
+    border: none !important;
 }
 
-/* Ensure StatCards stack on mobile */
-@media (max-width: 576px) {
-  .display-5 {
-    font-size: 2rem;
-  }
+/* Ensure the card itself doesn't have a yellow glow */
+.stat-card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075) !important; /* Standard light shadow */
+}
+
+.sb-closed .app-sidebar {
+    width: var(--sidebar-collapsed);
+}
+
+.sidebar-header-branding {
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.brand-logo {
+    min-width: 38px;
+    height: 38px;
+    background: var(--primary-blue);
+    color: white;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 1.2rem;
+}
+
+.brand-name {
+    color: white;
+    font-size: 1.25rem;
+    white-space: nowrap;
+    transition: opacity 0.2s;
+}
+
+.sb-closed .brand-name {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.sidebar-nav-list {
+    flex-grow: 1;
+    padding: 5px 16px;
+    overflow-y: auto;
+}
+
+.nav-item-link {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    padding: 10px 14px;
+    margin-bottom: 4px;
+    border: none;
+    background: transparent;
+    color: var(--nav-text);
+    border-radius: 12px;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.nav-item-link:hover,
+.nav-item-link.active {
+    background: rgba(255, 255, 255, 0.08);
+    color: white;
+}
+
+.nav-item-link.active {
+    background: var(--primary-blue);
+    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.2);
+}
+
+.nav-text-label {
+    font-size: 0.85rem;
+    margin-left: 12px;
+    font-weight: 500;
+}
+
+.sb-closed .nav-text-label {
+    opacity: 0;
+}
+
+.sidebar-footer-action {
+    padding: 15px 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.logout-button {
+    width: 100%;
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    border: none;
+    padding: 10px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+
+/* MAIN CONTENT VIEWPORT */
+
+.app-main-viewport {
+    flex-grow: 1;
+    margin-left: var(--sidebar-width);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    width: calc(100% - var(--sidebar-width));
+}
+
+.sb-closed .app-main-viewport {
+    margin-left: var(--sidebar-collapsed);
+    width: calc(100% - var(--sidebar-collapsed));
+}
+
+.app-top-nav {
+    height: 60px;
+    display: flex;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.toggle-sidebar-btn {
+    border: none;
+    background: #f3f4f6;
+    padding: 6px;
+    border-radius: 8px;
+    color: #4b5563;
+}
+
+
+/* CARDS & SPACING */
+
+.card .stat-card {
+    border-radius: 15px;
+    border: 1px solid rgba(0, 0, 0, 0.05) !important;
+}
+
+.icon-circle {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    flex-shrink: 0;
+    font-size: 1.25rem;
+    /* Removed all shadow properties */
+}
+
+.timeline-badge {
+    background: white;
+    padding: 6px 14px;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    white-space: nowrap;
+    font-size: 0.85rem;
+    margin-bottom: 0;
+}
+
+.avatar-circle {
+    width: 35px;
+    height: 35px;
+    background: #374151;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
+
+.small-text {
+    font-size: 0.65rem;
+}
+
+.smaller {
+    font-size: 0.75rem;
+}
+/* 1. Kill the movement on ALL cards in the dashboard */
+.card, 
+.stat-card, 
+.finance-mini-card, 
+.table-card {
+    transition: none !important; /* Removes the smooth sliding animation */
+    transform: none !important;  /* Removes the actual movement */
+}
+
+/* 2. Specifically target the hover state to ensure it stays still */
+.card:hover, 
+.stat-card:hover, 
+.finance-mini-card:hover, 
+.table-card:hover {
+    transform: none !important;   /* Prevents the card from moving up/down */
+    top: 0 !important;            /* Prevents any 'top' based movement */
+    box-shadow: none !important;  /* Optional: removes the shadow glow if you want it totally flat */
+}
+
+/* 3. If your Floor Status tables have a specific zoom/pop effect */
+.table-item:hover, 
+.table-card-wrapper:hover {
+    transform: none !important;
+    scale: 1 !important;
+}
+
+/* Mobile View */
+
+@media (max-width: 992px) {
+    .app-sidebar {
+        left: -100%;
+    }
+    .sb-open .app-sidebar {
+        left: 0;
+        width: 260px;
+    }
+    .app-main-viewport {
+        margin-left: 0 !important;
+        width: 100% !important;
+    }
+    .sidebar-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.3);
+        z-index: 1040;
+    }
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
 }

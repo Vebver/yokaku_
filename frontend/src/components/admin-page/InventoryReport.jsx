@@ -1,36 +1,412 @@
-import React from 'react';
-import { AlertCircle, Package, Activity } from 'lucide-react';
+import React from "react";
+import {
+  AlertCircle,
+  Activity,
+  Package,
+  TrendingDown,
+  TrendingUp,
+  AlertTriangle,
+  CheckCircle,
+  BarChart3,
+  Clock,
+  Download,
+  Printer,
+} from "lucide-react";
+import api from "../../api";
+const InventoryReport = ({ data }) => {
+  const lowStockCount = data?.low_stock_count || 0;
+  const lowStockList = data?.low_stock_list || [];
+  const usageData = data?.inventory_usage || [];
+  const summary = data?.summary || {};
 
-const InventoryReport = () => {
+  const totalInventoryValue = summary?.total_inventory_value || 0;
+  const totalItemsUsed = summary?.total_items_used || 0;
+  const consumptionRate = summary?.consumption_rate || 0;
+  const reorderItems = summary?.reorder_items || 0;
+
+
+  const fetchReportData = async () => {
+  try {
+    const response = await api.get(`/reports`, getAuthHeader());
+    setReportData(response.data.data);
+  } catch (err) {
+    console.error(err);
+  }
+};
+  const formatCurrency = (num) =>
+    new Intl.NumberFormat("en-PH", {
+      style: "currency",
+      currency: "PHP",
+      minimumFractionDigits: 2,
+    }).format(num);
+
+  const formatNumber = (num) => new Intl.NumberFormat("en-PH").format(num);
+
+  // Calculate urgent low stock (less than 5 units)
+  const urgentLowStock = lowStockList.filter(
+    (item) => item.current_stock < 5,
+  ).length;
+  const warningLowStock = lowStockList.filter(
+    (item) => item.current_stock >= 5 && item.current_stock < 10,
+  ).length;
+
+  const StatCard = ({
+    label,
+    value,
+    icon: Icon,
+    color,
+    isCurrency = true,
+    subtitle = null,
+  }) => (
+    <div className="card border-0 shadow-sm rounded-4 h-100 bg-white position-relative overflow-hidden">
+      <div
+        className={`position-absolute top-0 end-0 w-25 h-100 opacity-10 bg-${color}`}
+        style={{ clipPath: "polygon(100% 0, 0 0, 100% 100%)" }}
+      ></div>
+      <div className="card-body p-4">
+        <div className="d-flex align-items-center justify-content-between mb-3">
+          <div
+            className="rounded-3 d-flex align-items-center justify-content-center"
+            style={{
+              width: "48px",
+              height: "48px",
+              backgroundColor: `rgba(245, 158, 11, 0.1)`,
+            }}
+          >
+            <Icon
+              size={24}
+              color={
+                color === "warning"
+                  ? "#f59e0b"
+                  : color === "success"
+                    ? "#10b981"
+                    : color === "info"
+                      ? "#3b82f6"
+                      : "#f59e0b"
+              }
+            />
+          </div>
+          {subtitle && (
+            <span className="badge bg-light text-muted rounded-pill">
+              {subtitle}
+            </span>
+          )}
+        </div>
+        <h3 className="fw-bold mb-1 text-dark">
+          {isCurrency ? formatCurrency(value) : formatNumber(value)}
+          {!isCurrency && label !== "Reorder Items" && " units"}
+        </h3>
+        <p className="text-muted small mb-0 text-uppercase fw-semibold">
+          {label}
+        </p>
+      </div>
+    </div>
+  );
+
+  if (!data) return null;
+
   return (
-    <div className="row g-4 mt-1">
-      <div className="col-md-4">
-        <div className="card border-0 shadow-sm p-4 border-start border-danger border-4">
-          <div className="d-flex align-items-center gap-3">
-            <AlertCircle size={40} className="text-danger" />
-            <div>
-              <h6 className="mb-0 fw-bold text-danger">Low Stock Alerts</h6>
-              <h3 className="mb-0">8 Items</h3>
+    <div className="inventory-report-container p-3 p-md-4">
+      {/* Header Section */}
+      <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 pb-2 border-bottom">
+        <div>
+          <h2 className="fw-bold mb-1 text-dark">Inventory Report</h2>
+          <p className="text-muted small mb-0">
+            Real-time stock & consumption tracking
+            <span className="ms-2 text-warning">●</span>
+            <span className="ms-1 text-muted">Updated just now</span>
+          </p>
+        </div>
+      </div>
+
+      {/* KPI Cards Row */}
+      <div className="row g-4 mb-4">
+        {/* Total Inventory Value */}
+        <div className="col-lg-3 col-md-6">
+          <StatCard
+            label="Total Inventory Value"
+            value={totalInventoryValue}
+            icon={Package}
+            color="primary"
+          />
+        </div>
+
+        {/* Items Used */}
+        <div className="col-lg-3 col-md-6">
+          <StatCard
+            label="Items Used"
+            value={totalItemsUsed}
+            icon={TrendingDown}
+            color="success"
+            isCurrency={false}
+          />
+        </div>
+
+        {/* Consumption Rate */}
+        <div className="col-lg-3 col-md-6">
+          <StatCard
+            label="Consumption Rate"
+            value={consumptionRate}
+            icon={BarChart3}
+            color="warning"
+            isCurrency={false}
+          />
+        </div>
+
+        {/* Reorder Items */}
+        <div className="col-lg-3 col-md-6">
+          <div className="card border-0 shadow-sm rounded-4 h-100 bg-gradient-warning text-white">
+            <div className="card-body p-4">
+              <div className="d-flex align-items-center justify-content-between mb-3">
+                <div
+                  className="bg-white bg-opacity-25 rounded-3 d-flex align-items-center justify-content-center"
+                  style={{ width: "48px", height: "48px" }}
+                >
+                  <Clock size={24} color="white" />
+                </div>
+              </div>
+              <h3 className="fw-bold mb-1">
+                {formatNumber(reorderItems)} items
+              </h3>
+              <p className="mb-0 small text-white-50 text-uppercase fw-semibold">
+                Need to Reorder
+              </p>
             </div>
           </div>
-          <small className="text-muted mt-2">Immediate reorder required: Chicken, Buns, Soda</small>
         </div>
       </div>
 
-      <div className="col-md-8">
-        <div className="card border-0 shadow-sm p-4">
-          <h6 className="fw-bold mb-3"><Activity size={18} className="me-2"/>Consumption Rate (Weekly)</h6>
-          <div className="table-responsive">
-            <table className="table table-sm">
-              <thead><tr><th>Ingredient</th><th>Starting</th><th>Used</th><th>Ending</th><th>Value</th></tr></thead>
-              <tbody>
-                <tr><td>Chicken Wings</td><td>100kg</td><td>85kg</td><td>15kg</td><td>₱25,500</td></tr>
-                <tr><td>Beef Patties</td><td>50kg</td><td>40kg</td><td>10kg</td><td>₱12,000</td></tr>
-              </tbody>
-            </table>
+      {/* Low Stock Alerts & Consumption Table Row */}
+      <div className="row g-4">
+        {/* Low Stock Alerts Card */}
+        <div className="col-12 col-md-5">
+          <div
+            className={`card border-0 shadow-sm rounded-4 h-100 overflow-hidden ${lowStockCount > 0 ? "border-start border-4 border-danger" : "border-start border-4 border-success"}`}
+          >
+            <div className="card-header bg-white border-0 pt-4 px-4">
+              <div className="d-flex align-items-center gap-2">
+                <AlertCircle
+                  size={18}
+                  className={lowStockCount > 0 ? "text-danger" : "text-success"}
+                />
+                <h6 className="fw-bold mb-0">Low Stock Alerts</h6>
+              </div>
+            </div>
+            <div className="card-body p-4 pt-0">
+              {lowStockCount > 0 ? (
+                <>
+                  <div className="d-flex align-items-center gap-3 mb-3">
+                    <div
+                      className={`p-3 rounded-circle ${lowStockCount > 0 ? "bg-danger bg-opacity-10" : "bg-success bg-opacity-10"}`}
+                    >
+                      <AlertCircle
+                        size={32}
+                        className={
+                          lowStockCount > 0 ? "text-danger" : "text-success"
+                        }
+                      />
+                    </div>
+                    <div>
+                      <h2
+                        className={`fw-bold mb-0 ${lowStockCount > 0 ? "text-danger" : "text-success"}`}
+                      >
+                        {lowStockCount}
+                      </h2>
+                      <p className="text-muted small mb-0">
+                        Items low in stock
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Urgent vs Warning breakdown */}
+                  <div className="row g-2 mb-3">
+                    <div className="col-6">
+                      <div className="bg-danger bg-opacity-10 rounded-3 p-2 text-center">
+                        <AlertTriangle size={14} className="text-danger mb-1" />
+                        <div className="fw-bold text-danger">
+                          {urgentLowStock}
+                        </div>
+                        <small className="text-muted">
+                          Urgent (&lt;5 units)
+                        </small>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Low stock list */}
+                  {lowStockList.length > 0 && (
+                    <div className="low-stock-list mt-2">
+                      <p className="small fw-semibold text-dark mb-2">
+                        Items needing attention:
+                      </p>
+                      <div className="d-flex flex-wrap gap-2">
+                        {lowStockList.slice(0, 5).map((item, idx) => (
+                          <span
+                            key={idx}
+                            className="badge bg-danger bg-opacity-10 text-danger rounded-pill px-3 py-2"
+                          >
+                            {item.name} ({item.current_stock} left)
+                          </span>
+                        ))}
+                        {lowStockList.length > 5 && (
+                          <span className="badge bg-light text-muted rounded-pill px-3 py-2">
+                            +{lowStockList.length - 5} more
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-center py-4">
+                  <CheckCircle size={48} className="text-success mb-3" />
+                  <h5 className="fw-bold text-success mb-1">
+                    All Levels Healthy
+                  </h5>
+                  <p className="text-muted small mb-0">
+                    No items need reordering at this time
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Consumption Table */}
+        <div className="col-12 col-md-7">
+          <div className="card border-0 shadow-sm rounded-4 h-100">
+            <div className="card-header bg-white border-0 pt-4 px-4">
+              <div className="d-flex align-items-center gap-2">
+                <Activity size={18} className="text-warning" />
+                <h6 className="fw-bold mb-0">Weekly Consumption Rate</h6>
+              </div>
+            </div>
+            <div className="card-body p-0">
+              <div className="table-responsive">
+                <table className="table table-hover align-middle mb-0">
+                  <thead className="table-light">
+                    <tr>
+                      <th className="fw-semibold ps-4">Ingredient</th>
+                      <th className="fw-semibold text-center">Starting</th>
+                      <th className="fw-semibold text-center">Used</th>
+                      <th className="fw-semibold text-center">Current</th>
+                      <th className="fw-semibold text-end pe-4">Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {usageData.length > 0 ? (
+                      usageData.map((item, idx) => {
+                        const isLowStock = item.current_stock < 10;
+                        const isCritical = item.current_stock < 5;
+                        return (
+                          <tr key={idx}>
+                            <td className="py-3 fw-semibold text-dark ps-4">
+                              {item.name}
+                              {isCritical && (
+                                <span
+                                  className="ms-2 badge bg-danger text-white rounded-pill"
+                                  style={{
+                                    fontSize: "10px",
+                                    fontWeight: "600",
+                                  }}
+                                >
+                                  CRITICAL
+                                </span>
+                              )}
+                              {!isCritical && isLowStock && (
+                                <span
+                                  className="ms-2 badge bg-warning text-dark rounded-pill"
+                                  style={{
+                                    fontSize: "10px",
+                                    fontWeight: "600",
+                                  }}
+                                >
+                                  LOW STOCK
+                                </span>
+                              )}
+                            </td>
+                            <td className="text-center text-muted small">
+                              {item.starting_stock} {item.unit}
+                            </td>
+                            <td className="text-center text-muted small">
+                              {item.used_stock} {item.unit}
+                            </td>
+                            <td className="text-center">
+                              <span
+                                className={`badge ${isCritical ? "bg-danger text-white" : isLowStock ? "bg-warning text-dark" : "bg-light text-dark"} px-3 py-2 rounded-pill`}
+                                style={{ fontWeight: "600" }}
+                              >
+                                {item.current_stock} {item.unit}
+                              </span>
+                            </td>
+                            <td className="fw-semibold text-end pe-4 text-dark">
+                              {formatCurrency(item.inventory_value)}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan="5" className="text-center py-5 text-muted">
+                          <Package size={40} className="mb-3 opacity-25" />
+                          <p>No inventory data available</p>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            {usageData.length > 5 && (
+              <div className="card-footer bg-white border-0 pt-2 pb-3 px-4">
+                <small className="text-muted">
+                  Showing {Math.min(usageData.length, 10)} of {usageData.length}{" "}
+                  items
+                </small>
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Custom CSS */}
+      <style>{`
+        .inventory-report-container {
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        .bg-gradient-warning {
+          background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        }
+        .table-light th {
+          font-weight: 600;
+          font-size: 0.75rem;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          color: #64748b;
+          padding: 12px 16px;
+        }
+        .table td {
+          padding: 12px 16px;
+          vertical-align: middle;
+        }
+        .low-stock-list .badge {
+          font-weight: 500;
+          font-size: 0.7rem;
+        }
+        @media print {
+          .btn, .card-header button {
+            display: none !important;
+          }
+          .inventory-report-container {
+            padding: 0 !important;
+          }
+          .card {
+            break-inside: avoid;
+            box-shadow: none !important;
+            border: 1px solid #e2e8f0 !important;
+          }
+        }
+      `}</style>
     </div>
   );
 };

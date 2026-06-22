@@ -1,64 +1,120 @@
 const Maintenance = require('../models/Maintenance');
-const { exec } = require('child_process');
-const path = require('path');
-const fs = require('fs');
+const FinancialReport = require('../models/FinancialReport');
+const { buildFinancialPdf } = require('../utils/financialPdf');
 
 const maintenanceController = {
-     cleanReserve: async (req, res) => {
-    try {
-      const count = await Maintenance.cleanPending();
-      res.json({ message: `Successfully cleared ${count} expired pending reservations.` });
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  },
+ // kiosk reservation
+updateKioskReservation: async (req, res) => {
+  const { reservationId } = req.body;
 
-  // 2. CLEAN OLD IMAGES
-  cleanStorage: async (req, res) => {
-    try {
-      const count = await Maintenance.cleanOldReceipts();
-      res.json({ message: `Successfully deleted ${count} old receipt images to save space.` });
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  },
+  if (!reservationId) {
+    return res.status(400).json({ error: "Reservation ID is required." });
+  }
 
-  // 3. FIXED: DATABASE BACKUP
-  backupDatabase: (req, res) => {
-    // Ensure the backup directory exists or the command will fail
-    const backupDir = path.join(__dirname, '../backups');
-    if (!fs.existsSync(backupDir)) {
-      fs.mkdirSync(backupDir, { recursive: true });
-    }
-
-    const fileName = `backup-${Date.now()}.sql`;
-    const outputPath = path.join(backupDir, fileName);
+  try {
+    const affectedRows = await Maintenance.setKioskReservation(reservationId);
     
-    // IF THIS FAILS: Replace 'mysqldump' with the full path like:
-    // ' "C:\\xampp\\mysql\\bin\\mysqldump.exe" '
-    const mysqldumpPath = '"C:\\xampp\\mysql\\bin\\mysqldump.exe"'; 
+    if (affectedRows === 0) {
+      return res.status(404).json({ error: "Reservation ID not found." });
+    }
 
-    const dbUser = "root";
-    const dbName = "yoyaku_db";
+    res.json({ message: `Kiosk updated successfully with Reservation ID ${reservationId}.` });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to update kiosk reservation." });
+  }
+},
 
-    const cmd = `${mysqldumpPath} -u ${dbUser} ${dbName} > "${outputPath}"`;
+  // OPTIMIZE STORAGE
+ reset: async (req, res) => {
+    try {
+      const count = await Maintenance.resetFloorStatus();
+      res.json({ message: `Shift Reset Complete! ${count} tables are now Available and ready for new guests.` });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: "Failed to reset tables in the database." });
+    }
+  },
 
-    exec(cmd, (error, stdout, stderr) => {
-      if (error) {
-        console.error("DUMP ERROR:", stderr);
-        return res.status(500).json({ 
-          error: "MySQL Dump failed.", 
-          details: "Ensure mysqldump is in your System Path or provide the full path in the controller." 
+  // EXPORT TO CSV (Replacement for SQL Backup)
+  exportData: async (req, res) => {
+    try {
+      const data = await Maintenance.getExportData();
+      if (data.length === 0) return res.status(404).send("No data to export");
+
+      // Create CSV Header
+      const fields = Object.keys(data[0]);
+      const csvRows = [fields.join(',')]; // Header row
+
+      // Create Data Rows
+      for (const row of data) {
+        const values = fields.map(field => {
+          const val = row[field] === null ? "" : row[field];
+          return `"${val.toString().replace(/"/g, '""')}"`; // Escape quotes
         });
+        csvRows.push(values.join(','));
       }
+
+      const csvString = csvRows.join('\n');
+      const fileName = `Business_Report_${Date.now()}.csv`;
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
+      res.status(200).send(csvString);
       
-      // Send the file to the browser
-      res.download(outputPath, (err) => {
-        if (err) console.error("Download error:", err);
-        // Optional: delete the file from the server after download to keep it clean
-        // fs.unlinkSync(outputPath); 
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: "Failed to generate report." });
+    }
+  },
+
+  // DOWNLOAD FINANCIAL REPORT AS PDF (Profit Weekly/Monthly/Yearly + Revenue Trends)
+// Inside controllers/maintenanceController.js
+
+exportFinancialPdf: async (req, res) => {
+  try {
+    // 1. Get the local date string to prevent undefined bind parameters
+    const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+
+    const [stats, profitWeekly, profitMonthly, profitYearly, weeklyTrend, monthlyTrend, yearlyTrend] = await Promise.all([
+      FinancialReport.getFinancialStats(todayStr),
+      FinancialReport.getProfitWeekly(todayStr),        // Pass todayStr
+      FinancialReport.getProfitMonthly(todayStr),       // Pass todayStr
+      FinancialReport.getProfitYearly(todayStr),        // Pass todayStr
+      FinancialReport.getWeeklyProfitTrend(todayStr),   // Pass todayStr
+      FinancialReport.getMonthlyTrend(), 
+      FinancialReport.getYearlyProfitTrend(todayStr)    // Pass todayStr
+    ]);
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="Financial_Report_${Date.now()}.pdf"`,
+      );
+
+      const doc = buildFinancialPdf({
+        title: 'Financial Report (Profit & Revenue Trend)',
+        payload: {
+          summary: stats || {},
+          profit: {
+            weekly: profitWeekly || 0,
+            monthly: profitMonthly || 0,
+            yearly: profitYearly || 0,
+          },
+          trends: {
+            weekly: weeklyTrend || [],
+            monthly: monthlyTrend || [],
+            yearly: yearlyTrend || [],
+          },
+        },
       });
-    });
+
+      doc.pipe(res);
+      doc.end();
+    } catch (error) {
+      console.error('exportFinancialPdf error:', error);
+      res.status(500).json({ error: 'Failed to generate financial PDF.' });
+    }
   }
 };
 

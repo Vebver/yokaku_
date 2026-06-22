@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+import api from "../../api";
 function Profile() {
   const [profile, setProfile] = useState({
     firstName: "",
     lastName: "",
     email: "",
-    phone: "",
     role: "",
     status: "",
     memberSince: "",
@@ -21,7 +19,7 @@ function Profile() {
     const fetchProfile = async () => {
       try {
         const token = localStorage.getItem("token");
-        const res = await axios.get(`${API_BASE}/profile`, {
+        const res = await api.get(`/profile`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setProfile(res.data);
@@ -40,7 +38,7 @@ function Profile() {
     setIsSaving(true);
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.put(`${API_BASE}/profile`, profile, {
+      const res = await api.put(`/profile`, profile, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setProfile(res.data);
@@ -211,22 +209,6 @@ function Profile() {
                       setProfile({ ...profile, email: e.target.value })
                     }
                     required
-                  />
-                </div>
-                <div className="col-md-6">
-                  <label
-                    className="form-label small fw-bold text-uppercase text-muted"
-                    style={{ fontSize: "0.7rem" }}
-                  >
-                    Phone Number
-                  </label>
-                  <input
-                    type="text"
-                    className="form-control bg-light border-0 py-2"
-                    value={profile.phone || ""}
-                    onChange={(e) =>
-                      setProfile({ ...profile, phone: e.target.value })
-                    }
                   />
                 </div>
               </div>

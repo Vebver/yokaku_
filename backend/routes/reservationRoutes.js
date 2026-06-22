@@ -2,6 +2,8 @@ const express = require("express");
 const router = express.Router();
 const reservationController = require("../controllers/reservationController");
 const upload = require("../middleware/upload");
+const uploadReceiptToCloudinary = require("../middleware/receiptUploadCloudinary");
+
 const { protect, adminOnly } = require("../middleware/authMiddleware");
 
 // ==================== PUBLIC ROUTES ====================
@@ -18,6 +20,10 @@ router.get(
   reservationController.getUserActiveReservation,
 );
 router.get("/user/:userId", protect, reservationController.getUserReservations);
+
+// ==================== CALENDAR ROUTES ====================
+router.get("/by-date-range", reservationController.getReservationsByDateRange);
+router.get("/by-date/:date", reservationController.getReservationsByDate);
 router.get(
   "/user/:userId/cancellation-count",
   protect,
@@ -31,11 +37,8 @@ router.post(
 
 // ==================== ADMIN ROUTES ====================
 router.get("/", protect, adminOnly, reservationController.getReservations);
-router.put(
-  "/:id/status",
-  protect,
-  reservationController.updateStatus,
-);
+router.post("/", protect, adminOnly, reservationController.createReservation); 
+router.put("/:id/status", protect, reservationController.updateStatus);
 router.delete(
   "/:id",
   protect,
@@ -44,12 +47,19 @@ router.delete(
 );
 
 // ==================== GENERAL PROTECTED ROUTES ====================
+
+// 1. Static and Specific routes first
+router.get('/active-kiosk', reservationController.getActiveKiosk);
 router.get("/:id/items", protect, reservationController.getReservationItems);
+
+// 2. POST actions
 router.post(
   "/table",
-  upload.single("receipt"),
+  uploadReceiptToCloudinary.single("receipt"),
   reservationController.createReservation,
 );
-router.get("/:id", protect, reservationController.checkReservationId);
+
+router.get("/active-kiosk", reservationController.getActiveKiosk);
+router.get("/:id", reservationController.checkReservationId);
 
 module.exports = router;

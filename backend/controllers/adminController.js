@@ -2,14 +2,46 @@ const Dashboard = require("../models/AdminDashboard");
 const AccountManagement = require("../models/AccountManagement");
 const TableStatus = require("../models/TableStatus");
 const FinancialReport = require("../models/FinancialReport");
+const Reservation = require("../models/Reservation");
 const { get } = require("node:http");
+const db = require("../config/db");
+
 
 const adminController = {
-  getDashboardStats: async (req, res) => {
+
+getDashboardStats: async (req, res) => {
     try {
-      const stats = await Dashboard.getDashboardStats();
-      res.json(stats);
+      // Fetch the exact current date in Philippine Time (YYYY-MM-DD)
+      const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+
+      const [finStats, trendData, quickStats] = await Promise.all([
+        FinancialReport.getFinancialStats(todayStr), // Passed todayStr
+        FinancialReport.getRecentTrend(todayStr),    // Passed todayStr
+        Dashboard.getQuickStats()
+      ]);
+
+      // 1. Process Trend Data
+      const revenueTrend = trendData ? trendData.map(t => Number(t.value || 0)) : [0,0,0,0,0,0,0];
+      const trendLabels = trendData ? trendData.map(t => t.label || "") : ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+
+      const calculatedWeeklyTotal = revenueTrend.reduce((a, b) => a + b, 0);
+
+      res.json({
+        totalBookings: quickStats.totalBookings,
+        activeTables: quickStats.activeTables,
+        kitchenQueue: quickStats.kitchenQueue,
+        
+        weeklyRevenue: calculatedWeeklyTotal,
+        monthlyRevenue: Number(finStats?.monthly_revenue || 0),
+        todayRevenue: Number(finStats?.today_revenue || 0),
+        avgOrder: Number(finStats?.aov || 0),
+        totalOrders: Number(finStats?.total_orders || 0),
+
+        revenueTrend: revenueTrend,
+        trendLabels: trendLabels
+      });
     } catch (error) {
+      console.error("DASHBOARD STATS ERROR:", error);
       res.status(500).json({ error: error.message });
     }
   },
@@ -22,24 +54,24 @@ const adminController = {
     }
   },
   getTodaySchedule: async (req, res) => {
-  try {
-    const schedule = await TableStatus.getTodaySchedule();
-    res.json(schedule);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-},
+    try {
+      const schedule = await TableStatus.getTodaySchedule();
+      res.json(schedule);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
   updateUserRole: async (req, res) => {
     try {
       const { userId } = req.params;
       const { role } = req.body;
 
       // 1. FIXED VALIDATION: Added 'cashier' to the allowed list
-      const allowedRoles = ["admin", "customer", "cashier"]; 
-      
+      const allowedRoles = ["admin", "customer", "cashier"];
+
       if (!allowedRoles.includes(role)) {
-        return res.status(400).json({ 
-          error: "Invalid role. Must be 'admin', 'customer', or 'cashier'." 
+        return res.status(400).json({
+          error: "Invalid role. Must be 'admin', 'customer', or 'cashier'.",
         });
       }
 
@@ -52,7 +84,7 @@ const adminController = {
       console.error("Update Role Error:", error);
       res.status(500).json({ error: error.message });
     }
-},
+  },
   getTable: async (req, res) => {
     try {
       const status = await TableStatus.getTableStatus();
@@ -66,6 +98,15 @@ const adminController = {
       const { table_number, capacity } = req.body;
       await TableStatus.createNewTable(table_number, capacity);
       res.status(201).json({ message: "Table created successfully" });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+  deleteTable: async (req, res) => {
+    try {
+      const { tableId } = req.params;
+      const result = await TableStatus.deleteTable(tableId);
+      res.json({ message: "Table deleted successfully", result });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
@@ -97,14 +138,17 @@ const adminController = {
     }
   },
   // controllers/adminController.js
+  // Inside controllers/adminController.js
+
   getFinancialOverview: async (req, res) => {
     try {
-      console.log("!!! API CALLED: Fetching Financial Data !!!");
+      // 1. Calculate the timezone-safe local date string
+      const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
 
-      const [monthlyTrend, stats, paymentMethods, sources] = await Promise.all([
+      // 2. Fetch all values, passing todayStr down
+      const [monthlyTrend, stats, sources] = await Promise.all([
         FinancialReport.getMonthlyTrend(),
-        FinancialReport.getFinancialStats(),
-        FinancialReport.getPaymentMethods(),
+        FinancialReport.getFinancialStats(todayStr), // Passed todayStr here
         FinancialReport.getRevenueSources(),
       ]);
 
@@ -115,7 +159,6 @@ const adminController = {
         data: {
           summary: stats,
           monthlyTrend,
-          paymentMethods,
           sources,
         },
       });
@@ -124,12 +167,6 @@ const adminController = {
       res.status(500).json({ success: false, error: error.message });
     }
   },
-  resetNoShows: async (req, res) => {
-  const { userId } = req.params;
-  // Mark all 'no-show' reservations as 'cancelled' so they don't count towards strikes
-  await db.query("UPDATE reservations SET status = 'cancelled' WHERE user_id = ? AND status = 'no-show'", [userId]);
-  res.json({ message: "No-show strikes reset." });
-}
 };
 
 module.exports = adminController;

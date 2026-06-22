@@ -407,6 +407,32 @@
   color: #2e7d32;
 }
 
+.duration-info-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #e8f5e9;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  color: #2e7d32;
+  margin-bottom: 15px;
+}
+
+.payment-note {
+  padding: 6px 0;
+  font-size: 0.7rem;
+  color: #e63946;
+  text-align: center;
+  background: #fff5f5;
+  border-radius: 8px;
+  margin: 5px 0;
+}
+
+.duration-info-summary svg {
+  color: #2e7d32;
+}
+
 @media (max-width: 450px) {
   .detail-grid.full-info {
     grid-template-columns: 1fr;

@@ -16,7 +16,6 @@ const API_BASE = "https://yokaku-backend.onrender.com/api";
 const BASE_URL = "https://yokaku-backend.onrender.com";
 
 const getImageUrl = (item) => {
-  // Prioritize local_path (Cloudinary URL) over image_url
   const imagePath = item.local_path || item.image_url;
   if (!imagePath) return null;
   if (imagePath.startsWith("http")) return imagePath;
@@ -25,7 +24,6 @@ const getImageUrl = (item) => {
 };
 
 const PackageModal = ({
-  isOpen,
   onClose,
   onSelectedItemsChange,
   initialSelectedItems = [],
@@ -35,33 +33,47 @@ const PackageModal = ({
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedItems, setSelectedItems] = useState(initialSelectedItems);
   const [loading, setLoading] = useState(true);
-  const [imageErrors, setImageErrors] = useState({});
   const [selectedItem, setSelectedItem] = useState(null);
   const [showItemModal, setShowItemModal] = useState(false);
   const [showCartModal, setShowCartModal] = useState(false);
   const [itemQuantity, setItemQuantity] = useState(1);
   const [showCustomizePanel, setShowCustomizePanel] = useState(false);
+  const [itemNote, setItemNote] = useState("");
 
   const [customizations, setCustomizations] = useState({
     addOns: [],
-    flavors: [], // Changed to array for picking 4
+    flavors: [],
     drink: "",
     specialInstructions: "None",
     spiceLevel: "Medium",
+    selectedRamenFlavor: "",
   });
 
   const currentCategory = categories.find(
     (c) => c.category_id === selectedItem?.category_id,
   );
   const isUnliPackage = currentCategory?.name === "Unlimited";
+  const isHangoutBundle =
+    currentCategory?.name === "Hangout Bundle" ||
+    selectedItem?.name?.toLowerCase().includes("hangout") ||
+    currentCategory?.name?.toLowerCase().includes("bundle");
+  const isRamenItem = selectedItem?.name?.toLowerCase().includes("ramen");
+  const isRamenSetItem = selectedItem?.name
+    ?.toLowerCase()
+    .includes("ramen set");
+  const canCustomize = isUnliPackage || isRamenItem || isRamenSetItem;
   const HIDDEN_CATEGORIES = ["Chicken", "Drinks"];
 
+  // Get Ramen flavors from products with their images
+  const ramenFlavors = products.filter(
+    (p) =>
+      categories.find((c) => c.category_id === p.category_id)?.name === "Ramen",
+  );
+
   useEffect(() => {
-    if (isOpen) {
-      fetchCategories();
-      fetchProducts();
-    }
-  }, [isOpen]);
+    fetchCategories();
+    fetchProducts();
+  }, []);
 
   useEffect(() => {
     setSelectedItems(initialSelectedItems);
@@ -99,16 +111,20 @@ const PackageModal = ({
       (c) => c.category_id === item.category_id,
     );
     const isUnli = itemCategory?.name === "Unlimited";
+    const isBundle =
+      itemCategory?.name === "Hangout Bundle" ||
+      item.name?.toLowerCase().includes("hangout") ||
+      itemCategory?.name?.toLowerCase().includes("bundle");
+    const isRamenSet = item.name?.toLowerCase().includes("ramen set");
 
     setSelectedItem(item);
     setItemQuantity(existingItem?.quantity || 1);
     setShowCustomizePanel(false);
+    setItemNote(existingItem?.note || "");
 
     if (existingItem) {
-      // Load existing choices
       setCustomizations(existingItem.customizations);
     } else {
-      // Initialize New Item
       const chickenProducts = products.filter(
         (p) =>
           categories.find((c) => c.category_id === p.category_id)?.name ===
@@ -121,13 +137,20 @@ const PackageModal = ({
           "Drinks",
       )?.name;
 
+      // Get first ramen flavor as default if it's a Ramen Set
+      const defaultRamenFlavor =
+        ramenFlavors.length > 0 ? ramenFlavors[0].name : "";
+
       setCustomizations({
         addOns: [],
-        // Grab first 4 chicken names for Unlimited
-        flavors: isUnli ? chickenProducts.slice(0, 4).map((p) => p.name) : [],
-        drink: isUnli && firstDrink ? firstDrink : "",
+        flavors:
+          isUnli || isBundle
+            ? chickenProducts.slice(0, 4).map((p) => p.name)
+            : [],
+        drink: (isUnli || isBundle) && firstDrink ? firstDrink : "",
         spiceLevel: "Medium",
         specialInstructions: "None",
+        selectedRamenFlavor: isRamenSet ? defaultRamenFlavor : "",
       });
     }
     setShowItemModal(true);
@@ -153,16 +176,22 @@ const PackageModal = ({
   };
 
   const handleAddToCart = () => {
+    // Get the full product details for image URL
+    const fullProduct = products.find(
+      (p) => p.item_id === selectedItem.item_id,
+    );
+
+    // Use getImageUrl to get the full image URL
+    const imageUrl = getImageUrl(fullProduct || selectedItem);
+
     const newItemData = {
       id: selectedItem.item_id,
       name: selectedItem.name,
       price: Math.round(parseFloat(selectedItem.price) * 100) / 100,
       quantity: itemQuantity,
-      image: selectedItem.local_path || selectedItem.image_url,
-      customizations:
-        isUnliPackage || selectedItem.name.includes("Unlimited")
-          ? customizations
-          : null,
+      image: imageUrl, // ← CHANGE: Use the full URL from getImageUrl
+      note: itemNote,
+      customizations: canCustomize ? customizations: null,
     };
 
     const updatedItems = selectedItems.find(
@@ -176,6 +205,7 @@ const PackageModal = ({
     setSelectedItems(updatedItems);
     onSelectedItemsChange(updatedItems);
     setShowItemModal(false);
+    setItemNote("");
   };
 
   const handleRemoveCartItem = (itemId) => {
@@ -198,95 +228,88 @@ const PackageModal = ({
     0,
   );
 
-  if (!isOpen) return null;
-
   return (
-    <>
-      <div className="menu-modal-overlay" onClick={onClose}>
-        <div
-          className="menu-modal-container"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="menu-modal-header">
-            <h2>Select Packages</h2>
-            <button className="menu-modal-close" onClick={onClose}>
-              <X size={24} />
-            </button>
-          </div>
+    <div className="package-inline-container">
+      {/* Header */}
+      <div className="package-inline-header">
+        <h2>Select Packages</h2>
+        <button className="package-inline-close" onClick={onClose}>
+          <X size={24} />
+        </button>
+      </div>
 
-          <div className="menu-modal-content">
-            <div className="menu-categories">
-              {categories
-                .filter((cat) => !HIDDEN_CATEGORIES.includes(cat.name))
-                .map((cat) => (
-                  <button
-                    key={cat.category_id}
-                    className={`category-btn ${Number(selectedCategory) === Number(cat.category_id) ? "active" : ""}`}
-                    onClick={() => setSelectedCategory(Number(cat.category_id))}
-                  >
-                    {cat.name}
-                  </button>
-                ))}
-            </div>
+      {/* Content */}
+      <div className="package-inline-content">
+        <div className="menu-categories">
+          {categories
+            .filter((cat) => !HIDDEN_CATEGORIES.includes(cat.name))
+            .map((cat) => (
+              <button
+                key={cat.category_id}
+                className={`category-btn ${Number(selectedCategory) === Number(cat.category_id) ? "active" : ""}`}
+                onClick={() => setSelectedCategory(Number(cat.category_id))}
+              >
+                {cat.name}
+              </button>
+            ))}
+        </div>
 
-            <div className="menu-items-grid">
-              {loading ? (
-                <div className="loading-spinner">Loading packages...</div>
-              ) : products.filter(
-                  (p) => Number(p.category_id) === Number(selectedCategory),
-                ).length > 0 ? (
-                products
-                  .filter(
-                    (p) => Number(p.category_id) === Number(selectedCategory),
-                  )
-                  .map((item) => (
-                    <div
-                      key={item.item_id}
-                      className={`menu-item-card ${selectedItems.some((i) => i.id === item.item_id) ? "selected" : ""}`}
-                      onClick={() => handleCardClick(item)}
-                    >
-                      <div className="menu-item-image">
-                        <img
-                          src={getImageUrl(item)}
-                          alt={item.name}
-                          onError={(e) =>
-                            (e.target.src = "https://placehold.co/100")
-                          }
-                        />
-                        {selectedItems.some((i) => i.id === item.item_id) && (
-                          <div className="selected-overlay">
-                            <CheckCircle size={32} color="#f38d31" />
-                          </div>
-                        )}
+        <div className="menu-items-grid">
+          {loading ? (
+            <div className="loading-spinner">Loading packages...</div>
+          ) : products.filter(
+              (p) => Number(p.category_id) === Number(selectedCategory),
+            ).length > 0 ? (
+            products
+              .filter((p) => Number(p.category_id) === Number(selectedCategory))
+              .map((item) => (
+                <div
+                  key={item.item_id}
+                  className={`menu-item-card ${selectedItems.some((i) => i.id === item.item_id) ? "selected" : ""}`}
+                  onClick={() => handleCardClick(item)}
+                >
+                  <div className="menu-item-image">
+                    <img
+                      src={getImageUrl(item)}
+                      alt={item.name}
+                      onError={(e) =>
+                        (e.target.src = "https://placehold.co/100")
+                      }
+                    />
+                    {selectedItems.some((i) => i.id === item.item_id) && (
+                      <div className="selected-overlay">
+                        <CheckCircle size={32} color="#f38d31" />
                       </div>
-                      <div className="menu-item-info">
-                        <h4>{item.name}</h4>
-                        <p className="menu-item-price">
-                          ₱{parseFloat(item.price).toFixed(2)}
-                        </p>
-                      </div>
-                    </div>
-                  ))
-              ) : (
-                <p className="no-items">No items in this category</p>
-              )}
-            </div>
-          </div>
-
-          <div className="menu-modal-footer">
-            <div className="menu-summary">
-              <span>Total: ₱{totalPrice.toFixed(2)}</span>
-            </div>
-            <button
-              className="view-order-btn"
-              onClick={() => setShowCartModal(true)}
-            >
-              <ShoppingCart size={18} /> View Order ({selectedItems.length})
-            </button>
-          </div>
+                    )}
+                  </div>
+                  <div className="menu-item-info">
+                    <h4>{item.name}</h4>
+                    <p className="menu-item-price">
+                      ₱{parseFloat(item.price).toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+              ))
+          ) : (
+            <p className="no-items">No items in this category</p>
+          )}
         </div>
       </div>
 
+      {/* Footer */}
+      <div className="package-inline-footer">
+        <div className="menu-summary">
+          <span>Total: ₱{totalPrice.toFixed(2)}</span>
+        </div>
+        <button
+          className="view-order-btn"
+          onClick={() => setShowCartModal(true)}
+        >
+          <ShoppingCart size={18} /> View Order ({selectedItems.length})
+        </button>
+      </div>
+
+      {/* Item Detail Modal (still needed for customization) */}
       {showItemModal && selectedItem && (
         <div
           className="item-detail-modal-overlay"
@@ -341,15 +364,64 @@ const PackageModal = ({
                         </button>
                       </div>
                     </div>
+
+                    {/* ============ RAMEN FLAVOR SELECTION WITH IMAGES (for Ramen Set in Hangout Bundle) ============ */}
+                    {isRamenSetItem && ramenFlavors.length > 0 && (
+                      <div className="item-detail-ramen-flavors">
+                        <label>Select Ramen Flavor:</label>
+                        <div className="ramen-flavor-grid">
+                          {ramenFlavors.map((flavor) => (
+                            <button
+                              key={flavor.item_id}
+                              className={`ramen-flavor-btn ${customizations.selectedRamenFlavor === flavor.name ? "active" : ""}`}
+                              onClick={() =>
+                                setCustomizations((prev) => ({
+                                  ...prev,
+                                  selectedRamenFlavor: flavor.name,
+                                }))
+                              }
+                            >
+                              <div className="ramen-flavor-image">
+                                <img
+                                  src={getImageUrl(flavor)}
+                                  alt={flavor.name}
+                                  onError={(e) => {
+                                    e.target.src = "https://placehold.co/80";
+                                  }}
+                                />
+                              </div>
+                              <span className="ramen-flavor-name">
+                                {flavor.name}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* NOTE TEXT FIELD (for all items) */}
+                    <div className="item-detail-note">
+                      <label>Add a Note (Optional)</label>
+                      <textarea
+                        className="item-note-textarea"
+                        placeholder="e.g., No onions, extra sauce, less ice..."
+                        value={itemNote}
+                        onChange={(e) => setItemNote(e.target.value)}
+                        rows="2"
+                      />
+                    </div>
+
                     <div className="item-detail-actions">
-                      {isUnliPackage && (
-                        <button
-                          className="customize-btn"
-                          onClick={() => setShowCustomizePanel(true)}
-                        >
-                          <Settings size={16} /> Customize Selections
-                        </button>
-                      )}
+                      {/* Show Customize button for Unlimited AND Hangout Bundle */}
+                      {isUnliPackage &&
+                        !isRamenSetItem && (
+                          <button
+                            className="customize-btn"
+                            onClick={() => setShowCustomizePanel(true)}
+                          >
+                            <Settings size={16} /> Customize Selections
+                          </button>
+                        )}
                       <button
                         className="cancel-btn"
                         onClick={() => setShowItemModal(false)}
@@ -363,8 +435,9 @@ const PackageModal = ({
                   </>
                 ) : (
                   <div className="customize-panel">
-                    {/*Chicken Flavors */}
-                    <h3>Customize Your Order</h3>
+                    <h3>Customize Your {selectedItem?.name}</h3>
+
+                    {/* Chicken Flavors */}
                     <div className="customize-section">
                       <label className="section-label-highlight">
                         Choose Chicken Flavors (Pick up to 4):
@@ -387,9 +460,9 @@ const PackageModal = ({
                             </button>
                           ))}
                       </div>
-
-                      {/*Drinks */}
                     </div>
+
+                    {/* Drinks */}
                     <div className="customize-section">
                       <label className="section-label-highlight">
                         Choose Drink (Included):
@@ -419,7 +492,7 @@ const PackageModal = ({
                       </div>
                     </div>
 
-                    {/*Spice level */}
+                    {/* Spice Level */}
                     <div className="customize-section">
                       <label>Spice Level:</label>
                       <div className="spice-levels">
@@ -440,7 +513,7 @@ const PackageModal = ({
                       </div>
                     </div>
 
-                    {/*Special Instruction */}
+                    {/* Special Instructions */}
                     <div className="customize-section">
                       <label>Special Instructions:</label>
                       <textarea
@@ -454,6 +527,18 @@ const PackageModal = ({
                           }))
                         }
                         rows="3"
+                      />
+                    </div>
+
+                    {/* Note Field in Customize Panel */}
+                    <div className="customize-section">
+                      <label>Add a Note (Optional):</label>
+                      <textarea
+                        className="special-instructions"
+                        placeholder="e.g., No onions, extra sauce, less ice..."
+                        value={itemNote}
+                        onChange={(e) => setItemNote(e.target.value)}
+                        rows="2"
                       />
                     </div>
 
@@ -473,6 +558,7 @@ const PackageModal = ({
         </div>
       )}
 
+      {/* Cart Modal with Images */}
       {showCartModal && (
         <div
           className="cart-modal-overlay"
@@ -495,11 +581,38 @@ const PackageModal = ({
                 <div className="cart-items">
                   {selectedItems.map((item) => (
                     <div key={item.id} className="cart-item">
+                      {/* Item Image */}
+                      <div className="cart-item-image">
+                        <img
+                          src={
+                            item.image && item.image !== "null"
+                              ? item.image
+                              : "https://placehold.co/60"
+                          }
+                          alt={item.name}
+                          onError={(e) => {
+                            e.target.src = "https://placehold.co/60";
+                          }}
+                        />
+                      </div>
                       <div className="cart-item-details">
                         <h4>{item.name}</h4>
                         <p>₱{item.price.toFixed(2)} each</p>
+                        {item.note && (
+                          <div className="cart-item-note">
+                            <small>
+                              <strong>Note:</strong> {item.note}
+                            </small>
+                          </div>
+                        )}
                         {item.customizations && (
                           <div className="cart-item-customizations">
+                            {item.customizations.selectedRamenFlavor && (
+                              <small>
+                                Ramen Flavor:{" "}
+                                {item.customizations.selectedRamenFlavor}
+                              </small>
+                            )}
                             {item.customizations.flavors?.length > 0 && (
                               <small>
                                 Flavors:{" "}
@@ -509,15 +622,19 @@ const PackageModal = ({
                             {item.customizations.drink && (
                               <small>Drink: {item.customizations.drink}</small>
                             )}
-                            <small>
-                              Spice: {item.customizations.spiceLevel}
-                            </small>
-
-                            {item.customizations.specialInstructions && (
+                            {item.customizations.spiceLevel && (
                               <small>
-                                Note: {item.customizations.specialInstructions}
+                                Spice: {item.customizations.spiceLevel}
                               </small>
                             )}
+                            {item.customizations.specialInstructions &&
+                              item.customizations.specialInstructions !==
+                                "None" && (
+                                <small>
+                                  Instructions:{" "}
+                                  {item.customizations.specialInstructions}
+                                </small>
+                              )}
                           </div>
                         )}
                       </div>
@@ -566,7 +683,7 @@ const PackageModal = ({
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 };
 

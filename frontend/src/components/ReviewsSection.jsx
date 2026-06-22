@@ -13,10 +13,31 @@ function ReviewsSection() {
   const [showForm, setShowForm] = useState(false);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
     fetchReviews();
     checkEligibility();
+
+    // Re-check eligibility when page becomes visible (e.g., after logging in or completing reservation)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        checkEligibility();
+      }
+    };
+
+    // Also listen for storage changes (token updates)
+    const handleStorageChange = () => {
+      checkEligibility();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("storage", handleStorageChange);
+    
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("storage", handleStorageChange);
+    };
   }, []);
 
   const fetchReviews = async () => {
@@ -30,7 +51,12 @@ function ReviewsSection() {
 
   const checkEligibility = async () => {
     const token = localStorage.getItem("token");
-    if (!token) return;
+    if (!token) {
+      setIsLoggedIn(false);
+      setCanReview(false);
+      return;
+    }
+    setIsLoggedIn(true);
     try {
       const res = await axios.get(`${API_BASE}/reviews/eligibility`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -38,6 +64,7 @@ function ReviewsSection() {
       setCanReview(res.data.canReview);
     } catch (err) {
       console.error(err);
+      setCanReview(false);
     }
   };
 
@@ -56,6 +83,7 @@ function ReviewsSection() {
       setComment("");
       setShowForm(false);
       fetchReviews();
+      checkEligibility(); // Re-check eligibility after submission
     } catch (err) {
       alert("Error submitting feedback");
     }
@@ -83,6 +111,12 @@ function ReviewsSection() {
         <button className="write-review-btn" onClick={() => setShowForm(true)}>
           WRITE A REVIEW
         </button>
+      )}
+
+      {isLoggedIn && !canReview && !showForm && (
+        <p style={{ color: "#ffcc00", fontSize: "0.9rem", margin: "15px 0" }}>
+          ✓ Complete a reservation or dine with us to unlock the review feature
+        </p>
       )}
 
       {showForm && (

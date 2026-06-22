@@ -101,7 +101,7 @@ function HeroSection({ onLoginClick, onReserveClick, isLoggedIn }) {
               onClick={handleReserveTable}
               disabled={checking}
             >
-              {checking ? "CHECKING..." : "RESERVE A TABLE"}
+              {checking ? "CHECKING..." : "CLICK TO RESERVE"}
             </button>
           </div>
         </div>

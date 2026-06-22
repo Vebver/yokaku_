@@ -6,6 +6,11 @@ const TermsModal = ({ isOpen, onAccept, onClose }) => {
 
   if (!isOpen) return null;
 
+  const handleAccept = () => {
+    setAgreed(true);
+    if (onAccept) onAccept();
+  };
+
   return (
     <div
       className="res-modal-overlay"
@@ -65,8 +70,9 @@ const TermsModal = ({ isOpen, onAccept, onClose }) => {
           }}
         >
           <p>
-            <strong>1. Cancellation Policy:</strong> Cancellations must be made
-            at least 24 hours before the reservation time.
+            <strong>1. Cancellation Policy:</strong> Customers can cancel their
+            reservations, but please note that the Hangout Policy has{" "}
+            <span style={{ color: "red" }}>NO REFUND</span>.
           </p>
           <p>
             <strong>2. Late Arrival:</strong> Tables will be held for a maximum
@@ -91,6 +97,68 @@ const TermsModal = ({ isOpen, onAccept, onClose }) => {
             non-refundable for cancellations made less than 3 days before
             reservation time.
           </p>
+          <p>
+            <strong>7. Unlimited Policy:</strong>
+          </p>
+          <ul
+            style={{
+              marginTop: "8px",
+              marginBottom: "16px",
+              paddingLeft: "20px",
+            }}
+          >
+            <li>
+              Strictly <span style={{ color: "red" }}>SAME</span> unlimited
+              promo price per <strong>TABLE</strong>. Unlimited serving is{" "}
+              <span style={{ color: "red" }}>NO SHARING</span>.
+            </li>
+            <li>
+              Once order is served, unlimited refills are valid for{" "}
+              <span style={{ color: "red" }}>1.5 Hours</span>.
+            </li>
+            <li>
+              Children <span style={{ color: "green" }}>4ft and below</span> can
+              eat for <span style={{ color: "green" }}>FREE</span> if
+              accompanied by paying adults.
+            </li>
+            <li>
+              Ordering per head: Maximum of 6 pieces of chicken at a time
+              (different flavors or your choice). If with pasta, either
+              Carbonara or Bolognese (one flavor at a time).
+            </li>
+            <li>
+              Food and drinks from <span style={{ color: "red" }}>OUTSIDE</span>{" "}
+              are not allowed to be consumed inside.
+            </li>
+            <li>
+              Cooking and preparation time is{" "}
+              <span style={{ color: "green" }}>10 to 15 minutes</span>.
+            </li>
+            <li>
+              Sharing an unlimited promo may result in termination of your
+              unlimited promo. The servings for{" "}
+              <span style={{ color: "red" }}>UNLIMITED</span> will be{" "}
+              <span style={{ color: "red" }}>STOPPED</span>.
+            </li>
+            <li>
+              <strong>
+                For Sharing, Take-out, and Leftovers, charges are as follows:
+              </strong>
+              <ul
+                style={{
+                  marginTop: "8px",
+                  marginLeft: "20px",
+                  paddingLeft: "0",
+                }}
+              >
+                <li>Wings - ₱40/pc</li>
+                <li>Pasta - ₱100 per serving</li>
+                <li>Nachos/Fries - ₱80 per order</li>
+                <li>Rice - ₱25/cup</li>
+                <li>Drinks - ₱85 per order</li>
+              </ul>
+            </li>
+          </ul>
         </div>
       </div>
     </div>

@@ -12,18 +12,7 @@ export const TABLES_DATA = [
   { id: 10, label: "Table 10", seats: 3, status: "available" },
 ];
 
-export const ALLERGY_OPTIONS = [
-  "None",
-  "Nuts",
-  "Shellfish",
-  "Dairy",
-  "Eggs",
-  "Soy",
-  "Wheat/Gluten",
-  "Fish",
-  "Sesame",
-  "Other",
-];
+export const ALLERGY_OPTIONS = ["None", "Specify all Allergy"];
 
 export const OCCASION_OPTIONS = [
   "Casual Dining",
@@ -38,3 +27,36 @@ export const OCCASION_OPTIONS = [
   "Holiday Celebration",
   "Other",
 ];
+
+// Store hours configuration
+export const STORE_HOURS = {
+  openingTime: "10:00", // 10:00 AM
+  closingTime: "22:00", // 10:00 PM
+  closingTimeMinutes: 22 * 60, // 1320 minutes
+};
+
+// Check if a date is closed due to time passed
+export const isDateClosedByTime = (dateStr, currentMinutes) => {
+  const today = new Date();
+  const todayStr = today.toISOString().split("T")[0];
+
+  // Only check for today's date
+  if (dateStr !== todayStr) return false;
+
+  // If current time is past closing time (10:00 PM)
+  return currentMinutes >= STORE_HOURS.closingTimeMinutes;
+};
+
+// Check if date is fully closed (past date OR past closing time)
+export const isDateFullyClosed = (dateStr, currentMinutes) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const checkDate = new Date(dateStr);
+  checkDate.setHours(0, 0, 0, 0);
+
+  // Past dates are closed
+  if (checkDate < today) return true;
+
+  // Current day after closing time is closed
+  return isDateClosedByTime(dateStr, currentMinutes);
+};

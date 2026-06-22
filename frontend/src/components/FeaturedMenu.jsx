@@ -101,13 +101,13 @@ function FeaturedMenu({ onLoginClick }) {
             <div key={item.id} className="menu-card-wrapper">
               <div className="menu-card">
                 <img src={getImageUrl(item)} alt={item.name} />
-                <span>{item.name}</span>
+                <span>{item.menu_name}</span>
                 <small>₱{item.price}</small>
                 <button
                   className="card-order-btn"
                   onClick={() => handleCardClick(item)}
                 >
-                  {isLoggedIn ? "Reserve a Table" : "Reserve now"}
+                  {isLoggedIn ? "ORDER" : "ORDER NOW"}
                 </button>
               </div>
             </div>

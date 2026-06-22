@@ -1,11 +1,27 @@
 import React, { useState, useEffect, useRef } from "react";
-import axios from "axios";
-
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+import api from "../../api";
+import {
+  Trash2,
+  Package,
+  Search,
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
+  AlertTriangle,
+  Plus,
+  Box,
+  Edit2,
+} from "lucide-react";
 
 function Inventory() {
   const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(15);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editItemId, setEditItemId] = useState(null);
+
   const [newItem, setNewItem] = useState({
     item_name: "",
     category: "Produce",
@@ -20,15 +36,16 @@ function Inventory() {
 
   const closeBtnRef = useRef(null);
 
-  // --- FETCH INVENTORY FROM DATABASE ---
   useEffect(() => {
     fetchInventory();
   }, []);
 
   const fetchInventory = async () => {
     try {
-      const response = await axios.get(`${API_BASE}/inventory`);
-      // Mapping the expanded database columns
+      setLoading(true);
+      const response = await api.get(
+        `/inventory`
+      );
       const mappedData = response.data.map((item) => ({
         id: item.inventory_id,
         name: item.item_name,
@@ -43,390 +60,442 @@ function Inventory() {
         updated: item.last_updated,
       }));
       setInventory(mappedData);
-      setLoading(false);
     } catch (err) {
       console.error("Error fetching inventory:", err);
+    } finally {
       setLoading(false);
     }
   };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    if (
-      (name === "quantity" ||
-        name === "unit_price" ||
-        name === "reorder_level") &&
-      value < 0
-    ) {
-      setNewItem({ ...newItem, [name]: 0 });
-      return;
-    }
     setNewItem({ ...newItem, [name]: value });
   };
 
-  // --- ADD TO DATABASE ---
-  const handleAddItem = async (e) => {
-    const formattedItem = {
-      ...newItem,
-      unit_price: Math.max(0, parseFloat(newItem.unit_price)),
-      // Logic: If unit is pieces or box, force Integer. Otherwise, allow 3 decimal places.
-      quantity:
-        newItem.unit === "pcs" || newItem.unit === "box"
-          ? parseInt(newItem.quantity)
-          : parseFloat(parseFloat(newItem.quantity).toFixed(3)),
-    };
+  const openAddMode = () => {
+    setIsEditMode(false);
+    setEditItemId(null);
+    setNewItem({
+      item_name: "",
+      category: "Produce",
+      quantity: "",
+      unit: "kg",
+      unit_price: "",
+      reorder_level: "",
+      expiry_date: "",
+      supplier: "",
+      storage_location: "Dry Pantry",
+    });
+  };
+
+  const openEditMode = (item) => {
+    setIsEditMode(true);
+    setEditItemId(item.id);
+
+    // Format date string to YYYY-MM-DD for standard html date input
+    const formattedExpiry = item.expiry
+      ? new Date(item.expiry).toISOString().split("T")[0]
+      : "";
+
+    setNewItem({
+      item_name: item.name,
+      category: item.category,
+      quantity: item.stock,
+      unit: item.unit,
+      unit_price: item.price,
+      reorder_level: item.reorder,
+      expiry_date: formattedExpiry,
+      supplier: item.supplier || "",
+      storage_location: item.location || "Dry Pantry",
+    });
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.post(`${API_BASE}/inventory`, formattedItem);
-      fetchInventory(); // Refresh
-      setNewItem({
-        item_name: "",
-        category: "Produce",
-        quantity: "",
-        unit: "kg",
-        unit_price: "",
-        reorder_level: "",
-        expiry_date: "",
-        supplier: "",
-        storage_location: "Dry Pantry",
-      });
+      if (isEditMode) {
+        await api.put(
+          `/inventory/${editItemId}`,
+          newItem
+        );
+      } else {
+        await api.post(`/inventory`, newItem);
+      }
+      fetchInventory();
       if (closeBtnRef.current) closeBtnRef.current.click();
-      alert("Inventory updated!");
     } catch (err) {
-      alert("Failed to add item to inventory.");
+      alert(isEditMode ? "Failed to update stock." : "Failed to add stock.");
     }
   };
 
   const deleteItem = async (id) => {
-    if (window.confirm("Remove this item from inventory?")) {
+    if (window.confirm("Remove this item?")) {
       try {
-        await axios.delete(`${API_BASE}/inventory/${id}`);
-        setInventory(inventory.filter((item) => item.id !== id));
+        await api.delete(`/inventory/${id}`);
+        fetchInventory();
       } catch (err) {
         alert("Error deleting item.");
       }
     }
   };
 
-  // Helper to check if item is expiring soon (within 3 days)
   const isExpiringSoon = (date) => {
     if (!date) return false;
-    const today = new Date();
-    const expiry = new Date(date);
-    const diff = (expiry - today) / (1000 * 60 * 60 * 24);
+    const diff = (new Date(date) - new Date()) / (1000 * 60 * 60 * 24);
     return diff <= 3;
   };
 
-  if (loading) return <div className="p-5 text-center">Loading Stock...</div>;
+  const filtered = inventory.filter(
+    (item) =>
+      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.category.toLowerCase().includes(searchTerm.toLowerCase()),
+  );
+  const currentItems = filtered.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage,
+  );
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+
+  if (loading)
+    return (
+      <div className="p-5 text-center">
+        <RefreshCw className="animate-spin text-primary mx-auto" />
+      </div>
+    );
 
   return (
-    <div className="container-fluid">
-      <div className="fade-in">
-        <div className="d-flex justify-content-between align-items-center mb-4">
-          <div>
-            <h2 className="fw-bold mb-0">Kitchen Inventory</h2>
-            <p className="text-muted">Raw materials and stock levels</p>
-          </div>
-          <button
-            className="btn btn-success px-4 shadow-sm"
-            data-bs-toggle="offcanvas" // Changed from modal
-            data-bs-target="#addInventoryDrawer" // Changed target name
-          >
-            <i className="bi bi-box-seam me-2"></i>Receive Stock
-          </button>
+    <div
+      className="container-fluid py-3 py-md-4 text-dark bg-light"
+      style={{ minHeight: "100vh" }}
+    >
+      <div className="row g-3 align-items-center mb-4 px-2">
+        <div className="col-12 col-lg-4">
+          <h2 className="fw-bold mb-0">Kitchen Inventory</h2>
+          <p className="text-muted small mb-0">
+            Manage raw materials and stock levels
+          </p>
         </div>
 
-        <div className="card border-0 shadow-sm">
-          <div className="table-responsive">
-            <table className="table table-hover align-middle mb-0">
-              <thead className="table-light text-muted small text-uppercase">
-                <tr>
-                  <th className="ps-4">ID</th>
-                  <th>Item Name</th>
-                  <th>Category</th>
-                  <th>Stock</th>
-                  <th>Unit</th>
-                  <th>Price</th>
-                  <th>Expiry</th>
-                  <th>Supplier</th>
-                  <th>Location</th>
-                  <th>Reorder Level</th>
-                  <th>Last Updated</th>
-                  <th>Status</th>
-                  <th className="text-end pe-4">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {inventory.map((item, index) => (
-                  <tr key={item.id || index}>
-                    {/* ID Column */}
-                    <td className="ps-4 text-muted">#{item.id}</td>
-
-                    {/* Item Name */}
-                    <td>
-                      <div className="fw-bold">{item.name}</div>
-                    </td>
-
-                    {/* Category */}
-                    <td>
-                      <span className="badge bg-light text-dark border">
-                        {item.category}
-                      </span>
-                    </td>
-
-                    {/* Quantity / Stock */}
-                    <td>
-                      <span
-                        className={
-                          item.stock <= item.reorder
-                            ? "text-danger fw-bold"
-                            : "text-dark"
-                        }
-                      >
-                        {item.stock}
-                      </span>
-                    </td>
-
-                    {/* Unit */}
-                    <td className="text-muted">{item.unit}</td>
-
-                    {/* Price */}
-                    <td>${Number(item.price).toFixed(2)}</td>
-
-                    {/* Expiry */}
-                    <td>
-                      <span
-                        className={
-                          isExpiringSoon(item.expiry)
-                            ? "badge bg-danger"
-                            : "text-muted small"
-                        }
-                      >
-                        {item.expiry
-                          ? new Date(item.expiry).toLocaleDateString()
-                          : "N/A"}
-                      </span>
-                    </td>
-
-                    {/* Supplier */}
-                    <td className="small">{item.supplier || "N/A"}</td>
-
-                    {/* Location */}
-                    <td className="small">{item.location}</td>
-
-                    {/* Reorder Level */}
-                    <td className="text-center">{item.reorder}</td>
-
-                    {/* Last Updated */}
-                    <td className="small text-muted">
-                      {item.updated
-                        ? new Date(item.updated).toLocaleString()
-                        : "Never"}
-                    </td>
-
-                    {/* Status */}
-                    <td>
-                      {item.stock <= 0 ? (
-                        <span className="badge bg-danger">Out of Stock</span>
-                      ) : item.stock <= item.reorder ? (
-                        <span className="badge bg-warning text-dark">
-                          Low Stock
-                        </span>
-                      ) : (
-                        <span className="badge bg-success">Healthy</span>
-                      )}
-                    </td>
-
-                    {/* Actions */}
-                    <td className="text-end pe-4">
-                      <button
-                        className="btn btn-sm btn-outline-danger"
-                        onClick={() => deleteItem(item.id)}
-                      >
-                        <i className="bi bi-trash"></i>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {inventory.length === 0 && (
-              <div className="text-center p-5 text-muted">
-                No inventory items found.
-              </div>
-            )}
+        <div className="col-12 col-md-8 col-lg-5">
+          <div
+            className="d-flex align-items-center bg-white rounded-3 border shadow-sm px-3"
+            style={{ height: "45px" }}
+          >
+            <Search size={18} className="text-muted flex-shrink-0" />
+            <input
+              type="text"
+              className="form-control border-0 bg-transparent shadow-none w-100 ms-2"
+              placeholder="Search inventory items..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+            />
           </div>
+        </div>
+
+        {/* ALIGNED REFRESH & RECEIVE STOCK BUTTON GROUP */}
+        <div className="col-12 col-md-4 col-lg-3 d-flex gap-2 align-items-center justify-content-md-end">
+          {/* Square Refresh Button */}
+          <button
+            className="btn btn-light border shadow-sm d-flex align-items-center justify-content-center flex-shrink-0"
+            style={{ height: "45px", width: "45px" }}
+            onClick={fetchInventory}
+            title="Refresh Inventory"
+            type="button"
+          >
+            <RefreshCw size={18} className="text-muted" />
+          </button>
+
+          {/* Receive Stock Button matching 45px height */}
+          <button
+            className="btn btn-primary fw-bold shadow-sm d-flex align-items-center justify-content-center w-100"
+            style={{ height: "45px" }}
+            data-bs-toggle="offcanvas"
+            data-bs-target="#addInvDrawer"
+            onClick={openAddMode}
+          >
+            <Plus size={18} className="me-1 flex-shrink-0" /> Receive Stock
+          </button>
         </div>
       </div>
 
-      {/* --- ADD INVENTORY SIDE DRAWER --- */}
+      <div className="card border-0 shadow-sm rounded-4 overflow-hidden mx-2">
+        <div className="table-responsive">
+          <table
+            className="table table-hover align-middle mb-0"
+            style={{ minWidth: "1100px" }}
+          >
+            <thead className="bg-light border-bottom">
+              <tr className="text-muted x-small text-uppercase">
+                <th className="ps-4 py-3">Item Name</th>
+                <th>Category</th>
+                <th>Stock Level</th>
+                <th>Unit Cost</th>
+                <th>Status</th>
+                <th>Expiry</th>
+                <th>Supplier</th>
+                <th className="text-end pe-4">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {currentItems.map((item) => (
+                <tr key={item.id}>
+                  <td className="ps-4">
+                    <div className="fw-bold text-dark">{item.name}</div>
+                  </td>
+                  <td>
+                    <span className="badge bg-white text-dark border fw-normal">
+                      {item.category}
+                    </span>
+                  </td>
+                  <td>
+                    <div
+                      className={`fw-bold ${item.stock <= item.reorder ? "text-danger" : "text-dark"}`}
+                    >
+                      {item.stock}{" "}
+                      <small className="text-muted fw-normal">
+                        {item.unit}
+                      </small>
+                    </div>
+                    <div className="x-small text-muted">
+                      Reorder at: {item.reorder}
+                    </div>
+                  </td>
+                  <td className="fw-bold text-success">
+                    ₱{Number(item.price).toFixed(2)}
+                  </td>
+                  <td>
+                    <span
+                      className={`badge rounded-pill px-2 py-1 x-small ${
+                        item.stock <= 0
+                          ? "bg-danger"
+                          : item.stock <= item.reorder
+                            ? "bg-warning text-dark"
+                            : "bg-success"
+                      }`}
+                    >
+                      {item.stock <= 0
+                        ? "OUT OF STOCK"
+                        : item.stock <= item.reorder
+                          ? "LOW STOCK"
+                          : "HEALTHY"}
+                    </span>
+                  </td>
+                  <td>
+                    {isExpiringSoon(item.expiry) && (
+                      <AlertTriangle size={12} className="text-danger me-1" />
+                    )}
+                    <span
+                      className={
+                        isExpiringSoon(item.expiry)
+                          ? "text-danger fw-bold"
+                          : "text-muted small"
+                      }
+                    >
+                      {item.expiry
+                        ? new Date(item.expiry).toLocaleDateString()
+                        : "---"}
+                    </span>
+                  </td>
+                  <td className="small text-muted">{item.supplier || "---"}</td>
+                  <td className="text-end pe-4">
+                    <button
+                      className="btn btn-sm btn-outline-primary border-0 me-1"
+                      data-bs-toggle="offcanvas"
+                      data-bs-target="#addInvDrawer"
+                      onClick={() => openEditMode(item)}
+                    >
+                      <Edit2 size={16} />
+                    </button>
+                    <button
+                      className="btn btn-sm btn-outline-danger border-0"
+                      onClick={() => deleteItem(item.id)}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
+      <div className="mt-4 px-3 d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
+        <span className="small text-muted">
+          Showing {currentItems.length} of {filtered.length} items
+        </span>
+        <div className="btn-group shadow-sm bg-white rounded border overflow-hidden">
+          <button
+            className="btn btn-sm btn-white border-0 px-3"
+            disabled={currentPage === 1}
+            onClick={() => setCurrentPage((p) => p - 1)}
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <span className="btn btn-sm disabled border-0 px-3 text-dark fw-bold bg-white">
+            Page {currentPage} of {totalPages || 1}
+          </span>
+          <button
+            className="btn btn-sm btn-white border-0 px-3"
+            disabled={currentPage >= totalPages}
+            onClick={() => setCurrentPage((p) => p + 1)}
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      </div>
+
+      {/* DRAWER FOR BOTH ADD & EDIT */}
       <div
-        className="offcanvas offcanvas-end" // This moves it to the right side
-        tabIndex="-1"
-        id="addInventoryDrawer" // Match the button target
-        aria-labelledby="offcanvasLabel"
-        style={{ width: "600px" }} // Give it a bit more width for your 2-column rows
+        className="offcanvas offcanvas-end border-0 shadow"
+        id="addInvDrawer"
+        data-bs-backdrop="false"
+        style={{ width: "min(100%, 500px)" }}
       >
-        <div className="offcanvas-header border-bottom pt-4 px-4">
-          <h5 className="offcanvas-title fw-bold" id="offcanvasLabel">
-            Add Raw Stock
+        <div className="offcanvas-header border-bottom">
+          <h5 className="fw-bold m-0">
+            <Box size={20} className="me-2 text-primary" />
+            {isEditMode ? "Edit Inventory Stock" : "Receive New Stock"}
           </h5>
           <button
             type="button"
             className="btn-close"
-            data-bs-dismiss="offcanvas" // Correct dismiss attribute
+            data-bs-dismiss="offcanvas"
             ref={closeBtnRef}
           ></button>
         </div>
-
-        <div className="offcanvas-body px-4">
-          <form onSubmit={handleAddItem}>
-            {/* Item Name & Category */}
-            <div className="row">
-              <div className="col-md-6 mb-3">
-                <label className="form-label small fw-bold">Item Name</label>
+        <div className="offcanvas-body">
+          <form onSubmit={handleSubmit} className="d-flex flex-column gap-3">
+            <div className="row g-2">
+              <div className="col-12">
+                <label className="x-small fw-bold text-muted">ITEM NAME</label>
                 <input
                   type="text"
                   name="item_name"
-                  className="form-control"
                   value={newItem.item_name}
+                  className="form-control"
                   onChange={handleInputChange}
                   required
                 />
               </div>
-              <div className="col-md-6 mb-3">
-                <label className="form-label small fw-bold">Category</label>
+              <div className="col-6">
+                <label className="x-small fw-bold text-muted">CATEGORY</label>
                 <select
                   name="category"
-                  className="form-select"
                   value={newItem.category}
+                  className="form-select"
                   onChange={handleInputChange}
                 >
                   <option value="Meat">Meat</option>
                   <option value="Dairy">Dairy</option>
                   <option value="Produce">Produce</option>
                   <option value="Dry Goods">Dry Goods</option>
-                  <option value="Beverages">Beverages</option>
                 </select>
               </div>
-            </div>
-
-            {/* Quantity, Unit, & Price */}
-            <div className="row">
-              <div className="col-md-4 mb-3">
-                <label className="form-label small fw-bold">Quantity</label>
-                <input
-                  type="number"
-                  name="quantity"
-                  className="form-control"
-                  value={newItem.quantity}
-                  onChange={handleInputChange}
-                  min="0"
-                  step={
-                    newItem.unit === "pcs" || newItem.unit === "box"
-                      ? "1"
-                      : "0.01"
-                  }
-                  required
-                />
-              </div>
-              <div className="col-md-4 mb-3">
-                <label className="form-label small fw-bold">Unit</label>
-                <select
-                  name="unit"
-                  className="form-select"
-                  value={newItem.unit}
-                  onChange={handleInputChange}
-                >
-                  <option value="kg">Kilograms (kg)</option>
-                  <option value="L">Liters (L)</option>
-                  <option value="pcs">Pieces (pcs)</option>
-                  <option value="box">Boxes</option>
-                </select>
-              </div>
-              <div className="col-md-4 mb-3">
-                <label className="form-label small fw-bold">
-                  Unit Cost (₱)
-                </label>
-                <input
-                  type="number"
-                  name="unit_price"
-                  step="0.01"
-                  min="0"
-                  className="form-control"
-                  value={newItem.unit_price}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Expiry & Reorder */}
-            <div className="row">
-              <div className="col-md-6 mb-3">
-                <label className="form-label small fw-bold">Expiry Date</label>
-                <input
-                  type="date"
-                  name="expiry_date"
-                  className="form-control"
-                  value={newItem.expiry_date}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-              <div className="col-md-6 mb-3">
-                <label className="form-label small fw-bold">
-                  Reorder Level
-                </label>
-                <input
-                  type="number"
-                  name="reorder_level"
-                  className="form-control"
-                  value={newItem.reorder_level}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Supplier & Location */}
-            <div className="row">
-              <div className="col-md-6 mb-3">
-                <label className="form-label small fw-bold">Supplier</label>
-                <input
-                  type="text"
-                  name="supplier"
-                  className="form-control"
-                  value={newItem.supplier}
-                  onChange={handleInputChange}
-                />
-              </div>
-              <div className="col-md-6 mb-3">
-                <label className="form-label small fw-bold">
-                  Storage Location
-                </label>
+              <div className="col-6">
+                <label className="x-small fw-bold text-muted">STORAGE</label>
                 <select
                   name="storage_location"
-                  className="form-select"
                   value={newItem.storage_location}
+                  className="form-select"
                   onChange={handleInputChange}
                 >
                   <option value="Dry Pantry">Dry Pantry</option>
-                  <option value="Walk-in Fridge">Walk-in Fridge</option>
+                  <option value="Fridge">Fridge</option>
                   <option value="Freezer">Freezer</option>
                 </select>
               </div>
             </div>
-
-            {/* Action Buttons */}
-            <div className="mt-4 d-grid gap-2">
-              <button type="submit" className="btn btn-success py-2">
-                Update Inventory
+            <div className="row g-2">
+              <div className="col-4">
+                <label className="x-small fw-bold text-muted">QTY</label>
+                <input
+                  type="number"
+                  name="quantity"
+                  value={newItem.quantity}
+                  className="form-control"
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              <div className="col-4">
+                <label className="x-small fw-bold text-muted">UNIT</label>
+                <select
+                  name="unit"
+                  value={newItem.unit}
+                  className="form-select"
+                  onChange={handleInputChange}
+                >
+                  <option value="kg">kg</option>
+                  <option value="L">L</option>
+                  <option value="pcs">pcs</option>
+                </select>
+              </div>
+              <div className="col-4">
+                <label className="x-small fw-bold text-muted">COST (₱)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  name="unit_price"
+                  value={newItem.unit_price}
+                  className="form-control"
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+            </div>
+            <div className="row g-2">
+              <div className="col-6">
+                <label className="x-small fw-bold text-muted">
+                  EXPIRY DATE
+                </label>
+                <input
+                  type="date"
+                  name="expiry_date"
+                  value={newItem.expiry_date}
+                  className="form-control"
+                  onChange={handleInputChange}
+                />
+              </div>
+              <div className="col-6">
+                <label className="x-small fw-bold text-muted">
+                  REORDER LVL
+                </label>
+                <input
+                  type="number"
+                  name="reorder_level"
+                  value={newItem.reorder_level}
+                  className="form-control"
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+            </div>
+            <div className="row g-2">
+              <div className="col-12">
+                <label className="x-small fw-bold text-muted">SUPPLIER</label>
+                <input
+                  type="text"
+                  name="supplier"
+                  value={newItem.supplier}
+                  className="form-control"
+                  onChange={handleInputChange}
+                />
+              </div>
+            </div>
+            <div className="mt-2">
+              <button
+                type="submit"
+                className="btn btn-primary w-100 py-2 fw-bold shadow-sm"
+              >
+                {isEditMode ? "Save Changes" : "Save to Inventory"}
               </button>
               <button
                 type="button"
-                className="btn btn-light py-2"
+                className="btn btn-light w-100 mt-2 x-small border"
                 data-bs-dismiss="offcanvas"
               >
                 Cancel
@@ -435,6 +504,8 @@ function Inventory() {
           </form>
         </div>
       </div>
+
+      <style>{`.x-small { font-size: 0.65rem; letter-spacing: 0.5px; } .animate-spin { animation: spin 1s linear infinite; } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

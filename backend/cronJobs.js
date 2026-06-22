@@ -3,8 +3,7 @@ const db = require("./config/db");
 const Notification = require("./models/Notification");
 
 const startCronJobs = () => {
-  console.log("Starting synchronized reservation cron job...");
-
+  // This cron job runs every minute to keep statuses in sync
   cron.schedule("* * * * *", async () => {
     const conn = await db.getConnection();
     try {
@@ -13,8 +12,6 @@ const startCronJobs = () => {
       const now = new Date();
       const currentTime = now.toTimeString().slice(0, 8); // HH:MM:SS
       const currentDate = now.toISOString().split("T")[0];
-
-      console.log(`⏰ Cron running at ${currentDate} ${currentTime}`);
 
       // --- 1. SEATED SYNC (Ongoing reservations) ---
       const [seatedResult] = await conn.execute(
@@ -137,7 +134,55 @@ const startCronJobs = () => {
         console.log(`✅ Cleaned up ${pResIds.length} past reservations`);
       }
 
-      // 5. Notification Cleanup
+      // --- 5. 12-HOUR EXPIRED REJECTIONS AUTO-CANCELLATION ---
+      // This checks for rejected payments over 12 hours old, cancels the reservation, and frees the tables.
+      const [expiredRejections] = await conn.execute(
+        `
+        SELECT DISTINCT rt.table_id, r.reservation_id 
+        FROM reservations r
+        JOIN payments p ON r.reservation_id = p.reservation_id
+        LEFT JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
+        WHERE p.payment_status = 'rejected'
+          AND p.rejected_at < NOW() - INTERVAL 12 HOUR
+          AND r.status = 'rejected'
+      `
+      );
+
+      if (expiredRejections.length > 0) {
+        // Collect unique reservation IDs to modify
+        const resIds = [...new Set(expiredRejections.map((i) => i.reservation_id))];
+        const tableIds = expiredRejections.map((i) => i.table_id).filter(Boolean);
+
+        // Cancel reservations
+        await conn.query(
+          "UPDATE reservations SET status = 'Cancelled' WHERE reservation_id IN (?)",
+          [resIds]
+        );
+
+        // Expire the payments record status
+        await conn.query(
+          "UPDATE payments SET payment_status = 'expired' WHERE reservation_id IN (?)",
+          [resIds]
+        );
+
+        // Terminate reservation table bindings
+        await conn.query(
+          "UPDATE reservation_tables SET status = 'cancelled' WHERE reservation_id IN (?)",
+          [resIds]
+        );
+
+        // Make the assigned tables available on the floor again
+        if (tableIds.length > 0) {
+          await conn.query(
+            "UPDATE tables SET status = 'available', available_seats = capacity WHERE table_id IN (?)",
+            [tableIds]
+          );
+        }
+
+        console.log(`✅ Automatically cancelled ${resIds.length} expired reservation(s) due to 12-hour unpaid window.`);
+      }
+
+      // --- 6. Notification Cleanup ---
       await Notification.permanentlyDeleteExpired();
 
       await conn.commit();
@@ -148,8 +193,6 @@ const startCronJobs = () => {
       conn.release();
     }
   });
-
-  console.log("✅ Reservation status cron job started (runs every minute)");
 };
 
 module.exports = startCronJobs;

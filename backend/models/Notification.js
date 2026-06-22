@@ -27,10 +27,6 @@ const Notification = {
     ];
 
     const [result] = await conn.execute(sql, values);
-    console.log(
-      `✅ Notification created for user ${data.userId}: ${data.title}`,
-    );
-
     if (ioInstance && data.userId) {
       const notificationData = {
         notification_id: result.insertId,
@@ -46,7 +42,6 @@ const Notification = {
       ioInstance
         .to(`user_${data.userId}`)
         .emit("new_notification", notificationData);
-      console.log(`📨 Real-time notification sent to user ${data.userId}`);
     }
 
     return result.insertId;

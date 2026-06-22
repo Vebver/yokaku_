@@ -1,36 +1,47 @@
 import React, { useState, useEffect, useRef } from "react";
-import axios from "axios";
-
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+import api from "../../api";
+import { 
+  Search, 
+  Trash2, 
+  Plus, 
+  ChevronLeft, 
+  ChevronRight, 
+  Loader2, 
+  Tag
+} from "lucide-react";
 
 function Categories() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(15);
+
   const [newCategory, setNewCategory] = useState({
-    name: "",
+    category_name: "", // Changed from name to category_name
     description: "",
   });
 
   const closeBtnRef = useRef(null);
 
-  // --- FETCH CATEGORIES FROM DATABASE ---
-  useEffect(() => {
-    fetchCategories();
-  }, []);
+  useEffect(() => { fetchCategories(); }, []);
 
   const fetchCategories = async () => {
     try {
-      const response = await axios.get(`${API_BASE}/categories`);
-      // Map database columns (category_id, name, description)
-      const mappedData = response.data.map((cat) => ({
-        id: cat.category_id,
-        name: cat.name,
-        description: cat.description,
+      setLoading(true);
+      const response = await api.get(`/categories`);
+      
+      // FIX 1: Ensure the mapped keys match what the UI calls
+      const mappedData = response.data.map((cat, index) => ({
+        id: cat.category_id || cat.id || cat._id || `temp-${index}`, 
+        category_name: cat.category_name || cat.name || "Unnamed", // Keep category_name
+        description: cat.description || "",
       }));
+      
       setCategories(mappedData);
-      setLoading(false);
     } catch (err) {
       console.error("Error fetching categories:", err);
+    } finally {
       setLoading(false);
     }
   };
@@ -40,172 +51,156 @@ function Categories() {
     setNewCategory({ ...newCategory, [name]: value });
   };
 
-  // --- ADD TO DATABASE ---
   const handleAddCategory = async (e) => {
     e.preventDefault();
     try {
-      await axios.post(`${API_BASE}/categories`, {
-        name: newCategory.name,
-        description: newCategory.description,
-      });
-
-      fetchCategories(); // Refresh list
-
-      setNewCategory({
-        name: "",
-        description: "",
-      });
-
+      await api.post(`/categories`, newCategory, getAuthHeader());
+      fetchCategories();
+      setNewCategory({ category_name: "", description: "" });
       if (closeBtnRef.current) closeBtnRef.current.click();
-      alert("Category created successfully!");
     } catch (err) {
       alert("Failed to add category.");
     }
   };
 
-  // --- DELETE FROM DATABASE ---
   const deleteCategory = async (id) => {
-    if (
-      window.confirm(
-        "Delete this category? This might affect products linked to it.",
-      )
-    ) {
+    if (window.confirm("Delete this category?")) {
       try {
-        await axios.delete(`${API_BASE}/categories/${id}`);
+        await api.delete(`/categories/${id}`);
         setCategories(categories.filter((c) => c.id !== id));
       } catch (err) {
-        alert("Error deleting category. Check if products are still using it.");
+        alert("Error deleting category.");
       }
     }
   };
 
-  if (loading)
-    return <div className="p-5 text-center">Loading Categories...</div>;
+  // FIX 3: Robust filter with Null Safety
+  const filtered = categories.filter(cat => {
+    const name = (cat.category_name || "").toLowerCase();
+    const desc = (cat.description || "").toLowerCase();
+    const search = searchTerm.toLowerCase();
+    return name.includes(search) || desc.includes(search);
+  });
+
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filtered.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+
+  if (loading) return <div className="p-5 text-center"><Loader2 className="animate-spin text-primary mx-auto" /></div>;
 
   return (
-    <div className="container-fluid">
-      <div className="fade-in">
-        <div className="d-flex justify-content-between align-items-center mb-4">
-          <div>
-            <h2 className="fw-bold mb-0">Category Management</h2>
-            <p className="text-muted">Organize your restaurant menu</p>
-          </div>
-          <button
-            className="btn btn-dark px-4 shadow-sm"
-            data-bs-toggle="offcanvas"
-            data-bs-target="#addCategoryDrawer"
-          >
-            <i className="bi bi-folder-plus me-2"></i>Add New Category
-          </button>
+    <div className="container-fluid py-3 py-md-4 text-dark bg-light" style={{ minHeight: '100vh' }}>
+      
+      {/* HEADER */}
+      <div className="row g-3 align-items-center mb-4 px-2">
+        <div className="col-12 col-md-4">
+          <h2 className="fw-bold mb-0">Categories</h2>
+          <p className="text-muted small mb-0">Organize menu items</p>
         </div>
 
-        <div className="card border-0 shadow-sm">
-          <div className="table-responsive">
-            <table className="table table-hover align-middle mb-0">
-              <thead className="table-light text-muted">
-                <tr>
-                  <th className="ps-4">ID</th>
-                  <th>Category Name</th>
-                  <th>Description</th>
-                  <th className="text-end pe-4">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {categories.map((cat) => (
-                  <tr key={cat.id}>
-                    <td className="ps-4 text-muted">#{cat.id}</td>
-                    <td>
-                      <div className="fw-bold text-primary">{cat.name}</div>
-                    </td>
-                    <td>
-                      <span className="text-muted small">
-                        {cat.description || "No description provided"}
-                      </span>
-                    </td>
-                    <td className="text-end pe-4">
-                      <button
-                        className="btn btn-sm btn-outline-danger"
-                        onClick={() => deleteCategory(cat.id)}
-                      >
-                        <i className="bi bi-trash"></i>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {categories.length === 0 && (
-              <div className="text-center p-5 text-muted">
-                No categories found. Start by adding one!
-              </div>
-            )}
+        <div className="col-12 col-md-5">
+          <div className="d-flex align-items-center bg-white rounded-3 border shadow-sm px-3" style={{ height: '45px' }}>
+            <Search size={18} className="text-muted flex-shrink-0" />
+            <input
+              type="text"
+              className="form-control border-0 bg-transparent shadow-none"
+              placeholder="Search..."
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+            />
           </div>
+        </div>
+
+        <div className="col-12 col-md-3">
+          <button className="btn btn-primary w-100 py-2 fw-bold shadow-sm" data-bs-toggle="offcanvas" data-bs-target="#addCategoryDrawer">
+            <Plus size={18} className="me-1" /> New Category
+          </button>
         </div>
       </div>
 
-      {/* --- ADD CATEGORY SIDE DRAWER --- */}
-      <div
-        className="offcanvas offcanvas-end border-0 shadow" // Slides from right
-        tabIndex="-1"
-        id="addCategoryDrawer"
-        aria-labelledby="addCategoryDrawerLabel"
-        style={{ width: "400px" }} // Categories usually need less width than inventory
-      >
-        <div className="offcanvas-header border-bottom pt-4 px-4">
-          <h5 className="offcanvas-title fw-bold" id="addCategoryDrawerLabel">
-            Create Category
-          </h5>
-          <button
-            type="button"
-            className="btn-close"
-            data-bs-dismiss="offcanvas" // Correct dismiss attribute
-            ref={closeBtnRef}
-            aria-label="Close"
-          ></button>
+      {/* LIST SECTION */}
+      <div className="mx-2">
+        {/* DESKTOP TABLE */}
+        <div className="card border-0 shadow-sm rounded-4 overflow-hidden d-none d-md-block">
+          <table className="table table-hover align-middle mb-0">
+            <thead className="bg-light">
+              <tr className="text-muted small text-uppercase">
+                <th className="ps-4 py-3">Category Name</th>
+                <th>Description</th>
+                <th className="text-end pe-4">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {currentItems.map((cat) => (
+                <tr key={cat.id}>
+                  <td className="ps-4 py-3 fw-bold">{cat.category_name}</td>
+                  <td className="text-muted small">{cat.description || "No description"}</td>
+                  <td className="text-end pe-4">
+                    <button className="btn btn-sm btn-outline-danger border-0" onClick={() => deleteCategory(cat.id)}>
+                      <Trash2 size={18} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
 
-        <div className="offcanvas-body px-4">
-          <form onSubmit={handleAddCategory}>
-            <div className="mb-3">
-              <label className="form-label small fw-bold">Category Name</label>
-              <input
-                type="text"
-                name="name"
-                placeholder="e.g. Main Course, Seafood, Drinks"
-                className="form-control"
-                value={newCategory.name}
-                onChange={handleInputChange}
-                required
-              />
+        {/* MOBILE LIST */}
+        <div className="d-md-none d-flex flex-column gap-2">
+          {currentItems.map((cat) => (
+            <div key={cat.id} className="bg-white border rounded-3 p-3 shadow-sm">
+               <div className="d-flex justify-content-between">
+                  <div>
+                    <div className="fw-bold">{cat.category_name}</div>
+                    <div className="text-muted small">{cat.description}</div>
+                  </div>
+                  <button className="btn text-danger p-0" onClick={() => deleteCategory(cat.id)}>
+                    <Trash2 size={18} />
+                  </button>
+               </div>
             </div>
+          ))}
+        </div>
 
-            <div className="mb-4">
-              <label className="form-label small fw-bold">
-                Description (Optional)
-              </label>
-              <textarea
-                name="description"
-                className="form-control"
-                rows="5" // Made slightly taller for the drawer layout
-                value={newCategory.description}
-                onChange={handleInputChange}
-                placeholder="Describe what items belong in this category..."
-              ></textarea>
-            </div>
+        {filtered.length === 0 && <div className="text-center p-5 text-muted">No categories found.</div>}
+      </div>
 
-            {/* Action Buttons inside the drawer body */}
-            <div className="d-grid gap-2">
-              <button type="submit" className="btn btn-dark py-2">
-                Save Category
-              </button>
-              <button
-                type="button"
-                className="btn btn-light py-2"
-                data-bs-dismiss="offcanvas"
-              >
-                Cancel
-              </button>
+      {/* PAGINATION */}
+      <div className="mt-4 px-3 d-flex justify-content-between align-items-center">
+        <div className="text-muted small">{filtered.length} items</div>
+        <nav>
+          <ul className="pagination pagination-sm mb-0">
+            <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
+              <button className="page-link" onClick={() => setCurrentPage(prev => prev - 1)}><ChevronLeft size={16} /></button>
+            </li>
+            <li className="page-item disabled"><span className="page-link text-dark">{currentPage}</span></li>
+            <li className={`page-item ${currentPage >= totalPages ? "disabled" : ""}`}>
+              <button className="page-link" onClick={() => setCurrentPage(prev => prev + 1)}><ChevronRight size={16} /></button>
+            </li>
+          </ul>
+        </nav>
+      </div>
+
+      {/* ADD CATEGORY DRAWER */}
+      <div className="offcanvas offcanvas-end" id="addCategoryDrawer" style={{ width: "400px" }}>
+        <div className="offcanvas-header border-bottom">
+          <h5 className="fw-bold m-0"><Tag size={20} className="me-2 text-primary" />Create Category</h5>
+          <button type="button" className="btn-close" data-bs-dismiss="offcanvas" ref={closeBtnRef}></button>
+        </div>
+        <div className="offcanvas-body">
+          <form onSubmit={handleAddCategory} className="d-flex flex-column gap-3">
+            <div>
+              <label className="small fw-bold text-muted mb-1">NAME</label>
+              {/* FIX: name="category_name" to match state */}
+              <input type="text" name="category_name" className="form-control" value={newCategory.category_name} onChange={handleInputChange} required />
             </div>
+            <div>
+              <label className="small fw-bold text-muted mb-1">DESCRIPTION</label>
+              <textarea name="description" className="form-control" rows="4" value={newCategory.description} onChange={handleInputChange}></textarea>
+            </div>
+            <button type="submit" className="btn btn-primary w-100 py-2 fw-bold">Save Category</button>
           </form>
         </div>
       </div>

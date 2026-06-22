@@ -27,10 +27,6 @@ class User {
         data.firstName !== undefined ? data.firstName : currentUser.first_name,
         data.lastName !== undefined ? data.lastName : currentUser.last_name,
         data.email !== undefined ? data.email : currentUser.email,
-        data.phone !== undefined ? data.phone : currentUser.phone,
-        data.profileImage !== undefined
-          ? data.profileImage
-          : currentUser.profile_image,
         data.password_hash !== undefined
           ? data.password_hash
           : currentUser.password_hash,
@@ -47,9 +43,7 @@ class User {
       UPDATE users 
       SET first_name = ?, 
           last_name = ?, 
-          email = ?, 
-          phone = ?, 
-          profile_image = ?,
+          email = ?,
           password_hash = ?,
           reset_password_token = ?,
           reset_password_expires = ?

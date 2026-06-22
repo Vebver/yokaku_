@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
-import axios from "axios";
+import React, { useState, useEffect, useRef } from "react";
+import api, { SOCKET_URL } from "../../api";
+import io from "socket.io-client";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -11,6 +12,19 @@ import {
   PointElement,
   LineElement,
 } from "chart.js";
+import { Line } from "react-chartjs-2";
+import {
+  Info,
+  TrendingUp,
+  ShoppingBag,
+  CreditCard,
+  Menu,
+  LogOut,
+  ChevronLeft,
+  PhilippinePeso,
+  Bell,
+  RefreshCw,
+} from "lucide-react";
 
 // Internal Components
 import Billing from "./Billing";
@@ -18,16 +32,15 @@ import Inventory from "./Inventory";
 import Product from "./Product";
 import Reports from "./Reports";
 import Profile from "./Profile";
-import Reservation from "./Reservation";
 import Categories from "./Categories";
 import RecipeManager from "./RecipeManager";
 import AccountManagement from "./AccountManagement";
 import TableStatus from "./TableStatus";
 import Maintenance from "./Maintenance";
+import OnlineReservations from "./OnlineReservations";
+import WalkInReservations from "./WalkInReservations";
 
 import "../../Style/AdminDashboard.css";
-
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 ChartJS.register(
   CategoryScale,
@@ -41,51 +54,66 @@ ChartJS.register(
 );
 
 const Icons = {
-  Dashboard: () => <i className="bi bi-speedometer2 me-2"></i>,
-  Inventory: () => <i className="bi bi-boxes me-2"></i>,
-  Recipe: () => <i className="bi bi-journal-bookmark me-2"></i>,
-  Categories: () => <i className="bi bi-tags me-2"></i>,
-  Products: () => <i className="bi bi-box-seam me-2"></i>,
-  Sales: () => <i className="bi bi-graph-up-arrow me-2"></i>,
-  Billing: () => <i className="bi bi-receipt me-2"></i>,
-  Profile: () => <i className="bi bi-person-circle me-2"></i>,
-  Reservations: () => <i className="bi bi-calendar-check me-2"></i>,
-  Account: () => <i className="bi bi-people me-2"></i>,
-  Maintenance: () => <i className="bi bi-tools me-2"></i>,
+  Dashboard: () => <i className="bi bi-speedometer2"></i>,
+  Inventory: () => <i className="bi bi-boxes"></i>,
+  Recipe: () => <i className="bi bi-journal-bookmark"></i>,
+  Categories: () => <i className="bi bi-tags"></i>,
+  Products: () => <i className="bi bi-box-seam"></i>,
+  Sales: () => <i className="bi bi-graph-up-arrow"></i>,
+  Billing: () => <i className="bi bi-receipt"></i>,
+  Profile: () => <i className="bi bi-person-circle"></i>,
+  Account: () => <i className="bi bi-people"></i>,
+  Maintenance: () => <i className="bi bi-tools"></i>,
+  Reservations: () => <i className="bi bi-calendar-check"></i>,
 };
 
 const navItems = [
   { id: "dashboard", label: "Dashboard", icon: Icons.Dashboard },
+  { id: "table-status", label: "Table Status", icon: Icons.Dashboard },
+  {
+    id: "online-reservations",
+    label: "Online Bookings",
+    icon: Icons.Reservations,
+  },
+  { id: "walk-ins", label: "Walk-ins / Kiosk", icon: Icons.Billing },
+  { id: "billing", label: "Payments", icon: Icons.Billing },
+  { id: "report", label: "Reports", icon: Icons.Sales },
+  { id: "products", label: "Menu Items", icon: Icons.Products },
+  { id: "recipe", label: "Recipes", icon: Icons.Recipe },
   { id: "categories", label: "Categories", icon: Icons.Categories },
   { id: "inventory", label: "Inventory", icon: Icons.Inventory },
-  { id: "recipe", label: "Recipes", icon: Icons.Recipe },
-  { id: "products", label: "Menu Items", icon: Icons.Products },
-  { id: "report", label: "Report", icon: Icons.Sales },
-  { id: "reservations", label: "Reservations", icon: Icons.Reservations },
-  { id: "billing", label: "Billing", icon: Icons.Billing },
-  { id: "profile", label: "Profile", icon: Icons.Profile },
-  { id: "account", label: "Account", icon: Icons.Account },
-  { id: "table-status", label: "Table Status", icon: Icons.Dashboard },
+  { id: "account", label: "Account Manage", icon: Icons.Account },
+  { id: "profile", label: "Admin Profile", icon: Icons.Profile },
   { id: "maintenance", label: "Maintenance", icon: Icons.Maintenance },
 ];
 
-const StatCard = ({ title, value, color, icon }) => (
-  <div className="col-12 col-md-4">
-    <div className="card border-0 shadow-sm h-100 rounded-4 bg-white text-dark">
-      <div className="card-body p-4 text-center">
+const StatCard = ({ title, value, color, icon: Icon }) => (
+  <div className="col-12 col-md-4 mb-3 mt-0">
+    <div
+      className="card border-0 shadow-sm rounded-4 p-3 bg-white"
+      style={{ minHeight: "100px", display: "block" }}
+    >
+      <div className="d-flex align-items-center h-100 gap-3">
         <div
-          className={`mx-auto mb-3 d-flex align-items-center justify-content-center rounded-circle bg-${color}-subtle text-${color}`}
-          style={{ width: "60px", height: "60px" }}
+          className={`bg-${color}-subtle text-${color} d-flex align-items-center justify-content-center flex-shrink-0`}
+          style={{ width: "48px", height: "48px", borderRadius: "12px" }}
         >
-          <i className={`bi ${icon}`} style={{ fontSize: "1.8rem" }}></i>
+          <Icon size={22} />
         </div>
-        <p
-          className="text-muted fw-bold text-uppercase mb-1"
-          style={{ letterSpacing: "1px", fontSize: "0.8rem" }}
-        >
-          {title}
-        </p>
-        <h2 className="fw-bold mb-0">{value}</h2>
+
+        <div className="overflow-hidden">
+          <p
+            className="text-muted fw-bold text-uppercase mb-1"
+            style={{
+              fontSize: "0.65rem",
+              letterSpacing: "0.8px",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {title}
+          </p>
+          <h4 className="fw-bold mb-0 text-dark">{value}</h4>
+        </div>
       </div>
     </div>
   </div>
@@ -94,83 +122,387 @@ const StatCard = ({ title, value, color, icon }) => (
 function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeSection, setActiveSection] = useState("dashboard");
-  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 768); // Auto-close on small screens
+  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 992);
   const [loading, setLoading] = useState(true);
+  const [todaySchedule, setTodaySchedule] = useState([]);
+
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const notificationRef = useRef(null);
 
   const [stats, setStats] = useState({
     totalBookings: 0,
     activeTables: 0,
     kitchenQueue: 0,
+    weeklyRevenue: 0,
+    monthlyRevenue: 0,
+    todayRevenue: 0,
+    avgOrder: 0,
+    totalOrders: 0,
+    revenueTrend: [],
+    trendLabels: [],
   });
 
+  // Unified mounting state to load data and setup single socket listener
   useEffect(() => {
     const token = localStorage.getItem("token");
-    const role = localStorage.getItem("userRole");
+    const role = localStorage.getItem("role");
+
     if (token && role === "admin") {
-      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
       setIsAuthenticated(true);
       fetchDashboardData();
+      fetchNotifications();
+
+      // Establish single socket connection for the session lifecycle
+      const socket = io(SOCKET_URL, { 
+        transports: ["websocket", "polling"],
+        reconnection: true 
+      });
+
+      // Notification listener
+      socket.on("new_notification", (notification) => {
+        setNotifications((prev) => {
+          const isDuplicate = prev.some(n => 
+            (n.id && n.id === notification.id) || 
+            (n.message === notification.message && n.created_at === notification.created_at)
+          );
+
+          if (isDuplicate) return prev;
+          return [notification, ...prev];
+        });
+
+        setUnreadCount((prev) => prev + 1);
+        const audio = new Audio("/notification-light.mp3");
+        audio.play().catch(() => {});
+      });
+
+      // Dashboard refresh listener on table states or order placements
+      socket.on("table_updated", () => {
+        console.log("🔄 Real-time Update: Refreshing timeline and stats...");
+        fetchDashboardData();
+      });
+
+      return () => {
+        socket.disconnect();
+      };
     } else {
       setIsAuthenticated(false);
       setLoading(false);
     }
+  }, []);
 
-    // Auto-collapse sidebar on window resize
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        notificationRef.current &&
+        !notificationRef.current.contains(event.target)
+      ) {
+        setShowNotifications(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth <= 768) setSidebarOpen(false);
+      if (window.innerWidth <= 992) setSidebarOpen(false);
       else setSidebarOpen(true);
     };
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  const fetchNotifications = async () => {
+    try {
+      const res = await api.get(`/notifications`);
+      setNotifications(res.data);
+      setUnreadCount(res.data.filter((n) => !n.is_read).length);
+    } catch (err) {
+      console.error("Error fetching notifications:", err);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      await api.put(`/notifications/read-all`, {});
+      setNotifications(notifications.map((n) => ({ ...n, is_read: 1 })));
+      setUnreadCount(0);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem("token");
-      const config = { headers: { Authorization: `Bearer ${token}` } };
-      const statsRes = await axios.get(`${API_BASE}/admin/stats`, config);
-      setStats(statsRes.data);
+      const [statsRes, scheduleRes] = await Promise.all([
+        api.get(`/admin/stats`),
+        api.get(`/admin/today-schedule`),
+      ]);
+
+      const data = statsRes.data;
+
+      setStats({
+        totalBookings: data.totalBookings || 0,
+        activeTables: data.activeTables || 0,
+        kitchenQueue: data.kitchenQueue || 0,
+        weeklyRevenue: data.weeklyRevenue || 0,
+        monthlyRevenue: data.monthlyRevenue || 0,
+        todayRevenue: data.todayRevenue || 0,
+        avgOrder: data.avgOrder || 0,
+        totalOrders: data.totalOrders || 0,
+        revenueTrend: data.revenueTrend || [],
+        trendLabels: data.trendLabels || [],
+      });
+
+      setTodaySchedule(scheduleRes.data);
     } catch (error) {
-      console.error("Error fetching dashboard data:", error);
+      console.error("Fetch error", error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLogout = () => {
-    localStorage.clear();
-    delete axios.defaults.headers.common["Authorization"];
-    setIsAuthenticated(false);
-    window.location.href = "/";
+  const handleRefreshAll = () => {
+    fetchDashboardData();
+    fetchNotifications();
+  };
+
+  const formatCurrency = (val) =>
+    `₱${Number(val || 0).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+
+  const chartData = {
+    labels: stats.trendLabels,
+    datasets: [
+      {
+        label: "Revenue",
+        data: stats.revenueTrend,
+        borderColor: "#0d6efd",
+        backgroundColor: "rgba(13, 110, 253, 0.05)",
+        fill: true,
+        tension: 0.4,
+        pointRadius: 4,
+        borderWidth: 3,
+      },
+    ],
+  };
+
+  const MiniFinanceCard = ({ title, value, icon: Icon, colorClass, isNum }) => (
+    <div className="col-6">
+      <div className="finance-mini-card p-3 rounded-4 shadow-sm bg-white border h-100">
+        <div className={`icon-box ${colorClass} mb-2`}>
+          <Icon size={18} />
+        </div>
+        <p
+          className="text-muted fw-bold text-uppercase mb-1"
+          style={{ fontSize: "0.6rem" }}
+        >
+          {title}
+        </p>
+        <h5 className="fw-bold mb-0 text-dark">
+          {isNum ? value : formatCurrency(value)}
+        </h5>
+      </div>
+    </div>
+  );
+
+  const formatTimeAgo = (dateStr) => {
+    if (!dateStr) return "";
+
+    let date;
+    if (dateStr.toString().includes("Z")) {
+      date = new Date(dateStr);
+    } else {
+      const utcStr = dateStr.toString().replace(" ", "T") + "Z";
+      date = new Date(utcStr);
+    }
+
+    const now = new Date();
+    const diffInSeconds = Math.floor((now - date) / 1000);
+
+    if (diffInSeconds < 30) return "just now";
+    if (diffInSeconds < 60) return `${diffInSeconds}s ago`;
+
+    const minutes = Math.floor(diffInSeconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+
+    return date.toLocaleDateString();
+  };
+
+  const formatTime12Hour = (timeStr) => {
+    if (!timeStr) return "--:--";
+
+    const timePart = timeStr.includes("T") ? timeStr.split("T")[1] : timeStr;
+    const [hoursStr, minutesStr] = timePart.split(":");
+    
+    let hour = parseInt(hoursStr, 10);
+    const minutes = minutesStr ? minutesStr.substring(0, 2) : "00";
+
+    const ampm = hour >= 12 ? "PM" : "AM";
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${minutes} ${ampm}`;
   };
 
   const DashboardOverview = () => (
-    <div className="container-fluid fade-in py-3">
-      <div className="mb-4">
-        <h1 className="fw-bold text-dark">Welcome Back, Admin</h1>
-        <p className="text-muted">Here is what's happening at Hangout today.</p>
+    <div className="dashboard-content">
+      <h1 className="fw-bold mb-3">Welcome back, Admin</h1>
+
+      {/* TODAY'S TIMELINE PANEL */}
+      
+      <div className="mb-4 bg-white p-3 rounded-4 shadow-sm border-start border-4 border-warning">
+        <div className="d-flex align-items-center mb-2">
+          <Info size={16} className="text-warning me-2" />
+          <span className="fw-bold small">Today's Timeline</span>
+        </div>
+        <div className="d-flex gap-2 overflow-auto no-scrollbar pb-1">
+          {todaySchedule.length > 0 ? (
+            todaySchedule.map((res, i) => (
+              <div
+                key={i}
+                className="timeline-badge bg-light px-3 py-1.5 rounded-pill border small fw-semibold d-flex align-items-center gap-1"
+                style={{ whiteSpace: "nowrap" }}
+              >
+                {/* Pre-formatted database time prioritised, falling back to client-side parser if null */}
+                <span className="text-primary">
+                  { formatTime12Hour(res.reservation_time)}
+                </span>
+                <span className="text-muted opacity-50">|</span>
+                <span>{res.first_name} {res.last_name || ""}</span>
+                <span className="text-muted opacity-50">|</span>
+                
+                {/* BOOKING TYPE */}
+                <span 
+                  className="badge bg-secondary-subtle text-secondary border text-uppercase" 
+                  style={{ fontSize: "0.62rem", padding: "3px 6px" }}
+                >
+                  {res.reservation_type === "event" ? "🎉 Event Space" : "🍽️ Table Dining"}
+                </span>
+
+                {/* RESERVATION STATUS BADGE */}
+                <span 
+                  className={`badge text-uppercase border ${
+                    res.status?.toLowerCase() === "seated" 
+                      ? "bg-danger-subtle text-danger border-danger-subtle" 
+                      : "bg-warning-subtle text-warning-emphasis border-warning-subtle"
+                  }`}
+                  style={{ fontSize: "0.62rem", padding: "3px 6px" }}
+                >
+                  {res.status || "CONFIRMED"}
+                </span>
+
+                {/* TABLE NUMBER */}
+                <span className="badge bg-dark" style={{ fontSize: "0.62rem", padding: "3px 6px" }}>
+                  {res.reservation_type === "event" ? "All Tables occupied" : (res.table_names ? `Table: ${res.table_names}` : "No Table")}
+                </span>
+              </div>
+            ))
+          ) : (
+            <span className="text-muted small p-1">No arrivals for today.</span>
+          )}
+        </div>
       </div>
 
-      <div className="row g-3 mb-5">
+      {/* STATS CARDS */}
+      <h2 className="fw-bold mb-00">Report Overview</h2>
+      <div className="row g-3 mb-4">
         <StatCard
           title="Total Bookings"
           value={stats.totalBookings}
           color="primary"
-          icon="bi-calendar-check-fill"
+          icon={TrendingUp}
         />
         <StatCard
-          title="Active Tables"
+          title="Tables Occupied"
           value={stats.activeTables}
           color="success"
-          icon="bi-door-open-fill"
+          icon={ShoppingBag}
         />
         <StatCard
           title="Kitchen Queue"
           value={stats.kitchenQueue}
-          color="warning"
-          icon="bi-egg-fried"
+          color="info"
+          icon={Info}
         />
+      </div>
+
+      {/* FINANCIAL SECTION & CHART */}
+      <div className="row g-3 mb-4">
+        <div className="col-lg-5">
+          <div className="row g-3">
+            <MiniFinanceCard
+              title="Weekly Revenue"
+              value={stats.weeklyRevenue}
+              icon={TrendingUp}
+              colorClass="text-success bg-success-subtle"
+            />
+            <MiniFinanceCard
+              title="Today's Revenue"
+              value={stats.todayRevenue}
+              icon={PhilippinePeso}
+              colorClass="text-primary bg-primary-subtle"
+            />
+            <MiniFinanceCard
+              title="Avg. Order"
+              value={stats.avgOrder}
+              icon={ShoppingBag}
+              colorClass="text-info bg-info-subtle"
+            />
+            <MiniFinanceCard
+              title="Total Orders"
+              value={stats.totalOrders}
+              icon={CreditCard}
+              colorClass="text-warning bg-warning-subtle"
+              isNum={true}
+            />
+          </div>
+        </div>
+
+        {/* REVENUE ANALYTICS CHART */}
+        <div className="col-lg-7">
+          <div className="bg-white p-4 rounded-4 shadow-sm border h-100">
+            <div className="d-flex justify-content-between align-items-center mb-4">
+              <h6 className="fw-bold mb-0">Revenue Analytics</h6>
+              <span className="badge bg-primary-subtle text-primary rounded-pill px-3 py-2">
+                Total: {formatCurrency(stats.weeklyRevenue)}
+              </span>
+            </div>
+            <div style={{ height: "220px" }}>
+              <Line
+                data={chartData}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: { legend: { display: false } },
+                  scales: {
+                    y: {
+                      beginAtZero: true,
+                      ticks: { callback: (v) => "₱" + v.toLocaleString() },
+                    },
+                  },
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* FLOOR STATUS */}
+      <div className="bg-white rounded-4 shadow-sm border p-4 overflow-hidden">
+        <div
+          className="floor-status-wrapper"
+          style={{ maxHeight: "500px", overflowY: "auto", overflowX: "hidden" }}
+        >
+          <h2 className="fw-bold mb-3">Table Status</h2>
+          <TableStatus compact={true} />
+        </div>
       </div>
     </div>
   );
@@ -183,131 +515,274 @@ function AdminDashboard() {
       recipe: <RecipeManager />,
       products: <Product />,
       categories: <Categories />,
-      report: <Reports />,
+      report: (
+        <Reports
+          data={{
+            summary: {
+              daily_revenue: stats.todayRevenue,
+              aov: stats.avgOrder,
+              total_orders: stats.totalOrders,
+            },
+            monthlyTrend: stats.revenueTrend.map((val, i) => ({
+              label: stats.trendLabels[i],
+              value: val,
+            })),
+          }}
+        />
+      ),
       profile: <Profile />,
-      reservations: <Reservation />,
+      "online-reservations": <OnlineReservations />,
+      "walk-ins": <WalkInReservations />,
       account: <AccountManagement />,
       "table-status": <TableStatus />,
       maintenance: <Maintenance />,
     };
-    return sections[activeSection] || null;
+    return sections[activeSection] || <DashboardOverview />;
   };
 
-  if (!isAuthenticated && !loading) {
-    return (
-      <div className="vh-100 d-flex align-items-center justify-content-center bg-light text-dark p-3">
-        <div
-          className="card border-0 shadow p-4 text-center w-100"
-          style={{ maxWidth: "400px" }}
-        >
-          <i
-            className="bi bi-shield-lock-fill text-danger"
-            style={{ fontSize: "3rem" }}
-          ></i>
-          <h2 className="fw-bold mb-3">Access Denied</h2>
-          <button
-            className="btn btn-dark btn-lg w-100"
-            onClick={() => (window.location.href = "/")}
-          >
-            Return to Home
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const handleLogout = () => {
+    localStorage.clear();
+    window.location.href = "/";
+  };
 
   return (
     <div
-      className={`admin-layout ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}
+      className={`admin-app-container ${sidebarOpen ? "sb-open" : "sb-closed"}`}
     >
-      {/* MOBILE OVERLAY */}
-      <div
-        className={`sidebar-overlay ${sidebarOpen ? "show" : ""}`}
-        onClick={() => setSidebarOpen(false)}
-      ></div>
-
-      {/* SIDEBAR */}
-      <aside
-        className={`admin-sidebar bg-dark text-white ${sidebarOpen ? "expanded" : "collapsed"}`}
-      >
-        <div className="sidebar-header d-flex align-items-center justify-content-between px-3">
-          {sidebarOpen && <h4 className="fw-bold mb-0 text-white">Hangout</h4>}
-          <button
-            className="btn btn-dark btn-sm d-none d-md-block ms-auto"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-          >
-            <i
-              className={`bi ${sidebarOpen ? "bi-chevron-left" : "bi-list"} fs-5 text-white`}
-            ></i>
-          </button>
-          {/* Mobile close button */}
-          <button
-            className="btn btn-dark d-md-none"
-            onClick={() => setSidebarOpen(false)}
-          >
-            <i className="bi bi-x-lg text-white"></i>
-          </button>
+      {/* Sidebar */}
+      <aside className="app-sidebar shadow">
+        <div className="sidebar-header-branding">
+          <div className="brand-logo">H</div>
+          <span className="brand-name fw-bold">HANGOUT</span>
         </div>
 
-        <div className="sidebar-nav-container">
-          <nav className="nav flex-column gap-1 px-2">
-            {navItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => {
-                  setActiveSection(item.id);
-                  if (window.innerWidth <= 768) setSidebarOpen(false); // Auto-close on click for mobile
-                }}
-                className={`nav-link text-start border-0 rounded py-3 px-3 d-flex align-items-center transition-all ${
-                  activeSection === item.id
-                    ? "bg-success text-white active"
-                    : "text-secondary bg-transparent"
-                }`}
-              >
+        <nav className="sidebar-nav-list custom-scrollbar">
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => {
+                setActiveSection(item.id);
+                if (window.innerWidth <= 992) setSidebarOpen(false);
+              }}
+              className={`nav-link w-100 text-start border-0 rounded-3 py-4 px-3 d-flex align-items-center mb-2 transition-all ${
+                activeSection === item.id
+                  ? "bg-primary text-white active"
+                  : "text-secondary bg-transparent"
+              }`}
+            >
+              <span className="nav-icon-wrapper">
                 <item.icon />
-                {sidebarOpen && <span className="ms-2">{item.label}</span>}
-              </button>
-            ))}
-          </nav>
-        </div>
+              </span>
+              <span className="nav-text-label">{item.label}</span>
+            </button>
+          ))}
+        </nav>
 
-        <div className="sidebar-footer px-3 pb-4">
-          <button
-            className="btn btn-outline-danger btn-sm w-100 py-2"
-            onClick={handleLogout}
-          >
-            <i className="bi bi-box-arrow-left"></i>
-            {sidebarOpen && <span className="ms-2">Logout</span>}
+        <div className="sidebar-footer-action">
+          <button className="logout-button" onClick={handleLogout}>
+            <LogOut size={18} />
+            <span className="nav-text-label ms-2">Logout</span>
           </button>
         </div>
       </aside>
 
-      {/* MAIN CONTENT AREA */}
-      <div className="main-container bg-light">
-        {/* MOBILE TOP NAV (Hamburger) */}
-        <header className="mobile-top-nav d-md-none bg-dark text-white p-3 d-flex justify-content-between align-items-center">
-          <h5 className="mb-0">Hangout Admin</h5>
+      {/* Backdrop for Mobile */}
+      {sidebarOpen && window.innerWidth <= 992 && (
+        <div
+          className="sidebar-overlay"
+          onClick={() => setSidebarOpen(false)}
+        ></div>
+      )}
+
+      {/* Main Content Area */}
+      <div className="app-main-viewport">
+        <header className="app-top-nav bg-white shadow-sm px-4">
           <button
-            className="btn btn-dark border"
-            onClick={() => setSidebarOpen(true)}
+            className="toggle-sidebar-btn"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
           >
-            <i className="bi bi-list fs-4"></i>
+            {sidebarOpen ? <ChevronLeft size={20} /> : <Menu size={20} />}
           </button>
+
+          <div className="ms-auto d-flex align-items-center gap-3">
+            {/* MANUAL REFRESH BUTTON */}
+            <button
+              className="btn btn-light p-0 rounded-circle border-0 d-flex align-items-center justify-content-center"
+              onClick={handleRefreshAll}
+              style={{
+                width: "40px",
+                height: "40px",
+                backgroundColor: "#f8f9fa",
+              }}
+              title="Refresh Data"
+            >
+              <RefreshCw size={18} className="text-secondary" />
+            </button>
+
+            {/* REAL-TIME NOTIFICATION BELL dropdown widget */}
+            <div className="position-relative me-2" ref={notificationRef}>
+              <button
+                className="btn btn-light position-relative p-0 rounded-circle border-0 d-flex align-items-center justify-content-center"
+                onClick={() => setShowNotifications(!showNotifications)}
+                style={{
+                  width: "40px",
+                  height: "40px",
+                  backgroundColor: "#f8f9fa",
+                }}
+              >
+                <Bell size={20} className="text-secondary" />
+                {unreadCount > 0 && (
+                  <span
+                    className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-white"
+                    style={{ fontSize: "0.65rem", padding: "0.25em 0.5em" }}
+                  >
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {showNotifications && (
+                <div
+                  className="card shadow-lg border-0 rounded-4 position-absolute end-0 mt-2 py-2"
+                  style={{
+                    width: "320px",
+                    zIndex: 1050,
+                    fontSize: "0.85rem",
+                    right: 0,
+                  }}
+                >
+                  <div className="px-3 py-2 border-bottom d-flex justify-content-between align-items-center bg-light rounded-top-4">
+                    <span className="fw-bold text-dark">
+                      Notifications Inbox
+                    </span>
+                    {unreadCount > 0 && (
+                      <button
+                        className="btn btn-link btn-xs text-decoration-none p-0 text-primary fw-bold"
+                        onClick={markAllAsRead}
+                        style={{ fontSize: "0.75rem" }}
+                      >
+                        Mark all as read
+                      </button>
+                    )}
+                  </div>
+                  <div
+                    className="overflow-auto custom-scrollbar"
+                    style={{ maxHeight: "280px" }}
+                  >
+                    {notifications.length > 0 ? (
+                      notifications.map((notif, index) => (
+                        <div
+                          key={index}
+                          className={`px-3 py-2 border-bottom hover-bg transition-all ${notif.is_read ? "bg-light-subtle fw-semibold" : ""}`}
+                          style={{ cursor: "pointer" }}
+                          onClick={() => {
+                            const title = (notif.title || "").toLowerCase();
+                            const message = (notif.message || "").toLowerCase();
+
+                            console.log(
+                              "🔔 Notification Clicked. Title:",
+                              title,
+                            );
+
+                            if (
+                              title.includes("payment") ||
+                              title.includes("receipt") ||
+                              title.includes("proof") ||
+                              message.includes("paid")
+                            ) {
+                              console.log("➡️ Routing to: billing");
+                              setActiveSection("billing");
+                            }
+                            else if (
+                              title.includes("reserve") ||
+                              title.includes("booking") ||
+                              title.includes("new reservation") ||
+                              title.includes("cancel")
+                            ) {
+                              console.log("➡️ Routing to: online-reservations");
+                              setActiveSection("online-reservations");
+                            }
+                            else if (
+                              title.includes("stock") ||
+                              title.includes("inventory")
+                            ) {
+                              console.log("➡️ Routing to: inventory");
+                              setActiveSection("inventory");
+                            } else {
+                              console.log(
+                                "➡️ Routing to: dashboard (fallback)",
+                              );
+                              setActiveSection("dashboard");
+                            }
+
+                            setShowNotifications(false);
+                          }}    
+                        >
+                          <div className="d-flex justify-content-between align-items-center mb-1">
+                            <span className="text-dark small">
+                              {notif.title}
+                            </span>
+                            <span
+                              className="text-muted smaller"
+                              style={{ fontSize: "0.7rem" }}
+                            >
+                              {formatTimeAgo(notif.created_at)}
+                            </span>
+                          </div>
+                          <p
+                            className="text-muted text-truncate mb-0 smaller"
+                            style={{ fontSize: "0.75rem" }}
+                          >
+                            {notif.message}
+                          </p>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-4 text-muted">
+                        <p className="mb-0 small">Your inbox is empty.</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="px-3 pt-2 text-center border-top">
+                    <button
+                      className="btn btn-link btn-sm text-decoration-none text-primary fw-bold p-0"
+                      onClick={() => {
+                        setActiveSection("online-reservations");
+                        setShowNotifications(false);
+                      }}
+                    >
+                      Open Reservation Manager
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="text-end d-none d-sm-block">
+              <p className="mb-0 fw-bold small text-dark">HANGOUT MANAGER</p>
+            </div>
+            <div className="avatar-circle">H</div>
+          </div>
         </header>
 
-        <main className="p-2 p-md-4">
+        <main className="app-content-area px-4 py-3">
           {loading ? (
-            <div
-              className="d-flex justify-content-center align-items-center"
-              style={{ minHeight: "60vh" }}
-            >
-              <div className="spinner-border text-success"></div>
+            <div className="text-center py-5">
+              <div className="spinner-border text-primary"></div>
             </div>
           ) : (
             renderSection()
           )}
         </main>
       </div>
+
+      <style>{`
+        .hover-bg { transition: background-color 0.15s ease-in-out; }
+        .hover-bg:hover { background-color: #f8f9fa; }
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #dee2e6; border-radius: 10px; }
+      `}</style>
     </div>
   );
 }

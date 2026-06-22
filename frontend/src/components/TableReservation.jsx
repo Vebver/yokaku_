@@ -60,7 +60,6 @@ export default function TableReservation({ onClose, onSuccess }) {
     date: "",
     startTime: "",
     endTime: "",
-    highChair: "No",
     muni: "",
     brgy: "",
     allergy: "",
@@ -322,7 +321,7 @@ export default function TableReservation({ onClose, onSuccess }) {
       amount: orderSummary.downpayment,
       totalAmount: orderSummary.totalOrderPrice,
       downpayment: orderSummary.downpayment,
-      paymentMethod: paymentMethod || "Maya",
+      paymentMethod: paymentMethod || "Gcash",
       municipality:
         addressData.municipalities.find((m) => m.code === form.muni)?.name ||
         "",
@@ -515,7 +514,7 @@ export default function TableReservation({ onClose, onSuccess }) {
         packageName: productDisplayName,
         totalAmount: orderSummary.totalOrderPrice,
         amount: orderSummary.downpayment,
-        paymentMethod: method || paymentMethod || "Maya",
+        paymentMethod: method || paymentMethod || "Gcash",
         tableIds: JSON.stringify(tableIdsArray),
         selectedItems: JSON.stringify(selectedItems),
         status: "Confirmed",
@@ -811,26 +810,6 @@ export default function TableReservation({ onClose, onSuccess }) {
                       fontWeight: "700",
                     }}
                   />
-                </div>
-
-                <div className="input-group">
-                  <label style={{ display: "block", marginBottom: "8px" }}>
-                    <Baby size={12} /> HIGH CHAIR NEEDED?
-                  </label>
-                  <div className="radio-group-horizontal">
-                    {["Yes", "No"].map((opt) => (
-                      <label key={opt} className="custom-radio">
-                        <input
-                          type="radio"
-                          name="highChair"
-                          value={opt}
-                          checked={form.highChair === opt}
-                          onChange={handleInputChange}
-                        />{" "}
-                        <span>{opt}</span>
-                      </label>
-                    ))}
-                  </div>
                 </div>
 
                 {/* OCCASION DROPDOWN FIELD */}

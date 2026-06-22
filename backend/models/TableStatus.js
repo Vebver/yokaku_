@@ -1,7 +1,6 @@
 const db = require("../config/db");
 
 const TableStatus = {
-  // 1. GET FLOOR PLAN (Table Cards)
   getTableStatus: async () => {
     const query = `
       SELECT 
@@ -9,81 +8,110 @@ const TableStatus = {
           t.table_number, 
           t.capacity, 
           
-          /* Get current occupant details */
-          IFNULL(ANY_VALUE(rt.status), 'available') AS bridge_status,    
-          ANY_VALUE(r.first_name) AS first_name,
-          ANY_VALUE(r.last_name) AS last_name,
-          ANY_VALUE(r.reservation_time) AS reservation_time,
-          ANY_VALUE(r.end_time) AS end_time,
-          ANY_VALUE(r.reservation_id) AS reservation_id,
+          /* PRIORITIZE 'seated' status for the color */
+          COALESCE(
+            (SELECT status FROM reservation_tables 
+             WHERE table_id = t.table_id 
+             AND status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
+             ORDER BY FIELD(LOWER(status), 'seated', 'confirmed') 
+             LIMIT 1),
+            'available'
+          ) AS bridge_status,    
 
-          /* QUEUE COUNT: How many bookings total for this table today */
-          (SELECT COUNT(*) 
-           FROM reservation_tables rt2 
-           JOIN reservations r2 ON rt2.reservation_id = r2.reservation_id
-           WHERE rt2.table_id = t.table_id 
-           AND r2.reservation_date = CURDATE()
-           AND r2.status IN ('Confirmed', 'Seated', 'confirmed', 'seated')
-          ) AS queue_count,
+          /* Get the name and reservation ID of the current occupant */
+          (SELECT r.first_name FROM reservations r 
+           JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
+           WHERE rt.table_id = t.table_id 
+           AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
+           ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed') LIMIT 1) AS first_name,
 
-          /* NEXT RESERVATION: The time of the next guest scheduled for this table */
-          (SELECT MIN(r3.reservation_time) 
-           FROM reservation_tables rt3
-           JOIN reservations r3 ON rt3.reservation_id = r3.reservation_id
-           WHERE rt3.table_id = t.table_id
-           AND r3.reservation_date = CURDATE()
-           AND r3.status = 'Confirmed'
-           AND r3.reservation_time > IFNULL(ANY_VALUE(r.reservation_time), '00:00:00')
-          ) AS next_reservation_time
+          (SELECT r.reservation_id FROM reservations r 
+           JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
+           WHERE rt.table_id = t.table_id 
+           AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
+           ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed') LIMIT 1) AS reservation_id
 
       FROM tables t
-      LEFT JOIN reservation_tables rt ON t.table_id = rt.table_id 
-           AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
-      LEFT JOIN reservations r ON rt.reservation_id = r.reservation_id
       GROUP BY t.table_id
-      /* Order by table number numerically (T1, T2, T10) */
       ORDER BY CAST(REGEXP_REPLACE(t.table_number, '[^0-9]', '') AS UNSIGNED) ASC;
     `;
-    
     const [rows] = await db.query(query);
     return rows;
   },
-
-  // 2. GET TIMELINE (Top Bar)
-  // Fixed: Removed (req, res) because this is a Model, not a Controller
   getTodaySchedule: async () => {
-    const query = `
-      SELECT 
-        r.reservation_id,
-        r.first_name, 
-        r.last_name, 
-        r.reservation_time, 
-        /* Show all table numbers linked to this reservation */
-        GROUP_CONCAT(t.table_number SEPARATOR ', ') as table_names
-      FROM reservations r
-      JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
-      JOIN tables t ON rt.table_id = t.table_id
-      WHERE r.reservation_date = CURDATE() 
-      /* FIX: Include Seated so the bar doesn't disappear when they arrive */
-      AND r.status IN ('Confirmed', 'Seated')
-      GROUP BY r.reservation_id
-      ORDER BY r.reservation_time ASC
-    `;
-    const [rows] = await db.query(query);
-    return rows;
-  },
+    const today = new Date().toLocaleDateString("en-CA", {
+      timeZone: "Asia/Manila",
+    });
+    const nowTime = new Date().toLocaleTimeString("en-US", {
+      hour12: false,
+      timeZone: "Asia/Manila"
+    });
 
+    const conn = await db.getConnection();
+    try {
+      // SAFEGUARD: Automatically complete any active reservations whose session times have already passed
+      await conn.execute(
+        `
+        UPDATE reservations r 
+        LEFT JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
+        SET r.status = 'Completed', rt.status = 'completed'
+        WHERE (r.reservation_date < ?) OR (r.reservation_date = ? AND r.end_time < ?)
+        AND r.status IN ('Seated', 'Confirmed', 'Pending')
+        `,
+        [today, today, nowTime]
+      );
+
+      const query = `
+        SELECT 
+          r.reservation_id,
+          r.first_name, 
+          r.last_name, 
+          TIME_FORMAT(r.reservation_time, '%h:%i %p') as formatted_time,
+          r.reservation_time, 
+          r.reservation_type,
+          r.status, 
+          GROUP_CONCAT(t.table_number SEPARATOR ', ') as table_names
+        FROM reservations r
+        LEFT JOIN reservation_tables rt ON TRIM(r.reservation_id) = TRIM(rt.reservation_id)
+        LEFT JOIN tables t ON rt.table_id = t.table_id
+        WHERE DATE(r.reservation_date) = DATE(?) 
+        AND LOWER(r.status) IN ('confirmed', 'seated')
+        GROUP BY 
+          r.reservation_id, 
+          r.first_name, 
+          r.last_name, 
+          r.reservation_time, 
+          r.reservation_type,
+          r.status
+        ORDER BY r.reservation_time ASC
+      `;
+      const [rows] = await conn.query(query, [today]);
+      return rows;
+    } catch (err) {
+      console.error("Error fetching and self-healing timeline:", err);
+      throw err;
+    } finally {
+      conn.release();
+    }
+  },
   // 3. CREATE WALK-IN
   createWalkIn: async (tableId, customerName) => {
     const conn = await db.getConnection();
     try {
       await conn.beginTransaction();
       const resId = `WALK-${Date.now()}`;
-      
+
+      // Store walk-in reservation_time in UTC to eliminate timezone drift.
+      // UI should convert to the desired timezone.
       const resQuery = `
-        INSERT INTO reservations (reservation_id, first_name, status, reservation_date, reservation_time) 
-        VALUES (?, ?, 'Seated', CURDATE(), CURTIME())
+        INSERT INTO reservations (reservation_id, first_name, status, reservation_date, reservation_time)
+        VALUES (
+          ?, ?, 'Seated',
+          DATE(UTC_TIMESTAMP()),
+          TIME(UTC_TIMESTAMP())
+        )
       `;
+
       await conn.execute(resQuery, [resId, customerName]);
 
       const bridgeQuery = `
@@ -106,42 +134,78 @@ const TableStatus = {
       conn.release();
     }
   },
-
-  // 4. CHECKOUT
+  // 4. CHECKOUT (Updated to automatically clear active kiosk flag)
   checkoutTable: async (tableId) => {
     try {
       const [rows] = await db.query(
         `SELECT reservation_id FROM reservation_tables 
          WHERE table_id = ? AND LOWER(status) IN ('seated', 'confirmed') 
          LIMIT 1`,
-        [tableId]
+        [tableId],
       );
 
       if (rows.length > 0 && rows[0].reservation_id) {
         const resId = rows[0].reservation_id;
 
+        // Reset is_kiosk_active to 0 and set reservation to Completed
         await db.query(
-          "UPDATE reservations SET status = 'Completed' WHERE reservation_id = ?",
-          [resId]
+          "UPDATE reservations SET status = 'Completed', is_kiosk_active = 0 WHERE reservation_id = ?",
+          [resId],
         );
 
         await db.query(
           "UPDATE reservation_tables SET status = 'completed' WHERE reservation_id = ?",
-          [resId]
+          [resId],
         );
       } else {
+        // Fallback safeguard to clear the table bridge mapping status regardless
         await db.query(
-          "UPDATE reservation_tables SET status = 'completed' WHERE table_id = ? AND status = 'seated'",
-          [tableId]
+          "UPDATE reservation_tables SET status = 'completed' WHERE table_id = ? AND LOWER(status) IN ('seated', 'confirmed')",
+          [tableId],
         );
       }
 
+      // Always reset physical table state to available
       await db.query(
         "UPDATE tables SET status = 'available', available_seats = capacity WHERE table_id = ?",
-        [tableId]
+        [tableId],
       );
 
       return { success: true };
+    } catch (err) {
+      throw err;
+    }
+  },
+
+  // 5. CREATE NEW TABLE
+  createNewTable: async (tableNumber, capacity) => {
+    try {
+      const query = `
+        INSERT INTO tables (table_number, capacity, available_seats, status)
+        VALUES (?, ?, ?, 'available')
+      `;
+      const [result] = await db.execute(query, [
+        tableNumber,
+        capacity,
+        capacity,
+      ]);
+      return {
+        table_id: result.insertId,
+        table_number: tableNumber,
+        capacity,
+        status: "available",
+      };
+    } catch (err) {
+      throw err;
+    }
+  },
+
+  // 6. DELETE TABLE
+  deleteTable: async (tableId) => {
+    try {
+      const query = `DELETE FROM tables WHERE table_id = ?`;
+      await db.execute(query, [tableId]);
+      return { success: true, message: "Table deleted successfully" };
     } catch (err) {
       throw err;
     }
