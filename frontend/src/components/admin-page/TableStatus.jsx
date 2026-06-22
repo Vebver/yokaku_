@@ -1,16 +1,13 @@
 import React, { useState, useEffect, useCallback } from "react";
-import io from "socket.io-client"; // <--- ADD THIS
+import io from "socket.io-client";
 import api, { SOCKET_URL } from "../../api";
 import {
   Plus,
   Armchair,
   Trash2,
   RefreshCw,
-  Clock,
   Users,
-  User,
   X,
-  Info,
 } from "lucide-react";
 
 const TableStatus = ({ compact = false }) => {
@@ -22,81 +19,59 @@ const TableStatus = ({ compact = false }) => {
     modal: null,
   });
   const [form, setForm] = useState({
-    guestName: "",
     tableNum: "",
     capacity: 4,
   });
   const [bill, setBill] = useState({ items: [], loading: false, label: "" });
   const [selectedTable, setSelectedTable] = useState(null);
 
-  const notificationSound = React.useMemo(
-    () => new Audio("../../assets/alert-sound.mp3"),
-    [],
-  );
-  const prevVerifiedCount = React.useRef(0);
-  const playPaymentVerifiedAlert = async () => {
+  const fetchData = useCallback(async () => {
     try {
-      if (!notificationSound) return;
-      notificationSound.currentTime = 0;
-      await notificationSound.play();
-    } catch (e) {
-      console.log("Payment alert audio blocked:", e);
+      const [tRes, sRes] = await Promise.all([
+        api.get("/admin/table-status"),
+        api.get("/admin/today-schedule"),
+      ]);
+
+      setData({ 
+        tables: tRes.data || [], 
+        schedule: sRes.data || [] 
+      });
+    } catch (err) {
+      console.error("Fetch Error", err);
+    } finally {
+      setUi((prev) => ({ ...prev, loading: false }));
     }
-  };
+  }, []);
 
-// TableStatus.jsx snippet
-
-const fetchData = useCallback(async () => {
-  try {
-    const [tRes, sRes] = await Promise.all([
-      api.get("/admin/table-status"),
-      api.get("/admin/today-schedule"),
-    ]);
-
-    setData({ 
-      tables: tRes.data || [], 
-      schedule: sRes.data || [] 
+  useEffect(() => {
+    const socket = io(SOCKET_URL, { 
+      transports: ["websocket", "polling"],
+      reconnection: true 
     });
-  } catch (err) {
-    console.error("Fetch Error", err);
-  } finally {
-    setUi((prev) => ({ ...prev, loading: false }));
-  }
-}, []); // Removed audio dependencies for stability
 
-// Inside TableStatus component
-useEffect(() => {
-  const socket = io(SOCKET_URL, { 
-    transports: ["websocket", "polling"],
-    reconnection: true 
-  });
-
-  // Listen for the signal that a Kiosk order was placed
-  socket.on("table_updated", () => {
-    console.log("🔄 Real-time Update: Table status changed via Kiosk");
-    fetchData(); // Trigger immediate refresh
-  });
-
-  // Listen for the signal that a new payment was verified
-  socket.on("new_notification", (notif) => {
-    if (notif.title?.toLowerCase().includes("payment")) {
+    socket.on("table_updated", () => {
+      console.log("🔄 Real-time Update: Table status changed via Kiosk");
       fetchData();
-    }
-  });
+    });
 
-  return () => {
-    socket.off("table_updated");
-    socket.off("new_notification");
-    socket.disconnect();
-  };
-}, [fetchData]); // Dependency on fetchData (which is wrapped in useCallback)   
+    socket.on("new_notification", (notif) => {
+      if (notif.title?.toLowerCase().includes("payment")) {
+        fetchData();
+      }
+    });
 
+    return () => {
+      socket.off("table_updated");
+      socket.off("new_notification");
+      socket.disconnect();
+    };
+  }, [fetchData]);
 
-useEffect(() => {
-  fetchData();
-  const inv = setInterval(fetchData, 15000);
-  return () => clearInterval(inv);
-}, []); // Changed [fetchData] to [] to stop the infinite loop
+  useEffect(() => {
+    fetchData();
+    const inv = setInterval(fetchData, 15000);
+    return () => clearInterval(inv);
+  }, []);
 
   const handleAction = async (
     method,
@@ -106,7 +81,7 @@ useEffect(() => {
   ) => {
     try {
       setUi((p) => ({ ...p, updating: true }));
-      await api[method](url, body, authHeader());
+      await api[method](url, body);
       fetchData();
       callback();
     } catch (err) {
@@ -121,10 +96,7 @@ useEffect(() => {
     setBill({ items: [], loading: true, label: table.table_number });
     setUi((p) => ({ ...p, modal: "bill" }));
     try {
-      const res = await api.get(
-        `/reservations/${table.reservation_id}/items`,
-        authHeader(),
-      );
+      const res = await api.get(`/reservations/${table.reservation_id}/items`);
       setBill((p) => ({ ...p, items: res.data, loading: false }));
     } catch {
       setBill((p) => ({ ...p, loading: false }));
@@ -151,13 +123,7 @@ useEffect(() => {
   );
 
   return (
-    <div
-      className={
-        compact
-          ? "p-0"
-          : "container-fluid px-3 px-md-2 py-2 bg-light min-vh-100"
-      }
-    >
+    <div className={compact ? "p-0" : "container-fluid px-3 px-md-2 py-2 bg-light min-vh-100"}>
       {!compact && (
         <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-2 gap-2">
           <div>
@@ -168,79 +134,35 @@ useEffect(() => {
           </div>
           <div className="d-flex align-items-center gap-2 border-start ps-3 ms-1">
             <div className="d-flex align-items-center gap-1">
-              <span
-                className="rounded-circle"
-                style={{
-                  width: "8px",
-                  height: "8px",
-                  backgroundColor: "#10b981",
-                }}
-              ></span>
-              <span
-                className="text-muted fw-medium"
-                style={{ fontSize: "0.95rem" }}
-              >
+              <span className="rounded-circle" style={{ width: "8px", height: "8px", backgroundColor: "#10b981" }}></span>
+              <span className="text-muted fw-medium" style={{ fontSize: "0.95rem" }}>
                 {stats.available} Available
               </span>
             </div>
             <div className="d-flex align-items-center gap-1 ms-2">
-              <span
-                className="rounded-circle"
-                style={{
-                  width: "8px",
-                  height: "8px",
-                  backgroundColor: "#ef4444",
-                }}
-              ></span>
-              <span
-                className="text-muted fw-medium"
-                style={{ fontSize: "0.95rem" }}
-              >
+              <span className="rounded-circle" style={{ width: "8px", height: "8px", backgroundColor: "#ef4444" }}></span>
+              <span className="text-muted fw-medium" style={{ fontSize: "0.95rem" }}>
                 {stats.seated} Seated
               </span>
             </div>
             <div className="d-flex align-items-center gap-1 ms-2">
-              <span
-                className="rounded-circle"
-                style={{
-                  width: "8px",
-                  height: "8px",
-                  backgroundColor: "#f59e0b",
-                }}
-              ></span>
-              <span
-                className="text-muted fw-medium"
-                style={{ fontSize: "0.95rem" }}
-              >
+              <span className="rounded-circle" style={{ width: "8px", height: "8px", backgroundColor: "#f59e0b" }}></span>
+              <span className="text-muted fw-medium" style={{ fontSize: "0.95rem" }}>
                 {stats.confirmed} Confirmed
               </span>
             </div>
           </div>
           <div className="d-flex gap-1">
-            <button
-              className="btn btn-sm btn-white border shadow-sm"
-              onClick={fetchData}
-            >
-              <RefreshCw
-                size={16}
-                className={ui.loading ? "animate-spin" : ""}
-              />
+            <button className="btn btn-sm btn-white border shadow-sm" onClick={fetchData}>
+              <RefreshCw size={16} className={ui.loading ? "animate-spin" : ""} />
             </button>
             <button
               className={`btn btn-sm ${ui.deleteMode ? "btn-danger" : "btn-outline-danger"} fw-bold`}
-              onClick={() =>
-                setUi((p) => ({ ...p, deleteMode: !p.deleteMode }))
-              }
+              onClick={() => setUi((p) => ({ ...p, deleteMode: !p.deleteMode }))}
             >
-              <Trash2 size={16} />{" "}
-              <span className="d-none d-sm-inline">
-                {ui.deleteMode ? "Exit" : "Remove"}
-              </span>
+              <Trash2 size={16} /> <span className="d-none d-sm-inline">{ui.deleteMode ? "Exit" : "Remove"}</span>
             </button>
-            <button
-              className="btn btn-sm btn-dark fw-bold"
-              onClick={() => setUi((p) => ({ ...p, modal: "add" }))}
-            >
+            <button className="btn btn-sm btn-dark fw-bold" onClick={() => setUi((p) => ({ ...p, modal: "add" }))}>
               <Plus size={16} /> Add Table
             </button>
           </div>
@@ -251,52 +173,42 @@ useEffect(() => {
       <div className="row g-2 row-cols-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-8">
         {data.tables.map((t) => {
           const cfg = getStatusCfg(t.bridge_status);
+          const isAvailable = t.bridge_status?.toLowerCase() === "available";
+
           return (
             <div key={t.table_id} className="col">
               <div className="card border-0 shadow-sm h-100">
-                <div
-                  style={{ height: "3px", backgroundColor: cfg.color }}
-                ></div>
-                <div className="card-body p-2">
-                  <div className="d-flex justify-content-between align-items-start mb-0">
-                    {/* UPDATED: Changed from T{t.table_number} to Table {t.table_number} */}
-                    <h6
-                      className="fw-bold mb-0 text-truncate"
-                      style={{ fontSize: "0.75rem" }}
-                    >
-                      Table {t.table_number}
-                    </h6>
-                    <span
-                      className="badge rounded-pill"
-                      style={{
-                        backgroundColor: `${cfg.color}15`,
-                        color: cfg.color,
-                        fontSize: "0.5rem",
-                      }}
-                    >
-                      {cfg.label}
-                    </span>
-                  </div>
+                <div style={{ height: "3px", backgroundColor: cfg.color }}></div>
+                <div className="card-body p-2 d-flex flex-column justify-content-between">
+                  <div>
+                    <div className="d-flex justify-content-between align-items-start mb-0">
+                      <h6 className="fw-bold mb-0 text-truncate" style={{ fontSize: "0.75rem" }}>
+                        Table {t.table_number}
+                      </h6>
+                      <span
+                        className="badge rounded-pill"
+                        style={{
+                          backgroundColor: `${cfg.color}15`,
+                          color: cfg.color,
+                          fontSize: "0.5rem",
+                        }}
+                      >
+                        {cfg.label}
+                      </span>
+                    </div>
 
-                  <div
-                    className="text-muted mb-1"
-                    style={{ fontSize: "0.6rem" }}
-                  >
-                    <Users size={9} /> {t.capacity} Pax
-                  </div>
+                    <div className="text-muted mb-1" style={{ fontSize: "0.6rem" }}>
+                      <Users size={9} /> {t.capacity} Pax
+                    </div>
 
-                  <div
-                    className="bg-light rounded-2 p-1 mb-2 border text-center d-flex align-items-center justify-content-center"
-                    style={{ minHeight: "40px" }}
-                  >
-                    <span
-                      className="text-dark fw-bold"
-                      style={{ fontSize: "0.65rem" }}
+                    <div
+                      className="bg-light rounded-2 p-1 mb-2 border text-center d-flex align-items-center justify-content-center"
+                      style={{ minHeight: "40px" }}
                     >
-                      {t.bridge_status?.toLowerCase() === "available"
-                        ? "Available"
-                        : t.first_name || t.customer_name}
-                    </span>
+                      <span className="text-dark fw-bold" style={{ fontSize: "0.65rem" }}>
+                        {isAvailable ? "Vacant" : t.first_name || t.customer_name}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="mt-auto">
@@ -306,32 +218,25 @@ useEffect(() => {
                         style={{ fontSize: "0.65rem", height: "22px" }}
                         onClick={() => openBill(t)}
                       >
-                        Bill
+                        View Orders
                       </button>
                     ) : t.bridge_status?.toLowerCase() === "confirmed" ? (
                       <button
                         className="btn btn-sm btn-warning w-100 py-0 fw-bold text-white"
                         style={{ fontSize: "0.65rem", height: "22px" }}
                         onClick={() =>
-                          handleAction(
-                            "put",
-                            `/reservations/${t.reservation_id}/status`,
-                            { status: "Seated" },
-                          )
+                          handleAction("put", `/reservations/${t.reservation_id}/status`, { status: "Seated" })
                         }
                       >
-                        Seat
+                        Seat Guest
                       </button>
                     ) : (
                       <button
-                        className="btn btn-sm btn-outline-dark w-100 py-0 fw-bold"
+                        className="btn btn-sm btn-outline-secondary w-100 py-0 fw-bold border-dashed text-muted bg-white"
                         style={{ fontSize: "0.65rem", height: "22px" }}
-                        onClick={() => {
-                          setSelectedTable(t);
-                          setUi((p) => ({ ...p, modal: "walkin" }));
-                        }}
+                        disabled
                       >
-                        Walk-in
+                        Vacant
                       </button>
                     )}
                   </div>
@@ -356,16 +261,9 @@ useEffect(() => {
             <div className="modal-content border-0 shadow-lg">
               <div className="modal-header border-0 pt-4 px-4">
                 <h5 className="modal-title fw-bold">
-                  {ui.modal === "add"
-                    ? "New Table"
-                    : ui.modal === "walkin"
-                      ? `Walk-in: Table ${selectedTable?.table_number}`
-                      : `Table ${bill.label} Bill`}
+                  {ui.modal === "add" ? "New Table" : `Table ${bill.label} - Read-Only Bill Preview`}
                 </h5>
-                <X
-                  className="cursor-pointer"
-                  onClick={() => setUi((p) => ({ ...p, modal: null }))}
-                />
+                <X className="cursor-pointer" onClick={() => setUi((p) => ({ ...p, modal: null }))} />
               </div>
               <div className="modal-body px-4 pb-4">
                 {ui.modal === "add" && (
@@ -384,68 +282,25 @@ useEffect(() => {
                     }}
                   >
                     <div className="mb-3">
-                      <label className="form-label small fw-bold">
-                        Table Label (Number)
-                      </label>
+                      <label className="form-label small fw-bold">Table Label (Number)</label>
                       <input
                         type="text"
                         className="form-control"
-                        onChange={(e) =>
-                          setForm({ ...form, tableNum: e.target.value })
-                        }
+                        onChange={(e) => setForm({ ...form, tableNum: e.target.value })}
                         required
                       />
                     </div>
                     <div className="mb-3">
-                      <label className="form-label small fw-bold">
-                        Max Capacity
-                      </label>
+                      <label className="form-label small fw-bold">Max Capacity</label>
                       <input
                         type="number"
                         className="form-control"
-                        onChange={(e) =>
-                          setForm({ ...form, capacity: e.target.value })
-                        }
+                        onChange={(e) => setForm({ ...form, capacity: e.target.value })}
                         required
                       />
                     </div>
-                    <button
-                      className="btn btn-dark w-100 py-2 fw-bold"
-                      disabled={ui.updating}
-                    >
+                    <button className="btn btn-dark w-100 py-2 fw-bold" disabled={ui.updating}>
                       Create Table
-                    </button>
-                  </form>
-                )}
-                {ui.modal === "walkin" && (
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      handleAction(
-                        "post",
-                        `/admin/walk-in/${selectedTable.table_id}`,
-                        { customerName: form.guestName },
-                        () => setUi((p) => ({ ...p, modal: null })),
-                      );
-                    }}
-                  >
-                    <label className="form-label small fw-bold">
-                      Guest Name
-                    </label>
-                    <input
-                      type="text"
-                      className="form-control py-2 mb-3"
-                      onChange={(e) =>
-                        setForm({ ...form, guestName: e.target.value })
-                      }
-                      required
-                      placeholder="Enter guest name..."
-                    />
-                    <button
-                      className="btn btn-dark w-100 py-2 fw-bold"
-                      disabled={ui.updating}
-                    >
-                      Confirm Entry
                     </button>
                   </form>
                 )}
@@ -468,11 +323,9 @@ useEffect(() => {
                           {bill.items.map((item, i) => (
                             <tr key={i}>
                               <td className="fw-bold small">
-                                {item.menu_name || item.package_name}
+                                {item.item_name || item.menu_name || item.package_name}
                               </td>
-                              <td className="text-center small">
-                                x{item.quantity}
-                              </td>
+                              <td className="text-center small">x{item.quantity}</td>
                               <td className="text-end fw-bold small">
                                 ₱{(item.price * item.quantity).toFixed(2)}
                               </td>
@@ -481,7 +334,7 @@ useEffect(() => {
                         </tbody>
                       </table>
                       <div className="bg-light p-3 rounded-3 mt-2 d-flex justify-content-between fs-5 fw-bold text-success">
-                        <span>Total Due</span>
+                        <span>Current Bill Sum</span>
                         <span>
                           ₱
                           {bill.items
@@ -491,89 +344,11 @@ useEffect(() => {
                             })}
                         </span>
                       </div>
-                      {/* ==================== DYNAMIC EVENT SPEND TRACKER ==================== */}
-                      {(() => {
-                        const totalBill = bill.items.reduce((s, i) => s + i.price * i.quantity, 0);
-                        
-                        // Checks table properties, falling back to bill items list
-                        const rawPackageName = selectedTable?.package_name 
-                          || selectedTable?.packageName 
-                          || bill.items.find(item => (item.name || "").toLowerCase().includes("event"))?.name 
-                          || "";
-                          
-                        const pkgName = rawPackageName.toLowerCase().trim();
-                        const isEvent = pkgName.includes("event");
-
-                        if (!isEvent) return null; // Only show for private events
-
-                        // DEFINE YOUR EVENT LIMITS HERE:
-                        const eventLimits = {
-                          "event_a": 10000, // Limit for Event A
-                          "event_b": 12500, // Limit for Event B (Edit as needed)
-                        };
-
-                        // Fallback to 10,000 if the package name doesn't match Event A or B
-                        const targetLimit = eventLimits[pkgName] || 10000;
-
-                        const percentage = Math.min(100, (totalBill / targetLimit) * 100);
-                        const warningThreshold = targetLimit * 0.85; // Warn at 85% of target
-                        const isNearing = totalBill >= warningThreshold && totalBill < targetLimit;
-                        const isMet = totalBill >= targetLimit;
-
-                        return (
-                          <div className="mt-3 p-3 bg-white border rounded-3 shadow-sm">
-                            <div className="d-flex justify-content-between align-items-center mb-1">
-                              <span className="small fw-bold text-secondary" style={{ fontSize: "0.75rem" }}>
-                                {rawPackageName.toUpperCase()} SPEND PROGRESS
-                              </span>
-                              <span className="small fw-bold" style={{ color: isMet ? "#10b981" : "#f59e0b", fontSize: "0.8rem" }}>
-                                {percentage.toFixed(0)}%
-                              </span>
-                            </div>
-                            
-                            <div className="progress mb-2" style={{ height: "10px", borderRadius: "50px" }}>
-                              <div 
-                                className={`progress-bar ${isMet ? "bg-success" : isNearing ? "bg-warning" : "bg-primary"}`}
-                                role="progressbar"
-                                style={{ width: `${percentage}%`, borderRadius: "50px", transition: "width 0.4s ease" }}
-                              ></div>
-                            </div>
-
-                            <div className="d-flex justify-content-between align-items-center">
-                              <span className="text-muted" style={{ fontSize: "0.75rem" }}>
-                                Target Limit: ₱{targetLimit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                              </span>
-                              {isMet ? (
-                                <span className="badge bg-success-subtle text-success border border-success-subtle rounded-pill" style={{ fontSize: "0.7rem", padding: "4px 10px" }}>
-                                  ✓ Target Met
-                                </span>
-                              ) : isNearing ? (
-                                <span className="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill" style={{ fontSize: "0.7rem", padding: "4px 10px" }}>
-                                  ⚠️ Approaching Target
-                                </span>
-                              ) : (
-                                <span className="badge bg-light text-secondary border rounded-pill" style={{ fontSize: "0.7rem", padding: "4px 10px" }}>
-                                  In Progress
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })()}
-
-                      <button
-                        className="btn btn-danger w-100 py-2 fw-bold mt-3"
-                        onClick={() => {
-                          if (window.confirm("Complete Payment?"))
-                            handleAction(
-                              "put",
-                              `/admin/checkout/${selectedTable.table_id}`,
-                              {},
-                              () => setUi((p) => ({ ...p, modal: null })),
-                            );
-                        }}
-                      >
-                        Checkout
+                      <div className="alert alert-info border-0 mt-3 small py-2 text-center text-info bg-info bg-opacity-10">
+                        Please settle payment and checkout under the <strong>Billing & Transactions</strong> panel.
+                      </div>
+                      <button className="btn btn-outline-dark w-100 py-2 fw-bold" onClick={() => setUi((p) => ({ ...p, modal: null }))}>
+                        Close Preview
                       </button>
                     </>
                   ) : (
