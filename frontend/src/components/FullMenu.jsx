@@ -127,7 +127,7 @@ function FullMenu() {
               />
             </div>
             <div className="small-card-info">
-              <h4>{item.name}</h4>
+              <h4>{item.menu_name}</h4>
               <span className="small-price">₱{item.price}</span>
               {/* ORDER NOW BUTTON */}
               <button
