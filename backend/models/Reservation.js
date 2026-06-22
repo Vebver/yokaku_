@@ -1,30 +1,30 @@
-    const db = require("../config/db");
+const db = require("../config/db");
 
-    const generateRandomId = (prefix = "RES") => {
-      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-      let result = "";
-      for (let i = 0; i < 6; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
-      return `${prefix}-${result}`;
-    };
+const generateRandomId = (prefix = "RES") => {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let result = "";
+  for (let i = 0; i < 6; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `${prefix}-${result}`;
+};
 
-    const Reservation = {
-      // ==================== USER METHODS ====================
-      checkActiveByUserId: async (userId) => {
-        const sql = `
+const Reservation = {
+  // ==================== USER METHODS ====================
+  checkActiveByUserId: async (userId) => {
+    const sql = `
           SELECT reservation_id FROM reservations 
           WHERE user_id = ? 
           AND status IN ('Pending', 'Confirmed', 'Seated')
           AND (reservation_date > CURDATE() OR (reservation_date = CURDATE() AND end_time > CURTIME()))
           LIMIT 1
         `;
-        const [rows] = await db.execute(sql, [userId]);
-        return rows.length > 0;
-      },
+    const [rows] = await db.execute(sql, [userId]);
+    return rows.length > 0;
+  },
 
-      findActiveDetailsByUserId: async (userId) => {
-        const sql = `
+  findActiveDetailsByUserId: async (userId) => {
+    const sql = `
           SELECT 
             r.reservation_id,
             DATE_FORMAT(r.reservation_date, '%Y-%m-%d') as reservation_date,
@@ -41,12 +41,12 @@
           AND (r.reservation_date > CURDATE() OR (r.reservation_date = CURDATE() AND r.end_time > CURTIME()))
           GROUP BY r.reservation_id
           ORDER BY r.created_at DESC LIMIT 1`;
-        const [rows] = await db.execute(sql, [userId]);
-        return rows[0];
-      },
+    const [rows] = await db.execute(sql, [userId]);
+    return rows[0];
+  },
 
-      findAllActiveByUserId: async (userId) => {
-        const sql = `
+  findAllActiveByUserId: async (userId) => {
+    const sql = `
           SELECT 
             r.reservation_id, r.status, r.package_name, r.allergy,
             DATE_FORMAT(r.reservation_date, '%Y-%m-%d') as reservation_date,
@@ -66,166 +66,171 @@
           AND (r.reservation_date > CURDATE() OR (r.reservation_date = CURDATE() AND r.end_time > CURTIME()))
           GROUP BY r.reservation_id
           ORDER BY r.created_at DESC`;
-        const [rows] = await db.execute(sql, [userId]);
-        return rows;
-      },
+    const [rows] = await db.execute(sql, [userId]);
+    return rows;
+  },
 
-      // ==================== TABLE METHODS ====================
-      getTableOccupancyMap: async (date, startTime, endTime) => {
-        let sql = `
+  // ==================== TABLE METHODS ====================
+  getTableOccupancyMap: async (date, startTime, endTime) => {
+    let sql = `
           SELECT rt.table_id, r.status 
           FROM reservations r 
           JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id 
           WHERE r.reservation_date = ? AND r.status IN ('Pending', 'Confirmed', 'Seated')`;
-        let params = [date];
-        if (startTime && endTime) {
-          sql += ` AND r.reservation_time < ? AND r.end_time > ?`;
-          params.push(endTime, startTime);
-        }
-        const [rows] = await db.execute(sql, params);
-        const map = {};
-        rows.forEach((row) => {
-          map[row.table_id] = row.status;
-        });
-        return map;
-      },
+    let params = [date];
+    if (startTime && endTime) {
+      sql += ` AND r.reservation_time < ? AND r.end_time > ?`;
+      params.push(endTime, startTime);
+    }
+    const [rows] = await db.execute(sql, params);
+    const map = {};
+    rows.forEach((row) => {
+      map[row.table_id] = row.status;
+    });
+    return map;
+  },
 
-      getSlotsByTableAndDate: async (date, tableId) => {
-        const sql = `SELECT r.reservation_time FROM reservations r JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id WHERE r.reservation_date = ? AND rt.table_id = ? AND r.status != 'Rejected'`;
-        const [rows] = await db.execute(sql, [date, tableId]);
-        return rows.map((row) => row.reservation_time);
-      },
+  getSlotsByTableAndDate: async (date, tableId) => {
+    const sql = `SELECT r.reservation_time FROM reservations r JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id WHERE r.reservation_date = ? AND rt.table_id = ? AND r.status != 'Rejected'`;
+    const [rows] = await db.execute(sql, [date, tableId]);
+    return rows.map((row) => row.reservation_time);
+  },
 
-      getSpecificTableSchedule: async (tableId, date) => {
-        const sql = `
+  getSpecificTableSchedule: async (tableId, date) => {
+    const sql = `
           SELECT r.reservation_time AS startTime, r.end_time AS endTime, r.status
           FROM reservations r
           JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
           WHERE rt.table_id = ? AND r.reservation_date = ? 
           AND r.status IN ('Pending', 'Confirmed', 'Seated')`;
-        const [rows] = await db.execute(sql, [tableId, date]);
-        return rows;
-      },
+    const [rows] = await db.execute(sql, [tableId, date]);
+    return rows;
+  },
 
-      // ==================== STATUS MANAGEMENT ====================
-      updateStatus: async (id, status, cancellationReason = null) => {
-        const conn = await db.getConnection();
-        try {
-          await conn.beginTransaction();
-          const bStatus = status.toLowerCase();
+  // ==================== STATUS MANAGEMENT ====================
+  updateStatus: async (id, status, cancellationReason = null) => {
+    const conn = await db.getConnection();
+    try {
+      await conn.beginTransaction();
+      const bStatus = status.toLowerCase();
 
-          if (bStatus === "cancelled") {
-            await conn.execute(
-              `UPDATE reservations 
+      if (bStatus === "cancelled") {
+        await conn.execute(
+          `UPDATE reservations 
               SET status = ?, cancellation_reason = ?, cancelled_at = NOW() 
               WHERE reservation_id = ?`,
-              [status, cancellationReason, id]
-            );
+          [status, cancellationReason, id],
+        );
 
-            try {
-              const [admins] = await conn.execute("SELECT user_id FROM users WHERE role = 'admin'");
-              const notifMessage = `Reservation ${id} has been cancelled by the customer. Reason: ${cancellationReason || "No reason specified."}`;
+        try {
+          const [admins] = await conn.execute(
+            "SELECT user_id FROM users WHERE role = 'admin'",
+          );
+          const notifMessage = `Reservation ${id} has been cancelled by the customer. Reason: ${cancellationReason || "No reason specified."}`;
 
-              for (const admin of admins) {
-                await conn.execute(
-                  `INSERT INTO notifications (user_id, reservation_id, title, message, is_read, created_at) 
-                  VALUES (?, ?, 'Reservation Cancelled', ?, 0, NOW())`,
-                  [admin.user_id, id, notifMessage]
-                );
-              }
-            } catch (notifErr) {
-              console.error("Non-blocking Admin Notification error inside model:", notifErr.message);
-            }
-          } else {
+          for (const admin of admins) {
             await conn.execute(
-              "UPDATE reservations SET status = ? WHERE reservation_id = ?",
-              [status, id]
+              `INSERT INTO notifications (user_id, reservation_id, title, message, is_read, created_at) 
+                  VALUES (?, ?, 'Reservation Cancelled', ?, 0, NOW())`,
+              [admin.user_id, id, notifMessage],
             );
           }
-
-          await conn.execute(
-            "UPDATE reservation_tables SET status = ? WHERE reservation_id = ?",
-            [bStatus, id]
+        } catch (notifErr) {
+          console.error(
+            "Non-blocking Admin Notification error inside model:",
+            notifErr.message,
           );
+        }
+      } else {
+        await conn.execute(
+          "UPDATE reservations SET status = ? WHERE reservation_id = ?",
+          [status, id],
+        );
+      }
 
-          // Updates status of all linked tables to occupied/available
-          if (bStatus === "seated") {
-            await conn.execute(
-              `UPDATE tables t 
+      await conn.execute(
+        "UPDATE reservation_tables SET status = ? WHERE reservation_id = ?",
+        [bStatus, id],
+      );
+
+      // Updates status of all linked tables to occupied/available
+      if (bStatus === "seated") {
+        await conn.execute(
+          `UPDATE tables t 
               JOIN reservation_tables rt ON t.table_id = rt.table_id 
               SET t.status = 'occupied' WHERE rt.reservation_id = ?`,
-              [id]
-            );
-          } else if (["completed", "rejected", "cancelled"].includes(bStatus)) {
-            await conn.execute(
-              `UPDATE tables t 
+          [id],
+        );
+      } else if (["completed", "rejected", "cancelled"].includes(bStatus)) {
+        await conn.execute(
+          `UPDATE tables t 
               JOIN reservation_tables rt ON t.table_id = rt.table_id 
               SET t.status = 'available', t.available_seats = t.capacity 
               WHERE rt.reservation_id = ?`,
-              [id]
-            );
-          }
+          [id],
+        );
+      }
 
-          await conn.commit();
-          return true;
-        } catch (err) {
-          await conn.rollback();
-          throw err;
-        } finally {
-          conn.release();
-        }
-      },
+      await conn.commit();
+      return true;
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
+  },
 
-      syncAllStatuses: async () => {
-        const conn = await db.getConnection();
-        try {
-          await conn.beginTransaction();
-          const now = new Date().toTimeString().slice(0, 8);
-          const today = new Date().toISOString().split("T")[0];
+  syncAllStatuses: async () => {
+    const conn = await db.getConnection();
+    try {
+      await conn.beginTransaction();
+      const now = new Date().toTimeString().slice(0, 8);
+      const today = new Date().toISOString().split("T")[0];
 
-          const [seated] = await conn.execute(
-            `
+      const [seated] = await conn.execute(
+        `
             UPDATE reservations r JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
             SET r.status = 'Seated', rt.status = 'seated'
             WHERE r.reservation_date = ? AND r.status = 'Confirmed' AND r.reservation_time <= ? AND r.end_time >= ?
           `,
-            [today, now, now],
-          );
+        [today, now, now],
+      );
 
-          const [completed] = await conn.execute(
-            `
+      const [completed] = await conn.execute(
+        `
             UPDATE reservations r JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
             SET r.status = 'Completed', rt.status = 'completed'
             WHERE (r.reservation_date < ?) OR (r.reservation_date = ? AND r.end_time < ?)
             AND r.status IN ('Seated', 'Confirmed', 'Pending')
           `,
-            [today, today, now],
-          );
+        [today, today, now],
+      );
 
-          await conn.commit();
-          return { seated: seated.affectedRows, completed: completed.affectedRows };
-        } catch (err) {
-          await conn.rollback();
-          throw err;
-        } finally {
-          conn.release();
-        }
-      },
+      await conn.commit();
+      return { seated: seated.affectedRows, completed: completed.affectedRows };
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
+  },
 
-      getActiveKioskReservation: async (tableId) => {
-        // Force date and time to align with Asia/Manila local timezone
-        const today = new Date().toLocaleDateString("en-CA", {
-          timeZone: "Asia/Manila",
-        });
-        const now = new Date().toLocaleTimeString("en-US", {
-          hour12: false,
-          timeZone: "Asia/Manila"
-        });
+  getActiveKioskReservation: async (tableId) => {
+    // Force date and time to align with Asia/Manila local timezone
+    const today = new Date().toLocaleDateString("en-CA", {
+      timeZone: "Asia/Manila",
+    });
+    const now = new Date().toLocaleTimeString("en-US", {
+      hour12: false,
+      timeZone: "Asia/Manila",
+    });
 
-        // console.log(`Checking kiosk state for local date: ${today}, local time: ${now}`);
+    // console.log(`Checking kiosk state for local date: ${today}, local time: ${now}`);
 
-        // 1. Check if there is an active event reservation scheduled for right now
-        const eventSql = `
+    // 1. Check if there is an active event reservation scheduled for right now
+    const eventSql = `
           SELECT r.* 
           FROM reservations r
           WHERE r.reservation_type = 'event' 
@@ -235,46 +240,49 @@
             AND r.end_time >= ?
           LIMIT 1
         `;
-        const [events] = await db.execute(eventSql, [today, now, now]);
+    const [events] = await db.execute(eventSql, [today, now, now]);
 
-        if (events.length > 0) {
-          const event = events[0];
-          if (event.is_kiosk_active === 1) {
-            return { mode: "event_active", reservation: event };
-          } else {
-            return { mode: "event_waiting", reservation: event };
-          }
-        }
-        // 2. Check globally if there is any reservation actively pushed to the kiosk by the admin (fail-safe version)
-        const activeSql = `
+    if (events.length > 0) {
+      const event = events[0];
+      if (event.is_kiosk_active === 1) {
+        return { mode: "event_active", reservation: event };
+      } else {
+        return { mode: "event_waiting", reservation: event };
+      }
+    }
+    // 2. Check globally if there is any reservation actively pushed to the kiosk by the admin (fail-safe version)
+    const activeSql = `
           SELECT r.* 
           FROM reservations r
           WHERE r.is_kiosk_active = 1
           LIMIT 1
         `;
-        const [actives] = await db.execute(activeSql); // Removed [today] argument constraint
-        if (actives.length > 0) {
-          return { mode: "table_assigned", reservation: actives[0] };
-        }
+    const [actives] = await db.execute(activeSql); // Removed [today] argument constraint
+    if (actives.length > 0) {
+      return { mode: "table_assigned", reservation: actives[0] };
+    }
 
-        return { mode: "table_default" };
-      },
-      // ==================== CRUD OPERATIONS ====================
+    return { mode: "table_default" };
+  },
+  // ==================== CRUD OPERATIONS ====================
 
   create: async (data) => {
     const conn = await db.getConnection();
     try {
       await conn.beginTransaction();
-      
+
+      // ... (Inside the create: async (data) => block)
+
       const idPrefix = data.isWalkin ? "WALK" : "RES";
       const customId = generateRandomId(idPrefix);
-      
-      // --- FIX 1: If it's a manual walk-in, set status to 'Seated' (Red) ---
-      // If it's an online booking, it stays 'Confirmed' (Orange)
-      const finalStatus = data.isWalkin ? "Seated" : "Confirmed";
-      const bridgeStatus = data.isWalkin ? "seated" : "confirmed";
 
-      const finalReservationType = data.reservationType || data.reservation_type || "per_table";
+      // --- UPDATE: Walk-ins now start as 'Confirmed' (Orange) ---
+      // They only transition to 'Seated' when they begin using the kiosk or are manually seated
+      const finalStatus = "Confirmed";
+      const bridgeStatus = "confirmed";
+
+      const finalReservationType =
+        data.reservationType || data.reservation_type || "per_table";
 
       // 1. Insert into reservations
       const resQuery = `INSERT INTO reservations (
@@ -297,7 +305,7 @@
         data.endTime,
         data.pax || data.guests || data.num_guests,
         data.packageName,
-        finalStatus, // Uses 'Seated' or 'Confirmed'
+        finalStatus, // Uses 'Confirmed'
         data.receiptPath,
         data.brgyCode,
         data.allergy,
@@ -310,9 +318,14 @@
 
       // 2. Handle Table Assignments
       let finalTableIds = [];
-      if (data.reservationType === "event" || data.reservation_type === "event") {
-        const [allTables] = await conn.query("SELECT table_id FROM tables WHERE status != 'maintenance'");
-        finalTableIds = allTables.map(t => t.table_id);
+      if (
+        data.reservationType === "event" ||
+        data.reservation_type === "event"
+      ) {
+        const [allTables] = await conn.query(
+          "SELECT table_id FROM tables WHERE status != 'maintenance'",
+        );
+        finalTableIds = allTables.map((t) => t.table_id);
       } else if (data.tableIds?.length > 0) {
         finalTableIds = data.tableIds;
       }
@@ -324,20 +337,21 @@
             `INSERT INTO reservation_tables 
             (reservation_id, table_id, customer_name, status, check_in_time) 
             VALUES (?, ?, ?, ?, NOW())`,
-            [customId, tid, `${data.firstName} ${data.lastName}`, bridgeStatus],
+            [customId, tid, `${data.firstName} ${data.lastName}`, bridgeStatus], // 'confirmed'
           );
 
-          // --- FIX 2: Update the master 'tables' table status ---
-          // This ensures the table is recognized as occupied in all queries
-          await conn.query(
-            "UPDATE tables SET status = 'occupied', available_seats = 0 WHERE table_id = ?",
-            [tid]
-          );
+          // --- UPDATE: Only update physical table state to 'occupied' if seated immediately ---
+          if (bridgeStatus === "seated") {
+            await conn.query(
+              "UPDATE tables SET status = 'occupied', available_seats = 0 WHERE table_id = ?",
+              [tid],
+            );
+          }
         }
       }
 
       // 3. Insert payment record (Auto-verify if manual walk-in)
-      const payStatus = data.isWalkin ? 'verified' : 'pending';
+      const payStatus = data.isWalkin ? "verified" : "pending";
       await conn.query(
         `INSERT INTO payments 
         (reservation_id, amount, total_bill, payment_method, payment_status, paid_at) 
@@ -347,10 +361,9 @@
           data.downpayment || 0,
           data.totalAmount || data.amount || 0,
           data.paymentMethod || "Cash",
-          payStatus
+          payStatus,
         ],
       );
-
       // Notification
 
       if (data.userId && data.userId !== "null") {
@@ -382,59 +395,62 @@
       conn.release();
     }
   },
-    // In models/Reservation.js (inside the Reservation object):
+  // In models/Reservation.js (inside the Reservation object):
 
   // models/Reservation.js
 
-getItemsByReservationId: async (id) => {
-  const sql = `
-    /* 1. Get food items ordered from the Kiosk */
-    SELECT 
-      mi.menu_name AS item_name, 
-      ko.quantity, 
-      mi.price, 
-      ko.customizations 
-    FROM kiosk_orders ko
-    JOIN menu_items mi ON ko.item_id = mi.item_id 
-    WHERE ko.reservation_id = ?
+  getItemsByReservationId: async (id) => {
+    const sql = `
+      /* 1. Get food items ordered from the Kiosk */
+      SELECT 
+        mi.menu_name AS item_name, 
+        mi.menu_name AS menu_name, /* Added for TableStatus.jsx backwards compatibility */
+        ko.quantity, 
+        mi.price, 
+        ko.customizations 
+      FROM kiosk_orders ko
+      /* LEFT JOIN so kiosk items still show even if menu_items is missing */
+      LEFT JOIN menu_items mi ON ko.item_id = mi.item_id 
+      WHERE ko.reservation_id = ?
 
-    UNION ALL
+      UNION ALL
 
-    /* 2. Get the Event Package/Table Fee from the Reservation itself */
-    /* Only shows if price > 0 (to avoid showing 'Free' items) */
-    SELECT 
-      package_name AS item_name, 
-      1 AS quantity, 
-      downpayment_amount AS price, 
-      'Reservation Fee' AS customizations 
-    FROM reservations 
-    WHERE reservation_id = ? AND downpayment_amount > 0
-  `;
-  const [rows] = await db.execute(sql, [id, id]);
-  return rows;
-},
-      // countNoShows: async (userId) => {
-      //   if (!userId || userId === "null") return 0;
-      //   const sql = `SELECT COUNT(*) as count FROM reservations WHERE user_id = ? AND status = 'no-show'`;
-      //   const [rows] = await db.execute(sql, [userId]);
-      //   return rows[0].count;
-      // },
+      /* 2. Get the Event Package/Table Fee from the Reservation itself */
+      /* Only shows if price > 0 (to avoid showing 'Free' items) */
+      SELECT 
+        package_name AS item_name, 
+        package_name AS package_name, /* Added for TableStatus.jsx backwards compatibility */
+        1 AS quantity, 
+        downpayment_amount AS price, 
+        'Reservation Fee' AS customizations 
+      FROM reservations 
+      WHERE reservation_id = ? AND downpayment_amount > 0
+    `;
+    const [rows] = await db.execute(sql, [id, id]);
+    return rows;
+  },
+  // countNoShows: async (userId) => {
+  //   if (!userId || userId === "null") return 0;
+  //   const sql = `SELECT COUNT(*) as count FROM reservations WHERE user_id = ? AND status = 'no-show'`;
+  //   const [rows] = await db.execute(sql, [userId]);
+  //   return rows[0].count;
+  // },
 
-      getAll: async () => {
-        const sql = `SELECT r.*, p.payment_status, p.amount, GROUP_CONCAT(DISTINCT t.table_number SEPARATOR ' + ') AS assigned_tables FROM reservations r LEFT JOIN payments p ON r.reservation_id = p.reservation_id LEFT JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id LEFT JOIN tables t ON rt.table_id = t.table_id GROUP BY r.reservation_id ORDER BY r.created_at DESC`;
-        const [rows] = await db.execute(sql);
-        return rows;
-      },
+  getAll: async () => {
+    const sql = `SELECT r.*, p.payment_status, p.amount, GROUP_CONCAT(DISTINCT t.table_number SEPARATOR ' + ') AS assigned_tables FROM reservations r LEFT JOIN payments p ON r.reservation_id = p.reservation_id LEFT JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id LEFT JOIN tables t ON rt.table_id = t.table_id GROUP BY r.reservation_id ORDER BY r.created_at DESC`;
+    const [rows] = await db.execute(sql);
+    return rows;
+  },
 
-      findById: async (id) => {
-        const sql = `SELECT r.*, p.payment_status, p.amount FROM reservations r LEFT JOIN payments p ON r.reservation_id = p.reservation_id WHERE r.reservation_id = ?`;
-        const [rows] = await db.execute(sql, [id]);
-        return rows[0];
-      },
+  findById: async (id) => {
+    const sql = `SELECT r.*, p.payment_status, p.amount FROM reservations r LEFT JOIN payments p ON r.reservation_id = p.reservation_id WHERE r.reservation_id = ?`;
+    const [rows] = await db.execute(sql, [id]);
+    return rows[0];
+  },
 
-      delete: async (id) => {
-        await db.execute("DELETE FROM reservations WHERE reservation_id = ?", [id]);
-      },
-    };
+  delete: async (id) => {
+    await db.execute("DELETE FROM reservations WHERE reservation_id = ?", [id]);
+  },
+};
 
-    module.exports = Reservation;
+module.exports = Reservation;

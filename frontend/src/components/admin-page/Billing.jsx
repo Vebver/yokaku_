@@ -6,7 +6,6 @@ import {
   ReceiptText,
   ChevronLeft,
   ChevronRight,
-  User,
   AlertTriangle,
   CheckCircle2,
   Calendar,
@@ -29,7 +28,6 @@ const Billing = () => {
   const [tempAmount, setTempAmount] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // States for the in-app rejection form UI
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
 
@@ -49,7 +47,6 @@ const Billing = () => {
   const fetchPayments = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
       const res = await api.get(`/billing`);
       setPayments(res.data.sort((a, b) => b.payment_id - a.payment_id));
       setCurrentPage(1);
@@ -60,7 +57,6 @@ const Billing = () => {
     }
   };
 
-// Filter payments list by guest name or reservation ID
   const filteredPayments = payments.filter((p) => {
     const fullName = `${p.first_name || ""} ${p.last_name || ""}`.toLowerCase();
     const resId = (p.reservation_id || "").toLowerCase();
@@ -97,8 +93,8 @@ const Billing = () => {
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentPayments = payments.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(payments.length / itemsPerPage);
+  const currentPayments = filteredPayments.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredPayments.length / itemsPerPage);
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   const handleReviewClick = async (p) => {
@@ -106,15 +102,12 @@ const Billing = () => {
     setOrderItems([]);
     setLoadingItems(true);
     setShowRejectForm(false);
-    setIsEditingAmount(false); // Reset edit state
+    setIsEditingAmount(false);
     setTempAmount(""); 
     setRejectReason("The receipt image is unclear or details do not match.");
     
     try {
-      const token = localStorage.getItem("token");
-      const res = await api.get(
-        `/reservations/${p.reservation_id}/items`
-      );
+      const res = await api.get(`/reservations/${p.reservation_id}/items`);
       setOrderItems(res.data);
     } catch (err) {
       console.error(err);
@@ -123,7 +116,6 @@ const Billing = () => {
     }
   };
 
-  // Submit the rejected status with our state-managed text
   const submitRejection = async () => {
     const token = localStorage.getItem("token");
     if (!token) return alert("Please log in again.");
@@ -189,7 +181,7 @@ const Billing = () => {
           value={searchQuery}
           onChange={(e) => {
             setSearchQuery(e.target.value);
-            setCurrentPage(1); // Reset to page 1 during active search
+            setCurrentPage(1);
           }}
         />
       </div>
@@ -221,8 +213,8 @@ const Billing = () => {
                         <div className="d-flex align-items-center">
                           <div>
                             <div className="fw-bold text-dark mb-0">
-                              {p.first_name === "Walk-in"
-                                ? `Kiosk (Table ${p.table_number || "?"})`
+                              {p.first_name === "Walk-in" || p.first_name === "Walk-In"
+                                ? `Walk-In (Table ${p.table_number || "?"})`
                                 : `${p.first_name || "Guest"} ${p.last_name || ""}`}
                             </div>
                             <small className="text-muted font-monospace" style={{ fontSize: "0.75rem" }}>
@@ -295,10 +287,10 @@ const Billing = () => {
         </div>
 
         {/* PAGINATION */}
-        {payments.length > itemsPerPage && (
+        {filteredPayments.length > itemsPerPage && (
           <div className="p-3 border-top bg-white d-flex flex-column flex-sm-row justify-content-between align-items-center gap-2">
             <span className="text-muted small">
-              Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, payments.length)} of {payments.length}
+              Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredPayments.length)} of {filteredPayments.length}
             </span>
             <nav>
               <ul className="pagination pagination-sm mb-0">
@@ -407,7 +399,6 @@ const Billing = () => {
               <div className="p-4 bg-dark text-white rounded-top-4 shadow-lg mt-auto">
                 
                 {/* FINANCIAL SUMMARY */}
-             {/* FINANCIAL SUMMARY WITH INLINE DOWNPAYMENT EDITOR */}
                 <div className="card bg-secondary bg-opacity-25 border-secondary border-opacity-25 p-3 mb-3">
                   <div className="d-flex justify-content-between mb-1.5 text-white-50 small">
                     <span>Total Bill</span>
@@ -418,7 +409,6 @@ const Billing = () => {
                     <span className="text-white-50 small">Downpayment Paid</span>
                     {isEditingAmount ? (
                       <div className="d-flex align-items-center gap-2 animate-fade-in">
-                        {/* Custom inline input block (Bypasses Bootstrap input-group bugs) */}
                         <div 
                           className="d-flex align-items-center gap-1 bg-dark px-2 rounded border border-secondary" 
                           style={{ height: "30px" }}
@@ -426,13 +416,12 @@ const Billing = () => {
                           <span className="small fw-bold" style={{ color: "#e0842d" }}>₱</span>
                           <input
                             type="number"
-                            className="bg-transparent border-0 fw-semibold text-end"
+                            className="bg-transparent border-0 fw-semibold text-end text-warning"
                             style={{ 
                               width: "55px", 
                               fontSize: "0.85rem", 
                               outline: "none",
-                              boxShadow: "none",
-                              color: "#d87b24" // Your custom text color
+                              boxShadow: "none"
                             }}
                             value={tempAmount}
                             onChange={(e) => setTempAmount(e.target.value)}
@@ -441,20 +430,18 @@ const Billing = () => {
                         <button
                           className="btn btn-sm btn-success px-2 py-1 fw-bold text-uppercase"
                           style={{ fontSize: "0.7rem", height: "30px" }}
-                         onClick={async () => {
+                          onClick={async () => {
                             const newAmount = parseFloat(tempAmount);
                             if (isNaN(newAmount) || newAmount < 0) {
                               return alert("Please enter a valid numeric amount.");
                             }
                             
                             try {
-                              const token = localStorage.getItem("token");
                               await api.put(
                                 `/billing/update-amount/${selectedPayment.reservation_id}`,
                                 { amount: newAmount },
                               );
 
-                              // Instantly update local state
                               setSelectedPayment((prev) => ({
                                 ...prev,
                                 amount: newAmount
@@ -462,13 +449,12 @@ const Billing = () => {
 
                               setIsEditingAmount(false);
                               
-                              // Force clean any stuck dark backdrop overlays
                               const backdrops = document.querySelectorAll(".offcanvas-backdrop");
                               backdrops.forEach((el) => el.remove());
                               document.body.style.overflow = "";
                               document.body.style.paddingRight = "";
 
-                              await fetchPayments(); // Refresh parent list
+                              await fetchPayments();
                             } catch (err) {
                               console.error("Error updating payment amount:", err);
                               alert("Failed to update downpayment amount.");
@@ -487,8 +473,7 @@ const Billing = () => {
                       </div>
                     ) : (
                       <div className="d-flex align-items-center gap-2">
-                        {/* Replaced class with style so you can customize the HEX color directly */}
-                        <span className="fw-semibold" style={{ color: "#198754" }}>
+                        <span className="fw-semibold text-success">
                           ₱{Number(selectedPayment?.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </span>
                         <button
@@ -506,7 +491,7 @@ const Billing = () => {
                   </div>
 
                   {/* REMAINING BALANCE CALCULATION */}
-                  <div className="d-flex justify-content-between align-items-center">
+                  <div className="d-flex justify-content-between align-items-center mb-1">
                     <span className="small fw-semibold text-white-50">Remaining Balance</span>
                     {balanceInfo.exceeds ? (
                       <span className="fw-bold text-warning fs-5">
@@ -520,12 +505,74 @@ const Billing = () => {
                   </div>
                   
                   {balanceInfo.exceeds && (
-                    <div className="mt-2 text-warning-emphasis small d-flex align-items-center" style={{ fontSize: "0.75rem" }}>
+                    <div className="mt-1 text-warning small d-flex align-items-center" style={{ fontSize: "0.75rem" }}>
                       <AlertTriangle size={12} className="me-1 text-warning" />
                       Amount exceeds downpayment. Collect remainder at settlement.
                     </div>
                   )}
                 </div>
+
+                {/* ==================== INTEGRATED DYNAMIC EVENT SPEND TRACKER ==================== */}
+                {(() => {
+                  const totalBill = calculateItemsSum();
+                  const rawPackageName = selectedPayment?.package_name || selectedPayment?.packageName || "";
+                  const pkgName = rawPackageName.toLowerCase().trim();
+                  const isEvent = pkgName.includes("event");
+
+                  if (!isEvent) return null;
+
+                  const eventLimits = {
+                    "event_a": 10000,
+                    "event_b": 12500,
+                  };
+
+                  const targetLimit = eventLimits[pkgName] || 10000;
+                  const percentage = Math.min(100, (totalBill / targetLimit) * 100);
+                  const warningThreshold = targetLimit * 0.85;
+                  const isNearing = totalBill >= warningThreshold && totalBill < targetLimit;
+                  const isMet = totalBill >= targetLimit;
+
+                  return (
+                    <div className="card bg-secondary bg-opacity-10 border-secondary border-opacity-50 p-3 mb-3 text-white">
+                      <div className="d-flex justify-content-between align-items-center mb-1">
+                        <span className="small fw-bold text-white-50 text-uppercase tracking-wider" style={{ fontSize: "0.7rem" }}>
+                          {rawPackageName} Spend Progress
+                        </span>
+                        <span className="small fw-bold" style={{ color: isMet ? "#10b981" : "#f59e0b", fontSize: "0.8rem" }}>
+                          {percentage.toFixed(0)}%
+                        </span>
+                      </div>
+                      
+                      <div className="progress mb-2 bg-dark" style={{ height: "8px", borderRadius: "50px" }}>
+                        <div 
+                          className={`progress-bar ${isMet ? "bg-success" : isNearing ? "bg-warning" : "bg-primary"}`}
+                          role="progressbar"
+                          style={{ width: `${percentage}%`, borderRadius: "50px", transition: "width 0.4s ease" }}
+                        ></div>
+                      </div>
+
+                      <div className="d-flex justify-content-between align-items-center">
+                        <span className="text-white-50" style={{ fontSize: "0.72rem" }}>
+                          Target Limit: ₱{targetLimit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </span>
+                        {isMet ? (
+                          <span className="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25 rounded-pill" style={{ fontSize: "0.65rem", padding: "3px 8px" }}>
+                            ✓ Limit Met
+                          </span>
+                        ) : isNearing ? (
+                          <span className="badge bg-warning bg-opacity-25 text-warning border border-warning border-opacity-25 rounded-pill" style={{ fontSize: "0.65rem", padding: "3px 8px" }}>
+                            ⚠️ Near Limit
+                          </span>
+                        ) : (
+                          <span className="badge bg-dark text-white-50 border border-secondary rounded-pill" style={{ fontSize: "0.65rem", padding: "3px 8px" }}>
+                            Tracking
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {/* ALERT BLOCK FOR REJECTED ATTEMPTS */}
                 {selectedPayment?.payment_status === "rejected" && !showRejectForm && (
                   <div className="alert alert-danger border-0 bg-danger bg-opacity-10 text-white p-3 mb-3 rounded-3">
@@ -542,16 +589,16 @@ const Billing = () => {
                     </div>
                   </div>
                 )}
+
                 {!showRejectForm && (
                   <div className="mt-2 mb-4">
-                    {/* Calculate full image URL path */}
                     {(() => {
                       const receiptUrl = selectedPayment?.receipt_path
                         ? selectedPayment.receipt_path.startsWith("http")
                           ? selectedPayment.receipt_path
                           : selectedPayment.receipt_path.includes("restaurant_")
                             ? `https://res.cloudinary.com/dfajhhh84/image/upload/${selectedPayment.receipt_path}`
-                            : `${API_BASE.replace("/api", "")}/uploads/${selectedPayment.receipt_path}`
+                            : `${api.defaults.baseURL?.replace("/api", "") || ""}/uploads/${selectedPayment.receipt_path}`
                         : null;
 
                       return (
@@ -593,7 +640,7 @@ const Billing = () => {
                             </div>
                           ) : (
                             <div className="py-4 text-center border border-secondary border-dashed rounded-3 text-white-50 small">
-                              No receipt uploaded.
+                              No receipt uploaded (Cash / Manual Entry).
                             </div>
                           )}
                         </>
@@ -602,7 +649,7 @@ const Billing = () => {
                   </div>
                 )}
 
-                {/* IN-APP CUSTOM REJECTION FORM (REPLACES WINDOW.PROMPT) */}
+                {/* REJECTION FORM */}
                 {showRejectForm && (
                   <div className="card bg-danger bg-opacity-10 border border-danger border-opacity-25 p-3 mb-3 rounded-3 animate-fade-in">
                     <div className="text-danger fw-bold small mb-2 d-flex align-items-center">
@@ -640,13 +687,9 @@ const Billing = () => {
                       <button
                         className="btn btn-success btn-lg fw-bold fs-6 py-2.5 shadow-sm d-flex align-items-center justify-content-center"
                         onClick={async () => {
-                          const token = localStorage.getItem("token");
-                          if (!token || !window.confirm("Verify this proof of payment?")) return;
+                          if (!window.confirm("Verify this proof of payment?")) return;
                           try {
-                            await api.put(
-                              `/billing/verify/${selectedPayment.reservation_id}`,
-                              {},
-                            );
+                            await api.put(`/billing/verify/${selectedPayment.reservation_id}`, {});
                             
                             setSelectedPayment((prev) => ({
                               ...prev,
@@ -666,7 +709,7 @@ const Billing = () => {
                       {selectedPayment?.payment_status !== "rejected" && (
                         <button
                           className="btn btn-outline-danger fw-bold py-2 border-secondary"
-                          onClick={() => setShowRejectForm(true)} // Open the embedded UI form instead
+                          onClick={() => setShowRejectForm(true)}
                         >
                           Reject Proof
                         </button>
@@ -674,22 +717,16 @@ const Billing = () => {
                     </>
                   )}
 
-                  {/* SETTLE COMPLETED TRANSACTION PANEL */}
                   {!showRejectForm && (
                     selectedPayment?.order_status?.toLowerCase() !== "completed" &&
                     selectedPayment?.status?.toLowerCase() !== "completed" ? (
                       <button
                         className="btn btn-primary fw-bold py-2.5 d-flex align-items-center justify-content-center"
                         onClick={async () => {
-                          const token = localStorage.getItem("token");
-                          if (!token) return alert("Please log in again.");
                           if (!window.confirm("Mark this transaction as FULLY PAID and COMPLETED?")) return;
 
                           try {
-                            await api.put(
-                              `/billing/settle/${selectedPayment.reservation_id}`,
-                              {},
-                            );
+                            await api.put(`/billing/settle/${selectedPayment.reservation_id}`, {});
 
                             setSelectedPayment((prev) => ({
                               ...prev,

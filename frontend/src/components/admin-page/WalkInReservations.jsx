@@ -24,6 +24,11 @@
 
     const closeBtnRef = useRef(null);
 
+    const getLocalISODate = () => {
+    const tzOffset = new Date().getTimezoneOffset() * 60000; // offset in milliseconds
+    return new Date(Date.now() - tzOffset).toISOString().slice(0, 10);
+  };
+
     // --- NEW STATE FOR ADDING RESERVATION ---
     const [showAddModal, setShowAddModal] = useState(false);
     const [submitting, setSubmitting] = useState(false);
@@ -32,7 +37,7 @@
       lastName: "",
       email: "",
       phone: "",
-      date: new Date().toISOString().split('T')[0],
+      date: getLocalISODate,
       startTime: "",
       guests: 1,
       bookingType: "table", // 'table' or 'event'
@@ -57,10 +62,12 @@
           headers: { Authorization: `Bearer ${token}` },
         });
 
+        // Walk-ins are identified by reservation_id prefix (WALK-...)
+        // Using this avoids losing rows when assigned_tables join changes.
         const filtered = res.data.filter(
           (item) =>
-            item.reservation_id?.toString().includes("WALK") ||
-            item.first_name?.toLowerCase().includes("walk-in"),
+            (item.reservation_id || "").toString().startsWith("WALK-") ||
+            (item.reservation_id || "").toString().includes("WALK"),
         );
 
         setInquiries(
@@ -84,6 +91,7 @@
         console.error("Error Fetching tables",err);
       }
     };
+    
 
     const formatTime = (timeStr) => {
       if (!timeStr) return "--:--";
@@ -122,24 +130,25 @@
       }
     };
 
-    const handleAddReservation = async (e) => {
+   const handleAddReservation = async (e) => {
       e.preventDefault();
       setSubmitting(true);
       try {
-        // 1. Prepare the data with the Walk-in flag
+        // Prepare the payload and explicitly map bookingType to reservationType
         const payload = {
           ...newRes,
-          isWalkin: true, // <--- THIS IS THE KEY
+          reservationType: newRes.bookingType, // Aligns with the backend's check
+          isWalkin: true, 
         };
 
-        // 2. Send to backend
+        // Send to backend
         await api.post("/reservations", payload);
 
         alert("Manual Reservation Created!");
 
         if(closeBtnRef.current) closeBtnRef.current.click();
         setShowAddModal(false);
-        fetchWalkIns(); // Refresh the list on this page
+        fetchWalkIns(); // Refresh the list
       } catch (err) {
         console.error(err);
         alert("Error creating reservation.");
@@ -374,19 +383,11 @@
 
                 <hr />
 
-                {/* SECTION: BOOKING DETAILS */}
+              {/* SECTION: BOOKING DETAILS */}
                 <p className="x-small fw-bold text-primary text-uppercase mb-3">
                   Booking Details
                 </p>
-                <div classname="mb-3">
-                  <label classname= "form-label small fw-bold text-danger"> ASSIGN TABLE (Required)</label>
-                  <select name="tableIds" className="form-select border-danger fw-bold" onChange={handleInputChange} required>
-                      <option value="">-- Choose Available Table --</option>
-                      {availableTables.map(t => (
-                          <option key={t.table_id} value={t.table_id}>Table {t.table_number} ({t.capacity} Pax)</option>
-                      ))}
-                  </select>
-                </div>
+
                 <div className="mb-3">
                   <label className="form-label small fw-bold">
                     Reservation Type
@@ -402,20 +403,41 @@
                   </select>
                 </div>
 
+                {/* Only show and require Table Assignment if NOT booking an event */}
+                {newRes.bookingType === "table" && (
+                  <div className="mb-3 animate-fade-in">
+                    <label className="form-label small fw-bold text-danger">ASSIGN TABLE (Required)</label>
+                    <select 
+                      name="tableIds" 
+                      className="form-select border-danger fw-bold" 
+                      onChange={handleInputChange} 
+                      required={newRes.bookingType === "table"}
+                    >
+                        <option value="">-- Choose Available Table --</option>
+                        {availableTables.map(t => (
+                            <option key={t.table_id} value={t.table_id}>Table {t.table_number} ({t.capacity} Pax)</option>
+                        ))}
+                    </select>
+                  </div>
+                )}
+
                 {newRes.bookingType === "event" && (
                   <div className="mb-3 p-3 bg-warning-subtle rounded-3 border border-warning-subtle animate-fade-in">
-                    <label className="form-label small fw-bold">
+                    <label className="form-label small fw-bold text-warning-emphasis">
                       Select Event Package
                     </label>
                     <select
                       name="packageName"
-                      className="form-select bg-white"
+                      className="form-select bg-white mb-2"
                       value={newRes.packageName}
                       onChange={handleInputChange}
                     >
                       <option value="Event Package A">Event A</option>
                       <option value="Event Package B">Event B</option>
                     </select>
+                    <div className="x-small text-muted">
+                      * Booking an event reserves all floor layout tables automatically.
+                    </div>
                   </div>
                 )}
 
@@ -535,6 +557,7 @@
         </div>
 
         {/* COMPRESSED DRAWER (OFFCANVAS) */}
+        {/* COMPRESSED DRAWER (OFFCANVAS) */}
         <div
           className="offcanvas offcanvas-end border-0 shadow-sm"
           tabIndex="-1"
@@ -556,75 +579,93 @@
 
           <div className="offcanvas-body bg-white p-0">
             {selectedRes && (
-              <div className="d-flex flex-column">
+              <div className="d-flex flex-column h-100">
+                
+                {/* PROFILE HEADER */}
                 <div className="p-3 border-bottom bg-light-subtle">
-                  <div className="d-flex align-items-center gap-3 mb-2">
+                  <div className="d-flex align-items-center gap-3">
                     <div className="p-2 bg-primary text-white rounded-circle shadow-sm">
                       <User size={18} />
                     </div>
                     <div>
                       <div className="fw-bold text-dark lh-1 mb-1">
-                        {selectedRes.first_name} {selectedRes.last_name}
+                        {selectedRes.first_name} {selectedRes.last_name || ""}
                       </div>
-                      <div className="x-small text-muted">
-                        Direct Walk-in Customer
+                      <div className="x-small text-muted font-monospace">
+                        ID: {selectedRes.reservation_id}
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="p-3 border-bottom">
-                  <div className="d-flex justify-content-between align-items-center mb-1">
-                    <div className="x-small fw-bold text-muted text-uppercase">
-                      Session Time
+                {/* GUEST CONTACT & PROFILE INFO */}
+                <div className="p-3 border-bottom bg-white">
+                  <span className="x-small fw-bold text-muted text-uppercase d-block mb-2">Guest Profile</span>
+                  <div className="row g-2">
+                    <div className="col-6">
+                      <small className="text-muted d-block">Email Address</small>
+                      <span className="small fw-semibold text-dark text-break">{selectedRes.email || "N/A"}</span>
                     </div>
-                    <div className="small fw-bold">
-                      {(() => {
-                        const toStandardTime = (t) => {
-                          if (!t) return "--:--";
-
-                          // Split the time string (expected format "HH:mm:ss")
-                          const parts = String(t).split(":");
-                          if (parts.length < 2) return String(t);
-
-                          let hh = parseInt(parts[0], 10);
-                          const mm = parts[1];
-
-                          // Determine AM or PM
-                          const ampm = hh >= 12 ? "PM" : "AM";
-
-                          // Convert to 12-hour format
-                          hh = hh % 12;
-                          hh = hh ? hh : 12; // The hour '0' should be '12'
-
-                          return `${hh}:${mm.padStart(2, "0")} ${ampm}`;
-                        };
-
-                        const startTime = toStandardTime(
-                          selectedRes.reservation_time,
-                        );
-                        const endTime = selectedRes.time_ended
-                          ? toStandardTime(selectedRes.time_ended)
-                          : "Now";
-
-                        return `${startTime} - ${endTime}`;
-                      })()}
+                    <div className="col-6">
+                      <small className="text-muted d-block">Phone Number</small>
+                      <span className="small fw-semibold text-dark">{selectedRes.phone || "N/A"}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="p-3 flex-grow-1 overflow-auto">
-                  <div className="d-flex align-items-center gap-2 mb-2">
-                    <Package size={14} className="text-muted" />
-                    <span className="x-small fw-bold text-muted text-uppercase">
-                      Order Items
-                    </span>
+                {/* RESERVATION TYPE & SESSION DETAILS */}
+                <div className="p-3 border-bottom bg-white">
+                  <span className="x-small fw-bold text-primary text-uppercase d-block mb-2">Reservation Info</span>
+                  <div className="row g-3">
+                    <div className="col-6">
+                      <small className="text-muted d-block">Booking Type</small>
+                      <span className="badge bg-primary-subtle text-primary text-uppercase font-monospace" style={{ fontSize: "0.7rem" }}>
+                        {selectedRes.reservation_type === "event" ? "🎉 Special Event" : "🍽️ Table Dining"}
+                      </span>
+                    </div>
+                    <div className="col-6">
+                      <small className="text-muted d-block">Selected Package</small>
+                      <span className="small fw-bold text-dark">{selectedRes.package_name || "Regular Table"}</span>
+                    </div>
+                    <div className="col-6">
+                      <small className="text-muted d-block">Party Size</small>
+                      <span className="small fw-bold text-dark">{selectedRes.num_guests || selectedRes.guests || "1"} Guests</span>
+                    </div>
+                    <div className="col-6">
+                      <small className="text-muted d-block">Session Timing</small>
+                      <span className="small fw-bold text-dark">
+                        {(() => {
+                          const toStandardTime = (t) => {
+                            if (!t) return "--:--";
+                            const parts = String(t).split(":");
+                            if (parts.length < 2) return String(t);
+                            let hh = parseInt(parts[0], 10);
+                            const mm = parts[1];
+                            const ampm = hh >= 12 ? "PM" : "AM";
+                            hh = hh % 12;
+                            hh = hh ? hh : 12;
+                            return `${hh}:${mm.padStart(2, "0")} ${ampm}`;
+                          };
+
+                          const startTime = toStandardTime(selectedRes.reservation_time);
+                          const endTime = selectedRes.end_time ? toStandardTime(selectedRes.end_time) : "Now";
+                          return `${startTime} - ${endTime}`;
+                        })()}
+                      </span>
+                    </div>
                   </div>
+                </div>
+
+                {/* ORDER ITEMS LIST */}
+                <div className="p-3 flex-grow-1 overflow-auto bg-light-subtle">
+                  <span className="x-small fw-bold text-muted text-uppercase d-block mb-2">
+                    Order Summary
+                  </span>
                   {loadingItems ? (
                     <div className="text-center py-3">
                       <div className="spinner-border spinner-border-sm text-primary"></div>
                     </div>
-                  ) : (
+                  ) : orderItems.length > 0 ? (
                     <div className="item-list">
                       {orderItems.map((order, idx) => {
                         const isRefill =
@@ -638,38 +679,35 @@
                           : Number(order.price) * order.quantity;
 
                         return (
-                          <div
-                            key={idx}
-                            className="d-flex justify-content-between align-items-center py-1"
-                          >
+                          <div key={idx} className="d-flex justify-content-between align-items-center py-1.5 border-bottom border-light">
                             <div className="small text-dark">
                               {order.name || order.item_name}{" "}
-                              <span className="text-muted small">
-                                x{order.quantity}
-                              </span>
+                              <span className="text-muted small fw-bold">x{order.quantity}</span>
                               {isRefill && (
-                                <span
-                                  className="badge bg-secondary ms-2 small"
-                                  style={{ fontSize: "0.55rem" }}
-                                >
+                                <span className="badge bg-secondary ms-2 small" style={{ fontSize: "0.55rem" }}>
                                   REFILL
                                 </span>
                               )}
                             </div>
-                            <div className="small fw-bold">
+                            <div className="small fw-bold text-dark">
                               ₱{displayedPrice.toFixed(2)}
                             </div>
                           </div>
                         );
                       })}
                     </div>
+                  ) : (
+                    <div className="text-center py-4 text-muted small">
+                      No active food orders linked to this session.
+                    </div>
                   )}
                 </div>
 
+                {/* STICKY BOTTOM ACTIONS */}
                 <div className="p-3 bg-dark text-white sticky-bottom">
                   <div className="d-flex justify-content-between align-items-center mb-3">
-                    <h3 className="fw-bold mb-0">Total Bill</h3>
-                    <span className={`badge py-2 px-3 bg-success`}>PAID</span>
+                    <h5 className="fw-bold mb-0">Total Bill</h5>
+                    <span className="badge py-2 px-3 bg-success">PAID</span>
                   </div>
                   <button
                     className="btn btn-outline-light btn-sm w-100 fw-bold border-opacity-25"
@@ -678,6 +716,7 @@
                     Close Details
                   </button>
                 </div>
+
               </div>
             )}
           </div>

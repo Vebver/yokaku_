@@ -23,8 +23,7 @@ import {
   ChevronLeft,
   PhilippinePeso,
   Bell,
-  Check,
-  RefreshCw, // Imported RefreshCw icon
+  RefreshCw,
 } from "lucide-react";
 
 // Internal Components
@@ -69,9 +68,7 @@ const Icons = {
 };
 
 const navItems = [
-  // MAIN VIEW
   { id: "dashboard", label: "Dashboard", icon: Icons.Dashboard },
-  //FLOOR OPERATION
   { id: "table-status", label: "Table Status", icon: Icons.Dashboard },
   {
     id: "online-reservations",
@@ -79,15 +76,12 @@ const navItems = [
     icon: Icons.Reservations,
   },
   { id: "walk-ins", label: "Walk-ins / Kiosk", icon: Icons.Billing },
-  // TRANSACTION & INSIGHTS
   { id: "billing", label: "Payments", icon: Icons.Billing },
   { id: "report", label: "Reports", icon: Icons.Sales },
-  // MENU INVENTORY
   { id: "products", label: "Menu Items", icon: Icons.Products },
   { id: "recipe", label: "Recipes", icon: Icons.Recipe },
   { id: "categories", label: "Categories", icon: Icons.Categories },
   { id: "inventory", label: "Inventory", icon: Icons.Inventory },
-  //ADMIN
   { id: "account", label: "Account Manage", icon: Icons.Account },
   { id: "profile", label: "Admin Profile", icon: Icons.Profile },
   { id: "maintenance", label: "Maintenance", icon: Icons.Maintenance },
@@ -132,7 +126,6 @@ function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [todaySchedule, setTodaySchedule] = useState([]);
 
-  // Real-time notifications state
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -151,14 +144,48 @@ function AdminDashboard() {
     trendLabels: [],
   });
 
+  // Unified mounting state to load data and setup single socket listener
   useEffect(() => {
     const token = localStorage.getItem("token");
     const role = localStorage.getItem("role");
+
     if (token && role === "admin") {
       setIsAuthenticated(true);
       fetchDashboardData();
       fetchNotifications();
-      initializeSocket();
+
+      // Establish single socket connection for the session lifecycle
+      const socket = io(SOCKET_URL, { 
+        transports: ["websocket", "polling"],
+        reconnection: true 
+      });
+
+      // Notification listener
+      socket.on("new_notification", (notification) => {
+        setNotifications((prev) => {
+          const isDuplicate = prev.some(n => 
+            (n.id && n.id === notification.id) || 
+            (n.message === notification.message && n.created_at === notification.created_at)
+          );
+
+          if (isDuplicate) return prev;
+          return [notification, ...prev];
+        });
+
+        setUnreadCount((prev) => prev + 1);
+        const audio = new Audio("/notification-light.mp3");
+        audio.play().catch(() => {});
+      });
+
+      // Dashboard refresh listener on table states or order placements
+      socket.on("table_updated", () => {
+        console.log("🔄 Real-time Update: Refreshing timeline and stats...");
+        fetchDashboardData();
+      });
+
+      return () => {
+        socket.disconnect();
+      };
     } else {
       setIsAuthenticated(false);
       setLoading(false);
@@ -187,45 +214,8 @@ function AdminDashboard() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-const initializeSocket = () => {
-  const socket = io(SOCKET_URL, { transports: ["websocket"] });
-
-  socket.on("new_notification", (notification) => {
-    setNotifications((prev) => {
-      // FIX: Check if notification ID already exists in the current list
-      // If your notifications don't have an 'id' yet, use the message and time as a unique check
-      const isDuplicate = prev.some(n => 
-        (n.id && n.id === notification.id) || 
-        (n.message === notification.message && n.created_at === notification.created_at)
-      );
-
-      if (isDuplicate) return prev;
-      return [notification, ...prev];
-    });
-
-    setUnreadCount((prev) => prev + 1);
-    
-    // Optional: Play sound only once
-    const audio = new Audio("/notification-light.mp3");
-    audio.play().catch(() => {});
-  });
-};
-
-// --- FIXED: Use fetchDashboardData instead of fetchData ---
-  useEffect(() => {
-    const socket = io(SOCKET_URL, { transports: ["websocket", "polling"] });
-    
-    socket.on("table_updated", () => {
-      console.log("🔄 Table status updated via socket, refreshing dashboard...");
-      fetchDashboardData(); 
-    });
-
-    return () => socket.disconnect();
-  }, []); // Empty dependency array is fine here
-
   const fetchNotifications = async () => {
     try {
-      const token = localStorage.getItem("token");
       const res = await api.get(`/notifications`);
       setNotifications(res.data);
       setUnreadCount(res.data.filter((n) => !n.is_read).length);
@@ -236,7 +226,6 @@ const initializeSocket = () => {
 
   const markAllAsRead = async () => {
     try {
-      const token = localStorage.getItem("token");
       await api.put(`/notifications/read-all`, {});
       setNotifications(notifications.map((n) => ({ ...n, is_read: 1 })));
       setUnreadCount(0);
@@ -248,8 +237,6 @@ const initializeSocket = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem("token");
-
       const [statsRes, scheduleRes] = await Promise.all([
         api.get(`/admin/stats`),
         api.get(`/admin/today-schedule`),
@@ -278,7 +265,6 @@ const initializeSocket = () => {
     }
   };
 
-  // Helper function to manually trigger a data refresh across all systems
   const handleRefreshAll = () => {
     fetchDashboardData();
     fetchNotifications();
@@ -325,58 +311,52 @@ const initializeSocket = () => {
     </div>
   );
 
-const formatTimeAgo = (dateStr) => {
-  if (!dateStr) return "";
+  const formatTimeAgo = (dateStr) => {
+    if (!dateStr) return "";
 
-  let date;
-  // If the string already has Z, it's from the Socket
-  if (dateStr.toString().includes("Z")) {
-    date = new Date(dateStr);
-  } else {
-    // If it's from the Database (Refresh), it won't have Z
-    // We add 'Z' to tell the browser this is UTC
-    const utcStr = dateStr.toString().replace(" ", "T") + "Z";
-    date = new Date(utcStr);
-  }
+    let date;
+    if (dateStr.toString().includes("Z")) {
+      date = new Date(dateStr);
+    } else {
+      const utcStr = dateStr.toString().replace(" ", "T") + "Z";
+      date = new Date(utcStr);
+    }
 
-  const now = new Date();
-  const diffInSeconds = Math.floor((now - date) / 1000);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now - date) / 1000);
 
-  if (diffInSeconds < 30) return "just now";
-  if (diffInSeconds < 60) return `${diffInSeconds}s ago`;
+    if (diffInSeconds < 30) return "just now";
+    if (diffInSeconds < 60) return `${diffInSeconds}s ago`;
 
-  const minutes = Math.floor(diffInSeconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+    const minutes = Math.floor(diffInSeconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
 
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
 
-  return date.toLocaleDateString();
-};
+    return date.toLocaleDateString();
+  };
 
- const formatTime12Hour = (timeStr) => {
+  const formatTime12Hour = (timeStr) => {
     if (!timeStr) return "--:--";
 
-    // If it's a full ISO string from the DB, extract the time part
     const timePart = timeStr.includes("T") ? timeStr.split("T")[1] : timeStr;
     const [hoursStr, minutesStr] = timePart.split(":");
     
     let hour = parseInt(hoursStr, 10);
     const minutes = minutesStr ? minutesStr.substring(0, 2) : "00";
 
-    // IMPORTANT: If your DB stores arrival times in UTC, 
-    // you need to manually add the 8 hours here to show PH time
-    // hour = (hour + 8) % 24; 
-
     const ampm = hour >= 12 ? "PM" : "AM";
     const displayHour = hour % 12 || 12;
     return `${displayHour}:${minutes} ${ampm}`;
   };
+
   const DashboardOverview = () => (
     <div className="dashboard-content">
       <h1 className="fw-bold mb-3">Welcome back, Admin</h1>
 
-      {/* TIMELINE */}
+      {/* TODAY'S TIMELINE PANEL */}
+      
       <div className="mb-4 bg-white p-3 rounded-4 shadow-sm border-start border-4 border-warning">
         <div className="d-flex align-items-center mb-2">
           <Info size={16} className="text-warning me-2" />
@@ -387,16 +367,41 @@ const formatTimeAgo = (dateStr) => {
             todaySchedule.map((res, i) => (
               <div
                 key={i}
-                // Added d-flex align-items-center and whiteSpace nowrap to prevent alignment wrap
-                className="timeline-badge bg-light px-3 py-1 rounded-pill border small fw-semibold d-flex align-items-center"
+                className="timeline-badge bg-light px-3 py-1.5 rounded-pill border small fw-semibold d-flex align-items-center gap-1"
                 style={{ whiteSpace: "nowrap" }}
               >
+                {/* Pre-formatted database time prioritised, falling back to client-side parser if null */}
                 <span className="text-primary">
-                  {formatTime12Hour(res.reservation_time)}
+                  { formatTime12Hour(res.reservation_time)}
                 </span>
-                <span className="mx-2 opacity-50">|</span>
-                <span>{res.first_name}</span>
-                <span className="badge bg-dark ms-2">T-{res.table_names}</span>
+                <span className="text-muted opacity-50">|</span>
+                <span>{res.first_name} {res.last_name || ""}</span>
+                <span className="text-muted opacity-50">|</span>
+                
+                {/* BOOKING TYPE */}
+                <span 
+                  className="badge bg-secondary-subtle text-secondary border text-uppercase" 
+                  style={{ fontSize: "0.62rem", padding: "3px 6px" }}
+                >
+                  {res.reservation_type === "event" ? "🎉 Event Space" : "🍽️ Table Dining"}
+                </span>
+
+                {/* RESERVATION STATUS BADGE */}
+                <span 
+                  className={`badge text-uppercase border ${
+                    res.status?.toLowerCase() === "seated" 
+                      ? "bg-danger-subtle text-danger border-danger-subtle" 
+                      : "bg-warning-subtle text-warning-emphasis border-warning-subtle"
+                  }`}
+                  style={{ fontSize: "0.62rem", padding: "3px 6px" }}
+                >
+                  {res.status || "CONFIRMED"}
+                </span>
+
+                {/* TABLE NUMBER */}
+                <span className="badge bg-dark" style={{ fontSize: "0.62rem", padding: "3px 6px" }}>
+                  {res.reservation_type === "event" ? "All Tables occupied" : (res.table_names ? `Table: ${res.table_names}` : "No Table")}
+                </span>
               </div>
             ))
           ) : (
@@ -668,10 +673,9 @@ const formatTimeAgo = (dateStr) => {
                       notifications.map((notif, index) => (
                         <div
                           key={index}
-                          className={`px-3 py-2 border-bottom hover-bg transition-all ${!notif.is_read ? "bg-light-subtle fw-semibold" : ""}`}
+                          className={`px-3 py-2 border-bottom hover-bg transition-all ${notif.is_read ? "bg-light-subtle fw-semibold" : ""}`}
                           style={{ cursor: "pointer" }}
                           onClick={() => {
-                            // 1. Get the title and message safely
                             const title = (notif.title || "").toLowerCase();
                             const message = (notif.message || "").toLowerCase();
 
@@ -680,8 +684,6 @@ const formatTimeAgo = (dateStr) => {
                               title,
                             );
 
-                            // 2. Routing Logic
-                            // Check if it's related to Payments (Billing)
                             if (
                               title.includes("payment") ||
                               title.includes("receipt") ||
@@ -691,7 +693,6 @@ const formatTimeAgo = (dateStr) => {
                               console.log("➡️ Routing to: billing");
                               setActiveSection("billing");
                             }
-                            // Check if it's related to Reservations
                             else if (
                               title.includes("reserve") ||
                               title.includes("booking") ||
@@ -701,7 +702,6 @@ const formatTimeAgo = (dateStr) => {
                               console.log("➡️ Routing to: online-reservations");
                               setActiveSection("online-reservations");
                             }
-                            // Check if it's related to Stock/Inventory
                             else if (
                               title.includes("stock") ||
                               title.includes("inventory")
@@ -715,7 +715,6 @@ const formatTimeAgo = (dateStr) => {
                               setActiveSection("dashboard");
                             }
 
-                            // 3. Close the notification dropdown
                             setShowNotifications(false);
                           }}    
                         >

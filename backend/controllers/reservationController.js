@@ -221,9 +221,14 @@ const reservationController = {
           ? JSON.parse(body.tableIds)
           : body.tableIds || [];
 
-      // Safety check for dates
+      // Safety check for dates and fallbacks for missing end times
       const startDateTime = new Date(`${body.date} ${body.startTime}`);
-      const endDateTime = new Date(`${body.date} ${body.endTime}`);
+      const duration = parseFloat(body.durationHours || body.duration_hours || 1.0);
+      
+      const endDateTime = body.endTime 
+        ? new Date(`${body.date} ${body.endTime}`) 
+        : new Date(startDateTime.getTime() + duration * 60 * 60 * 1000);
+
       const dbStart = startDateTime.toTimeString().split(" ")[0];
       const dbEnd = endDateTime.toTimeString().split(" ")[0];
 
@@ -243,21 +248,17 @@ const reservationController = {
       // 1. Create the database record for the reservation
       const newId = await Reservation.create(reservationData);
 
-      // --- NOTIFICATION FIX START ---
+      // --- NOTIFICATION HANDLERS ---
       const fName = body.firstName || body.first_name || "Guest";
       const lName = body.lastName || body.last_name || "";
       const fullName = `${fName} ${lName}`.trim();
 
-      // Create timestamps for DB and Socket
       const now = new Date();
-      // For MySQL DATETIME (no timezone info) - format: YYYY-MM-DD HH:MM:SS
       const mysqlDateTime = now.toISOString().slice(0, 19).replace("T", " ");
-      // For Socket (with timezone info) - format: YYYY-MM-DDTHH:MM:SS.ZZZZ
       const isoDateTime = now.toISOString();
 
       let notificationId = null;
 
-      // 2. SAVE TO NOTIFICATIONS TABLE - Use MySQL DATETIME format
       try {
         const [notifResult] = await db.execute(
           "INSERT INTO notifications (title, message, type, is_read, created_at) VALUES (?, ?, ?, ?, ?)",
@@ -266,7 +267,7 @@ const reservationController = {
             `New booking from ${fullName}`,
             "reservation",
             0,
-            mysqlDateTime, // Store in MySQL DATETIME format (no 'Z')
+            mysqlDateTime,
           ],
         );
         notificationId = notifResult.insertId;
@@ -274,23 +275,18 @@ const reservationController = {
         console.error("Notification DB Error:", dbErr.message);
       }
 
-      // 3. BROADCAST REAL-TIME VIA SOCKET.IO - Send ISO format with timezone
       const io = req.app.get("io");
-if (io) {
-    io.emit("table_updated"); // This makes the Admin Dashboard turn RED instantly
-}
-
       if (io) {
+        io.emit("table_updated");
         io.emit("new_notification", {
           id: notificationId,
           title: "New Reservation",
           message: `New booking from ${fullName}`,
           type: "reservation",
           is_read: 0,
-          created_at: isoDateTime, // Send with 'Z' so frontend knows it's UTC
+          created_at: isoDateTime,
         });
       }
-      // --- NOTIFICATION FIX END ---
 
       return res.status(201).json({ id: newId });
     } catch (error) {
@@ -371,7 +367,6 @@ if (io) {
           .json({ success: false, message: "Invalid Reservation ID." });
       }
 
-      // REMOVED 'Seated' from this block. Active seated guests must be allowed to access the menu.
       if (reservation.status === "Completed") {
         return res.status(400).json({
           success: false,
@@ -390,27 +385,32 @@ if (io) {
         });
       }
 
-      const now = new Date();
-      const scheduledTime = new Date(
-        `${reservation.reservation_date} ${reservation.reservation_time}`,
-      );
-      const diffInMs = now - scheduledTime;
-      const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+      // Skip the "too early" / "no-show" checks for direct Walk-ins
+      const isWalkin = (reservation.reservation_id || "").toString().toUpperCase().includes("WALK");
 
-      if (diffInMinutes < -30) {
-        return res.status(400).json({
-          success: false,
-          message: `Too early! Check-in starts 30 mins before. Please wait until ${reservation.reservation_time}.`,
-        });
-      }
+      if (!isWalkin) {
+        const now = new Date();
+        const scheduledTime = new Date(
+          `${reservation.reservation_date} ${reservation.reservation_time}`,
+        );
+        const diffInMs = now - scheduledTime;
+        const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
 
-      if (diffInMinutes > 60) {
-        await Reservation.updateStatus(reservation.reservation_id, "no-show");
-        return res.status(400).json({
-          success: false,
-          message:
-            "Reservation expired. You are more than 1 hour late and marked as a No-Show.",
-        });
+        if (diffInMinutes < -30) {
+          return res.status(400).json({
+            success: false,
+            message: `Too early! Check-in starts 30 mins before. Please wait until ${reservation.reservation_time}.`,
+          });
+        }
+
+        if (diffInMinutes > 60) {
+          await Reservation.updateStatus(reservation.reservation_id, "no-show");
+          return res.status(400).json({
+            success: false,
+            message:
+              "Reservation expired. You are more than 1 hour late and marked as a No-Show.",
+          });
+        }
       }
 
       // Auto-seat the reservation if it is still marked as 'Confirmed'
