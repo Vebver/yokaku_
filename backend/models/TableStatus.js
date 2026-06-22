@@ -1,48 +1,44 @@
 const db = require("../config/db");
 
 const TableStatus = {
-// models/TableStatus.js
 
 getTableStatus: async () => {
-  const query = `
-    SELECT 
-        t.table_id, 
-        t.table_number, 
-        t.capacity, 
-        
-        /* 1. We use LOWER and ORDER BY FIELD to ensure 'seated' always takes priority over 'confirmed' */
-        COALESCE(
-          (SELECT LOWER(status) FROM reservation_tables 
-           WHERE table_id = t.table_id 
-           AND status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
-           ORDER BY FIELD(LOWER(status), 'seated', 'confirmed') 
-           LIMIT 1),
-          'available'
-        ) AS bridge_status,    
+    const query = `
+      SELECT 
+          t.table_id, 
+          t.table_number, 
+          t.capacity, 
+          
+          /* PRIORITIZE 'seated' status for the color */
+          COALESCE(
+            (SELECT status FROM reservation_tables 
+             WHERE table_id = t.table_id 
+             AND status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
+             ORDER BY FIELD(LOWER(status), 'seated', 'confirmed') 
+             LIMIT 1),
+            'available'
+          ) AS bridge_status,    
 
-        /* 2. Get the name from the session that is currently seated */
-        (SELECT r.first_name FROM reservations r 
-         JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
-         WHERE rt.table_id = t.table_id 
-         AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
-         ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed') 
-         LIMIT 1) AS first_name,
+          /* Get the name and reservation ID of the current occupant */
+          (SELECT r.first_name FROM reservations r 
+           JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
+           WHERE rt.table_id = t.table_id 
+           AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
+           ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed') LIMIT 1) AS first_name,
 
-        /* 3. Get the ID for the billing button */
-        (SELECT r.reservation_id FROM reservations r 
-         JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
-         WHERE rt.table_id = t.table_id 
-         AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
-         ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed') 
-         LIMIT 1) AS reservation_id
+          (SELECT r.reservation_id FROM reservations r 
+           JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
+           WHERE rt.table_id = t.table_id 
+           AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
+           ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed') LIMIT 1) AS reservation_id
 
-    FROM tables t
-    GROUP BY t.table_id
-    ORDER BY CAST(REGEXP_REPLACE(t.table_number, '[^0-9]', '') AS UNSIGNED) ASC;
-  `;
-  const [rows] = await db.query(query);
-  return rows;
-},  
+      FROM tables t
+      GROUP BY t.table_id
+      ORDER BY CAST(REGEXP_REPLACE(t.table_number, '[^0-9]', '') AS UNSIGNED) ASC;
+    `;
+    const [rows] = await db.query(query);
+    return rows;
+},
 
   // 2. GET TIMELINE (Top Bar)
   // Fixed: Removed (req, res) because this is a Model, not a Controller

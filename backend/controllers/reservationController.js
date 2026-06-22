@@ -276,6 +276,9 @@ const reservationController = {
 
       // 3. BROADCAST REAL-TIME VIA SOCKET.IO - Send ISO format with timezone
       const io = req.app.get("io");
+if (io) {
+    io.emit("table_updated"); // This makes the Admin Dashboard turn RED instantly
+}
 
       if (io) {
         io.emit("new_notification", {
