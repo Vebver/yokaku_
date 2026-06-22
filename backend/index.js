@@ -7,6 +7,61 @@ const http = require("http");
 const { Server } = require("socket.io");
 const db = require("./config/db");
 
+const PORT = process.env.PORT || 5000;
+
+// 1. Initialize Express app and HTTP server FIRST
+const app = express();
+const server = http.createServer(app);
+
+// 2. Set up a single, complete list of allowed CORS origins
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "https://hangout-resto.com", 
+  "https://www.hangout-resto.com",
+  "https://yokaku-tau.vercel.app",
+  "https://yokaku-deployments-vercel.vercel.app", 
+  "https://yokaku-deployments.vercel.app"
+];
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl, or postman)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`Origin ${origin} not allowed by CORS`));
+    }
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+};
+
+// 3. Apply CORS middleware BEFORE any routes are declared
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
+
+// 4. Configure other standard middlewares
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ limit: "10mb", extended: true }));
+
+// Initialize Socket.io with the same allowed origins
+const io = new Server(server, {
+  cors: {
+    origin: allowedOrigins,
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
+  transports: ["websocket", "polling"],
+  allowEIO3: true,
+});
+
+// Store connected users
+const connectedUsers = new Map();
+
 const User = require("./models/User");
 const authRoutes = require("./routes/authRoutes");
 const otpRoutes = require("./routes/otpRoutes");
@@ -27,31 +82,6 @@ const Notification = require("./models/Notification");
 const settingRoutes = require("./routes/settingRoutes");
 const priceRoutes = require("./routes/priceRoutes");
 
-const PORT = process.env.PORT || 5000;
-const app = express();
-
-// Create HTTP server
-const server = http.createServer(app);
-
-// Initialize Socket.io with better error handling
-const io = new Server(server, {
-  cors: {
-    origin: [
-      "http://localhost:5173",
-      "http://127.0.0.1:5173",
-      "https://hangout-resto.com", 
-    "https://www.hangout-resto.com",
-    ],
-    methods: ["GET", "POST"],
-    credentials: true,
-  },
-  transports: ["websocket", "polling"],
-  allowEIO3: true,
-});
-
-// Store connected users
-const connectedUsers = new Map();
-
 // Set io instance for Notification model
 Notification.setIo(io);
 
@@ -59,18 +89,15 @@ Notification.setIo(io);
 io.on("connection", (socket) => {
   console.log(`📡 New client connected: ${socket.id}`);
 
-  // Handle user joining their personal room
   socket.on("join_user", (userId) => {
     if (userId) {
       socket.join(`user_${userId}`);
       connectedUsers.set(userId, socket.id);
       console.log(`✅ User ${userId} joined their notification room`);
-      // Send acknowledgment
       socket.emit("join_ack", { success: true, userId });
     }
   });
 
-  // Listen for orders
   socket.on("send_order", (orderData) => {
     console.log("📦 Order received from kiosk:", orderData.id);
     io.emit("new_order", orderData);
@@ -91,23 +118,6 @@ io.on("connection", (socket) => {
 // Make io accessible to routes
 app.set("io", io);
 app.set("connectedUsers", connectedUsers);
-
-// --- MIDDLEWARE ---
-app.use(
-  cors({
-    origin: [
-      "http://localhost:5173",
-      "http://127.0.0.1:5173",
-      "https://yokaku-tau.vercel.app",
-    ],
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  }),
-);
-
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ limit: "10mb", extended: true }));
 
 // --- ROOT ROUTE ---
 app.get("/", (req, res) => {
@@ -138,7 +148,6 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/billing", billingRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/reviews", reviewRoutes);
-app.use("/api/inventory", inventoryRoutes);
 app.use("/api/settings", settingRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/price", priceRoutes);
@@ -158,7 +167,6 @@ server.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📡 WebSocket server running on ws://localhost:${PORT}`);
 
-  // Test the database connection using 'db', not 'User'
   db.getConnection()
     .then((connection) => {
       console.log("✅ MySQL connection pool is ready");
