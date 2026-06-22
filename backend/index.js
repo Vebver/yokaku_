@@ -39,7 +39,8 @@ const io = new Server(server, {
     origin: [
       "http://localhost:5173",
       "http://127.0.0.1:5173",
-      "https://yokaku-tau.vercel.app",
+      "https://hangout-resto.com", 
+    "https://www.hangout-resto.com",
     ],
     methods: ["GET", "POST"],
     credentials: true,
