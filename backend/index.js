@@ -24,23 +24,14 @@ const allowedOrigins = [
   "https://yokaku-deployments.vercel.app"
 ];
 
+// Simplified direct-array mapping (highly reliable)
 const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps, curl, or postman)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error(`Origin ${origin} not allowed by CORS`));
-    }
-  },
+  origin: allowedOrigins, 
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
 };
 
-// 3. Apply CORS middleware BEFORE any routes are declared
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
 
