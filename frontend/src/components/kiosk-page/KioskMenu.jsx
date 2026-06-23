@@ -451,7 +451,6 @@ const KioskMenu = () => {
       }
 
       await fetchCurrentBill();
-      // REMOVED: setLocalBillHistory([]); -> Preserves order history for walk-in summaries
 
       setShowPaymentModal(false);
     } catch (error) {
@@ -478,8 +477,6 @@ const KioskMenu = () => {
           headers: getFetchHeaders(),
         });
         const data = await response.json();
-        // Inside KioskMenu.jsx (inside the fetchMenu useEffect block):
-
         const grouped = data.reduce((acc, item) => {
           const cat = item.category_name || "General";
           if (!acc[cat]) acc[cat] = [];
@@ -871,7 +868,6 @@ const KioskMenu = () => {
                 specify
               </p>
             </div>
-            // Inside KioskMenu.jsx (under Allergy Modal JSX rendering):
             <div style={{ display: "flex", gap: "15px" }}>
               <button
                 className="res-btn-cancel"
