@@ -386,8 +386,22 @@ const KioskReservationMenu = () => {
 
         if (resItemsRes && resItemsRes.length > 0) {
           setBillItems(resItemsRes);
+          
+          // Filter out the Reservation Fee / Downpayment from appearing in the Cart Tray
+          const filteredCartItems = resItemsRes.filter((i) => {
+            const customizationsStr = (i.customizations || "").toString().toLowerCase();
+            const nameStr = (i.item_name || i.menu_name || "").toLowerCase();
+            
+            return !(
+              customizationsStr.includes("reservation fee") ||
+              nameStr.includes("reserve a table") ||
+              nameStr.includes("table fee") ||
+              nameStr.includes("downpayment")
+            );
+          });
+
           setCart(
-            resItemsRes.map((i) => ({
+            filteredCartItems.map((i) => ({
               id: i.item_id,
               name: i.item_name || i.menu_name,
               price: i.item_price || i.price,

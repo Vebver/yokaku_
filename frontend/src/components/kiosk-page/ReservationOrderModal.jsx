@@ -103,9 +103,13 @@ const ReservationOrderModal = ({
       alert("Please select your flavors and drink.");
       return;
     }
+
+    // Parse the quantity state safely (falls back to 1 if empty)
+    const finalQuantity = parseInt(quantity, 10) || 1;
+
     onAdd({
       ...item,
-      quantity,
+      quantity: finalQuantity,
       customizations: isBundle ? customizations : null,
     });
     onClose();
@@ -227,11 +231,46 @@ const ReservationOrderModal = ({
             <div className="qty-section">
               <span className="qty-label">QUANTITY</span>
               <div className="qty-picker">
-                <button onClick={() => setQuantity((q) => Math.max(1, q - 1))}>
-                  <Minus size={20} />
+                
+                {/* DECREMENT BUTTON (Min limit: 1) */}
+                <button onClick={() => setQuantity((q) => {
+                  const current = parseInt(q, 10) || 1;
+                  return Math.max(1, current - 1);
+                })}>
+                  <Minus size={20} /> 
                 </button>
-                <span className="qty-val">{quantity}</span>
-                <button onClick={() => setQuantity((q) => q + 1)}>
+
+                {/* TEXT INPUT FIELD WITH LIMITERS (1 to 50) */}
+                <input 
+                  type="number"
+                  min="1"
+                  max="50"
+                  value={quantity}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10);
+                    if (isNaN(val) || val < 1) {
+                      setQuantity(""); // Allow empty temporarily for backspacing
+                    } else if (val > 50) {
+                      setQuantity(50); // Hard ceiling at 50 if they type a larger number
+                    } else {
+                      setQuantity(val);
+                    }
+                  }}
+                  onBlur={() => {
+                    if (quantity === "" || quantity < 1) {
+                      setQuantity(1);
+                    } else if (quantity > 50) {
+                      setQuantity(50);
+                    }
+                  }}
+                  className="qty-input-field"
+                />
+
+                {/* INCREMENT BUTTON (Max limit: 50) */}
+                <button onClick={() => setQuantity((q) => {
+                  const current = parseInt(q, 10) || 1;
+                  return Math.min(50, current + 1); // Hard limit to 50
+                })}>
                   <Plus size={20} />
                 </button>
               </div>
@@ -246,13 +285,35 @@ const ReservationOrderModal = ({
               className={`btn-submit ${isBundle && (customizations.flavors.length === 0 || !customizations.drink) ? "disabled" : ""}`}
               onClick={handleAdd}
             >
-              Add to Tray - ₱{(item?.price * quantity).toFixed(2)}
+              Add to Tray - ₱{(item?.price * (parseInt(quantity, 10) || 1)).toFixed(2)}
             </button>
           </div>
         </div>
       </div>
 
       <style jsx="true">{`
+        .qty-input-field {
+          font-size: 1.6rem;
+          font-weight: 900;
+          width: 60px;
+          text-align: center;
+          border: none;
+          background: transparent;
+          font-family: inherit;
+          color: #222;
+        }
+        .qty-input-field:focus {
+          outline: none;
+        }
+        /* Hide HTML5 arrows inside input box */
+        .qty-input-field::-webkit-inner-spin-button,
+        .qty-input-field::-webkit-outer-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+        .qty-input-field {
+          -moz-appearance: textfield; /* Firefox */
+        }
         .res-textarea {
           width: 100%;
           border: 2px solid #eee;
@@ -420,4 +481,4 @@ const ReservationOrderModal = ({
   );
 };
 
-export default ReservationOrderModal;
+export default ReservationOrderModal; 

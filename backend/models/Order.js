@@ -66,17 +66,21 @@ const Order = {
       allergyNote,
     ]);
   },
-
   // 5. Create the main reservation record for a Walk-in
   createWalkinSession: async (conn, reservationId, firstName = "Walk-in") => {
+    // Generate dates aligned with the local Philippine timezone (Asia/Manila)
+    const options = { timeZone: "Asia/Manila", hour12: false };
+    const localDate = new Date().toLocaleDateString("en-CA", options); // Returns YYYY-MM-DD
+    const localTime = new Date().toLocaleTimeString("en-US", options); // Returns HH:MM:SS
+
     const query = `
       INSERT INTO reservations (
         reservation_id, first_name, last_name, email, phone, status, 
         reservation_date, reservation_time, brgy_code, num_guests, package_name, occasion
       ) 
-      VALUES (?, ?, '', '', '', 'seated', CURDATE(), CURTIME(), NULL, 1, 'walk-in', 'none')
+      VALUES (?, ?, '', '', '', 'seated', ?, ?, NULL, 1, 'walk-in', 'none')
     `;
-    return await conn.execute(query, [reservationId, firstName]);
+    return await conn.execute(query, [reservationId, firstName, localDate, localTime]);
   },
 
   // 6. Link the table and update status to occupied
