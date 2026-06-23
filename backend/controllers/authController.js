@@ -25,6 +25,11 @@ const transporter = nodemailer.createTransport({
   pool: true,
   maxConnections: 1,
   rateLimit: 5,
+  // Add these for better deliverability
+  maxMessages: 100,
+  headers: {
+    "X-Entity-Ref-ID": "hangout-otp",
+  },
 });
 
 // Send OTP via email - will likely go to spam but that's okay

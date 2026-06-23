@@ -12,24 +12,27 @@ const PORT = process.env.PORT || 5000;
 // 1. Initialize Express app and HTTP server FIRST
 const app = express();
 const server = http.createServer(app);
+app.set("trust proxy", 1);
 
 // 2. Set up a single, complete list of allowed CORS origins
 const allowedOrigins = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
-  "https://hangout-resto.com", 
+  "https://hangout-resto.com",
   "https://www.hangout-resto.com",
   "https://yokaku-tau.vercel.app",
-  "https://yokaku-deployments-vercel.vercel.app", 
-  "https://yokaku-deployments.vercel.app"
-];
+  "https://yokaku-deployments-vercel.vercel.app",
+  "https://yokaku-deployments.vercel.app",
+  // Add your Render backend URL if needed
+  process.env.CORS_ORIGIN, // Optional: add from env
+].filter(Boolean); // Remove undefined values
 
 // Simplified direct-array mapping (highly reliable)
 const corsOptions = {
-  origin: allowedOrigins, 
+  origin: allowedOrigins,
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
+  allowedHeaders: ["Content-Type", "Authorization"],
 };
 
 app.use(cors(corsOptions));
