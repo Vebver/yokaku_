@@ -21,18 +21,16 @@ const transporter = nodemailer.createTransport({
   tls: {
     rejectUnauthorized: false,
   },
-  // Add these to improve deliverability
   pool: true,
   maxConnections: 1,
   rateLimit: 5,
-  // Add these for better deliverability
   maxMessages: 100,
   headers: {
     "X-Entity-Ref-ID": "hangout-otp",
   },
 });
 
-// Send OTP via email - will likely go to spam but that's okay
+// Send OTP via email
 const sendOTP = async (email, otp) => {
   console.log(`📧 Attempting to send OTP to: ${email}`);
 
@@ -40,7 +38,7 @@ const sendOTP = async (email, otp) => {
     from: process.env.SMTP_USER,
     to: email,
     subject: "🔐 Your Hangout OTP Verification Code",
-    text: `Your OTP verification code is: ${otp}\n\nThis code is valid for 5 minutes.\n\nIf you didn't request this, please ignore this email.`,
+    text: `Your OTP verification code is: ${otp}\n\nThis code is valid for 1 hour.\n\nIf you didn't request this, please ignore this email.`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
         <h2 style="color: #f38d31; text-align: center;">🔐 Hangout Resto Bar</h2>
@@ -48,7 +46,7 @@ const sendOTP = async (email, otp) => {
         <div style="background: #f5f5f5; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
           <span style="font-size: 36px; font-weight: bold; color: #f38d31; letter-spacing: 5px;">${otp}</span>
         </div>
-        <p style="color: #666; text-align: center;">This code is valid for <strong>5 minutes</strong>.</p>
+        <p style="color: #666; text-align: center;">This code is valid for <strong>1 hour</strong>.</p>
         <p style="color: #999; font-size: 12px; text-align: center; margin-top: 20px;">If you didn't request this, please ignore this email.</p>
         <hr style="border: none; border-top: 1px solid #eee;">
         <p style="color: #999; font-size: 12px; text-align: center;">Hangout Resto Bar</p>
@@ -62,14 +60,12 @@ const sendOTP = async (email, otp) => {
     return true;
   } catch (error) {
     console.error(`❌ Failed to send OTP to ${email}:`, error.message);
-    // Fallback: log the OTP so you can still see it in Render logs
     console.log(`🔑 FALLBACK OTP FOR ${email}: ${otp}`);
-    // Still return true so the signup process continues
     return false;
   }
 };
 
-// Clean up expired OTPs periodically
+// Clean up expired OTPs periodically (every minute)
 setInterval(() => {
   const now = Date.now();
   for (const [email, data] of otpStore.entries()) {
@@ -213,36 +209,31 @@ const authController = {
 
       const otp = generateOTP();
 
-      // Store OTP
+      // Store OTP - valid for 1 hour (3600000 ms)
       otpStore.set(email, {
         firstName,
         lastName,
         password,
         otp,
-        expires: Date.now() + 5 * 60 * 1000,
+        expires: Date.now() + 3600000, // 1 hour
       });
 
-      // Log OTP to console (for debugging)
       console.log(`========================================`);
       console.log(`✅ SIGNUP ATTEMPT FOR: ${email}`);
       console.log(`🔑 YOUR OTP CODE IS: ${otp}`);
-      console.log(`⏰ Valid for 5 minutes`);
+      console.log(`⏰ Valid for 1 hour`);
       console.log(`========================================`);
 
-      // Try to send email
       try {
         await sendOTP(email, otp);
         console.log(`✅ OTP email sent to ${email}`);
       } catch (emailError) {
         console.log(`⚠️ Email sending had issues: ${emailError.message}`);
-        // Don't fail the signup - OTP is still in console logs
       }
 
       res.json({
         message: "OTP sent to email",
         email,
-        // For development: include OTP in response if email fails
-        // Remove this in production
         dev_otp: process.env.NODE_ENV === "development" ? otp : undefined,
       });
     } catch (error) {
@@ -303,14 +294,22 @@ const authController = {
 
       const otp = generateOTP();
 
+      // FIX: Delete existing OTP first to invalidate previous one
+      // Then store the new OTP - valid for 1 hour
+      otpStore.delete(email); // This invalidates the previous OTP
+
       otpStore.set(email, {
         otp,
-        expires: Date.now() + 5 * 60 * 1000,
+        expires: Date.now() + 3600000, // 1 hour
       });
 
-      console.log(`Reservation OTP for ${email}: ${otp}`);
+      console.log(`========================================`);
+      console.log(`🔄 RESEND OTP FOR: ${email}`);
+      console.log(`🔑 NEW OTP CODE IS: ${otp}`);
+      console.log(`⏰ Valid for 1 hour`);
+      console.log(`⚠️ Previous OTP is now INVALID`);
+      console.log(`========================================`);
 
-      // Try to send email
       try {
         await sendOTP(email, otp);
       } catch (emailError) {
@@ -318,7 +317,7 @@ const authController = {
       }
 
       res.json({
-        message: "OTP sent to email",
+        message: "OTP resent to email",
         dev_otp: process.env.NODE_ENV === "development" ? otp : undefined,
       });
     } catch (error) {
