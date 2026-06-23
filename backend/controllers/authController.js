@@ -11,14 +11,14 @@ const otpStore = new Map();
 const generateOTP = () =>
   Math.floor(100000 + Math.random() * 900000).toString();
 
-// Configure nodemailer with Gmail using environment variables
+// Configure nodemailer with Brevo using environment variables
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || "smtp.gmail.com",
-  port: parseInt(process.env.SMTP_PORT) || 587,
+  host: process.env.BREVO_HOST || "smtp-relay.brevo.com",
+  port: parseInt(process.env.BREVO_PORT) || 587,
   secure: false, // true for 465, false for other ports
   auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
+    user: process.env.BREVO_USER,
+    pass: process.env.BREVO_PASS,
   },
   tls: {
     rejectUnauthorized: false,
@@ -37,7 +37,7 @@ const sendOTP = async (email, otp) => {
   console.log(`📧 Attempting to send OTP to: ${email}`);
 
   const mailOptions = {
-    from: `"Hangout Resto Bar" <${process.env.SMTP_USER}>`,
+    from: `"Hangout Resto Bar" <${process.env.BREVO_USER}>`,
     to: email,
     subject: "🔐 Your Hangout OTP Verification Code",
     text: `Your OTP verification code is: ${otp}\n\nThis code is valid for 1 hour.\n\nIf you didn't request this, please ignore this email.`,
