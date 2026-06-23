@@ -21,42 +21,85 @@ const orderController = {
   // --- 2. Place Order (Fixed) ---
   placeOrder: async (req, res) => {
     const { reservation_id, table_id, items } = req.body;
+     console.log("📡 [DEBUG] placeOrder called with ID:", reservation_id); // <-- ADD THIS LOG
     const conn = await db.getConnection();
 
     try {
       await conn.beginTransaction();
 
-      // 1. VALIDATE: Check if reservation exists
-      const [existing] = await conn.execute(
-        "SELECT reservation_id, status FROM reservations WHERE reservation_id = ?",
-        [reservation_id],
-      );
+       const hasRefill = items.some((item) => item.is_refill === true);
 
-      if (existing.length === 0) {
-        throw new Error(
-          `Reservation ID ${reservation_id} does not exist. Please create a reservation first.`,
+      if (hasRefill) {
+        // Query the database for the last refill for this specific reservation
+        const [lastRefill] = await conn.execute(
+          `SELECT created_at FROM kiosk_orders 
+         WHERE reservation_id = ? AND is_refill = 1
+         ORDER BY created_at DESC LIMIT 1`,
+          [reservation_id],
         );
+
+        if (lastRefill.length > 0) {
+          const lastTime = new Date(lastRefill[0].created_at);
+          const now = new Date();
+          const diffInMinutes = Math.floor((now - lastTime) / (1000 * 60));
+
+          // 15 MINUTE RULE
+          if (diffInMinutes < 15) {
+            const remaining = 15 - diffInMinutes;
+            // IMPORTANT: Rollback and release if we block the order
+            await conn.rollback();
+            conn.release();
+            return res.status(429).json({
+              error: "Cooldown active",
+              message: `Please wait ${remaining} more minutes before your next refill.`,
+            });
+          }
+        }
       }
 
-      console.log(
-        `✅ Found reservation ${reservation_id} with status: ${existing[0].status}`,
+      // 1. Check if reservation exists
+      const [existing] = await conn.execute(
+        "SELECT reservation_id FROM reservations WHERE reservation_id = ?",
+        [reservation_id]
       );
 
-      // 2. Update reservation status to 'Seated' (capitalized for history view)
-      await conn.execute(
-        "UPDATE reservations SET status = 'Seated' WHERE reservation_id = ?",
-        [reservation_id],
-      );
+      const isWalkIn = reservation_id && reservation_id.startsWith("WALK");
 
-      // 3. Handle table seating
-      if (table_id && table_id !== "takeout" && table_id !== "null") {
-        // Insert/update the bridge table
+      if (existing.length === 0) {
+        if (isWalkIn) {
+          // Automatically create a Walk-in session since it doesn't exist in the database yet
+          await Order.createWalkinSession(conn, reservation_id, "Walk-in");
+          
+          if (table_id && table_id !== "takeout" && table_id !== "null") {
+            await Order.linkTableToSession(conn, reservation_id, table_id);
+          }
+        } else {
+          // Reject regular reservations that do not exist
+          throw new Error(`Reservation ID ${reservation_id} does not exist. Please create a reservation first.`);
+        }
+      } else {
+        // Update the existing reservation to Seated
         await conn.execute(
-          `INSERT INTO reservation_tables (reservation_id, table_id, status, check_in_time)
-           VALUES (?, ?, 'seated', NOW())
-           ON DUPLICATE KEY UPDATE status = 'seated'`,
-          [reservation_id, table_id],
+          "UPDATE reservations SET status = 'Seated' WHERE reservation_id = ?",
+          [reservation_id]
         );
+
+        // Force the 'seated' status on the bridge table (Admin UI looks here)
+        if (table_id && table_id !== "takeout" && table_id !== "null") {
+          await conn.execute(
+            `INSERT INTO reservation_tables (reservation_id, table_id, status, check_in_time)
+             VALUES (?, ?, 'seated', NOW())
+             ON DUPLICATE KEY UPDATE status = 'seated'`,
+            [reservation_id, table_id]
+          );
+
+          // Update the master tables table
+          await conn.execute(
+            "UPDATE tables SET status = 'occupied' WHERE table_id = ?",
+            [table_id]
+          );
+        }
+      }
 
         // Update the master tables table to 'occupied'
         await conn.execute(

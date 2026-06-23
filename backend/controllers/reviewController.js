@@ -16,15 +16,27 @@ exports.getReviews = async (req, res) => {
     }
 };
 
-// Check if user has a seated or completed reservation
+// Check if user has a seated or completed reservation and has remaining review credits
 exports.checkEligibility = async (req, res) => {
     try {
         const userId = req.user.userId;
-        const [rows] = await db.execute(
-            "SELECT * FROM reservations WHERE user_id = ? AND status IN ('Seated', 'Completed') LIMIT 1",
+
+        // 1. Count the number of seated/completed reservations
+        const [resRows] = await db.execute(
+            "SELECT COUNT(*) as count FROM reservations WHERE user_id = ? AND status IN ('Seated', 'Completed')",
             [userId]
         );
-        res.json({ canReview: rows.length > 0 });
+        const reservationCount = resRows[0]?.count || 0;
+
+        // 2. Count the number of reviews the user has already submitted
+        const [reviewRows] = await db.execute(
+            "SELECT COUNT(*) as count FROM reviews WHERE user_id = ?",
+            [userId]
+        );
+        const reviewCount = reviewRows[0]?.count || 0;
+
+        // 3. Eligible if they have more completed/seated sessions than submitted reviews
+        res.json({ canReview: reservationCount > reviewCount });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
