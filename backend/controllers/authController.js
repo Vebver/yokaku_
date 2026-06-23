@@ -1,9 +1,8 @@
 const User = require("../models/User");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
-const nodemailer = require("nodemailer");
-const rateLimit = require("express-rate-limit");
 const crypto = require("crypto");
+const axios = require("axios");
 
 // In-memory OTP store
 const otpStore = new Map();
@@ -11,57 +10,52 @@ const otpStore = new Map();
 const generateOTP = () =>
   Math.floor(100000 + Math.random() * 900000).toString();
 
-// Configure nodemailer with Brevo using environment variables
-const transporter = nodemailer.createTransport({
-  host: process.env.BREVO_HOST || "smtp-relay.brevo.com",
-  port: parseInt(process.env.BREVO_PORT) || 587,
-  secure: false, // true for 465, false for other ports
-  auth: {
-    user: process.env.BREVO_USER,
-    pass: process.env.BREVO_PASS,
-  },
-  tls: {
-    rejectUnauthorized: false,
-  },
-  pool: true,
-  maxConnections: 1,
-  rateLimit: 5,
-  maxMessages: 100,
-  headers: {
-    "X-Entity-Ref-ID": "hangout-otp",
-  },
-});
-
-// Send OTP via email
+// Send OTP via Brevo API (HTTP - works on Render free tier)
 const sendOTP = async (email, otp) => {
   console.log(`📧 Attempting to send OTP to: ${email}`);
 
-  const mailOptions = {
-    from: `"Hangout Resto Bar" <${process.env.BREVO_USER}>`,
-    to: email,
-    subject: "🔐 Your Hangout OTP Verification Code",
-    text: `Your OTP verification code is: ${otp}\n\nThis code is valid for 1 hour.\n\nIf you didn't request this, please ignore this email.`,
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
-        <h2 style="color: #f38d31; text-align: center;">🔐 Hangout Resto Bar</h2>
-        <h3 style="text-align: center; color: #333;">OTP Verification Code</h3>
-        <div style="background: #f5f5f5; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
-          <span style="font-size: 36px; font-weight: bold; color: #f38d31; letter-spacing: 5px;">${otp}</span>
-        </div>
-        <p style="color: #666; text-align: center;">This code is valid for <strong>1 hour</strong>.</p>
-        <p style="color: #999; font-size: 12px; text-align: center; margin-top: 20px;">If you didn't request this, please ignore this email.</p>
-        <hr style="border: none; border-top: 1px solid #eee;">
-        <p style="color: #999; font-size: 12px; text-align: center;">Hangout Resto Bar</p>
-      </div>
-    `,
-  };
-
   try {
-    await transporter.sendMail(mailOptions);
+    const response = await axios.post(
+      "https://api.brevo.com/v3/smtp/email",
+      {
+        sender: {
+          name: "Hangout Resto Bar",
+          email: process.env.BREVO_USER || "leabrescarl@gmail.com",
+        },
+        to: [{ email }],
+        subject: "🔐 Your Hangout OTP Verification Code",
+        textContent: `Your OTP verification code is: ${otp}\n\nThis code is valid for 1 hour.\n\nIf you didn't request this, please ignore this email.`,
+        htmlContent: `
+          <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+            <h2 style="color: #f38d31; text-align: center;">🔐 Hangout Resto Bar</h2>
+            <h3 style="text-align: center; color: #333;">OTP Verification Code</h3>
+            <div style="background: #f5f5f5; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
+              <span style="font-size: 36px; font-weight: bold; color: #f38d31; letter-spacing: 5px;">${otp}</span>
+            </div>
+            <p style="color: #666; text-align: center;">This code is valid for <strong>1 hour</strong>.</p>
+            <p style="color: #999; font-size: 12px; text-align: center; margin-top: 20px;">If you didn't request this, please ignore this email.</p>
+            <hr style="border: none; border-top: 1px solid #eee;">
+            <p style="color: #999; font-size: 12px; text-align: center;">Hangout Resto Bar</p>
+          </div>
+        `,
+      },
+      {
+        headers: {
+          "api-key": process.env.BREVO_PASS,
+          "Content-Type": "application/json",
+        },
+        timeout: 30000, // 30 seconds timeout
+      },
+    );
+
     console.log(`✅ OTP email sent successfully to ${email}`);
+    console.log(`📧 Message ID: ${response.data.messageId}`);
     return true;
   } catch (error) {
-    console.error(`❌ Failed to send OTP to ${email}:`, error.message);
+    console.error(
+      `❌ Failed to send OTP to ${email}:`,
+      error.response?.data?.message || error.message,
+    );
     console.log(`🔑 FALLBACK OTP FOR ${email}: ${otp}`);
     return false;
   }
