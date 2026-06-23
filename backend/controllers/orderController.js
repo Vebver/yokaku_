@@ -83,8 +83,6 @@ const orderController = {
           "UPDATE reservations SET status = 'Seated' WHERE reservation_id = ?",
           [reservation_id]
         );
-
-        // Force the 'seated' status on the bridge table (Admin UI looks here)
         if (table_id && table_id !== "takeout" && table_id !== "null") {
           await conn.execute(
             `INSERT INTO reservation_tables (reservation_id, table_id, status, check_in_time)
@@ -98,7 +96,6 @@ const orderController = {
             "UPDATE tables SET status = 'occupied' WHERE table_id = ?",
             [table_id]
           );
-        }
       }
 
         // Update the master tables table to 'occupied'
