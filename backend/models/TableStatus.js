@@ -38,7 +38,7 @@ const TableStatus = {
     const [rows] = await db.query(query);
     return rows;
   },
-  getTodaySchedule: async () => {
+getTodaySchedule: async () => {
     const today = new Date().toLocaleDateString("en-CA", {
       timeZone: "Asia/Manila",
     });
@@ -75,7 +75,7 @@ const TableStatus = {
         LEFT JOIN reservation_tables rt ON TRIM(r.reservation_id) = TRIM(rt.reservation_id)
         LEFT JOIN tables t ON rt.table_id = t.table_id
         WHERE DATE(r.reservation_date) = DATE(?) 
-        AND LOWER(r.status) IN ('confirmed', 'seated')
+        AND LOWER(r.status) = 'seated'
         GROUP BY 
           r.reservation_id, 
           r.first_name, 
