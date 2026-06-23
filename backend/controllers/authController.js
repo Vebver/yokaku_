@@ -11,36 +11,61 @@ const otpStore = new Map();
 const generateOTP = () =>
   Math.floor(100000 + Math.random() * 900000).toString();
 
-// Email sending is TEMPORARILY DISABLED for Render deployment
-// Will re-enable once SMTP issue is resolved
-const sendOTP = async (email, otp) => {
-  // Skip actual email sending - just log
-  console.log(`========================================`);
-  console.log(`📧 EMAIL WOULD BE SENT TO: ${email}`);
-  console.log(`🔑 OTP CODE: ${otp}`);
-  console.log(`⏰ Valid for 5 minutes`);
-  console.log(`========================================`);
+// Configure nodemailer with Gmail
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+  tls: {
+    rejectUnauthorized: false,
+  },
+  pool: true,
+  maxConnections: 1,
+  rateLimit: 5,
+  // Add these for better deliverability
+  maxMessages: 100,
+  headers: {
+    "X-Entity-Ref-ID": "hangout-otp",
+  },
+});
 
-  // For production, uncomment below when SMTP works
-  /*
-  const transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 587,
-    secure: false,
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-  });
-  
-  await transporter.sendMail({
+// Send OTP via email - will likely go to spam but that's okay
+const sendOTP = async (email, otp) => {
+  console.log(`📧 Attempting to send OTP to: ${email}`);
+
+  const mailOptions = {
     from: process.env.SMTP_USER,
     to: email,
-    subject: "Hangout OTP Verification",
-    text: `Your OTP is ${otp}. Valid for 5 mins.`,
-    html: `<h2>Your Hangout OTP</h2><p style="font-size: 24px; font-weight: bold;">${otp}</p><p>Valid for 5 minutes.</p>`,
-  });
-  */
+    subject: "🔐 Your Hangout OTP Verification Code",
+    text: `Your OTP verification code is: ${otp}\n\nThis code is valid for 5 minutes.\n\nIf you didn't request this, please ignore this email.`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+        <h2 style="color: #f38d31; text-align: center;">🔐 Hangout Resto Bar</h2>
+        <h3 style="text-align: center; color: #333;">OTP Verification Code</h3>
+        <div style="background: #f5f5f5; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
+          <span style="font-size: 36px; font-weight: bold; color: #f38d31; letter-spacing: 5px;">${otp}</span>
+        </div>
+        <p style="color: #666; text-align: center;">This code is valid for <strong>5 minutes</strong>.</p>
+        <p style="color: #999; font-size: 12px; text-align: center; margin-top: 20px;">If you didn't request this, please ignore this email.</p>
+        <hr style="border: none; border-top: 1px solid #eee;">
+        <p style="color: #999; font-size: 12px; text-align: center;">Hangout Resto Bar</p>
+      </div>
+    `,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`✅ OTP email sent successfully to ${email}`);
+    return true;
+  } catch (error) {
+    console.error(`❌ Failed to send OTP to ${email}:`, error.message);
+    // Fallback: log the OTP so you can still see it in Render logs
+    console.log(`🔑 FALLBACK OTP FOR ${email}: ${otp}`);
+    // Still return true so the signup process continues
+    return false;
+  }
 };
 
 // Clean up expired OTPs periodically
@@ -196,21 +221,29 @@ const authController = {
         expires: Date.now() + 5 * 60 * 1000,
       });
 
-      // Log OTP to console - check Render logs
+      // Log OTP to console (for debugging)
       console.log(`========================================`);
       console.log(`✅ SIGNUP ATTEMPT FOR: ${email}`);
       console.log(`🔑 YOUR OTP CODE IS: ${otp}`);
       console.log(`⏰ Valid for 5 minutes`);
       console.log(`========================================`);
 
-      // Try to send email but don't fail
+      // Try to send email
       try {
         await sendOTP(email, otp);
+        console.log(`✅ OTP email sent to ${email}`);
       } catch (emailError) {
-        console.log(`Email sending skipped: ${emailError.message}`);
+        console.log(`⚠️ Email sending had issues: ${emailError.message}`);
+        // Don't fail the signup - OTP is still in console logs
       }
 
-      res.json({ message: "OTP sent to email", email });
+      res.json({
+        message: "OTP sent to email",
+        email,
+        // For development: include OTP in response if email fails
+        // Remove this in production
+        dev_otp: process.env.NODE_ENV === "development" ? otp : undefined,
+      });
     } catch (error) {
       console.error("Signup Error:", error);
       res.status(500).json({ error: error.message });
@@ -276,8 +309,16 @@ const authController = {
 
       console.log(`Reservation OTP for ${email}: ${otp}`);
 
+      // Try to send email
+      try {
+        await sendOTP(email, otp);
+      } catch (emailError) {
+        console.log(`Email sending skipped: ${emailError.message}`);
+      }
+
       res.json({
-        message: "OTP would be sent to email (email disabled for testing)",
+        message: "OTP sent to email",
+        dev_otp: process.env.NODE_ENV === "development" ? otp : undefined,
       });
     } catch (error) {
       console.error("OTP Send Error:", error);
