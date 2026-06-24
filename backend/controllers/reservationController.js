@@ -521,6 +521,7 @@ const reservationController = {
       const sql = `
       SELECT 
         r.reservation_id,
+        r.reservation_type,
         DATE_FORMAT(r.reservation_date, '%Y-%m-%d') as date,
         TIME_FORMAT(r.reservation_time, '%H:%i') as startTime,
         TIME_FORMAT(r.end_time, '%H:%i') as endTime,
@@ -555,6 +556,7 @@ const reservationController = {
       const sql = `
       SELECT 
         r.reservation_id,
+        r.reservation_type,
         DATE_FORMAT(r.reservation_date, '%Y-%m-%d') as date,
         TIME_FORMAT(r.reservation_time, '%H:%i') as startTime,
         TIME_FORMAT(r.end_time, '%H:%i') as endTime,
