@@ -203,10 +203,25 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         response.data.forEach((reservation) => {
           const date = reservation.date;
           if (date) {
-            // FIX: Include ALL reservations regardless of type
-            if (!groupedByDate[date]) groupedByDate[date] = [];
-            groupedByDate[date].push(reservation);
-            countsByDate[date] = (countsByDate[date] || 0) + 1;
+            const isEventReservation =
+              reservation.reservationType === "event" ||
+              reservation.reservation_type === "event";
+
+            // FIX: For EVENT mode, only include EVENT reservations
+            // For PER TABLE mode, include ALL reservations
+            if (reservationType === "event") {
+              // EVENT mode: Only show EVENT reservations
+              if (isEventReservation) {
+                if (!groupedByDate[date]) groupedByDate[date] = [];
+                groupedByDate[date].push(reservation);
+                countsByDate[date] = (countsByDate[date] || 0) + 1;
+              }
+            } else {
+              // PER TABLE mode: Show ALL reservations (EVENT + PER TABLE)
+              if (!groupedByDate[date]) groupedByDate[date] = [];
+              groupedByDate[date].push(reservation);
+              countsByDate[date] = (countsByDate[date] || 0) + 1;
+            }
           }
         });
 
@@ -240,8 +255,17 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       if (allReservationsByDate[date]) {
         let activeReservations = [...allReservationsByDate[date]];
 
-        // FIX: Show ALL reservations in BOTH modes
-        // No filtering by reservation type
+        // FIX: For EVENT mode, only show EVENT reservations
+        // For PER TABLE mode, show ALL reservations but group EVENTs
+        if (reservationType === "event") {
+          activeReservations = activeReservations.filter((res) => {
+            return (
+              res.reservationType === "event" ||
+              res.reservation_type === "event"
+            );
+          });
+        }
+        // PER TABLE mode: No filtering - show all
 
         activeReservations = activeReservations.filter((res) => {
           if (
@@ -261,16 +285,49 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         }
         if (isPastDate) activeReservations = [];
 
-        const formattedReservations = activeReservations.map((res) => ({
-          ...res,
-          tableLabel:
-            TABLES_DATA.find((t) => t.id === res.table_id)?.label ||
-            `Table ${res.table_id}`,
-          startTimeFormatted: formatTime12Hour(res.startTime),
-          endTimeFormatted: formatTime12Hour(res.endTime),
-          duration: calculateDuration(res.startTime, res.endTime),
-          status: res.status || "Confirmed",
-        }));
+        // FIX: Group EVENT reservations by time range to avoid duplicates
+        const formattedReservations = [];
+        const eventGroups = {};
+
+        activeReservations.forEach((res) => {
+          const isEvent =
+            res.reservationType === "event" || res.reservation_type === "event";
+
+          if (isEvent && reservationType === "per_table") {
+            // For PER TABLE mode, group EVENTs by time range
+            const key = `${res.startTime}-${res.endTime}`;
+            if (!eventGroups[key]) {
+              eventGroups[key] = {
+                ...res,
+                tableLabel: "🎉 EVENT",
+                startTimeFormatted: formatTime12Hour(res.startTime),
+                endTimeFormatted: formatTime12Hour(res.endTime),
+                duration: calculateDuration(res.startTime, res.endTime),
+                status: res.status || "Confirmed",
+                isEvent: true,
+              };
+            }
+          } else {
+            // Regular PER TABLE reservations
+            formattedReservations.push({
+              ...res,
+              tableLabel:
+                TABLES_DATA.find((t) => t.id === res.table_id)?.label ||
+                `Table ${res.table_id}`,
+              startTimeFormatted: formatTime12Hour(res.startTime),
+              endTimeFormatted: formatTime12Hour(res.endTime),
+              duration: calculateDuration(res.startTime, res.endTime),
+              status: res.status || "Confirmed",
+              isEvent: false,
+            });
+          }
+        });
+
+        // Add grouped EVENTs to the list
+        Object.values(eventGroups).forEach((event) => {
+          formattedReservations.push(event);
+        });
+
         setReservationsForDate(formattedReservations);
       } else {
         const response = await axios.get(
@@ -279,8 +336,15 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         if (response.data && Array.isArray(response.data)) {
           let activeReservations = [...response.data];
 
-          // FIX: Show ALL reservations in BOTH modes
-          // No filtering by reservation type
+          // FIX: For EVENT mode, only show EVENT reservations
+          if (reservationType === "event") {
+            activeReservations = activeReservations.filter((res) => {
+              return (
+                res.reservationType === "event" ||
+                res.reservation_type === "event"
+              );
+            });
+          }
 
           activeReservations = activeReservations.filter((res) => {
             if (
@@ -299,16 +363,47 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           }
           if (isPastDate) activeReservations = [];
 
-          const formattedReservations = activeReservations.map((res) => ({
-            ...res,
-            tableLabel:
-              TABLES_DATA.find((t) => t.id === res.table_id)?.label ||
-              `Table ${res.table_id}`,
-            startTimeFormatted: formatTime12Hour(res.startTime),
-            endTimeFormatted: formatTime12Hour(res.endTime),
-            duration: calculateDuration(res.startTime, res.endTime),
-            status: res.status || "Confirmed",
-          }));
+          // FIX: Group EVENT reservations by time range
+          const formattedReservations = [];
+          const eventGroups = {};
+
+          activeReservations.forEach((res) => {
+            const isEvent =
+              res.reservationType === "event" ||
+              res.reservation_type === "event";
+
+            if (isEvent && reservationType === "per_table") {
+              const key = `${res.startTime}-${res.endTime}`;
+              if (!eventGroups[key]) {
+                eventGroups[key] = {
+                  ...res,
+                  tableLabel: "🎉 EVENT",
+                  startTimeFormatted: formatTime12Hour(res.startTime),
+                  endTimeFormatted: formatTime12Hour(res.endTime),
+                  duration: calculateDuration(res.startTime, res.endTime),
+                  status: res.status || "Confirmed",
+                  isEvent: true,
+                };
+              }
+            } else {
+              formattedReservations.push({
+                ...res,
+                tableLabel:
+                  TABLES_DATA.find((t) => t.id === res.table_id)?.label ||
+                  `Table ${res.table_id}`,
+                startTimeFormatted: formatTime12Hour(res.startTime),
+                endTimeFormatted: formatTime12Hour(res.endTime),
+                duration: calculateDuration(res.startTime, res.endTime),
+                status: res.status || "Confirmed",
+                isEvent: false,
+              });
+            }
+          });
+
+          Object.values(eventGroups).forEach((event) => {
+            formattedReservations.push(event);
+          });
+
           setReservationsForDate(formattedReservations);
         } else {
           setReservationsForDate([]);
@@ -356,8 +451,19 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     if (isPastDate) return 0;
 
     let activeCount = allReservationsByDate[dateStr].filter((res) => {
-      // FIX: Show ALL reservations in BOTH modes
-      // No filtering by reservation type
+      // FIX: For EVENT mode, only count EVENT reservations
+      // For PER TABLE mode, count ALL reservations
+      if (reservationType === "event") {
+        // EVENT mode: Only count EVENT reservations
+        if (
+          res.reservationType !== "event" &&
+          res.reservation_type !== "event"
+        ) {
+          return false;
+        }
+      }
+      // PER TABLE mode: Count ALL reservations (no filtering)
+
       if (
         res.status === "Cancelled" ||
         res.status === "Completed" ||
@@ -381,10 +487,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   const isDateFullyBooked = (dateStr) => {
     const reservations = allReservationsByDate[dateStr] || [];
 
-    // FIX: Check for ANY reservation (EVENT or PER TABLE) that occupies the venue
-    // For PER TABLE: Check if all tables are booked OR there's an EVENT
-    // For EVENT: Check if there's ANY reservation (EVENT blocks the whole venue)
-
     const activeReservations = reservations.filter((res) => {
       if (
         res.status === "Cancelled" ||
@@ -398,10 +500,14 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     const isEventFlow = reservationType === "event";
 
     if (isEventFlow) {
-      // EVENT mode: ANY reservation makes it fully booked
-      return activeReservations.length > 0;
+      // EVENT mode: Only EVENT reservations make it fully booked
+      const eventReservations = activeReservations.filter(
+        (res) =>
+          res.reservationType === "event" || res.reservation_type === "event",
+      );
+      return eventReservations.length > 0;
     } else {
-      // PER TABLE mode: Full if ALL tables are booked OR there's an EVENT
+      // PER TABLE mode: EVENT OR all tables booked
       const eventExists = activeReservations.some(
         (res) =>
           res.reservationType === "event" || res.reservation_type === "event",
@@ -972,6 +1078,44 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       filtered = filtered.filter((t) => timeToMin(t) >= minStartTimeMinutes);
     }
 
+    // NEW: For PER TABLE mode, block times that overlap with EVENT reservations
+    if (isPerTable && form.date) {
+      // Get EVENT reservations for this date
+      const eventReservations = (allReservationsByDate[form.date] || []).filter(
+        (res) =>
+          res.reservationType === "event" || res.reservation_type === "event",
+      );
+
+      filtered = filtered.filter((startTime) => {
+        const startM = timeToMin(startTime);
+
+        // Check if this time overlaps with any EVENT
+        const overlapsEvent = eventReservations.some((event) => {
+          const eventStart = timeToMin(event.startTime);
+          const eventEnd = timeToMin(event.endTime);
+
+          // Check if the selected time overlaps with the event
+          // We need to check if ANY possible end time would overlap with the event
+          const possibleEndTimes = timeOptions.filter((endTime) => {
+            const endM = timeToMin(endTime);
+            return (
+              endM >= startM + 30 &&
+              endM <= startM + 180 &&
+              endM <= currentMaxEndTime
+            );
+          });
+
+          // If ANY possible end time overlaps with the event, block this start time
+          return possibleEndTimes.some((endTime) => {
+            const endM = timeToMin(endTime);
+            return startM < eventEnd && endM > eventStart;
+          });
+        });
+
+        return !overlapsEvent;
+      });
+    }
+
     if (isEventFlow) {
       filtered = filtered.filter((startTime) => {
         const startM = timeToMin(startTime);
@@ -1095,6 +1239,28 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       const endM = timeToMin(endTime);
       return endM >= startM + 30 && endM <= currentMaxEndTime;
     });
+
+    // NEW: For PER TABLE mode, block end times that overlap with EVENT reservations
+    const isPerTable = reservationType === "per_table";
+    if (isPerTable && form.date && form.startTime) {
+      // Get EVENT reservations for this date
+      const eventReservations = (allReservationsByDate[form.date] || []).filter(
+        (res) =>
+          res.reservationType === "event" || res.reservation_type === "event",
+      );
+
+      filtered = filtered.filter((endTime) => {
+        const endM = timeToMin(endTime);
+
+        const overlapsEvent = eventReservations.some((event) => {
+          const eventStart = timeToMin(event.startTime);
+          const eventEnd = timeToMin(event.endTime);
+          return startM < eventEnd && endM > eventStart;
+        });
+
+        return !overlapsEvent;
+      });
+    }
 
     if (selectedId && form.startTime && reservationType === "per_table") {
       filtered = filtered.filter((endTime) =>
@@ -1690,9 +1856,22 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     ) : reservationsForDate.length > 0 ? (
                       <div className="reservation-details-list">
                         {reservationsForDate.map((res, index) => (
-                          <div key={index} className="reservation-detail-card">
+                          <div
+                            key={index}
+                            className={`reservation-detail-card ${res.isEvent ? "event-card" : ""}`}
+                          >
                             <div className="reservation-card-header">
-                              <div className="table-badge">
+                              <div
+                                className="table-badge"
+                                style={
+                                  res.isEvent
+                                    ? {
+                                        background:
+                                          "linear-gradient(135deg, #ff6b6b, #ee5a24)",
+                                      }
+                                    : {}
+                                }
+                              >
                                 <Armchair size={14} />
                                 <strong>{res.tableLabel}</strong>
                               </div>
@@ -1713,6 +1892,19 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                               <AlertCircle size={14} />
                               <span>Duration: {res.duration}</span>
                             </div>
+                            {res.isEvent && (
+                              <div
+                                className="event-badge"
+                                style={{
+                                  marginTop: "8px",
+                                  color: "#ee5a24",
+                                  fontSize: "12px",
+                                  fontWeight: "600",
+                                }}
+                              >
+                                ⭐ This is a private event - venue is booked
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
