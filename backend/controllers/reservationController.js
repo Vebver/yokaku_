@@ -216,17 +216,62 @@ const reservationController = {
         typeof body.selectedItems === "string"
           ? JSON.parse(body.selectedItems)
           : body.selectedItems || [];
-      const tableIdsArray =
-        typeof body.tableIds === "string"
-          ? JSON.parse(body.tableIds)
-          : body.tableIds || [];
+
+      // FIX: Better tableIds parsing with error handling
+      let tableIdsArray = [];
+
+      if (body.tableIds) {
+        try {
+          if (typeof body.tableIds === "string") {
+            // Try to parse JSON string
+            const parsed = JSON.parse(body.tableIds);
+            tableIdsArray = Array.isArray(parsed) ? parsed : [parsed];
+          } else if (Array.isArray(body.tableIds)) {
+            tableIdsArray = body.tableIds;
+          } else {
+            tableIdsArray = [body.tableIds];
+          }
+        } catch (e) {
+          // If JSON parsing fails, try splitting by comma
+          console.log(
+            "Failed to parse tableIds, trying alternative:",
+            body.tableIds,
+          );
+          if (
+            typeof body.tableIds === "string" &&
+            body.tableIds.includes(",")
+          ) {
+            tableIdsArray = body.tableIds
+              .split(",")
+              .map((id) => parseInt(id.trim()));
+          } else if (typeof body.tableIds === "string") {
+            tableIdsArray = [parseInt(body.tableIds)];
+          }
+        }
+      }
+
+      // Ensure all values are numbers and filter out invalid ones
+      tableIdsArray = tableIdsArray
+        .map((id) => parseInt(id))
+        .filter((id) => !isNaN(id) && id > 0);
+
+      console.log("✅ Parsed tableIds:", tableIdsArray); // For debugging
+
+      // If no valid table IDs, throw error
+      if (tableIdsArray.length === 0) {
+        throw new Error(
+          "No valid table IDs provided. Please select at least one table.",
+        );
+      }
 
       // Safety check for dates and fallbacks for missing end times
       const startDateTime = new Date(`${body.date} ${body.startTime}`);
-      const duration = parseFloat(body.durationHours || body.duration_hours || 1.0);
-      
-      const endDateTime = body.endTime 
-        ? new Date(`${body.date} ${body.endTime}`) 
+      const duration = parseFloat(
+        body.durationHours || body.duration_hours || 1.0,
+      );
+
+      const endDateTime = body.endTime
+        ? new Date(`${body.date} ${body.endTime}`)
         : new Date(startDateTime.getTime() + duration * 60 * 60 * 1000);
 
       const dbStart = startDateTime.toTimeString().split(" ")[0];
@@ -243,6 +288,7 @@ const reservationController = {
         startTime: dbStart,
         endTime: dbEnd,
         receiptPath: req.file ? req.file.path : null,
+        tableIds: tableIdsArray, // Pass the parsed array
       };
 
       // 1. Create the database record for the reservation
@@ -386,7 +432,10 @@ const reservationController = {
       }
 
       // Skip the "too early" / "no-show" checks for direct Walk-ins
-      const isWalkin = (reservation.reservation_id || "").toString().toUpperCase().includes("WALK");
+      const isWalkin = (reservation.reservation_id || "")
+        .toString()
+        .toUpperCase()
+        .includes("WALK");
 
       if (!isWalkin) {
         const now = new Date();
