@@ -23,54 +23,19 @@ const allowedOrigins = [
   "https://yokaku-tau.vercel.app",
   "https://yokaku-deployments-vercel.vercel.app",
   "https://yokaku-deployments.vercel.app",
-  process.env.CORS_ORIGIN,
-].filter(Boolean);
+  // Add your Render backend URL if needed
+  process.env.CORS_ORIGIN, // Optional: add from env
+].filter(Boolean); // Remove undefined values
 
-// CORS middleware with logging
+// Simplified direct-array mapping (highly reliable)
 const corsOptions = {
-  origin: function (origin, callback) {
-    console.log(`🔍 CORS Request from origin: ${origin}`);
-
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) {
-      console.log(`✅ No origin, allowing`);
-      return callback(null, true);
-    }
-
-    // Check if origin is allowed
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      console.log(`✅ Origin allowed: ${origin}`);
-      callback(null, true);
-    } else {
-      console.log(`❌ Origin blocked: ${origin}`);
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
+  origin: allowedOrigins,
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: [
-    "Content-Type",
-    "Authorization",
-    "X-Requested-With",
-    "Accept",
-  ],
-  exposedHeaders: ["Content-Length", "X-Requested-With"],
-  maxAge: 86400, // 24 hours
+  allowedHeaders: ["Content-Type", "Authorization"],
 };
 
-// Apply CORS middleware
 app.use(cors(corsOptions));
-
-// Handle OPTIONS preflight requests explicitly
-app.options("*", cors(corsOptions));
-
-// Request logging middleware (for debugging)
-app.use((req, res, next) => {
-  console.log(
-    `📝 ${req.method} ${req.path} - Origin: ${req.headers.origin || "none"}`,
-  );
-  next();
-});
 
 // 4. Configure other standard middlewares
 app.use(express.json({ limit: "10mb" }));
@@ -79,20 +44,12 @@ app.use(express.urlencoded({ limit: "10mb", extended: true }));
 // Initialize Socket.io with the same allowed origins
 const io = new Server(server, {
   cors: {
-    origin: function (origin, callback) {
-      if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
     credentials: true,
   },
-  transports: ["polling", "websocket"],
+  transports: ["websocket", "polling"],
   allowEIO3: true,
-  pingTimeout: 60000,
-  pingInterval: 25000,
 });
 
 // Store connected users
@@ -124,7 +81,6 @@ Notification.setIo(io);
 // --- SOCKET.IO LOGIC ---
 io.on("connection", (socket) => {
   console.log(`📡 New client connected: ${socket.id}`);
-  console.log(`🔌 Transport: ${socket.conn.transport.name}`);
 
   socket.on("join_user", (userId) => {
     if (userId) {
@@ -167,16 +123,6 @@ app.get("/", (req, res) => {
       "/api/reviews",
       "/api/reservations",
     ],
-  });
-});
-
-// CORS test endpoint
-app.get("/api/test-cors", (req, res) => {
-  res.json({
-    message: "CORS is working!",
-    origin: req.headers.origin || "No origin",
-    allowedOrigins: allowedOrigins,
-    timestamp: new Date().toISOString(),
   });
 });
 
