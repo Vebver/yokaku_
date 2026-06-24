@@ -212,6 +212,14 @@ const reservationController = {
       const body = req.body;
       const userId = body.userId;
 
+      // FIX: Ensure numeric fields are actually numbers
+      body.downpayment = parseFloat(body.downpayment) || 0;
+      body.totalAmount = parseFloat(body.totalAmount) || 0;
+      body.amount = parseFloat(body.amount) || 0;
+      body.durationHours = parseFloat(body.durationHours) || 1;
+      body.guests = parseInt(body.guests) || 1;
+      body.pax = parseInt(body.pax) || 1;
+
       const items =
         typeof body.selectedItems === "string"
           ? JSON.parse(body.selectedItems)
@@ -223,7 +231,6 @@ const reservationController = {
       if (body.tableIds) {
         try {
           if (typeof body.tableIds === "string") {
-            // Try to parse JSON string
             const parsed = JSON.parse(body.tableIds);
             tableIdsArray = Array.isArray(parsed) ? parsed : [parsed];
           } else if (Array.isArray(body.tableIds)) {
@@ -232,7 +239,6 @@ const reservationController = {
             tableIdsArray = [body.tableIds];
           }
         } catch (e) {
-          // If JSON parsing fails, try splitting by comma
           console.log(
             "Failed to parse tableIds, trying alternative:",
             body.tableIds,
@@ -255,9 +261,8 @@ const reservationController = {
         .map((id) => parseInt(id))
         .filter((id) => !isNaN(id) && id > 0);
 
-      console.log("✅ Parsed tableIds:", tableIdsArray); // For debugging
+      console.log("✅ Parsed tableIds:", tableIdsArray);
 
-      // If no valid table IDs, throw error
       if (tableIdsArray.length === 0) {
         throw new Error(
           "No valid table IDs provided. Please select at least one table.",
@@ -277,18 +282,36 @@ const reservationController = {
       const dbStart = startDateTime.toTimeString().split(" ")[0];
       const dbEnd = endDateTime.toTimeString().split(" ")[0];
 
+      // FIX: For PER TABLE, downpayment should be 0
+      // For EVENT, use the provided downpayment
+      const reservationType = (
+        body.reservationType ||
+        body.reservation_type ||
+        "per_table"
+      ).toLowerCase();
+      let downpayment = parseFloat(body.downpayment) || 0;
+
+      // If it's PER TABLE, force downpayment to 0 (no downpayment needed)
+      if (reservationType === "per_table") {
+        downpayment = 0;
+      }
+      // For EVENT, keep the provided downpayment or default to 0 if not provided
+
       const reservationData = {
         ...body,
-        reservation_type: (
-          body.reservationType ||
-          body.reservation_type ||
-          "per_table"
-        ).toLowerCase(),
+        reservation_type: reservationType,
         userId: body.userId || req.user?.userId,
         startTime: dbStart,
         endTime: dbEnd,
         receiptPath: req.file ? req.file.path : null,
-        tableIds: tableIdsArray, // Pass the parsed array
+        tableIds: tableIdsArray,
+        // Ensure these are numbers with proper defaults
+        downpayment: downpayment, // 0 for PER TABLE, provided value for EVENT
+        totalAmount: parseFloat(body.totalAmount) || 0,
+        amount: parseFloat(body.amount) || 0,
+        durationHours: parseFloat(body.durationHours) || 1,
+        guests: parseInt(body.guests) || parseInt(body.pax) || 1,
+        pax: parseInt(body.pax) || parseInt(body.guests) || 1,
       };
 
       // 1. Create the database record for the reservation
