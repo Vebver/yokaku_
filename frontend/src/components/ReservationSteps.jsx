@@ -260,10 +260,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         // For PER TABLE mode, show ALL reservations but group EVENTs
         if (reservationType === "event") {
           activeReservations = activeReservations.filter((res) => {
-            return (
-              res.reservationType === "event" ||
-              res.reservation_type === "event"
-            );
+            const resType = res.reservationType || res.reservation_type || "";
+            return resType.toLowerCase() === "event";
           });
         }
         // PER TABLE mode: No filtering - show all
@@ -286,16 +284,17 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         }
         if (isPastDate) activeReservations = [];
 
-        // FIX: Group EVENT reservations by reservation_id to avoid duplicates
+        // FIX: Group EVENT reservations by reservation_id for ALL modes
         const formattedReservations = [];
         const eventGroups = {};
 
         activeReservations.forEach((res) => {
-          const isEvent =
-            res.reservationType === "event" || res.reservation_type === "event";
+          const resType = res.reservationType || res.reservation_type || "";
+          const isEvent = resType.toLowerCase() === "event";
 
-          if (isEvent && reservationType === "per_table") {
-            // For PER TABLE mode, group EVENTs by reservation_id
+          // FIX: Group EVENTs in BOTH modes (EVENT and PER TABLE)
+          if (isEvent) {
+            // Group EVENTs by reservation_id
             const key = res.reservation_id || res.id;
             if (!eventGroups[key]) {
               eventGroups[key] = {
@@ -340,10 +339,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           // FIX: For EVENT mode, only show EVENT reservations
           if (reservationType === "event") {
             activeReservations = activeReservations.filter((res) => {
-              return (
-                res.reservationType === "event" ||
-                res.reservation_type === "event"
-              );
+              const resType = res.reservationType || res.reservation_type || "";
+              return resType.toLowerCase() === "event";
             });
           }
 
@@ -364,16 +361,16 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           }
           if (isPastDate) activeReservations = [];
 
-          // FIX: Group EVENT reservations by reservation_id
+          // FIX: Group EVENT reservations by reservation_id for ALL modes
           const formattedReservations = [];
           const eventGroups = {};
 
           activeReservations.forEach((res) => {
-            const isEvent =
-              res.reservationType === "event" ||
-              res.reservation_type === "event";
+            const resType = res.reservationType || res.reservation_type || "";
+            const isEvent = resType.toLowerCase() === "event";
 
-            if (isEvent && reservationType === "per_table") {
+            // FIX: Group EVENTs in BOTH modes
+            if (isEvent) {
               const key = res.reservation_id || res.id;
               if (!eventGroups[key]) {
                 eventGroups[key] = {
@@ -504,6 +501,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   const isDateFullyBooked = (dateStr) => {
     const reservations = allReservationsByDate[dateStr] || [];
 
+    const uniqueReservationIds = new Set();
     const activeReservations = reservations.filter((res) => {
       if (
         res.status === "Cancelled" ||
@@ -511,32 +509,28 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         res.status === "Done"
       )
         return false;
+      const resId = res.reservation_id || res.id;
+      if (uniqueReservationIds.has(resId)) return false;
+      uniqueReservationIds.add(resId);
       return true;
     });
 
     const isEventFlow = reservationType === "event";
 
     if (isEventFlow) {
-      // EVENT mode: Only EVENT reservations make it fully booked
-      const eventReservations = activeReservations.filter(
-        (res) =>
-          res.reservationType === "event" || res.reservation_type === "event",
-      );
-      // If there's an EVENT reservation, mark as fully booked (shows "Full")
+      // EVENT mode: Any EVENT makes it fully booked (shows "Full")
+      const eventReservations = activeReservations.filter((res) => {
+        const resType = res.reservationType || res.reservation_type || "";
+        return resType.toLowerCase() === "event";
+      });
       return eventReservations.length > 0;
     } else {
       // PER TABLE mode: EVENT OR all tables booked
-      const eventExists = activeReservations.some(
-        (res) =>
-          res.reservationType === "event" || res.reservation_type === "event",
-      );
-
-      if (eventExists) {
-        // If there's an EVENT, the whole venue is booked - show "Full"
-        return true;
-      }
-
-      // Otherwise, check if all tables are booked
+      const eventExists = activeReservations.some((res) => {
+        const resType = res.reservationType || res.reservation_type || "";
+        return resType.toLowerCase() === "event";
+      });
+      if (eventExists) return true;
       return activeReservations.length >= totalTablesCount;
     }
   };
