@@ -227,46 +227,59 @@ const reservationController = {
 
       // FIX: Better tableIds parsing with error handling
       let tableIdsArray = [];
+      const reservationType = (
+        body.reservationType ||
+        body.reservation_type ||
+        "per_table"
+      ).toLowerCase();
 
-      if (body.tableIds) {
-        try {
-          if (typeof body.tableIds === "string") {
-            const parsed = JSON.parse(body.tableIds);
-            tableIdsArray = Array.isArray(parsed) ? parsed : [parsed];
-          } else if (Array.isArray(body.tableIds)) {
-            tableIdsArray = body.tableIds;
-          } else {
-            tableIdsArray = [body.tableIds];
-          }
-        } catch (e) {
-          console.log(
-            "Failed to parse tableIds, trying alternative:",
-            body.tableIds,
-          );
-          if (
-            typeof body.tableIds === "string" &&
-            body.tableIds.includes(",")
-          ) {
-            tableIdsArray = body.tableIds
-              .split(",")
-              .map((id) => parseInt(id.trim()));
-          } else if (typeof body.tableIds === "string") {
-            tableIdsArray = [parseInt(body.tableIds)];
+      // For EVENT reservations, we don't need table IDs (they book the whole venue)
+      if (reservationType === "event") {
+        // EVENT: Use default table IDs or skip table assignment
+        tableIdsArray = [0]; // Use 0 or a special value for EVENT
+        console.log("✅ EVENT reservation - no specific tables needed");
+      } else {
+        // PER TABLE: Parse table IDs from request
+        if (body.tableIds) {
+          try {
+            if (typeof body.tableIds === "string") {
+              const parsed = JSON.parse(body.tableIds);
+              tableIdsArray = Array.isArray(parsed) ? parsed : [parsed];
+            } else if (Array.isArray(body.tableIds)) {
+              tableIdsArray = body.tableIds;
+            } else {
+              tableIdsArray = [body.tableIds];
+            }
+          } catch (e) {
+            console.log(
+              "Failed to parse tableIds, trying alternative:",
+              body.tableIds,
+            );
+            if (
+              typeof body.tableIds === "string" &&
+              body.tableIds.includes(",")
+            ) {
+              tableIdsArray = body.tableIds
+                .split(",")
+                .map((id) => parseInt(id.trim()));
+            } else if (typeof body.tableIds === "string") {
+              tableIdsArray = [parseInt(body.tableIds)];
+            }
           }
         }
-      }
 
-      // Ensure all values are numbers and filter out invalid ones
-      tableIdsArray = tableIdsArray
-        .map((id) => parseInt(id))
-        .filter((id) => !isNaN(id) && id > 0);
+        // Ensure all values are numbers and filter out invalid ones
+        tableIdsArray = tableIdsArray
+          .map((id) => parseInt(id))
+          .filter((id) => !isNaN(id) && id > 0);
 
-      console.log("✅ Parsed tableIds:", tableIdsArray);
+        console.log("✅ Parsed tableIds:", tableIdsArray);
 
-      if (tableIdsArray.length === 0) {
-        throw new Error(
-          "No valid table IDs provided. Please select at least one table.",
-        );
+        if (tableIdsArray.length === 0) {
+          throw new Error(
+            "No valid table IDs provided. Please select at least one table.",
+          );
+        }
       }
 
       // Safety check for dates and fallbacks for missing end times
@@ -284,11 +297,6 @@ const reservationController = {
 
       // FIX: For PER TABLE, downpayment should be 0
       // For EVENT, use the provided downpayment
-      const reservationType = (
-        body.reservationType ||
-        body.reservation_type ||
-        "per_table"
-      ).toLowerCase();
       let downpayment = parseFloat(body.downpayment) || 0;
 
       // If it's PER TABLE, force downpayment to 0 (no downpayment needed)
