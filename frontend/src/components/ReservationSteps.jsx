@@ -518,22 +518,28 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     const isEventFlow = reservationType === "event";
 
     if (isEventFlow) {
-      // EVENT mode: Any EVENT makes it fully booked (shows "Full")
+      // FIX: In EVENT mode, any EVENT reservation should show as "Res" (not "Full")
       const eventReservations = activeReservations.filter((res) => {
         const resType = res.reservationType || res.reservation_type || "";
         return resType.toLowerCase() === "event";
       });
-      return eventReservations.length > 0;
+      // Return false to show "Res" instead of "Full"
+      return false;
     } else {
       // PER TABLE mode: EVENT OR all tables booked
       const eventExists = activeReservations.some((res) => {
         const resType = res.reservationType || res.reservation_type || "";
         return resType.toLowerCase() === "event";
       });
-      if (eventExists) return true;
+
+      if (eventExists) {
+        return true; // Shows "Full" in PER TABLE mode (event blocks all tables)
+      }
+
       return activeReservations.length >= totalTablesCount;
     }
   };
+
   const markStepCompleted = (step) => {
     if (!completedSteps.includes(step)) {
       setCompletedSteps([...completedSteps, step]);
