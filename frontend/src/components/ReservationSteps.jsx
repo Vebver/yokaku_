@@ -203,6 +203,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         response.data.forEach((reservation) => {
           const date = reservation.date;
           if (date) {
+            // FIX: Include ALL reservations regardless of type
             if (!groupedByDate[date]) groupedByDate[date] = [];
             groupedByDate[date].push(reservation);
             countsByDate[date] = (countsByDate[date] || 0) + 1;
@@ -239,18 +240,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       if (allReservationsByDate[date]) {
         let activeReservations = [...allReservationsByDate[date]];
 
-        // FIX: For PER TABLE view, ONLY exclude EVENT reservations (show all table reservations)
-        // For EVENT view, ONLY show EVENT reservations
-        if (reservationType === "event") {
-          activeReservations = activeReservations.filter((res) => {
-            return (
-              res.reservationType === "event" ||
-              res.reservation_type === "event"
-            );
-          });
-        }
-        // For PER TABLE view: Do NOT filter by reservation type at all
-        // This way, all table reservations (including "per_table" type) will show
+        // FIX: Show ALL reservations in BOTH modes
+        // No filtering by reservation type
 
         activeReservations = activeReservations.filter((res) => {
           if (
@@ -282,23 +273,14 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         }));
         setReservationsForDate(formattedReservations);
       } else {
-        // Similar fix for API response
         const response = await axios.get(
           `${API_BASE}/reservations/by-date/${date}`,
         );
         if (response.data && Array.isArray(response.data)) {
           let activeReservations = [...response.data];
 
-          // FIX: Same logic - for PER TABLE, don't filter by reservation type
-          if (reservationType === "event") {
-            activeReservations = activeReservations.filter((res) => {
-              return (
-                res.reservationType === "event" ||
-                res.reservation_type === "event"
-              );
-            });
-          }
-          // For PER TABLE: Show all table reservations
+          // FIX: Show ALL reservations in BOTH modes
+          // No filtering by reservation type
 
           activeReservations = activeReservations.filter((res) => {
             if (
@@ -374,20 +356,15 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     if (isPastDate) return 0;
 
     let activeCount = allReservationsByDate[dateStr].filter((res) => {
-      // FIX: For PER TABLE, count all table reservations (don't filter by type)
-      // For EVENT, only count EVENT reservations
-      if (reservationType === "event") {
-        if (res.reservationType !== "event" && res.reservation_type !== "event")
-          return false;
-      }
-      // For PER TABLE: Count ALL reservations (no type filter)
-
+      // FIX: Show ALL reservations in BOTH modes
+      // No filtering by reservation type
       if (
         res.status === "Cancelled" ||
         res.status === "Completed" ||
         res.status === "Done"
       )
         return false;
+
       if (isToday) {
         const endM = timeToMin(res.endTime);
         if (endM <= currentTime) return false;
@@ -402,37 +379,41 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   ).length;
 
   const isDateFullyBooked = (dateStr) => {
+    const reservations = allReservationsByDate[dateStr] || [];
+
+    // FIX: Check for ANY reservation (EVENT or PER TABLE) that occupies the venue
+    // For PER TABLE: Check if all tables are booked OR there's an EVENT
+    // For EVENT: Check if there's ANY reservation (EVENT blocks the whole venue)
+
+    const activeReservations = reservations.filter((res) => {
+      if (
+        res.status === "Cancelled" ||
+        res.status === "Completed" ||
+        res.status === "Done"
+      )
+        return false;
+      return true;
+    });
+
     const isEventFlow = reservationType === "event";
 
     if (isEventFlow) {
-      // For EVENT: Check if there's ANY event reservation on this date
-      const reservations = allReservationsByDate[dateStr] || [];
-      const eventReservations = reservations.filter(
+      // EVENT mode: ANY reservation makes it fully booked
+      return activeReservations.length > 0;
+    } else {
+      // PER TABLE mode: Full if ALL tables are booked OR there's an EVENT
+      const eventExists = activeReservations.some(
         (res) =>
           res.reservationType === "event" || res.reservation_type === "event",
       );
-      return eventReservations.length > 0;
-    } else {
-      // For PER TABLE: Check if all tables are booked
-      // FIX: Count ALL reservations for PER TABLE (including all types except EVENT)
-      const reservations = allReservationsByDate[dateStr] || [];
-      const tableReservations = reservations.filter((res) => {
-        // Exclude EVENT reservations from count
-        if (
-          res.reservationType === "event" ||
-          res.reservation_type === "event"
-        ) {
-          return false;
-        }
-        if (
-          res.status === "Cancelled" ||
-          res.status === "Completed" ||
-          res.status === "Done"
-        )
-          return false;
+
+      if (eventExists) {
+        // If there's an EVENT, the whole venue is booked
         return true;
-      });
-      return tableReservations.length >= totalTablesCount;
+      }
+
+      // Otherwise, check if all tables are booked
+      return activeReservations.length >= totalTablesCount;
     }
   };
 
