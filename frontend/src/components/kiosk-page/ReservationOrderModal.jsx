@@ -250,8 +250,8 @@ const ReservationOrderModal = ({
                     const val = parseInt(e.target.value, 10);
                     if (isNaN(val) || val < 1) {
                       setQuantity(""); // Allow empty temporarily for backspacing
-                    } else if (val > 50) {
-                      setQuantity(50); // Hard ceiling at 50 if they type a larger number
+                    } else if (val > 20) {
+                      setQuantity(20); // Hard ceiling at 50 if they type a larger number
                     } else {
                       setQuantity(val);
                     }
@@ -259,8 +259,8 @@ const ReservationOrderModal = ({
                   onBlur={() => {
                     if (quantity === "" || quantity < 1) {
                       setQuantity(1);
-                    } else if (quantity > 50) {
-                      setQuantity(50);
+                    } else if (quantity > 20) {
+                      setQuantity(20);
                     }
                   }}
                   className="qty-input-field"
@@ -269,7 +269,7 @@ const ReservationOrderModal = ({
                 {/* INCREMENT BUTTON (Max limit: 50) */}
                 <button onClick={() => setQuantity((q) => {
                   const current = parseInt(q, 10) || 1;
-                  return Math.min(50, current + 1); // Hard limit to 50
+                  return Math.min(20, current + 1); // Hard limit to 50
                 })}>
                   <Plus size={20} />
                 </button>
