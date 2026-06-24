@@ -450,15 +450,21 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     const isPastDate = checkDate < todayDate;
     if (isPastDate) return 0;
 
+    // Debug: Log all reservations for this date
+    console.log(
+      `🔍 Checking date: ${dateStr}, allReservations:`,
+      allReservationsByDate[dateStr],
+    );
+
     let activeCount = allReservationsByDate[dateStr].filter((res) => {
       // FIX: For EVENT mode, only count EVENT reservations
       // For PER TABLE mode, count ALL reservations
       if (reservationType === "event") {
         // EVENT mode: Only count EVENT reservations
-        if (
-          res.reservationType !== "event" &&
-          res.reservation_type !== "event"
-        ) {
+        const isEvent =
+          res.reservationType === "event" || res.reservation_type === "event";
+        if (!isEvent) {
+          console.log(`❌ Skipping non-EVENT reservation:`, res);
           return false;
         }
       }
@@ -468,15 +474,25 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         res.status === "Cancelled" ||
         res.status === "Completed" ||
         res.status === "Done"
-      )
+      ) {
+        console.log(`❌ Skipping cancelled/completed reservation:`, res);
         return false;
+      }
 
       if (isToday) {
         const endM = timeToMin(res.endTime);
-        if (endM <= currentTime) return false;
+        if (endM <= currentTime) {
+          console.log(`❌ Skipping past reservation for today:`, res);
+          return false;
+        }
       }
+      console.log(`✅ Including reservation:`, res);
       return true;
     }).length;
+
+    console.log(
+      `📊 Date: ${dateStr}, Mode: ${reservationType}, Count: ${activeCount}`,
+    );
     return activeCount;
   };
 
@@ -505,6 +521,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         (res) =>
           res.reservationType === "event" || res.reservation_type === "event",
       );
+      // If there's an EVENT reservation, mark as fully booked (shows "Full")
       return eventReservations.length > 0;
     } else {
       // PER TABLE mode: EVENT OR all tables booked
@@ -514,7 +531,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       );
 
       if (eventExists) {
-        // If there's an EVENT, the whole venue is booked
+        // If there's an EVENT, the whole venue is booked - show "Full"
         return true;
       }
 
@@ -522,7 +539,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       return activeReservations.length >= totalTablesCount;
     }
   };
-
   const markStepCompleted = (step) => {
     if (!completedSteps.includes(step)) {
       setCompletedSteps([...completedSteps, step]);
