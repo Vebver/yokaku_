@@ -203,11 +203,12 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         response.data.forEach((reservation) => {
           const date = reservation.date;
           if (date) {
-            const isEventReservation =
-              reservation.reservationType === "event" ||
-              reservation.reservation_type === "event";
+            // FIX: Check both possible field names and handle case-insensitive
+            const resType =
+              reservation.reservationType || reservation.reservation_type || "";
+            const isEventReservation = resType.toLowerCase() === "event";
 
-            // FIX: For EVENT mode, only include EVENT reservations
+            // For EVENT mode, only include EVENT reservations
             // For PER TABLE mode, include ALL reservations
             if (reservationType === "event") {
               // EVENT mode: Only show EVENT reservations
@@ -285,7 +286,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         }
         if (isPastDate) activeReservations = [];
 
-        // FIX: Group EVENT reservations by time range to avoid duplicates
+        // FIX: Group EVENT reservations by reservation_id to avoid duplicates
         const formattedReservations = [];
         const eventGroups = {};
 
@@ -294,8 +295,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
             res.reservationType === "event" || res.reservation_type === "event";
 
           if (isEvent && reservationType === "per_table") {
-            // For PER TABLE mode, group EVENTs by time range
-            const key = `${res.startTime}-${res.endTime}`;
+            // For PER TABLE mode, group EVENTs by reservation_id
+            const key = res.reservation_id || res.id;
             if (!eventGroups[key]) {
               eventGroups[key] = {
                 ...res,
@@ -363,7 +364,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           }
           if (isPastDate) activeReservations = [];
 
-          // FIX: Group EVENT reservations by time range
+          // FIX: Group EVENT reservations by reservation_id
           const formattedReservations = [];
           const eventGroups = {};
 
@@ -373,7 +374,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
               res.reservation_type === "event";
 
             if (isEvent && reservationType === "per_table") {
-              const key = `${res.startTime}-${res.endTime}`;
+              const key = res.reservation_id || res.id;
               if (!eventGroups[key]) {
                 eventGroups[key] = {
                   ...res,
