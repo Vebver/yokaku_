@@ -2,15 +2,22 @@ const db = require("../config/db");
 
 const Inventory = {
   // GET ALL ITEMS
- getAll: async () => {
+  getAll: async () => {
     const sql = `
       SELECT 
         inventory_id, 
-        item_name, 
-        quantity, 
-        reorder_level, 
-        status, 
-        last_updated 
+        item_name,
+        category,
+        quantity,
+        unit,
+        unit_price,
+        expiry_date,
+        supplier,
+        storage_location,
+        reorder_level,
+        last_updated, 
+        status
+        
       FROM inventory 
       ORDER BY last_updated DESC
     `;
@@ -94,7 +101,7 @@ const Inventory = {
     `);
     return rows;
   },
- // 2. Get Inventory Value and Status (Updated to match React keys)
+  // 2. Get Inventory Value and Status (Updated to match React keys)
   GetInventoryUsage: async () => {
     const [rows] = await db.execute(`
       SELECT 
