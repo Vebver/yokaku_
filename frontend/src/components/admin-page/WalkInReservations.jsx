@@ -620,16 +620,12 @@
                     <div className="col-6">
                       <small className="text-muted d-block">Booking Type</small>
                       <span className="badge bg-primary-subtle text-primary text-uppercase font-monospace" style={{ fontSize: "0.7rem" }}>
-                        {selectedRes.reservation_type === "event" ? "🎉 Special Event" : "🍽️ Table Dining"}
+                        {selectedRes.reservation_type === "event" ? "Special Event" : "Table Dining"}
                       </span>
                     </div>
                     <div className="col-6">
                       <small className="text-muted d-block">Selected Package</small>
                       <span className="small fw-bold text-dark">{selectedRes.package_name || "Regular Table"}</span>
-                    </div>
-                    <div className="col-6">
-                      <small className="text-muted d-block">Party Size</small>
-                      <span className="small fw-bold text-dark">{selectedRes.num_guests || selectedRes.guests || "1"} Guests</span>
                     </div>
                     <div className="col-6">
                       <small className="text-muted d-block">Session Timing</small>

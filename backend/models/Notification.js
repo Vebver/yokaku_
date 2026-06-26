@@ -49,7 +49,16 @@ const Notification = {
 
   getByUserId: async (userId) => {
     const sql = `
-      SELECT * FROM notifications 
+      SELECT 
+        notification_id, -- Replace with 'id' if your primary key column is named 'id'
+        user_id, 
+        reservation_id, 
+        title, 
+        message, 
+        type, 
+        is_read, 
+        created_at 
+      FROM notifications 
       WHERE user_id = ? AND deleted_at IS NULL
       ORDER BY created_at DESC
     `;
@@ -59,7 +68,17 @@ const Notification = {
 
   getDeletedNotifications: async (userId) => {
     const sql = `
-      SELECT * FROM notifications 
+      SELECT 
+        notification_id, -- Replace with 'id' if your primary key column is named 'id'
+        user_id, 
+        reservation_id, 
+        title, 
+        message, 
+        type, 
+        is_read, 
+        created_at, 
+        deleted_at 
+      FROM notifications 
       WHERE user_id = ? AND deleted_at IS NOT NULL
       ORDER BY deleted_at DESC
     `;

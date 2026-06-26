@@ -2,8 +2,15 @@ const db = require('../config/db');
 
 const BlockedDate = {
   getAll: async () => {
-    // The [rows] syntax is specific to mysql2/promise
-    const [rows] = await db.execute("SELECT * FROM blocked_dates ORDER BY block_date ASC");
+    const sql = `
+      SELECT 
+        id,
+        block_date, 
+        reason 
+      FROM blocked_dates 
+      ORDER BY block_date ASC
+    `;
+    const [rows] = await db.execute(sql);
     return rows;
   },
   add: async (date, reason) => {

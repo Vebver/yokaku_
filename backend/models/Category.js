@@ -2,7 +2,14 @@ const db = require('../config/db'); // Check your path to the db config
 
 const Category = {
   getAll: async () => {
-    const [rows] = await db.query('SELECT * FROM categories');
+    const sql = `
+      SELECT 
+        category_id, 
+        category_name,
+        description
+      FROM categories
+    `;
+    const [rows] = await db.query(sql);
     return rows;
   },
   

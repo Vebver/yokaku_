@@ -88,9 +88,31 @@ const Maintenance = {
 
   // 3. Data Export: Get all records for CSV
   getExportData: async () => {
-    const [rows] = await db.execute(
-      "SELECT * FROM reservations ORDER BY created_at DESC",
-    );
+    const sql = `
+      SELECT 
+        reservation_id, 
+        user_id, 
+        first_name, 
+        last_name, 
+        email, 
+        phone, 
+        reservation_date, 
+        reservation_time, 
+        end_time, 
+        num_guests, 
+        package_name, 
+        status, 
+        brgy_code, 
+        allergy, 
+        occasion, 
+        duration_hours, 
+        downpayment_amount, 
+        reservation_type, 
+        created_at 
+      FROM reservations 
+      ORDER BY created_at DESC
+    `;
+    const [rows] = await db.execute(sql);
     return rows;
   },
 };

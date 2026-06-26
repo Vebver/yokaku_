@@ -10,6 +10,46 @@ const Order = {
     );
     return rows;
   },
+  // 11. Sync and update the total bill in the payments table
+  syncBillingTotal: async (conn, reservationId) => {
+    // A. Recalculate food total
+    const [totals] = await conn.execute(
+      `SELECT COALESCE(SUM(ko.quantity * mi.price), 0) AS food_total
+       FROM kiosk_orders ko
+       JOIN menu_items mi ON ko.item_id = mi.item_id
+       WHERE ko.reservation_id = ? AND ko.is_refill = 0`,
+      [reservationId]
+    );
+    const foodTotal = parseFloat(totals[0]?.food_total || 0);
+
+    // B. Fetch downpayment/reservation fee
+    const [resFee] = await conn.execute(
+      `SELECT COALESCE(downpayment_amount, 0) AS fee FROM reservations WHERE reservation_id = ?`,
+      [reservationId]
+    );
+    const feeTotal = parseFloat(resFee[0]?.fee || 0);
+
+    const finalTotalBill = foodTotal + feeTotal;
+
+    // C. Check if a payment record exists
+    const [payExists] = await conn.execute(
+      "SELECT payment_id FROM payments WHERE reservation_id = ?",
+      [reservationId]
+    );
+
+    if (payExists.length > 0) {
+      await conn.execute(
+        "UPDATE payments SET total_bill = ? WHERE reservation_id = ?",
+        [finalTotalBill, reservationId]
+      );
+    } else {
+      await conn.execute(
+        `INSERT INTO payments (reservation_id, amount, total_bill, payment_method, payment_status, paid_at)
+         VALUES (?, 0, ?, 'Cash', 'pending', NOW())`,
+        [reservationId, finalTotalBill]
+      );
+    }
+  },
 
   // 2. Check current stock levels
   checkStock: async (conn, inventoryId) => {
@@ -78,7 +118,7 @@ const Order = {
         reservation_id, first_name, last_name, email, phone, status, 
         reservation_date, reservation_time, brgy_code, num_guests, package_name, occasion
       ) 
-      VALUES (?, ?, '', '', '', 'seated', ?, ?, NULL, 1, 'walk-in', 'none')
+      VALUES (?, ?, '', '', '', 'seated', ?, ?, NULL, 1, 'Walk-in', 'none')
     `;
     return await conn.execute(query, [reservationId, firstName, localDate, localTime]);
   },

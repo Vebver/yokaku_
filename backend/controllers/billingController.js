@@ -24,7 +24,7 @@ exports.createWalkinPayment = async (req, res) => {
       reservation_id,
       amount,
       payment_method || "Cash",
-      payment_status || "pending"
+      payment_status || "Pending"
     );
 
     console.log("[Billing Controller] Payment created with ID:", paymentId);

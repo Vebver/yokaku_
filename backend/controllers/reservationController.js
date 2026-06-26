@@ -1,6 +1,5 @@
 const Reservation = require("../models/Reservation");
 const User = require("../models/User");
-const db = require("../config/db");
 
 /**
  * UTILITY HELPERS
@@ -135,14 +134,8 @@ const reservationController = {
   getCancellationCount: async (req, res) => {
     try {
       const { userId } = req.params;
-      const [rows] = await db.execute(
-        "SELECT cancellation_count, last_cancellation_time FROM users WHERE user_id = ?",
-        [userId],
-      );
-      res.json({
-        cancellationCount: rows[0]?.cancellation_count || 0,
-        lastCancellationTime: rows[0]?.last_cancellation_time || null,
-      });
+      const info = await User.getCancellationInfo(userId);
+      res.json(info);
     } catch (error) {
       console.error("Error fetching cancellation count:", error);
       res.status(500).json({ error: error.message });
@@ -152,11 +145,7 @@ const reservationController = {
   recordCancellation: async (req, res) => {
     try {
       const { userId } = req.body;
-      await User.incrementCancellationCount(userId);
-      await db.execute(
-        "UPDATE users SET last_cancellation_time = NOW() WHERE user_id = ?",
-        [userId],
-      );
+      await User.recordCancellation(userId);
       res.json({ success: true });
     } catch (error) {
       console.error("Error recording cancellation:", error);
@@ -206,13 +195,13 @@ const reservationController = {
       res.status(500).json({ error: "Failed to fetch active kiosk state." });
     }
   },
+
   // ==================== CREATE RESERVATION ====================
   createReservation: async (req, res) => {
     try {
       const body = req.body;
-      const userId = body.userId;
 
-      // FIX: Ensure numeric fields are actually numbers
+      // Ensure numeric fields are actually numbers
       body.downpayment = parseFloat(body.downpayment) || 0;
       body.totalAmount = parseFloat(body.totalAmount) || 0;
       body.amount = parseFloat(body.amount) || 0;
@@ -220,12 +209,7 @@ const reservationController = {
       body.guests = parseInt(body.guests) || 1;
       body.pax = parseInt(body.pax) || 1;
 
-      const items =
-        typeof body.selectedItems === "string"
-          ? JSON.parse(body.selectedItems)
-          : body.selectedItems || [];
-
-      // FIX: Better tableIds parsing with error handling
+      // Better tableIds parsing with error handling
       let tableIdsArray = [];
       const reservationType = (
         body.reservationType ||
@@ -235,8 +219,7 @@ const reservationController = {
 
       // For EVENT reservations, we don't need table IDs (they book the whole venue)
       if (reservationType === "event") {
-        // EVENT: Use default table IDs or skip table assignment
-        tableIdsArray = [0]; // Use 0 or a special value for EVENT
+        tableIdsArray = [0]; 
         console.log("✅ EVENT reservation - no specific tables needed");
       } else {
         // PER TABLE: Parse table IDs from request
@@ -251,17 +234,9 @@ const reservationController = {
               tableIdsArray = [body.tableIds];
             }
           } catch (e) {
-            console.log(
-              "Failed to parse tableIds, trying alternative:",
-              body.tableIds,
-            );
-            if (
-              typeof body.tableIds === "string" &&
-              body.tableIds.includes(",")
-            ) {
-              tableIdsArray = body.tableIds
-                .split(",")
-                .map((id) => parseInt(id.trim()));
+            console.log("Failed to parse tableIds, trying alternative:", body.tableIds);
+            if (typeof body.tableIds === "string" && body.tableIds.includes(",")) {
+              tableIdsArray = body.tableIds.split(",").map((id) => parseInt(id.trim()));
             } else if (typeof body.tableIds === "string") {
               tableIdsArray = [parseInt(body.tableIds)];
             }
@@ -276,17 +251,13 @@ const reservationController = {
         console.log("✅ Parsed tableIds:", tableIdsArray);
 
         if (tableIdsArray.length === 0) {
-          throw new Error(
-            "No valid table IDs provided. Please select at least one table.",
-          );
+          throw new Error("No valid table IDs provided. Please select at least one table.");
         }
       }
 
       // Safety check for dates and fallbacks for missing end times
       const startDateTime = new Date(`${body.date} ${body.startTime}`);
-      const duration = parseFloat(
-        body.durationHours || body.duration_hours || 1.0,
-      );
+      const duration = parseFloat(body.durationHours || body.duration_hours || 1.0);
 
       const endDateTime = body.endTime
         ? new Date(`${body.date} ${body.endTime}`)
@@ -295,26 +266,29 @@ const reservationController = {
       const dbStart = startDateTime.toTimeString().split(" ")[0];
       const dbEnd = endDateTime.toTimeString().split(" ")[0];
 
-      // FIX: For PER TABLE, downpayment should be 0
-      // For EVENT, use the provided downpayment
+      // For PER TABLE, downpayment should be 0
       let downpayment = parseFloat(body.downpayment) || 0;
-
-      // If it's PER TABLE, force downpayment to 0 (no downpayment needed)
       if (reservationType === "per_table") {
         downpayment = 0;
       }
-      // For EVENT, keep the provided downpayment or default to 0 if not provided
+
+      // Check if the current user placing the order is staff (admin or cashier)
+      const isStaff = req.user?.role === "admin" || req.user?.role === "cashier";
 
       const reservationData = {
         ...body,
         reservation_type: reservationType,
-        userId: body.userId || req.user?.userId,
+        
+        // Only link user ID if the client is a real customer. Left as null for staff bookings.
+        userId: (body.userId && body.userId !== "null") 
+          ? body.userId 
+          : (isStaff ? null : req.user?.userId),
+
         startTime: dbStart,
         endTime: dbEnd,
         receiptPath: req.file ? req.file.path : null,
         tableIds: tableIdsArray,
-        // Ensure these are numbers with proper defaults
-        downpayment: downpayment, // 0 for PER TABLE, provided value for EVENT
+        downpayment: downpayment,
         totalAmount: parseFloat(body.totalAmount) || 0,
         amount: parseFloat(body.amount) || 0,
         durationHours: parseFloat(body.durationHours) || 1,
@@ -337,17 +311,13 @@ const reservationController = {
       let notificationId = null;
 
       try {
-        const [notifResult] = await db.execute(
-          "INSERT INTO notifications (title, message, type, is_read, created_at) VALUES (?, ?, ?, ?, ?)",
-          [
-            "New Reservation",
-            `New booking from ${fullName}`,
-            "reservation",
-            0,
-            mysqlDateTime,
-          ],
+        // Trigger notification creation using the model layer
+        notificationId = await Reservation.createAdminNotification(
+          "New Reservation",
+          `New booking from ${fullName}`,
+          "reservation",
+          mysqlDateTime
         );
-        notificationId = notifResult.insertId;
       } catch (dbErr) {
         console.error("Notification DB Error:", dbErr.message);
       }
@@ -371,6 +341,7 @@ const reservationController = {
       res.status(500).json({ error: error.message });
     }
   },
+
   // ==================== ADMIN FUNCTIONS ====================
   getReservations: async (req, res) => {
     try {
@@ -518,26 +489,8 @@ const reservationController = {
           .json({ error: "startDate and endDate are required" });
       }
 
-      const sql = `
-      SELECT 
-        r.reservation_id,
-        r.reservation_type,
-        DATE_FORMAT(r.reservation_date, '%Y-%m-%d') as date,
-        TIME_FORMAT(r.reservation_time, '%H:%i') as startTime,
-        TIME_FORMAT(r.end_time, '%H:%i') as endTime,
-        r.num_guests as guests,
-        r.first_name,
-        r.last_name,
-        r.status,
-        rt.table_id
-      FROM reservations r
-      JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
-      WHERE r.reservation_date BETWEEN ? AND ?
-        AND r.status IN ('Confirmed', 'Pending', 'Seated')
-      ORDER BY r.reservation_date ASC, r.reservation_time ASC
-    `;
-
-      const [rows] = await db.execute(sql, [startDate, endDate]);
+      // Use model layer
+      const rows = await Reservation.getByDateRange(startDate, endDate);
       res.json(rows);
     } catch (error) {
       console.error("Error fetching reservations by date range:", error);
@@ -553,27 +506,8 @@ const reservationController = {
         return res.status(400).json({ error: "date is required" });
       }
 
-      const sql = `
-      SELECT 
-        r.reservation_id,
-        r.reservation_type,
-        DATE_FORMAT(r.reservation_date, '%Y-%m-%d') as date,
-        TIME_FORMAT(r.reservation_time, '%H:%i') as startTime,
-        TIME_FORMAT(r.end_time, '%H:%i') as endTime,
-        r.num_guests as guests,
-        r.first_name,
-        r.last_name,
-        CONCAT(r.first_name, ' ', r.last_name) as customerName,
-        r.status,
-        rt.table_id
-      FROM reservations r
-      JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
-      WHERE r.reservation_date = ?
-        AND r.status IN ('Confirmed', 'Pending', 'Seated')
-      ORDER BY r.reservation_time ASC
-    `;
-
-      const [rows] = await db.execute(sql, [date]);
+      // Use model layer
+      const rows = await Reservation.getByDate(date);
       res.json(rows);
     } catch (error) {
       console.error("Error fetching reservations by date:", error);

@@ -3,7 +3,9 @@ const db = require('../config/db');
 const Setting = {
   // Get all rows
   getAll: async () => {
-    const [rows] = await db.execute("SELECT * FROM system_settings");
+    const [rows] = await db.execute(
+      "SELECT setting_key, setting_value, updated_at FROM system_settings"
+    );
     return rows;
   },
 

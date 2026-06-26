@@ -2,10 +2,19 @@ const db = require("../config/db");
 
 const Inventory = {
   // GET ALL ITEMS
-  getAll: async () => {
-    const [rows] = await db.query(
-      "SELECT * FROM inventory ORDER BY last_updated DESC",
-    );
+ getAll: async () => {
+    const sql = `
+      SELECT 
+        inventory_id, 
+        item_name, 
+        quantity, 
+        reorder_level, 
+        status, 
+        last_updated 
+      FROM inventory 
+      ORDER BY last_updated DESC
+    `;
+    const [rows] = await db.query(sql);
     return rows;
   },
 

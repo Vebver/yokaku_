@@ -2,20 +2,43 @@ const pool = require("../config/db"); // Your MySQL pool
 const bcrypt = require("bcryptjs");
 
 class User {
+  // 1. Find by Email (Secure selection - includes password_hash for authentication)
   static async findByEmail(email) {
-    const [rows] = await pool.query("SELECT * FROM users WHERE email = ?", [
-      email,
-    ]);
+    const [rows] = await pool.query(
+      "SELECT user_id, first_name, last_name, email, password_hash, role FROM users WHERE email = ?", 
+      [email]
+    );
     return rows[0];
   }
 
+  // 2. Find by ID (Secure selection - excludes password_hash)
   static async findById(id) {
-    const [rows] = await pool.query("SELECT * FROM users WHERE user_id = ?", [
-      id,
-    ]);
+    const [rows] = await pool.query(
+      "SELECT user_id, first_name, last_name, email, role, cancellation_count, last_cancellation_time FROM users WHERE user_id = ?", 
+      [id]
+    );
     return rows[0];
   }
 
+  // 3. Get Cancellation Info (For reservationController.js)
+  static async getCancellationInfo(userId) {
+    const [rows] = await pool.execute(
+      "SELECT cancellation_count, last_cancellation_time FROM users WHERE user_id = ?",
+      [userId]
+    );
+    return rows[0] || { cancellation_count: 0, last_cancellation_time: null };
+  }
+
+  // 4. Record Cancellation (For reservationController.js)
+  static async recordCancellation(userId) {
+    await this.incrementCancellationCount(userId);
+    return await pool.execute(
+      "UPDATE users SET last_cancellation_time = NOW() WHERE user_id = ?",
+      [userId]
+    );
+  }
+
+  // 5. Update user profile details
   static async update(id, data) {
     try {
       // Fetch current user data first to avoid overwriting with NULLs
@@ -57,6 +80,7 @@ class User {
     }
   }
 
+  // 6. Create user (Register)
   static async create(email, password, firstName, lastName) {
     const hashedPassword = await bcrypt.hash(password, 12);
     const [result] = await pool.execute(
@@ -66,7 +90,7 @@ class User {
     return result.insertId;
   }
 
-  // Get user's cancellation count
+  // 7. Get user's cancellation count
   static async getCancellationCount(userId) {
     const [rows] = await pool.query(
       "SELECT cancellation_count FROM users WHERE user_id = ?",
@@ -75,7 +99,7 @@ class User {
     return rows[0]?.cancellation_count || 0;
   }
 
-  // Increment user's cancellation count
+  // 8. Increment user's cancellation count
   static async incrementCancellationCount(userId) {
     const [result] = await pool.execute(
       "UPDATE users SET cancellation_count = cancellation_count + 1 WHERE user_id = ?",
@@ -84,17 +108,18 @@ class User {
     return result.affectedRows > 0;
   }
 
-  static get pool() {
-    return pool;
-  }
-
+  // 9. Find by Reset Token (Secure selection)
   static async findByResetToken(token) {
-    // Corrected 'db' to 'pool' to match your connection
     const [rows] = await pool.query(
-      "SELECT * FROM users WHERE reset_password_token = ?",
+      "SELECT user_id, email, reset_password_expires FROM users WHERE reset_password_token = ?",
       [token],
     );
     return rows[0];
+  }
+
+  // Static pool getter used by index.js shutdown hook
+  static get pool() {
+    return pool;
   }
 }
 

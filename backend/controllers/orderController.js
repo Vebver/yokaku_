@@ -19,15 +19,15 @@ const orderController = {
   },
 
   // --- 2. Place Order (Fixed) ---
-  placeOrder: async (req, res) => {
+ placeOrder: async (req, res) => {
     const { reservation_id, table_id, items } = req.body;
-     console.log("📡 [DEBUG] placeOrder called with ID:", reservation_id); // <-- ADD THIS LOG
+    console.log("📡 [DEBUG] placeOrder called with ID:", reservation_id);
     const conn = await db.getConnection();
 
     try {
       await conn.beginTransaction();
 
-       const hasRefill = items.some((item) => item.is_refill === true);
+      const hasRefill = items.some((item) => item.is_refill === true);
 
       if (hasRefill) {
         // Query the database for the last refill for this specific reservation
@@ -46,7 +46,6 @@ const orderController = {
           // 15 MINUTE RULE
           if (diffInMinutes < 15) {
             const remaining = 15 - diffInMinutes;
-            // IMPORTANT: Rollback and release if we block the order
             await conn.rollback();
             conn.release();
             return res.status(429).json({
@@ -83,6 +82,7 @@ const orderController = {
           "UPDATE reservations SET status = 'Seated' WHERE reservation_id = ?",
           [reservation_id]
         );
+        
         if (table_id && table_id !== "takeout" && table_id !== "null") {
           await conn.execute(
             `INSERT INTO reservation_tables (reservation_id, table_id, status, check_in_time)
@@ -91,21 +91,15 @@ const orderController = {
             [reservation_id, table_id]
           );
 
-          // Update the master tables table
+          // Update physical table state to occupied
           await conn.execute(
             "UPDATE tables SET status = 'occupied' WHERE table_id = ?",
             [table_id]
           );
+        }
       }
 
-        // Update the master tables table to 'occupied'
-        await conn.execute(
-          "UPDATE tables SET status = 'occupied' WHERE table_id = ?",
-          [table_id],
-        );
-      }
-
-      // 4. Process order items
+      // 2. Process order items
       const enrichedItems = [];
 
       for (const item of items) {
@@ -133,9 +127,14 @@ const orderController = {
         });
       }
 
+      // ==================== INSTANT BILLING SYNCHRONIZATION ====================
+      // Updates payments table automatically using the model layer
+      await Order.syncBillingTotal(conn, reservation_id);
+      // =========================================================================
+
       await conn.commit();
 
-      // 5. Emit socket events
+      // 3. Emit socket events
       const io = req.app.get("io");
       if (io) {
         io.emit("new_order", {
