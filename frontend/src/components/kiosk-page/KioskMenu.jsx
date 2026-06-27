@@ -126,6 +126,16 @@ const KioskMenu = () => {
 
   const currentTableId = localStorage.getItem("tableId") || "takeout";
 
+  // Helper to generate a short, easy-to-read walk-in ID (Matches backend format)
+  const generateShortWalkInId = () => {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let result = "";
+    for (let i = 0; i < 6; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return `WALK-${result}`;
+  }; // Helper to generate a short, easy-to-read walk-in ID (Matches backend format)
+
   const getAuthHeader = () => {
     const token =
       localStorage.getItem("token") || sessionStorage.getItem("token");
@@ -383,7 +393,7 @@ const KioskMenu = () => {
     setIsLoading(true);
     const { tableId, mode } = pendingOrderDetails;
     const activeResId = storage.getItem(SAVED_RES_ID);
-    const dynamicResId = activeResId || `WALK-${Date.now()}`;
+    const dynamicResId = activeResId || generateShortWalkInId();
     const isPayNow = choice === "Pay Now";
 
     // SAFE CHECK: Prevents crash if 'name' property is null or undefined

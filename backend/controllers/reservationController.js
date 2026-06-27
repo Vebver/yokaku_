@@ -315,7 +315,7 @@ const reservationController = {
         notificationId = await Reservation.createAdminNotification(
           "New Reservation",
           `New booking from ${fullName}`,
-          "reservation",
+          "info",
           mysqlDateTime
         );
       } catch (dbErr) {
