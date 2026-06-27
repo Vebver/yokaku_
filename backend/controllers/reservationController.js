@@ -218,8 +218,8 @@ const reservationController = {
       ).toLowerCase();
 
       // For EVENT reservations, we don't need table IDs (they book the whole venue)
-      if (reservationType === "event") {
-        tableIdsArray = [0]; 
+      if (reservationType === "event" || reservationType === "takeout") {
+        tableIdsArray = []; 
         console.log("✅ EVENT reservation - no specific tables needed");
       } else {
         // PER TABLE: Parse table IDs from request

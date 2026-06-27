@@ -325,18 +325,15 @@ const Reservation = {
   },
   // ==================== CRUD OPERATIONS ====================
 
-  create: async (data) => {
+ create: async (data) => {
     const conn = await db.getConnection();
     try {
       await conn.beginTransaction();
 
-      // ... (Inside the create: async (data) => block)
-
       const idPrefix = data.isWalkin ? "WALK" : "RES";
       const customId = generateRandomId(idPrefix);
 
-      // --- UPDATE: Walk-ins now start as 'Confirmed' (Orange) ---
-      // They only transition to 'Seated' when they begin using the kiosk or are manually seated
+      // Walk-ins and manual entries start as 'Confirmed'
       const finalStatus = "Confirmed";
       const bridgeStatus = "confirmed";
 
@@ -356,15 +353,15 @@ const Reservation = {
         customId,
         data.userId === "null" || !data.userId ? null : data.userId,
         data.firstName,
-        data.lastName,
-        data.email,
-        data.phone,
+        data.lastName || "",
+        data.email || "",
+        data.phone || "",
         data.date,
         data.startTime,
         data.endTime,
-        data.pax || data.guests || data.num_guests,
+        data.pax || data.guests || data.num_guests || 1,
         data.packageName,
-        finalStatus, // Uses 'Confirmed'
+        finalStatus, 
         data.receiptPath,
         data.brgyCode,
         data.allergy,
@@ -391,20 +388,20 @@ const Reservation = {
 
       if (finalTableIds.length > 0) {
         for (const tid of finalTableIds) {
-          // Link the table
-          await conn.query(
-            `INSERT INTO reservation_tables 
-            (reservation_id, table_id, customer_name, status, check_in_time) 
-            VALUES (?, ?, ?, ?, NOW())`,
-            [customId, tid, `${data.firstName} ${data.lastName}`, bridgeStatus], // 'confirmed'
-          );
-
-          // --- UPDATE: Only update physical table state to 'occupied' if seated immediately ---
-          if (bridgeStatus === "seated") {
+          if (tid !== "takeout" && tid !== 0) { // Bypass table assignment insert if takeout
             await conn.query(
-              "UPDATE tables SET status = 'occupied', available_seats = 0 WHERE table_id = ?",
-              [tid],
+              `INSERT INTO reservation_tables 
+              (reservation_id, table_id, customer_name, status, check_in_time) 
+              VALUES (?, ?, ?, ?, NOW())`,
+              [customId, tid, `${data.firstName} ${data.lastName || ""}`, bridgeStatus],
             );
+
+            if (bridgeStatus === "seated") {
+              await conn.query(
+                "UPDATE tables SET status = 'occupied', available_seats = 0 WHERE table_id = ?",
+                [tid],
+              );
+            }
           }
         }
       }
@@ -423,8 +420,37 @@ const Reservation = {
           payStatus,
         ],
       );
-      // Notification
 
+      // ==================== NEW: INSERT MANUAL ORDER MENU ITEMS ====================
+      let itemsToInsert = [];
+      if (data.selectedItems) {
+        try {
+          itemsToInsert = typeof data.selectedItems === "string"
+            ? JSON.parse(data.selectedItems)
+            : data.selectedItems;
+        } catch (err) {
+          console.error("Error parsing selectedItems in Reservation.create:", err);
+        }
+      }
+
+      if (Array.isArray(itemsToInsert) && itemsToInsert.length > 0) {
+        for (const item of itemsToInsert) {
+          const itemId = item.product_id || item.item_id || item.id;
+          const qty = item.quantity || 1;
+          const customizations = item.customizations || "";
+
+          // Insert directly into kiosk_orders so it shows up in kitchen queues and bill summaries
+          await conn.query(
+            `INSERT INTO kiosk_orders 
+             (reservation_id, item_id, quantity, kitchen_status, customizations, is_refill) 
+             VALUES (?, ?, ?, 'pending', ?, 0)`,
+            [customId, itemId, qty, customizations]
+          );
+        }
+      }
+      // ==============================================================================
+
+      // Notification
       if (data.userId && data.userId !== "null") {
         const notifSql = `
           INSERT INTO notifications 
@@ -441,8 +467,7 @@ const Reservation = {
 
       await conn.commit();
 
-      // Trigger Socket Update for Admin Dashboard
-      const io = data.io; // If you pass io from controller
+      const io = data.io; 
       if (io) io.emit("table_updated");
 
       return customId;
@@ -454,9 +479,6 @@ const Reservation = {
       conn.release();
     }
   },
-  // In models/Reservation.js (inside the Reservation object):
-
-  // models/Reservation.js
 
   getItemsByReservationId: async (id) => {
     const sql = `
@@ -488,6 +510,7 @@ const Reservation = {
     const [rows] = await db.execute(sql, [id, id]);
     return rows;
   },
+
   // countNoShows: async (userId) => {
   //   if (!userId || userId === "null") return 0;
   //   const sql = `SELECT COUNT(*) as count FROM reservations WHERE user_id = ? AND status = 'no-show'`;
