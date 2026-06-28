@@ -1,10 +1,13 @@
 import React, { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import axios from "axios";
-import "../Style/LoginModal.css"; // Reuse your styles
+import "../Style/LoginModal.css";
+
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+
 function ResetPasswordPage() {
-  const { token } = useParams();
+  const [searchParams] = useSearchParams();
+  const token = searchParams.get("token"); // Get token from query string
   const navigate = useNavigate();
 
   const [newPassword, setNewPassword] = useState("");
@@ -15,6 +18,44 @@ function ResetPasswordPage() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // If no token, show error
+  if (!token) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+          backgroundColor: "#f8f9fa",
+        }}
+      >
+        <div
+          className="modal-content"
+          style={{
+            width: "400px",
+            padding: "40px",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+          }}
+        >
+          <h2 style={{ textAlign: "center", color: "#e63946" }}>
+            Invalid Reset Link
+          </h2>
+          <p style={{ textAlign: "center", color: "#666" }}>
+            The password reset link is invalid or missing.
+          </p>
+          <button
+            className="submit-btn"
+            onClick={() => navigate("/")}
+            style={{ marginTop: "20px" }}
+          >
+            Back to Home
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const EyeIcon = ({ visible, toggle }) => (
     <span className="password-toggle-icon" onClick={toggle}>
@@ -39,9 +80,8 @@ function ResetPasswordPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(""); // Clear previous errors
+    setError("");
 
-    // --- NEW RESTRICTION: Check for at least 8 characters ---
     if (newPassword.length < 8) {
       setError("Password must be at least 8 characters.");
       return;
@@ -127,7 +167,6 @@ function ResetPasswordPage() {
             />
           </div>
 
-          {/* This logic will now display either the match error or the length error */}
           {error && <p className="password-warning">{error}</p>}
 
           <button type="submit" className="submit-btn" disabled={loading}>

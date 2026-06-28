@@ -32,7 +32,7 @@ import TableReservation from "./components/ReservationSteps.jsx";
 import TermsModal from "./components/TermsModal";
 import ResetPasswordPage from "./components/ResetPasswordPage";
 import MyReservation from "./components/customer-page/MyReservation";
-import Cashier from "./components/cashier/Cashier.jsx"
+import Cashier from "./components/cashier/Cashier.jsx";
 
 import "./Style/App.css";
 // 1. MAIN APP COMPONENT
@@ -105,90 +105,150 @@ function AppContent() {
       />
 
       <Routes>
-  {/* 1. LANDING PAGE REDIRECTS */}
-  <Route
-    path="/"
-    element={
-      isLoggedIn ? (
-        userRole === "admin" ? (
-          <Navigate to="/admin" replace />
-        ) : userRole === "cashier" || userRole === "staff" ? (
-          <Navigate to="/cashier/dashboard" replace />
-        ) : (
-          <Navigate to="/customer" replace />
-        )
-      ) : (
-        <>
-          <HeroSection
-            isLoggedIn={isLoggedIn}
-            onLoginClick={() => setIsLoginOpen(true)}
-            onReserveClick={() => navigate("/tablereservation")}
-          />
-          <div id="menu-section"><FeaturedMenu onLoginClick={() => setIsLoginOpen(true)} /></div>
-          <div id="about-section"><AboutSection isLoggedIn={isLoggedIn} onLoginClick={() => setIsLoginOpen(true)} /></div>
-          <div id="promos-section"><PromoSection /></div>
-          <ReviewsSection />
-          <Footer />
-        </>
-      )
-    }
-  />
+        {/* 1. LANDING PAGE REDIRECTS */}
+        <Route
+          path="/"
+          element={
+            isLoggedIn ? (
+              userRole === "admin" ? (
+                <Navigate to="/admin" replace />
+              ) : userRole === "cashier" || userRole === "staff" ? (
+                <Navigate to="/cashier/dashboard" replace />
+              ) : (
+                <Navigate to="/customer" replace />
+              )
+            ) : (
+              <>
+                <HeroSection
+                  isLoggedIn={isLoggedIn}
+                  onLoginClick={() => setIsLoginOpen(true)}
+                  onReserveClick={() => navigate("/tablereservation")}
+                />
+                <div id="menu-section">
+                  <FeaturedMenu onLoginClick={() => setIsLoginOpen(true)} />
+                </div>
+                <div id="about-section">
+                  <AboutSection
+                    isLoggedIn={isLoggedIn}
+                    onLoginClick={() => setIsLoginOpen(true)}
+                  />
+                </div>
+                <div id="promos-section">
+                  <PromoSection />
+                </div>
+                <ReviewsSection />
+                <Footer />
+              </>
+            )
+          }
+        />
 
-  {/* 2. PROTECTED CUSTOMER ROUTES */}
-  <Route
-    path="/customer"
-    element={isLoggedIn && userRole === "customer" ? <CustomerPage isLoggedIn={isLoggedIn} onLoginClick={() => setIsLoginOpen(true)} onReserveClick={() => navigate("/tablereservation")} onSuccess={handleReservationSuccess} /> : <Navigate to="/" replace />}
-  />
-  <Route
-    path="/my-reservation"
-    element={isLoggedIn && userRole === "customer" ? <MyReservation /> : <Navigate to="/" replace />}
-  />
-  <Route
-    path="/profile"
-    element={isLoggedIn ? <CustomerProfile /> : <Navigate to="/" replace />}
-  />
-  <Route
-    path="/notifications"
-    element={isLoggedIn ? <Notifications /> : <Navigate to="/" replace />}
-  />
+        {/* 2. PROTECTED CUSTOMER ROUTES */}
+        <Route
+          path="/customer"
+          element={
+            isLoggedIn && userRole === "customer" ? (
+              <CustomerPage
+                isLoggedIn={isLoggedIn}
+                onLoginClick={() => setIsLoginOpen(true)}
+                onReserveClick={() => navigate("/tablereservation")}
+                onSuccess={handleReservationSuccess}
+              />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+        <Route
+          path="/my-reservation"
+          element={
+            isLoggedIn && userRole === "customer" ? (
+              <MyReservation />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            isLoggedIn ? <CustomerProfile /> : <Navigate to="/" replace />
+          }
+        />
+        <Route
+          path="/notifications"
+          element={isLoggedIn ? <Notifications /> : <Navigate to="/" replace />}
+        />
 
-  {/* 3. PROTECTED ADMIN ROUTES */}
-  <Route path="/admin/*" element={isLoggedIn && userRole === "admin" ? <AdminDashboard /> : <Navigate to="/" replace />} />
+        {/* 3. PROTECTED ADMIN ROUTES */}
+        <Route
+          path="/admin/*"
+          element={
+            isLoggedIn && userRole === "admin" ? (
+              <AdminDashboard />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
 
-  {/* 4. PROTECTED CASHIER ROUTE */}
-  <Route 
-    path="/cashier/dashboard" 
-    element={isLoggedIn && (userRole === "cashier" || userRole === "staff" || userRole === "admin") ? <Cashier /> : <Navigate to="/" replace />} 
-  />
+        {/* 4. PROTECTED CASHIER ROUTE */}
+        <Route
+          path="/cashier/dashboard"
+          element={
+            isLoggedIn &&
+            (userRole === "cashier" ||
+              userRole === "staff" ||
+              userRole === "admin") ? (
+              <Cashier />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
 
-  {/* 5. PUBLIC / KIOSK / KITCHEN ROUTES */}
-  <Route path="/tablereservation" element={<TableReservation onClose={() => navigate(isLoggedIn ? "/customer" : "/")} onSuccess={handleReservationSuccess} />} />
-  <Route path="/kiosk-selection" element={<KioskSelection />} />
-  <Route path="/kiosk-selection/kiosk-menu" element={<KioskMenu />} />
-  <Route path="/kiosk-selection/kiosk-reservation" element={<KioskReservation />} />
-  <Route path="/kiosk-selection/kiosk-reservation-menu" element={<KioskReservationMenu />} />
-  <Route path="/kitchen-page" element={<KitchenPage />} />
-  <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
-  <Route path="/menu" element={<FullMenu />} />
+        {/* 5. PUBLIC / KIOSK / KITCHEN ROUTES */}
+        <Route
+          path="/tablereservation"
+          element={
+            <TableReservation
+              onClose={() => navigate(isLoggedIn ? "/customer" : "/")}
+              onSuccess={handleReservationSuccess}
+            />
+          }
+        />
+        <Route path="/kiosk-selection" element={<KioskSelection />} />
+        <Route path="/kiosk-selection/kiosk-menu" element={<KioskMenu />} />
+        <Route
+          path="/kiosk-selection/kiosk-reservation"
+          element={<KioskReservation />}
+        />
+        <Route
+          path="/kiosk-selection/kiosk-reservation-menu"
+          element={<KioskReservationMenu />}
+        />
+        <Route path="/kitchen-page" element={<KitchenPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/menu" element={<FullMenu />} />
 
-  {/* 6. CATCH ALL - MUST BE AT THE VERY BOTTOM */}
-  <Route
-    path="*"
-    element={
-      isLoggedIn ? (
-        userRole === "admin" ? (
-          <Navigate to="/admin" replace />
-        ) : userRole === "cashier" || userRole === "staff" ? (
-          <Navigate to="/cashier/dashboard" replace />
-        ) : (
-          <Navigate to="/customer" replace />
-        )
-      ) : (
-        <Navigate to="/" replace />
-      )
-    }
-  />
-</Routes>
+        {/* 6. CATCH ALL - MUST BE AT THE VERY BOTTOM */}
+        <Route
+          path="*"
+          element={
+            isLoggedIn ? (
+              userRole === "admin" ? (
+                <Navigate to="/admin" replace />
+              ) : userRole === "cashier" || userRole === "staff" ? (
+                <Navigate to="/cashier/dashboard" replace />
+              ) : (
+                <Navigate to="/customer" replace />
+              )
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+      </Routes>
 
       {/* Modals */}
       {isLoginOpen && <LoginSection onClose={() => setIsLoginOpen(false)} />}

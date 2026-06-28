@@ -103,6 +103,7 @@ const sendOTP = async (email, otp) => {
 
 // Send Password Reset Email
 const sendPasswordResetEmail = async (email, resetToken) => {
+  // Use query parameter format
   const resetLink = `${process.env.FRONTEND_URL || "https://hangout-resto.com"}/reset-password?token=${resetToken}`;
 
   const htmlContent = `
