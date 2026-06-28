@@ -841,7 +841,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       }
     };
     poll();
-    const pollInterval = setInterval(poll, 5000);
+    const pollInterval = setInterval(poll, 60000);
     return () => clearInterval(pollInterval);
   }, [
     form.date,
@@ -2512,12 +2512,14 @@ export default function ReservationSteps({ onClose, onSuccess }) {
               name: "Standard Package",
               price: 10000,
               description: "₱10,000 Unlimited, Foods & Drinks to Consume",
+              menuItemId: 1,
             },
             {
               id: "premium",
               name: "Premium Package",
               price: 12500,
               description: "₱12,500 Foods & Drinks to Consume",
+              menuItemId: 2,
             },
           ];
 
@@ -2538,7 +2540,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                           name: pkg.name,
                           price: pkg.price,
                           quantity: 1,
-                          id: pkg.id,
+                          id: pkg.menuItemId,
                         };
                         setSelectedItems([packageItem]);
                       } else {

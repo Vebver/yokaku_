@@ -265,12 +265,11 @@ const Reservation = {
     return { mode: "table_default" };
   },
 
-
   // Create an administrative global notification
   createAdminNotification: async (title, message, type, createdAt) => {
     const [result] = await db.execute(
       "INSERT INTO notifications (title, message, type, is_read, created_at) VALUES (?, ?, ?, 0, ?)",
-      [title, message, type, createdAt]
+      [title, message, type, createdAt],
     );
     return result.insertId;
   },
@@ -325,7 +324,7 @@ const Reservation = {
   },
   // ==================== CRUD OPERATIONS ====================
 
- create: async (data) => {
+  create: async (data) => {
     const conn = await db.getConnection();
     try {
       await conn.beginTransaction();
@@ -361,7 +360,7 @@ const Reservation = {
         data.endTime,
         data.pax || data.guests || data.num_guests || 1,
         data.packageName,
-        finalStatus, 
+        finalStatus,
         data.receiptPath,
         data.brgyCode,
         data.allergy,
@@ -388,12 +387,18 @@ const Reservation = {
 
       if (finalTableIds.length > 0) {
         for (const tid of finalTableIds) {
-          if (tid !== "takeout" && tid !== 0) { // Bypass table assignment insert if takeout
+          if (tid !== "takeout" && tid !== 0) {
+            // Bypass table assignment insert if takeout
             await conn.query(
               `INSERT INTO reservation_tables 
               (reservation_id, table_id, customer_name, status, check_in_time) 
               VALUES (?, ?, ?, ?, NOW())`,
-              [customId, tid, `${data.firstName} ${data.lastName || ""}`, bridgeStatus],
+              [
+                customId,
+                tid,
+                `${data.firstName} ${data.lastName || ""}`,
+                bridgeStatus,
+              ],
             );
 
             if (bridgeStatus === "seated") {
@@ -425,26 +430,48 @@ const Reservation = {
       let itemsToInsert = [];
       if (data.selectedItems) {
         try {
-          itemsToInsert = typeof data.selectedItems === "string"
-            ? JSON.parse(data.selectedItems)
-            : data.selectedItems;
+          itemsToInsert =
+            typeof data.selectedItems === "string"
+              ? JSON.parse(data.selectedItems)
+              : data.selectedItems;
         } catch (err) {
-          console.error("Error parsing selectedItems in Reservation.create:", err);
+          console.error(
+            "Error parsing selectedItems in Reservation.create:",
+            err,
+          );
         }
       }
 
+      // FIX: Map string IDs to numeric IDs for EVENT packages
+      const packageMap = {
+        standard: 1, // Replace with your actual menu_item_id for Standard Package
+        premium: 2, // Replace with your actual menu_item_id for Premium Package
+      };
+
       if (Array.isArray(itemsToInsert) && itemsToInsert.length > 0) {
         for (const item of itemsToInsert) {
-          const itemId = item.product_id || item.item_id || item.id;
+          let itemId = item.product_id || item.item_id || item.id;
+
+          // If itemId is a string (like 'standard' or 'premium'), map it to numeric ID
+          if (typeof itemId === "string" && packageMap[itemId]) {
+            itemId = packageMap[itemId];
+          }
+
+          // Skip if itemId is still a string (invalid)
+          if (typeof itemId === "string") {
+            console.warn(`Skipping invalid item: ${itemId} (${item.name})`);
+            continue;
+          }
+
           const qty = item.quantity || 1;
           const customizations = item.customizations || "";
 
-          // Insert directly into kiosk_orders so it shows up in kitchen queues and bill summaries
+          // Insert directly into kiosk_orders
           await conn.query(
             `INSERT INTO kiosk_orders 
-             (reservation_id, item_id, quantity, kitchen_status, customizations, is_refill) 
-             VALUES (?, ?, ?, 'pending', ?, 0)`,
-            [customId, itemId, qty, customizations]
+       (reservation_id, item_id, quantity, kitchen_status, customizations, is_refill) 
+       VALUES (?, ?, ?, 'pending', ?, 0)`,
+            [customId, itemId, qty, customizations],
           );
         }
       }
@@ -467,7 +494,7 @@ const Reservation = {
 
       await conn.commit();
 
-      const io = data.io; 
+      const io = data.io;
       if (io) io.emit("table_updated");
 
       return customId;
