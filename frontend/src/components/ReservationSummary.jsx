@@ -30,6 +30,8 @@ const ReservationSummary = ({
     gcash_name: "",
   });
 
+  const isEvent = reservationData?.reservationType === "event";
+
   // Fetch payment settings
   useEffect(() => {
     axios
@@ -53,6 +55,7 @@ const ReservationSummary = ({
 
   // Improved helper to format table display
   const displayTables = () => {
+    if (isEvent) return "All Venue Tables (Reserved)";
     const main = reservationData.tableLabel || "";
     const linked =
       reservationData.linkedTables && reservationData.linkedTables.length > 0
@@ -132,7 +135,11 @@ const ReservationSummary = ({
           </div>
           <div className="detail-item">
             <label>Total Pax</label>
-            <span>{reservationData.guestCount} Guests</span>
+            <span>
+              {isEvent
+                ? "35 Guests (Venue Capacity)"
+                : `${reservationData.guestCount || 0} Guests`}
+            </span>
           </div>
         </div>
       </section>

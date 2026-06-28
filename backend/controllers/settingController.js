@@ -2,30 +2,32 @@ const Setting = require("../models/Settings");
 
 const settingController = {
   getSettings: async (req, res) => {
-    try {
-      const rows = await Setting.getAll();
+  try {
+    const rows = await Setting.getAll();
 
-      // Convert key-value pairs to object
-      const settingsMap = {};
+    const settingsMap = {};
+    // Ensure rows is an array before looping
+    if (Array.isArray(rows)) {
       rows.forEach((row) => {
-        settingsMap[row.setting_key] = row.setting_value;
-      });
-
-      // Return with default values if missing
-      res.json({
-        gcash_number: settingsMap.gcash_number || "09123456789",
-        gcash_name: settingsMap.gcash_name || "Hangout Resto Bar",
-        ...settingsMap,
-      });
-    } catch (error) {
-      console.error("Error fetching settings:", error);
-      // Return default values on error
-      res.json({
-        gcash_number: "09123456789",
-        gcash_name: "Hangout Resto Bar",
+        if (row && row.setting_key) {
+          settingsMap[row.setting_key] = row.setting_value;
+        }
       });
     }
-  },
+
+    res.json({
+      gcash_number: settingsMap.gcash_number || "09123456789",
+      gcash_name: settingsMap.gcash_name || "Hangout Resto Bar",
+      ...settingsMap,
+    });
+  } catch (error) {
+    console.error("Error fetching settings:", error);
+    res.json({
+      gcash_number: "09123456789",
+      gcash_name: "Hangout Resto Bar",
+    });
+  }
+},
 
   updateSettings: async (req, res) => {
     try {

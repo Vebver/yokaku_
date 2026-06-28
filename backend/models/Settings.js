@@ -5,7 +5,7 @@ const Setting = {
   getAll: async () => {
     try {
       const [rows] = await db.execute(
-        "SELECT setting_key, setting_value, updated_at FROM system_settings",
+        "SELECT id,setting_key, setting_value FROM system_settings",
       );
       return rows;
     } catch (error) {

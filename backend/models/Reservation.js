@@ -427,7 +427,7 @@ const Reservation = {
       );
 
       // ==================== NEW: INSERT MANUAL ORDER MENU ITEMS ====================
-      let itemsToInsert = [];
+        let itemsToInsert = [];
       if (data.selectedItems) {
         try {
           itemsToInsert =
@@ -444,29 +444,27 @@ const Reservation = {
 
       // FIX: Map string IDs to numeric IDs for EVENT packages
       const packageMap = {
-        standard: 1, // Replace with your actual menu_item_id for Standard Package
-        premium: 2, // Replace with your actual menu_item_id for Premium Package
+        standard: 1, 
+        premium: 2, 
       };
 
       if (Array.isArray(itemsToInsert) && itemsToInsert.length > 0) {
         for (const item of itemsToInsert) {
           let itemId = item.product_id || item.item_id || item.id;
+          
+          // Get the name and clean it (lowercase and remove extra spaces)
+          const itemName = String(item.name || item.item_name || "").trim().toLowerCase();
 
-          // If itemId is a string (like 'standard' or 'premium'), map it to numeric ID
-          if (typeof itemId === "string" && packageMap[itemId]) {
-            itemId = packageMap[itemId];
-          }
-
-          // Skip if itemId is still a string (invalid)
-          if (typeof itemId === "string") {
-            console.warn(`Skipping invalid item: ${itemId} (${item.name})`);
-            continue;
+          // SKIP writing to kiosk_orders if it's an Event Package (case-insensitive)
+          if (itemName === "standard package" || itemName === "premium package") {
+            console.log(`[Safe Skip] Skipping kiosk_orders entry for reservation package: ${item.name}`);
+            continue; 
           }
 
           const qty = item.quantity || 1;
           const customizations = item.customizations || "";
 
-          // Insert directly into kiosk_orders
+          // Insert directly into kiosk_orders (only runs for real food/drink items)
           await conn.query(
             `INSERT INTO kiosk_orders 
        (reservation_id, item_id, quantity, kitchen_status, customizations, is_refill) 
