@@ -615,6 +615,23 @@ export default function ReservationSteps({ onClose, onSuccess }) {
               orderSummary.downpayment >=
               orderSummary.requiredMinimumDownpayment;
           }
+
+          // Debug logging to help identify issues
+          console.log("🔍 Step 3 (EVENT) Validation:", {
+            hasItems,
+            termsAgreed,
+            meetsDownpaymentRequirement,
+            durationHours: orderSummary.durationHours,
+            downpayment: orderSummary.downpayment,
+            required: orderSummary.requiredMinimumDownpayment,
+            selectedItemsCount: selectedItems.length,
+            selectedItems: selectedItems.map((item) => ({
+              name: item.name,
+              price: item.price,
+              id: item.id,
+            })),
+          });
+
           return hasItems && termsAgreed && meetsDownpaymentRequirement;
         } else {
           // Your Details step for per_table
@@ -628,6 +645,20 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           })();
           const isMuniValid = form.muni && form.muni !== "";
           const isBrgyValid = form.brgy && form.brgy !== "";
+
+          // Debug logging for PER TABLE validation
+          console.log("🔍 Step 3 (PER TABLE) Validation:", {
+            isStartTimeValid,
+            isEndTimeValid,
+            isTimeValid,
+            isMuniValid,
+            isBrgyValid,
+            isFirstNameValid,
+            isLastNameValid,
+            isEmailValid,
+            isPhoneValid,
+          });
+
           return (
             isFirstNameValid &&
             isLastNameValid &&
@@ -879,17 +910,45 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     );
   };
   // ADD THE MISSING FUNCTION HERE
-  const isTimeSlotAvailableForSelectedTable = (startTime, endTime) => {
-    if (!selectedId) return true;
-    const schedules = tableSchedules[selectedId] || [];
-    const startM = timeToMin(startTime);
-    const endM = timeToMin(endTime);
-    return !schedules.some((reservation) => {
-      const resStartM = timeToMin(reservation.startTime);
-      const resEndM = timeToMin(reservation.endTime);
-      return startM < resEndM && endM > resStartM;
-    });
-  };
+  const isTimeSlotAvailableForSelectedTable = useCallback(
+    (startTime, endTime) => {
+      if (!selectedId) return true;
+      const schedules = tableSchedules[selectedId] || [];
+      const startM = timeToMin(startTime);
+      const endM = timeToMin(endTime);
+
+      // Check PER TABLE reservations on THIS table only
+      const tableOverlap = schedules.some((reservation) => {
+        // Skip EVENT reservations (they're handled separately)
+        if (
+          reservation.reservationType === "event" ||
+          reservation.reservation_type === "event"
+        ) {
+          return false;
+        }
+        const resStartM = timeToMin(reservation.startTime);
+        const resEndM = timeToMin(reservation.endTime);
+        return startM < resEndM && endM > resStartM;
+      });
+
+      if (tableOverlap) return false;
+
+      // Check EVENT reservations for this date (they block ALL tables)
+      const eventReservations = (allReservationsByDate[form.date] || []).filter(
+        (res) =>
+          res.reservationType === "event" || res.reservation_type === "event",
+      );
+
+      const eventOverlap = eventReservations.some((event) => {
+        const eventStart = timeToMin(event.startTime);
+        const eventEnd = timeToMin(event.endTime);
+        return startM < eventEnd && endM > eventStart;
+      });
+
+      return !eventOverlap;
+    },
+    [selectedId, tableSchedules, allReservationsByDate, form.date],
+  );
 
   const isTableAvailableAtSelectedTime = (tableId) => {
     if (!form.startTime || !form.endTime) return true;
@@ -1095,9 +1154,12 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       filtered = filtered.filter((t) => timeToMin(t) >= minStartTimeMinutes);
     }
 
-    // NEW: For PER TABLE mode, block times that overlap with EVENT reservations
-    if (isPerTable && form.date) {
-      // Get EVENT reservations for this date
+    // NEW: For PER TABLE mode, filter based on the selected table's schedule
+    if (isPerTable && selectedId && form.date) {
+      // Get the selected table's schedule
+      const tableSchedule = tableSchedules[selectedId] || [];
+
+      // Get EVENT reservations for this date (they block ALL tables)
       const eventReservations = (allReservationsByDate[form.date] || []).filter(
         (res) =>
           res.reservationType === "event" || res.reservation_type === "event",
@@ -1106,13 +1168,13 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       filtered = filtered.filter((startTime) => {
         const startM = timeToMin(startTime);
 
-        // Check if this time overlaps with any EVENT
-        const overlapsEvent = eventReservations.some((event) => {
-          const eventStart = timeToMin(event.startTime);
-          const eventEnd = timeToMin(event.endTime);
+        // Check if this start time overlaps with any reservation on THIS table
+        const tableOverlap = tableSchedule.some((reservation) => {
+          const resStartM = timeToMin(reservation.startTime);
+          const resEndM = timeToMin(reservation.endTime);
 
-          // Check if the selected time overlaps with the event
-          // We need to check if ANY possible end time would overlap with the event
+          // Check if the proposed booking would overlap
+          // We need to check if ANY possible end time would overlap
           const possibleEndTimes = timeOptions.filter((endTime) => {
             const endM = timeToMin(endTime);
             return (
@@ -1122,27 +1184,43 @@ export default function ReservationSteps({ onClose, onSuccess }) {
             );
           });
 
-          // If ANY possible end time overlaps with the event, block this start time
+          return possibleEndTimes.some((endTime) => {
+            const endM = timeToMin(endTime);
+            return startM < resEndM && endM > resStartM;
+          });
+        });
+
+        if (tableOverlap) return false;
+
+        // Check EVENT reservations (they block ALL tables)
+        const eventOverlap = eventReservations.some((event) => {
+          const eventStart = timeToMin(event.startTime);
+          const eventEnd = timeToMin(event.endTime);
+
+          const possibleEndTimes = timeOptions.filter((endTime) => {
+            const endM = timeToMin(endTime);
+            return (
+              endM >= startM + 30 &&
+              endM <= startM + 180 &&
+              endM <= currentMaxEndTime
+            );
+          });
+
           return possibleEndTimes.some((endTime) => {
             const endM = timeToMin(endTime);
             return startM < eventEnd && endM > eventStart;
           });
         });
 
-        return !overlapsEvent;
+        return !eventOverlap;
       });
     }
 
     if (isEventFlow) {
       filtered = filtered.filter((startTime) => {
         const startM = timeToMin(startTime);
-        const endM = startM + 180; // 3 hours later
+        const endM = startM + 180;
 
-        // Add 1 hour buffer (60 minutes) for cleanup/setup between events
-        const bufferedStartM = startM;
-        const bufferedEndM = endM;
-
-        // Check if this time slot (with buffer) conflicts with any existing reservation
         const reservations = allReservationsByDate[form.date] || [];
 
         const isOverlapping = reservations.some((reservation) => {
@@ -1157,11 +1235,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           const resStartM = timeToMin(reservation.startTime);
           const resEndM = timeToMin(reservation.endTime);
 
-          // Add 1 hour buffer AFTER each existing reservation
-          // So if reservation ends at 1:00 PM, next available is 2:00 PM (1:00 PM + 60 min)
-          const resEndWithBuffer = resEndM + 60; // 1 hour buffer
+          const resEndWithBuffer = resEndM + 60;
 
-          // Check if new slot overlaps with existing reservation OR its buffer zone
           return startM < resEndWithBuffer && endM > resStartM;
         });
 
@@ -1176,22 +1251,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       });
     }
 
-    if (selectedId && reservationType === "per_table") {
-      filtered = filtered.filter((startTime) => {
-        const possibleEndTimes = timeOptions.filter((endTime) => {
-          const endM = timeToMin(endTime);
-          const startM = timeToMin(startTime);
-          const durationValid = endM >= startM + 30 && endM <= startM + 180;
-          const withinBusinessHours = endM <= currentMaxEndTime;
-          return (
-            durationValid &&
-            withinBusinessHours &&
-            isTimeSlotAvailableForSelectedTable(startTime, endTime)
-          );
-        });
-        return possibleEndTimes.length > 0;
-      });
-    }
     return filtered;
   }, [
     timeOptions,
@@ -1232,8 +1291,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       const endHour = Math.floor(endM / 60);
       const endMinute = endM % 60;
       const endHour12 = endHour % 12 === 0 ? 12 : endHour % 12;
-      const endPeriod = endHour >= 12 ? "AM" : "AM";
-      // Handle 12:00 AM display
       const displayHour = endHour === 0 || endHour === 24 ? 12 : endHour12;
       const displayPeriod =
         endHour === 0 || endHour === 24 ? "AM" : endHour >= 12 ? "PM" : "AM";
@@ -1257,10 +1314,13 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       return endM >= startM + 30 && endM <= currentMaxEndTime;
     });
 
-    // NEW: For PER TABLE mode, block end times that overlap with EVENT reservations
+    // NEW: For PER TABLE mode, filter based on the selected table's schedule
     const isPerTable = reservationType === "per_table";
-    if (isPerTable && form.date && form.startTime) {
-      // Get EVENT reservations for this date
+    if (isPerTable && selectedId && form.date && form.startTime) {
+      // Get the selected table's schedule
+      const tableSchedule = tableSchedules[selectedId] || [];
+
+      // Get EVENT reservations for this date (they block ALL tables)
       const eventReservations = (allReservationsByDate[form.date] || []).filter(
         (res) =>
           res.reservationType === "event" || res.reservation_type === "event",
@@ -1269,13 +1329,23 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       filtered = filtered.filter((endTime) => {
         const endM = timeToMin(endTime);
 
-        const overlapsEvent = eventReservations.some((event) => {
+        // Check if this end time overlaps with any reservation on THIS table
+        const tableOverlap = tableSchedule.some((reservation) => {
+          const resStartM = timeToMin(reservation.startTime);
+          const resEndM = timeToMin(reservation.endTime);
+          return startM < resEndM && endM > resStartM;
+        });
+
+        if (tableOverlap) return false;
+
+        // Check EVENT reservations
+        const eventOverlap = eventReservations.some((event) => {
           const eventStart = timeToMin(event.startTime);
           const eventEnd = timeToMin(event.endTime);
           return startM < eventEnd && endM > eventStart;
         });
 
-        return !overlapsEvent;
+        return !eventOverlap;
       });
     }
 
@@ -1705,11 +1775,10 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     const currentDate = new Date(dateStr);
                     currentDate.setHours(0, 0, 0, 0);
                     const isFutureDate = currentDate > today;
-                    // FIX: Use .getTime() for proper date comparison
                     const isEventDateValid = isEventFlow
                       ? currentDate.getTime() >= minEventDate.getTime()
                       : true;
-                    const isDisabledForPerTable = isPerTable && isFutureDate;
+                    const isDisabledForPerTable = isPerTable && false; // ← FIX: No future date restriction
                     const isDisabledForEvent = isEventFlow && !isEventDateValid;
                     const isDisabled =
                       isDisabledForPerTable || isDisabledForEvent;
@@ -1726,6 +1795,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                       isDisabled,
                     });
                   }
+
                   for (let i = 1; i <= daysInMonth; i++) {
                     const date = new Date(year, month, i);
                     const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -1739,11 +1809,10 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     const currentDate = new Date(dateStr);
                     currentDate.setHours(0, 0, 0, 0);
                     const isFutureDate = currentDate > today;
-                    // FIX: Use .getTime() for proper date comparison
                     const isEventDateValid = isEventFlow
                       ? currentDate.getTime() >= minEventDate.getTime()
                       : true;
-                    const isDisabledForPerTable = isPerTable && isFutureDate;
+                    const isDisabledForPerTable = isPerTable && false; // ← FIX: No future date restriction
                     const isDisabledForEvent = isEventFlow && !isEventDateValid;
                     const isDisabled =
                       isDisabledForPerTable || isDisabledForEvent;
@@ -1763,6 +1832,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                       isDisabled,
                     });
                   }
+
                   const remainingCells = 42 - calendarDays.length;
                   for (let i = 1; i <= remainingCells; i++) {
                     const date = new Date(year, month + 1, i);
@@ -1774,11 +1844,10 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     const currentDate = new Date(dateStr);
                     currentDate.setHours(0, 0, 0, 0);
                     const isFutureDate = currentDate > today;
-                    // FIX: Use .getTime() for proper date comparison
                     const isEventDateValid = isEventFlow
                       ? currentDate.getTime() >= minEventDate.getTime()
                       : true;
-                    const isDisabledForPerTable = isPerTable && isFutureDate;
+                    const isDisabledForPerTable = isPerTable && false; // ← FIX: No future date restriction
                     const isDisabledForEvent = isEventFlow && !isEventDateValid;
                     const isDisabled =
                       isDisabledForPerTable || isDisabledForEvent;

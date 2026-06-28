@@ -10,9 +10,61 @@ const otpStore = new Map();
 const generateOTP = () =>
   Math.floor(100000 + Math.random() * 900000).toString();
 
-// Send OTP via Brevo API (HTTP - works on Render free tier)
+// Send email via Brevo API (reusable function)
+const sendEmail = async (email, subject, htmlContent, textContent) => {
+  console.log(`📧 Attempting to send email to: ${email}`);
+
+  try {
+    const response = await axios.post(
+      "https://api.brevo.com/v3/smtp/email",
+      {
+        sender: {
+          name: "Hangout Resto Bar",
+          email: process.env.BREVO_USER || "leabrescarl@gmail.com",
+        },
+        to: [{ email }],
+        subject: subject,
+        textContent: textContent || "",
+        htmlContent: htmlContent,
+      },
+      {
+        headers: {
+          "api-key": process.env.BREVO_PASS,
+          "Content-Type": "application/json",
+        },
+        timeout: 30000,
+      },
+    );
+
+    console.log(`✅ Email sent successfully to ${email}`);
+    console.log(`📧 Message ID: ${response.data.messageId}`);
+    return true;
+  } catch (error) {
+    console.error(
+      `❌ Failed to send email to ${email}:`,
+      error.response?.data?.message || error.message,
+    );
+    return false;
+  }
+};
+
+// Send OTP via Brevo API
 const sendOTP = async (email, otp) => {
   console.log(`📧 Attempting to send OTP to: ${email}`);
+
+  const htmlContent = `
+    <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+      <h2 style="color: #f38d31; text-align: center;">🔐 Hangout Resto Bar</h2>
+      <h3 style="text-align: center; color: #333;">OTP Verification Code</h3>
+      <div style="background: #f5f5f5; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
+        <span style="font-size: 36px; font-weight: bold; color: #f38d31; letter-spacing: 5px;">${otp}</span>
+      </div>
+      <p style="color: #666; text-align: center;">This code is valid for <strong>1 hour</strong>.</p>
+      <p style="color: #999; font-size: 12px; text-align: center; margin-top: 20px;">If you didn't request this, please ignore this email.</p>
+      <hr style="border: none; border-top: 1px solid #eee;">
+      <p style="color: #999; font-size: 12px; text-align: center;">Hangout Resto Bar</p>
+    </div>
+  `;
 
   try {
     const response = await axios.post(
@@ -25,26 +77,14 @@ const sendOTP = async (email, otp) => {
         to: [{ email }],
         subject: "🔐 Your Hangout OTP Verification Code",
         textContent: `Your OTP verification code is: ${otp}\n\nThis code is valid for 1 hour.\n\nIf you didn't request this, please ignore this email.`,
-        htmlContent: `
-          <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
-            <h2 style="color: #f38d31; text-align: center;">🔐 Hangout Resto Bar</h2>
-            <h3 style="text-align: center; color: #333;">OTP Verification Code</h3>
-            <div style="background: #f5f5f5; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
-              <span style="font-size: 36px; font-weight: bold; color: #f38d31; letter-spacing: 5px;">${otp}</span>
-            </div>
-            <p style="color: #666; text-align: center;">This code is valid for <strong>1 hour</strong>.</p>
-            <p style="color: #999; font-size: 12px; text-align: center; margin-top: 20px;">If you didn't request this, please ignore this email.</p>
-            <hr style="border: none; border-top: 1px solid #eee;">
-            <p style="color: #999; font-size: 12px; text-align: center;">Hangout Resto Bar</p>
-          </div>
-        `,
+        htmlContent: htmlContent,
       },
       {
         headers: {
           "api-key": process.env.BREVO_PASS,
           "Content-Type": "application/json",
         },
-        timeout: 30000, // 30 seconds timeout
+        timeout: 30000,
       },
     );
 
@@ -59,6 +99,35 @@ const sendOTP = async (email, otp) => {
     console.log(`🔑 FALLBACK OTP FOR ${email}: ${otp}`);
     return false;
   }
+};
+
+// Send Password Reset Email
+const sendPasswordResetEmail = async (email, resetToken) => {
+  const resetLink = `${process.env.FRONTEND_URL || "https://hangout-resto.com"}/reset-password?token=${resetToken}`;
+
+  const htmlContent = `
+    <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+      <h2 style="color: #f38d31; text-align: center;">🔐 Hangout Resto Bar</h2>
+      <h3 style="text-align: center; color: #333;">Password Reset</h3>
+      <p style="color: #666; text-align: center; margin: 20px 0;">Click the button below to reset your password:</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${resetLink}" style="background: #f38d31; color: white; padding: 12px 30px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block;">
+          Reset Password
+        </a>
+      </div>
+      <p style="color: #999; font-size: 12px; text-align: center; margin-top: 20px;">This link is valid for <strong>1 hour</strong>.</p>
+      <p style="color: #999; font-size: 12px; text-align: center;">If you didn't request this, please ignore this email.</p>
+      <hr style="border: none; border-top: 1px solid #eee;">
+      <p style="color: #999; font-size: 12px; text-align: center;">Hangout Resto Bar</p>
+    </div>
+  `;
+
+  return sendEmail(
+    email,
+    "🔐 Password Reset Request - Hangout Resto Bar",
+    htmlContent,
+    `Reset your password: ${resetLink}`,
+  );
 };
 
 // Clean up expired OTPs periodically (every minute)
@@ -127,9 +196,19 @@ const authController = {
 
       console.log(`Password reset token for ${email}: ${resetToken}`);
 
-      res.json({
-        message: "Reset link would be sent to email (email disabled for now)",
-      });
+      // Send reset email via Brevo
+      const emailSent = await sendPasswordResetEmail(email, resetToken);
+
+      if (emailSent) {
+        res.json({ message: "Password reset link sent to your email." });
+      } else {
+        // Fallback: show token in response for development
+        res.json({
+          message: "Password reset link would be sent to email.",
+          dev_token:
+            process.env.NODE_ENV === "development" ? resetToken : undefined,
+        });
+      }
     } catch (error) {
       console.error("Forgot Password Error:", error);
       res.status(500).json({ error: "Failed to process request." });
