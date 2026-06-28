@@ -189,10 +189,18 @@ const authController = {
       const resetToken = crypto.randomBytes(20).toString("hex");
       const resetExpires = Date.now() + 3600000;
 
-      await User.update(user.user_id, {
+      // Update user with reset token
+      const updateData = {
         reset_password_token: resetToken,
         reset_password_expires: resetExpires,
-      });
+      };
+
+      const updated = await User.update(user.user_id, updateData);
+
+      if (!updated) {
+        console.error("Failed to update user with reset token");
+        return res.status(500).json({ error: "Failed to process request." });
+      }
 
       console.log(`Password reset token for ${email}: ${resetToken}`);
 
@@ -202,7 +210,6 @@ const authController = {
       if (emailSent) {
         res.json({ message: "Password reset link sent to your email." });
       } else {
-        // Fallback: show token in response for development
         res.json({
           message: "Password reset link would be sent to email.",
           dev_token:
@@ -284,13 +291,12 @@ const authController = {
 
       const otp = generateOTP();
 
-      // Store OTP - valid for 1 hour (3600000 ms)
       otpStore.set(email, {
         firstName,
         lastName,
         password,
         otp,
-        expires: Date.now() + 3600000, // 1 hour
+        expires: Date.now() + 3600000,
       });
 
       console.log(`========================================`);
@@ -369,13 +375,11 @@ const authController = {
 
       const otp = generateOTP();
 
-      // FIX: Delete existing OTP first to invalidate previous one
-      // Then store the new OTP - valid for 1 hour
-      otpStore.delete(email); // This invalidates the previous OTP
+      otpStore.delete(email);
 
       otpStore.set(email, {
         otp,
-        expires: Date.now() + 3600000, // 1 hour
+        expires: Date.now() + 3600000,
       });
 
       console.log(`========================================`);
