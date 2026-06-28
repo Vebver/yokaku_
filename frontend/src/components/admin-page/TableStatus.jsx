@@ -10,6 +10,18 @@ import {
   X,
 } from "lucide-react";
 
+// Helpers to extract and compare dates (YYYY-MM-DD format)
+const getTodayDateString = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+const getTableReservationDateString = (dateStr) => {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
 const TableStatus = ({ compact = false }) => {
   const [data, setData] = useState({ tables: [], schedule: [] });
   const [ui, setUi] = useState({
@@ -113,9 +125,17 @@ const TableStatus = ({ compact = false }) => {
     return { color: cfg[s] || cfg.available, label: s.toUpperCase() };
   };
 
+  const todayStr = getTodayDateString();
+
+  // Stats calculation matches visual grid (ignoring future reservations)
   const stats = data.tables.reduce(
     (acc, t) => {
-      const s = t.bridge_status?.toLowerCase() || "available";
+      let s = t.bridge_status?.toLowerCase() || "available";
+      const resDate = getTableReservationDateString(t.reservation_date || t.date || t.resDate);
+      
+      if (s === "confirmed" && resDate !== todayStr) {
+        s = "available";
+      }
       acc[s] = (acc[s] || 0) + 1;
       return acc;
     },
@@ -172,8 +192,16 @@ const TableStatus = ({ compact = false }) => {
       {/* Responsive Grid */}
       <div className="row g-2 row-cols-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-8">
         {data.tables.map((t) => {
-          const cfg = getStatusCfg(t.bridge_status);
-          const isAvailable = t.bridge_status?.toLowerCase() === "available";
+          let activeStatus = t.bridge_status?.toLowerCase() || "available";
+          const resDate = getTableReservationDateString(t.reservation_date || t.date || t.resDate);
+
+          // Force status to "available" if reservation is for a future date
+          if (activeStatus === "confirmed" && resDate !== todayStr) {
+            activeStatus = "available";
+          }
+
+          const cfg = getStatusCfg(activeStatus);
+          const isAvailable = activeStatus === "available";
 
           return (
             <div key={t.table_id} className="col">
@@ -212,7 +240,7 @@ const TableStatus = ({ compact = false }) => {
                   </div>
 
                   <div className="mt-auto">
-                    {t.bridge_status?.toLowerCase() === "seated" ? (
+                    {activeStatus === "seated" ? (
                       <button
                         className="btn btn-sm btn-primary w-100 py-0 fw-bold"
                         style={{ fontSize: "0.65rem", height: "22px" }}
@@ -220,7 +248,7 @@ const TableStatus = ({ compact = false }) => {
                       >
                         View Orders
                       </button>
-                    ) : t.bridge_status?.toLowerCase() === "confirmed" ? (
+                    ) : activeStatus === "confirmed" ? (
                       <button
                         className="btn btn-sm btn-warning w-100 py-0 fw-bold text-white"
                         style={{ fontSize: "0.65rem", height: "22px" }}

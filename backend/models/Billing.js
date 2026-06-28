@@ -1,6 +1,7 @@
 const db = require("../config/db");
 
 const Billing = {
+  // Get all rows with table numbers
   getAll: async () => {
     try {
       const sql = `
@@ -16,9 +17,13 @@ const Billing = {
           p.payment_status,
           p.rejection_reason,
           p.rejected_at,
-          r.receipt_path AS receipt_path
+          r.receipt_path AS receipt_path,
+          GROUP_CONCAT(DISTINCT t.table_number SEPARATOR ', ') AS table_number
         FROM reservations r
         LEFT JOIN payments p ON r.reservation_id = p.reservation_id
+        LEFT JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
+        LEFT JOIN tables t ON rt.table_id = t.table_id
+        GROUP BY r.reservation_id, p.payment_id
         ORDER BY r.reservation_id DESC
       `;
       const [rows] = await db.execute(sql);

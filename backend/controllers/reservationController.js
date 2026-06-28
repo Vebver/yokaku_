@@ -378,14 +378,14 @@ const reservationController = {
         }
       }
 
-      if (status.toLowerCase() !== "cancelled") {
-        const noShowCount = await Reservation.countNoShows(reservation.user_id);
-        if (noShowCount >= 3) {
-          return res
-            .status(403)
-            .json({ error: "Account restricted due to no-shows." });
-        }
-      }
+      // if (status.toLowerCase() !== "cancelled") {
+      //   const noShowCount = await Reservation.countNoShows(reservation.user_id);
+      //   if (noShowCount >= 3) {
+      //     return res
+      //       .status(403)
+      //       .json({ error: "Account restricted due to no-shows." });
+      //   }
+      // }
 
       // Pass the cancellation parameters down to the database model
       await Reservation.updateStatus(id, status, cancellation_reason);

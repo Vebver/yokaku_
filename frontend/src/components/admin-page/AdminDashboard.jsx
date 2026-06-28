@@ -145,6 +145,7 @@ function AdminDashboard() {
   });
 
   // Unified mounting state to load data and setup single socket listener
+// Unified mounting state to load data and setup single socket listener
   useEffect(() => {
     const token = localStorage.getItem("token");
     const role = localStorage.getItem("role");
@@ -160,7 +161,7 @@ function AdminDashboard() {
         reconnection: true 
       });
 
-      // Notification listener
+      // 1. Standard Notification listener
       socket.on("new_notification", (notification) => {
         setNotifications((prev) => {
           const isDuplicate = prev.some(n => 
@@ -173,6 +174,28 @@ function AdminDashboard() {
         });
 
         setUnreadCount((prev) => prev + 1);
+        const audio = new Audio("/notification-light.mp3");
+        audio.play().catch(() => {});
+      });
+
+      // 2. NEW: Listen directly to customer reservation bookings
+      socket.on("new_reservation", (reservationData) => {
+        console.log("🔔 Socket Alert: New Booking received", reservationData);
+
+        const liveNotification = {
+          title: "New Online Booking",
+          message: `Booking ${reservationData.id} placed for ${reservationData.date} at ${reservationData.time} (${reservationData.guests} Guests)`,
+          created_at: new Date().toISOString(),
+          is_read: 0,
+        };
+
+        // Prepend the new notification to the dashboard list
+        setNotifications((prev) => [liveNotification, ...prev]);
+        setUnreadCount((prev) => prev + 1);
+        
+        // Auto-refresh the dashboard overview and timeline data
+        fetchDashboardData();
+
         const audio = new Audio("/notification-light.mp3");
         audio.play().catch(() => {});
       });
@@ -191,7 +214,6 @@ function AdminDashboard() {
       setLoading(false);
     }
   }, []);
-
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
