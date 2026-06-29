@@ -1,5 +1,6 @@
 const Billing = require("../models/Billing");
-const db = require("../config/db"); // Needed for the safe notification writing
+const Reservation = require("../models/Reservation");
+const db = require("../config/db");
 
 exports.getPayments = async (req, res) => {
   try {
@@ -80,8 +81,8 @@ exports.updatePaymentStatusByReservation = async (req, res) => {
     const paymentUpdated = await Billing.updatePaymentStatusByReservation(resId, payment_status);
     
     if (paymentUpdated) {
-      // 2. Set Reservation status to 'Confirmed'
-      await Billing.confirmReservationStatus(resId);
+      // 2. Set Reservation status to 'Confirmed' via primary Reservation model
+      await Reservation.updateStatus(resId, "Confirmed"); // <-- CHANGED HERE
 
       // 3. Write Notification and Emit Real-Time Socket Event to the Customer
       try {

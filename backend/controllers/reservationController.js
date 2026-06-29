@@ -206,8 +206,7 @@ const reservationController = {
       body.totalAmount = parseFloat(body.totalAmount) || 0;
       body.amount = parseFloat(body.amount) || 0;
       body.durationHours = parseFloat(body.durationHours) || 1;
-      body.guests = parseInt(body.guests) || 1;
-      body.pax = parseInt(body.pax) || 1;
+      body.guests = parseInt(body.num_guests) || 1;
 
       // Better tableIds parsing with error handling
       let tableIdsArray = [];
@@ -292,8 +291,7 @@ const reservationController = {
         totalAmount: parseFloat(body.totalAmount) || 0,
         amount: parseFloat(body.amount) || 0,
         durationHours: parseFloat(body.durationHours) || 1,
-        guests: parseInt(body.guests) || parseInt(body.pax) || 1,
-        pax: parseInt(body.pax) || parseInt(body.guests) || 1,
+        guests: parseInt(body.num_guests) || 1
       };
 
       // 1. Create the database record for the reservation

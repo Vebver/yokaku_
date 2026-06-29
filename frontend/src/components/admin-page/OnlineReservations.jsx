@@ -315,7 +315,7 @@ const OnlineReservations = () => {
                 </div>
 
                 <div className="row g-0 mt-3 pt-2 border-top border-light text-center">
-                  <div className="col-4 border-end">
+                  <div className="col-6 border-end">
                     <div className="x-small text-muted text-uppercase">
                       Occasion
                     </div>
@@ -323,7 +323,7 @@ const OnlineReservations = () => {
                       {selectedRes.occasion || "N/A"}
                     </div>
                   </div>
-                  <div className="col-4 border-end">
+                  <div className="col-6 border-end">
                     <div className="x-small text-muted text-uppercase">
                       Guests
                     </div>

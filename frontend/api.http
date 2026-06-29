@@ -1,0 +1,49 @@
+# 1. POST request to log in and get the token
+# @name login
+POST http://localhost:5000/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@yokaku.com",
+  "password": "admin123"
+}
+
+###
+
+# 2. Extract the token from the login response dynamically
+@authToken = {{login.response.body.token}}
+
+###
+
+# 3. Use the extracted token in your Billing requests
+GET http://localhost:5000/api/billing
+Authorization: Bearer {{authToken}}
+
+###
+
+# 4. Reject Payment Proof
+PUT http://localhost:5000/api/billing/reject/RES-ABC123
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "reason": "Proof of payment receipt is blurry."
+}
+
+### 6. Create Event Reservation (Testing Pax Fix)
+POST http://localhost:5000/api/reservations
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "firstName": "Test",
+  "lastName": "Event Guest",
+  "email": "testevent@example.com",
+  "phone": "09123456789",
+  "date": "2026-07-15",
+  "startTime": "14:00",
+  "endTime": "18:00",
+  "num_guests": 75,
+  "packageName": "Standard Event Package",
+  "reservationType": "event"
+}
