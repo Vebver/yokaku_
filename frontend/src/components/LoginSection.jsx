@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import VerifyEmail from "./VerifyEmail";
 import { useToast } from "./ToastContext"; // Adjust path to ToastContext
 import "../Style/LoginModal.css";
@@ -18,6 +18,28 @@ function LoginSection({ onClose }) {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Password validation states
+  const [passwordCriteria, setPasswordCriteria] = useState({
+    minLength: false,
+    hasCapital: false,
+    hasSpecial: false,
+  });
+
+  // Validate password in real-time
+  useEffect(() => {
+    setPasswordCriteria({
+      minLength: password.length >= 8,
+      hasCapital: /[A-Z]/.test(password),
+      hasSpecial: /[!@#$%^&*(),.?":{}|<>]/.test(password),
+    });
+  }, [password]);
+
+  // Check if all password criteria are met
+  const isPasswordValid =
+    passwordCriteria.minLength &&
+    passwordCriteria.hasCapital &&
+    passwordCriteria.hasSpecial;
 
   // Reuse the SVG to avoid repetition
   const EyeIcon = ({ visible, toggle }) => (
@@ -39,6 +61,43 @@ function LoginSection({ onClose }) {
         {!visible && <line x1="3" y1="3" x2="21" y2="21" />}
       </svg>
     </span>
+  );
+
+  // Password criteria indicator component
+  const PasswordCriteria = ({ label, isMet }) => (
+    <div
+      className={`password-criteria-item ${isMet ? "met" : ""}`}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        padding: "4px 0",
+        fontSize: "13px",
+        color: isMet ? "#27ae60" : "#999",
+        transition: "all 0.3s ease",
+      }}
+    >
+      <span
+        className="criteria-icon"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: "20px",
+          height: "20px",
+          borderRadius: "50%",
+          border: isMet ? "2px solid #27ae60" : "2px solid #ddd",
+          backgroundColor: isMet ? "#27ae60" : "transparent",
+          color: isMet ? "white" : "transparent",
+          transition: "all 0.3s ease",
+          fontSize: "12px",
+          fontWeight: "bold",
+        }}
+      >
+        {isMet ? "✓" : ""}
+      </span>
+      <span>{label}</span>
+    </div>
   );
 
   const handleLoginSubmit = async (e) => {
@@ -72,12 +131,15 @@ function LoginSection({ onClose }) {
   const handleSignUpSubmit = async (e) => {
     e.preventDefault();
     if (error === "Email already in use") return;
-    if (password.length < 8) {
-      const errMsg = "Password must be at least 8 characters.";
+
+    // Use the password criteria validation
+    if (!isPasswordValid) {
+      const errMsg = "Please meet all password requirements.";
       setError(errMsg);
       showToast(errMsg, "error");
       return;
     }
+
     if (password !== confirmPassword) {
       const errMsg = "Passwords do not match.";
       setError(errMsg);
@@ -276,6 +338,34 @@ function LoginSection({ onClose }) {
                     />
                   </div>
 
+                  {/* Password Criteria - Only show on Signup */}
+                  {view === "signup" && password && (
+                    <div
+                      className="password-criteria-container"
+                      style={{
+                        marginTop: "8px",
+                        marginBottom: "12px",
+                        padding: "10px 14px",
+                        background: "#f8f9fa",
+                        borderRadius: "8px",
+                        border: "1px solid #e9ecef",
+                      }}
+                    >
+                      <PasswordCriteria
+                        label="At least 8 characters"
+                        isMet={passwordCriteria.minLength}
+                      />
+                      <PasswordCriteria
+                        label="At least 1 capital letter"
+                        isMet={passwordCriteria.hasCapital}
+                      />
+                      <PasswordCriteria
+                        label="At least 1 special character (!@#$%^&*)"
+                        isMet={passwordCriteria.hasSpecial}
+                      />
+                    </div>
+                  )}
+
                   {view === "login" && (
                     <div className="forgot-password-container">
                       <button
@@ -315,7 +405,11 @@ function LoginSection({ onClose }) {
                   <button
                     type="submit"
                     className="submit-btn"
-                    disabled={loading || error === "Email already in use"}
+                    disabled={
+                      loading ||
+                      error === "Email already in use" ||
+                      (view === "signup" && !isPasswordValid)
+                    }
                   >
                     {loading
                       ? "PROCESSING..."
@@ -334,6 +428,8 @@ function LoginSection({ onClose }) {
                       onClick={() => {
                         setView(view === "login" ? "signup" : "login");
                         setError("");
+                        setPassword("");
+                        setConfirmPassword("");
                       }}
                     >
                       {view === "login" ? "Sign up" : "Back to Sign In"}
