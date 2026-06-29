@@ -1,6 +1,6 @@
 const Reservation = require("../models/Reservation");
 const User = require("../models/User");
-
+const { logActivity } = require("../utils/logger");
 /**
  * UTILITY HELPERS
  */
@@ -218,7 +218,7 @@ const reservationController = {
 
       // For EVENT reservations, we don't need table IDs (they book the whole venue)
       if (reservationType === "event" || reservationType === "takeout") {
-        tableIdsArray = []; 
+        tableIdsArray = [];
         console.log("✅ EVENT reservation - no specific tables needed");
       } else {
         // PER TABLE: Parse table IDs from request
@@ -233,9 +233,17 @@ const reservationController = {
               tableIdsArray = [body.tableIds];
             }
           } catch (e) {
-            console.log("Failed to parse tableIds, trying alternative:", body.tableIds);
-            if (typeof body.tableIds === "string" && body.tableIds.includes(",")) {
-              tableIdsArray = body.tableIds.split(",").map((id) => parseInt(id.trim()));
+            console.log(
+              "Failed to parse tableIds, trying alternative:",
+              body.tableIds,
+            );
+            if (
+              typeof body.tableIds === "string" &&
+              body.tableIds.includes(",")
+            ) {
+              tableIdsArray = body.tableIds
+                .split(",")
+                .map((id) => parseInt(id.trim()));
             } else if (typeof body.tableIds === "string") {
               tableIdsArray = [parseInt(body.tableIds)];
             }
@@ -250,13 +258,17 @@ const reservationController = {
         console.log("✅ Parsed tableIds:", tableIdsArray);
 
         if (tableIdsArray.length === 0) {
-          throw new Error("No valid table IDs provided. Please select at least one table.");
+          throw new Error(
+            "No valid table IDs provided. Please select at least one table.",
+          );
         }
       }
 
       // Safety check for dates and fallbacks for missing end times
       const startDateTime = new Date(`${body.date} ${body.startTime}`);
-      const duration = parseFloat(body.durationHours || body.duration_hours || 1.0);
+      const duration = parseFloat(
+        body.durationHours || body.duration_hours || 1.0,
+      );
 
       const endDateTime = body.endTime
         ? new Date(`${body.date} ${body.endTime}`)
@@ -272,16 +284,20 @@ const reservationController = {
       }
 
       // Check if the current user placing the order is staff (admin or cashier)
-      const isStaff = req.user?.role === "admin" || req.user?.role === "cashier";
+      const isStaff =
+        req.user?.role === "admin" || req.user?.role === "cashier";
 
       const reservationData = {
         ...body,
         reservation_type: reservationType,
-        
+
         // Only link user ID if the client is a real customer. Left as null for staff bookings.
-        userId: (body.userId && body.userId !== "null") 
-          ? body.userId 
-          : (isStaff ? null : req.user?.userId),
+        userId:
+          body.userId && body.userId !== "null"
+            ? body.userId
+            : isStaff
+              ? null
+              : req.user?.userId,
 
         startTime: dbStart,
         endTime: dbEnd,
@@ -291,11 +307,25 @@ const reservationController = {
         totalAmount: parseFloat(body.totalAmount) || 0,
         amount: parseFloat(body.amount) || 0,
         durationHours: parseFloat(body.durationHours) || 1,
-        guests: parseInt(body.num_guests) || 1
+        guests: parseInt(body.num_guests) || 1,
       };
 
-      // 1. Create the database record for the reservation
+      // 1. Create the database record for the reservation(reservationData);
       const newId = await Reservation.create(reservationData);
+
+      // >>> ADD THIS AUDIT LOG BLOCK <<<
+      await logActivity(
+        req.user?.userId || null,
+        "CREATE_RESERVATION",
+        newId,
+        {
+          type: reservationType,
+          date: body.date,
+          startTime: dbStart,
+          guests: parsedGuests,
+        },
+        req,
+      );
 
       // --- NOTIFICATION HANDLERS ---
       const fName = body.firstName || body.first_name || "Guest";
@@ -314,7 +344,7 @@ const reservationController = {
           "New Reservation",
           `New booking from ${fullName}`,
           "info",
-          mysqlDateTime
+          mysqlDateTime,
         );
       } catch (dbErr) {
         console.error("Notification DB Error:", dbErr.message);
@@ -387,6 +417,15 @@ const reservationController = {
 
       // Pass the cancellation parameters down to the database model
       await Reservation.updateStatus(id, status, cancellation_reason);
+
+      // >>> ADD THIS AUDIT LOG BLOCK <<<
+      await logActivity(
+        currentUser?.userId || null,
+        "UPDATE_RESERVATION_STATUS",
+        id,
+        { status, reason: cancellation_reason || null },
+        req,
+      );
       res.json({ success: true, message: "Status updated." });
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -395,7 +434,19 @@ const reservationController = {
 
   deleteReservation: async (req, res) => {
     try {
-      await Reservation.delete(req.params.id);
+      const { id } = req.params;
+
+      // >>> ADD THIS AUDIT LOG BLOCK <<<
+      await logActivity(
+        req.user?.userId || null,
+        "DELETE_RESERVATION",
+        id,
+        { message: "Reservation record deleted permanently" },
+        req,
+      );
+      // >>> END AUDIT LOG BLOCK <<<
+
+      await Reservation.delete(id);
       res.json({ message: "Deleted" });
     } catch (error) {
       res.status(500).json({ error: error.message });

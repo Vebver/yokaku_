@@ -39,6 +39,7 @@ import TableStatus from "./TableStatus";
 import Maintenance from "./Maintenance";
 import OnlineReservations from "./OnlineReservations";
 import WalkInReservations from "./WalkInReservations";
+import AuditLogs from "./AuditLogs";
 
 import "../../Style/AdminDashboard.css";
 
@@ -65,6 +66,7 @@ const Icons = {
   Account: () => <i className="bi bi-people"></i>,
   Maintenance: () => <i className="bi bi-tools"></i>,
   Reservations: () => <i className="bi bi-calendar-check"></i>,
+  Audit: () => <i className="bi bi-shield-lock"></i>, 
 };
 
 const navItems = [
@@ -84,6 +86,7 @@ const navItems = [
   { id: "inventory", label: "Inventory", icon: Icons.Inventory },
   { id: "account", label: "Account Manage", icon: Icons.Account },
   { id: "profile", label: "Admin Profile", icon: Icons.Profile },
+  { id: "audit-logs", label: "Audit Logs", icon: Icons.Audit },
   { id: "maintenance", label: "Maintenance", icon: Icons.Maintenance },
 ];
 
@@ -556,6 +559,7 @@ function AdminDashboard() {
       account: <AccountManagement />,
       "table-status": <TableStatus />,
       maintenance: <Maintenance />,
+       "audit-logs": <AuditLogs />,
     };
     return sections[activeSection] || <DashboardOverview />;
   };

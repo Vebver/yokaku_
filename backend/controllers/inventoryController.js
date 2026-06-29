@@ -1,4 +1,5 @@
 const Inventory = require("../models/Inventory");
+const { logActivity } = require("../utils/logger");
 
 const inventoryController = {
   // 1. Get all inventory items
@@ -18,6 +19,13 @@ const inventoryController = {
       // The req.body will contain: item_name, category, quantity, unit,
       // unit_price, expiry_date, supplier, storage_location, reorder_level
       const newItem = await Inventory.create(req.body);
+      await logActivity(
+        req.user?.userId || null,
+        "CREATE_INVENTORY_ITEM",
+        newItem?.insertId || null, // Assuming the model returns insertId
+        { item_name: req.body.item_name, quantity: req.body.quantity },
+        req,
+      );
       res.status(201).json(newItem);
     } catch (error) {
       console.error("Error in createInventoryItem:", error.message);
@@ -30,6 +38,13 @@ const inventoryController = {
     try {
       const { id } = req.params;
       await Inventory.delete(id);
+      await logActivity(
+        req.user?.userId || null,
+        "CREATE_INVENTORY_ITEM",
+        newItem?.insertId || null, // Assuming the model returns insertId
+        { item_name: req.body.item_name, quantity: req.body.quantity },
+        req,
+      );
       res.json({ message: "Item deleted successfully" });
     } catch (error) {
       console.error("Error in deleteInventoryItem:", error.message);
@@ -63,7 +78,13 @@ const inventoryController = {
         storage_location,
         reorder_level,
       });
-
+      await logActivity(
+        req.user?.userId || null,
+        "CREATE_INVENTORY_ITEM",
+        newItem?.insertId || null, // Assuming the model returns insertId
+        { item_name: req.body.item_name, quantity: req.body.quantity },
+        req,
+      );
       return res.status(200).json({
         success: true,
         message: "Inventory item updated successfully",
@@ -84,12 +105,10 @@ const inventoryController = {
       const { quantity_required } = req.body;
 
       if (!quantity_required || Number(quantity_required) <= 0) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "A valid required quantity is required.",
-          });
+        return res.status(400).json({
+          success: false,
+          message: "A valid required quantity is required.",
+        });
       }
 
       const success = await Inventory.updateRecipeIngredientQuantity(
@@ -98,13 +117,20 @@ const inventoryController = {
       );
 
       if (!success) {
-        return res
-          .status(404)
-          .json({
-            success: false,
-            message: "Recipe ingredient link not found.",
-          });
+        return res.status(404).json({
+          success: false,
+          message: "Recipe ingredient link not found.",
+        });
       }
+
+      // >>> ADD THIS AUDIT LOG BLOCK <<<
+      await logActivity(
+        req.user?.userId || null,
+        "UPDATE_RECIPE_INGREDIENT",
+        recipeId,
+        { quantity_required },
+        req,
+      );
 
       return res
         .status(200)

@@ -1,5 +1,6 @@
 const Billing = require("../models/Billing");
 const Reservation = require("../models/Reservation");
+const { logActivity } = require("../utils/logger"); // Points to backend utilities folder
 const db = require("../config/db");
 
 exports.getPayments = async (req, res) => {
@@ -28,6 +29,15 @@ exports.createWalkinPayment = async (req, res) => {
       payment_status || "Pending"
     );
 
+    // LOG: Manual walk-in payment creation
+    await logActivity(
+      req.user?.userId || null, 
+      "CREATE_WALKIN_PAYMENT", 
+      reservation_id, 
+      { payment_id: paymentId, amount, payment_method, payment_status },
+      req
+    );
+
     console.log("[Billing Controller] Payment created with ID:", paymentId);
 
     res.status(201).json({ 
@@ -46,7 +56,17 @@ exports.updatePaymentStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
     const result = await Billing.updateStatus(id, status);
+    
     if (result) {
+      // LOG: Manual status update
+      await logActivity(
+        req.user?.userId || null,
+        "UPDATE_PAYMENT_STATUS",
+        id,
+        { status },
+        req
+      );
+
       res.json({ message: "Payment status updated successfully" });
     } else {
       res.status(404).json({ error: "Payment not found" });
@@ -62,6 +82,15 @@ exports.settleFullBill = async (req, res) => {
     const result = await Billing.settleReservation(resId);
     
     if (result) {
+      // LOG: Bill fully settled and completed
+      await logActivity(
+        req.user?.userId || null,
+        "SETTLE_BILL_COMPLETED",
+        resId,
+        { message: "Transaction fully paid and marked completed" },
+        req
+      );
+
       res.json({ message: "Bill settled and reservation completed successfully" });
     } else {
       res.status(404).json({ error: "Reservation not found" });
@@ -82,7 +111,16 @@ exports.updatePaymentStatusByReservation = async (req, res) => {
     
     if (paymentUpdated) {
       // 2. Set Reservation status to 'Confirmed' via primary Reservation model
-      await Reservation.updateStatus(resId, "Confirmed"); // <-- CHANGED HERE
+      await Reservation.updateStatus(resId, "Confirmed");
+
+      // LOG: Payment verification action
+      await logActivity(
+        req.user?.userId || null,
+        "VERIFY_PAYMENT_PROOF",
+        resId,
+        { status: payment_status },
+        req
+      );
 
       // 3. Write Notification and Emit Real-Time Socket Event to the Customer
       try {
@@ -140,8 +178,8 @@ exports.updatePaymentStatusByReservation = async (req, res) => {
 // PUT: Reject Payment by Reservation ID & Notify Customer Real-time
 exports.rejectPaymentByReservation = async (req, res) => {
   try {
-    const { resId } = req.params; // Extracts from route parameter /reject/:resId
-    const { reason } = req.body;  // Extracts from React request payload
+    const { resId } = req.params;
+    const { reason } = req.body;
 
     const finalReason = reason ? reason.trim() : "Invalid proof of payment. Please re-upload within 12 hours.";
 
@@ -149,6 +187,15 @@ exports.rejectPaymentByReservation = async (req, res) => {
     const result = await Billing.rejectPaymentByReservation(resId, finalReason);
     
     if (result) {
+      // LOG: Payment rejection action
+      await logActivity(
+        req.user?.userId || null,
+        "REJECTED_PAYMENT_PROOF",
+        resId,
+        { reason: finalReason },
+        req
+      );
+
       // 2. Fetch the user_id associated with this reservation so we can target the notification
       const [reservationRows] = await db.execute(
         "SELECT user_id FROM reservations WHERE reservation_id = ?",
@@ -203,7 +250,6 @@ exports.rejectPaymentByReservation = async (req, res) => {
 exports.reuploadPaymentProof = async (req, res) => {
   try {
     const { resId } = req.params;
-    
     const receiptPath = req.file ? (req.file.path || req.file.filename) : null;
 
     if (!receiptPath) {
@@ -266,6 +312,7 @@ exports.reuploadPaymentProof = async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 };
+
 // PUT: Update downpayment amount manually by admin
 exports.updatePaymentAmount = async (req, res) => {
   const { resId } = req.params;
@@ -283,28 +330,14 @@ exports.updatePaymentAmount = async (req, res) => {
       return res.status(404).json({ error: "Payment record not found." });
     }
 
-    return res.status(200).json({ success: true, message: "Downpayment amount updated successfully." });
-  } catch (err) {
-    console.error("SQL Error in updatePaymentAmount:", err.message);
-    return res.status(500).json({ error: "Failed to update payment amount." });
-  }
-};
-
-exports.updatePaymentAmount = async (req, res) => {
-  const { resId } = req.params;
-  const { amount } = req.body;
-
-  if (amount === undefined || isNaN(Number(amount))) {
-    return res.status(400).json({ error: "Invalid amount provided." });
-  }
-
-  try {
-    const sql = "UPDATE payments SET amount = ? WHERE reservation_id = ?";
-    const [result] = await db.execute(sql, [amount, resId]);
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: "Payment record not found." });
-    }
+    // LOG: Manual downpayment change
+    await logActivity(
+      req.user?.userId || null,
+      "UPDATE_PAYMENT_AMOUNT",
+      resId,
+      { amount: Number(amount) },
+      req
+    );
 
     return res.status(200).json({ success: true, message: "Downpayment amount updated successfully." });
   } catch (err) {
