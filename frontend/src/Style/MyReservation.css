@@ -86,11 +86,10 @@
   letter-spacing: 0.5px;
 }
 
-/* Update the id-value class - change color from #1a1a1a to black */
 .id-value {
   font-size: 14px;
   font-weight: 700;
-  color: #000000 !important; /* Changed from #1a1a1a to pure black */
+  color: #000000 !important;
   font-family: monospace;
 }
 
@@ -366,7 +365,7 @@
 
 .detail-value {
   font-weight: 500;
-  color: #000000; /* Changed from #1a1a1a to pure black */
+  color: #000000;
   font-size: 13px;
   text-align: right;
 }
@@ -420,28 +419,6 @@
   background: #e53935;
   color: white;
   transform: translateY(-2px);
-}
-
-.update-reservation-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 12px;
-  background: linear-gradient(135deg, #f38d31, #e07a1e);
-  color: white;
-  border: none;
-  border-radius: 12px;
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.update-reservation-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(243, 141, 49, 0.3);
 }
 
 /* ============================================ */

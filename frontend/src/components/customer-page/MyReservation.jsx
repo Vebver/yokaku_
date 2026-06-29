@@ -8,7 +8,6 @@ import {
   Eye,
   X,
   AlertCircle,
-  Edit,
   Upload, // Added Upload icon
 } from "lucide-react";
 import TermsModal from "../TermsModal";
@@ -182,7 +181,8 @@ const MyReservation = () => {
       );
 
       showToast(
-        "New proof of payment uploaded. Admin will review your transaction shortly.", "success"
+        "New proof of payment uploaded. Admin will review your transaction shortly.",
+        "success",
       );
 
       await fetchUserReservations();
@@ -206,11 +206,6 @@ const MyReservation = () => {
   const closeModal = () => {
     setShowDetailModal(false);
     setSelectedReservation(null);
-  };
-
-  const handleUpdateReservation = () => {
-    console.log("Update reservation:", selectedReservation);
-    showToast("Update reservation functionality coming soon!");
   };
 
   const handleCancelClick = () => {
@@ -692,13 +687,6 @@ const MyReservation = () => {
                 >
                   <AlertCircle size={16} />
                   Cancel Reservation
-                </button>
-                <button
-                  className="update-reservation-btn"
-                  onClick={handleUpdateReservation}
-                >
-                  <Edit size={16} />
-                  Update Reservation
                 </button>
               </div>
             </div>

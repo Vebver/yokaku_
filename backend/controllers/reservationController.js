@@ -361,6 +361,15 @@ const reservationController = {
           is_read: 0,
           created_at: isoDateTime,
         });
+
+        // FIX: Add this new event for the frontend to catch
+        io.emit("new_reservation", {
+          id: newId,
+          date: body.date,
+          time: body.startTime,
+          guests: parseInt(body.guests) || 1,
+          packageName: body.packageName || "Table Reservation",
+        });
       }
 
       return res.status(201).json({ id: newId });

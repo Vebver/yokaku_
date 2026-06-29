@@ -1,6 +1,6 @@
 const Billing = require("../models/Billing");
 const Reservation = require("../models/Reservation");
-const { logActivity } = require("../utils/logger"); // Points to backend utilities folder
+const { logActivity } = require("../utils/logger");
 const db = require("../config/db");
 
 exports.getPayments = async (req, res) => {
@@ -15,38 +15,62 @@ exports.getPayments = async (req, res) => {
 exports.createWalkinPayment = async (req, res) => {
   try {
     const { reservation_id, amount, payment_method, payment_status } = req.body;
-    
-    console.log("[Billing Controller] Creating walk-in payment:", { reservation_id, amount, payment_method, payment_status });
-    
+
+    console.log("[Billing Controller] Creating walk-in payment:", {
+      reservation_id,
+      amount,
+      payment_method,
+      payment_status,
+    });
+
     if (!reservation_id || amount === undefined || amount === null) {
-      return res.status(400).json({ error: "Missing required fields - reservation_id and amount are required" });
+      return res
+        .status(400)
+        .json({
+          error:
+            "Missing required fields - reservation_id and amount are required",
+        });
     }
 
     const paymentId = await Billing.createWalkinPayment(
       reservation_id,
       amount,
       payment_method || "Cash",
-      payment_status || "Pending"
+      payment_status || "Pending",
     );
 
-    // LOG: Manual walk-in payment creation
     await logActivity(
-      req.user?.userId || null, 
-      "CREATE_WALKIN_PAYMENT", 
-      reservation_id, 
+      req.user?.userId || null,
+      "CREATE_WALKIN_PAYMENT",
+      reservation_id,
       { payment_id: paymentId, amount, payment_method, payment_status },
-      req
+      req,
     );
+
+    // FIX: Emit socket event for new payment
+    const io = req.app.get("io");
+    if (io) {
+      io.emit("new_notification", {
+        title: "New Walk-in Payment",
+        message: `Payment of ₱${amount} created for reservation ${reservation_id}`,
+        type: "payment",
+        is_read: 0,
+        created_at: new Date().toISOString(),
+      });
+    }
 
     console.log("[Billing Controller] Payment created with ID:", paymentId);
 
-    res.status(201).json({ 
-      success: true, 
+    res.status(201).json({
+      success: true,
       payment_id: paymentId,
-      message: "Walk-in payment record created"
+      message: "Walk-in payment record created",
     });
   } catch (error) {
-    console.error("[Billing Controller] Error creating walk-in payment:", error);
+    console.error(
+      "[Billing Controller] Error creating walk-in payment:",
+      error,
+    );
     res.status(500).json({ error: error.message });
   }
 };
@@ -56,16 +80,27 @@ exports.updatePaymentStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
     const result = await Billing.updateStatus(id, status);
-    
+
     if (result) {
-      // LOG: Manual status update
       await logActivity(
         req.user?.userId || null,
         "UPDATE_PAYMENT_STATUS",
         id,
         { status },
-        req
+        req,
       );
+
+      // FIX: Emit socket event for payment status update
+      const io = req.app.get("io");
+      if (io) {
+        io.emit("new_notification", {
+          title: "Payment Status Updated",
+          message: `Payment ${id} status changed to ${status}`,
+          type: "payment",
+          is_read: 0,
+          created_at: new Date().toISOString(),
+        });
+      }
 
       res.json({ message: "Payment status updated successfully" });
     } else {
@@ -78,20 +113,33 @@ exports.updatePaymentStatus = async (req, res) => {
 
 exports.settleFullBill = async (req, res) => {
   try {
-    const { resId } = req.params; 
+    const { resId } = req.params;
     const result = await Billing.settleReservation(resId);
-    
+
     if (result) {
-      // LOG: Bill fully settled and completed
       await logActivity(
         req.user?.userId || null,
         "SETTLE_BILL_COMPLETED",
         resId,
         { message: "Transaction fully paid and marked completed" },
-        req
+        req,
       );
 
-      res.json({ message: "Bill settled and reservation completed successfully" });
+      // FIX: Emit socket event for bill settlement
+      const io = req.app.get("io");
+      if (io) {
+        io.emit("new_notification", {
+          title: "Bill Settled",
+          message: `Bill for reservation ${resId} has been fully paid and completed`,
+          type: "payment",
+          is_read: 0,
+          created_at: new Date().toISOString(),
+        });
+      }
+
+      res.json({
+        message: "Bill settled and reservation completed successfully",
+      });
     } else {
       res.status(404).json({ error: "Reservation not found" });
     }
@@ -100,71 +148,80 @@ exports.settleFullBill = async (req, res) => {
   }
 };
 
-// PUT: Verify Payment and Notify Customer
 exports.updatePaymentStatusByReservation = async (req, res) => {
   try {
     const { resId } = req.params;
-    const payment_status = req.body.payment_status || 'verified';
+    const payment_status = req.body.payment_status || "verified";
 
-    // 1. Update Payment Status in Database
-    const paymentUpdated = await Billing.updatePaymentStatusByReservation(resId, payment_status);
-    
+    const paymentUpdated = await Billing.updatePaymentStatusByReservation(
+      resId,
+      payment_status,
+    );
+
     if (paymentUpdated) {
-      // 2. Set Reservation status to 'Confirmed' via primary Reservation model
       await Reservation.updateStatus(resId, "Confirmed");
 
-      // LOG: Payment verification action
       await logActivity(
         req.user?.userId || null,
         "VERIFY_PAYMENT_PROOF",
         resId,
         { status: payment_status },
-        req
+        req,
       );
 
-      // 3. Write Notification and Emit Real-Time Socket Event to the Customer
       try {
-        // Fetch the customer's user_id and reservation details
         const [rows] = await db.execute(
           `SELECT user_id, 
                   DATE_FORMAT(reservation_date, '%Y-%m-%d') as r_date, 
                   TIME_FORMAT(reservation_time, '%h:%i %p') as r_time 
            FROM reservations WHERE reservation_id = ?`,
-          [resId]
+          [resId],
         );
 
         if (rows.length > 0) {
           const { user_id, r_date, r_time } = rows[0];
           const notifMessage = `Your proof of payment for reservation ${resId} has been successfully verified! Your booking on ${r_date} at ${r_time} is officially confirmed.`;
 
-          // Write notification record for the customer
           const [notifResult] = await db.execute(
             `INSERT INTO notifications (user_id, reservation_id, title, message, is_read, created_at) 
              VALUES (?, ?, 'Payment Verified', ?, 0, NOW())`,
-            [user_id, resId, notifMessage]
+            [user_id, resId, notifMessage],
           );
 
-          // Emit real-time update to Customer's connected client
-          const io = req.app.get("socketio");
+          // FIX: Use correct socket instance and emit to both user and admin
+          const io = req.app.get("io");
           if (io) {
-            io.to(user_id.toString()).emit("new_notification", {
+            // Emit to specific user
+            io.to(`user_${user_id}`).emit("new_notification", {
               notification_id: notifResult.insertId,
               user_id: user_id,
               reservation_id: resId,
               title: "Payment Verified",
               message: notifMessage,
               is_read: 0,
-              created_at: new Date().toISOString()
+              created_at: new Date().toISOString(),
+            });
+
+            // Emit globally for admin
+            io.emit("new_notification", {
+              title: "Payment Verified",
+              message: `Payment for reservation ${resId} has been verified and confirmed`,
+              type: "payment_verified",
+              is_read: 0,
+              created_at: new Date().toISOString(),
             });
           }
         }
       } catch (notifErr) {
-        console.warn("Non-blocking Verification Notification Error:", notifErr.message);
+        console.warn(
+          "Non-blocking Verification Notification Error:",
+          notifErr.message,
+        );
       }
 
-      res.json({ 
-        success: true, 
-        message: `Payment verified and reservation confirmed.` 
+      res.json({
+        success: true,
+        message: `Payment verified and reservation confirmed.`,
       });
     } else {
       res.status(404).json({ error: "Reservation payment record not found" });
@@ -175,48 +232,45 @@ exports.updatePaymentStatusByReservation = async (req, res) => {
   }
 };
 
-// PUT: Reject Payment by Reservation ID & Notify Customer Real-time
 exports.rejectPaymentByReservation = async (req, res) => {
   try {
     const { resId } = req.params;
     const { reason } = req.body;
 
-    const finalReason = reason ? reason.trim() : "Invalid proof of payment. Please re-upload within 12 hours.";
+    const finalReason = reason
+      ? reason.trim()
+      : "Invalid proof of payment. Please re-upload within 12 hours.";
 
-    // 1. Update status, reason, and rejection timestamp in database
     const result = await Billing.rejectPaymentByReservation(resId, finalReason);
-    
+
     if (result) {
-      // LOG: Payment rejection action
       await logActivity(
         req.user?.userId || null,
         "REJECTED_PAYMENT_PROOF",
         resId,
         { reason: finalReason },
-        req
+        req,
       );
 
-      // 2. Fetch the user_id associated with this reservation so we can target the notification
       const [reservationRows] = await db.execute(
         "SELECT user_id FROM reservations WHERE reservation_id = ?",
-        [resId]
+        [resId],
       );
 
       if (reservationRows.length > 0) {
         const userId = reservationRows[0].user_id;
         const notifMessage = `Your proof of payment was rejected. Reason: ${finalReason}. Please upload a valid proof within 12 hours.`;
 
-        // 3. Write database record (including BOTH user_id and reservation_id)
         const [notifResult] = await db.execute(
           `INSERT INTO notifications (user_id, reservation_id, title, message, is_read, created_at) 
            VALUES (?, ?, 'Payment Proof Rejected', ?, 0, NOW())`,
-          [userId, resId, notifMessage]
+          [userId, resId, notifMessage],
         );
 
         const newNotificationId = notifResult.insertId;
 
-        // 4. Emit the Live Socket Event to the user's connected clients & admin
-        const io = req.app.get("socketio"); // Retrieve the Socket.io instance from Express
+        // FIX: Use correct socket instance
+        const io = req.app.get("io");
         if (io) {
           const notificationPayload = {
             notification_id: newNotificationId,
@@ -225,20 +279,27 @@ exports.rejectPaymentByReservation = async (req, res) => {
             title: "Payment Proof Rejected",
             message: notifMessage,
             is_read: 0,
-            created_at: new Date().toISOString()
+            created_at: new Date().toISOString(),
           };
 
-          // Emit to the specific user's socket room (joined via "join_user")
-          io.to(userId.toString()).emit("new_notification", notificationPayload);
-          
-          // Emit globally so the active administrator's notifications list updates live
-          io.emit("new_notification", notificationPayload);
+          io.to(`user_${userId}`).emit("new_notification", notificationPayload);
+          io.emit("new_notification", {
+            title: "Payment Rejected",
+            message: `Payment for reservation ${resId} was rejected. Reason: ${finalReason}`,
+            type: "payment_rejected",
+            is_read: 0,
+            created_at: new Date().toISOString(),
+          });
         }
       }
 
-      return res.status(200).json({ message: "Payment rejected successfully." });
+      return res
+        .status(200)
+        .json({ message: "Payment rejected successfully." });
     } else {
-      return res.status(404).json({ error: "Reservation payment record not found" });
+      return res
+        .status(404)
+        .json({ error: "Reservation payment record not found" });
     }
   } catch (error) {
     console.error("SQL/Rejection controller error:", error);
@@ -246,66 +307,80 @@ exports.rejectPaymentByReservation = async (req, res) => {
   }
 };
 
-// PUT: Process receipt re-upload, reset statuses, and notify admin
 exports.reuploadPaymentProof = async (req, res) => {
   try {
     const { resId } = req.params;
-    const receiptPath = req.file ? (req.file.path || req.file.filename) : null;
+    const receiptPath = req.file ? req.file.path || req.file.filename : null;
 
     if (!receiptPath) {
-      return res.status(400).json({ error: "Please upload a valid receipt image." });
+      return res
+        .status(400)
+        .json({ error: "Please upload a valid receipt image." });
     }
 
-    // 1. Update the receipt path
     await db.execute(
       "UPDATE reservations SET receipt_path = ? WHERE reservation_id = ?",
-      [receiptPath, resId]
+      [receiptPath, resId],
     );
 
-    // 2. Set the payment status back to 'pending'
     await db.execute(
       "UPDATE payments SET payment_status = 'pending' WHERE reservation_id = ?",
-      [resId]
+      [resId],
     );
 
-    // 3. Set the reservation status back to 'Pending'
     await db.execute(
       "UPDATE reservations SET status = 'Pending' WHERE reservation_id = ?",
-      [resId]
+      [resId],
     );
 
-    // 4. Notify all Administrators of the re-uploaded proof
     try {
-      const [admins] = await db.execute("SELECT user_id FROM users WHERE role = 'admin'");
+      const [admins] = await db.execute(
+        "SELECT user_id FROM users WHERE role = 'admin'",
+      );
       const notifMessage = `Customer re-uploaded a new proof of payment for reservation ${resId}. Please review it in your Billing portal.`;
-      const io = req.app.get("socketio");
+      const io = req.app.get("io");
 
       for (const admin of admins) {
         const [notifResult] = await db.execute(
           `INSERT INTO notifications (user_id, reservation_id, title, message, is_read, created_at) 
            VALUES (?, ?, 'New Proof Uploaded', ?, 0, NOW())`,
-          [admin.user_id, resId, notifMessage]
+          [admin.user_id, resId, notifMessage],
         );
 
         if (io) {
-          io.to(admin.user_id.toString()).emit("new_notification", {
+          io.to(`user_${admin.user_id}`).emit("new_notification", {
             notification_id: notifResult.insertId,
             user_id: admin.user_id,
             reservation_id: resId,
             title: "New Proof Uploaded",
             message: notifMessage,
             is_read: 0,
-            created_at: new Date().toISOString()
+            created_at: new Date().toISOString(),
           });
         }
       }
+
+      // FIX: Also emit globally for admin dashboard
+      const io = req.app.get("io");
+      if (io) {
+        io.emit("new_notification", {
+          title: "Payment Proof Re-uploaded",
+          message: `Customer re-uploaded proof of payment for reservation ${resId}`,
+          type: "payment_reupload",
+          is_read: 0,
+          created_at: new Date().toISOString(),
+        });
+      }
     } catch (adminNotifErr) {
-      console.warn("Non-blocking Admin Notification on reupload failed:", adminNotifErr.message);
+      console.warn(
+        "Non-blocking Admin Notification on reupload failed:",
+        adminNotifErr.message,
+      );
     }
 
-    return res.status(200).json({ 
-      success: true, 
-      message: "Proof of payment successfully updated." 
+    return res.status(200).json({
+      success: true,
+      message: "Proof of payment successfully updated.",
     });
   } catch (error) {
     console.error("Error in reuploadPaymentProof:", error);
@@ -313,7 +388,6 @@ exports.reuploadPaymentProof = async (req, res) => {
   }
 };
 
-// PUT: Update downpayment amount manually by admin
 exports.updatePaymentAmount = async (req, res) => {
   const { resId } = req.params;
   const { amount } = req.body;
@@ -330,16 +404,32 @@ exports.updatePaymentAmount = async (req, res) => {
       return res.status(404).json({ error: "Payment record not found." });
     }
 
-    // LOG: Manual downpayment change
     await logActivity(
       req.user?.userId || null,
       "UPDATE_PAYMENT_AMOUNT",
       resId,
       { amount: Number(amount) },
-      req
+      req,
     );
 
-    return res.status(200).json({ success: true, message: "Downpayment amount updated successfully." });
+    // FIX: Emit socket event
+    const io = req.app.get("io");
+    if (io) {
+      io.emit("new_notification", {
+        title: "Payment Amount Updated",
+        message: `Downpayment amount for reservation ${resId} updated to ₱${amount}`,
+        type: "payment",
+        is_read: 0,
+        created_at: new Date().toISOString(),
+      });
+    }
+
+    return res
+      .status(200)
+      .json({
+        success: true,
+        message: "Downpayment amount updated successfully.",
+      });
   } catch (err) {
     console.error("SQL Error in updatePaymentAmount:", err.message);
     return res.status(500).json({ error: "Failed to update payment amount." });

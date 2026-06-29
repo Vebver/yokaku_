@@ -187,6 +187,33 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     return () => document.removeEventListener("click", handleClickOutside);
   }, [showMonthPicker, showYearPicker]);
 
+  // ========== ADD THESE VALIDATION HELPER FUNCTIONS ==========
+  // Helper to check if a field is invalid (touched and has error)
+  const isFieldInvalid = (fieldValue, validationFn) => {
+    return fieldValue && !validationFn(fieldValue);
+  };
+
+  // Validation functions for each field
+  const validateField = {
+    firstName: (value) => value && value.trim().length > 0,
+    lastName: (value) => value && value.trim().length > 0,
+    email: (value) => /^\S+@\S+\.\S+$/.test(value),
+    phone: (value) => value.length === 11 && value.startsWith("09"),
+    startTime: (value) => value && value !== "",
+    endTime: (value) => value && value !== "",
+    muni: (value) => value && value !== "",
+    brgy: (value) => value && value !== "",
+    pax: (value) => value && parseInt(value) >= 1 && parseInt(value) <= 38,
+  };
+
+  // Check if field has error (for red outline)
+  const hasFieldError = (fieldName, value) => {
+    if (!value) return false; // Don't show error for empty fields
+    const validationFn = validateField[fieldName];
+    return validationFn ? !validationFn(value) : false;
+  };
+  // ========== END VALIDATION HELPERS ==========
+
   const fetchAllReservationsForMonth = async (year, month) => {
     try {
       const startDate = `${year}-${String(month + 1).padStart(2, "0")}-01`;
@@ -2045,7 +2072,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                       className="res-input-dropdown"
                       value={form.endTime}
                       onChange={handleInputChange}
-                      disabled={true}
+                      disabled={!form.startTime}
                     >
                       <option value="">Select end time</option>
                       {filteredEndTimeOptions.map((t) => (
@@ -2054,19 +2081,9 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                         </option>
                       ))}
                     </select>
-                    <small
-                      className="end-time-hint"
-                      style={{
-                        display: "block",
-                        marginTop: "5px",
-                        color: "#f38d31",
-                        fontSize: "11px",
-                      }}
-                    >
-                      End time is automatically set to 3 hours after start time
-                    </small>
                   </div>
                 </div>
+
                 <div className="input-group">
                   <div className="label-with-icon">
                     <label>FIRST NAME</label>
@@ -2088,10 +2105,13 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     onChange={handleInputChange}
                     disabled={!ui.editingFirstName}
                     className={
-                      !isFirstNameValid && user.firstName ? "input-error" : ""
+                      hasFieldError("firstName", user.firstName)
+                        ? "input-error"
+                        : ""
                     }
                   />
                 </div>
+
                 <div className="input-group">
                   <div className="label-with-icon">
                     <label>LAST NAME</label>
@@ -2113,10 +2133,13 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     onChange={handleInputChange}
                     disabled={!ui.editingLastName}
                     className={
-                      !isLastNameValid && user.lastName ? "input-error" : ""
+                      hasFieldError("lastName", user.lastName)
+                        ? "input-error"
+                        : ""
                     }
                   />
                 </div>
+
                 <div className="input-group">
                   <label>
                     <Mail size={12} /> EMAIL
@@ -2126,9 +2149,12 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     name="email"
                     value={user.email}
                     disabled
-                    className={!isEmailValid && user.email ? "input-error" : ""}
+                    className={
+                      hasFieldError("email", user.email) ? "input-error" : ""
+                    }
                   />
                 </div>
+
                 <div className="input-group">
                   <label>
                     <Phone size={12} /> CONTACT
@@ -2139,13 +2165,14 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     value={user.phone}
                     onChange={handleInputChange}
                     className={
-                      !isPhoneValid && user.phone !== "09" ? "input-error" : ""
+                      hasFieldError("phone", user.phone) ? "input-error" : ""
                     }
                   />
                   <small className="input-hint">
                     11 digits starting with 09
                   </small>
                 </div>
+
                 <div className="input-row">
                   <div className="input-group">
                     <label>
@@ -2153,7 +2180,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     </label>
                     <select
                       name="muni"
-                      className="res-input-dropdown"
+                      className={`res-input-dropdown ${hasFieldError("muni", form.muni) ? "input-error" : ""}`}
                       value={form.muni}
                       onChange={handleInputChange}
                     >
@@ -2171,7 +2198,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     </label>
                     <select
                       name="brgy"
-                      className="res-input-dropdown"
+                      className={`res-input-dropdown ${hasFieldError("brgy", form.brgy) ? "input-error" : ""}`}
                       value={form.brgy}
                       onChange={handleInputChange}
                       disabled={!form.muni}
@@ -2185,6 +2212,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     </select>
                   </div>
                 </div>
+
                 <div className="input-group guests-auto-field">
                   <label>
                     <Users size={12} /> GUESTS
