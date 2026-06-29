@@ -12,8 +12,10 @@ import {
   Box,
   Edit2,
 } from "lucide-react";
+import { useToast } from "../ToastContext";
 
 function Inventory() {
+  const { showToast } = useToast();
   const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -124,7 +126,7 @@ function Inventory() {
       fetchInventory();
       if (closeBtnRef.current) closeBtnRef.current.click();
     } catch (err) {
-      alert(isEditMode ? "Failed to update stock." : "Failed to add stock.");
+      showToast(isEditMode ? "Failed to update stock." : "Failed to add stock.");
     }
   };
 
@@ -134,7 +136,7 @@ function Inventory() {
         await api.delete(`/inventory/${id}`);
         fetchInventory();
       } catch (err) {
-        alert("Error deleting item.");
+        showToast("Error deleting item.");
       }
     }
   };

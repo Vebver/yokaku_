@@ -4,6 +4,7 @@ import Slider from "react-slick";
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
 import "../Style/ReviewsSection.css";
+import { useToast } from "./ToastContext";
 
 const API_BASE = "https://yokaku-backend.onrender.com/api";
 
@@ -13,6 +14,7 @@ function ReviewsSection() {
   const [showForm, setShowForm] = useState(false);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
+  const { showToast } = useToast();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
@@ -79,13 +81,13 @@ function ReviewsSection() {
           headers: { Authorization: `Bearer ${token}` },
         },
       );
-      alert("Feedback submitted!");
+      showToast("Feedback submitted!");
       setComment("");
       setShowForm(false);
       fetchReviews();
       checkEligibility(); // Re-check eligibility after submission
     } catch (err) {
-      alert("Error submitting feedback");
+      showToast("Error submitting feedback");
     }
   };
 

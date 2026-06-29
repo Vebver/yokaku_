@@ -11,6 +11,7 @@ import {
   Settings,
 } from "lucide-react";
 import "../Style/PackageModal.css";
+import { useToast } from "./ToastContext";
 
 const API_BASE = "https://yokaku-backend.onrender.com/api";
 const BASE_URL = "https://yokaku-backend.onrender.com";
@@ -28,6 +29,7 @@ const PackageModal = ({
   onSelectedItemsChange,
   initialSelectedItems = [],
 }) => {
+  const { showToast } = useToast();
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -168,7 +170,7 @@ const PackageModal = ({
         if (prev.flavors.length < 4) {
           return { ...prev, flavors: [...prev.flavors, flavorName] };
         } else {
-          alert("You can only select up to 4 flavors.");
+          showToast("You can only select up to 4 flavors.");
           return prev;
         }
       }

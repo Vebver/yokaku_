@@ -13,10 +13,12 @@ import {
 } from "lucide-react";
 import TermsModal from "../TermsModal";
 import "../../Style/MyReservation.css";
+import { useToast } from "../ToastContext";
 
 const API_BASE = "https://yokaku-backend.onrender.com/api";
 
 const MyReservation = () => {
+  const { showToast } = useToast();
   const [reservations, setReservations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedReservation, setSelectedReservation] = useState(null);
@@ -167,26 +169,30 @@ const MyReservation = () => {
 
     try {
       const token = localStorage.getItem("token");
-      
-     await axios.put(
-  `${API_BASE}/billing/reupload-proof/${selectedReservation.reservation_id}`,
-  formData,
-  {
-    headers: {
-      "Content-Type": "multipart/form-data",
-      Authorization: `Bearer ${token}`,
-    },
-  }
-);
 
-      alert("New proof of payment uploaded. Admin will review your transaction shortly.");
-      
+      await axios.put(
+        `${API_BASE}/billing/reupload-proof/${selectedReservation.reservation_id}`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      showToast(
+        "New proof of payment uploaded. Admin will review your transaction shortly.", "success"
+      );
+
       await fetchUserReservations();
       handleCloseCancelModal();
       closeModal();
     } catch (error) {
       console.error("Error re-uploading proof:", error);
-      alert("Failed to submit receipt. Please check file properties and try again.");
+      showToast(
+        "Failed to submit receipt. Please check file properties and try again.",
+      );
     } finally {
       setUploading(false);
     }
@@ -204,7 +210,7 @@ const MyReservation = () => {
 
   const handleUpdateReservation = () => {
     console.log("Update reservation:", selectedReservation);
-    alert("Update reservation functionality coming soon!");
+    showToast("Update reservation functionality coming soon!");
   };
 
   const handleCancelClick = () => {
@@ -214,7 +220,7 @@ const MyReservation = () => {
     }
 
     if (cooldownTimeLeft > 0) {
-      alert(
+      showToast(
         `You need to wait ${formatCooldownTime(cooldownTimeLeft)} before you can cancel another reservation.`,
       );
       return;
@@ -318,7 +324,7 @@ const MyReservation = () => {
         warningMessage += `ℹ️ You have ${newCancellationsLeft} cancellation${newCancellationsLeft !== 1 ? "s" : ""} left out of ${MAX_CANCELLATIONS}.`;
       }
 
-      alert(warningMessage);
+      showToast(warningMessage);
 
       await fetchUserReservations();
       await fetchCancellationCount();
@@ -326,7 +332,7 @@ const MyReservation = () => {
       closeModal();
     } catch (error) {
       console.error("Error cancelling reservation:", error);
-      alert("Failed to cancel reservation. Please try again.");
+      showToast("Failed to cancel reservation. Please try again.");
     } finally {
       setIsCancelling(false);
     }
@@ -615,27 +621,35 @@ const MyReservation = () => {
                   )}
 
                   {/* RE-UPLOAD MODULE (VISIBLE ONCE STATUS IS 'REJECTED') */}
-                  {selectedReservation.payment_status?.toLowerCase() === "rejected" && (
-                    <div 
-                      className="reupload-proof-card p-3 my-3 rounded-3" 
-                      style={{ 
-                        backgroundColor: "rgba(220, 53, 69, 0.08)", 
-                        border: "1px solid rgba(220, 53, 69, 0.25)" 
+                  {selectedReservation.payment_status?.toLowerCase() ===
+                    "rejected" && (
+                    <div
+                      className="reupload-proof-card p-3 my-3 rounded-3"
+                      style={{
+                        backgroundColor: "rgba(220, 53, 69, 0.08)",
+                        border: "1px solid rgba(220, 53, 69, 0.25)",
                       }}
                     >
                       <div className="d-flex align-items-center text-danger fw-bold mb-1 small">
                         <AlertCircle size={15} className="me-2" />
                         PROOF OF PAYMENT REJECTED
                       </div>
-                      <p className="text-muted mb-3" style={{ fontSize: "0.8rem" }}>
-                        Reason: <strong className="text-dark">{selectedReservation.rejection_reason || "Receipt details do not match your order."}</strong>
+                      <p
+                        className="text-muted mb-3"
+                        style={{ fontSize: "0.8rem" }}
+                      >
+                        Reason:{" "}
+                        <strong className="text-dark">
+                          {selectedReservation.rejection_reason ||
+                            "Receipt details do not match your order."}
+                        </strong>
                       </p>
 
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        ref={fileInputRef} 
-                        style={{ display: "none" }} 
+                      <input
+                        type="file"
+                        accept="image/*"
+                        ref={fileInputRef}
+                        style={{ display: "none" }}
                         onChange={handleFileChange}
                       />
 

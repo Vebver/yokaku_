@@ -29,6 +29,8 @@ import ReservationOrderModal from "./ReservationOrderModal";
 import OrderSummary from "./OrderSummary";
 import axios from "axios";
 import alertMusicFile from "../../assets/alert-sound.mp3";
+import { useToast } from "../ToastContext";
+
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 const BASE_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
@@ -58,6 +60,7 @@ const categoryIcons = {
 };
 
 const KioskMenu = () => {
+  const { showToast } = useToast();
   const navigate = useNavigate();
   const audioRef = useRef(new Audio(alertMusicFile));
   const storage = window.sessionStorage;
@@ -327,7 +330,7 @@ const KioskMenu = () => {
 
     const unlimitedItem = findUnlimitedItem();
     if (!unlimitedItem) {
-      alert("No active Unlimited package found in the system registry.");
+      showToast("No active Unlimited package found in the system registry.");
       return;
     }
 
@@ -465,7 +468,7 @@ const KioskMenu = () => {
       setShowPaymentModal(false);
     } catch (error) {
       console.error(error);
-      alert("Order failed.");
+      showToast("Order failed.");
     } finally {
       setIsLoading(false);
     }
@@ -1213,7 +1216,7 @@ const KioskMenu = () => {
                       fetchCurrentBill();
                       playCashierAlert();
                     } catch (err) {
-                      alert("Payment processing failed.");
+                      showToast("Payment processing failed.");
                       setIsLoading(false);
                     }
                   }}

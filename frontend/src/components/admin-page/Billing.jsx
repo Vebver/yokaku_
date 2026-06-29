@@ -14,6 +14,7 @@ import {
   CornerDownRight,
   Eye,
 } from "lucide-react";
+import { useToast } from "../ToastContext";
 
 const Billing = () => {
   const [payments, setPayments] = useState([]);
@@ -27,7 +28,7 @@ const Billing = () => {
   const [isEditingAmount, setIsEditingAmount] = useState(false);
   const [tempAmount, setTempAmount] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-
+  const { showToast } = useToast();
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
 
@@ -121,7 +122,7 @@ const Billing = () => {
 
   const submitRejection = async () => {
     const token = localStorage.getItem("token");
-    if (!token) return alert("Please log in again.");
+    if (!token) return showToast("Please log in again.");
 
     const finalReason =
       rejectReason.trim() ||
@@ -142,7 +143,7 @@ const Billing = () => {
       setShowRejectForm(false);
     } catch (err) {
       console.error("Rejection error:", err);
-      alert("Failed to reject payment.");
+      showToast("Failed to reject payment.");
     }
   };
 
@@ -526,7 +527,7 @@ const Billing = () => {
                           onClick={async () => {
                             const newAmount = parseFloat(tempAmount);
                             if (isNaN(newAmount) || newAmount < 0) {
-                              return alert(
+                              return showToast(
                                 "Please enter a valid numeric amount.",
                               );
                             }
@@ -557,7 +558,7 @@ const Billing = () => {
                                 "Error updating payment amount:",
                                 err,
                               );
-                              alert("Failed to update downpayment amount.");
+                              showToast("Failed to update downpayment amount.");
                             }
                           }}
                         >
@@ -887,14 +888,14 @@ const Billing = () => {
                               await fetchPayments();
                               closeBtnRef.current?.click();
                             } catch (err) {
-                              alert("Failed to verify.");
+                              showToast("Failed to verify.");
                             }
                           }}
                         >
                           <CheckCircle2 size={16} className="me-2" /> Verify
                           Payment Proof
                         </button>
-                        
+
                         {!(
                           selectedPayment?.first_name
                             ?.toLowerCase()
@@ -939,10 +940,10 @@ const Billing = () => {
                             }));
 
                             await fetchPayments();
-                            alert("Transaction Settled!");
+                            showToast("Transaction Settled!");
                           } catch (err) {
                             console.error("Settle error:", err.response?.data);
-                            alert("Failed to settle bill.");
+                            showToast("Failed to settle bill.");
                           }
                         }}
                       >

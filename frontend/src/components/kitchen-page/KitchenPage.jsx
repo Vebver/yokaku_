@@ -11,6 +11,7 @@ import "../../Style/KitchenPage.css";
 import { io } from "socket.io-client";
 import { useLocation } from "react-router-dom";
 import axios from "axios";
+import { useToast } from "../ToastContext";
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
@@ -31,6 +32,7 @@ const StatusBadge = ({ status }) => {
 
 // --- ORDER CARD COMPONENT ---
 const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
+  const { showToast } = useToast();
   const [elapsed, setElapsed] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -428,7 +430,7 @@ const KitchenPage = () => {
       }
     } catch (err) {
       console.error("❌ Failed to update order status:", err.message);
-      alert(`Error: ${err.response?.data?.error || err.message}`);
+      showToast(`Error: ${err.response?.data?.error || err.message}`);
     } finally {
       setLoadingOrderId(null);
     }

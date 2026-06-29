@@ -9,8 +9,10 @@ import {
   Monitor,
 } from "lucide-react";
 import api from "../../api";
+import { useToast } from "../ToastContext";
 
 const SystemMaintenance = () => {
+  const { showToast } = useToast();
   const [kioskReservationId, setKioskReservationId] = useState("");
   const runTask = async (endpoint, taskName, warningText) => {
     const confirmed = window.confirm(
@@ -28,14 +30,14 @@ const SystemMaintenance = () => {
         },
       );
 
-      alert("Success: " + res.data.message);
+      showToast("Success: " + res.data.message,"success");
 
       if (endpoint === "reset") {
         window.location.reload();
       }
     } catch (err) {
       console.error(err);
-      alert("Error: " + (err.response?.data?.error || "Action failed"));
+      showToast("Error: " + (err.response?.data?.error || "Action failed"));
     }
   };
 
@@ -53,11 +55,11 @@ const SystemMaintenance = () => {
       { headers: { Authorization: `Bearer ${token}` } }
     );
     
-    alert("Success: " + res.data.message);
+    showToast("Success: " + res.data.message);
     setKioskReservationId(""); // Reset input on success
   } catch (err) {
     console.error(err);
-    alert("Error: " + (err.response?.data?.error || "Action failed"));
+    showToast("Error: " + (err.response?.data?.error || "Action failed"));
   }
 };
 
@@ -82,7 +84,7 @@ const SystemMaintenance = () => {
       window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error("Financial PDF download failed", err);
-      alert("Failed to download financial PDF. Please check your connection.");
+      showToast("Failed to download financial PDF. Please check your connection.");
     }
   };
 
@@ -104,7 +106,7 @@ const SystemMaintenance = () => {
       window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error("Download failed", err);
-      alert("Failed to download report. Please check your connection.");
+      showToast("Failed to download report. Please check your connection.");
     }
   };
 

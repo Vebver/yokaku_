@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import api from "../../api";
 import { CalendarOff, Trash2, Plus } from "lucide-react";
-
+import { useToast } from "../ToastContext";
 const HolidayMaintenance = () => {
+  const { showToast } = useToast();
   const [holidays, setHolidays] = useState([]);
   const [newHoliday, setNewHoliday] = useState({ date: "", reason: "" });
 
@@ -20,13 +21,13 @@ const HolidayMaintenance = () => {
   };
 
   const handleAdd = async () => {
-    if (!newHoliday.date) return alert("Select a date");
+    if (!newHoliday.date) return showToast("Select a date");
     try {
       await api.post(`/admin/blocked-dates`, newHoliday);
       setNewHoliday({ date: "", reason: "" });
       fetchHolidays();
     } catch (err) {
-      alert("This date is already blocked.");
+      showToast("This date is already blocked.");
     }
   };
 

@@ -2,10 +2,12 @@ import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { RotateCcw, Trash2, X } from "lucide-react";
 import "../../Style/Notifications.css";
+import { useToast } from "../ToastContext";
 
 const API_BASE = "https://yokaku-backend.onrender.com/api";
 
 const DeletedNotifications = ({ onClose, onRestore }) => {
+  const { showToast } = useToast();
   const [deletedNotifications, setDeletedNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [daysLeft, setDaysLeft] = useState({});
@@ -115,7 +117,7 @@ const DeletedNotifications = ({ onClose, onRestore }) => {
       if (onRestore) onRestore();
     } catch (err) {
       console.error("Error restoring notification:", err);
-      alert("Failed to restore notification");
+      showToast("Failed to restore notification");
     }
   };
 
@@ -144,7 +146,7 @@ const DeletedNotifications = ({ onClose, onRestore }) => {
       if (onRestore) onRestore();
     } catch (err) {
       console.error("❌ Error permanently deleting notification:", err);
-      alert(
+      showToast(
         `Failed to permanently delete notification: ${err.response?.data?.error || err.message}`,
       );
     } finally {

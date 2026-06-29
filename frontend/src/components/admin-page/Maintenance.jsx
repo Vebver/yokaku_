@@ -5,9 +5,11 @@ import { Save, Smartphone, Wallet, CreditCard, Cog } from "lucide-react";
 // Components
 import SystemMaintenance from "./SystemMaintenance"; // Renamed from DatabaseMaintenance
 import HolidayMaintenance from "./HolidayMaintenance";
+import { useToast } from "../ToastContext";
 
 
 const Maintenance = () => {
+  const { showToast } = useToast();
   const [settings, setSettings] = useState({
     gcash_number: "",
     gcash_name: "",
@@ -43,9 +45,9 @@ const Maintenance = () => {
     setSaving(true);
     try {
       await api.put(`/settings`, { settings });
-      alert("Success: Payment details updated.");
+      showToast("Success: Payment details updated.", "success");
     } catch (err) {
-      alert("Failed to update payment details.");
+      showToast("Failed to update payment details.");
     } finally {
       setSaving(false);
     }

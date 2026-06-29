@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import "../Style/LoginModal.css";
+import { useToast } from "./ToastContext";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
@@ -9,6 +10,7 @@ function ResetPasswordPage() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token"); // Get token from query string
   const navigate = useNavigate();
+  const { showToast } = useToast();
 
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -98,7 +100,7 @@ function ResetPasswordPage() {
         token,
         newPassword,
       });
-      alert("Password updated successfully!");
+      showToast("Password updated successfully!", "success");
       navigate("/");
     } catch (err) {
       setError(err.response?.data?.error || "Link expired or invalid.");

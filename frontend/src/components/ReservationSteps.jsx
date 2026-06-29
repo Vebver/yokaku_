@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import StepProgress from "./StepProgress";
 import "../Style/TableReservation.css";
+import { useToast } from "./ToastContext";
 import PackageModal from "./PackageModal";
 import ReservationSummary from "./ReservationSummary";
 import TermsModal from "./TermsModal";
@@ -70,6 +71,7 @@ const getSteps = (reservationType) => {
 
 export default function ReservationSteps({ onClose, onSuccess }) {
   // ============ STATE ============
+  const { showToast } = useToast();
   const [reservationType, setReservationType] = useState(null);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
@@ -958,7 +960,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   const handleDateSelection = (e) => {
     const selectedDate = e.target.value;
     if (blockedDates.includes(selectedDate)) {
-      alert("We are sorry, but the restaurant is closed on this date.");
+      showToast("We are sorry, but the restaurant is closed on this date.");
       setForm((prev) => ({ ...prev, date: "" }));
       e.target.value = "";
       return true;
@@ -1415,7 +1417,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
 
   const onTableClick = (table) => {
     if (table.status === "maintenance") {
-      alert("This table is currently under maintenance.");
+      showToast("This table is currently under maintenance.");
       return;
     }
     if (isLinkMode) {
@@ -1476,7 +1478,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       } else {
         // For EVENT, require payment method and receipt
         if (!receiptFile) {
-          alert("Please upload your payment receipt.");
+          showToast("Please upload your payment receipt.");
           setIsProcessing(false);
           setUi((p) => ({ ...p, loading: false }));
           return;
@@ -1518,7 +1520,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       onSuccess(res.data.id);
     } catch (e) {
       console.error("Booking Error:", e.response?.data || e.message);
-      alert(e.response?.data?.message || "Table Selection Error.");
+      showToast(e.response?.data?.message || "Table Selection Error.");
     } finally {
       setUi((p) => ({ ...p, loading: false }));
       setIsProcessing(false);

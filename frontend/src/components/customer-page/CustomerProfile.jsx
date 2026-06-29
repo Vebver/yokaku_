@@ -3,10 +3,12 @@ import axios from "axios";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "../../Style/CustomerProfile.css";
 import CustomerProfileEdit from "./CustomerProfileEdit";
+import { useToast } from "../ToastContext";
 
 const API_BASE = "https://yokaku-backend.onrender.com/api";
 
 const CustomerProfile = () => {
+  const { showToast } = useToast();
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -67,10 +69,10 @@ const CustomerProfile = () => {
       // 4. Switch UI back to view mode
       setIsEditing(false);
 
-      alert("Profile updated successfully!");
+      showToast("Profile updated successfully!","success");
     } catch (err) {
       console.error("Update Error:", err);
-      alert("Update failed!");
+      showToast("Update failed!");
     }
   };
 

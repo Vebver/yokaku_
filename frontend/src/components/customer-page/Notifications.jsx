@@ -4,11 +4,12 @@ import io from "socket.io-client";
 import { Trash2, Archive } from "lucide-react";
 import DeletedNotifications from "./DeletedNotifications";
 import "../../Style/Notifications.css";
-
+import { useToast } from "../ToastContext";
 const SOCKET_URL = "https://yokaku-backend.onrender.com";
 const API_BASE = "https://yokaku-backend.onrender.com/api";
 
 const Notifications = () => {
+  const { showToast } = useToast();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -161,7 +162,7 @@ const Notifications = () => {
       setShowReservationModal(true);
     } catch (err) {
       console.error("Error fetching reservation details:", err);
-      alert("Failed to load reservation details. Please try again.");
+      showToast("Failed to load reservation details. Please try again.");
     } finally {
       setModalLoading(false);
     }
@@ -178,24 +179,26 @@ const Notifications = () => {
 
     try {
       const token = localStorage.getItem("token");
-      
-     await axios.put(
-  `${API_BASE}/billing/reupload-proof/${selectedReservation.reservation_id}`,
-  formData,
-  {
-    headers: {
-      "Content-Type": "multipart/form-data",
-      Authorization: `Bearer ${token}`,
-    },
-  }
-);
-      alert("New proof of payment uploaded. Admin will review your transaction shortly.");
-      
+
+      await axios.put(
+        `${API_BASE}/billing/reupload-proof/${selectedReservation.reservation_id}`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      showToast(
+        "New proof of payment uploaded. Admin will review your transaction shortly.",
+      );
+
       fetchNotifications();
       closeModal();
     } catch (error) {
       console.error("Error re-uploading proof:", error);
-      alert("Failed to submit receipt. Please try again.");
+      showToast("Failed to submit receipt. Please try again.");
     } finally {
       setUploading(false);
     }
@@ -493,26 +496,34 @@ const Notifications = () => {
                 </div>
 
                 {/* EMEDDED RE-UPLOAD INTERACTIVE CARD inside the notification's detail view */}
-                {selectedReservation.payment_status?.toLowerCase() === "rejected" && (
-                  <div 
-                    className="reupload-proof-box p-3 my-3 rounded-3" 
-                    style={{ 
-                      backgroundColor: "rgba(220, 53, 69, 0.08)", 
-                      border: "1px solid rgba(220, 53, 69, 0.25)" 
+                {selectedReservation.payment_status?.toLowerCase() ===
+                  "rejected" && (
+                  <div
+                    className="reupload-proof-box p-3 my-3 rounded-3"
+                    style={{
+                      backgroundColor: "rgba(220, 53, 69, 0.08)",
+                      border: "1px solid rgba(220, 53, 69, 0.25)",
                     }}
                   >
                     <div className="text-danger fw-bold mb-1 small d-flex align-items-center">
                       ⚠️ PROOF OF PAYMENT REJECTED
                     </div>
-                    <p className="text-muted mb-3" style={{ fontSize: "0.8rem", textAlign: "left" }}>
-                      Reason: <strong className="text-dark">{selectedReservation.rejection_reason || "Receipt details mismatch."}</strong>
+                    <p
+                      className="text-muted mb-3"
+                      style={{ fontSize: "0.8rem", textAlign: "left" }}
+                    >
+                      Reason:{" "}
+                      <strong className="text-dark">
+                        {selectedReservation.rejection_reason ||
+                          "Receipt details mismatch."}
+                      </strong>
                     </p>
 
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      ref={fileInputRef} 
-                      style={{ display: "none" }} 
+                    <input
+                      type="file"
+                      accept="image/*"
+                      ref={fileInputRef}
+                      style={{ display: "none" }}
                       onChange={handleFileChange}
                     />
 
@@ -520,7 +531,11 @@ const Notifications = () => {
                       className="btn btn-sm btn-danger fw-bold w-100 py-2"
                       onClick={() => fileInputRef.current?.click()}
                       disabled={uploading}
-                      style={{ fontSize: "0.8rem", width: "100%", cursor: "pointer" }}
+                      style={{
+                        fontSize: "0.8rem",
+                        width: "100%",
+                        cursor: "pointer",
+                      }}
                     >
                       {uploading ? (
                         <>

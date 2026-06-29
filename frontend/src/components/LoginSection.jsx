@@ -1,9 +1,12 @@
 import React, { useState } from "react";
 import VerifyEmail from "./VerifyEmail";
+import { useToast } from "./ToastContext"; // Adjust path to ToastContext
 import "../Style/LoginModal.css";
 import api from "../api";
 
 function LoginSection({ onClose }) {
+  const { showToast } = useToast(); // Initialize context method
+
   const [view, setView] = useState("login"); // 'login', 'signup', 'verify', 'forgot', 'reset'
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -12,9 +15,6 @@ function LoginSection({ onClose }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -61,7 +61,9 @@ function LoginSection({ onClose }) {
       }
       onClose();
     } catch (err) {
-      setError(err.response?.data?.error || "Login failed.");
+      const errMsg = err.response?.data?.error || "Login failed.";
+      setError(errMsg);
+      showToast(errMsg, "error");
     } finally {
       setLoading(false);
     }
@@ -71,11 +73,15 @@ function LoginSection({ onClose }) {
     e.preventDefault();
     if (error === "Email already in use") return;
     if (password.length < 8) {
-      setError("Password must be at least 8 characters.");
+      const errMsg = "Password must be at least 8 characters.";
+      setError(errMsg);
+      showToast(errMsg, "error");
       return;
     }
     if (password !== confirmPassword) {
-      setError("Passwords do not match.");
+      const errMsg = "Passwords do not match.";
+      setError(errMsg);
+      showToast(errMsg, "error");
       return;
     }
 
@@ -87,13 +93,17 @@ function LoginSection({ onClose }) {
         email,
         password,
       });
-      alert("OTP sent to " + email);
+      showToast("OTP sent to " + email, "success");
       setView("verify");
     } catch (err) {
       if (err.response?.status === 429) {
-        setError("Too many OTP requests, please try again later.");
+        const errMsg = "Too many OTP requests, please try again later.";
+        setError(errMsg);
+        showToast(errMsg, "error");
       } else {
-        setError(err.response?.data?.error || "Signup failed");
+        const errMsg = err.response?.data?.error || "Signup failed";
+        setError(errMsg);
+        showToast(errMsg, "error");
       }
     } finally {
       setLoading(false);
@@ -106,10 +116,12 @@ function LoginSection({ onClose }) {
     setError("");
     try {
       await api.post("/auth/forgot-password", { email });
-      alert("Reset link sent to your email!");
+      showToast("Reset link sent to your email!", "success");
       setView("login");
     } catch (err) {
-      setError(err.response?.data?.error || "User not found.");
+      const errMsg = err.response?.data?.error || "User not found.";
+      setError(errMsg);
+      showToast(errMsg, "error");
     } finally {
       setLoading(false);
     }
@@ -132,13 +144,12 @@ function LoginSection({ onClose }) {
       window.location.href = "/customer";
       onClose();
     } catch (err) {
-      alert("Verification failed");
+      showToast("Verification failed", "error");
     } finally {
       setLoading(false);
     }
   };
 
-  // Loading Spinner Component
   const LoadingSpinner = () => (
     <div className="login-loading-spinner">
       <div className="spinner"></div>
@@ -177,7 +188,6 @@ function LoginSection({ onClose }) {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                   />
-                  {error && <p className="password-warning">{error}</p>}
                   <button
                     type="submit"
                     className="submit-btn"
@@ -301,8 +311,6 @@ function LoginSection({ onClose }) {
                       </div>
                     </>
                   )}
-
-                  {error && <p className="password-warning">{error}</p>}
 
                   <button
                     type="submit"

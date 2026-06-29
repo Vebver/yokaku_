@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import api , { SOCKET_URL } from "../../api";
 import { Star, Trash2, Edit3, Search, ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { useToast } from "../ToastContext";
 
 function Product() {
   const [menuItems, setMenuItems] = useState([]);
@@ -11,6 +12,7 @@ function Product() {
   const [itemsPerPage] = useState(15);
   const [isEditing, setIsEditing] = useState(false);
   const [editId, setEditId] = useState(null);
+  const { showToast } = useToast();
 
   const [newItem, setNewItem] = useState({
     name: "", description: "", price: "", category_id: "",
@@ -35,7 +37,7 @@ function Product() {
       }
     } catch (err) { 
       console.error(err); 
-      alert("Error loading menu data. Please try refreshing the page.");
+      showToast("Error loading menu data. Please try refreshing the page.");
     } 
     finally { setLoading(false); }
   };
@@ -89,10 +91,10 @@ function Product() {
     try {
       if (isEditing) {
         await api.put(`/products/${editId}`, formData, config);
-        alert("Dish updated successfully!");
+        showToast("Dish updated successfully!", "success");
       } else {
         await api.post(`/products`, formData, config);
-        alert("New dish added successfully!");
+        showToast("New dish added successfully!", "success");
       }
       
       fetchData();
@@ -100,7 +102,7 @@ function Product() {
       if (closeBtnRef.current) closeBtnRef.current.click();
     } catch (err) {
       console.error(err);
-      alert(err.response?.data?.error || "Error saving item. Check if you are logged in.");
+      showToast(err.response?.data?.error || "Error saving item. Check if you are logged in.");
     }
   };
 
@@ -109,11 +111,11 @@ function Product() {
       try {
         const token = localStorage.getItem("token");
         await api.delete(`/products/${id}`);
-        alert("Dish deleted successfully!");
+        showToast("Dish deleted successfully!","success");
         fetchData(); 
       } catch (err) {
         console.error(err);
-        alert("Error deleting item. Please check your connection or authorization.");
+        showToast("Error deleting item. Please check your connection or authorization.");
       }
     }
   };
@@ -124,12 +126,12 @@ function Product() {
       await api.put(`/products/${id}/feature`, { is_featured: newStatus }); 
       
       // Success Alert
-      alert(newStatus === 1 ? "Added to featured items!" : "Removed from featured items!");
+      showToast(newStatus === 1 ? "Added to featured items!" : "Removed from featured items!");
       fetchData(); 
     } 
     catch (err) { 
       console.error(err);
-      alert("Error updating featured status. Please check if you are logged in."); 
+      showToast("Error updating featured status. Please check if you are logged in."); 
     }
   };
 

@@ -180,8 +180,6 @@ function AdminDashboard() {
 
       // 2. NEW: Listen directly to customer reservation bookings
       socket.on("new_reservation", (reservationData) => {
-        console.log("🔔 Socket Alert: New Booking received", reservationData);
-
         const liveNotification = {
           title: "New Online Booking",
           message: `Booking ${reservationData.id} placed for ${reservationData.date} at ${reservationData.time} (${reservationData.guests} Guests)`,

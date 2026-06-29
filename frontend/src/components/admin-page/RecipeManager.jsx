@@ -11,6 +11,7 @@ import {
   Check, 
   X 
 } from "lucide-react";
+import { useToast } from "../ToastContext";
 
 function RecipeManager() {
   const [menuItems, setMenuItems] = useState([]);
@@ -20,6 +21,7 @@ function RecipeManager() {
   const [loading, setLoading] = useState(true);
   const [loadingRecipe, setLoadingRecipe] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const { showToast } = useToast();
   
   // State to filter the ingredients list (table)
   const [ingredientSearchTerm, setIngredientSearchTerm] = useState("");
@@ -89,7 +91,7 @@ function RecipeManager() {
   const handleAddIngredient = async (e) => {
     e.preventDefault();
     if (!selectedItemId || !ingredientId || !qtyNeeded)
-      return alert("Fill all fields");
+      return showToast("Fill all fields");
 
     try {
       await api.post(
@@ -102,7 +104,7 @@ function RecipeManager() {
       setMaterialFilterTerm(""); // Reset material filter on success
       fetchCurrentRecipe();
     } catch (err) {
-      alert("Error adding ingredient");
+      showToast("Error adding ingredient");
     }
   };
 
@@ -112,7 +114,7 @@ function RecipeManager() {
   };
 
   const saveEditedIngredient = async (recipeId) => {
-    if (!editQty || Number(editQty) <= 0) return alert("Enter a valid quantity");
+    if (!editQty || Number(editQty) <= 0) return showToast("Enter a valid quantity");
     try {
       await api.put(
         `/products/ingredients/${recipeId}`,
@@ -122,7 +124,7 @@ function RecipeManager() {
       setEditingRecipeId(null);
       fetchCurrentRecipe();
     } catch (err) {
-      alert("Error updating ingredient link value");
+      showToast("Error updating ingredient link value");
     }
   };
 
@@ -135,7 +137,7 @@ function RecipeManager() {
       );
       fetchCurrentRecipe();
     } catch (err) {
-      alert("Error removing ingredient");
+      showToast("Error removing ingredient");
     }
   };
 

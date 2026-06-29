@@ -17,6 +17,7 @@ import {
   PartyPopper,
 } from "lucide-react";
 import "../Style/TableReservation.css";
+import { useToast } from "./ToastContext";
 import PackageModal from "./PackageModal";
 import ReservationSummary from "./ReservationSummary";
 import TermsModal from "./TermsModal";
@@ -44,6 +45,7 @@ const API_BASE = "https://yokaku-backend.onrender.com/api";
 
 export default function TableReservation({ onClose, onSuccess }) {
   const [selectedId, setSelectedId] = useState(null);
+  const { showToast } = useToast();
   const [linkedIds, setLinkedIds] = useState([]);
   const [selectedItems, setSelectedItems] = useState([]);
   const [isLinkMode, setIsLinkMode] = useState(false);
@@ -238,7 +240,7 @@ export default function TableReservation({ onClose, onSuccess }) {
   const handleDateSelection = (e) => {
     const selectedDate = e.target.value;
     if (blockedDates.includes(selectedDate)) {
-      alert("We are sorry, but the restaurant is closed on this date.");
+      showToast("We are sorry, but the restaurant is closed on this date.");
       setForm((prev) => ({ ...prev, date: "" }));
       e.target.value = "";
       return true;
@@ -464,18 +466,18 @@ export default function TableReservation({ onClose, onSuccess }) {
 
   const onTableClick = (table) => {
     if (table.status === "maintenance") {
-      alert("This table is currently under maintenance.");
+      showToast ("This table is currently under maintenance.");
       return;
     }
 
     if (isLinkMode) {
       if (table.id === selectedId) return;
       if (!form.startTime || !form.endTime) {
-        alert("Please select start time and end time first");
+        showToast("Please select start time and end time first");
         return;
       }
       if (!isTableAvailableForTime(table.id, form.startTime, form.endTime)) {
-        alert("This table has a reservation during the selected time slot.");
+        showToast("This table has a reservation during the selected time slot.");
         return;
       }
       setLinkedIds((prev) =>
@@ -544,7 +546,7 @@ export default function TableReservation({ onClose, onSuccess }) {
       onSuccess(res.data.id);
     } catch (e) {
       console.error("Booking Error:", e.response?.data || e.message);
-      alert(e.response?.data?.message || "Table Selection Error.");
+      showToast(e.response?.data?.message || "Table Selection Error.");
     } finally {
       setUi((p) => ({ ...p, loading: false }));
       setIsProcessing(false);
@@ -1002,7 +1004,7 @@ export default function TableReservation({ onClose, onSuccess }) {
                 onClick={() => {
                   setIsLinkMode(!isLinkMode);
                   if (!isLinkMode && (!form.startTime || !form.endTime)) {
-                    alert(
+                    showToast (
                       "Please select start time and end time before linking tables",
                     );
                   }

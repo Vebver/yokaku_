@@ -31,6 +31,7 @@ import OrderSummary from "./OrderSummary";
 import PortalModal from "./PortalModal";
 import axios from "axios";
 import alertMusicFile from "../../assets/alert-sound.mp3";
+import { useToast } from "../ToastContext";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 const BASE_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
@@ -59,6 +60,7 @@ const categoryIcons = {
 };
 
 const KioskReservationMenu = () => {
+  const { showToast } = useToast();
   const navigate = useNavigate();
   const timerRef = useRef(null);
   const audioObj = useMemo(() => new Audio(alertMusicFile), []);
@@ -559,7 +561,7 @@ const KioskReservationMenu = () => {
       }
     } catch (e) {
       console.error("Order submission failed:", e);
-      alert("Order submission failed.");
+      showToast("Order submission failed.");
     } finally {
       setIsLoading(false);
     }
@@ -1176,7 +1178,7 @@ const KioskReservationMenu = () => {
                           await fetchCurrentBill();
                           await playCashierAlert();
                         } catch (err) {
-                          alert("Payment processing failed.");
+                          showToast("Payment processing failed.");
                         } finally {
                           setIsLoading(false);
                         }

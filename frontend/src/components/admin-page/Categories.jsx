@@ -9,8 +9,10 @@ import {
   Loader2, 
   Tag
 } from "lucide-react";
+import { useToast } from "../ToastContext";
 
 function Categories() {
+  const { showToast } = useToast();
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -59,7 +61,7 @@ function Categories() {
       setNewCategory({ category_name: "", description: "" });
       if (closeBtnRef.current) closeBtnRef.current.click();
     } catch (err) {
-      alert("Failed to add category.");
+      showToast("Failed to add category.");
     }
   };
 
@@ -69,7 +71,7 @@ function Categories() {
         await api.delete(`/categories/${id}`);
         setCategories(categories.filter((c) => c.id !== id));
       } catch (err) {
-        alert("Error deleting category.");
+        showToast("Error deleting category.");
       }
     }
   };

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Plus, Minus, Check } from "lucide-react";
 import "../../Style/ReservationOrderModal.css";
+import { useToast } from "../ToastContext";
 
 const ReservationOrderModal = ({
   isOpen,
@@ -10,7 +11,7 @@ const ReservationOrderModal = ({
   allProducts,
 }) => {
   const [quantity, setQuantity] = useState(1);
-
+  const { showToast } = useToast();
   // UPDATED: Added flavors (array), spiceLevel, and specialInstructions
   const [customizations, setCustomizations] = useState({
     flavors: [],
@@ -88,7 +89,7 @@ const ReservationOrderModal = ({
         if (prev.flavors.length < 4) {
           return { ...prev, flavors: [...prev.flavors, flavorName] };
         } else {
-          alert("You can only select up to 4 flavors.");
+          showToast("You can only select up to 4 flavors.");
           return prev;
         }
       }
@@ -100,7 +101,7 @@ const ReservationOrderModal = ({
       isBundle &&
       (customizations.flavors.length === 0 || !customizations.drink)
     ) {
-      alert("Please select your flavors and drink.");
+      showToast("Please select your flavors and drink.");
       return;
     }
 
@@ -231,17 +232,20 @@ const ReservationOrderModal = ({
             <div className="qty-section">
               <span className="qty-label">QUANTITY</span>
               <div className="qty-picker">
-                
                 {/* DECREMENT BUTTON (Min limit: 1) */}
-                <button onClick={() => setQuantity((q) => {
-                  const current = parseInt(q, 10) || 1;
-                  return Math.max(1, current - 1);
-                })}>
-                  <Minus size={20} /> 
+                <button
+                  onClick={() =>
+                    setQuantity((q) => {
+                      const current = parseInt(q, 10) || 1;
+                      return Math.max(1, current - 1);
+                    })
+                  }
+                >
+                  <Minus size={20} />
                 </button>
 
                 {/* TEXT INPUT FIELD WITH LIMITERS (1 to 50) */}
-                <input 
+                <input
                   type="number"
                   min="1"
                   max="50"
@@ -267,10 +271,14 @@ const ReservationOrderModal = ({
                 />
 
                 {/* INCREMENT BUTTON (Max limit: 50) */}
-                <button onClick={() => setQuantity((q) => {
-                  const current = parseInt(q, 10) || 1;
-                  return Math.min(20, current + 1); // Hard limit to 50
-                })}>
+                <button
+                  onClick={() =>
+                    setQuantity((q) => {
+                      const current = parseInt(q, 10) || 1;
+                      return Math.min(20, current + 1); // Hard limit to 50
+                    })
+                  }
+                >
                   <Plus size={20} />
                 </button>
               </div>
@@ -285,7 +293,8 @@ const ReservationOrderModal = ({
               className={`btn-submit ${isBundle && (customizations.flavors.length === 0 || !customizations.drink) ? "disabled" : ""}`}
               onClick={handleAdd}
             >
-              Add to Tray - ₱{(item?.price * (parseInt(quantity, 10) || 1)).toFixed(2)}
+              Add to Tray - ₱
+              {(item?.price * (parseInt(quantity, 10) || 1)).toFixed(2)}
             </button>
           </div>
         </div>
@@ -481,4 +490,4 @@ const ReservationOrderModal = ({
   );
 };
 
-export default ReservationOrderModal; 
+export default ReservationOrderModal;

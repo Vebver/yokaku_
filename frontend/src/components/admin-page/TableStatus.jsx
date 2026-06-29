@@ -9,6 +9,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { useToast } from "../ToastContext";
 
 // Helpers to extract and compare dates (YYYY-MM-DD format)
 const getTodayDateString = () => {
@@ -23,6 +24,7 @@ const getTableReservationDateString = (dateStr) => {
 };
 
 const TableStatus = ({ compact = false }) => {
+  const { showToast } = useToast();
   const [data, setData] = useState({ tables: [], schedule: [] });
   const [ui, setUi] = useState({
     loading: true,
@@ -97,7 +99,7 @@ const TableStatus = ({ compact = false }) => {
       fetchData();
       callback();
     } catch (err) {
-      alert(err.response?.data?.error || "Action failed");
+      showToast(err.response?.data?.error || "Action failed");
     } finally {
       setUi((p) => ({ ...p, updating: false }));
     }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import api from "../../api";
+import { useToast } from "../ToastContext";
 function Profile() {
   const [profile, setProfile] = useState({
     firstName: "",
@@ -10,7 +11,7 @@ function Profile() {
     memberSince: "",
     customerId: null,
   });
-
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -42,9 +43,9 @@ function Profile() {
         headers: { Authorization: `Bearer ${token}` },
       });
       setProfile(res.data);
-      alert("Profile updated successfully!");
+      showToast("Profile updated successfully!","success");
     } catch (err) {
-      alert(
+      showToast(
         "Error updating profile: " + (err.response?.data?.error || err.message),
       );
     } finally {

@@ -12,8 +12,10 @@ import {
   CalendarCheck, 
 } from "lucide-react";
 import api from "../../api";
+import { useToast } from "../ToastContext";
 
 const WalkInReservations = () => {
+  const { showToast } = useToast();
   const [inquiries, setInquiries] = useState([]);
   const [availableTables, setAvailableTables] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -183,7 +185,7 @@ const WalkInReservations = () => {
 
       await api.post("/reservations", payload);
 
-      alert("Manual Order Created Successfully!");
+      showToast("Manual Order Created Successfully!","success");
 
       if (closeBtnRef.current) closeBtnRef.current.click();
       setShowAddModal(false);
@@ -191,7 +193,7 @@ const WalkInReservations = () => {
       fetchWalkIns(); 
     } catch (err) {
       console.error(err);
-      alert("Error creating order.");
+      showToast("Error creating order.");
     } finally {
       setSubmitting(false);
     }
