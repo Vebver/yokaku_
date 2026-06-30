@@ -1,9 +1,9 @@
-/* Sticky Toast Container on Right */
+/* Sticky Toast Container on Right *
 .sticky-toast.right {
   position: fixed;
-  top: 20px;          /* Positions it at the top */
-  right: 20px;        /* Positions it on the right */
-  z-index: 9999;
+  top: 20px;
+  right: 20px;
+  z-index: 999999 !important; /* Forces the toast to render in front of any modal overlay */
   min-width: 280px;
   max-width: 380px;
   padding: 12px 16px;
@@ -17,7 +17,7 @@
   font-size: 14px;
   font-weight: 500;
   color: #ffffff;
-  animation: slideInFromRight 0.3s ease-out; /* New slide-in direction */
+  animation: slideInFromRight 0.3s ease-out;
 }
 
 /* Success State styling */

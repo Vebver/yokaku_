@@ -313,30 +313,26 @@ exports.reuploadPaymentProof = async (req, res) => {
     const receiptPath = req.file ? req.file.path || req.file.filename : null;
 
     if (!receiptPath) {
-      return res
-        .status(400)
-        .json({ error: "Please upload a valid receipt image." });
+      return res.status(400).json({ error: "Please upload a valid receipt image." });
     }
 
     await db.execute(
       "UPDATE reservations SET receipt_path = ? WHERE reservation_id = ?",
-      [receiptPath, resId],
+      [receiptPath, resId]
     );
 
     await db.execute(
       "UPDATE payments SET payment_status = 'pending' WHERE reservation_id = ?",
-      [resId],
+      [resId]
     );
 
     await db.execute(
       "UPDATE reservations SET status = 'Pending' WHERE reservation_id = ?",
-      [resId],
+      [resId]
     );
 
     try {
-      const [admins] = await db.execute(
-        "SELECT user_id FROM users WHERE role = 'admin'",
-      );
+      const [admins] = await db.execute("SELECT user_id FROM users WHERE role = 'admin'");
       const notifMessage = `Customer re-uploaded a new proof of payment for reservation ${resId}. Please review it in your Billing portal.`;
       const io = req.app.get("io");
 
@@ -344,7 +340,7 @@ exports.reuploadPaymentProof = async (req, res) => {
         const [notifResult] = await db.execute(
           `INSERT INTO notifications (user_id, reservation_id, title, message, is_read, created_at) 
            VALUES (?, ?, 'New Proof Uploaded', ?, 0, NOW())`,
-          [admin.user_id, resId, notifMessage],
+          [admin.user_id, resId, notifMessage]
         );
 
         if (io) {
@@ -360,8 +356,6 @@ exports.reuploadPaymentProof = async (req, res) => {
         }
       }
 
-      // FIX: Also emit globally for admin dashboard
-      const io = req.app.get("io");
       if (io) {
         io.emit("new_notification", {
           title: "Payment Proof Re-uploaded",
@@ -372,10 +366,7 @@ exports.reuploadPaymentProof = async (req, res) => {
         });
       }
     } catch (adminNotifErr) {
-      console.warn(
-        "Non-blocking Admin Notification on reupload failed:",
-        adminNotifErr.message,
-      );
+      console.warn("Non-blocking Admin Notification on reupload failed:", adminNotifErr.message);
     }
 
     return res.status(200).json({
