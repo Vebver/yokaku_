@@ -196,6 +196,16 @@ function AdminDashboard() {
       });
 
       socket.on("new_reservation", (reservationData) => {
+        const liveNotification = {
+          title: "New Online Booking",
+          message: `Booking ${reservationData.id} placed for ${reservationData.date} at ${reservationData.time} (${reservationData.guests} Guests)`,
+          created_at: new Date().toISOString(),
+          is_read: 0,
+        };
+
+        setNotifications((prev) => [liveNotification, ...prev]);
+        setUnreadCount((prev) => prev + 1);
+
         fetchDashboardData();
         fetchNotifications();
       });
@@ -235,11 +245,9 @@ function AdminDashboard() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Notification Operations
   const fetchNotifications = async () => {
     try {
-      const res = await api.get(`/notifications`); // ← Should fetch from database
-      console.log("📩 Notifications from DB:", res.data);
+      const res = await api.get(`/notifications`); 
       setNotifications(res.data);
       setUnreadCount(res.data.filter((n) => !n.is_read).length);
     } catch (err) {
@@ -316,14 +324,17 @@ function AdminDashboard() {
       return notification.reservation_id;
     }
 
-    let match = notification.message?.match(/Reservation ID: ([A-Z0-9-]+)/i);
-    if (match) return match[1];
+    let match = notification.message?.match(/Reservation ID:\s*([A-Z0-9-]+)/i);
+    if (match) return match[1].toUpperCase();
 
-    match = notification.title?.match(/([A-Z0-9-]+)/i);
-    if (match) return match[1];
+    match = notification.message?.match(/(RES-[A-Z0-9]+|WALK-[A-Z0-9]+)/i);
+    if (match) return match[1].toUpperCase();
 
-    match = notification.message?.match(/([A-Z0-9]{8,})/i);
-    if (match) return match[1];
+    match = notification.title?.match(/(RES-[A-Z0-9]+|WALK-[A-Z0-9]+)/i);
+    if (match) return match[1].toUpperCase();
+
+    match = notification.message?.match(/\b([A-Z0-9]{8,})\b/);
+    if (match) return match[1].toUpperCase();
 
     return null;
   };
@@ -493,7 +504,8 @@ function AdminDashboard() {
                   {res.first_name} {res.last_name || ""}
                 </span>
                 <span className="text-muted opacity-50">|</span>
-                
+
+                {/* BOOKING TYPE */}
                 <span 
                   className="badge bg-secondary-subtle text-secondary border text-uppercase" 
                   style={{ fontSize: "0.62rem", padding: "3px 6px" }}
@@ -503,6 +515,7 @@ function AdminDashboard() {
                     : "🍽️ Table Dining"}
                 </span>
 
+                {/* RESERVATION STATUS BADGE */}
                 <span 
                   className={`badge text-uppercase border ${
                     res.status?.toLowerCase() === "seated"
@@ -514,6 +527,7 @@ function AdminDashboard() {
                   {res.status || "CONFIRMED"}
                 </span>
 
+                {/* TABLE NUMBER */}
                 <span className="badge bg-dark" style={{ fontSize: "0.62rem", padding: "3px 6px" }}>
                   {res.reservation_type === "event" ? "All Tables occupied" : (res.table_names ? `Table: ${res.table_names}` : "No Table")}
                 </span>
@@ -809,7 +823,6 @@ function AdminDashboard() {
                                 <p className="notification-message">
                                   {notif.message}
                                 </p>
-
                                 <div className="notification-actions-bottom">
                                   <div className="notification-actions">
                                     <button

@@ -139,7 +139,7 @@ const Notification = {
       ORDER BY created_at DESC
     `;
     const [rows] = await db.execute(sql, [userId]);
-    console.log(`📩 Found ${rows.length} notifications for user ${userId}`);
+    console.log(`Found ${rows.length} notifications for user ${userId}`);
     return rows;
   },
 
@@ -166,10 +166,10 @@ const Notification = {
 
   getUnreadCount: async (userId) => {
     const sql = `
-    SELECT COUNT(*) as count 
-    FROM notifications 
-    WHERE (user_id = ? OR user_id IS NULL) AND is_read = 0 AND deleted_at IS NULL
-  `;
+      SELECT COUNT(*) as count 
+      FROM notifications 
+      WHERE user_id = ? AND is_read = 0 AND deleted_at IS NULL
+    `;
     const [rows] = await db.execute(sql, [userId]);
     return rows[0].count;
   },
