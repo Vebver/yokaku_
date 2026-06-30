@@ -12,6 +12,9 @@ router.get("/check-availability", reservationController.checkAvailability);
 router.get("/table-schedule", reservationController.getSpecificTableSchedule);
 router.get("/table-statuses", reservationController.getTableStatuses);
 router.get("/update-ongoing", reservationController.updateOngoingReservations);
+// Register this above your existing /:id route:
+// Register this above your existing /:id route:
+router.get('/details/:id', reservationController.getReservationById);
 
 // ==================== PROTECTED ROUTES ====================
 router.get(

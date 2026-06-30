@@ -164,6 +164,19 @@ const reservationController = {
     }
   },
 
+  // Add this inside reservationController:
+  getReservationById: async (req, res) => {
+    try {
+      const reservation = await Reservation.findById(req.params.id);
+      if (!reservation) {
+        return res.status(404).json({ error: "Reservation not found." });
+      }
+      res.json({ success: true, reservation });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+
   updateKioskReservation: async (req, res) => {
     const { reservationId } = req.body;
     if (!reservationId) {

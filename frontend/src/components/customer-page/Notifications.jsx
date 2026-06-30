@@ -153,7 +153,7 @@ const Notifications = () => {
     try {
       const token = localStorage.getItem("token");
       const response = await axios.get(
-        `${API_BASE}/reservations/${reservationId}`,
+        `${API_BASE}/reservations/details/${reservationId}`, // <-- Point to the new details route
         {
           headers: { Authorization: `Bearer ${token}` },
         },
