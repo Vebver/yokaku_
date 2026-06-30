@@ -293,13 +293,7 @@ const ReservationSuccess = ({ onClose }) => {
 
 // 4. NAVBAR WRAPPER
 const NavbarWrapper = ({ onLoginClick, isLoggedIn, onLogout, userRole }) => {
-  const location = useLocation();
-
-  // Debug logging
-  console.log("NavbarWrapper - Path:", location.pathname);
-  console.log("NavbarWrapper - IsLoggedIn:", isLoggedIn);
-  console.log("NavbarWrapper - UserRole:", userRole);
-
+  const location = useLocation()
   // Hide navbar on these pages
   const hiddenPaths = [
     "/admin",
@@ -313,7 +307,6 @@ const NavbarWrapper = ({ onLoginClick, isLoggedIn, onLogout, userRole }) => {
   ];
 
   if (hiddenPaths.some((path) => location.pathname.startsWith(path))) {
-    console.log("NavbarWrapper - Hiding navbar (special page)");
     return null;
   }
 
