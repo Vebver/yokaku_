@@ -24,6 +24,8 @@ import {
   PhilippinePeso,
   Bell,
   RefreshCw,
+  Trash2,
+  Archive,
 } from "lucide-react";
 
 // Internal Components
@@ -129,10 +131,17 @@ function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [todaySchedule, setTodaySchedule] = useState([]);
 
+  // Integrated Notification & Modal States
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
   const notificationRef = useRef(null);
+
+  const [selectedReservation, setSelectedReservation] = useState(null);
+  const [showReservationModal, setShowReservationModal] = useState(false);
+  const [modalLoading, setModalLoading] = useState(false);
+  const [notificationToDelete, setNotificationToDelete] = useState(null);
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
 
   const [stats, setStats] = useState({
     totalBookings: 0,
@@ -147,31 +156,34 @@ function AdminDashboard() {
     trendLabels: [],
   });
 
-  // Unified mounting state to load data and setup single socket listener
-  // Unified mounting state to load data and setup single socket listener
   useEffect(() => {
     const token = localStorage.getItem("token");
     const role = localStorage.getItem("role");
+    const userId = localStorage.getItem("userId"); 
 
     if (token && role === "admin") {
       setIsAuthenticated(true);
       fetchDashboardData();
       fetchNotifications();
 
-      // Establish single socket connection for the session lifecycle
-      const socket = io(SOCKET_URL, {
+      const socket = io(SOCKET_URL, { 
         transports: ["websocket", "polling"],
         reconnection: true,
       });
 
-      // 1. Standard Notification listener
+      socket.on("connect", () => {
+        if (userId) {
+          socket.emit("join", userId);
+        }
+      });
+
+      // Standard Notification listener
       socket.on("new_notification", (notification) => {
         setNotifications((prev) => {
-          const isDuplicate = prev.some(
-            (n) =>
-              (n.id && n.id === notification.id) ||
-              (n.message === notification.message &&
-                n.created_at === notification.created_at),
+          const isDuplicate = prev.some(n => 
+            (n.notification_id && n.notification_id === notification.notification_id) || 
+            (n.id && n.id === notification.id) ||
+            (n.message === notification.message && n.created_at === notification.created_at)
           );
 
           if (isDuplicate) return prev;
@@ -183,29 +195,12 @@ function AdminDashboard() {
         audio.play().catch(() => {});
       });
 
-      // 2. NEW: Listen directly to customer reservation bookings
       socket.on("new_reservation", (reservationData) => {
-        const liveNotification = {
-          title: "New Online Booking",
-          message: `Booking ${reservationData.id} placed for ${reservationData.date} at ${reservationData.time} (${reservationData.guests} Guests)`,
-          created_at: new Date().toISOString(),
-          is_read: 0,
-        };
-
-        // Prepend the new notification to the dashboard list
-        setNotifications((prev) => [liveNotification, ...prev]);
-        setUnreadCount((prev) => prev + 1);
-
-        // Auto-refresh the dashboard overview and timeline data
         fetchDashboardData();
-
-        const audio = new Audio("/notification-light.mp3");
-        audio.play().catch(() => {});
+        fetchNotifications();
       });
 
-      // Dashboard refresh listener on table states or order placements
       socket.on("table_updated", () => {
-        console.log("🔄 Real-time Update: Refreshing timeline and stats...");
         fetchDashboardData();
       });
 
@@ -217,6 +212,7 @@ function AdminDashboard() {
       setLoading(false);
     }
   }, []);
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
@@ -239,7 +235,7 @@ function AdminDashboard() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // In AdminDashboard.jsx
+  // Notification Operations
   const fetchNotifications = async () => {
     try {
       const res = await api.get(`/notifications`); // ← Should fetch from database
@@ -251,14 +247,85 @@ function AdminDashboard() {
     }
   };
 
+  const markAsRead = async (id, e) => {
+    if (e) e.stopPropagation();
+    try {
+      await api.put(`/notifications/${id}/read`);
+      setNotifications(
+        notifications.map((n) =>
+          n.notification_id === id ? { ...n, is_read: 1 } : n
+        )
+      );
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    } catch (err) {
+      console.error("Error marking notification as read:", err);
+    }
+  };
+
   const markAllAsRead = async () => {
     try {
-      await api.put(`/notifications/read-all`, {});
+      await api.put(`/notifications/read-all`);
       setNotifications(notifications.map((n) => ({ ...n, is_read: 1 })));
       setUnreadCount(0);
     } catch (err) {
-      console.error(err);
+      console.error("Error marking all notifications as read:", err);
     }
+  };
+
+  const handleDeleteNotification = async () => {
+    if (!notificationToDelete) return;
+
+    try {
+      await api.delete(`/notifications/${notificationToDelete}`);
+      setNotifications(
+        notifications.filter((n) => n.notification_id !== notificationToDelete)
+      );
+      // Fetch updated count
+      const res = await api.get(`/notifications`);
+      setUnreadCount(res.data.filter((n) => !n.is_read).length);
+    } catch (err) {
+      console.error("Error deleting notification:", err);
+    } finally {
+      setShowConfirmDelete(false);
+      setNotificationToDelete(null);
+    }
+  };
+
+  const openDeleteConfirm = (id, e) => {
+    e.stopPropagation();
+    setNotificationToDelete(id);
+    setShowConfirmDelete(true);
+  };
+
+  const handleViewReservation = async (reservationId, e) => {
+    if (e) e.stopPropagation();
+    setModalLoading(true);
+    setShowReservationModal(true);
+    try {
+      const response = await api.get(`/reservations/details/${reservationId}`);
+      setSelectedReservation(response.data.reservation);
+    } catch (err) {
+      console.error("Error fetching reservation details:", err);
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  const getReservationId = (notification) => {
+    if (notification.reservation_id && notification.reservation_id !== "null") {
+      return notification.reservation_id;
+    }
+
+    let match = notification.message?.match(/Reservation ID: ([A-Z0-9-]+)/i);
+    if (match) return match[1];
+
+    match = notification.title?.match(/([A-Z0-9-]+)/i);
+    if (match) return match[1];
+
+    match = notification.message?.match(/([A-Z0-9]{8,})/i);
+    if (match) return match[1];
+
+    return null;
   };
 
   const fetchDashboardData = async () => {
@@ -364,6 +431,27 @@ function AdminDashboard() {
     return date.toLocaleDateString();
   };
 
+  const formatDateReadable = (dateString) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
+
+  const formatTimeDisplay = (timeStr) => {
+    if (!timeStr) return "";
+    if (timeStr.includes("AM") || timeStr.includes("PM")) return timeStr;
+
+    const [hours, minutes] = timeStr.split(":");
+    const hour = parseInt(hours, 10);
+    const ampm = hour >= 12 ? "PM" : "AM";
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${minutes} ${ampm}`;
+  };
+
   const formatTime12Hour = (timeStr) => {
     if (!timeStr) return "--:--";
 
@@ -397,7 +485,6 @@ function AdminDashboard() {
                 className="timeline-badge bg-light px-3 py-1.5 rounded-pill border small fw-semibold d-flex align-items-center gap-1"
                 style={{ whiteSpace: "nowrap" }}
               >
-                {/* Pre-formatted database time prioritised, falling back to client-side parser if null */}
                 <span className="text-primary">
                   {formatTime12Hour(res.reservation_time)}
                 </span>
@@ -406,10 +493,9 @@ function AdminDashboard() {
                   {res.first_name} {res.last_name || ""}
                 </span>
                 <span className="text-muted opacity-50">|</span>
-
-                {/* BOOKING TYPE */}
-                <span
-                  className="badge bg-secondary-subtle text-secondary border text-uppercase"
+                
+                <span 
+                  className="badge bg-secondary-subtle text-secondary border text-uppercase" 
                   style={{ fontSize: "0.62rem", padding: "3px 6px" }}
                 >
                   {res.reservation_type === "event"
@@ -417,8 +503,7 @@ function AdminDashboard() {
                     : "🍽️ Table Dining"}
                 </span>
 
-                {/* RESERVATION STATUS BADGE */}
-                <span
+                <span 
                   className={`badge text-uppercase border ${
                     res.status?.toLowerCase() === "seated"
                       ? "bg-danger-subtle text-danger border-danger-subtle"
@@ -429,16 +514,8 @@ function AdminDashboard() {
                   {res.status || "CONFIRMED"}
                 </span>
 
-                {/* TABLE NUMBER */}
-                <span
-                  className="badge bg-dark"
-                  style={{ fontSize: "0.62rem", padding: "3px 6px" }}
-                >
-                  {res.reservation_type === "event"
-                    ? "All Tables occupied"
-                    : res.table_names
-                      ? `Table: ${res.table_names}`
-                      : "No Table"}
+                <span className="badge bg-dark" style={{ fontSize: "0.62rem", padding: "3px 6px" }}>
+                  {res.reservation_type === "event" ? "All Tables occupied" : (res.table_names ? `Table: ${res.table_names}` : "No Table")}
                 </span>
               </div>
             ))
@@ -682,9 +759,9 @@ function AdminDashboard() {
 
               {showNotifications && (
                 <div
-                  className="card shadow-lg border-0 rounded-4 position-absolute end-0 mt-2 py-2"
+                  className="card shadow-lg border-0 rounded-4 position-absolute end-0 mt-2 py-2 admin-notif-dropdown"
                   style={{
-                    width: "320px",
+                    width: "380px",
                     zIndex: 1050,
                     fontSize: "0.85rem",
                     right: 0,
@@ -706,74 +783,72 @@ function AdminDashboard() {
                   </div>
                   <div
                     className="overflow-auto custom-scrollbar"
-                    style={{ maxHeight: "280px" }}
+                    style={{ maxHeight: "320px" }}
                   >
                     {notifications.length > 0 ? (
-                      notifications.map((notif, index) => (
-                        <div
-                          key={index}
-                          className={`px-3 py-2 border-bottom hover-bg transition-all ${notif.is_read ? "bg-light-subtle fw-semibold" : ""}`}
-                          style={{ cursor: "pointer" }}
-                          onClick={() => {
-                            const title = (notif.title || "").toLowerCase();
-                            const message = (notif.message || "").toLowerCase();
-
-                            console.log(
-                              "🔔 Notification Clicked. Title:",
-                              title,
-                            );
-
-                            if (
-                              title.includes("payment") ||
-                              title.includes("receipt") ||
-                              title.includes("proof") ||
-                              message.includes("paid")
-                            ) {
-                              console.log("➡️ Routing to: billing");
-                              setActiveSection("billing");
-                            } else if (
-                              title.includes("reserve") ||
-                              title.includes("booking") ||
-                              title.includes("new reservation") ||
-                              title.includes("cancel")
-                            ) {
-                              console.log("➡️ Routing to: online-reservations");
-                              setActiveSection("online-reservations");
-                            } else if (
-                              title.includes("stock") ||
-                              title.includes("inventory")
-                            ) {
-                              console.log("➡️ Routing to: inventory");
-                              setActiveSection("inventory");
-                            } else {
-                              console.log(
-                                "➡️ Routing to: dashboard (fallback)",
-                              );
-                              setActiveSection("dashboard");
-                            }
-
-                            setShowNotifications(false);
-                          }}
-                        >
-                          <div className="d-flex justify-content-between align-items-center mb-1">
-                            <span className="text-dark small">
-                              {notif.title}
-                            </span>
-                            <span
-                              className="text-muted smaller"
-                              style={{ fontSize: "0.7rem" }}
-                            >
-                              {formatTimeAgo(notif.created_at)}
-                            </span>
-                          </div>
-                          <p
-                            className="text-muted text-truncate mb-0 smaller"
-                            style={{ fontSize: "0.75rem" }}
+                      notifications.map((notif, index) => {
+                        const reservationId = getReservationId(notif);
+                        return (
+                          <div
+                            key={notif.notification_id || index}
+                            className={`notification-item ${!notif.is_read ? "unread" : "read"}`}
                           >
-                            {notif.message}
-                          </p>
-                        </div>
-                      ))
+                            <div className="notification-card-content">
+                              <div className="notification-icon">
+                                <span className="notification-emoji">🔔</span>
+                              </div>
+                              <div className="notification-content">
+                                <div className="notification-top">
+                                  <span className="notification-title">
+                                    {notif.title}
+                                  </span>
+                                  <span className="notification-time">
+                                    {formatTimeAgo(notif.created_at)}
+                                  </span>
+                                </div>
+                                <p className="notification-message">
+                                  {notif.message}
+                                </p>
+
+                                <div className="notification-actions-bottom">
+                                  <div className="notification-actions">
+                                    <button
+                                      className={`mark-read-btn ${notif.is_read ? "already-read" : ""}`}
+                                      onClick={(e) =>
+                                        !notif.is_read &&
+                                        markAsRead(notif.notification_id, e)
+                                      }
+                                      disabled={notif.is_read}
+                                    >
+                                      {notif.is_read ? "Read" : "Mark as read"}
+                                    </button>
+                                    {reservationId && (
+                                      <button
+                                        className="view-btn"
+                                        onClick={(e) =>
+                                          handleViewReservation(reservationId, e)
+                                        }
+                                      >
+                                        View
+                                      </button>
+                                    )}
+                                  </div>
+                                  <button
+                                    className="delete-notif-btn btn-xs"
+                                    onClick={(e) =>
+                                      openDeleteConfirm(notif.notification_id, e)
+                                    }
+                                    title="Move to trash"
+                                  >
+                                    <Trash2 size={13} className="me-1" />
+                                    Delete
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
                     ) : (
                       <div className="text-center py-4 text-muted">
                         <p className="mb-0 small">Your inbox is empty.</p>
@@ -813,12 +888,279 @@ function AdminDashboard() {
         </main>
       </div>
 
+      {/* Confirm Delete Modal */}
+      {showConfirmDelete && (
+        <div
+          className="modal fade show d-block"
+          tabIndex="-1"
+          style={{ backgroundColor: "rgba(0,0,0,0.45)", zIndex: 1100 }}
+        >
+          <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: "420px" }}>
+            <div className="modal-content border-0 rounded-4 shadow-lg">
+              <div className="modal-header border-bottom-0 pt-4 px-4 pb-1">
+                <h5 className="modal-title fw-bold">Delete Notification</h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowConfirmDelete(false)}
+                ></button>
+              </div>
+              <div className="modal-body px-4 pb-4">
+                <p className="text-muted mb-0" style={{ fontSize: "0.85rem" }}>
+                  Are you sure you want to delete this notification? It will be
+                  moved to trash and automatically deleted after 30 days.
+                </p>
+              </div>
+              <div className="modal-footer border-top-0 px-4 pb-4 gap-2 justify-content-end">
+                <button
+                  type="button"
+                  className="btn btn-light rounded-3 px-3 py-1.5 fw-semibold"
+                  style={{ fontSize: "0.8rem" }}
+                  onClick={() => setShowConfirmDelete(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-danger rounded-3 px-3 py-1.5 fw-semibold"
+                  style={{ fontSize: "0.8rem" }}
+                  onClick={handleDeleteNotification}
+                >
+                  Yes, Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reservation Details Modal */}
+      {showReservationModal && (
+        <div
+          className="modal fade show d-block"
+          tabIndex="-1"
+          style={{ backgroundColor: "rgba(0,0,0,0.45)", zIndex: 1100 }}
+        >
+          <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: "460px" }}>
+            <div className="modal-content border-0 rounded-4 shadow-lg">
+              <div className="modal-header border-bottom-0 pt-4 px-4 pb-2">
+                <h5 className="modal-title fw-bold text-dark">Reservation Details</h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => {
+                    setShowReservationModal(false);
+                    setSelectedReservation(null);
+                  }}
+                ></button>
+              </div>
+              <div className="modal-body px-4 pb-3">
+                {modalLoading ? (
+                  <div className="text-center py-4">
+                    <div className="spinner-border text-primary spinner-border-sm mb-2"></div>
+                    <p className="text-muted small">Loading reservation details...</p>
+                  </div>
+                ) : selectedReservation ? (
+                  <div className="d-flex flex-column gap-2" style={{ fontSize: "0.85rem" }}>
+                    <div className="d-flex justify-content-between align-items-center py-1.5 border-bottom">
+                      <span className="text-muted fw-semibold">Reservation ID:</span>
+                      <span className="fw-bold text-dark">{selectedReservation.reservation_id}</span>
+                    </div>
+                    <div className="d-flex justify-content-between align-items-center py-1.5 border-bottom">
+                      <span className="text-muted fw-semibold">Date:</span>
+                      <span className="fw-semibold text-dark">{formatDateReadable(selectedReservation.reservation_date)}</span>
+                    </div>
+                    <div className="d-flex justify-content-between align-items-center py-1.5 border-bottom">
+                      <span className="text-muted fw-semibold">Time:</span>
+                      <span className="fw-semibold text-dark">
+                        {formatTimeDisplay(selectedReservation.reservation_time)} - {formatTimeDisplay(selectedReservation.end_time)}
+                      </span>
+                    </div>
+                    <div className="d-flex justify-content-between align-items-center py-1.5 border-bottom">
+                      <span className="text-muted fw-semibold">Guests:</span>
+                      <span className="fw-semibold text-dark">{selectedReservation.num_guests}</span>
+                    </div>
+                    <div className="d-flex justify-content-between align-items-center py-1.5 border-bottom">
+                      <span className="text-muted fw-semibold">Status:</span>
+                      <span className={`badge text-uppercase ${
+                        selectedReservation.status?.toLowerCase() === "completed"
+                          ? "bg-success-subtle text-success"
+                          : selectedReservation.status?.toLowerCase() === "pending"
+                          ? "bg-warning-subtle text-warning"
+                          : "bg-secondary-subtle text-secondary"
+                      }`}>
+                        {selectedReservation.status}
+                      </span>
+                    </div>
+                    {selectedReservation.assigned_tables && (
+                      <div className="d-flex justify-content-between align-items-center py-1.5 border-bottom">
+                        <span className="text-muted fw-semibold">Tables:</span>
+                        <span className="fw-semibold text-dark">{selectedReservation.assigned_tables}</span>
+                      </div>
+                    )}
+                    {selectedReservation.package_name && (
+                      <div className="d-flex justify-content-between align-items-center py-1.5 border-bottom">
+                        <span className="text-muted fw-semibold">Package:</span>
+                        <span className="fw-semibold text-dark">{selectedReservation.package_name}</span>
+                      </div>
+                    )}
+                    {selectedReservation.payment_method && (
+                      <div className="d-flex justify-content-between align-items-center py-1.5 border-bottom">
+                        <span className="text-muted fw-semibold">Payment Method:</span>
+                        <span className="fw-semibold text-dark">{selectedReservation.payment_method}</span>
+                      </div>
+                    )}
+                    <div className="d-flex justify-content-between align-items-center py-1.5 border-bottom">
+                      <span className="text-muted fw-semibold">Payment Status:</span>
+                      <span className="fw-semibold text-dark">{selectedReservation.payment_status || "Pending"}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center text-muted py-3">
+                    No reservation details found.
+                  </div>
+                )}
+              </div>
+              <div className="modal-footer border-top-0 px-4 pb-4">
+                <button
+                  type="button"
+                  className="btn btn-primary rounded-3 w-100 py-1.5 fw-semibold"
+                  style={{ fontSize: "0.85rem" }}
+                  onClick={() => {
+                    setShowReservationModal(false);
+                    setSelectedReservation(null);
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style>{`
         .hover-bg { transition: background-color 0.15s ease-in-out; }
         .hover-bg:hover { background-color: #f8f9fa; }
         .custom-scrollbar::-webkit-scrollbar { width: 5px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #dee2e6; border-radius: 10px; }
+
+        /* Copied Design Styles */
+        .admin-notif-dropdown {
+          width: 380px !important;
+          max-height: 480px !important;
+          padding: 0 !important;
+          border-radius: 16px !important;
+          overflow: hidden;
+        }
+        .notification-item {
+          padding: 12px 16px;
+          border-bottom: 1px solid #f1f3f5;
+          transition: background-color 0.15s ease;
+        }
+        .notification-item.unread {
+          background-color: #f8f9fa;
+          border-left: 3px solid #0d6efd;
+        }
+        .notification-item.read {
+          background-color: #ffffff;
+          border-left: 3px solid transparent;
+        }
+        .notification-card-content {
+          display: flex;
+          gap: 12px;
+        }
+        .notification-icon {
+          font-size: 1.25rem;
+          display: flex;
+          align-items: flex-start;
+          padding-top: 2px;
+        }
+        .notification-content {
+          flex: 1;
+        }
+        .notification-top {
+          display: flex;
+          justify-content: space-between;
+          align-items: baseline;
+          margin-bottom: 4px;
+        }
+        .notification-title {
+          font-weight: 600;
+          color: #212529;
+          font-size: 0.85rem;
+        }
+        .notification-time {
+          font-size: 0.7rem;
+          color: #868e96;
+        }
+        .notification-message {
+          font-size: 0.8rem;
+          color: #495057;
+          margin-bottom: 8px;
+          line-height: 1.4;
+          text-align: left;
+        }
+        .notif-res-id-badge {
+          display: inline-block;
+          font-size: 0.7rem;
+          background-color: #e9ecef;
+          color: #495057;
+          padding: 2px 6px;
+          border-radius: 4px;
+          margin-bottom: 8px;
+          font-weight: 500;
+        }
+        .notification-actions-bottom {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        .notification-actions {
+          display: flex;
+          gap: 6px;
+        }
+        .mark-read-btn, .view-btn, .delete-notif-btn {
+          font-size: 0.7rem;
+          padding: 3px 6px;
+          border-radius: 4px;
+          border: none;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.1s ease;
+        }
+        .mark-read-btn {
+          background-color: #e7f5ff;
+          color: #228be6;
+        }
+        .mark-read-btn:hover {
+          background-color: #d0ebff;
+        }
+        .mark-read-btn.already-read {
+          background-color: transparent;
+          color: #adb5bd;
+          cursor: default;
+          padding-left: 0;
+        }
+        .view-btn {
+          background-color: #f1f3f5;
+          color: #495057;
+        }
+        .view-btn:hover {
+          background-color: #e9ecef;
+        }
+        .delete-notif-btn {
+          background-color: transparent;
+          color: #fa5252;
+          display: flex;
+          align-items: center;
+          padding: 3px 6px;
+        }
+        .delete-notif-btn:hover {
+          background-color: #fff5f5;
+          border-radius: 4px;
+        }
       `}</style>
     </div>
   );

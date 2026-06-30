@@ -74,6 +74,7 @@ const startCronJobs = require("./cronJobs");
 const Notification = require("./models/Notification");
 const settingRoutes = require("./routes/settingRoutes");
 const priceRoutes = require("./routes/priceRoutes");
+const auditLogsRouter = require("./routes/auditRoutes");
 
 // Set io instance for Notification model
 Notification.setIo(io);
@@ -128,6 +129,7 @@ app.get("/", (req, res) => {
 
 // --- ROUTES ---
 app.use("/api/auth", authRoutes);
+app.use("/api/audit-logs", auditLogsRouter);
 app.use("/api/otp", otpRoutes);
 app.get("/api/profile", protect, userController.getProfile);
 app.put("/api/profile", protect, userController.updateProfile);

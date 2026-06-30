@@ -1,6 +1,5 @@
 const db = require("../config/db");
 
-// Get io instance (will be set from index.js)
 let ioInstance = null;
 
 const setIo = (io) => {
@@ -14,54 +13,131 @@ const Notification = {
     const conn = connection || db;
 
     const sql = `
-        INSERT INTO notifications (user_id, reservation_id, title, message, type, is_read, created_at) 
-        VALUES (?, ?, ?, ?, 'reservation', 0, NOW())
-      `;
+      INSERT INTO notifications (user_id, reservation_id, title, message, type, is_read, created_at) 
+      VALUES (?, ?, ?, ?, ?, 0, NOW())
+    `;
+
+    const dbType = "info"; 
+
+    let targetUserId = data.userId;
+
+    if (!targetUserId) {
+      try {
+        const [adminRows] = await conn.execute(
+          "SELECT user_id FROM users WHERE LOWER(role) = 'admin' LIMIT 1"
+        );
+        if (adminRows.length > 0) {
+          targetUserId = adminRows[0].user_id;
+        } else {
+          const [firstUser] = await conn.execute("SELECT user_id FROM users LIMIT 1");
+          if (firstUser.length > 0) targetUserId = firstUser[0].user_id;
+        }
+      } catch (fallbackErr) {
+        console.error("Failed to resolve fallback admin ID:", fallbackErr);
+      }
+    }
+
+    if (!targetUserId) {
+      targetUserId = 1; 
+    }
 
     const values = [
-      data.userId,
-      data.reservationId,
+      targetUserId,
+      data.reservationId || null,
       data.title,
       data.message,
-      data.type || "info",
+      dbType,
     ];
 
+    // 1. Insert original notification
     const [result] = await conn.execute(sql, values);
-    if (ioInstance && data.userId) {
+    const mainInsertId = result.insertId;
+
+    if (ioInstance && targetUserId) {
       const notificationData = {
-        notification_id: result.insertId,
-        user_id: data.userId,
+        notification_id: mainInsertId,
+        id: mainInsertId,
+        user_id: targetUserId,
         reservation_id: data.reservationId,
         title: data.title,
         message: data.message,
-        type: data.type || "info",
+        type: data.type || "reservation",
         is_read: 0,
         created_at: new Date().toISOString(),
       };
 
       ioInstance
-        .to(`user_${data.userId}`)
+        .to(`user_${targetUserId}`)
         .emit("new_notification", notificationData);
     }
 
-    return result.insertId;
+    // 2. Replicate ONLY if explicitly specified as an admin-targeted alert
+    if (data.isAdminAlert === true) {
+      try {
+        let adminIds = [];
+        try {
+          const [rows] = await conn.execute(
+            "SELECT user_id FROM users WHERE LOWER(role) IN ('admin', 'manager')"
+          );
+          adminIds = rows.map((r) => r.user_id).filter(Boolean);
+        } catch (colErr) {
+          console.error("Failed to resolve admin list:", colErr.message);
+        }
+
+        for (const adminId of adminIds) {
+          if (adminId === targetUserId) continue;
+
+          const [adminResult] = await conn.execute(sql, [
+            adminId,
+            data.reservationId || null,
+            data.title,
+            data.message,
+            dbType,
+          ]);
+
+          if (ioInstance) {
+            const adminNotificationData = {
+              notification_id: adminResult.insertId,
+              id: adminResult.insertId,
+              user_id: adminId,
+              reservation_id: data.reservationId,
+              title: data.title,
+              message: data.message,
+              type: data.type || "reservation",
+              is_read: 0,
+              created_at: new Date().toISOString(),
+            };
+
+            ioInstance
+              .to(`user_${adminId}`)
+              .emit("new_notification", adminNotificationData);
+          }
+        }
+      } catch (err) {
+        console.error("Error replicating system notification to admins:", err);
+      }
+    }
+
+    return mainInsertId;
   },
 
   getByUserId: async (userId) => {
+    // Isolated lookup query: only fetches notifications intended for the specific user
     const sql = `
-    SELECT 
-      notification_id,
-      user_id, 
-      reservation_id, 
-      title, 
-      message, 
-      type, 
-      is_read, 
-      created_at 
-    FROM notifications 
-    WHERE (user_id = ? OR user_id IS NULL) AND deleted_at IS NULL
-    ORDER BY created_at DESC
-  `;
+      SELECT 
+        notification_id, 
+        notification_id AS id,
+        user_id, 
+        reservation_id, 
+        title, 
+        message, 
+        type, 
+        is_read, 
+        created_at 
+      FROM notifications 
+      WHERE user_id = ? AND deleted_at IS NULL
+      ORDER BY created_at DESC
+    `;
     const [rows] = await db.execute(sql, [userId]);
     console.log(`📩 Found ${rows.length} notifications for user ${userId}`);
     return rows;
@@ -69,20 +145,21 @@ const Notification = {
 
   getDeletedNotifications: async (userId) => {
     const sql = `
-    SELECT 
-      notification_id,
-      user_id, 
-      reservation_id, 
-      title, 
-      message, 
-      type, 
-      is_read, 
-      created_at, 
-      deleted_at 
-    FROM notifications 
-    WHERE (user_id = ? OR user_id IS NULL) AND deleted_at IS NOT NULL
-    ORDER BY deleted_at DESC
-  `;
+      SELECT 
+        notification_id, 
+        notification_id AS id,
+        user_id, 
+        reservation_id, 
+        title, 
+        message, 
+        type, 
+        is_read, 
+        created_at, 
+        deleted_at 
+      FROM notifications 
+      WHERE user_id = ? AND deleted_at IS NOT NULL
+      ORDER BY deleted_at DESC
+    `;
     const [rows] = await db.execute(sql, [userId]);
     return rows;
   },
@@ -162,7 +239,6 @@ const Notification = {
     return result.affectedRows;
   },
 
-  // Permanent delete - removes from database completely
   delete: async (notificationId, userId) => {
     const sql = `
       DELETE FROM notifications 

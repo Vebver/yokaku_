@@ -5,7 +5,7 @@ const logActivity = async (userId, action, targetId, details, req = null) => {
     const ip = req ? (req.headers['x-forwarded-for'] || req.socket.remoteAddress) : null;
     const sql = `
       INSERT INTO audit_logs (user_id, action, target_id, details) 
-      VALUES (?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?)
     `;
     await db.execute(sql, [
       userId || null, 

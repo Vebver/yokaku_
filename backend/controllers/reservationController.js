@@ -1,5 +1,6 @@
 const Reservation = require("../models/Reservation");
 const User = require("../models/User");
+const Notification = require("../models/Notification");
 const db = require("../config/db");
 const { logActivity } = require("../utils/logger");
 /**
@@ -351,25 +352,27 @@ const reservationController = {
         req,
       );
 
-      // --- NOTIFICATION HANDLERS ---
       const fName = body.firstName || body.first_name || "Guest";
       const lName = body.lastName || body.last_name || "";
       const fullName = `${fName} ${lName}`.trim();
 
       const now = new Date();
-      const mysqlDateTime = now.toISOString().slice(0, 19).replace("T", " ");
       const isoDateTime = now.toISOString();
 
       let notificationId = null;
 
       try {
-        // Trigger notification creation using the model layer
-        notificationId = await Reservation.createAdminNotification(
-          "New Reservation",
-          `New booking from ${fullName}`,
-          "info",
-          mysqlDateTime,
-        );
+        notificationId = await Notification.create(db, {
+          userId:
+            body.userId && body.userId !== "null"
+              ? parseInt(body.userId)
+              : req.user?.userId || null,
+          reservationId: null,
+          title: "New Reservation",
+          message: `New booking from ${fullName} (Reservation ID: ${newId})`,
+          type: "reservation",
+          isAdminAlert: true, // Replicates this alert to all admins
+        });
       } catch (dbErr) {
         console.error("Notification DB Error:", dbErr.message);
       }
@@ -379,14 +382,14 @@ const reservationController = {
         io.emit("table_updated");
         io.emit("new_notification", {
           id: notificationId,
+          notification_id: notificationId,
           title: "New Reservation",
-          message: `New booking from ${fullName}`,
+          message: `New booking from ${fullName} (Reservation ID: ${newId})`,
           type: "reservation",
           is_read: 0,
           created_at: isoDateTime,
         });
 
-        // FIX: Add this new event for the frontend to catch
         io.emit("new_reservation", {
           id: newId,
           date: body.date,
