@@ -307,7 +307,7 @@ const reservationController = {
         totalAmount: parseFloat(body.totalAmount) || 0,
         amount: parseFloat(body.amount) || 0,
         durationHours: parseFloat(body.durationHours) || 1,
-        guests: parseInt(body.num_guests) || 1,
+        guests: parseInt(body.guests) || parseInt(body.num_guests) || 1,
       };
 
       // 1. Create the database record for the reservation(reservationData);
