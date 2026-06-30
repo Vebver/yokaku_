@@ -1,5 +1,6 @@
 const Billing = require("../models/Billing");
 const Reservation = require("../models/Reservation");
+const Notification = require("../models/Notification"); 
 const { logActivity } = require("../utils/logger");
 const db = require("../config/db");
 
@@ -47,7 +48,7 @@ exports.createWalkinPayment = async (req, res) => {
       req,
     );
 
-    // FIX: Emit socket event for new payment
+    // Emit socket event for new payment
     const io = req.app.get("io");
     if (io) {
       io.emit("new_notification", {
@@ -90,7 +91,7 @@ exports.updatePaymentStatus = async (req, res) => {
         req,
       );
 
-      // FIX: Emit socket event for payment status update
+      // Emit socket event for payment status update
       const io = req.app.get("io");
       if (io) {
         io.emit("new_notification", {
@@ -125,7 +126,7 @@ exports.settleFullBill = async (req, res) => {
         req,
       );
 
-      // FIX: Emit socket event for bill settlement
+      // Emit socket event for bill settlement
       const io = req.app.get("io");
       if (io) {
         io.emit("new_notification", {
@@ -180,37 +181,26 @@ exports.updatePaymentStatusByReservation = async (req, res) => {
 
         if (rows.length > 0) {
           const { user_id, r_date, r_time } = rows[0];
-          const notifMessage = `Your proof of payment for reservation ${resId} has been successfully verified! Your booking on ${r_date} at ${r_time} is officially confirmed.`;
+          
+          // 1. Strictly for Customer (isAdminAlert: false)
+          await Notification.create(db, {
+            userId: user_id,
+            reservationId: null, 
+            title: "Payment Verified",
+            message: `Your proof of payment for reservation ${resId} has been successfully verified! Your booking on ${r_date} at ${r_time} is officially confirmed.`,
+            type: "success",
+            isAdminAlert: false,
+          });
 
-          const [notifResult] = await db.execute(
-            `INSERT INTO notifications (user_id, reservation_id, title, message, is_read, created_at) 
-             VALUES (?, ?, 'Payment Verified', ?, 0, NOW())`,
-            [user_id, resId, notifMessage],
-          );
-
-          // FIX: Use correct socket instance and emit to both user and admin
-          const io = req.app.get("io");
-          if (io) {
-            // Emit to specific user
-            io.to(`user_${user_id}`).emit("new_notification", {
-              notification_id: notifResult.insertId,
-              user_id: user_id,
-              reservation_id: resId,
-              title: "Payment Verified",
-              message: notifMessage,
-              is_read: 0,
-              created_at: new Date().toISOString(),
-            });
-
-            // Emit globally for admin
-            io.emit("new_notification", {
-              title: "Payment Verified",
-              message: `Payment for reservation ${resId} has been verified and confirmed`,
-              type: "payment_verified",
-              is_read: 0,
-              created_at: new Date().toISOString(),
-            });
-          }
+          // 2. Strictly for Admin (isAdminAlert: true)
+          await Notification.create(db, {
+            userId: null,
+            reservationId: null, 
+            title: "Payment Verified",
+            message: `Payment for reservation ${resId} has been verified and confirmed.`,
+            type: "success",
+            isAdminAlert: true, 
+          });
         }
       } catch (notifErr) {
         console.warn(
@@ -259,38 +249,26 @@ exports.rejectPaymentByReservation = async (req, res) => {
 
       if (reservationRows.length > 0) {
         const userId = reservationRows[0].user_id;
-        const notifMessage = `Your proof of payment was rejected. Reason: ${finalReason}. Please upload a valid proof within 12 hours.`;
+        
+        // 1. Strictly for Customer (isAdminAlert: false)
+        await Notification.create(db, {
+          userId: userId,
+          reservationId: null, 
+          title: "Payment Proof Rejected",
+          message: `Your proof of payment was rejected for reservation ${resId}. Reason: ${finalReason}. Please upload a valid proof within 12 hours.`,
+          type: "warning",
+          isAdminAlert: false, 
+        });
 
-        const [notifResult] = await db.execute(
-          `INSERT INTO notifications (user_id, reservation_id, title, message, is_read, created_at) 
-           VALUES (?, ?, 'Payment Proof Rejected', ?, 0, NOW())`,
-          [userId, resId, notifMessage],
-        );
-
-        const newNotificationId = notifResult.insertId;
-
-        // FIX: Use correct socket instance
-        const io = req.app.get("io");
-        if (io) {
-          const notificationPayload = {
-            notification_id: newNotificationId,
-            user_id: userId,
-            reservation_id: resId,
-            title: "Payment Proof Rejected",
-            message: notifMessage,
-            is_read: 0,
-            created_at: new Date().toISOString(),
-          };
-
-          io.to(`user_${userId}`).emit("new_notification", notificationPayload);
-          io.emit("new_notification", {
-            title: "Payment Rejected",
-            message: `Payment for reservation ${resId} was rejected. Reason: ${finalReason}`,
-            type: "payment_rejected",
-            is_read: 0,
-            created_at: new Date().toISOString(),
-          });
-        }
+        // 2. Strictly for Admin (isAdminAlert: true)
+        await Notification.create(db, {
+          userId: null,
+          reservationId: null, 
+          title: "Payment Proof Rejected",
+          message: `Payment for reservation ${resId} was rejected. Reason: ${finalReason}`,
+          type: "warning",
+          isAdminAlert: true, 
+        });
       }
 
       return res
@@ -332,39 +310,17 @@ exports.reuploadPaymentProof = async (req, res) => {
     );
 
     try {
-      const [admins] = await db.execute("SELECT user_id FROM users WHERE role = 'admin'");
       const notifMessage = `Customer re-uploaded a new proof of payment for reservation ${resId}. Please review it in your Billing portal.`;
-      const io = req.app.get("io");
 
-      for (const admin of admins) {
-        const [notifResult] = await db.execute(
-          `INSERT INTO notifications (user_id, reservation_id, title, message, is_read, created_at) 
-           VALUES (?, ?, 'New Proof Uploaded', ?, 0, NOW())`,
-          [admin.user_id, resId, notifMessage]
-        );
-
-        if (io) {
-          io.to(`user_${admin.user_id}`).emit("new_notification", {
-            notification_id: notifResult.insertId,
-            user_id: admin.user_id,
-            reservation_id: resId,
-            title: "New Proof Uploaded",
-            message: notifMessage,
-            is_read: 0,
-            created_at: new Date().toISOString(),
-          });
-        }
-      }
-
-      if (io) {
-        io.emit("new_notification", {
-          title: "Payment Proof Re-uploaded",
-          message: `Customer re-uploaded proof of payment for reservation ${resId}`,
-          type: "payment_reupload",
-          is_read: 0,
-          created_at: new Date().toISOString(),
-        });
-      }
+      // Strictly for Admins & Managers - set to true so it replicates
+      await Notification.create(db, {
+        userId: null,
+        reservationId: null, 
+        title: "New Proof Uploaded",
+        message: notifMessage,
+        type: "info",
+        isAdminAlert: true, 
+      });
     } catch (adminNotifErr) {
       console.warn("Non-blocking Admin Notification on reupload failed:", adminNotifErr.message);
     }
@@ -403,7 +359,7 @@ exports.updatePaymentAmount = async (req, res) => {
       req,
     );
 
-    // FIX: Emit socket event
+    // Emit socket event
     const io = req.app.get("io");
     if (io) {
       io.emit("new_notification", {
