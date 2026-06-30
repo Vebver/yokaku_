@@ -823,13 +823,6 @@ function AdminDashboard() {
                                 <p className="notification-message">
                                   {notif.message}
                                 </p>
-
-                                {reservationId && (
-                                  <div className="notif-res-id-badge">
-                                    Reservation ID: {reservationId}
-                                  </div>
-                                )}
-
                                 <div className="notification-actions-bottom">
                                   <div className="notification-actions">
                                     <button
