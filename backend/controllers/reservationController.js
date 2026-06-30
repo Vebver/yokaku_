@@ -322,7 +322,7 @@ const reservationController = {
           type: reservationType,
           date: body.date,
           startTime: dbStart,
-          guests: parsedGuests,
+          guests: parseInt(body.guests) || parseInt(body.num_guests) || 1,
         },
         req,
       );
