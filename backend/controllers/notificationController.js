@@ -1,10 +1,32 @@
 const Notification = require("../models/Notification");
 
 const notificationController = {
+  // notificationController.js
   getUserNotifications: async (req, res) => {
     try {
       const userId = req.user.userId;
-      const notifications = await Notification.getByUserId(userId);
+      const userRole = req.user.role;
+
+      let notifications;
+
+      // If admin, get ALL notifications (including global ones with NULL user_id)
+      if (userRole === "admin") {
+        const sql = `
+        SELECT * FROM notifications 
+        WHERE user_id = ? OR user_id IS NULL
+        ORDER BY created_at DESC 
+        LIMIT 100
+      `;
+        const [rows] = await db.execute(sql, [userId]);
+        notifications = rows;
+      } else {
+        // Regular users see only their notifications
+        notifications = await Notification.getByUserId(userId);
+      }
+
+      console.log(
+        `📩 Fetched ${notifications.length} notifications for user ${userId}`,
+      );
       res.json(notifications);
     } catch (error) {
       console.error("Error fetching notifications:", error);

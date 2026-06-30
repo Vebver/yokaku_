@@ -66,7 +66,7 @@ const Icons = {
   Account: () => <i className="bi bi-people"></i>,
   Maintenance: () => <i className="bi bi-tools"></i>,
   Reservations: () => <i className="bi bi-calendar-check"></i>,
-  Audit: () => <i className="bi bi-shield-lock"></i>, 
+  Audit: () => <i className="bi bi-shield-lock"></i>,
 };
 
 const navItems = [
@@ -148,7 +148,7 @@ function AdminDashboard() {
   });
 
   // Unified mounting state to load data and setup single socket listener
-// Unified mounting state to load data and setup single socket listener
+  // Unified mounting state to load data and setup single socket listener
   useEffect(() => {
     const token = localStorage.getItem("token");
     const role = localStorage.getItem("role");
@@ -159,17 +159,19 @@ function AdminDashboard() {
       fetchNotifications();
 
       // Establish single socket connection for the session lifecycle
-      const socket = io(SOCKET_URL, { 
+      const socket = io(SOCKET_URL, {
         transports: ["websocket", "polling"],
-        reconnection: true 
+        reconnection: true,
       });
 
       // 1. Standard Notification listener
       socket.on("new_notification", (notification) => {
         setNotifications((prev) => {
-          const isDuplicate = prev.some(n => 
-            (n.id && n.id === notification.id) || 
-            (n.message === notification.message && n.created_at === notification.created_at)
+          const isDuplicate = prev.some(
+            (n) =>
+              (n.id && n.id === notification.id) ||
+              (n.message === notification.message &&
+                n.created_at === notification.created_at),
           );
 
           if (isDuplicate) return prev;
@@ -193,7 +195,7 @@ function AdminDashboard() {
         // Prepend the new notification to the dashboard list
         setNotifications((prev) => [liveNotification, ...prev]);
         setUnreadCount((prev) => prev + 1);
-        
+
         // Auto-refresh the dashboard overview and timeline data
         fetchDashboardData();
 
@@ -237,9 +239,11 @@ function AdminDashboard() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // In AdminDashboard.jsx
   const fetchNotifications = async () => {
     try {
-      const res = await api.get(`/notifications`);
+      const res = await api.get(`/notifications`); // ← Should fetch from database
+      console.log("📩 Notifications from DB:", res.data);
       setNotifications(res.data);
       setUnreadCount(res.data.filter((n) => !n.is_read).length);
     } catch (err) {
@@ -365,7 +369,7 @@ function AdminDashboard() {
 
     const timePart = timeStr.includes("T") ? timeStr.split("T")[1] : timeStr;
     const [hoursStr, minutesStr] = timePart.split(":");
-    
+
     let hour = parseInt(hoursStr, 10);
     const minutes = minutesStr ? minutesStr.substring(0, 2) : "00";
 
@@ -379,7 +383,7 @@ function AdminDashboard() {
       <h1 className="fw-bold mb-3">Welcome back, Admin</h1>
 
       {/* TODAY'S TIMELINE PANEL */}
-      
+
       <div className="mb-4 bg-white p-3 rounded-4 shadow-sm border-start border-4 border-warning">
         <div className="d-flex align-items-center mb-2">
           <Info size={16} className="text-warning me-2" />
@@ -395,25 +399,29 @@ function AdminDashboard() {
               >
                 {/* Pre-formatted database time prioritised, falling back to client-side parser if null */}
                 <span className="text-primary">
-                  { formatTime12Hour(res.reservation_time)}
+                  {formatTime12Hour(res.reservation_time)}
                 </span>
                 <span className="text-muted opacity-50">|</span>
-                <span>{res.first_name} {res.last_name || ""}</span>
+                <span>
+                  {res.first_name} {res.last_name || ""}
+                </span>
                 <span className="text-muted opacity-50">|</span>
-                
+
                 {/* BOOKING TYPE */}
-                <span 
-                  className="badge bg-secondary-subtle text-secondary border text-uppercase" 
+                <span
+                  className="badge bg-secondary-subtle text-secondary border text-uppercase"
                   style={{ fontSize: "0.62rem", padding: "3px 6px" }}
                 >
-                  {res.reservation_type === "event" ? "🎉 Event Space" : "🍽️ Table Dining"}
+                  {res.reservation_type === "event"
+                    ? "🎉 Event Space"
+                    : "🍽️ Table Dining"}
                 </span>
 
                 {/* RESERVATION STATUS BADGE */}
-                <span 
+                <span
                   className={`badge text-uppercase border ${
-                    res.status?.toLowerCase() === "seated" 
-                      ? "bg-danger-subtle text-danger border-danger-subtle" 
+                    res.status?.toLowerCase() === "seated"
+                      ? "bg-danger-subtle text-danger border-danger-subtle"
                       : "bg-warning-subtle text-warning-emphasis border-warning-subtle"
                   }`}
                   style={{ fontSize: "0.62rem", padding: "3px 6px" }}
@@ -422,8 +430,15 @@ function AdminDashboard() {
                 </span>
 
                 {/* TABLE NUMBER */}
-                <span className="badge bg-dark" style={{ fontSize: "0.62rem", padding: "3px 6px" }}>
-                  {res.reservation_type === "event" ? "All Tables occupied" : (res.table_names ? `Table: ${res.table_names}` : "No Table")}
+                <span
+                  className="badge bg-dark"
+                  style={{ fontSize: "0.62rem", padding: "3px 6px" }}
+                >
+                  {res.reservation_type === "event"
+                    ? "All Tables occupied"
+                    : res.table_names
+                      ? `Table: ${res.table_names}`
+                      : "No Table"}
                 </span>
               </div>
             ))
@@ -559,7 +574,7 @@ function AdminDashboard() {
       account: <AccountManagement />,
       "table-status": <TableStatus />,
       maintenance: <Maintenance />,
-       "audit-logs": <AuditLogs />,
+      "audit-logs": <AuditLogs />,
     };
     return sections[activeSection] || <DashboardOverview />;
   };
@@ -716,8 +731,7 @@ function AdminDashboard() {
                             ) {
                               console.log("➡️ Routing to: billing");
                               setActiveSection("billing");
-                            }
-                            else if (
+                            } else if (
                               title.includes("reserve") ||
                               title.includes("booking") ||
                               title.includes("new reservation") ||
@@ -725,8 +739,7 @@ function AdminDashboard() {
                             ) {
                               console.log("➡️ Routing to: online-reservations");
                               setActiveSection("online-reservations");
-                            }
-                            else if (
+                            } else if (
                               title.includes("stock") ||
                               title.includes("inventory")
                             ) {
@@ -740,7 +753,7 @@ function AdminDashboard() {
                             }
 
                             setShowNotifications(false);
-                          }}    
+                          }}
                         >
                           <div className="d-flex justify-content-between align-items-center mb-1">
                             <span className="text-dark small">

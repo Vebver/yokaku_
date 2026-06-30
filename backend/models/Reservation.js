@@ -265,13 +265,45 @@ const Reservation = {
     return { mode: "table_default" };
   },
 
-  // Create an administrative global notification
+  // models/Reservation.js
   createAdminNotification: async (title, message, type, createdAt) => {
-    const [result] = await db.execute(
-      "INSERT INTO notifications (title, message, type, is_read, created_at) VALUES (?, ?, ?, 0, ?)",
-      [title, message, type, createdAt],
-    );
-    return result.insertId;
+    try {
+      // Get all admin users
+      const [admins] = await db.execute(
+        "SELECT user_id FROM users WHERE role = 'admin'",
+      );
+
+      let notificationId = null;
+
+      // Insert notification for each admin
+      for (const admin of admins) {
+        const [result] = await db.execute(
+          `INSERT INTO notifications (user_id, title, message, type, is_read, created_at) 
+         VALUES (?, ?, ?, ?, 0, ?)`,
+          [admin.user_id, title, message, type, createdAt],
+        );
+        notificationId = result.insertId;
+        console.log(
+          `✅ Notification saved for admin ${admin.user_id}: ${notificationId}`,
+        );
+      }
+
+      // If no admins found, create a global notification (user_id = NULL)
+      if (admins.length === 0) {
+        const [result] = await db.execute(
+          `INSERT INTO notifications (title, message, type, is_read, created_at) 
+         VALUES (?, ?, ?, 0, ?)`,
+          [title, message, type, createdAt],
+        );
+        notificationId = result.insertId;
+        console.log(`✅ Global notification saved: ${notificationId}`);
+      }
+
+      return notificationId;
+    } catch (error) {
+      console.error("Error creating admin notification:", error);
+      return null;
+    }
   },
 
   // Fetch reservations within a date range
@@ -427,7 +459,7 @@ const Reservation = {
       );
 
       // ==================== NEW: INSERT MANUAL ORDER MENU ITEMS ====================
-        let itemsToInsert = [];
+      let itemsToInsert = [];
       if (data.selectedItems) {
         try {
           itemsToInsert =
@@ -444,21 +476,28 @@ const Reservation = {
 
       // FIX: Map string IDs to numeric IDs for EVENT packages
       const packageMap = {
-        standard: 1, 
-        premium: 2, 
+        standard: 1,
+        premium: 2,
       };
 
       if (Array.isArray(itemsToInsert) && itemsToInsert.length > 0) {
         for (const item of itemsToInsert) {
           let itemId = item.product_id || item.item_id || item.id;
-          
+
           // Get the name and clean it (lowercase and remove extra spaces)
-          const itemName = String(item.name || item.item_name || "").trim().toLowerCase();
+          const itemName = String(item.name || item.item_name || "")
+            .trim()
+            .toLowerCase();
 
           // SKIP writing to kiosk_orders if it's an Event Package (case-insensitive)
-          if (itemName === "standard package" || itemName === "premium package") {
-            console.log(`[Safe Skip] Skipping kiosk_orders entry for reservation package: ${item.name}`);
-            continue; 
+          if (
+            itemName === "standard package" ||
+            itemName === "premium package"
+          ) {
+            console.log(
+              `[Safe Skip] Skipping kiosk_orders entry for reservation package: ${item.name}`,
+            );
+            continue;
           }
 
           const qty = item.quantity || 1;

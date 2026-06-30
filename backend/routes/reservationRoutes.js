@@ -37,7 +37,7 @@ router.post(
 
 // ==================== ADMIN ROUTES ====================
 router.get("/", protect, adminOnly, reservationController.getReservations);
-router.post("/", protect, adminOnly, reservationController.createReservation); 
+router.post("/", protect, adminOnly, reservationController.createReservation);
 router.put("/:id/status", protect, reservationController.updateStatus);
 router.delete(
   "/:id",
@@ -49,7 +49,7 @@ router.delete(
 // ==================== GENERAL PROTECTED ROUTES ====================
 
 // 1. Static and Specific routes first
-router.get('/active-kiosk', reservationController.getActiveKiosk);
+router.get("/active-kiosk", reservationController.getActiveKiosk);
 router.get("/:id/items", protect, reservationController.getReservationItems);
 
 // 2. POST actions
