@@ -13,7 +13,7 @@ const Notification = {
   create: async (connection, data) => {
     const conn = connection || db;
 
-      const sql = `
+    const sql = `
         INSERT INTO notifications (user_id, reservation_id, title, message, type, is_read, created_at) 
         VALUES (?, ?, ?, ?, 'reservation', 0, NOW())
       `;
@@ -49,49 +49,50 @@ const Notification = {
 
   getByUserId: async (userId) => {
     const sql = `
-      SELECT 
-        notification_id, -- Replace with 'id' if your primary key column is named 'id'
-        user_id, 
-        reservation_id, 
-        title, 
-        message, 
-        type, 
-        is_read, 
-        created_at 
-      FROM notifications 
-      WHERE user_id = ? AND deleted_at IS NULL
-      ORDER BY created_at DESC
-    `;
+    SELECT 
+      notification_id,
+      user_id, 
+      reservation_id, 
+      title, 
+      message, 
+      type, 
+      is_read, 
+      created_at 
+    FROM notifications 
+    WHERE (user_id = ? OR user_id IS NULL) AND deleted_at IS NULL
+    ORDER BY created_at DESC
+  `;
     const [rows] = await db.execute(sql, [userId]);
+    console.log(`📩 Found ${rows.length} notifications for user ${userId}`);
     return rows;
   },
 
   getDeletedNotifications: async (userId) => {
     const sql = `
-      SELECT 
-        notification_id, -- Replace with 'id' if your primary key column is named 'id'
-        user_id, 
-        reservation_id, 
-        title, 
-        message, 
-        type, 
-        is_read, 
-        created_at, 
-        deleted_at 
-      FROM notifications 
-      WHERE user_id = ? AND deleted_at IS NOT NULL
-      ORDER BY deleted_at DESC
-    `;
+    SELECT 
+      notification_id,
+      user_id, 
+      reservation_id, 
+      title, 
+      message, 
+      type, 
+      is_read, 
+      created_at, 
+      deleted_at 
+    FROM notifications 
+    WHERE (user_id = ? OR user_id IS NULL) AND deleted_at IS NOT NULL
+    ORDER BY deleted_at DESC
+  `;
     const [rows] = await db.execute(sql, [userId]);
     return rows;
   },
 
   getUnreadCount: async (userId) => {
     const sql = `
-      SELECT COUNT(*) as count 
-      FROM notifications 
-      WHERE user_id = ? AND is_read = 0 AND deleted_at IS NULL
-    `;
+    SELECT COUNT(*) as count 
+    FROM notifications 
+    WHERE (user_id = ? OR user_id IS NULL) AND is_read = 0 AND deleted_at IS NULL
+  `;
     const [rows] = await db.execute(sql, [userId]);
     return rows[0].count;
   },

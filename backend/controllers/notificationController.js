@@ -9,7 +9,7 @@ const notificationController = {
 
       let notifications;
 
-      // If admin, get ALL notifications (including global ones with NULL user_id)
+      // If admin, get ALL notifications (including global ones)
       if (userRole === "admin") {
         const sql = `
         SELECT * FROM notifications 
@@ -20,13 +20,10 @@ const notificationController = {
         const [rows] = await db.execute(sql, [userId]);
         notifications = rows;
       } else {
-        // Regular users see only their notifications
         notifications = await Notification.getByUserId(userId);
       }
 
-      console.log(
-        `📩 Fetched ${notifications.length} notifications for user ${userId}`,
-      );
+      console.log(`📩 Fetched ${notifications.length} notifications`);
       res.json(notifications);
     } catch (error) {
       console.error("Error fetching notifications:", error);

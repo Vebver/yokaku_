@@ -283,12 +283,10 @@ const Reservation = {
           [admin.user_id, title, message, type, createdAt],
         );
         notificationId = result.insertId;
-        console.log(
-          `✅ Notification saved for admin ${admin.user_id}: ${notificationId}`,
-        );
+        console.log(`✅ Notification saved for admin ${admin.user_id}`);
       }
 
-      // If no admins found, create a global notification (user_id = NULL)
+      // If no admins, create global notification
       if (admins.length === 0) {
         const [result] = await db.execute(
           `INSERT INTO notifications (title, message, type, is_read, created_at) 
@@ -296,7 +294,6 @@ const Reservation = {
           [title, message, type, createdAt],
         );
         notificationId = result.insertId;
-        console.log(`✅ Global notification saved: ${notificationId}`);
       }
 
       return notificationId;
