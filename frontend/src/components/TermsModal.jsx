@@ -62,7 +62,7 @@ const TermsModal = ({ isOpen, onAccept, onClose }) => {
             padding: "15px",
             background: "#f9f9f9",
             borderRadius: "10px",
-            fontSize: "0.85rem",
+            fontSize: "1rem",
             lineHeight: "1.6",
             color: "#555",
             border: "1px solid #eee",
