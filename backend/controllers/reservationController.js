@@ -1,5 +1,6 @@
 const Reservation = require("../models/Reservation");
 const User = require("../models/User");
+const db = require("../config/db");
 const { logActivity } = require("../utils/logger");
 /**
  * UTILITY HELPERS
@@ -61,6 +62,7 @@ const reservationController = {
       const [rows] = await db.execute("SELECT * FROM tables");
       res.json(rows);
     } catch (error) {
+      console.error("Error in getAllTables:", error);
       res.status(500).json({ error: error.message });
     }
   },
