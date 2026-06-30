@@ -132,7 +132,7 @@ const SystemMaintenance = () => {
               <FileSpreadsheet className="text-success mb-3" size={40} />
               <h5 className="fw-bold">Export Records</h5>
               <p className="small text-muted mb-4">
-                Download all reservation history as an Excel-friendly CSV file.
+                Download all reservation history as in CSV file.
               </p>
             </div>
             <button

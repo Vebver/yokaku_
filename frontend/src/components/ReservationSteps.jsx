@@ -72,6 +72,7 @@ const getSteps = (reservationType) => {
 export default function ReservationSteps({ onClose, onSuccess }) {
   // ============ STATE ============
   const { showToast } = useToast();
+  const [tables, setTables] = useState(TABLES_DATA);
   const [reservationType, setReservationType] = useState(null);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
@@ -164,6 +165,28 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     setSelectedId(null);
     setLinkedIds([]);
   };
+
+useEffect(() => {
+    const fetchLiveTables = async () => {
+      try {
+        // Update URL to point to your new public reservations route:
+        const response = await axios.get(`${API_BASE}/reservations/all-tables`); 
+        
+        if (Array.isArray(response.data)) {
+          const mapped = response.data.map((t) => ({
+            id: t.table_id,
+            label: `Table ${t.table_number}`,
+            seats: t.capacity,
+            status: t.status
+          }));
+          setTables(mapped);
+        }
+      } catch (error) {
+        console.error("Failed to load live database tables:", error);
+      }
+    };
+    fetchLiveTables();
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -341,7 +364,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
             formattedReservations.push({
               ...res,
               tableLabel:
-                TABLES_DATA.find((t) => t.id === res.table_id)?.label ||
+                tables.find((t) => t.id === res.table_id)?.label ||
                 `Table ${res.table_id}`,
               startTimeFormatted: formatTime12Hour(res.startTime),
               endTimeFormatted: formatTime12Hour(res.endTime),
@@ -416,7 +439,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
               formattedReservations.push({
                 ...res,
                 tableLabel:
-                  TABLES_DATA.find((t) => t.id === res.table_id)?.label ||
+                  tables.find((t) => t.id === res.table_id)?.label ||
                   `Table ${res.table_id}`,
                 startTimeFormatted: formatTime12Hour(res.startTime),
                 endTimeFormatted: formatTime12Hour(res.endTime),
@@ -523,7 +546,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     return activeCount;
   };
 
-  const totalTablesCount = TABLES_DATA.filter(
+  const totalTablesCount = tables.filter(
     (t) => t.status !== "maintenance",
   ).length;
 
@@ -789,7 +812,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     if (form.muni) fetchBarangays(form.muni);
   }, [form.muni]);
 
-  useEffect(() => {
+ useEffect(() => {
     const fetchAllTableSchedules = async () => {
       if (!form.date) return;
       setIsDateLoading(true);
@@ -798,7 +821,9 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       const currentTime = now.getHours() * 60 + now.getMinutes();
       const todayStrDate = now.toISOString().split("T")[0];
       const isToday = form.date === todayStrDate;
-      for (const table of TABLES_DATA) {
+      
+      // CHANGE HERE: Loop over 'tables' state instead of 'TABLES_DATA'
+      for (const table of tables) { 
         try {
           const response = await axios.get(
             `${API_BASE}/reservations/table-schedule`,
@@ -829,7 +854,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       setIsDateLoading(false);
     };
     fetchAllTableSchedules();
-  }, [form.date]);
+  }, [form.date, tables]); // Added tables to dependency array
 
   useEffect(() => {
     axios
@@ -912,9 +937,9 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     selectedReservationDate,
   ]);
 
-  const primaryTable = useMemo(
-    () => TABLES_DATA.find((t) => t.id === selectedId),
-    [selectedId],
+    const primaryTable = useMemo(
+    () => tables.find((t) => t.id === selectedId), // Changed TABLES_DATA to tables
+    [selectedId, tables],
   );
   const hasActiveReservationForTable = (tableId) =>
     (tableSchedules[tableId] || []).length > 0;
@@ -999,7 +1024,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
 
   const getAvailableTablesForLinking = () => {
     if (!form.startTime || !form.endTime) return [];
-    return TABLES_DATA.filter(
+    return tables.filter(
       (table) =>
         table.id !== selectedId &&
         !linkedIds.includes(table.id) &&
@@ -1011,7 +1036,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     if (!selectedId) return 0;
     return (
       (primaryTable?.seats || 0) +
-      TABLES_DATA.filter((t) => linkedIds.includes(t.id)).reduce(
+      tables.filter((t) => linkedIds.includes(t.id)).reduce(
         (sum, t) => sum + t.seats,
         0,
       )
@@ -1098,7 +1123,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       guestCount: parseInt(form.pax) || totalSeats,
       tableLabel: primaryTable?.label,
       linkedTables: linkedIds.map(
-        (id) => TABLES_DATA.find((t) => t.id === id)?.label,
+        (id) => tables.find((t) => t.id === id)?.label,
       ),
       selectedItems: selectedItems,
       packages: selectedItems,
@@ -2517,7 +2542,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                 )}
               </div>
               <div className="table-selection-grid">
-                {TABLES_DATA.map((t) => {
+                {tables.map((t) => {
                   const hasAnyReservation = hasActiveReservationForTable(t.id);
                   const hasOngoing = hasOngoingReservation(t.id);
                   const isSelected = selectedId === t.id;
@@ -2783,14 +2808,14 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                       <span>
                         {!isDownpaymentRequirementMet ? (
                           <>
-                            ⚠️ Minimum downpayment of ₱
+                            Minimum downpayment of ₱
                             {orderSummary.requiredMinimumDownpayment} required
                             for {orderSummary.durationHours} hour reservation.
                             Please select a higher percentage.
                           </>
                         ) : (
                           <>
-                            ✓ Downpayment requirement met for{" "}
+                            Downpayment requirement met for{" "}
                             {orderSummary.durationHours} hour reservation
                           </>
                         )}

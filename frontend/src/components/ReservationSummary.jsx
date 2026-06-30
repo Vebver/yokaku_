@@ -267,8 +267,8 @@ const ReservationSummary = ({
           {reservationData.durationHours >= 2 && (
             <div className="payment-note">
               <small>
-                ⚠️ Minimum downpayment for {reservationData.durationHours}{" "}
-                hour(s): ₱
+                <strong>Minimum downpayment for {reservationData.durationHours}{" "}
+                hour(s): ₱</strong>
                 {(() => {
                   let min = 200;
                   const additional = Math.floor(
@@ -365,9 +365,9 @@ const ReservationSummary = ({
                 Payment to:
               </p>
               <div className="account-details">
-                <strong>{accountDetails.number || "Not Set"}</strong>
+                Number: <strong>{accountDetails.number || "Not Set"}</strong>
                 <div className="account-name">
-                  Account Name: {accountDetails.name || "Not Set"}
+                  Account Name: <strong>{accountDetails.name || "Not Set"}</strong>
                 </div>
               </div>
             </div>

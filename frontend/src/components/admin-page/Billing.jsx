@@ -940,7 +940,7 @@ const Billing = () => {
                             }));
 
                             await fetchPayments();
-                            showToast("Transaction Settled!");
+                            showToast("Transaction Settled!", "success");
                           } catch (err) {
                             console.error("Settle error:", err.response?.data);
                             showToast("Failed to settle bill.");
