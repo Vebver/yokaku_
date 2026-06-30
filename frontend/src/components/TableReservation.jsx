@@ -46,6 +46,7 @@ const API_BASE = "https://yokaku-backend.onrender.com/api";
 export default function TableReservation({ onClose, onSuccess }) {
   const [selectedId, setSelectedId] = useState(null);
   const { showToast } = useToast();
+  const [tables, setTables] = useState(TABLES_DATA);
   const [linkedIds, setLinkedIds] = useState([]);
   const [selectedItems, setSelectedItems] = useState([]);
   const [isLinkMode, setIsLinkMode] = useState(false);
@@ -113,7 +114,7 @@ export default function TableReservation({ onClose, onSuccess }) {
       if (!form.date) return;
       setIsDateLoading(true);
       const schedules = {};
-      for (const table of TABLES_DATA) {
+      for (const table of tables) {
         try {
           const response = await axios.get(
             `${API_BASE}/reservations/table-schedule`,
@@ -148,6 +149,28 @@ export default function TableReservation({ onClose, onSuccess }) {
         }
       })
       .catch(console.error);
+  }, []);
+
+   useEffect(() => {
+    const fetchLiveTables = async () => {
+      try {
+        // Update URL to point to your new public reservations route:
+        const response = await axios.get(`${API_BASE}/reservations/all-tables`); 
+        
+        if (Array.isArray(response.data)) {
+          const mapped = response.data.map((t) => ({
+            id: t.table_id,
+            label: `Table ${t.table_number}`,
+            seats: t.capacity,
+            status: t.status
+          }));
+          setTables(mapped);
+        }
+      } catch (error) {
+        console.error("Failed to load live database tables:", error);
+      }
+    };
+    fetchLiveTables();
   }, []);
 
   // REAL-TIME POLLING
@@ -206,7 +229,7 @@ export default function TableReservation({ onClose, onSuccess }) {
   }, [form.date, form.startTime, form.endTime, selectedId]);
 
   const primaryTable = useMemo(
-    () => TABLES_DATA.find((t) => t.id === selectedId),
+    () => tables.find((t) => t.id === selectedId),
     [selectedId],
   );
 
@@ -252,7 +275,7 @@ export default function TableReservation({ onClose, onSuccess }) {
 
   const getAvailableTablesForLinking = () => {
     if (!form.startTime || !form.endTime) return [];
-    return TABLES_DATA.filter(
+    return tables.filter(
       (table) =>
         table.id !== selectedId &&
         !linkedIds.includes(table.id) &&
@@ -264,7 +287,7 @@ export default function TableReservation({ onClose, onSuccess }) {
     if (!selectedId) return 0;
     return (
       (primaryTable?.seats || 0) +
-      TABLES_DATA.filter((t) => linkedIds.includes(t.id)).reduce(
+      tables.filter((t) => linkedIds.includes(t.id)).reduce(
         (sum, t) => sum + t.seats,
         0,
       )
@@ -315,7 +338,7 @@ export default function TableReservation({ onClose, onSuccess }) {
       guestCount: totalSeats,
       tableLabel: primaryTable?.label,
       linkedTables: linkedIds.map(
-        (id) => TABLES_DATA.find((t) => t.id === id)?.label,
+        (id) => tables.find((t) => t.id === id)?.label,
       ),
       selectedItems: selectedItems,
       packages: selectedItems,
@@ -1045,7 +1068,7 @@ export default function TableReservation({ onClose, onSuccess }) {
           )}
 
           <div className="table-selection-grid">
-            {TABLES_DATA.map((t) => {
+            {tables.map((t) => {
               const hasAnyReservation = hasActiveReservationForTable(t.id);
               const hasOngoing = hasOngoingReservation(t.id);
               const isSelected = selectedId === t.id;

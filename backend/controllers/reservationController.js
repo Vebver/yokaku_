@@ -55,6 +55,15 @@ const reservationController = {
       return { seated: 0, completed: 0, expired: 0 };
     }
   },
+  // Add this inside reservationController:
+  getAllTables: async (req, res) => {
+    try {
+      const [rows] = await db.execute("SELECT * FROM tables");
+      res.json(rows);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
 
   // ==================== USER RESERVATIONS ====================
   checkUserActive: async (req, res) => {

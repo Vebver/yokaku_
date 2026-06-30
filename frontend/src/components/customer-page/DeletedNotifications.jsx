@@ -244,7 +244,7 @@ const DeletedNotifications = ({ onClose, onRestore }) => {
 
           <div className="deleted-modal-footer">
             <p className="deleted-info">
-              <span>⏰</span> Notifications are automatically permanently
+              Notifications are automatically permanently
               deleted after 30 days in trash
             </p>
             <button className="deleted-close-btn" onClick={onClose}>

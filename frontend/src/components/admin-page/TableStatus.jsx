@@ -1,14 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import io from "socket.io-client";
 import api, { SOCKET_URL } from "../../api";
-import {
-  Plus,
-  Armchair,
-  Trash2,
-  RefreshCw,
-  Users,
-  X,
-} from "lucide-react";
+import { Plus, Armchair, Trash2, RefreshCw, Users, X } from "lucide-react";
 import { useToast } from "../ToastContext";
 
 // Helpers to extract and compare dates (YYYY-MM-DD format)
@@ -46,9 +39,9 @@ const TableStatus = ({ compact = false }) => {
         api.get("/admin/today-schedule"),
       ]);
 
-      setData({ 
-        tables: tRes.data || [], 
-        schedule: sRes.data || [] 
+      setData({
+        tables: tRes.data || [],
+        schedule: sRes.data || [],
       });
     } catch (err) {
       console.error("Fetch Error", err);
@@ -58,9 +51,9 @@ const TableStatus = ({ compact = false }) => {
   }, []);
 
   useEffect(() => {
-    const socket = io(SOCKET_URL, { 
+    const socket = io(SOCKET_URL, {
       transports: ["websocket", "polling"],
-      reconnection: true 
+      reconnection: true,
     });
 
     socket.on("table_updated", () => {
@@ -133,8 +126,10 @@ const TableStatus = ({ compact = false }) => {
   const stats = data.tables.reduce(
     (acc, t) => {
       let s = t.bridge_status?.toLowerCase() || "available";
-      const resDate = getTableReservationDateString(t.reservation_date || t.date || t.resDate);
-      
+      const resDate = getTableReservationDateString(
+        t.reservation_date || t.date || t.resDate,
+      );
+
       if (s === "confirmed" && resDate !== todayStr) {
         s = "available";
       }
@@ -145,7 +140,13 @@ const TableStatus = ({ compact = false }) => {
   );
 
   return (
-    <div className={compact ? "p-0" : "container-fluid px-3 px-md-2 py-2 bg-light min-vh-100"}>
+    <div
+      className={
+        compact
+          ? "p-0"
+          : "container-fluid px-3 px-md-2 py-2 bg-light min-vh-100"
+      }
+    >
       {!compact && (
         <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-2 gap-2">
           <div>
@@ -156,35 +157,79 @@ const TableStatus = ({ compact = false }) => {
           </div>
           <div className="d-flex align-items-center gap-2 border-start ps-3 ms-1">
             <div className="d-flex align-items-center gap-1">
-              <span className="rounded-circle" style={{ width: "8px", height: "8px", backgroundColor: "#10b981" }}></span>
-              <span className="text-muted fw-medium" style={{ fontSize: "0.95rem" }}>
+              <span
+                className="rounded-circle"
+                style={{
+                  width: "8px",
+                  height: "8px",
+                  backgroundColor: "#10b981",
+                }}
+              ></span>
+              <span
+                className="text-muted fw-medium"
+                style={{ fontSize: "0.95rem" }}
+              >
                 {stats.available} Available
               </span>
             </div>
             <div className="d-flex align-items-center gap-1 ms-2">
-              <span className="rounded-circle" style={{ width: "8px", height: "8px", backgroundColor: "#ef4444" }}></span>
-              <span className="text-muted fw-medium" style={{ fontSize: "0.95rem" }}>
+              <span
+                className="rounded-circle"
+                style={{
+                  width: "8px",
+                  height: "8px",
+                  backgroundColor: "#ef4444",
+                }}
+              ></span>
+              <span
+                className="text-muted fw-medium"
+                style={{ fontSize: "0.95rem" }}
+              >
                 {stats.seated} Seated
               </span>
             </div>
             <div className="d-flex align-items-center gap-1 ms-2">
-              <span className="rounded-circle" style={{ width: "8px", height: "8px", backgroundColor: "#f59e0b" }}></span>
-              <span className="text-muted fw-medium" style={{ fontSize: "0.95rem" }}>
+              <span
+                className="rounded-circle"
+                style={{
+                  width: "8px",
+                  height: "8px",
+                  backgroundColor: "#f59e0b",
+                }}
+              ></span>
+              <span
+                className="text-muted fw-medium"
+                style={{ fontSize: "0.95rem" }}
+              >
                 {stats.confirmed} Confirmed
               </span>
             </div>
           </div>
           <div className="d-flex gap-1">
-            <button className="btn btn-sm btn-white border shadow-sm" onClick={fetchData}>
-              <RefreshCw size={16} className={ui.loading ? "animate-spin" : ""} />
+            <button
+              className="btn btn-sm btn-white border shadow-sm"
+              onClick={fetchData}
+            >
+              <RefreshCw
+                size={16}
+                className={ui.loading ? "animate-spin" : ""}
+              />
             </button>
             <button
               className={`btn btn-sm ${ui.deleteMode ? "btn-danger" : "btn-outline-danger"} fw-bold`}
-              onClick={() => setUi((p) => ({ ...p, deleteMode: !p.deleteMode }))}
+              onClick={() =>
+                setUi((p) => ({ ...p, deleteMode: !p.deleteMode }))
+              }
             >
-              <Trash2 size={16} /> <span className="d-none d-sm-inline">{ui.deleteMode ? "Exit" : "Remove"}</span>
+              <Trash2 size={16} />{" "}
+              <span className="d-none d-sm-inline">
+                {ui.deleteMode ? "Exit" : "Remove"}
+              </span>
             </button>
-            <button className="btn btn-sm btn-dark fw-bold" onClick={() => setUi((p) => ({ ...p, modal: "add" }))}>
+            <button
+              className="btn btn-sm btn-dark fw-bold"
+              onClick={() => setUi((p) => ({ ...p, modal: "add" }))}
+            >
               <Plus size={16} /> Add Table
             </button>
           </div>
@@ -195,7 +240,9 @@ const TableStatus = ({ compact = false }) => {
       <div className="row g-2 row-cols-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-8">
         {data.tables.map((t) => {
           let activeStatus = t.bridge_status?.toLowerCase() || "available";
-          const resDate = getTableReservationDateString(t.reservation_date || t.date || t.resDate);
+          const resDate = getTableReservationDateString(
+            t.reservation_date || t.date || t.resDate,
+          );
 
           // Force status to "available" if reservation is for a future date
           if (activeStatus === "confirmed" && resDate !== todayStr) {
@@ -208,11 +255,16 @@ const TableStatus = ({ compact = false }) => {
           return (
             <div key={t.table_id} className="col">
               <div className="card border-0 shadow-sm h-100">
-                <div style={{ height: "3px", backgroundColor: cfg.color }}></div>
+                <div
+                  style={{ height: "3px", backgroundColor: cfg.color }}
+                ></div>
                 <div className="card-body p-2 d-flex flex-column justify-content-between">
                   <div>
                     <div className="d-flex justify-content-between align-items-start mb-0">
-                      <h6 className="fw-bold mb-0 text-truncate" style={{ fontSize: "0.75rem" }}>
+                      <h6
+                        className="fw-bold mb-0 text-truncate"
+                        style={{ fontSize: "0.75rem" }}
+                      >
                         Table {t.table_number}
                       </h6>
                       <span
@@ -225,9 +277,33 @@ const TableStatus = ({ compact = false }) => {
                       >
                         {cfg.label}
                       </span>
+                       {ui.deleteMode && (
+                        <button
+                          className="btn btn-sm btn-link text-danger p-0 ms-2 border-0"
+                          style={{ lineHeight: 1 }}
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevents triggering openBill or actions below
+                            if (
+                              window.confirm(
+                                `Are you sure you want to permanently delete Table ${t.table_number}?`,
+                              )
+                            ) {
+                              handleAction(
+                                "delete",
+                                `/admin/delete-table/${t.table_id}`,
+                              );
+                            }
+                          }}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )}
                     </div>
 
-                    <div className="text-muted mb-1" style={{ fontSize: "0.6rem" }}>
+                    <div
+                      className="text-muted mb-1"
+                      style={{ fontSize: "0.6rem" }}
+                    >
                       <Users size={9} /> {t.capacity} Pax
                     </div>
 
@@ -235,8 +311,13 @@ const TableStatus = ({ compact = false }) => {
                       className="bg-light rounded-2 p-1 mb-2 border text-center d-flex align-items-center justify-content-center"
                       style={{ minHeight: "40px" }}
                     >
-                      <span className="text-dark fw-bold" style={{ fontSize: "0.65rem" }}>
-                        {isAvailable ? "Vacant" : t.first_name || t.customer_name}
+                      <span
+                        className="text-dark fw-bold"
+                        style={{ fontSize: "0.65rem" }}
+                      >
+                        {isAvailable
+                          ? "Vacant"
+                          : t.first_name || t.customer_name}
                       </span>
                     </div>
                   </div>
@@ -255,7 +336,11 @@ const TableStatus = ({ compact = false }) => {
                         className="btn btn-sm btn-warning w-100 py-0 fw-bold text-white"
                         style={{ fontSize: "0.65rem", height: "22px" }}
                         onClick={() =>
-                          handleAction("put", `/reservations/${t.reservation_id}/status`, { status: "Seated" })
+                          handleAction(
+                            "put",
+                            `/reservations/${t.reservation_id}/status`,
+                            { status: "Seated" },
+                          )
                         }
                       >
                         Seat Guest
@@ -291,9 +376,14 @@ const TableStatus = ({ compact = false }) => {
             <div className="modal-content border-0 shadow-lg">
               <div className="modal-header border-0 pt-4 px-4">
                 <h5 className="modal-title fw-bold">
-                  {ui.modal === "add" ? "New Table" : `Table ${bill.label} - Read-Only Bill Preview`}
+                  {ui.modal === "add"
+                    ? "New Table"
+                    : `Table ${bill.label} - Read-Only Bill Preview`}
                 </h5>
-                <X className="cursor-pointer" onClick={() => setUi((p) => ({ ...p, modal: null }))} />
+                <X
+                  className="cursor-pointer"
+                  onClick={() => setUi((p) => ({ ...p, modal: null }))}
+                />
               </div>
               <div className="modal-body px-4 pb-4">
                 {ui.modal === "add" && (
@@ -312,24 +402,35 @@ const TableStatus = ({ compact = false }) => {
                     }}
                   >
                     <div className="mb-3">
-                      <label className="form-label small fw-bold">Table Label (Number)</label>
+                      <label className="form-label small fw-bold">
+                        Table Label (Number)
+                      </label>
                       <input
                         type="text"
                         className="form-control"
-                        onChange={(e) => setForm({ ...form, tableNum: e.target.value })}
+                        onChange={(e) =>
+                          setForm({ ...form, tableNum: e.target.value })
+                        }
                         required
                       />
                     </div>
                     <div className="mb-3">
-                      <label className="form-label small fw-bold">Max Capacity</label>
+                      <label className="form-label small fw-bold">
+                        Max Capacity
+                      </label>
                       <input
                         type="number"
                         className="form-control"
-                        onChange={(e) => setForm({ ...form, capacity: e.target.value })}
+                        onChange={(e) =>
+                          setForm({ ...form, capacity: e.target.value })
+                        }
                         required
                       />
                     </div>
-                    <button className="btn btn-dark w-100 py-2 fw-bold" disabled={ui.updating}>
+                    <button
+                      className="btn btn-dark w-100 py-2 fw-bold"
+                      disabled={ui.updating}
+                    >
                       Create Table
                     </button>
                   </form>
@@ -353,9 +454,13 @@ const TableStatus = ({ compact = false }) => {
                           {bill.items.map((item, i) => (
                             <tr key={i}>
                               <td className="fw-bold small">
-                                {item.item_name || item.menu_name || item.package_name}
+                                {item.item_name ||
+                                  item.menu_name ||
+                                  item.package_name}
                               </td>
-                              <td className="text-center small">x{item.quantity}</td>
+                              <td className="text-center small">
+                                x{item.quantity}
+                              </td>
                               <td className="text-end fw-bold small">
                                 ₱{(item.price * item.quantity).toFixed(2)}
                               </td>
@@ -375,9 +480,13 @@ const TableStatus = ({ compact = false }) => {
                         </span>
                       </div>
                       <div className="alert alert-info border-0 mt-3 small py-2 text-center text-info bg-info bg-opacity-10">
-                        Please settle payment and checkout under the <strong>Billing & Transactions</strong> panel.
+                        Please settle payment and checkout under the{" "}
+                        <strong>Billing & Transactions</strong> panel.
                       </div>
-                      <button className="btn btn-outline-dark w-100 py-2 fw-bold" onClick={() => setUi((p) => ({ ...p, modal: null }))}>
+                      <button
+                        className="btn btn-outline-dark w-100 py-2 fw-bold"
+                        onClick={() => setUi((p) => ({ ...p, modal: null }))}
+                      >
                         Close Preview
                       </button>
                     </>
