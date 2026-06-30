@@ -54,7 +54,6 @@ const AuditLogs = () => {
                     </td>
                     <td>
                       <span className="fw-bold">{log.first_name || "System"}</span>
-                      <small className="d-block text-muted" style={{ fontSize: "0.7rem" }}>ID: {log.user_id || "N/A"}</small>
                     </td>
                     <td>
                       <span className={`badge px-2 py-1 ${log.action.includes("REJECT") || log.action.includes("DELETE") ? "bg-danger-subtle text-danger" : "bg-primary-subtle text-primary"}`}>
