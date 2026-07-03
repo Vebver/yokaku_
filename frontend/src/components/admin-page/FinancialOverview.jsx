@@ -193,7 +193,7 @@ const FinancialOverview = ({ data }) => {
         <div>
           <h2 className="fw-bold mb-1 text-dark">Financial Report</h2>
           <p className="text-muted small mb-0">
-            Profit & Revenue Trend Analysis
+            Profit Trend Analysis
             <span className="ms-2 text-warning">●</span>
             <span className="ms-1 text-muted">
               Generated:{" "}
@@ -346,7 +346,6 @@ const FinancialOverview = ({ data }) => {
                       <thead className="table-light">
                         <tr>
                           <th className="fw-semibold">Week Period</th>
-                          <th className="fw-semibold text-end">Revenue</th>
                           <th className="fw-semibold text-end">Profit</th>
                         </tr>
                       </thead>
@@ -355,9 +354,6 @@ const FinancialOverview = ({ data }) => {
                           <tr key={idx}>
                             <td className="text-muted">
                               {item.label || item.date}
-                            </td>
-                            <td className="text-end fw-semibold text-dark">
-                              {formatCurrency(item.value || item.revenue || 0)}
                             </td>
                             <td className="text-end text-success fw-semibold">
                               {formatCurrency(item.value || item.revenue || 0)}

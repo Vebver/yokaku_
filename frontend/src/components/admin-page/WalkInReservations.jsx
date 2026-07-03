@@ -10,6 +10,7 @@ import {
   Info,
   Plus, 
   CalendarCheck, 
+  Search,
 } from "lucide-react";
 import api from "../../api";
 import { useToast } from "../ToastContext";
@@ -265,18 +266,23 @@ const WalkInReservations = () => {
         </div>
       </div>
 
+
       {/* SEARCH BAR */}
-      <div className="mb-3 px-2" style={{ maxWidth: "320px" }}>
-        <input
-          type="text"
-          className="form-control shadow-sm border py-2 fw-semibold"
-          placeholder="Search by guest name or ID..."
-          value={searchQuery}
-          onChange={(e) => {
-            setSearchQuery(e.target.value);
-            setCurrentPage(1);
-          }}
-        />
+      <div className="col-12 col-md-8 col-lg-5 mb-3 px-2">
+        <div className="d-flex align-items-center bg-white rounded-3 border shadow-sm px-3" style={{ height: '48px' }}>
+          <Search size={20} className="text-muted flex-shrink-0" />
+          <input
+            type="text"
+            className="form-control border-0 bg-transparent shadow-none w-100 ms-2"
+            style={{ color: "#212529", fontSize: "16px", fontWeight: "500", height: "100%" }}
+            placeholder="Search by guest name or ID..."
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1);
+            }}
+          />
+        </div>
       </div>
 
       {/* TABLE */}

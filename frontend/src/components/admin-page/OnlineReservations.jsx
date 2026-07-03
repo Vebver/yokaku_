@@ -9,8 +9,8 @@ import api from "../../api";import {
   ReceiptText,
   Info,
   AlertTriangle,
+  Search,
 } from "lucide-react";
-import { generateIncidentReportPDF } from "../../utils/irGenerator";
 
 const OnlineReservations = () => {
   const [inquiries, setInquiries] = useState([]);
@@ -145,18 +145,22 @@ const OnlineReservations = () => {
         </div>
       </div>
 
-      {/* SEARCH BAR */}
-      <div className="mb-3 px-2" style={{ maxWidth: "320px" }}>
-        <input
-          type="text"
-          className="form-control shadow-sm border py-2 fw-semibold"
-          placeholder="Search by guest name or ID..."
-          value={searchQuery}
-          onChange={(e) => {
-            setSearchQuery(e.target.value);
-            setCurrentPage(1); // Reset to page 1 during active search
-          }}
-        />
+     {/* SEARCH BAR */}
+      <div className="col-12 col-md-8 col-lg-5 mb-3 px-2">
+        <div className="d-flex align-items-center bg-white rounded-3 border shadow-sm px-3" style={{ height: '48px' }}>
+          <Search size={20} className="text-muted flex-shrink-0" />
+          <input
+            type="text"
+            className="form-control border-0 bg-transparent shadow-none w-100 ms-2"
+            style={{ color: "#212529", fontSize: "16px", fontWeight: "500", height: "100%" }}
+            placeholder="Search by guest name or ID..."
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1);
+            }}
+          />
+        </div>
       </div>
 
       {/* TABLE */}
@@ -462,24 +466,6 @@ const OnlineReservations = () => {
                     {selectedRes.status?.toUpperCase()}
                   </span>
                 </div>
-
-                {/* FILE INCIDENT REPORT (IR) BUTTON - Rendered ONLY if status is cancelled */}
-                {selectedRes.status?.toLowerCase() === "cancelled" && (
-                  <button
-                    className="btn btn-warning w-100 fw-bold py-2 mb-2 d-flex align-items-center justify-content-center gap-2 border-0"
-                    onClick={() => {
-                      const confirmIR = window.confirm(
-                        `File and download an Incident Report (IR) for ${selectedRes.first_name} ${selectedRes.last_name} (${selectedRes.reservation_id})?`,
-                      );
-                      if (confirmIR) {
-                        generateIncidentReportPDF(selectedRes);
-                      }
-                    }}
-                  >
-                    <AlertTriangle size={16} /> File Incident Report (IR)
-                  </button>
-                )}
-
                 <button
                   className="btn btn-dark btn-sm w-100 fw-bold border border-white border-opacity-25 py-2"
                   data-bs-dismiss="offcanvas"

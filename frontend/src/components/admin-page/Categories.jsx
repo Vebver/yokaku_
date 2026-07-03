@@ -107,7 +107,7 @@ function Categories() {
             <input
               type="text"
               className="form-control border-0 bg-transparent shadow-none"
-              placeholder="Search..."
+              placeholder="Search Categories"
               value={searchTerm}
               onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
             />

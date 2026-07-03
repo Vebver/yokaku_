@@ -15,37 +15,55 @@ function formatDate(date) {
 }
 
 function buildFinancialPdf({ title, payload }) {
-  const doc = new PDFDocument({ margin: 50, size: "A4" });
+  // Configured in Landscape orientation with A4 specifications
+  const doc = new PDFDocument({ margin: 50, size: "A4", layout: "landscape" });
   const today = new Date();
   const dateLabel = formatDate(today);
 
-  // ============ HEADER SECTION ============
+  // ============ SPREADSHEET-STYLE BRANDED HEADER ============
+  // Left Side: Brand & Section Name
   doc
-    .fillColor("#1e293b")
+    .fillColor("#000000")
     .font("Helvetica-Bold")
     .fontSize(22)
-    .text(title, { align: "center" });
+    .text("HANGOUT RESTOBAR", 50, 45);
 
-  doc.moveDown(0.3);
+  doc
+    .fillColor("#c2410c") 
+    .font("Helvetica-Bold")
+    .fontSize(9)
+    .text(title.toUpperCase(), 50, 70);
+
+  // Right Side: Metadata (Spreadsheet Persona)
+  doc
+    .fillColor("#64748b")
+    .font("Helvetica-Bold")
+    .fontSize(8)
+    .text("SALESPERSON: Hangout Manager", doc.page.width - 250, 48, { align: "right", width: 200 });
+
   doc
     .fillColor("#64748b")
     .font("Helvetica")
-    .fontSize(9)
-    .text(`Generated: ${dateLabel}`, { align: "center" });
+    .fontSize(8)
+    .text("LOCATION: Purok 3, Ibayo, Marilao, Bulacan, 3019", doc.page.width - 250, 62, { align: "right", width: 200 });
 
-  doc.moveDown(1.2);
-
-  // Decorative line
   doc
-    .moveTo(80, doc.y)
-    .lineTo(doc.page.width - 80, doc.y)
+    .fillColor("#94a3b8")
+    .font("Helvetica")
+    .fontSize(8)
+    .text(`DATE: ${dateLabel}`, doc.page.width - 250, 76, { align: "right", width: 200 });
+
+  // Thin header decorative rule
+  doc
+    .moveTo(50, 95)
+    .lineTo(doc.page.width - 50, 95)
     .strokeColor("#e2e8f0")
     .lineWidth(0.8)
     .stroke();
 
-  doc.moveDown(1.5);
+  doc.y = 115; // Set starting Y coordinate below the header section
 
-  // ============ STATS CARDS ============
+  // ============ STATS METRICS (HORIZONTAL ROW LAYOUT) ============
   const summary = payload?.summary || {};
   const profitWeekly = payload?.profit?.weekly || 0;
   const profitMonthly = payload?.profit?.monthly || 0;
@@ -55,219 +73,158 @@ function buildFinancialPdf({ title, payload }) {
 
   const startX = 50;
   const totalWidth = doc.page.width - 100;
-  const cardWidth3Col = (totalWidth - 24) / 3; // Width for 3-column layout
-  const cardWidth2Col = (totalWidth - 12) / 2; // Width for 2-column layout
+  const cardWidth5Col = (totalWidth - 48) / 5; // Width for 5 horizontal columns
   let cardY = doc.y;
 
-  function renderCard(x, label, value, subtext = null, isNumber = false, customWidth = cardWidth3Col) {
+  function renderCard(x, label, value, subtext = null, isNumber = false) {
     const displayValue = isNumber
       ? value.toLocaleString()
       : formatCurrencyPHP(value);
 
-    // Card background
-    doc.fillColor("#ffffff").roundedRect(x, cardY, customWidth, 80, 10).fill();
+    // Card background box
+    doc.fillColor("#ffffff").roundedRect(x, cardY, cardWidth5Col, 65, 8).fill();
     doc
-      .roundedRect(x, cardY, customWidth, 80, 10)
+      .roundedRect(x, cardY, cardWidth5Col, 65, 8)
       .strokeColor("#e2e8f0")
       .lineWidth(0.5)
       .stroke();
 
-    // Tiny accent dot
-    doc.circle(x + 18, cardY + 18, 3).fill("#f59e0b");
+    // Solid Green Left-Accent Bar
+    doc.rect(x, cardY, 3, 65).fillColor("#5f9d78").fill();
 
-    // Label
+    // Metric Label
     doc
       .fillColor("#64748b")
-      .font("Helvetica")
-      .fontSize(8)
-      .text(label, x + 28, cardY + 14);
+      .font("Helvetica-Bold")
+      .fontSize(7.5)
+      .text(label, x + 12, cardY + 12);
 
-    // Value
+    // Metric Value
     doc
       .fillColor("#0f172a")
       .font("Helvetica-Bold")
-      .fontSize(20)
-      .text(displayValue, x + 18, cardY + 38);
+      .fontSize(14)
+      .text(displayValue, x + 12, cardY + 26, { width: cardWidth5Col - 20 });
 
     if (subtext) {
       doc
         .fillColor("#94a3b8")
         .font("Helvetica")
-        .fontSize(7)
-        .text(subtext, x + 18, cardY + 62);
+        .fontSize(6.5)
+        .text(subtext, x + 12, cardY + 44, { width: cardWidth5Col - 20 });
     }
   }
 
-  // Row 1: 3 Columns
-  renderCard(startX, "WEEKLY REVENUE", profitWeekly, null, false, cardWidth3Col);   
-  renderCard(startX + cardWidth3Col + 12, "MONTHLY REVENUE", profitMonthly, null, false, cardWidth3Col); 
-  renderCard(startX + (cardWidth3Col + 12) * 2, "YEARLY REVENUE", profitYearly, null, false, cardWidth3Col);
+  // Render 5 horizontal metric cards side-by-side
+  renderCard(startX, "WEEKLY REVENUE", profitWeekly);
+  renderCard(startX + (cardWidth5Col + 12) * 1, "MONTHLY REVENUE", profitMonthly);
+  renderCard(startX + (cardWidth5Col + 12) * 2, "YEARLY REVENUE", profitYearly);
+  renderCard(startX + (cardWidth5Col + 12) * 3, "TOTAL ORDERS", totalOrders, "Completed orders", true);
+  renderCard(startX + (cardWidth5Col + 12) * 4, "AVERAGE ORDER VALUE", avgOrder, "Per transaction");
 
-  cardY += 95;
-
-  // Row 2: 2 Columns
-  renderCard(startX, "TOTAL ORDERS", totalOrders, "Completed orders", true, cardWidth2Col);
-  renderCard(
-    startX + cardWidth2Col + 12,
-    "AVERAGE ORDER VALUE",
-    avgOrder,
-    "Per transaction",
-    false,
-    cardWidth2Col
-  );
-
-  doc.y = cardY + 95; // Reset doc cursor position below the cards
+  doc.y = cardY + 85; // Set starting point for analysis tables below cards
 
   // ============ SECTION DIVIDER ============
   doc
     .fillColor("#1e293b")
     .font("Helvetica-Bold")
-    .fontSize(18)
-    .text("Revenue Analysis", { align: "center" });
+    .fontSize(15)
+    // Fixed: Horizontal alignment bounds explicitly reset
+    .text("Activity Trends Analysis", startX, doc.y, { align: "center", width: totalWidth });
 
-  doc.moveDown(0.3);
-  doc
-    .fillColor("#64748b")
-    .font("Helvetica")
-    .fontSize(9)
-    .text("Track your business performance across different time periods", 50, doc.y, {
-      align: "center",
-      width: totalWidth
-    });
+  doc.moveDown(1.0);
 
-  doc.moveDown(1.5);
-
-  // ============ TREND TABLES ============
-  function renderTrendTable(title, trends) {
+  // ============ TREND TABLES (SIDE-BY-SIDE COLUMN LAYOUT) ============
+  function renderTrendTable(title, trends, x, startY, width) {
     if (!trends || trends.length === 0) return;
 
-    // Calculate total height needed for the table background & headers
-    const tableHeight = 80 + trends.length * 30;
-    const pageLimit = doc.page.height - 80;
+    const rowHeight = 16; 
+    const headerHeight = 22;
+    const totalsHeight = 20;
 
-    // PAGE BUDGET CHECK: If table won't fit on this page, push it entirely to a new page
-    if (doc.y + tableHeight > pageLimit) {
-      doc.addPage();
-    }
+    let y = startY;
 
-    const startTableY = doc.y;
-
-    // Section background
+    // Table Header title (Green tint, left-aligned)
     doc
-      .fillColor("#f8fafc")
-      .roundedRect(
-        45,
-        startTableY,
-        doc.page.width - 90,
-        50 + trends.length * 30,
-        8,
-      )
-      .fill();
-
-    // "PERFORMANCE" tag
-    doc
-      .fillColor("#f59e0b")
+      .fillColor("#5f9d78")
       .font("Helvetica-Bold")
-      .fontSize(7)
-      .text("PERFORMANCE", 65, startTableY + 12);
+      .fontSize(10.5)
+      .text(title.toUpperCase(), x, y);
 
-    // Title
-    doc
-      .fillColor("#1e293b")
-      .font("Helvetica-Bold")
-      .fontSize(13)
-      .text(title, 65, startTableY + 26);
+    y += 16;
 
-    let y = startTableY + 52;
+    // Table Header Row Box
+    doc.rect(x, y, width, headerHeight).fillColor("#ffffff").fill();
+    doc.rect(x, y, width, headerHeight).strokeColor("#cbd5e1").lineWidth(0.5).stroke();
 
-    // Table header
-    doc
-      .fillColor("#94a3b8")
-      .font("Helvetica-Bold")
-      .fontSize(8)
-      .text("PERIOD", 65, y);
-    doc.text("REVENUE", doc.page.width - 150, y, { width: 100, align: "right" });
+    const textY = y + 7;
+    doc.fillColor("#c2410c").font("Helvetica-Bold").fontSize(7.5);
+    doc.text("PERIOD", x + 10, textY, { width: width / 2 - 10, align: "left" });
+    doc.text("REVENUE", x + width / 2, textY, { width: width / 2 - 10, align: "right" });
 
-    y += 6;
-    doc
-      .moveTo(60, y)
-      .lineTo(doc.page.width - 60, y)
-      .strokeColor("#cbd5e1")
-      .lineWidth(0.5)
-      .stroke();
+    y += headerHeight;
 
-    y += 14;
+    let totalActual = 0;
 
-    // Table rows
+    // Table Data Rows
     trends.forEach((item, idx) => {
-      const period =
-        item.label || item.period || item.month || item.week || item.date || "";
-      const revenue = formatCurrencyPHP(item.value || item.revenue || 0);
+      const period = item.label || item.period || item.month || item.week || item.date || "";
+      const actualVal = Number(item.value || item.revenue || 0);
 
-      // Row background for alternating rows
-      if (idx % 2 === 1) {
-        doc
-          .fillColor("#f1f5f9")
-          .roundedRect(58, y - 6, doc.page.width - 116, 26, 4)
-          .fill();
-      }
+      totalActual += actualVal;
 
-      doc
-        .fillColor("#334155")
-        .font("Helvetica")
-        .fontSize(10)
-        .text(period, 65, y);
-      doc.text(revenue, doc.page.width - 150, y, { width: 100, align: "right" });
+      // Draw grid row outline
+      doc.rect(x, y, width, rowHeight).strokeColor("#cbd5e1").lineWidth(0.5).stroke();
 
-      y += 30;
+      // Render cells
+      doc.fillColor("#334155").font("Helvetica").fontSize(8);
+      doc.text(period, x + 10, y + 4, { width: width / 2 - 10, align: "left" });
+      doc.text(formatCurrencyPHP(actualVal), x + width / 2, y + 4, { width: width / 2 - 10, align: "right" });
+
+      y += rowHeight;
     });
 
-    // Position after the table
-    doc.y = y + 15;
+    // ============ GREEN TOTALS ROW ============
+    doc.rect(x, y, width, totalsHeight).fillColor("#5f9d78").fill();
+    doc.rect(x, y, width, totalsHeight).strokeColor("#cbd5e1").lineWidth(0.5).stroke();
+
+    doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(8.5);
+    doc.text("Totals", x + 10, y + 6, { width: width / 2 - 10, align: "left" });
+    doc.text(formatCurrencyPHP(totalActual), x + width / 2, y + 6, { width: width / 2 - 10, align: "right" });
   }
 
-  renderTrendTable("Weekly Revenue Trend", payload?.trends?.weekly);
-  renderTrendTable("Monthly Revenue Trend", payload?.trends?.monthly);
-  renderTrendTable("Yearly Revenue Trend", payload?.trends?.yearly);
+  // Calculate layout coordinates for 3 columns side-by-side with a 15px gap
+  const tableStartY = doc.y;
+  const colWidth = (totalWidth - 30) / 3;
+  const colX1 = startX;
+  const colX2 = startX + colWidth + 15;
+  const colX3 = startX + (colWidth + 15) * 2;
 
-  // ============ FOOTER ============
-  if (doc.y < doc.page.height - 100) {
-    doc.y = doc.page.height - 85;
-  } else {
-    doc.addPage();
-    doc.y = doc.page.height - 85;
-  }
+  // Render the three tables inside the side-by-side parallel columns
+  renderTrendTable("Weekly Revenue Trend", payload?.trends?.weekly, colX1, tableStartY, colWidth);
+  renderTrendTable("Monthly Revenue Trend", payload?.trends?.monthly, colX2, tableStartY, colWidth);
+  renderTrendTable("Yearly Revenue Trend", payload?.trends?.yearly, colX3, tableStartY, colWidth);
 
+  // ============ FOOTER SECTION WITH ADDRESS ============
+  const footerY = doc.page.height - 45;
+  
+  // Footer divider rule
   doc
-    .moveTo(60, doc.y)
-    .lineTo(doc.page.width - 60, doc.y)
-    .strokeColor("#e2e8f0")
+    .moveTo(50, footerY - 10)
+    .lineTo(doc.page.width - 50, footerY - 10)
+    .strokeColor("#cbd5e1")
     .lineWidth(0.5)
     .stroke();
 
-  doc.moveDown(0.5);
+  // Footer address text
   doc
     .fillColor("#94a3b8")
     .font("Helvetica")
-    .fontSize(7)
-    .text(
-      "Note: Revenue is calculated as total income from verified payments and kiosk walk-in orders.",
-      50,
-      doc.y,
-      { width: totalWidth, align: "center" },
-    );
-
-  doc.moveDown(0.3);
-  doc
-    .fillColor("#cbd5e1")
-    .font("Helvetica")
-    .fontSize(7)
-    .text(
-      "No operational expenses have been deducted from these figures.",
-      50,
-      doc.y,
-      { width: totalWidth, align: "center" },
-    );
+    .fontSize(7.5)
+    .text("Hangout Restobar | Purok 3, Ibayo, Marilao, Bulacan, 3019 (PS Bank RCH Building near 7-Eleven) | abrevointernational@gmail.com", 50, footerY, {
+      align: "center",
+      width: doc.page.width - 100,
+    });
 
   return doc;
 }

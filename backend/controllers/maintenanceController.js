@@ -132,11 +132,11 @@ const maintenanceController = {
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename="Financial_Report_${Date.now()}.pdf"`,
+        `attachment; filename="Financial Report ${Date.now()}.pdf"`,
       );
 
       const doc = buildFinancialPdf({
-        title: "Financial Report (Profit & Revenue Trend)",
+        title: "Financial Report (Profit Trend)",
         payload: {
           summary: stats || {},
           profit: {

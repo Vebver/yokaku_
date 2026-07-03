@@ -188,7 +188,7 @@ function RecipeManager() {
                 value={selectedItemId}
                 onChange={(e) => setSelectedItemId(e.target.value)}
               >
-                <option value="">-- Select Product --</option>
+                <option value="">-Select Product-</option>
                 {menuItems
                   .filter((item) =>
                     item.menu_name.toLowerCase().includes(searchTerm.toLowerCase())

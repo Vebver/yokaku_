@@ -1,11 +1,12 @@
-// src/components/AuditLogs.jsx
 import React, { useState, useEffect } from "react";
 import api from "../../api";
-import { Shield, Clock, User, Info } from "lucide-react";
+import { Shield, Clock, User, Info, ChevronLeft, ChevronRight } from "lucide-react";
 
 const AuditLogs = () => {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [logsPerPage] = useState(15);
 
   useEffect(() => {
     fetchLogs();
@@ -13,7 +14,7 @@ const AuditLogs = () => {
 
   const fetchLogs = async () => {
     try {
-      const res = await api.get("/audit-logs"); // Ensure you define this GET route on your backend
+      const res = await api.get("/audit-logs"); 
       setLogs(res.data);
     } catch (err) {
       console.error("Failed to fetch audit trails:", err);
@@ -21,6 +22,12 @@ const AuditLogs = () => {
       setLoading(false);
     }
   };
+
+  // Pagination Logic
+  const indexOfLastLog = currentPage * logsPerPage;
+  const indexOfFirstLog = indexOfLastLog - logsPerPage;
+  const currentLogs = logs.slice(indexOfFirstLog, indexOfLastLog);
+  const totalPages = Math.ceil(logs.length / logsPerPage);
 
   if (loading) return <div className="text-center py-5"><div className="spinner-border text-primary"></div></div>;
 
@@ -46,8 +53,8 @@ const AuditLogs = () => {
               </tr>
             </thead>
             <tbody>
-              {logs.length > 0 ? (
-                logs.map((log) => (
+              {currentLogs.length > 0 ? (
+                currentLogs.map((log) => (
                   <tr key={log.log_id}>
                     <td className="ps-4 small text-muted">
                       {new Date(log.created_at).toLocaleString()}
@@ -73,6 +80,43 @@ const AuditLogs = () => {
           </table>
         </div>
       </div>
+
+      {logs.length > 0 && (
+        <div className="mt-4 px-3 d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
+          <div className="text-muted small">
+            Showing <strong>{indexOfFirstLog + 1}</strong> to <strong>{Math.min(indexOfLastLog, logs.length)}</strong> of <strong>{logs.length}</strong>
+          </div>
+          <nav>
+            <ul className="pagination pagination-sm mb-0 shadow-sm border rounded bg-white overflow-hidden" style={{ listStyle: "none", padding: 0 }}>
+              <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
+                <button 
+                  className="page-link border-0 px-3 py-2 bg-transparent" 
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  style={{ cursor: currentPage === 1 ? "default" : "pointer" }}
+                >
+                  <ChevronLeft size={16} />
+                </button>
+              </li>
+              <li className="page-item disabled">
+                <span className="page-link border-0 text-dark fw-bold px-3 py-2 bg-white">
+                  Page {currentPage} of {totalPages || 1}
+                </span>
+              </li>
+              <li className={`page-item ${currentPage === totalPages || totalPages === 0 ? "disabled" : ""}`}>
+                <button 
+                  className="page-link border-0 px-3 py-2 bg-transparent" 
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage >= totalPages}
+                  style={{ cursor: currentPage >= totalPages ? "default" : "pointer" }}
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </li>
+            </ul>
+          </nav>
+        </div>
+      )}
     </div>
   );
 };
