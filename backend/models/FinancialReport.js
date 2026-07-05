@@ -39,17 +39,17 @@ const FinancialReport = {
   },
 
   // 3. Restored: Used in adminController.getFinancialOverview
-  getRevenueSources: async () => {
-    const [rows] = await db.execute(`
-      SELECT label, SUM(amount) as value FROM (
-        SELECT 'Reservation' as label, amount FROM payments WHERE payment_status = 'verified'
-        UNION ALL
-        SELECT 'Walk-in' as label, (ko.quantity * m.price) as amount 
-        FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
-        WHERE (ko.reservation_id LIKE 'WALK%' OR ko.reservation_id IS NULL)
-      ) as combined GROUP BY label`);
-    return rows;
-  },
+  // getRevenueSources: async () => {
+  //   const [rows] = await db.execute(`
+  //     SELECT label, SUM(amount) as value FROM (
+  //       SELECT 'Reservation' as label, amount FROM payments WHERE payment_status = 'verified'
+  //       UNION ALL
+  //       SELECT 'Walk-in' as label, (ko.quantity * m.price) as amount 
+  //       FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
+  //       WHERE (ko.reservation_id LIKE 'WALK%' OR ko.reservation_id IS NULL)
+  //     ) as combined GROUP BY label`);
+  //   return rows;
+  // },
 
   // 4. Parameterized with todayStr
   getRecentTrend: async (todayStr) => {

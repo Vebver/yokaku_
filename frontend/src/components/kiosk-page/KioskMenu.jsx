@@ -483,54 +483,67 @@ const KioskMenu = () => {
     setShowBillInfo(true);
   };
 
-  useEffect(() => {
-    const fetchMenu = async () => {
-      try {
-        const response = await fetch(`${API_BASE}/products`, {
-          headers: getFetchHeaders(),
+  const fetchMenu = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/products`, {
+        headers: getFetchHeaders(),
+      });
+      const data = await response.json();
+      const grouped = data.reduce((acc, item) => {
+        if (item.is_available === 0 || item.is_available === false) return acc;
+
+        const cat = item.category_name || "General";
+        if (!acc[cat]) acc[cat] = [];
+        let img = item.local_path || item.image_url;
+        if (img && !img.startsWith("http")) {
+          const cleanPath = img.startsWith("/") ? img.substring(1) : img;
+          const cleanBase = BASE_URL.endsWith("/")
+            ? BASE_URL
+            : `${BASE_URL}/`;
+          img = `${cleanBase}${cleanPath}`;
+        }
+        acc[cat].push({
+          id: item.item_id,
+          name: item.menu_name || item.name,
+          image: img,
+          price: item.price,
+          category: cat,
+          description: item.description || "",
         });
-        const data = await response.json();
-        const grouped = data.reduce((acc, item) => {
-          const cat = item.category_name || "General";
-          if (!acc[cat]) acc[cat] = [];
-          let img = item.local_path || item.image_url;
-          if (img && !img.startsWith("http")) {
-            const cleanPath = img.startsWith("/") ? img.substring(1) : img;
-            const cleanBase = BASE_URL.endsWith("/")
-              ? BASE_URL
-              : `${BASE_URL}/`;
-            img = `${cleanBase}${cleanPath}`;
-          }
-          acc[cat].push({
-            id: item.item_id,
-            // UPDATED: Fallback to item.menu_name to support your database schema
-            name: item.menu_name || item.name,
-            image: img,
-            price: item.price,
-            category: cat,
-            description: item.description || "",
-          });
-          return acc;
-        }, {});
-        setMenuData(grouped);
-        setDynamicFlavors((grouped["Chicken"] || []).map((i) => i.name));
-        setDynamicRamenFlavors((grouped["Ramen"] || []).map((i) => i.name));
-        setDynamicDrinks(
-          [...(grouped["Beverages"] || []), ...(grouped["Drinks"] || [])].map(
-            (i) => i.name,
-          ),
-        );
-        const firstVisibleCat = Object.keys(grouped).find(
-          (cat) => !HIDDEN_CATEGORIES.includes(cat),
-        );
-        if (firstVisibleCat) setActiveCategory(firstVisibleCat);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
-    };
+        return acc;
+      }, {});
+      setMenuData(grouped);
+      setDynamicFlavors((grouped["Chicken"] || []).map((i) => i.name));
+      setDynamicRamenFlavors((grouped["Ramen"] || []).map((i) => i.name));
+      setDynamicDrinks(
+        [...(grouped["Beverages"] || []), ...(grouped["Drinks"] || [])].map(
+          (i) => i.name,
+        ),
+      );
+      const firstVisibleCat = Object.keys(grouped).find(
+        (cat) => !HIDDEN_CATEGORIES.includes(cat),
+      );
+      setActiveCategory((prev) => {
+        if (prev && grouped[prev]) return prev;
+        return firstVisibleCat || prev;
+      });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchMenu();
+    const interval = setInterval(fetchMenu, 10000);
+    const handleFocus = () => fetchMenu();
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", handleFocus);
+    };
   }, []);
 
   // Safe Item click handler that handles undefined database properties without throwing crashes

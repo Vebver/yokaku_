@@ -12,6 +12,7 @@ function Product() {
   const [itemsPerPage] = useState(15);
   const [isEditing, setIsEditing] = useState(false);
   const [editId, setEditId] = useState(null);
+  const [editOriginalName, setEditOriginalName] = useState("");
   const { showToast } = useToast();
 
   const [newItem, setNewItem] = useState({
@@ -58,10 +59,12 @@ function Product() {
   };
 
   const openEditDrawer = (item) => {
+    const originalName = item.menu_name || "";
     setIsEditing(true);
     setEditId(item.item_id);
+    setEditOriginalName(originalName);
     setNewItem({
-      name: item.name, description: item.description, price: item.price,
+      name: originalName, description: item.description, price: item.price,
       category_id: item.category_id, image: null, is_available: item.is_available,
       is_featured: item.is_featured, local_path: item.local_path, image_url: item.image_url,
     });
@@ -70,6 +73,7 @@ function Product() {
   const resetForm = () => {
     setIsEditing(false);
     setEditId(null);
+    setEditOriginalName("");
     setNewItem({ name: "", description: "", price: "", category_id: categories[0]?.category_id || "", image: null, is_available: 1, is_featured: 0 });
   };
 
@@ -84,8 +88,19 @@ function Product() {
     };
 
     const formData = new FormData();
+    const finalName = isEditing && !String(newItem.name || "").trim()
+      ? editOriginalName
+      : newItem.name;
+
     Object.keys(newItem).forEach((key) => {
-      if (newItem[key] !== null) formData.append(key, newItem[key]);
+      if (key === "name") {
+        if (finalName !== null && finalName !== undefined) {
+          // CHANGE: Map "name" to "menu_name" so the backend controller receives it correctly
+          formData.append("menu_name", finalName); 
+        }
+      } else if (newItem[key] !== null && newItem[key] !== undefined) {
+        formData.append(key, newItem[key]);
+      }
     });
 
     try {
@@ -102,7 +117,7 @@ function Product() {
       if (closeBtnRef.current) closeBtnRef.current.click();
     } catch (err) {
       console.error(err);
-      showToast(err.response?.data?.error || "Error saving item. Check if you are logged in.");
+      showToast(err.response?.data?.error || "Error saving item.");
     }
   };
 
@@ -198,7 +213,7 @@ function Product() {
                     <div className="d-flex align-items-center py-2">
                       <img src={getImageUrl(item, SOCKET_URL)} alt="" className="rounded shadow-sm me-3 border" width="48" height="48" style={{ objectFit: "cover" }} />
                       <div>
-                        <div className="fw-bold text-dark lh-1 mb-1">{item.name}</div>
+                        <div className="fw-bold text-dark lh-1 mb-1">{item.menu_name}</div>
                       </div>
                     </div>
                   </td>
@@ -211,7 +226,7 @@ function Product() {
                   </td>
                   <td>
                     <span className={`badge rounded-pill px-3 py-2 small ${item.is_available ? "bg-success-subtle text-success" : "bg-danger-subtle text-danger"}`}>
-                      {item.is_available ? "Available" : "Sold Out"}
+                      {item.is_available ? "Available" : "Not Available"}
                     </span>
                   </td>
                   <td className="text-end pe-4">
@@ -263,7 +278,7 @@ function Product() {
           <form onSubmit={handleAddOrUpdateMenuItem}>
             <div className="mb-3">
               <label className="form-label small fw-bold">Dish Name</label>
-              <input type="text" name="name" className="form-control" value={newItem.name} onChange={handleInputChange} required />
+              <input type="text" name="name" className="form-control" value={newItem.name} onChange={handleInputChange} required={!isEditing} />
             </div>
             <div className="row g-2 mb-3">
               <div className="col-6">
@@ -276,6 +291,13 @@ function Product() {
                 <label className="form-label small fw-bold">Price (₱)</label>
                 <input type="number" name="price" step="0.01" className="form-control" value={newItem.price} onChange={handleInputChange} required />
               </div>
+            </div>
+            <div className="mb-3">
+              <label className="form-label small fw-bold">Status</label>
+              <select name="is_available" className="form-select" value={newItem.is_available} onChange={handleInputChange}>
+                <option value={1}>Available</option>
+                <option value={0}>Not Available</option>
+              </select>
             </div>
             <div className="mb-4 text-center">
                <div className="bg-light p-3 rounded border mb-2">

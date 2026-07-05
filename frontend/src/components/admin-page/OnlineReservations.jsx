@@ -274,7 +274,8 @@ const OnlineReservations = () => {
         className="offcanvas offcanvas-end border-0 shadow-sm"
         tabIndex="-1"
         id="onlineDrawer"
-        data-bs-backdrop="false"
+        data-bs-backdrop="true"
+        data-bs-scroll="false"
         style={{ width: "min(100%, 450px)" }}
       >
         <div className="offcanvas-header border-bottom bg-white">

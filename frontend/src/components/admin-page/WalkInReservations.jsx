@@ -61,6 +61,15 @@ const WalkInReservations = () => {
     fetchProducts();
   }, []);
 
+   useEffect(() => {
+    return () => {
+      const backdrops = document.querySelectorAll(".offcanvas-backdrop");
+      backdrops.forEach((el) => el.remove());
+      document.body.style.overflow = "";
+      document.body.style.paddingRight = "";
+    };
+  }, [products]);
+
   const fetchProducts = async () => {
     try {
       const res = await api.get("/products");
@@ -668,7 +677,8 @@ const WalkInReservations = () => {
         className="offcanvas offcanvas-end border-0 shadow-sm"
         tabIndex="-1"
         id="walkinDetailsDrawer"
-        data-bs-backdrop="false"
+        data-bs-backdrop="true"
+        data-bs-scroll="false"
         style={{ width: "min(100%, 450px)" }}
       >
         <div className="offcanvas-header border-bottom bg-white">

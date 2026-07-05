@@ -9,7 +9,7 @@ const { protect, adminOnly } = require("../middleware/authMiddleware");
 // --- DASHBOARD & TABLE ROUTES (Accessible by Admin and Cashier) ---
 router.get('/today-schedule', protect, adminOnly, adminController.getTodaySchedule);
 router.get('/stats', protect, adminOnly, adminController.getDashboardStats);
-router.get('/reports/financial', protect, adminOnly, adminController.getFinancialOverview);
+// router.get('/reports/financial', protect, adminOnly, adminController.getFinancialOverview);
 router.get('/table-status', protect, adminOnly, adminController.getTable);
 router.get('/getTable', protect, adminOnly, adminController.getTable);
 router.get('/public/getTable', adminController.getTable);

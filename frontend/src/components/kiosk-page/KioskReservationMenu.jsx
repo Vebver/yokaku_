@@ -346,13 +346,67 @@ const KioskReservationMenu = () => {
     }
   }, [activeCategory, hasOrderedUnlimited, menuData]);
 
-  // Initial data fetch and Tray/Cart synchronization
-  // Inside KioskReservationMenu.jsx (around line 320):
+  const refreshMenuData = async () => {
+    try {
+      const prodRes = await fetch(`${API_BASE}/products`, {
+        headers: getFetchHeaders(),
+      }).then((r) => r.json());
+
+      const grouped = {};
+      const getFullImage = (item) => {
+        const rawPath = item.local_path || item.image_url;
+        if (!rawPath) return "";
+        if (rawPath.startsWith("http")) return rawPath;
+        const cleanPath = rawPath.startsWith("/")
+          ? rawPath.substring(1)
+          : rawPath;
+        return `${BASE_URL}/${cleanPath}`;
+      };
+
+      prodRes.forEach((item) => {
+        if (item.is_available === 0 || item.is_available === false) return;
+
+        const cat = item.category_name || "General";
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push({
+          id: item.item_id,
+          name: item.menu_name || item.name,
+          image: getFullImage(item),
+          price: item.price,
+          category: cat,
+        });
+      });
+
+      setMenuData(grouped);
+      setDynamicFlavors(
+        (grouped["Chicken"] || grouped["Chicken Wings"] || []).map(
+          (i) => i.menu_name || i.name,
+        ),
+      );
+      setDynamicRamenFlavors(
+        (grouped["Ramen"] || []).map((i) => i.menu_name || i.name),
+      );
+      setDynamicDrinks(
+        [...(grouped["Beverages"] || []), ...(grouped["Drinks"] || [])].map(
+          (i) => i.menu_name || i.name,
+        ),
+      );
+
+      const cats = Object.keys(grouped).filter(
+        (c) => !HIDDEN_CATEGORIES.includes(c),
+      );
+      setActiveCategory((prev) => {
+        if (prev && grouped[prev]) return prev;
+        return cats[0] || prev;
+      });
+    } catch (e) {
+      console.error("Menu refresh error", e);
+    }
+  };
 
   // Initial data fetch and Tray/Cart synchronization
  useEffect(() => {
     if (!activeResId) {
-      // AUTO-REDIRECT: No active session. Redirect back to selection landing page safely
       const searchString = setupTable ? `?setupTable=${setupTable}` : "";
       navigate(`/kiosk-selection${searchString}`);
       return;
@@ -443,6 +497,8 @@ const KioskReservationMenu = () => {
         };
 
         prodRes.forEach((item) => {
+          if (item.is_available === 0 || item.is_available === false) return;
+
           const cat = item.category_name || "General";
           if (!grouped[cat]) grouped[cat] = [];
           grouped[cat].push({

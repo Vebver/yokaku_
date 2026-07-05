@@ -27,7 +27,11 @@ const Product = {
     return true;
   },
   update: async (id, data) => {
-    const clean_category = parseInt(data.category_id);
+    // 1. Safe fallbacks for potential undefined fields
+    const clean_name = data.name ?? data.menu_name ?? null; // Accepts both "name" and "menu_name"
+    const clean_description = data.description ?? null;     // Falls back to NULL instead of undefined
+
+    const clean_category = parseInt(data.category_id) || null;
     const clean_price = parseFloat(data.price) || 0.0;
     const clean_available = parseInt(data.is_available) === 1 ? 1 : 0;
     const clean_featured = parseInt(data.is_featured) === 1 ? 1 : 0;
@@ -37,19 +41,22 @@ const Product = {
 
     if (data.image_url) {
       // If a new image was uploaded, we update the paths too
+      const clean_image_url = data.image_url ?? null;
+      const clean_local_path = data.local_path ?? null;
+
       sql = `
         UPDATE menu_items 
         SET category_id=?, menu_name=?, description=?, price=?, image_url=?, is_available=?, is_featured=?, local_path=?
         WHERE item_id=?`;
       values = [
         clean_category,
-        data.menu_name,
-        data.description,
+        clean_name,          // Using safe clean_name
+        clean_description,   // Using safe clean_description
         clean_price,
-        data.image_url,
+        clean_image_url,
         clean_available,
         clean_featured,
-        data.local_path,
+        clean_local_path,
         id,
       ];
     } else {
@@ -60,8 +67,8 @@ const Product = {
         WHERE item_id=?`;
       values = [
         clean_category,
-        data.menu_name,
-        data.description,
+        clean_name,          // Using safe clean_name
+        clean_description,   // Using safe clean_description
         clean_price,
         clean_available,
         clean_featured,

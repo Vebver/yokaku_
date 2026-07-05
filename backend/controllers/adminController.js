@@ -183,35 +183,35 @@ const adminController = {
   // controllers/adminController.js
   // Inside controllers/adminController.js
 
-  getFinancialOverview: async (req, res) => {
-    try {
-      // 1. Calculate the timezone-safe local date string
-      const todayStr = new Date().toLocaleDateString("en-CA", {
-        timeZone: "Asia/Manila",
-      });
+  // getFinancialOverview: async (req, res) => {
+  //   try {
+  //     // 1. Calculate the timezone-safe local date string
+  //     const todayStr = new Date().toLocaleDateString("en-CA", {
+  //       timeZone: "Asia/Manila",
+  //     });
 
-      // 2. Fetch all values, passing todayStr down
-      const [monthlyTrend, stats, sources] = await Promise.all([
-        FinancialReport.getMonthlyTrend(),
-        FinancialReport.getFinancialStats(todayStr), // Passed todayStr here
-        FinancialReport.getRevenueSources(),
-      ]);
+  //     // 2. Fetch all values, passing todayStr down
+  //     const [monthlyTrend, stats, sources] = await Promise.all([
+  //       FinancialReport.getMonthlyTrend(),
+  //       FinancialReport.getFinancialStats(todayStr), // Passed todayStr here
+  //       FinancialReport.getRevenueSources(),
+  //     ]);
 
-      console.log("DATABASE STATS:", stats);
+  //     console.log("DATABASE STATS:", stats);
 
-      res.status(200).json({
-        success: true,
-        data: {
-          summary: stats,
-          monthlyTrend,
-          sources,
-        },
-      });
-    } catch (error) {
-      console.error("REPORT ERROR:", error);
-      res.status(500).json({ success: false, error: error.message });
-    }
-  },
+  //     res.status(200).json({
+  //       success: true,
+  //       data: {
+  //         summary: stats,
+  //         monthlyTrend,
+  //         sources,
+  //       },
+  //     });
+  //   } catch (error) {
+  //     console.error("REPORT ERROR:", error);
+  //     res.status(500).json({ success: false, error: error.message });
+  //   }
+  // },
 };
 
 module.exports = adminController;
