@@ -8,6 +8,54 @@ const {
   sendRefundConfirmationEmail,
 } = require("../utils/emailService");
 
+// ===== TEST ROUTE - Uses environment variable =====
+router.get("/test-http", async (req, res) => {
+  try {
+    console.log("🔍 Testing Brevo HTTP API...");
+    console.log("📧 API Key exists:", !!process.env.BREVO_PASS);
+    console.log("📧 BREVO_USER:", process.env.BREVO_USER);
+
+    // Get API key from environment variable ONLY
+    const apiKey = process.env.BREVO_PASS;
+
+    if (!apiKey) {
+      return res.status(500).json({
+        error: "BREVO_PASS environment variable not set",
+        env: {
+          hasApiKey: !!process.env.BREVO_PASS,
+          hasUser: !!process.env.BREVO_USER,
+        },
+      });
+    }
+
+    const brevo = require("@getbrevo/brevo");
+    const apiInstance = new brevo.TransactionalEmailsApi();
+    const auth = apiInstance.authentications["apiKey"];
+    auth.apiKey = apiKey; // Use from env, NOT hardcoded
+
+    const sendSmtpEmail = new brevo.SendSmtpEmail();
+    sendSmtpEmail.subject = "Test Email - HTTP API";
+    sendSmtpEmail.htmlContent =
+      "<h1>Test Email</h1><p>HTTP API is working on Render!</p>";
+    sendSmtpEmail.sender = {
+      email: process.env.BREVO_USER || "leabrescarl@gmail.com",
+      name: "Restaurant Test",
+    };
+    sendSmtpEmail.to = [{ email: "leabrescarl@gmail.com" }];
+
+    const response = await apiInstance.sendTransacEmail(sendSmtpEmail);
+    console.log("✅ Test email sent:", response.messageId);
+    res.json({ success: true, messageId: response.messageId });
+  } catch (error) {
+    console.error("❌ HTTP API test error:", error);
+    res.status(500).json({
+      error: error.message,
+      details: error.response?.body || error.stack,
+    });
+  }
+});
+
+// ===== Main Refund Route =====
 router.post("/request", protect, async (req, res) => {
   try {
     console.log("🔍 Refund request received");
@@ -17,7 +65,6 @@ router.post("/request", protect, async (req, res) => {
     const { reservationId, subject, comment, email, reason, reservationType } =
       req.body;
 
-    // Handle both userId and id from token
     const userId = req.user?.userId || req.user?.id;
 
     if (!userId) {
@@ -61,45 +108,26 @@ router.post("/request", protect, async (req, res) => {
       userName,
     };
 
-    // Send email notifications (don't await - let them run in background)
-    Promise.all([
-      sendRefundNotificationEmail(refundData),
-      sendRefundConfirmationEmail(refundData),
-    ])
-      .then(() => {
-        console.log("✅ Both emails sent successfully");
-      })
-      .catch((error) => {
-        console.error("❌ Email sending error (non-blocking):", error);
-      });
+    console.log("📧 Attempting to send emails...");
+
+    // Send email notifications
+    const storeResult = await sendRefundNotificationEmail(refundData);
+    console.log("📧 Store email result:", storeResult);
+
+    const customerResult = await sendRefundConfirmationEmail(refundData);
+    console.log("📧 Customer email result:", customerResult);
 
     res.json({
       success: true,
-      message:
-        "Refund request submitted successfully. You will receive a confirmation email shortly.",
+      message: "Refund request submitted successfully.",
       refundId: result.insertId,
     });
   } catch (error) {
     console.error("❌ Refund request error:", error);
     console.error("📋 Error stack:", error.stack);
 
-    // Handle specific database errors
-    if (error.code === "ER_BAD_FIELD_ERROR") {
-      return res.status(500).json({
-        error: "Database column mismatch. Please check table structure.",
-        details: error.message,
-      });
-    }
-
-    if (error.code === "ER_NO_SUCH_TABLE") {
-      return res.status(500).json({
-        error: "refund_requests table does not exist. Please create it first.",
-      });
-    }
-
     res.status(500).json({
       error: error.message,
-      details: process.env.NODE_ENV === "development" ? error.stack : undefined,
     });
   }
 });

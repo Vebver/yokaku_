@@ -1,15 +1,22 @@
 // utils/emailService.js
 const brevo = require("@getbrevo/brevo");
 
-// Initialize Brevo client
+// Check if API key exists in environment
+if (!process.env.BREVO_PASS) {
+  console.warn("⚠️ WARNING: BREVO_PASS environment variable is not set!");
+  console.warn("⚠️ Email sending will fail until this is configured.");
+}
+
+// Initialize Brevo client with HTTP API
 const apiInstance = new brevo.TransactionalEmailsApi();
 const apiKey = apiInstance.authentications["apiKey"];
-apiKey.apiKey = process.env.BREVO_API_KEY;
+// API key comes ONLY from environment variable - NO hardcoded fallback!
+apiKey.apiKey = process.env.BREVO_PASS;
 
-// Sender information
+// Sender information - use the email from BREVO_USER
 const sender = {
-  email: process.env.BREVO_SENDER_EMAIL || "noreply@yourdomain.com",
-  name: process.env.BREVO_SENDER_NAME || "Restaurant Management",
+  email: process.env.BREVO_USER || "leabrescarl@gmail.com",
+  name: "Restaurant Management",
 };
 
 // Function to send refund notification to store
@@ -106,17 +113,27 @@ const sendRefundNotificationEmail = async (refundData) => {
   `;
 
   try {
+    // Check if API key is set before sending
+    if (!process.env.BREVO_PASS) {
+      throw new Error("BREVO_PASS environment variable is not set");
+    }
+
     const sendSmtpEmail = new brevo.SendSmtpEmail();
     sendSmtpEmail.subject = `🔔 New Refund Request - ${reservationId}`;
     sendSmtpEmail.htmlContent = htmlContent;
     sendSmtpEmail.sender = sender;
     sendSmtpEmail.to = [{ email: storeEmail }];
+    sendSmtpEmail.replyTo = { email: userEmail };
 
     const response = await apiInstance.sendTransacEmail(sendSmtpEmail);
-    console.log("✅ Refund notification email sent to store:", response);
+    console.log(
+      "✅ Refund notification email sent to store:",
+      response.messageId,
+    );
     return { success: true, messageId: response.messageId };
   } catch (error) {
     console.error("❌ Error sending refund notification email:", error);
+    console.error("Error details:", error.response?.body || error.message);
     return { success: false, error: error.message };
   }
 };
@@ -185,6 +202,11 @@ const sendRefundConfirmationEmail = async (refundData) => {
   `;
 
   try {
+    // Check if API key is set before sending
+    if (!process.env.BREVO_PASS) {
+      throw new Error("BREVO_PASS environment variable is not set");
+    }
+
     const sendSmtpEmail = new brevo.SendSmtpEmail();
     sendSmtpEmail.subject = `📧 Refund Request Received - ${reservationId}`;
     sendSmtpEmail.htmlContent = htmlContent;
@@ -192,10 +214,40 @@ const sendRefundConfirmationEmail = async (refundData) => {
     sendSmtpEmail.to = [{ email: userEmail }];
 
     const response = await apiInstance.sendTransacEmail(sendSmtpEmail);
-    console.log("✅ Confirmation email sent to customer:", response);
+    console.log("✅ Confirmation email sent to customer:", response.messageId);
     return { success: true, messageId: response.messageId };
   } catch (error) {
     console.error("❌ Error sending confirmation email:", error);
+    console.error("Error details:", error.response?.body || error.message);
+    return { success: false, error: error.message };
+  }
+};
+
+// Test function to verify Brevo connection
+const testBrevoConnection = async () => {
+  try {
+    console.log("🔍 Testing Brevo connection...");
+    console.log("📧 BREVO_USER:", process.env.BREVO_USER);
+    console.log("📧 BREVO_PASS exists:", !!process.env.BREVO_PASS);
+
+    if (!process.env.BREVO_PASS) {
+      console.error("❌ BREVO_PASS is not set in environment variables!");
+      return { success: false, error: "BREVO_PASS not set" };
+    }
+
+    const sendSmtpEmail = new brevo.SendSmtpEmail();
+    sendSmtpEmail.subject = "Brevo Connection Test";
+    sendSmtpEmail.htmlContent =
+      "<h1>✅ Connection Successful!</h1><p>Your Brevo integration is working properly.</p>";
+    sendSmtpEmail.sender = sender;
+    sendSmtpEmail.to = [{ email: "leabrescarl@gmail.com" }];
+
+    const response = await apiInstance.sendTransacEmail(sendSmtpEmail);
+    console.log("✅ Brevo test successful:", response.messageId);
+    return { success: true, messageId: response.messageId };
+  } catch (error) {
+    console.error("❌ Brevo test failed:", error.message);
+    console.error("Error details:", error.response?.body || error);
     return { success: false, error: error.message };
   }
 };
@@ -203,4 +255,5 @@ const sendRefundConfirmationEmail = async (refundData) => {
 module.exports = {
   sendRefundNotificationEmail,
   sendRefundConfirmationEmail,
+  testBrevoConnection,
 };
