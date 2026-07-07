@@ -222,7 +222,6 @@ const reservationController = {
   },
 
   // ==================== CREATE RESERVATION ====================
-  // ==================== CREATE RESERVATION ====================
   createReservation: async (req, res) => {
     try {
       const body = req.body;
@@ -256,79 +255,108 @@ const reservationController = {
         finalGuestCount: guestCount,
       });
 
-      // ===== FIX: Safely get reservation type =====
+      // ===== FIX: Safely get reservation type (handle array case) =====
       let reservationType = "per_table";
+      let isEvent = false;
 
-      // Safely check both possible field names
+      // Check reservation_type (snake_case) - could be string or array
       if (
         body.reservation_type !== undefined &&
         body.reservation_type !== null
       ) {
-        // Convert to string and lowercase
-        reservationType = String(body.reservation_type).toLowerCase();
+        if (Array.isArray(body.reservation_type)) {
+          // If it's an array, take the first element
+          const firstValue = body.reservation_type[0];
+          if (firstValue) {
+            const type = String(firstValue).toLowerCase().trim();
+            if (type === "event") {
+              isEvent = true;
+              reservationType = "event";
+            } else if (type === "per_table") {
+              reservationType = "per_table";
+            }
+          }
+          console.log(
+            "📊 reservation_type is array, first element:",
+            firstValue,
+          );
+        } else {
+          // If it's a string
+          const type = String(body.reservation_type).toLowerCase().trim();
+          if (type === "event") {
+            isEvent = true;
+            reservationType = "event";
+          } else if (type === "per_table") {
+            reservationType = "per_table";
+          }
+        }
       } else if (
         body.reservationType !== undefined &&
         body.reservationType !== null
       ) {
-        // Convert to string and lowercase
-        reservationType = String(body.reservationType).toLowerCase();
+        // Check reservationType (camelCase)
+        const type = String(body.reservationType).toLowerCase().trim();
+        if (type === "event") {
+          isEvent = true;
+          reservationType = "event";
+        } else if (type === "per_table") {
+          reservationType = "per_table";
+        }
       }
 
-      console.log("📊 Reservation type from request:", {
-        bodyReservationType: body.reservationType,
-        bodyReservation_type: body.reservation_type,
-        finalType: reservationType,
-        typeOfReservationType: typeof body.reservation_type,
-        typeOfReservationTypeCamel: typeof body.reservationType,
-      });
-
-      // ===== FIX: Detect EVENT from package name if type is still per_table =====
-      if (reservationType === "per_table" && body.packageName) {
+      // ===== FIX: Detect EVENT from package name =====
+      if (!isEvent && body.packageName) {
         const packageName = String(body.packageName).toLowerCase();
         if (
           packageName.includes("standard") ||
           packageName.includes("premium") ||
-          packageName.includes("event")
+          packageName.includes("event") ||
+          packageName.includes("private event")
         ) {
-          console.log("🔍 Detected EVENT from package name, overriding type");
+          console.log("🔍 Detected EVENT from package name:", packageName);
+          isEvent = true;
           reservationType = "event";
         }
       }
 
-      // Better tableIds parsing with error handling
+      console.log("📊 Final reservation type:", reservationType);
+      console.log("📊 Is EVENT?", isEvent);
+
+      // ===== FIX: Table IDs parsing - ONLY for PER TABLE =====
       let tableIdsArray = [];
 
-      // For EVENT reservations, we don't need table IDs (they book the whole venue)
-      if (reservationType === "event" || reservationType === "takeout") {
+      if (isEvent || reservationType === "event") {
+        // EVENT: No table IDs needed
         tableIdsArray = [];
-        console.log("✅ EVENT reservation - no specific tables needed");
+        console.log("✅ EVENT reservation - skipping table validation");
       } else {
         // PER TABLE: Parse table IDs from request
+        console.log("🔍 PER TABLE - parsing table IDs");
+
         if (body.tableIds) {
           try {
             if (typeof body.tableIds === "string") {
-              const parsed = JSON.parse(body.tableIds);
-              tableIdsArray = Array.isArray(parsed) ? parsed : [parsed];
+              if (body.tableIds.startsWith("[")) {
+                const parsed = JSON.parse(body.tableIds);
+                tableIdsArray = Array.isArray(parsed) ? parsed : [parsed];
+              } else if (body.tableIds.includes(",")) {
+                tableIdsArray = body.tableIds
+                  .split(",")
+                  .map((id) => parseInt(id.trim()))
+                  .filter((id) => !isNaN(id) && id > 0);
+              } else {
+                const id = parseInt(body.tableIds);
+                if (!isNaN(id) && id > 0) {
+                  tableIdsArray = [id];
+                }
+              }
             } else if (Array.isArray(body.tableIds)) {
               tableIdsArray = body.tableIds;
-            } else {
+            } else if (typeof body.tableIds === "number") {
               tableIdsArray = [body.tableIds];
             }
           } catch (e) {
-            console.log(
-              "Failed to parse tableIds, trying alternative:",
-              body.tableIds,
-            );
-            if (
-              typeof body.tableIds === "string" &&
-              body.tableIds.includes(",")
-            ) {
-              tableIdsArray = body.tableIds
-                .split(",")
-                .map((id) => parseInt(id.trim()));
-            } else if (typeof body.tableIds === "string") {
-              tableIdsArray = [parseInt(body.tableIds)];
-            }
+            console.error("❌ Failed to parse tableIds:", e);
           }
         }
 
@@ -338,7 +366,12 @@ const reservationController = {
 
         console.log("✅ Parsed tableIds:", tableIdsArray);
 
+        // ONLY validate for PER TABLE
         if (tableIdsArray.length === 0) {
+          console.error(
+            "❌ No valid table IDs found. Raw value:",
+            body.tableIds,
+          );
           throw new Error(
             "No valid table IDs provided. Please select at least one table.",
           );
@@ -398,6 +431,8 @@ const reservationController = {
       console.log("📊 Reservation data being saved:", {
         reservation_type: reservationData.reservation_type,
         reservationType: reservationData.reservationType,
+        isEvent: isEvent,
+        tableIds: reservationData.tableIds,
         guests: reservationData.guests,
         num_guests: reservationData.num_guests,
         packageName: reservationData.packageName,

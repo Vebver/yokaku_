@@ -1539,7 +1539,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         ...form,
         reservationType: reservationType,
         // ===== ADD THIS: Explicitly set reservation_type =====
-        reservation_type: reservationType, // This ensures backend receives it
+        reservation_type: String(reservationType).toLowerCase(), // This ensures backend receives it as string
         userId: userId,
         guests: guestCount,
         pax: guestCount,
@@ -1582,17 +1582,9 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         if (v !== undefined && v !== null) payload.append(k, v);
       });
 
-      // Also append snake_case variant to be explicit for backend form parsers
-      if (reservationType) {
-        try {
-          payload.append(
-            "reservation_type",
-            String(reservationType).toLowerCase(),
-          );
-        } catch (err) {
-          // ignore FormData append failures silently
-        }
-      }
+      // ===== FIX: REMOVE the duplicate reservation_type append =====
+      // We already have reservation_type in the submission object
+      // No need to append it again here - this was causing the array issue
 
       const res = await axios.post(`${API_BASE}/reservations/table`, payload);
       if (socket) {

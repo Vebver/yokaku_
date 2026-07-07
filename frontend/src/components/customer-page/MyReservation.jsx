@@ -185,14 +185,74 @@ const MyReservation = () => {
     return false;
   };
 
-  // Check if reservation is PER TABLE (for disabling File a Refund)
+  // ===== FIX: Check if reservation is PER TABLE (for disabling File a Refund) =====
   const isPerTableReservation = () => {
     if (!selectedReservation) return false;
+
+    // Log for debugging
+    console.log(
+      "🔍 isPerTableReservation - selectedReservation:",
+      selectedReservation,
+    );
+    console.log("🔍 reservation_type:", selectedReservation.reservation_type);
+    console.log("🔍 reservationType:", selectedReservation.reservationType);
+    console.log("🔍 package_name:", selectedReservation.package_name);
+
+    // Check both field names
     const reservationType =
       selectedReservation.reservation_type ||
       selectedReservation.reservationType ||
       "";
-    return reservationType.toLowerCase() === "per_table";
+
+    // Also check package name to detect EVENT
+    const packageName = selectedReservation.package_name || "";
+    const isEventPackage =
+      packageName.toLowerCase().includes("standard") ||
+      packageName.toLowerCase().includes("premium") ||
+      packageName.toLowerCase().includes("event");
+
+    // If it has an event package, it's an EVENT reservation
+    if (isEventPackage) {
+      console.log("🔍 Detected EVENT from package name");
+      return false; // Not PER TABLE, so refund is allowed
+    }
+
+    // If reservation_type is explicitly 'event', it's not PER TABLE
+    if (reservationType.toLowerCase() === "event") {
+      console.log("🔍 Detected EVENT from reservation_type");
+      return false; // Not PER TABLE, so refund is allowed
+    }
+
+    // If reservation_type is explicitly 'per_table', it's PER TABLE
+    const result = reservationType.toLowerCase() === "per_table";
+    console.log("🔍 isPerTableReservation result:", result);
+
+    // If reservation_type is empty or undefined, check package name again
+    if (!reservationType) {
+      // If no reservation_type but package is not event, treat as PER TABLE
+      console.log("🔍 No reservation_type found, treating as PER TABLE");
+      return true;
+    }
+
+    return result;
+  };
+
+  // ===== FIX: Check if reservation is EVENT =====
+  const isEventReservation = () => {
+    if (!selectedReservation) return false;
+
+    const reservationType =
+      selectedReservation.reservation_type ||
+      selectedReservation.reservationType ||
+      "";
+
+    const packageName = selectedReservation.package_name || "";
+    const isEventPackage =
+      packageName.toLowerCase().includes("standard") ||
+      packageName.toLowerCase().includes("premium") ||
+      packageName.toLowerCase().includes("event");
+
+    return reservationType.toLowerCase() === "event" || isEventPackage;
   };
 
   // FIX: New function to handle "File a Refund" - navigates to file-a-refund page
@@ -212,10 +272,7 @@ const MyReservation = () => {
       state: {
         reservationId: selectedReservation?.reservation_id,
         reason: finalReason,
-        reservationType:
-          selectedReservation?.reservation_type ||
-          selectedReservation?.reservationType ||
-          "per_table",
+        reservationType: "event", // Always send 'event' for refund requests
       },
     });
 
@@ -308,7 +365,6 @@ const MyReservation = () => {
       reservation.reservationType === "EVENT";
 
     if (isEvent) {
-      // Change this to whatever you want displayed
       return "Full Venue (All Tables)";
     }
 
@@ -358,7 +414,6 @@ const MyReservation = () => {
     // Default: show the value as-is
     return numGuests;
   };
-  // ===== END: Helper function =====
 
   return (
     <>
@@ -580,7 +635,7 @@ const MyReservation = () => {
                     </div>
                   )}
 
-                  {/* RE-UPLOAD MODULE (VISIBLE ONCE STATUS IS 'REJECTED') */}
+                  {/* RE-UPLOAD MODULE */}
                   {selectedReservation.payment_status?.toLowerCase() ===
                     "rejected" && (
                     <div
@@ -736,7 +791,7 @@ const MyReservation = () => {
               </div>
 
               <div className="cancel-modal-footer">
-                {/* FIX: "File a Refund" button - disabled if PER TABLE or form incomplete */}
+                {/* ===== FIX: "File a Refund" button ===== */}
                 <button
                   className={`cancel-modal-refund-btn ${isConfirmDisabled() || isPerTableReservation() ? "disabled" : ""}`}
                   onClick={handleFileRefund}
