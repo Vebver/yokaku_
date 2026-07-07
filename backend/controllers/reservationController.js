@@ -222,6 +222,7 @@ const reservationController = {
   },
 
   // ==================== CREATE RESERVATION ====================
+  // ==================== CREATE RESERVATION ====================
   createReservation: async (req, res) => {
     try {
       const body = req.body;
@@ -231,7 +232,32 @@ const reservationController = {
       body.totalAmount = parseFloat(body.totalAmount) || 0;
       body.amount = parseFloat(body.amount) || 0;
       body.durationHours = parseFloat(body.durationHours) || 1;
-      body.guests = parseInt(body.num_guests) || 1;
+
+      // ===== FIX: Properly get guest count =====
+      // Try multiple possible field names
+      let guestCount =
+        parseInt(body.guests) ||
+        parseInt(body.pax) ||
+        parseInt(body.num_guests) ||
+        parseInt(body.guestCount) ||
+        1;
+
+      // Make sure it's a valid number
+      if (isNaN(guestCount) || guestCount < 1) {
+        guestCount = 1;
+      }
+
+      // Also store in body for later use
+      body.guests = guestCount;
+      body.num_guests = guestCount;
+
+      console.log("📊 Guest count from request:", {
+        guests: body.guests,
+        pax: body.pax,
+        num_guests: body.num_guests,
+        guestCount: body.guestCount,
+        finalGuestCount: guestCount,
+      });
 
       // Better tableIds parsing with error handling
       let tableIdsArray = [];
@@ -332,8 +358,15 @@ const reservationController = {
         totalAmount: parseFloat(body.totalAmount) || 0,
         amount: parseFloat(body.amount) || 0,
         durationHours: parseFloat(body.durationHours) || 1,
-        guests: parseInt(body.guests) || parseInt(body.num_guests) || 1,
+        guests: guestCount, // Use the properly parsed guest count
+        num_guests: guestCount, // Also set num_guests for database
       };
+
+      console.log("📊 Reservation data being saved:", {
+        guests: reservationData.guests,
+        num_guests: reservationData.num_guests,
+        reservationType: reservationData.reservation_type,
+      });
 
       // 1. Create the database record for the reservation(reservationData);
       const newId = await Reservation.create(reservationData);
@@ -347,7 +380,7 @@ const reservationController = {
           type: reservationType,
           date: body.date,
           startTime: dbStart,
-          guests: parseInt(body.guests) || parseInt(body.num_guests) || 1,
+          guests: guestCount,
         },
         req,
       );
@@ -394,7 +427,7 @@ const reservationController = {
           id: newId,
           date: body.date,
           time: body.startTime,
-          guests: parseInt(body.guests) || 1,
+          guests: guestCount,
           packageName: body.packageName || "Table Reservation",
         });
       }

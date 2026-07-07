@@ -300,9 +300,7 @@ const MyReservation = () => {
     }
   };
 
-  // Helper function to get display text for assigned tables
   const getAssignedTablesDisplay = (reservation) => {
-    // Check if it's an EVENT reservation
     const isEvent =
       reservation.reservation_type === "event" ||
       reservation.reservation_type === "EVENT" ||
@@ -310,12 +308,57 @@ const MyReservation = () => {
       reservation.reservationType === "EVENT";
 
     if (isEvent) {
-      return "🎉 EVENT (Full Venue)";
+      // Change this to whatever you want displayed
+      return "Full Venue (All Tables)";
     }
 
-    // For PER TABLE reservations, show the assigned tables
     return reservation.assigned_tables || "Not assigned";
   };
+
+  // ===== NEW: Helper function to properly display guest count =====
+  const getGuestDisplay = (reservation) => {
+    const numGuests = reservation.num_guests;
+
+    // If no value
+    if (!numGuests && numGuests !== 0) return "Not specified";
+
+    // If it's a pure number
+    const parsed = parseInt(numGuests);
+    if (!isNaN(parsed) && String(parsed) === String(numGuests)) {
+      return `${parsed} ${parsed === 1 ? "Guest" : "Guests"}`;
+    }
+
+    // If it contains table IDs (comma-separated with T prefix or numbers)
+    if (
+      typeof numGuests === "string" &&
+      (numGuests.includes(",") || /T\d+/.test(numGuests))
+    ) {
+      // Try to get actual guest count from other fields
+      const actualCount =
+        reservation.guests ||
+        reservation.pax ||
+        reservation.guest_count ||
+        reservation.num_guests_actual;
+
+      if (actualCount && !isNaN(parseInt(actualCount))) {
+        const count = parseInt(actualCount);
+        return `${count} ${count === 1 ? "Guest" : "Guests"}`;
+      }
+
+      // If we have pax from the form data
+      if (reservation.pax && !isNaN(parseInt(reservation.pax))) {
+        const count = parseInt(reservation.pax);
+        return `${count} ${count === 1 ? "Guest" : "Guests"}`;
+      }
+
+      // Show as table assignment info
+      return `Tables: ${numGuests}`;
+    }
+
+    // Default: show the value as-is
+    return numGuests;
+  };
+  // ===== END: Helper function =====
 
   return (
     <>
@@ -379,10 +422,7 @@ const MyReservation = () => {
                       </div>
                       <div className="info-item">
                         <Users size={16} />
-                        <span>
-                          {reservation.num_guests}{" "}
-                          {reservation.num_guests === 1 ? "Guest" : "Guests"}
-                        </span>
+                        <span>{getGuestDisplay(reservation)}</span>
                       </div>
                     </div>
 
@@ -465,7 +505,7 @@ const MyReservation = () => {
                   <div className="detail-row">
                     <span className="detail-label">Number of Guests:</span>
                     <span className="detail-value">
-                      {selectedReservation.num_guests}
+                      {getGuestDisplay(selectedReservation)}
                     </span>
                   </div>
 
