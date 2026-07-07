@@ -227,8 +227,6 @@ const Reservation = {
       timeZone: "Asia/Manila",
     });
 
-    // console.log(`Checking kiosk state for local date: ${today}, local time: ${now}`);
-
     // 1. Check if there is an active event reservation scheduled for right now
     const eventSql = `
           SELECT r.* 
@@ -257,7 +255,7 @@ const Reservation = {
           WHERE r.is_kiosk_active = 1
           LIMIT 1
         `;
-    const [actives] = await db.execute(activeSql); // Removed [today] argument constraint
+    const [actives] = await db.execute(activeSql);
     if (actives.length > 0) {
       return { mode: "table_assigned", reservation: actives[0] };
     }
@@ -351,6 +349,7 @@ const Reservation = {
     const [rows] = await db.execute(sql, [date]);
     return rows;
   },
+
   // ==================== CRUD OPERATIONS ====================
 
   create: async (data) => {
@@ -365,10 +364,21 @@ const Reservation = {
       const finalStatus = "Confirmed";
       const bridgeStatus = "confirmed";
 
-      // ===== FIX: Prioritize reservation_type from data =====
-      // First check reservation_type, then reservationType, then default to per_table
-      const finalReservationType =
-        data.reservation_type || data.reservationType || "per_table";
+      // ===== FIX: Safely get reservation type with string conversion =====
+      let finalReservationType = "per_table";
+
+      // Check if reservation_type exists and is valid
+      if (
+        data.reservation_type !== undefined &&
+        data.reservation_type !== null
+      ) {
+        finalReservationType = String(data.reservation_type).toLowerCase();
+      } else if (
+        data.reservationType !== undefined &&
+        data.reservationType !== null
+      ) {
+        finalReservationType = String(data.reservationType).toLowerCase();
+      }
 
       console.log(
         "📊 Model: Creating reservation with type:",
@@ -383,12 +393,12 @@ const Reservation = {
 
       // 1. Insert into reservations
       const resQuery = `INSERT INTO reservations (
-      reservation_id, user_id, first_name, last_name, email, phone, 
-      reservation_date, reservation_time, end_time, num_guests, 
-      package_name, status, receipt_path, brgy_code, allergy, 
-      allergy_count, occasion, duration_hours, downpayment_amount,
-      reservation_type
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        reservation_id, user_id, first_name, last_name, email, phone, 
+        reservation_date, reservation_time, end_time, num_guests, 
+        package_name, status, receipt_path, brgy_code, allergy, 
+        allergy_count, occasion, duration_hours, downpayment_amount,
+        reservation_type
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
       await conn.query(resQuery, [
         customId,
@@ -410,13 +420,12 @@ const Reservation = {
         data.occasion || "Casual Dining",
         data.durationHours || 1.0,
         data.downpayment || 0,
-        finalReservationType, // This must be 'event' for EVENT reservations
+        finalReservationType,
       ]);
 
       // 2. Handle Table Assignments
       let finalTableIds = [];
 
-      // ===== FIX: Check both field names for event detection =====
       const isEvent =
         data.reservation_type === "event" ||
         data.reservationType === "event" ||
@@ -438,11 +447,10 @@ const Reservation = {
       if (finalTableIds.length > 0) {
         for (const tid of finalTableIds) {
           if (tid !== "takeout" && tid !== 0) {
-            // Bypass table assignment insert if takeout
             await conn.query(
               `INSERT INTO reservation_tables 
-            (reservation_id, table_id, customer_name, status, check_in_time) 
-            VALUES (?, ?, ?, ?, NOW())`,
+              (reservation_id, table_id, customer_name, status, check_in_time) 
+              VALUES (?, ?, ?, ?, NOW())`,
               [
                 customId,
                 tid,
@@ -461,12 +469,12 @@ const Reservation = {
         }
       }
 
-      // 3. Insert payment record (Auto-verify if manual walk-in)
+      // 3. Insert payment record
       const payStatus = data.isWalkin ? "verified" : "pending";
       await conn.query(
         `INSERT INTO payments 
-      (reservation_id, amount, total_bill, payment_method, payment_status, paid_at) 
-      VALUES (?, ?, ?, ?, ?, NOW())`,
+        (reservation_id, amount, total_bill, payment_method, payment_status, paid_at) 
+        VALUES (?, ?, ?, ?, ?, NOW())`,
         [
           customId,
           data.downpayment || 0,
@@ -496,12 +504,10 @@ const Reservation = {
         for (const item of itemsToInsert) {
           let itemId = item.product_id || item.item_id || item.id;
 
-          // Get the name and clean it (lowercase and remove extra spaces)
           const itemName = String(item.name || item.item_name || "")
             .trim()
             .toLowerCase();
 
-          // SKIP writing to kiosk_orders if it's an Event Package (case-insensitive)
           if (
             itemName === "standard package" ||
             itemName === "premium package"
@@ -515,11 +521,10 @@ const Reservation = {
           const qty = item.quantity || 1;
           const customizations = item.customizations || "";
 
-          // Insert directly into kiosk_orders (only runs for real food/drink items)
           await conn.query(
             `INSERT INTO kiosk_orders 
-     (reservation_id, item_id, quantity, kitchen_status, customizations, is_refill) 
-     VALUES (?, ?, ?, 'pending', ?, 0)`,
+            (reservation_id, item_id, quantity, kitchen_status, customizations, is_refill) 
+            VALUES (?, ?, ?, 'pending', ?, 0)`,
             [customId, itemId, qty, customizations],
           );
         }
@@ -529,10 +534,10 @@ const Reservation = {
       // Notification
       if (data.userId && data.userId !== "null") {
         const notifSql = `
-        INSERT INTO notifications 
-        (user_id, reservation_id, title, message, type, is_read, created_at) 
-        VALUES (?, ?, ?, ?, 'success', 0, NOW())
-      `;
+          INSERT INTO notifications 
+          (user_id, reservation_id, title, message, type, is_read, created_at) 
+          VALUES (?, ?, ?, ?, 'success', 0, NOW())
+        `;
         await conn.query(notifSql, [
           data.userId,
           customId,
@@ -564,25 +569,21 @@ const Reservation = {
 
   getItemsByReservationId: async (id) => {
     const sql = `
-      /* 1. Get food items ordered from the Kiosk */
       SELECT 
         mi.menu_name AS item_name, 
-        mi.menu_name AS menu_name, /* Added for TableStatus.jsx backwards compatibility */
+        mi.menu_name AS menu_name,
         ko.quantity, 
         mi.price, 
         ko.customizations 
       FROM kiosk_orders ko
-      /* LEFT JOIN so kiosk items still show even if menu_items is missing */
       LEFT JOIN menu_items mi ON ko.item_id = mi.item_id 
       WHERE ko.reservation_id = ?
 
       UNION ALL
 
-      /* 2. Get the Event Package/Table Fee from the Reservation itself */
-      /* Only shows if price > 0 (to avoid showing 'Free' items) */
       SELECT 
         package_name AS item_name, 
-        package_name AS package_name, /* Added for TableStatus.jsx backwards compatibility */
+        package_name AS package_name,
         1 AS quantity, 
         downpayment_amount AS price, 
         'Reservation Fee' AS customizations 

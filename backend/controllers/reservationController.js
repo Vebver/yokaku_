@@ -256,15 +256,31 @@ const reservationController = {
         finalGuestCount: guestCount,
       });
 
-      // ===== FIX: Get reservation type from multiple sources =====
+      // ===== FIX: Safely get reservation type =====
       let reservationType = "per_table";
 
-      // Check both possible field names
-      if (body.reservation_type) {
-        reservationType = body.reservation_type.toLowerCase();
-      } else if (body.reservationType) {
-        reservationType = body.reservationType.toLowerCase();
+      // Safely check both possible field names
+      if (
+        body.reservation_type !== undefined &&
+        body.reservation_type !== null
+      ) {
+        // Convert to string and lowercase
+        reservationType = String(body.reservation_type).toLowerCase();
+      } else if (
+        body.reservationType !== undefined &&
+        body.reservationType !== null
+      ) {
+        // Convert to string and lowercase
+        reservationType = String(body.reservationType).toLowerCase();
       }
+
+      console.log("📊 Reservation type from request:", {
+        bodyReservationType: body.reservationType,
+        bodyReservation_type: body.reservation_type,
+        finalType: reservationType,
+        typeOfReservationType: typeof body.reservation_type,
+        typeOfReservationTypeCamel: typeof body.reservationType,
+      });
 
       // ===== FIX: Detect EVENT from package name if type is still per_table =====
       if (reservationType === "per_table" && body.packageName) {
@@ -278,13 +294,6 @@ const reservationController = {
           reservationType = "event";
         }
       }
-
-      console.log("📊 Reservation type from request:", {
-        bodyReservationType: body.reservationType,
-        bodyReservation_type: body.reservation_type,
-        finalType: reservationType,
-        packageName: body.packageName,
-      });
 
       // Better tableIds parsing with error handling
       let tableIdsArray = [];
@@ -362,9 +371,9 @@ const reservationController = {
       // ===== FIX: Build reservationData with correct type =====
       const reservationData = {
         ...body,
-        // ===== FIX: Explicitly set both field names =====
-        reservation_type: reservationType,
-        reservationType: reservationType,
+        // ===== FIX: Explicitly set both field names as strings =====
+        reservation_type: String(reservationType),
+        reservationType: String(reservationType),
 
         // Only link user ID if the client is a real customer. Left as null for staff bookings.
         userId:
