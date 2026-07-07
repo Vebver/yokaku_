@@ -778,6 +778,40 @@
   cursor: not-allowed !important;
 }
 
+/* Cancel Modal Refund Button */
+.cancel-modal-refund-btn {
+  flex: 1;
+  padding: 12px;
+  background: linear-gradient(135deg, #2196f3, #1976d2);
+  color: white;
+  border: none;
+  border-radius: 14px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);
+}
+
+.cancel-modal-refund-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(33, 150, 243, 0.4);
+}
+
+.cancel-modal-refund-btn.disabled,
+.cancel-modal-refund-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.cancel-modal-refund-btn .refund-hint {
+  font-size: 10px;
+  opacity: 0.8;
+  font-weight: normal;
+}
+
 /* Animations */
 @keyframes slideUp {
   from {

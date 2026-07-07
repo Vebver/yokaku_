@@ -75,6 +75,7 @@ const Notification = require("./models/Notification");
 const settingRoutes = require("./routes/settingRoutes");
 const priceRoutes = require("./routes/priceRoutes");
 const auditLogsRouter = require("./routes/auditRoutes");
+const refundRoutes = require("./routes/refundRoutes");
 
 // Set io instance for Notification model
 Notification.setIo(io);
@@ -141,6 +142,7 @@ app.use("/api/inventory", protect, adminOnly, inventoryRoutes);
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/api/admin", adminRoutes);
 app.use("/api/billing", billingRoutes);
+app.use("/api/refund", refundRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/settings", settingRoutes);

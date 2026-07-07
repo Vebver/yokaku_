@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import {
   Calendar,
@@ -8,7 +9,7 @@ import {
   Eye,
   X,
   AlertCircle,
-  Upload, // Added Upload icon
+  Upload,
 } from "lucide-react";
 import TermsModal from "../TermsModal";
 import "../../Style/MyReservation.css";
@@ -18,6 +19,7 @@ const API_BASE = "https://yokaku-backend.onrender.com/api";
 
 const MyReservation = () => {
   const { showToast } = useToast();
+  const navigate = useNavigate();
   const [reservations, setReservations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedReservation, setSelectedReservation] = useState(null);
@@ -183,6 +185,45 @@ const MyReservation = () => {
     return false;
   };
 
+  // Check if reservation is PER TABLE (for disabling File a Refund)
+  const isPerTableReservation = () => {
+    if (!selectedReservation) return false;
+    const reservationType =
+      selectedReservation.reservation_type ||
+      selectedReservation.reservationType ||
+      "";
+    return reservationType.toLowerCase() === "per_table";
+  };
+
+  // FIX: New function to handle "File a Refund" - navigates to file-a-refund page
+  const handleFileRefund = () => {
+    // Check if it's PER TABLE - if so, don't proceed
+    if (isPerTableReservation()) {
+      showToast("Refund is not available for PER TABLE reservations.", "error");
+      return;
+    }
+
+    const finalReason =
+      cancelReason === "Other" ? cancelReasonText : cancelReason;
+    if (!finalReason || !agreeToTerms) return;
+
+    // Navigate to file-a-refund page with state
+    navigate("/file-a-refund", {
+      state: {
+        reservationId: selectedReservation?.reservation_id,
+        reason: finalReason,
+        reservationType:
+          selectedReservation?.reservation_type ||
+          selectedReservation?.reservationType ||
+          "per_table",
+      },
+    });
+
+    // Close the cancel modal
+    handleCloseCancelModal();
+    closeModal();
+  };
+
   const handleConfirmCancellation = () => {
     if (isConfirmDisabled()) return;
     handleProceedToCancellation(
@@ -345,7 +386,6 @@ const MyReservation = () => {
                       </div>
                     </div>
 
-                    {/* FIX: Display "EVENT" instead of all tables for EVENT reservations */}
                     <div className="reservation-tables">
                       <span className="tables-label">Tables:</span>
                       <span className="tables-value">
@@ -429,7 +469,6 @@ const MyReservation = () => {
                     </span>
                   </div>
 
-                  {/* FIX: Display "EVENT" instead of all tables for EVENT reservations in modal */}
                   <div className="detail-row">
                     <span className="detail-label">Assigned Tables:</span>
                     <span className="detail-value">
@@ -657,11 +696,33 @@ const MyReservation = () => {
               </div>
 
               <div className="cancel-modal-footer">
+                {/* FIX: "File a Refund" button - disabled if PER TABLE or form incomplete */}
                 <button
-                  className="cancel-modal-back-btn"
-                  onClick={handleCloseCancelModal}
+                  className={`cancel-modal-refund-btn ${isConfirmDisabled() || isPerTableReservation() ? "disabled" : ""}`}
+                  onClick={handleFileRefund}
+                  disabled={isConfirmDisabled() || isPerTableReservation()}
+                  style={{
+                    opacity:
+                      isConfirmDisabled() || isPerTableReservation() ? 0.5 : 1,
+                    cursor:
+                      isConfirmDisabled() || isPerTableReservation()
+                        ? "not-allowed"
+                        : "pointer",
+                  }}
                 >
-                  Go Back
+                  File a Refund
+                  {isPerTableReservation() && (
+                    <span
+                      className="refund-hint"
+                      style={{
+                        fontSize: "10px",
+                        display: "block",
+                        fontWeight: "normal",
+                      }}
+                    >
+                      (Not available for PER TABLE)
+                    </span>
+                  )}
                 </button>
                 <button
                   className={`cancel-modal-confirm-btn ${isConfirmDisabled() ? "disabled" : ""}`}
@@ -674,7 +735,7 @@ const MyReservation = () => {
                       Processing...
                     </>
                   ) : (
-                    "Confirm"
+                    "Cancel Reservation"
                   )}
                 </button>
               </div>

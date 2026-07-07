@@ -33,6 +33,7 @@ import TermsModal from "./components/TermsModal";
 import ResetPasswordPage from "./components/ResetPasswordPage";
 import MyReservation from "./components/customer-page/MyReservation";
 import Cashier from "./components/cashier/Cashier.jsx";
+import FileARefund from "./components/FileARefund";
 
 import "./Style/App.css";
 // 1. MAIN APP COMPONENT
@@ -142,7 +143,6 @@ function AppContent() {
             )
           }
         />
-
         {/* 2. PROTECTED CUSTOMER ROUTES */}
         <Route
           path="/customer"
@@ -179,7 +179,6 @@ function AppContent() {
           path="/notifications"
           element={isLoggedIn ? <Notifications /> : <Navigate to="/" replace />}
         />
-
         {/* 3. PROTECTED ADMIN ROUTES */}
         <Route
           path="/admin/*"
@@ -191,7 +190,6 @@ function AppContent() {
             )
           }
         />
-
         {/* 4. PROTECTED CASHIER ROUTE */}
         <Route
           path="/cashier/dashboard"
@@ -206,7 +204,6 @@ function AppContent() {
             )
           }
         />
-
         {/* 5. PUBLIC / KIOSK / KITCHEN ROUTES */}
         <Route
           path="/tablereservation"
@@ -230,7 +227,6 @@ function AppContent() {
         <Route path="/kitchen-page" element={<KitchenPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/menu" element={<FullMenu />} />
-
         {/* 6. CATCH ALL - MUST BE AT THE VERY BOTTOM */}
         <Route
           path="*"
@@ -248,6 +244,8 @@ function AppContent() {
             )
           }
         />
+
+        <Route path="/file-a-refund" element={<FileARefund />} />
       </Routes>
 
       {/* Modals */}
@@ -293,7 +291,7 @@ const ReservationSuccess = ({ onClose }) => {
 
 // 4. NAVBAR WRAPPER
 const NavbarWrapper = ({ onLoginClick, isLoggedIn, onLogout, userRole }) => {
-  const location = useLocation()
+  const location = useLocation();
   // Hide navbar on these pages
   const hiddenPaths = [
     "/admin",

@@ -1,0 +1,138 @@
+/* FileARefund.css */
+
+.refund-page-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #fef9f0 0%, #fff5e6 100%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 100px 20px;
+}
+
+.refund-form-wrapper {
+  background: white;
+  border-radius: 24px;
+  padding: 40px;
+  max-width: 600px;
+  width: 100%;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e8e8e8;
+}
+
+.refund-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0 0 8px 0;
+  text-align: center;
+}
+
+.refund-subtitle {
+  color: #666;
+  text-align: center;
+  margin-bottom: 30px;
+  font-size: 14px;
+}
+
+.refund-form-group {
+  margin-bottom: 20px;
+}
+
+.refund-form-group label {
+  display: block;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 6px;
+  font-size: 14px;
+}
+
+.refund-input,
+.refund-textarea {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1.5px solid #e8e8e8;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  background: #fafafa;
+  font-family: inherit;
+}
+
+.refund-input:focus,
+.refund-textarea:focus {
+  outline: none;
+  border-color: #f38d31;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(243, 141, 49, 0.1);
+}
+
+.refund-input:disabled,
+.refund-textarea:disabled {
+  background: #f5f5f5;
+  color: #999;
+  cursor: not-allowed;
+}
+
+.refund-textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.refund-form-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.refund-cancel-btn {
+  flex: 1;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1.5px solid #e8e8e8;
+  background: white;
+  color: #666;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.refund-cancel-btn:hover {
+  border-color: #999;
+  color: #333;
+}
+
+.refund-submit-btn {
+  flex: 2;
+  padding: 12px;
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(135deg, #f38d31, #e07a1e);
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.refund-submit-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(243, 141, 49, 0.3);
+}
+
+.refund-submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+  .refund-form-wrapper {
+    padding: 24px;
+  }
+
+  .refund-title {
+    font-size: 22px;
+  }
+
+  .refund-form-actions {
+    flex-direction: column;
+  }
+}
