@@ -166,19 +166,20 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     setLinkedIds([]);
   };
 
-useEffect(() => {
+  useEffect(() => {
     const fetchLiveTables = async () => {
       try {
-        // Update URL to point to your new public reservations route:
-        const response = await axios.get(`${API_BASE}/reservations/all-tables`); 
-        
+        const response = await axios.get(`${API_BASE}/reservations/all-tables`);
+        console.log("📊 Fetched tables:", response.data);
+
         if (Array.isArray(response.data)) {
           const mapped = response.data.map((t) => ({
             id: t.table_id,
             label: `Table ${t.table_number}`,
             seats: t.capacity,
-            status: t.status
+            status: t.status,
           }));
+          console.log("📊 Mapped tables:", mapped);
           setTables(mapped);
         }
       } catch (error) {
@@ -812,7 +813,7 @@ useEffect(() => {
     if (form.muni) fetchBarangays(form.muni);
   }, [form.muni]);
 
- useEffect(() => {
+  useEffect(() => {
     const fetchAllTableSchedules = async () => {
       if (!form.date) return;
       setIsDateLoading(true);
@@ -821,9 +822,9 @@ useEffect(() => {
       const currentTime = now.getHours() * 60 + now.getMinutes();
       const todayStrDate = now.toISOString().split("T")[0];
       const isToday = form.date === todayStrDate;
-      
+
       // CHANGE HERE: Loop over 'tables' state instead of 'TABLES_DATA'
-      for (const table of tables) { 
+      for (const table of tables) {
         try {
           const response = await axios.get(
             `${API_BASE}/reservations/table-schedule`,
@@ -937,7 +938,7 @@ useEffect(() => {
     selectedReservationDate,
   ]);
 
-    const primaryTable = useMemo(
+  const primaryTable = useMemo(
     () => tables.find((t) => t.id === selectedId), // Changed TABLES_DATA to tables
     [selectedId, tables],
   );
@@ -1036,10 +1037,9 @@ useEffect(() => {
     if (!selectedId) return 0;
     return (
       (primaryTable?.seats || 0) +
-      tables.filter((t) => linkedIds.includes(t.id)).reduce(
-        (sum, t) => sum + t.seats,
-        0,
-      )
+      tables
+        .filter((t) => linkedIds.includes(t.id))
+        .reduce((sum, t) => sum + t.seats, 0)
     );
   }, [selectedId, linkedIds, primaryTable]);
 
@@ -1486,6 +1486,8 @@ useEffect(() => {
     }
   };
 
+  // In ReservationSteps.jsx, find the confirmBooking function and update it
+
   const confirmBooking = async () => {
     setIsProcessing(true);
     setUi((p) => ({ ...p, loading: true }));
@@ -1502,13 +1504,47 @@ useEffect(() => {
           ? `Other: ${form.customOccasion}`
           : form.occasion || "Casual Dining";
 
+      // ===== FIX: Properly calculate guest count =====
+      // For EVENT: use 35 (fixed max capacity)
+      // For PER TABLE: use form.pax or calculate from selected tables
+      let guestCount = 0;
+
+      if (reservationType === "event") {
+        guestCount = 35; // Fixed capacity for events
+      } else {
+        // PER TABLE: use form.pax first, fallback to totalSeats
+        const paxValue = parseInt(form.pax);
+        if (paxValue > 0) {
+          guestCount = paxValue;
+        } else {
+          // Fallback: calculate from selected tables
+          const selectedTableSeats = primaryTable?.seats || 0;
+          const linkedTableSeats = linkedIds.reduce((sum, id) => {
+            const table = tables.find((t) => t.id === id);
+            return sum + (table?.seats || 0);
+          }, 0);
+          guestCount = selectedTableSeats + linkedTableSeats;
+        }
+
+        // If still 0, default to 1
+        if (guestCount === 0) {
+          console.warn("⚠️ Guest count is 0, defaulting to 1");
+          guestCount = 1;
+        }
+      }
+
+      console.log("📊 Guest count:", guestCount);
+      console.log("📊 form.pax:", form.pax);
+      console.log("📊 totalSeats:", totalSeats);
+      console.log("📊 Reservation type:", reservationType);
+
       const submission = {
         ...user,
         ...form,
         reservationType: reservationType,
         userId: userId,
-        guests: parseInt(form.pax) || totalSeats,
-        pax: form.pax || totalSeats,
+        guests: guestCount,
+        pax: guestCount,
         allergyCount: form.allergyCount || 0,
         packageName: productDisplayName,
         totalAmount: orderSummary.totalOrderPrice,
@@ -1562,7 +1598,7 @@ useEffect(() => {
           userId: userId,
           date: form.date,
           time: form.startTime,
-          guests: parseInt(form.pax) || totalSeats,
+          guests: guestCount,
           packageName: productDisplayName,
         });
       }
