@@ -1,5 +1,17 @@
 // utils/emailService.js
+// Updated for @getbrevo/brevo package
+
+// Import Brevo correctly
 const brevo = require("@getbrevo/brevo");
+
+// Initialize Brevo client - CORRECT SYNTAX
+const apiInstance = new brevo.TransactionalEmailsApi();
+
+// Set API key
+apiInstance.setApiKey(
+  brevo.TransactionalEmailsApiApiKeys.apiKey,
+  process.env.BREVO_PASS,
+);
 
 // Check if API key exists in environment
 if (!process.env.BREVO_PASS) {
@@ -7,13 +19,7 @@ if (!process.env.BREVO_PASS) {
   console.warn("⚠️ Email sending will fail until this is configured.");
 }
 
-// Initialize Brevo client with HTTP API
-const apiInstance = new brevo.TransactionalEmailsApi();
-const apiKey = apiInstance.authentications["apiKey"];
-// API key comes ONLY from environment variable - NO hardcoded fallback!
-apiKey.apiKey = process.env.BREVO_PASS;
-
-// Sender information - use the email from BREVO_USER
+// Sender information
 const sender = {
   email: process.env.BREVO_USER || "leabrescarl@gmail.com",
   name: "Restaurant Management",
