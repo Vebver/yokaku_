@@ -61,6 +61,7 @@ const FileARefund = () => {
         reservationType: reservationType,
       });
 
+      // 1. Submit the refund request
       const response = await axios.post(
         `${API_BASE}/refund/request`,
         {
@@ -80,17 +81,32 @@ const FileARefund = () => {
       );
 
       console.log("✅ Refund response:", response.data);
+
+      // 2. Automatically update reservation status to "Cancelled"
+      console.log("🔄 Cancelling reservation in database...");
+      await axios.put(
+        `${API_BASE}/reservations/${reservationId}/status`,
+        {
+          status: "Cancelled",
+          cancellation_reason: comment
+            ? `${reason} | Comment: ${comment}`
+            : reason,
+          cancelled_at: new Date().toISOString(),
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+
       showToast(
-        response.data.message || "Refund request submitted successfully!",
+        "Refund request submitted and reservation successfully cancelled.",
         "success",
       );
       navigate("/my-reservation");
     } catch (error) {
       console.error("❌ Refund request error:", error);
       console.error("📋 Error response:", error.response?.data);
-      console.error("📋 Error status:", error.response?.status);
 
-      // Show more specific error messages
       let errorMessage = "Failed to submit refund request.";
       if (error.response?.data?.error) {
         errorMessage = error.response.data.error;

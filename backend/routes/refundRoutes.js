@@ -2,6 +2,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
+const Reservation = require("../models/Reservation");
 const { protect } = require("../middleware/authMiddleware");
 const {
   sendRefundNotificationEmail,
@@ -95,41 +96,64 @@ router.post("/request", protect, async (req, res) => {
 
     console.log("✅ User found:", userName);
 
-    console.log("✅ Inserting into refund_requests table...");
+    const conn = await db.getConnection();
 
-    const [result] = await db.execute(
-      `INSERT INTO refund_requests (user_id, reservation_id, subject, comment, email, reason, reservation_type, status, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', NOW())`,
-      [userId, reservationId, subject, comment, email, reason, reservationType],
-    );
+    try {
+      await conn.beginTransaction();
 
-    console.log("✅ Refund request inserted, ID:", result.insertId);
+      console.log("✅ Inserting into refund_requests table...");
 
-    // Prepare refund data for email
-    const refundData = {
-      reservationId,
-      subject,
-      comment,
-      email,
-      reason,
-      reservationType,
-      userName,
-    };
+      const [result] = await conn.execute(
+        `INSERT INTO refund_requests (user_id, reservation_id, subject, comment, email, reason, reservation_type, status, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', NOW())`,
+        [userId, reservationId, subject, comment, email, reason, reservationType],
+      );
 
-    console.log("📧 Attempting to send emails...");
+      const cancellationReason = comment
+        ? `${reason || "Refund request"} | Comment: ${comment}`
+        : reason || "Refund request submitted by customer";
 
-    // Send email notifications
-    const storeResult = await sendRefundNotificationEmail(refundData);
-    console.log("📧 Store email result:", storeResult);
+      await Reservation.updateStatus(
+        reservationId,
+        "Cancelled",
+        cancellationReason,
+      );
 
-    const customerResult = await sendRefundConfirmationEmail(refundData);
-    console.log("📧 Customer email result:", customerResult);
+      await conn.commit();
 
-    res.json({
-      success: true,
-      message: "Refund request submitted successfully.",
-      refundId: result.insertId,
-    });
+      console.log("✅ Refund request inserted, ID:", result.insertId);
+
+      // Prepare refund data for email
+      const refundData = {
+        reservationId,
+        subject,
+        comment,
+        email,
+        reason,
+        reservationType,
+        userName,
+      };
+
+      console.log("📧 Attempting to send emails...");
+
+      // Send email notifications
+      const storeResult = await sendRefundNotificationEmail(refundData);
+      console.log("📧 Store email result:", storeResult);
+
+      const customerResult = await sendRefundConfirmationEmail(refundData);
+      console.log("📧 Customer email result:", customerResult);
+
+      res.json({
+        success: true,
+        message: "Refund request submitted successfully.",
+        refundId: result.insertId,
+      });
+    } catch (error) {
+      await conn.rollback();
+      throw error;
+    } finally {
+      conn.release();
+    }
   } catch (error) {
     console.error("❌ Refund request error:", error);
     console.error("📋 Error stack:", error.stack);

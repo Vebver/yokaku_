@@ -12,8 +12,12 @@ import {
   AlertTriangle,
   Search,
 } from "lucide-react";
+import { useToast } from "../ToastContext";
+
+
 
 const OnlineReservations = () => {
+  const { showToast } = useToast();
   const [inquiries, setInquiries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedRes, setSelectedRes] = useState(null);
@@ -96,7 +100,7 @@ const OnlineReservations = () => {
   // Handler to submit refund and trigger notification
   const handleProcessRefund = async () => {
     if (!refundAmount || isNaN(refundAmount) || Number(refundAmount) < 0) {
-      alert("Please enter a valid refund amount.");
+      showToast("Please enter a valid refund amount.", "error");
       return;
     }
 
@@ -111,8 +115,8 @@ const OnlineReservations = () => {
         { headers: { Authorization: `Bearer ${token}` } },
       );
 
-      alert(
-        "Refund processed successfully. Notification has been sent to the customer.",
+      showToast(
+        "Refund processed successfully. Notification has been sent to the customer.", "success"
       );
 
       // Update selected reservation state locally so UI updates
@@ -125,8 +129,8 @@ const OnlineReservations = () => {
       await fetchReservations();
     } catch (err) {
       console.error(err);
-      alert(
-        "Failed to process refund. Please verify your connection or backend configuration.",
+      showToast(
+        "Failed to process refund. Please verify your connection or backend configuration.","error"
       );
     } finally {
       setRefunding(false);
@@ -393,18 +397,65 @@ const OnlineReservations = () => {
                 </div>
               </div>
 
-              {/* 2. CANCELLATION & REFUND DETAILS */}
+              {/* 2. CANCELLATION DETAILS (Visible only if status is cancelled) */}
               {selectedRes.status?.toLowerCase() === "cancelled" && (
                 <div className="p-3 bg-danger-subtle text-danger border-bottom border-danger-subtle w-100">
                   <div className="small fw-bold d-flex align-items-center mb-1">
                     <AlertTriangle size={15} className="me-2" />
                     CUSTOMER CANCELLED RESERVATION
                   </div>
-                  <div className="small text-dark mb-1">
-                    <strong>Reason:</strong>{" "}
-                    {selectedRes.cancellation_reason ||
-                      "No cancellation reason specified."}
-                  </div>
+
+                  {(() => {
+                    const rawReason =
+                      selectedRes.cancellation_reason ||
+                      selectedRes.reason ||
+                      selectedRes.refund_reason ||
+                      "No cancellation reason specified.";
+
+                    let displayReason = rawReason;
+                    let displayComment =
+                      selectedRes.comment ||
+                      selectedRes.refund_comment ||
+                      selectedRes.refund_details ||
+                      "";
+
+                    // 1. Matches "Reason | Comment: comment text"
+                    if (rawReason.includes(" | Comment: ")) {
+                      const parts = rawReason.split(" | Comment: ");
+                      displayReason = parts[0];
+                      displayComment = parts[1];
+                    }
+                    // 2. Matches "Reason (Comment: comment text)" format from your previous database tests
+                    else if (
+                      rawReason.includes(" (Comment: ") &&
+                      rawReason.endsWith(")")
+                    ) {
+                      const parts = rawReason.split(" (Comment: ");
+                      displayReason = parts[0];
+                      displayComment = parts[1].slice(0, -1); // Trim off the closing parenthesis
+                    }
+                    // 3. Fallback for plain text comments that were saved directly
+                    else if (!displayComment && rawReason.includes("Comment:")) {
+                      const parts = rawReason.split("Comment:");
+                      displayReason = parts[0].trim();
+                      displayComment = parts[1].trim();
+                    }
+
+                    return (
+                      <>
+                        <div className="small text-dark mb-1">
+                          <strong>Reason:</strong> {displayReason}
+                        </div>
+
+                        {displayComment && (
+                          <div className="small text-dark mb-1">
+                            <strong>Comment:</strong> {displayComment}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+
                   {selectedRes.cancelled_at && (
                     <div
                       className="x-small text-muted mb-3"
@@ -415,71 +466,76 @@ const OnlineReservations = () => {
                     </div>
                   )}
 
-                  {/* Refund section - updated with stacked full-width layout to avoid compression */}
+                  {/* Refund processing card */}
                   <div className="p-3 bg-white text-dark rounded border border-danger-subtle w-100">
-                    {selectedRes.refund_amount !== undefined &&
-                    selectedRes.refund_amount !== null &&
-                    selectedRes.refund_amount !== "" ? (
-                      <div className="small">
-                        <span className="fw-bold text-success d-block mb-1">
-                          Refund Actioned
-                        </span>
-                        An amount of{" "}
-                        <strong>
-                          ₱{Number(selectedRes.refund_amount).toFixed(2)}
-                        </strong>{" "}
-                        was registered and notified.
-                      </div>
-                    ) : (
-                      <div className="w-100">
-                        <label className="form-label small fw-bold mb-1 text-muted d-block">
-                          Process Refund & Send Notification
-                        </label>
+                    {(() => {
+                      const isRefunded =
+                        selectedRes.refund_amount !== undefined &&
+                        selectedRes.refund_amount !== null &&
+                        selectedRes.refund_amount !== "";
 
-                        {/* Full-width input field */}
-                        <div className="position-relative w-100 mb-2">
-                          {/* The Peso symbol positioned absolutely inside the input */}
-                          <span
-                            className="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"
-                            style={{ zIndex: 5, pointerEvents: "none" }}
+                      return (
+                        <div className="w-100">
+                          <label className="form-label small fw-bold mb-1 text-muted d-block">
+                            {isRefunded
+                              ? "Refund Status"
+                              : "Process Refund & Send Notification"}
+                          </label>
+
+                          {/* Currency Input wrapper */}
+                          <div className="position-relative w-100 mb-2">
+                            <span
+                              className="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"
+                              style={{ zIndex: 5, pointerEvents: "none" }}
+                            >
+                              ₱
+                            </span>
+                            <input
+                              type="number"
+                              className="form-control form-control-sm border-secondary-subtle"
+                              placeholder="0.00"
+                              value={refundAmount}
+                              onChange={(e) => setRefundAmount(e.target.value)}
+                              disabled={refunding || isRefunded}
+                              style={{
+                                width: "100%",
+                                paddingLeft: "28px",
+                              }}
+                            />
+                          </div>
+
+                          {/* Refund Action Button */}
+                          <button
+                            className="btn btn-danger btn-sm w-100 fw-bold py-2 mb-2"
+                            type="button"
+                            onClick={handleProcessRefund}
+                            disabled={refunding || isRefunded || !refundAmount}
                           >
-                            ₱
-                          </span>
+                            {refunding
+                              ? "Processing..."
+                              : isRefunded
+                                ? "Refund Submitted"
+                                : "Process & Notify Customer"}
+                          </button>
 
-                          <input
-                            type="number"
-                            className="form-control form-control-sm border-secondary-subtle"
-                            placeholder="0.00"
-                            value={refundAmount}
-                            onChange={(e) => setRefundAmount(e.target.value)}
-                            disabled={refunding}
-                            style={{
-                              width: "100%",
-                              paddingLeft: "28px", // Adds padding so the text doesn't overlap the ₱ symbol
-                            }}
-                          />
+                          {isRefunded ? (
+                            <div className="small text-success fw-bold text-center mt-1">
+                              ✓ Refund of ₱
+                              {Number(selectedRes.refund_amount).toFixed(2)} was
+                              successfully recorded.
+                            </div>
+                          ) : (
+                            <div
+                              className="x-small text-muted text-center"
+                              style={{ fontSize: "0.7rem", lineHeight: "1.2" }}
+                            >
+                              This updates the record with the refund amount and
+                              triggers a notification template to the customer.
+                            </div>
+                          )}
                         </div>
-                        {/* Full-width button */}
-                        <button
-                          className="btn btn-danger btn-sm w-100 fw-bold py-2 mb-2"
-                          type="button"
-                          onClick={handleProcessRefund}
-                          disabled={refunding}
-                        >
-                          {refunding
-                            ? "Processing..."
-                            : "Process & Notify Customer"}
-                        </button>
-
-                        <div
-                          className="x-small text-muted"
-                          style={{ fontSize: "0.7rem", lineHeight: "1.2" }}
-                        >
-                          This updates the record with the refund amount and
-                          triggers a notification template to the customer.
-                        </div>
-                      </div>
-                    )}
+                      );
+                    })()}
                   </div>
                 </div>
               )}
