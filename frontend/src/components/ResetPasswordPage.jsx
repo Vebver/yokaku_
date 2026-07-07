@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import "../Style/LoginModal.css";
@@ -20,6 +20,65 @@ function ResetPasswordPage() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Password validation states
+  const [passwordCriteria, setPasswordCriteria] = useState({
+    minLength: false,
+    hasCapital: false,
+    hasSpecial: false,
+  });
+
+  // Validate password in real-time
+  useEffect(() => {
+    setPasswordCriteria({
+      minLength: newPassword.length >= 8,
+      hasCapital: /[A-Z]/.test(newPassword),
+      hasSpecial: /[!@#$%^&*(),.?":{}|<>]/.test(newPassword),
+    });
+  }, [newPassword]);
+
+  // Check if all password criteria are met
+  const isPasswordValid =
+    passwordCriteria.minLength &&
+    passwordCriteria.hasCapital &&
+    passwordCriteria.hasSpecial;
+
+  // Password criteria indicator component
+  const PasswordCriteria = ({ label, isMet }) => (
+    <div
+      className={`password-criteria-item ${isMet ? "met" : ""}`}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        padding: "4px 0",
+        fontSize: "13px",
+        color: isMet ? "#27ae60" : "#999",
+        transition: "all 0.3s ease",
+      }}
+    >
+      <span
+        className="criteria-icon"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: "20px",
+          height: "20px",
+          borderRadius: "50%",
+          border: isMet ? "2px solid #27ae60" : "2px solid #ddd",
+          backgroundColor: isMet ? "#27ae60" : "transparent",
+          color: isMet ? "white" : "transparent",
+          transition: "all 0.3s ease",
+          fontSize: "12px",
+          fontWeight: "bold",
+        }}
+      >
+        {isMet ? "✓" : ""}
+      </span>
+      <span>{label}</span>
+    </div>
+  );
 
   // If no token, show error
   if (!token) {
@@ -84,8 +143,9 @@ function ResetPasswordPage() {
     e.preventDefault();
     setError("");
 
-    if (newPassword.length < 8) {
-      setError("Password must be at least 8 characters.");
+    // Use the password criteria validation
+    if (!isPasswordValid) {
+      setError("Please meet all password requirements.");
       return;
     }
 
@@ -154,6 +214,34 @@ function ResetPasswordPage() {
             />
           </div>
 
+          {/* Password Criteria Display */}
+          {newPassword && (
+            <div
+              className="password-criteria-container"
+              style={{
+                marginTop: "8px",
+                marginBottom: "12px",
+                padding: "10px 14px",
+                background: "#f8f9fa",
+                borderRadius: "8px",
+                border: "1px solid #e9ecef",
+              }}
+            >
+              <PasswordCriteria
+                label="At least 8 characters"
+                isMet={passwordCriteria.minLength}
+              />
+              <PasswordCriteria
+                label="At least 1 capital letter"
+                isMet={passwordCriteria.hasCapital}
+              />
+              <PasswordCriteria
+                label="At least 1 special character (!@#$%^&*)"
+                isMet={passwordCriteria.hasSpecial}
+              />
+            </div>
+          )}
+
           <div className="password-container" style={{ marginBottom: "15px" }}>
             <input
               type={showConfirmPassword ? "text" : "password"}
@@ -171,7 +259,11 @@ function ResetPasswordPage() {
 
           {error && <p className="password-warning">{error}</p>}
 
-          <button type="submit" className="submit-btn" disabled={loading}>
+          <button
+            type="submit"
+            className="submit-btn"
+            disabled={loading || !isPasswordValid}
+          >
             {loading ? "UPDATING..." : "UPDATE PASSWORD"}
           </button>
         </form>

@@ -29,18 +29,7 @@ const MyReservation = () => {
   const [selectedCancelReason, setSelectedCancelReason] = useState("");
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [showTermsFromCancel, setShowTermsFromCancel] = useState(false);
-  const [noShowCount, setNoShowCount] = useState(0);
-  const [cancellationCount, setCancellationCount] = useState(0);
-  const MAX_STRIKES = 3;
   const [isCancelling, setIsCancelling] = useState(false);
-
-  // New state for cancellation limit
-  const [cancellationsLeft, setCancellationsLeft] = useState(3);
-  const [showLimitWarning, setShowLimitWarning] = useState(false);
-  const [cooldownTimeLeft, setCooldownTimeLeft] = useState(0);
-  const MAX_CANCELLATIONS = 3;
-  const COOLDOWN_HOURS = 24;
-  const COOLDOWN_SECONDS = COOLDOWN_HOURS * 60 * 60;
 
   // New states for re-uploading payment proof
   const [uploading, setUploading] = useState(false);
@@ -59,63 +48,7 @@ const MyReservation = () => {
 
   useEffect(() => {
     fetchUserReservations();
-    fetchCancellationCount();
   }, []);
-
-  useEffect(() => {
-    let timer;
-    if (cooldownTimeLeft > 0) {
-      timer = setInterval(() => {
-        setCooldownTimeLeft((prev) => {
-          if (prev <= 1) {
-            fetchCancellationCount();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-    return () => clearInterval(timer);
-  }, [cooldownTimeLeft]);
-
-  const fetchCancellationCount = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const userId = localStorage.getItem("userId");
-
-      if (!userId) return;
-
-      const response = await axios.get(
-        `${API_BASE}/reservations/user/${userId}/cancellation-count`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
-
-      const count = response.data.cancellationCount || 0;
-      const lastCancellationTime = response.data.lastCancellationTime;
-      const cancellationsLeftValue = Math.max(0, MAX_CANCELLATIONS - count);
-
-      setCancellationsLeft(cancellationsLeftValue);
-
-      if (cancellationsLeftValue === 0 && lastCancellationTime) {
-        const lastTime = new Date(lastCancellationTime).getTime();
-        const now = Date.now();
-        const elapsedSeconds = Math.floor((now - lastTime) / 1000);
-        const remainingSeconds = Math.max(0, COOLDOWN_SECONDS - elapsedSeconds);
-
-        if (remainingSeconds > 0) {
-          setCooldownTimeLeft(remainingSeconds);
-        } else {
-          setCooldownTimeLeft(0);
-        }
-      } else {
-        setCooldownTimeLeft(0);
-      }
-    } catch (error) {
-      console.error("Error fetching cancellation count:", error);
-    }
-  };
 
   const fetchUserReservations = async () => {
     try {
@@ -209,18 +142,6 @@ const MyReservation = () => {
   };
 
   const handleCancelClick = () => {
-    if (cancellationsLeft <= 0) {
-      setShowLimitWarning(true);
-      return;
-    }
-
-    if (cooldownTimeLeft > 0) {
-      showToast(
-        `You need to wait ${formatCooldownTime(cooldownTimeLeft)} before you can cancel another reservation.`,
-      );
-      return;
-    }
-
     setCancelReason("");
     setCancelReasonText("");
     setSelectedCancelReason("");
@@ -234,7 +155,6 @@ const MyReservation = () => {
     setCancelReasonText("");
     setSelectedCancelReason("");
     setAgreeToTerms(false);
-    setShowLimitWarning(false);
   };
 
   const handleOpenTermsModal = () => {
@@ -251,19 +171,6 @@ const MyReservation = () => {
     setAgreeToTerms(true);
     setShowTermsModal(false);
     setShowTermsFromCancel(false);
-  };
-
-  const formatCooldownTime = (seconds) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-
-    if (hours > 0) {
-      return `${hours}h ${minutes}m`;
-    } else if (minutes > 0) {
-      return `${minutes}m ${secs}s`;
-    }
-    return `${secs}s`;
   };
 
   const isConfirmDisabled = () => {
@@ -302,27 +209,9 @@ const MyReservation = () => {
         },
       );
 
-      await axios.post(
-        `${API_BASE}/reservations/record-cancellation`,
-        { userId },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
-
-      const newCancellationsLeft = cancellationsLeft - 1;
-      let warningMessage = `Reservation cancelled successfully.\nReason: ${finalReason}\n\n`;
-
-      if (newCancellationsLeft === 0) {
-        warningMessage += `⚠️ WARNING: You have reached your cancellation limit (${MAX_CANCELLATIONS}/3). You will regain 1 cancellation after ${COOLDOWN_HOURS} hours.`;
-      } else {
-        warningMessage += `ℹ️ You have ${newCancellationsLeft} cancellation${newCancellationsLeft !== 1 ? "s" : ""} left out of ${MAX_CANCELLATIONS}.`;
-      }
-
-      showToast(warningMessage);
+      showToast(`Reservation cancelled successfully.\nReason: ${finalReason}`);
 
       await fetchUserReservations();
-      await fetchCancellationCount();
       handleCloseCancelModal();
       closeModal();
     } catch (error) {
@@ -370,6 +259,23 @@ const MyReservation = () => {
     }
   };
 
+  // Helper function to get display text for assigned tables
+  const getAssignedTablesDisplay = (reservation) => {
+    // Check if it's an EVENT reservation
+    const isEvent =
+      reservation.reservation_type === "event" ||
+      reservation.reservation_type === "EVENT" ||
+      reservation.reservationType === "event" ||
+      reservation.reservationType === "EVENT";
+
+    if (isEvent) {
+      return "🎉 EVENT (Full Venue)";
+    }
+
+    // For PER TABLE reservations, show the assigned tables
+    return reservation.assigned_tables || "Not assigned";
+  };
+
   return (
     <>
       <div className="my-reservation-page">
@@ -377,24 +283,6 @@ const MyReservation = () => {
           <div className="my-reservation-header">
             <h1>My Reservations</h1>
             <p>View and manage your upcoming table reservations</p>
-
-            <div
-              className="strike-summary"
-              style={{ display: "flex", gap: "10px", marginTop: "10px" }}
-            >
-              <span
-                className={`badge ${cancellationCount >= 3 ? "bg-danger" : "bg-warning"}`}
-              >
-                {cooldownTimeLeft > 0 ? (
-                  <>⏰ Regains in: {formatCooldownTime(cooldownTimeLeft)}</>
-                ) : (
-                  <>
-                    📋 {cancellationsLeft} / {MAX_CANCELLATIONS} cancellations
-                    left
-                  </>
-                )}
-              </span>
-            </div>
           </div>
 
           <div className="reservations-list">
@@ -457,14 +345,13 @@ const MyReservation = () => {
                       </div>
                     </div>
 
-                    {reservation.assigned_tables && (
-                      <div className="reservation-tables">
-                        <span className="tables-label">Tables:</span>
-                        <span className="tables-value">
-                          {reservation.assigned_tables}
-                        </span>
-                      </div>
-                    )}
+                    {/* FIX: Display "EVENT" instead of all tables for EVENT reservations */}
+                    <div className="reservation-tables">
+                      <span className="tables-label">Tables:</span>
+                      <span className="tables-value">
+                        {getAssignedTablesDisplay(reservation)}
+                      </span>
+                    </div>
 
                     {reservation.package_name &&
                       reservation.package_name !== "Table Reservation" && (
@@ -542,14 +429,13 @@ const MyReservation = () => {
                     </span>
                   </div>
 
-                  {selectedReservation.assigned_tables && (
-                    <div className="detail-row">
-                      <span className="detail-label">Assigned Tables:</span>
-                      <span className="detail-value">
-                        {selectedReservation.assigned_tables}
-                      </span>
-                    </div>
-                  )}
+                  {/* FIX: Display "EVENT" instead of all tables for EVENT reservations in modal */}
+                  <div className="detail-row">
+                    <span className="detail-label">Assigned Tables:</span>
+                    <span className="detail-value">
+                      {getAssignedTablesDisplay(selectedReservation)}
+                    </span>
+                  </div>
 
                   {selectedReservation.package_name &&
                     selectedReservation.package_name !==
@@ -675,68 +561,9 @@ const MyReservation = () => {
                 <button
                   className="cancel-reservation-btn"
                   onClick={handleCancelClick}
-                  disabled={cancellationsLeft === 0 || cooldownTimeLeft > 0}
-                  style={{
-                    opacity:
-                      cancellationsLeft === 0 || cooldownTimeLeft > 0 ? 0.5 : 1,
-                    cursor:
-                      cancellationsLeft === 0 || cooldownTimeLeft > 0
-                        ? "not-allowed"
-                        : "pointer",
-                  }}
                 >
                   <AlertCircle size={16} />
                   Cancel Reservation
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Limit Warning Modal */}
-        {showLimitWarning && (
-          <div
-            className="cancel-modal-overlay"
-            onClick={handleCloseCancelModal}
-          >
-            <div className="cancel-modal" onClick={(e) => e.stopPropagation()}>
-              <div className="cancel-modal-header">
-                <h3>Cancellation Limit Reached</h3>
-                <button
-                  className="cancel-modal-close"
-                  onClick={handleCloseCancelModal}
-                >
-                  <X size={24} />
-                </button>
-              </div>
-              <div className="cancel-modal-body">
-                <div className="limit-warning-icon">⚠️</div>
-                <p className="limit-warning-message">
-                  You have reached the maximum number of cancellations (
-                  {MAX_CANCELLATIONS}/3).
-                </p>
-                <p className="limit-warning-message">
-                  You will regain 1 cancellation after {COOLDOWN_HOURS} hours.
-                </p>
-                {cooldownTimeLeft > 0 && (
-                  <p className="limit-warning-message cooldown-timer">
-                    ⏰ Time remaining: {formatCooldownTime(cooldownTimeLeft)}
-                  </p>
-                )}
-                <div className="cancel-warning">
-                  <AlertCircle size={16} />
-                  <span>
-                    Please contact the restaurant directly if you need to make
-                    changes.
-                  </span>
-                </div>
-              </div>
-              <div className="cancel-modal-footer">
-                <button
-                  className="cancel-modal-back-btn"
-                  onClick={handleCloseCancelModal}
-                >
-                  Close
                 </button>
               </div>
             </div>
@@ -761,12 +588,6 @@ const MyReservation = () => {
               </div>
 
               <div className="cancel-modal-body">
-                <div className="cancellation-warning-banner">
-                  ⚠️ You have {cancellationsLeft} cancellation
-                  {cancellationsLeft !== 1 ? "s" : ""} left (Max{" "}
-                  {MAX_CANCELLATIONS})
-                </div>
-
                 <p className="cancel-modal-message">
                   Please tell us why you're cancelling this reservation. This
                   helps us improve our service.
