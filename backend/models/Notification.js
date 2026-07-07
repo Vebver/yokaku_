@@ -19,12 +19,15 @@ const Notification = {
 
     const dbType = "info"; 
 
-    let targetUserId = data.userId;
+    // FIX: If this is strictly an admin alert, ignore any customer userId passed in data.userId
+    let targetUserId = data.isAdminAlert === true ? null : data.userId;
 
+    // If no target user is specified (or it was cleared because it is an admin alert)
     if (!targetUserId) {
       try {
+        // Look for the first Admin or Manager to act as the primary recipient
         const [adminRows] = await conn.execute(
-          "SELECT user_id FROM users WHERE LOWER(role) = 'admin' LIMIT 1"
+          "SELECT user_id FROM users WHERE LOWER(role) IN ('admin', 'manager') LIMIT 1"
         );
         if (adminRows.length > 0) {
           targetUserId = adminRows[0].user_id;
@@ -49,7 +52,7 @@ const Notification = {
       dbType,
     ];
 
-    // 1. Insert original notification
+    // 1. Insert original notification (Now guaranteed to be an Admin if isAdminAlert is true)
     const [result] = await conn.execute(sql, values);
     const mainInsertId = result.insertId;
 
@@ -71,7 +74,7 @@ const Notification = {
         .emit("new_notification", notificationData);
     }
 
-    // 2. Replicate ONLY if explicitly specified as an admin-targeted alert
+    // 2. Replicate to other admins/managers
     if (data.isAdminAlert === true) {
       try {
         let adminIds = [];
@@ -85,6 +88,7 @@ const Notification = {
         }
 
         for (const adminId of adminIds) {
+          // Skip the primary admin to avoid duplicate database entries
           if (adminId === targetUserId) continue;
 
           const [adminResult] = await conn.execute(sql, [

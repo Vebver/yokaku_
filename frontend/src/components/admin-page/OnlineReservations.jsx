@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import api from "../../api";import {
+import api from "../../api";
+import {
   Armchair,
   User,
   Package,
@@ -22,13 +23,16 @@ const OnlineReservations = () => {
   const [itemsPerPage] = useState(13);
   const [searchQuery, setSearchQuery] = useState("");
 
+  // States for processing refund
+  const [refundAmount, setRefundAmount] = useState("");
+  const [refunding, setRefunding] = useState(false);
+
   useEffect(() => {
     fetchReservations();
   }, []);
 
   const fetchReservations = async () => {
     try {
-      const token = localStorage.getItem("token");
       const response = await api.get(`/reservations`);
 
       // Filter: Online only (Exclude WALK)
@@ -44,16 +48,16 @@ const OnlineReservations = () => {
       setLoading(false);
     }
   };
-// === REPLACE THIS METHOD IN OnlineReservations.jsx ===
+
   const formatCancelledAt = (dateStr) => {
     if (!dateStr) return "";
-    
+
     // Parse the database timestamp
     const date = new Date(dateStr);
-    
-    // Adjust by +8 hours to align perfectly with Philippine Standard Time (PHT)
+
+    // Adjust by +8 hours to align with Philippine Standard Time (PHT)
     date.setHours(date.getHours() + 8);
-    
+
     return date.toLocaleString("en-US", {
       year: "numeric",
       month: "long",
@@ -66,7 +70,8 @@ const OnlineReservations = () => {
 
   // Filter bookings based on guest name or reservation ID
   const filteredInquiries = inquiries.filter((item) => {
-    const fullName = `${item.first_name || ""} ${item.last_name || ""}`.toLowerCase();
+    const fullName =
+      `${item.first_name || ""} ${item.last_name || ""}`.toLowerCase();
     const resId = (item.reservation_id || "").toLowerCase();
     const term = searchQuery.toLowerCase();
     return fullName.includes(term) || resId.includes(term);
@@ -85,6 +90,46 @@ const OnlineReservations = () => {
       console.error(err);
     } finally {
       setLoadingItems(false);
+    }
+  };
+
+  // Handler to submit refund and trigger notification
+  const handleProcessRefund = async () => {
+    if (!refundAmount || isNaN(refundAmount) || Number(refundAmount) < 0) {
+      alert("Please enter a valid refund amount.");
+      return;
+    }
+
+    setRefunding(true);
+    try {
+      const token = localStorage.getItem("token");
+
+      // Make API call to register refund and notify customer
+      await api.post(
+        `/reservations/${selectedRes.reservation_id}/refund`,
+        { refundAmount: Number(refundAmount) },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+
+      alert(
+        "Refund processed successfully. Notification has been sent to the customer.",
+      );
+
+      // Update selected reservation state locally so UI updates
+      setSelectedRes((prev) => ({
+        ...prev,
+        refund_amount: Number(refundAmount),
+      }));
+
+      // Refresh list to persist current updates
+      await fetchReservations();
+    } catch (err) {
+      console.error(err);
+      alert(
+        "Failed to process refund. Please verify your connection or backend configuration.",
+      );
+    } finally {
+      setRefunding(false);
     }
   };
 
@@ -145,14 +190,22 @@ const OnlineReservations = () => {
         </div>
       </div>
 
-     {/* SEARCH BAR */}
+      {/* SEARCH BAR */}
       <div className="col-12 col-md-8 col-lg-5 mb-3 px-2">
-        <div className="d-flex align-items-center bg-white rounded-3 border shadow-sm px-3" style={{ height: '48px' }}>
+        <div
+          className="d-flex align-items-center bg-white rounded-3 border shadow-sm px-3"
+          style={{ height: "48px" }}
+        >
           <Search size={20} className="text-muted flex-shrink-0" />
           <input
             type="text"
             className="form-control border-0 bg-transparent shadow-none w-100 ms-2"
-            style={{ color: "#212529", fontSize: "16px", fontWeight: "500", height: "100%" }}
+            style={{
+              color: "#212529",
+              fontSize: "16px",
+              fontWeight: "500",
+              height: "100%",
+            }}
             placeholder="Search by guest name or ID..."
             value={searchQuery}
             onChange={(e) => {
@@ -230,6 +283,7 @@ const OnlineReservations = () => {
                       data-bs-target="#onlineDrawer"
                       onClick={() => {
                         setSelectedRes(item);
+                        setRefundAmount(item.refund_amount || "");
                         fetchItems(item.reservation_id);
                       }}
                     >
@@ -333,15 +387,15 @@ const OnlineReservations = () => {
                       Guests
                     </div>
                     <div className="small fw-bold">
-                      {selectedRes.num_guests || "0"} Pax
+                      {selectedRes.num_guests || "0"} Guest
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* 2. CANCELLATION DETAILS (Visible only if status is cancelled) */}
+              {/* 2. CANCELLATION & REFUND DETAILS */}
               {selectedRes.status?.toLowerCase() === "cancelled" && (
-                <div className="p-3 bg-danger-subtle text-danger border-bottom border-danger-subtle">
+                <div className="p-3 bg-danger-subtle text-danger border-bottom border-danger-subtle w-100">
                   <div className="small fw-bold d-flex align-items-center mb-1">
                     <AlertTriangle size={15} className="me-2" />
                     CUSTOMER CANCELLED RESERVATION
@@ -353,13 +407,80 @@ const OnlineReservations = () => {
                   </div>
                   {selectedRes.cancelled_at && (
                     <div
-                      className="x-small text-muted"
+                      className="x-small text-muted mb-3"
                       style={{ fontSize: "0.72rem" }}
                     >
-                      {/* Changed to use formatCancelledAt helper */}
-                      Cancelled at: {formatCancelledAt(selectedRes.cancelled_at)}
+                      Cancelled at:{" "}
+                      {formatCancelledAt(selectedRes.cancelled_at)}
                     </div>
                   )}
+
+                  {/* Refund section - updated with stacked full-width layout to avoid compression */}
+                  <div className="p-3 bg-white text-dark rounded border border-danger-subtle w-100">
+                    {selectedRes.refund_amount !== undefined &&
+                    selectedRes.refund_amount !== null &&
+                    selectedRes.refund_amount !== "" ? (
+                      <div className="small">
+                        <span className="fw-bold text-success d-block mb-1">
+                          Refund Actioned
+                        </span>
+                        An amount of{" "}
+                        <strong>
+                          ₱{Number(selectedRes.refund_amount).toFixed(2)}
+                        </strong>{" "}
+                        was registered and notified.
+                      </div>
+                    ) : (
+                      <div className="w-100">
+                        <label className="form-label small fw-bold mb-1 text-muted d-block">
+                          Process Refund & Send Notification
+                        </label>
+
+                        {/* Full-width input field */}
+                        <div className="position-relative w-100 mb-2">
+                          {/* The Peso symbol positioned absolutely inside the input */}
+                          <span
+                            className="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"
+                            style={{ zIndex: 5, pointerEvents: "none" }}
+                          >
+                            ₱
+                          </span>
+
+                          <input
+                            type="number"
+                            className="form-control form-control-sm border-secondary-subtle"
+                            placeholder="0.00"
+                            value={refundAmount}
+                            onChange={(e) => setRefundAmount(e.target.value)}
+                            disabled={refunding}
+                            style={{
+                              width: "100%",
+                              paddingLeft: "28px", // Adds padding so the text doesn't overlap the ₱ symbol
+                            }}
+                          />
+                        </div>
+                        {/* Full-width button */}
+                        <button
+                          className="btn btn-danger btn-sm w-100 fw-bold py-2 mb-2"
+                          type="button"
+                          onClick={handleProcessRefund}
+                          disabled={refunding}
+                        >
+                          {refunding
+                            ? "Processing..."
+                            : "Process & Notify Customer"}
+                        </button>
+
+                        <div
+                          className="x-small text-muted"
+                          style={{ fontSize: "0.7rem", lineHeight: "1.2" }}
+                        >
+                          This updates the record with the refund amount and
+                          triggers a notification template to the customer.
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 

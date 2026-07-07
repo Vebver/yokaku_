@@ -36,6 +36,8 @@ router.post(
   protect,
   reservationController.recordCancellation,
 );
+router.post("/:id/refund", protect, reservationController.processRefund);
+
 
 // ==================== ADMIN ROUTES ====================
 router.get("/", protect, adminOnly, reservationController.getReservations);

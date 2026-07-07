@@ -222,7 +222,6 @@ const reservationController = {
   },
 
   // ==================== CREATE RESERVATION ====================
-  // ==================== CREATE RESERVATION ====================
   createReservation: async (req, res) => {
     try {
       const body = req.body;
@@ -448,15 +447,15 @@ const reservationController = {
       const io = req.app.get("io");
       if (io) {
         io.emit("table_updated");
-        io.emit("new_notification", {
-          id: notificationId,
-          notification_id: notificationId,
-          title: "New Reservation",
-          message: `New booking from ${fullName} (Reservation ID: ${newId})`,
-          type: "reservation",
-          is_read: 0,
-          created_at: isoDateTime,
-        });
+        // io.emit("new_notification", {
+        //   id: notificationId,
+        //   notification_id: notificationId,
+        //   title: "New Reservation",
+        //   message: `New booking from ${fullName} (Reservation ID: ${newId})`,
+        //   type: "reservation",
+        //   is_read: 0,
+        //   created_at: isoDateTime,
+        // });
 
         io.emit("new_reservation", {
           id: newId,
@@ -667,6 +666,63 @@ const reservationController = {
       res.status(500).json({ error: error.message });
     }
   },
+
+// ==================== REFUND FUNCTIONS ====================
+    processRefund: async (req, res) => {
+    const { id } = req.params; // Reservation ID
+    const { refundAmount } = req.body; // Amount from req.body
+
+    if (refundAmount === undefined || isNaN(refundAmount) || refundAmount < 0) {
+      return res.status(400).json({ error: "Please provide a valid refund amount." });
+    }
+
+    const connection = await db.getConnection();
+    try {
+      await connection.beginTransaction();
+
+      // 1. Fetch the reservation to verify it exists and get the customer's user_id
+      const [rows] = await connection.execute(
+        "SELECT user_id, first_name, last_name FROM reservations WHERE reservation_id = ?",
+        [id]
+      );
+
+      if (rows.length === 0) {
+        await connection.rollback();
+        return res.status(404).json({ error: "Reservation not found." });
+      }
+
+      const reservation = rows[0];
+      const targetUserId = reservation.user_id;
+
+      // 2. Update the reservation table with the refund amount
+      // (Ensure your database reservations table has a refund_amount column)
+      await connection.execute(
+        "UPDATE refund_requests SET refund_amount = ? WHERE reservation_id = ?",
+        [refundAmount, id]
+      );
+
+      // 3. Send notification to the customer
+      if (targetUserId) {
+        await Notification.create(connection, {
+          userId: targetUserId,
+          reservationId: id,
+          title: "Refund Processed",
+          message: `A refund of ₱${Number(refundAmount).toFixed(2)} has been processed for your reservation (${id}).`,
+          type: "reservation", 
+          isAdminAlert: false
+        });
+      }
+
+      await connection.commit();
+      res.json({ message: "Refund updated and customer notified successfully." });
+    } catch (error) {
+      await connection.rollback();
+      console.error("Error processing refund:", error);
+      res.status(500).json({ error: "Failed to process refund. " + error.message });
+    } finally {
+      connection.release();
+    }
+  }
 };
 
 module.exports = reservationController;
