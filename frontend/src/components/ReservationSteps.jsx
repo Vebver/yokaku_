@@ -1505,19 +1505,15 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           : form.occasion || "Casual Dining";
 
       // ===== FIX: Properly calculate guest count =====
-      // For EVENT: use 35 (fixed max capacity)
-      // For PER TABLE: use form.pax or calculate from selected tables
       let guestCount = 0;
 
       if (reservationType === "event") {
         guestCount = 35; // Fixed capacity for events
       } else {
-        // PER TABLE: use form.pax first, fallback to totalSeats
         const paxValue = parseInt(form.pax);
         if (paxValue > 0) {
           guestCount = paxValue;
         } else {
-          // Fallback: calculate from selected tables
           const selectedTableSeats = primaryTable?.seats || 0;
           const linkedTableSeats = linkedIds.reduce((sum, id) => {
             const table = tables.find((t) => t.id === id);
@@ -1526,7 +1522,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           guestCount = selectedTableSeats + linkedTableSeats;
         }
 
-        // If still 0, default to 1
         if (guestCount === 0) {
           console.warn("⚠️ Guest count is 0, defaulting to 1");
           guestCount = 1;
@@ -1538,10 +1533,13 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       console.log("📊 totalSeats:", totalSeats);
       console.log("📊 Reservation type:", reservationType);
 
+      // ===== FIX: Explicitly add reservation_type to submission =====
       const submission = {
         ...user,
         ...form,
         reservationType: reservationType,
+        // ===== ADD THIS: Explicitly set reservation_type =====
+        reservation_type: reservationType, // This ensures backend receives it
         userId: userId,
         guests: guestCount,
         pax: guestCount,
@@ -1559,10 +1557,15 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         occasion: finalOccasion,
       };
 
+      console.log("📊 Submission data:", {
+        reservationType: submission.reservationType,
+        reservation_type: submission.reservation_type,
+        packageName: submission.packageName,
+      });
+
       // For PER TABLE, send default payment method (no receipt needed)
       if (reservationType === "per_table") {
         submission.paymentMethod = "Cash";
-        // No receipt for PER TABLE
       } else {
         // For EVENT, require payment method and receipt
         if (!receiptFile) {

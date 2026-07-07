@@ -365,17 +365,30 @@ const Reservation = {
       const finalStatus = "Confirmed";
       const bridgeStatus = "confirmed";
 
+      // ===== FIX: Prioritize reservation_type from data =====
+      // First check reservation_type, then reservationType, then default to per_table
       const finalReservationType =
-        data.reservationType || data.reservation_type || "per_table";
+        data.reservation_type || data.reservationType || "per_table";
+
+      console.log(
+        "📊 Model: Creating reservation with type:",
+        finalReservationType,
+      );
+      console.log("📊 Model: Data received:", {
+        reservation_type: data.reservation_type,
+        reservationType: data.reservationType,
+        finalReservationType,
+        packageName: data.packageName,
+      });
 
       // 1. Insert into reservations
       const resQuery = `INSERT INTO reservations (
-        reservation_id, user_id, first_name, last_name, email, phone, 
-        reservation_date, reservation_time, end_time, num_guests, 
-        package_name, status, receipt_path, brgy_code, allergy, 
-        allergy_count, occasion, duration_hours, downpayment_amount,
-        reservation_type
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      reservation_id, user_id, first_name, last_name, email, phone, 
+      reservation_date, reservation_time, end_time, num_guests, 
+      package_name, status, receipt_path, brgy_code, allergy, 
+      allergy_count, occasion, duration_hours, downpayment_amount,
+      reservation_type
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
       await conn.query(resQuery, [
         customId,
@@ -397,19 +410,27 @@ const Reservation = {
         data.occasion || "Casual Dining",
         data.durationHours || 1.0,
         data.downpayment || 0,
-        finalReservationType,
+        finalReservationType, // This must be 'event' for EVENT reservations
       ]);
 
       // 2. Handle Table Assignments
       let finalTableIds = [];
-      if (
+
+      // ===== FIX: Check both field names for event detection =====
+      const isEvent =
+        data.reservation_type === "event" ||
         data.reservationType === "event" ||
-        data.reservation_type === "event"
-      ) {
+        finalReservationType === "event";
+
+      if (isEvent) {
         const [allTables] = await conn.query(
           "SELECT table_id FROM tables WHERE status != 'maintenance'",
         );
         finalTableIds = allTables.map((t) => t.table_id);
+        console.log(
+          "✅ EVENT reservation - assigning all tables:",
+          finalTableIds.length,
+        );
       } else if (data.tableIds?.length > 0) {
         finalTableIds = data.tableIds;
       }
@@ -420,8 +441,8 @@ const Reservation = {
             // Bypass table assignment insert if takeout
             await conn.query(
               `INSERT INTO reservation_tables 
-              (reservation_id, table_id, customer_name, status, check_in_time) 
-              VALUES (?, ?, ?, ?, NOW())`,
+            (reservation_id, table_id, customer_name, status, check_in_time) 
+            VALUES (?, ?, ?, ?, NOW())`,
               [
                 customId,
                 tid,
@@ -444,8 +465,8 @@ const Reservation = {
       const payStatus = data.isWalkin ? "verified" : "pending";
       await conn.query(
         `INSERT INTO payments 
-        (reservation_id, amount, total_bill, payment_method, payment_status, paid_at) 
-        VALUES (?, ?, ?, ?, ?, NOW())`,
+      (reservation_id, amount, total_bill, payment_method, payment_status, paid_at) 
+      VALUES (?, ?, ?, ?, ?, NOW())`,
         [
           customId,
           data.downpayment || 0,
@@ -455,7 +476,7 @@ const Reservation = {
         ],
       );
 
-      // ==================== NEW: INSERT MANUAL ORDER MENU ITEMS ====================
+      // ==================== INSERT MANUAL ORDER MENU ITEMS ====================
       let itemsToInsert = [];
       if (data.selectedItems) {
         try {
@@ -470,12 +491,6 @@ const Reservation = {
           );
         }
       }
-
-      // FIX: Map string IDs to numeric IDs for EVENT packages
-      const packageMap = {
-        standard: 1,
-        premium: 2,
-      };
 
       if (Array.isArray(itemsToInsert) && itemsToInsert.length > 0) {
         for (const item of itemsToInsert) {
@@ -503,8 +518,8 @@ const Reservation = {
           // Insert directly into kiosk_orders (only runs for real food/drink items)
           await conn.query(
             `INSERT INTO kiosk_orders 
-       (reservation_id, item_id, quantity, kitchen_status, customizations, is_refill) 
-       VALUES (?, ?, ?, 'pending', ?, 0)`,
+     (reservation_id, item_id, quantity, kitchen_status, customizations, is_refill) 
+     VALUES (?, ?, ?, 'pending', ?, 0)`,
             [customId, itemId, qty, customizations],
           );
         }
@@ -514,10 +529,10 @@ const Reservation = {
       // Notification
       if (data.userId && data.userId !== "null") {
         const notifSql = `
-          INSERT INTO notifications 
-          (user_id, reservation_id, title, message, type, is_read, created_at) 
-          VALUES (?, ?, ?, ?, 'success', 0, NOW())
-        `;
+        INSERT INTO notifications 
+        (user_id, reservation_id, title, message, type, is_read, created_at) 
+        VALUES (?, ?, ?, ?, 'success', 0, NOW())
+      `;
         await conn.query(notifSql, [
           data.userId,
           customId,
@@ -530,6 +545,12 @@ const Reservation = {
 
       const io = data.io;
       if (io) io.emit("table_updated");
+
+      console.log("✅ Reservation created successfully:", {
+        id: customId,
+        type: finalReservationType,
+        package: data.packageName,
+      });
 
       return customId;
     } catch (err) {

@@ -234,7 +234,6 @@ const reservationController = {
       body.durationHours = parseFloat(body.durationHours) || 1;
 
       // ===== FIX: Properly get guest count =====
-      // Try multiple possible field names
       let guestCount =
         parseInt(body.guests) ||
         parseInt(body.pax) ||
@@ -242,12 +241,10 @@ const reservationController = {
         parseInt(body.guestCount) ||
         1;
 
-      // Make sure it's a valid number
       if (isNaN(guestCount) || guestCount < 1) {
         guestCount = 1;
       }
 
-      // Also store in body for later use
       body.guests = guestCount;
       body.num_guests = guestCount;
 
@@ -259,13 +256,38 @@ const reservationController = {
         finalGuestCount: guestCount,
       });
 
+      // ===== FIX: Get reservation type from multiple sources =====
+      let reservationType = "per_table";
+
+      // Check both possible field names
+      if (body.reservation_type) {
+        reservationType = body.reservation_type.toLowerCase();
+      } else if (body.reservationType) {
+        reservationType = body.reservationType.toLowerCase();
+      }
+
+      // ===== FIX: Detect EVENT from package name if type is still per_table =====
+      if (reservationType === "per_table" && body.packageName) {
+        const packageName = String(body.packageName).toLowerCase();
+        if (
+          packageName.includes("standard") ||
+          packageName.includes("premium") ||
+          packageName.includes("event")
+        ) {
+          console.log("🔍 Detected EVENT from package name, overriding type");
+          reservationType = "event";
+        }
+      }
+
+      console.log("📊 Reservation type from request:", {
+        bodyReservationType: body.reservationType,
+        bodyReservation_type: body.reservation_type,
+        finalType: reservationType,
+        packageName: body.packageName,
+      });
+
       // Better tableIds parsing with error handling
       let tableIdsArray = [];
-      const reservationType = (
-        body.reservationType ||
-        body.reservation_type ||
-        "per_table"
-      ).toLowerCase();
 
       // For EVENT reservations, we don't need table IDs (they book the whole venue)
       if (reservationType === "event" || reservationType === "takeout") {
@@ -301,7 +323,6 @@ const reservationController = {
           }
         }
 
-        // Ensure all values are numbers and filter out invalid ones
         tableIdsArray = tableIdsArray
           .map((id) => parseInt(id))
           .filter((id) => !isNaN(id) && id > 0);
@@ -338,9 +359,12 @@ const reservationController = {
       const isStaff =
         req.user?.role === "admin" || req.user?.role === "cashier";
 
+      // ===== FIX: Build reservationData with correct type =====
       const reservationData = {
         ...body,
+        // ===== FIX: Explicitly set both field names =====
         reservation_type: reservationType,
+        reservationType: reservationType,
 
         // Only link user ID if the client is a real customer. Left as null for staff bookings.
         userId:
@@ -358,17 +382,19 @@ const reservationController = {
         totalAmount: parseFloat(body.totalAmount) || 0,
         amount: parseFloat(body.amount) || 0,
         durationHours: parseFloat(body.durationHours) || 1,
-        guests: guestCount, // Use the properly parsed guest count
-        num_guests: guestCount, // Also set num_guests for database
+        guests: guestCount,
+        num_guests: guestCount,
       };
 
       console.log("📊 Reservation data being saved:", {
+        reservation_type: reservationData.reservation_type,
+        reservationType: reservationData.reservationType,
         guests: reservationData.guests,
         num_guests: reservationData.num_guests,
-        reservationType: reservationData.reservation_type,
+        packageName: reservationData.packageName,
       });
 
-      // 1. Create the database record for the reservation(reservationData);
+      // 1. Create the database record for the reservation
       const newId = await Reservation.create(reservationData);
 
       // >>> ADD THIS AUDIT LOG BLOCK <<<
@@ -404,7 +430,7 @@ const reservationController = {
           title: "New Reservation",
           message: `New booking from ${fullName} (Reservation ID: ${newId})`,
           type: "reservation",
-          isAdminAlert: true, // Replicates this alert to all admins
+          isAdminAlert: true,
         });
       } catch (dbErr) {
         console.error("Notification DB Error:", dbErr.message);
