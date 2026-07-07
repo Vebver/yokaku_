@@ -15,7 +15,6 @@ router.get("/test-http", async (req, res) => {
     console.log("📧 API Key exists:", !!process.env.BREVO_PASS);
     console.log("📧 BREVO_USER:", process.env.BREVO_USER);
 
-    // Get API key from environment variable ONLY
     const apiKey = process.env.BREVO_PASS;
 
     if (!apiKey) {
@@ -28,29 +27,36 @@ router.get("/test-http", async (req, res) => {
       });
     }
 
-    const brevo = require("@getbrevo/brevo");
-    const apiInstance = new brevo.TransactionalEmailsApi();
-    const auth = apiInstance.authentications["apiKey"];
-    auth.apiKey = apiKey; // Use from env, NOT hardcoded
+    const axios = require("axios");
 
-    const sendSmtpEmail = new brevo.SendSmtpEmail();
-    sendSmtpEmail.subject = "Test Email - HTTP API";
-    sendSmtpEmail.htmlContent =
-      "<h1>Test Email</h1><p>HTTP API is working on Render!</p>";
-    sendSmtpEmail.sender = {
-      email: process.env.BREVO_USER || "leabrescarl@gmail.com",
-      name: "Restaurant Test",
+    const data = {
+      sender: {
+        email: process.env.BREVO_USER || "leabrescarl@gmail.com",
+        name: "Restaurant Test",
+      },
+      to: [{ email: "leabrescarl@gmail.com" }],
+      subject: "Test Email - HTTP API",
+      htmlContent: "<h1>Test Email</h1><p>HTTP API is working on Render!</p>",
     };
-    sendSmtpEmail.to = [{ email: "leabrescarl@gmail.com" }];
 
-    const response = await apiInstance.sendTransacEmail(sendSmtpEmail);
-    console.log("✅ Test email sent:", response.messageId);
-    res.json({ success: true, messageId: response.messageId });
+    const response = await axios.post(
+      "https://api.brevo.com/v3/smtp/email",
+      data,
+      {
+        headers: {
+          "api-key": apiKey,
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    console.log("✅ Test email sent:", response.data.messageId);
+    res.json({ success: true, messageId: response.data.messageId });
   } catch (error) {
     console.error("❌ HTTP API test error:", error);
     res.status(500).json({
       error: error.message,
-      details: error.response?.body || error.stack,
+      details: error.response?.data || error.stack,
     });
   }
 });
@@ -76,9 +82,9 @@ router.post("/request", protect, async (req, res) => {
       return res.status(400).json({ error: "Reservation ID is required" });
     }
 
-    // Get user name from database
+    // ===== FIXED: Use 'user_id' column (matches your User model) =====
     const [userRows] = await db.execute(
-      "SELECT first_name, last_name FROM users WHERE id = ?",
+      "SELECT first_name, last_name FROM users WHERE user_id = ?",
       [userId],
     );
 
@@ -87,7 +93,9 @@ router.post("/request", protect, async (req, res) => {
         ? `${userRows[0].first_name} ${userRows[0].last_name}`
         : "Customer";
 
-    console.log("✅ Inserting into database...");
+    console.log("✅ User found:", userName);
+
+    console.log("✅ Inserting into refund_requests table...");
 
     const [result] = await db.execute(
       `INSERT INTO refund_requests (user_id, reservation_id, subject, comment, email, reason, reservation_type, status, created_at)
