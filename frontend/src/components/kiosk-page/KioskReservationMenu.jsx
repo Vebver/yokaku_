@@ -235,6 +235,17 @@ const KioskReservationMenu = () => {
 
       if (isRefill) p = 0;
 
+      // ✅ FIX: Exclude packages from food calculations
+      const nameStr = (item.menu_name || item.item_name || "").toLowerCase();
+      if (
+        nameStr.includes("standard package") ||
+        nameStr.includes("premium package") ||
+        nameStr.includes("reservation fee") ||
+        nameStr.includes("downpayment")
+      ) {
+        return sum;
+      }
+
       return sum + p * q;
     }, 0);
 
@@ -253,6 +264,17 @@ const KioskReservationMenu = () => {
 
         if (isRefill) p = 0;
 
+        // ✅ FIX: Exclude packages from pending calculations
+        const nameStr = (item.name || item.item_name || "").toLowerCase();
+        if (
+          nameStr.includes("standard package") ||
+          nameStr.includes("premium package") ||
+          nameStr.includes("reservation fee") ||
+          nameStr.includes("downpayment")
+        ) {
+          return sum;
+        }
+
         return sum + p * q;
       }, 0);
 
@@ -260,12 +282,11 @@ const KioskReservationMenu = () => {
   };
 
   const calculateTotalDue = () => {
+    // Since packages and downpayments are filtered out, the due amount
+    // is simply the total value of their extra food items.
     const totalSession = calculateSessionTotal();
-    const alreadyPaid = parseFloat(storage.getItem(TOTAL_PAID_KEY) || 0);
-    const due = totalSession - alreadyPaid;
-    return due > 0 ? due.toFixed(2) : "0.00";
+    return totalSession > 0 ? totalSession.toFixed(2) : "0.00";
   };
-
   const fetchCurrentBill = async () => {
     try {
       const res = await axios.get(
@@ -405,13 +426,13 @@ const KioskReservationMenu = () => {
   };
 
   // Initial data fetch and Tray/Cart synchronization
- useEffect(() => {
+  useEffect(() => {
     if (!activeResId) {
       const searchString = setupTable ? `?setupTable=${setupTable}` : "";
       navigate(`/kiosk-selection${searchString}`);
       return;
     }
-    
+
     const fetchData = async () => {
       try {
         const [prodRes, resItemsRes, reservationRes] = await Promise.all([
@@ -439,20 +460,25 @@ const KioskReservationMenu = () => {
           );
           storage.setItem(TOTAL_PAID_KEY, paidAmount.toString());
         }
+        // Inside KioskReservationMenu.jsx -> useEffect()
 
         if (resItemsRes && resItemsRes.length > 0) {
           setBillItems(resItemsRes);
-          
-          // Filter out the Reservation Fee / Downpayment from appearing in the Cart Tray
+
+          // ✅ FIX: Filter out "standard package" and "premium package" from the tray
           const filteredCartItems = resItemsRes.filter((i) => {
-            const customizationsStr = (i.customizations || "").toString().toLowerCase();
+            const customizationsStr = (i.customizations || "")
+              .toString()
+              .toLowerCase();
             const nameStr = (i.item_name || i.menu_name || "").toLowerCase();
-            
+
             return !(
               customizationsStr.includes("reservation fee") ||
               nameStr.includes("reserve a table") ||
               nameStr.includes("table fee") ||
-              nameStr.includes("downpayment")
+              nameStr.includes("downpayment") ||
+              nameStr.includes("standard package") ||
+              nameStr.includes("premium package")
             );
           });
 
@@ -1107,6 +1133,7 @@ const KioskReservationMenu = () => {
               {isFinalCheckout ? "Bill Summary" : "Confirm Order"}
             </h2>
 
+            {/* Inside KioskReservationMenu.jsx -> Confirm Order / Bill Summary Modal */}
             <div
               className="bill-scroll"
               style={{
@@ -1131,6 +1158,21 @@ const KioskReservationMenu = () => {
                     item.customizations.toString().includes("[REFILL]"));
                 if (isRefill) {
                   p = 0;
+                }
+
+                // ✅ FIX: Hides the administrative reservation packages from the food receipt view
+                const nameStr = (
+                  item.menu_name ||
+                  item.item_name ||
+                  ""
+                ).toLowerCase();
+                if (
+                  nameStr.includes("standard package") ||
+                  nameStr.includes("premium package") ||
+                  nameStr.includes("reservation fee") ||
+                  nameStr.includes("downpayment")
+                ) {
+                  return null; // Skips rendering without breaking calculations
                 }
 
                 return (
@@ -1172,20 +1214,8 @@ const KioskReservationMenu = () => {
                 <span>Subtotal:</span>
                 <span>₱{calculateSessionTotal().toFixed(2)}</span>
               </div>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  color: "#28a745",
-                  fontSize: "0.9rem",
-                }}
-              >
-                <span>Paid / Downpayment:</span>
-                <span>
-                  - ₱
-                  {parseFloat(storage.getItem(TOTAL_PAID_KEY) || 0).toFixed(2)}
-                </span>
-              </div>
+
+              {/* ✅ The "Paid / Downpayment" subtraction block has been cleanly removed here */}
             </div>
 
             <div
@@ -1201,7 +1231,7 @@ const KioskReservationMenu = () => {
               <span>Total Due:</span>
               <span style={{ color: "#ffcc00" }}>₱{calculateTotalDue()}</span>
             </div>
-
+            
             <div
               style={{
                 display: "flex",
