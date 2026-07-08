@@ -112,10 +112,25 @@
       setRejectReason("The receipt image is unclear or details do not match.");
 
       try {
-        const res = await api.get(`/reservations/${p.reservation_id}/items`);
-        setOrderItems(res.data);
+        // Fetch both order items and full reservation details in parallel
+        const [itemsRes, reservationRes] = await Promise.all([
+          api.get(`/reservations/${p.reservation_id}/items`),
+          api.get(`/reservations/${p.reservation_id}`).catch(() => null)
+        ]);
+
+        setOrderItems(itemsRes.data);
+
+        if (reservationRes && reservationRes.data) {
+          const details = reservationRes.data.data || reservationRes.data.reservation || reservationRes.data;
+          
+          // Merge full reservation metadata (reservation_type, package_name, etc.) into selectedPayment
+          setSelectedPayment((prev) => ({
+            ...prev,
+            ...details
+          }));
+        }
       } catch (err) {
-        console.error(err);
+        console.error("Review loading error:", err);
       } finally {
         setLoadingItems(false);
       }

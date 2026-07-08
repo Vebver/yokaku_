@@ -79,7 +79,7 @@ const navItems = [
     label: "Online Bookings",
     icon: Icons.Reservations,
   },
-  { id: "walk-ins", label: "Walk-ins / Kiosk", icon: Icons.Billing },
+  { id: "walk-ins", label: "Walk-ins", icon: Icons.Billing },
   { id: "billing", label: "Payments", icon: Icons.Billing },
   { id: "report", label: "Reports", icon: Icons.Sales },
   { id: "products", label: "Menu Items", icon: Icons.Products },

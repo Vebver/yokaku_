@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   Armchair,
   User,
@@ -18,7 +18,7 @@ import { useToast } from "../ToastContext";
 const WalkInReservations = () => {
   const { showToast } = useToast();
   const [inquiries, setInquiries] = useState([]);
-  const [availableTables, setAvailableTables] = useState([]);
+  const [rawTables, setRawTables] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedRes, setSelectedRes] = useState(null);
   const [orderItems, setOrderItems] = useState([]);
@@ -105,19 +105,55 @@ const WalkInReservations = () => {
   const fetchTables = async () => {
     try {
       const res = await api.get("/admin/table-status");
-      const available = res.data.filter((t) => t.bridge_status === "available");
-      setAvailableTables(available);
+      
+      // Fallback searches for direct array, nested data array, or a tables array
+      let raw = [];
+      if (Array.isArray(res.data)) {
+        raw = res.data;
+      } else if (res.data && Array.isArray(res.data.data)) {
+        raw = res.data.data;
+      } else if (res.data && Array.isArray(res.data.tables)) {
+        raw = res.data.tables;
+      } else if (res.data && typeof res.data === "object") {
+        const foundArray = Object.values(res.data).find((val) => Array.isArray(val));
+        if (foundArray) raw = foundArray;
+      }
+
+      setRawTables(raw);
     } catch (err) {
       console.error("Error Fetching tables", err);
     }
   };
 
-  const formatTime = (timeStr) => {
+  // DYNAMIC COMPUTED STATUS BASED ON LIVE ASSIGNMENT & SELECTED BOOKING DATE
+  const availableTables = useMemo(() => {
+    const selectedDate = newRes.date; // "YYYY-MM-DD"
+    const todayDate = getLocalISODate(); // "YYYY-MM-DD"
+    const isToday = selectedDate === todayDate;
+
+    return rawTables.map((t) => {
+      const tableId = t.table_id ?? t.id ?? t.tableId;
+      const tableNumber = t.table_number ?? t.tableNumber ?? t.number ?? t.table_num ?? t.label ?? "Unknown";
+      const capacity = t.capacity ?? t.seats ?? 2;
+      
+      const status = (t.bridge_status || t.status || "available").toString().toLowerCase();
+      // Real-time occupant labels only apply if the booking is scheduled for today
+      const isOccupiedLive = status === "occupied" || status === "reserved" || status === "busy" || status === "seated";
+      const isOccupied = isToday && isOccupiedLive;
+
+      return {
+        table_id: tableId,
+        table_number: isOccupied ? `${tableNumber} (Occupied)` : tableNumber,
+        capacity: capacity,
+        isOccupied: isOccupied,
+      };
+    });
+  }, [rawTables, newRes.date]);
+
+    const formatTime = (timeStr) => {
     if (!timeStr) return "--:--";
 
-    const timePart = timeStr.includes("T") ? timeStr.split("T")[1] : timeStr;
-    const parts = timePart.split(":");
-
+    const parts = timeStr.split(":");
     if (parts.length < 2) return timeStr;
 
     let hours = parseInt(parts[0], 10);
@@ -129,6 +165,7 @@ const WalkInReservations = () => {
 
     return `${hours}:${minutes} ${ampm}`;
   };
+
 
   // --- HANDLERS FOR MANUALLY ADDING DISHES ---
   const handleAddProductToCart = (product) => {
@@ -169,10 +206,16 @@ const WalkInReservations = () => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     if (name === "bookingType") {
+      let defaultPackage = "Regular Table";
+      if (value === "event") {
+        defaultPackage = "Standard Package";
+      } else if (value === "takeout") {
+        defaultPackage = "Take-Out";
+      }
       setNewRes({
         ...newRes,
         bookingType: value,
-        packageName: value === "table" ? "Regular Table" : value === "event" ? "Event Package A" : "Take-Out",
+        packageName: defaultPackage,
         tableIds: value === "takeout" ? ["takeout"] : [], // Auto-clear tables for takeout
       });
     } else if (name === "tableIds") {
@@ -195,7 +238,7 @@ const WalkInReservations = () => {
 
       await api.post("/reservations", payload);
 
-      showToast("Manual Order Created Successfully!","success");
+      showToast("Manual Order Created Successfully!", "success");
 
       if (closeBtnRef.current) closeBtnRef.current.click();
       setShowAddModal(false);
@@ -523,6 +566,7 @@ const WalkInReservations = () => {
                   <select
                     name="tableIds"
                     className="form-select border-danger fw-bold"
+                    value={newRes.tableIds[0] || ""}
                     onChange={handleInputChange}
                     required={newRes.bookingType === "table"}
                   >
@@ -547,8 +591,8 @@ const WalkInReservations = () => {
                     value={newRes.packageName}
                     onChange={handleInputChange}
                   >
-                    <option value="Event Package A">Event A</option>
-                    <option value="Event Package B">Event B</option>
+                    <option value="Standard Package">Standard Package</option>
+                    <option value="Premium Package">Premium Package</option>
                   </select>
                   <div className="x-small text-muted">
                     * Booking an event reserves all floor layout tables automatically.
@@ -759,29 +803,34 @@ const WalkInReservations = () => {
                     </span>
                   </div>
                   <div className="col-6">
-                    <small className="text-muted d-block">Session Timing</small>
+                    <small className="text-muted d-block">Number of Guests</small>
                     <span className="small fw-bold text-dark">
-                      {(() => {
-                        const toStandardTime = (t) => {
-                          if (!t) return "--:--";
-                          const parts = String(t).split(":");
-                          if (parts.length < 2) return String(t);
-                          let hh = parseInt(parts[0], 10);
-                          const mm = parts[1];
-                          const ampm = hh >= 12 ? "PM" : "AM";
-                          hh = hh % 12;
-                          hh = hh ? hh : 12;
-                          return `${hh}:${mm.padStart(2, "0")} ${ampm}`;
-                        };
+                      {selectedRes.num_guests || selectedRes.guests || "1"}
+                    </span>
+                  </div>
+                </div>
+              </div>
 
-                        const startTime = toStandardTime(
-                          selectedRes.reservation_time,
-                        );
-                        const endTime = selectedRes.end_time
-                          ? toStandardTime(selectedRes.end_time)
-                          : "Now";
-                        return `${startTime} - ${endTime}`;
-                      })()}
+              {/* TIMELINE */}
+              <div className="p-3 border-bottom bg-white">
+                <div className="d-flex justify-content-between align-items-center">
+                  <div className="d-flex align-items-center gap-2">
+                    <Clock size={14} className="text-muted" />
+                    <span className="x-small fw-bold text-muted text-uppercase">
+                      Timeline
+                    </span>
+                  </div>
+                  <div className="small fw-bold d-flex align-items-center">
+                    <span className="text-muted">
+                      {selectedRes.reservation_time
+                        ? formatTime(selectedRes.reservation_time)
+                        : "--:--"}
+                    </span>
+                    <ChevronRight size={14} className="mx-1 text-muted" />
+                    <span className="text-dark">
+                      {selectedRes.end_time
+                        ? formatTime(selectedRes.end_time)
+                        : "Active"}
                     </span>
                   </div>
                 </div>

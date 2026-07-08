@@ -25,15 +25,22 @@ function CustomerPage({ isLoggedIn, onLoginClick, onReserveClick, onSuccess }) {
     const userId = localStorage.getItem("userId");
     if (!userId) return false;
 
+    // Create a clean Axios instance to bypass global auth interceptors
+    const cleanAxios = axios.create();
+    const token = localStorage.getItem("token");
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
     try {
       setChecking(true);
-      const response = await axios.get(
+      const response = await cleanAxios.get(
         `${API_BASE}/reservations/check-active/${userId}`,
+        { headers }
       );
 
       if (response.data.hasActive) {
-        const detailsRes = await axios.get(
+        const detailsRes = await cleanAxios.get(
           `${API_BASE}/reservations/user-active/${userId}`,
+          { headers }
         );
         setExistingReservation(detailsRes.data);
         setShowExistingModal(true);
@@ -41,7 +48,13 @@ function CustomerPage({ isLoggedIn, onLoginClick, onReserveClick, onSuccess }) {
       }
       return false;
     } catch (error) {
-      console.error("Error checking existing reservation:", error);
+      console.warn("Silent check: Error checking existing reservation:", error);
+      
+      // Silently clean up expired/invalid keys if unauthorized
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("userId");
+      }
       return false;
     } finally {
       setChecking(false);
