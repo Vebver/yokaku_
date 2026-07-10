@@ -18,6 +18,9 @@ function LoginSection({ onClose }) {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [isAccountLocked, setIsAccountLocked] = useState(false);
+  const [lockdownTimeLeft, setLockdownTimeLeft] = useState(0);
+  const [attemptsRemaining, setAttemptsRemaining] = useState(4);
 
   // Password validation states
   const [passwordCriteria, setPasswordCriteria] = useState({
@@ -35,13 +38,70 @@ function LoginSection({ onClose }) {
     });
   }, [password]);
 
-  // Check if all password criteria are met
+  // Sync state with localStorage whenever email or view changes
+  useEffect(() => {
+    if (!email || view !== "login") {
+      setIsAccountLocked(false);
+      setAttemptsRemaining(4);
+      return;
+    }
+
+    // 1. Check if there is an active lockout for this email
+    const storedExpiry = localStorage.getItem(`lockout_${email}`);
+    if (storedExpiry) {
+      const expiryTime = parseInt(storedExpiry, 10);
+      const now = Date.now();
+      
+      if (expiryTime > now) {
+        setIsAccountLocked(true);
+        setLockdownTimeLeft(Math.ceil((expiryTime - now) / 1000));
+        setAttemptsRemaining(0);
+        return;
+      } else {
+        // Lockout expired, clean up
+        localStorage.removeItem(`lockout_${email}`);
+        localStorage.removeItem(`attempts_${email}`);
+        setIsAccountLocked(false);
+        setAttemptsRemaining(4);
+      }
+    } else {
+      setIsAccountLocked(false);
+    }
+
+    // 2. Check remaining attempts if not locked
+    const storedAttempts = localStorage.getItem(`attempts_${email}`);
+    if (storedAttempts !== null) {
+      setAttemptsRemaining(parseInt(storedAttempts, 10));
+    } else {
+      setAttemptsRemaining(4);
+    }
+  }, [email, view]);
+
+  // Countdown timer for lockout
+  useEffect(() => {
+    if (!isAccountLocked || lockdownTimeLeft <= 0) return;
+
+    const interval = setInterval(() => {
+      setLockdownTimeLeft((prev) => {
+        if (prev <= 1) {
+          setIsAccountLocked(false);
+          setAttemptsRemaining(4);
+          localStorage.removeItem(`lockout_${email}`);
+          localStorage.removeItem(`attempts_${email}`);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isAccountLocked, lockdownTimeLeft, email]);
+
   const isPasswordValid =
     passwordCriteria.minLength &&
     passwordCriteria.hasCapital &&
     passwordCriteria.hasSpecial;
 
-  // Reuse the SVG to avoid repetition
   const EyeIcon = ({ visible, toggle }) => (
     <span className="password-toggle-icon" onClick={toggle}>
       <svg
@@ -63,7 +123,6 @@ function LoginSection({ onClose }) {
     </span>
   );
 
-  // Password criteria indicator component
   const PasswordCriteria = ({ label, isMet }) => (
     <div
       className={`password-criteria-item ${isMet ? "met" : ""}`}
@@ -106,6 +165,11 @@ function LoginSection({ onClose }) {
     setError("");
     try {
       const res = await api.post("/auth/login", { email, password });
+      
+      // Clear persistence on successful login
+      localStorage.removeItem(`lockout_${email}`);
+      localStorage.removeItem(`attempts_${email}`);
+
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("userId", res.data.user.id);
       localStorage.setItem("userRole", res.data.user.role);
@@ -113,6 +177,7 @@ function LoginSection({ onClose }) {
       localStorage.setItem("firstName", res.data.user.firstName);
       localStorage.setItem("lastName", res.data.user.lastName);
       localStorage.setItem("role", res.data.user.role);
+      
       if (res.data.user.role === "admin") {
         window.location.href = "/admin/dashboard";
       } else {
@@ -120,9 +185,38 @@ function LoginSection({ onClose }) {
       }
       onClose();
     } catch (err) {
-      const errMsg = err.response?.data?.error || "Login failed.";
-      setError(errMsg);
-      showToast(errMsg, "error");
+      if (err.response?.status === 429) {
+        const errMsg = err.response?.data?.error || "Account locked";
+        const remainingTime = err.response?.data?.remainingTime || 900;
+        setError(errMsg);
+        setIsAccountLocked(true);
+        setLockdownTimeLeft(remainingTime);
+        setAttemptsRemaining(0);
+
+        // Store lockout expiration in localStorage
+        const expiryTimestamp = Date.now() + remainingTime * 1000;
+        localStorage.setItem(`lockout_${email}`, expiryTimestamp);
+        localStorage.setItem(`attempts_${email}`, 0);
+
+        showToast(errMsg, "error");
+      } else {
+        const errMsg = err.response?.data?.error || "Login failed.";
+        const remaining = err.response?.data?.attemptsRemaining ?? 4;
+        setError(errMsg);
+        setAttemptsRemaining(remaining);
+        
+        // Store remaining attempts count in localStorage
+        localStorage.setItem(`attempts_${email}`, remaining);
+
+        if (remaining > 0) {
+          showToast(
+            `${errMsg} (${remaining} attempt${remaining !== 1 ? "s" : ""} remaining)`,
+            "error"
+          );
+        } else {
+          showToast(errMsg, "error");
+        }
+      }
     } finally {
       setLoading(false);
     }
@@ -132,7 +226,6 @@ function LoginSection({ onClose }) {
     e.preventDefault();
     if (error === "Email already in use") return;
 
-    // Use the password criteria validation
     if (!isPasswordValid) {
       const errMsg = "Please meet all password requirements.";
       setError(errMsg);
@@ -269,6 +362,83 @@ function LoginSection({ onClose }) {
             ) : (
               <>
                 <h2>{view === "login" ? "LOGIN" : "SIGN UP"}</h2>
+
+                {/* Account Lockout Warning */}
+                {isAccountLocked && view === "login" && (
+                  <div
+                    style={{
+                      backgroundColor: "#ffe5e5",
+                      border: "1px solid #ff6b6b",
+                      borderRadius: "8px",
+                      padding: "12px 14px",
+                      marginBottom: "16px",
+                      textAlign: "center",
+                    }}
+                  >
+                    <p
+                      style={{
+                        color: "#c92a2a",
+                        margin: "0 0 8px 0",
+                        fontSize: "13px",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      Account Locked!
+                    </p>
+                    <p
+                      style={{
+                        color: "#c92a2a",
+                        margin: "0 0 6px 0",
+                        fontSize: "12px",
+                      }}
+                    >
+                      Too many failed login attempts
+                    </p>
+                    <p
+                      style={{
+                        color: "#c92a2a",
+                        margin: "0",
+                        fontSize: "14px",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      Try again in:{" "}
+                      <span style={{ color: "#ff6b6b" }}>
+                        {Math.floor(lockdownTimeLeft / 60)}:
+                        {(lockdownTimeLeft % 60).toString().padStart(2, "0")}
+                      </span>
+                    </p>
+                  </div>
+                )}
+
+                {/* Remaining Attempts Warning */}
+                {!isAccountLocked &&
+                  view === "login" &&
+                  attemptsRemaining > 0 &&
+                  attemptsRemaining < 4 && (
+                    <div
+                      style={{
+                        backgroundColor: "#f72222",
+                        border: "1px solid #c92a2a",
+                        borderRadius: "8px",
+                        padding: "10px 12px",
+                        marginBottom: "16px",
+                        textAlign: "center",
+                      }}
+                    >
+                      <p
+                        style={{
+                          color: "#fffefe",
+                          margin: "0",
+                          fontSize: "12px",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        The email or password is incorrect.
+                      </p>
+                    </div>
+                  )}
+
                 <form
                   onSubmit={
                     view === "login" ? handleLoginSubmit : handleSignUpSubmit
@@ -407,15 +577,18 @@ function LoginSection({ onClose }) {
                     className="submit-btn"
                     disabled={
                       loading ||
+                      isAccountLocked ||
                       error === "Email already in use" ||
                       (view === "signup" && !isPasswordValid)
                     }
                   >
-                    {loading
-                      ? "PROCESSING..."
-                      : view === "login"
-                        ? "SUBMIT"
-                        : "CREATE ACCOUNT"}
+                    {isAccountLocked && view === "login"
+                      ? "ACCOUNT LOCKED"
+                      : loading
+                        ? "PROCESSING..."
+                        : view === "login"
+                          ? "SUBMIT"
+                          : "CREATE ACCOUNT"}
                   </button>
 
                   <p className="signup-text">

@@ -13,10 +13,15 @@ const Reservation = {
   // ==================== USER METHODS ====================
   checkActiveByUserId: async (userId) => {
     const sql = `
-          SELECT reservation_id FROM reservations 
-          WHERE user_id = ? 
-          AND status IN ('Pending', 'Confirmed', 'Seated')
-          AND (reservation_date > CURDATE() OR (reservation_date = CURDATE() AND end_time > CURTIME()))
+          SELECT r.reservation_id 
+          FROM reservations r
+          LEFT JOIN payments p ON r.reservation_id = p.reservation_id
+          WHERE r.user_id = ? 
+          AND (
+            (r.status IN ('Pending', 'Confirmed', 'Seated')
+              AND (r.reservation_date > CURDATE() OR (r.reservation_date = CURDATE() AND r.end_time > CURTIME())))
+            OR (p.payment_status = 'rejected')
+          )
           LIMIT 1
         `;
     const [rows] = await db.execute(sql, [userId]);
@@ -32,13 +37,19 @@ const Reservation = {
             TIME_FORMAT(r.end_time, '%h:%i %p') as end_time,
             r.num_guests,
             r.status,
+            p.payment_status,
+            p.rejection_reason,
             GROUP_CONCAT(DISTINCT t.table_number SEPARATOR ', ') as assigned_tables
           FROM reservations r
           LEFT JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
           LEFT JOIN tables t ON rt.table_id = t.table_id
+          LEFT JOIN payments p ON r.reservation_id = p.reservation_id
           WHERE r.user_id = ? 
-          AND r.status IN ('Pending', 'Confirmed', 'Seated')
-          AND (r.reservation_date > CURDATE() OR (r.reservation_date = CURDATE() AND r.end_time > CURTIME()))
+          AND (
+            (r.status IN ('Pending', 'Confirmed', 'Seated')
+              AND (r.reservation_date > CURDATE() OR (r.reservation_date = CURDATE() AND r.end_time > CURTIME())))
+            OR (p.payment_status = 'rejected')
+          )
           GROUP BY r.reservation_id
           ORDER BY r.created_at DESC LIMIT 1`;
     const [rows] = await db.execute(sql, [userId]);

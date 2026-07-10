@@ -7,6 +7,11 @@ const axios = require("axios");
 // In-memory OTP store
 const otpStore = new Map();
 
+// In-memory login attempt store for brute force protection
+const loginAttempts = new Map();
+const MAX_LOGIN_ATTEMPTS = 4;
+const LOCKOUT_TIME = 15 * 60 * 1000; // 15 minutes in milliseconds
+
 const generateOTP = () =>
   Math.floor(100000 + Math.random() * 900000).toString();
 
@@ -101,6 +106,25 @@ const sendOTP = async (email, otp) => {
   }
 };
 
+const trackFailedAttempt = (email) => {
+  const now = Date.now();
+
+  if (!loginAttempts.has(email)) {
+    loginAttempts.set(email, { attempts: 0, lockedUntil: null });
+  }
+
+  const attempts = loginAttempts.get(email);
+  attempts.attempts += 1;
+
+  if (attempts.attempts >= MAX_LOGIN_ATTEMPTS) {
+    attempts.lockedUntil = now + LOCKOUT_TIME;
+    console.warn(
+      `⚠️ Account ${email} locked due to ${MAX_LOGIN_ATTEMPTS} failed attempts`,
+    );
+  }
+
+  return attempts;
+};
 // Send Password Reset Email
 const sendPasswordResetEmail = async (email, resetToken) => {
   // Use query parameter format
@@ -131,12 +155,19 @@ const sendPasswordResetEmail = async (email, resetToken) => {
   );
 };
 
-// Clean up expired OTPs periodically (every minute)
+// Clean up expired OTPs and login attempts periodically (every minute)
 setInterval(() => {
   const now = Date.now();
+  // Clean expired OTPs
   for (const [email, data] of otpStore.entries()) {
     if (data.expires < now) {
       otpStore.delete(email);
+    }
+  }
+  // Clean expired login lockouts
+  for (const [email, data] of loginAttempts.entries()) {
+    if (data.lockedUntil && data.lockedUntil < now) {
+      loginAttempts.delete(email);
     }
   }
 }, 60000);
@@ -145,22 +176,76 @@ const authController = {
   async login(req, res) {
     try {
       const { email, password } = req.body;
+      const now = Date.now();
+
+      // Check if account is locked
+      if (loginAttempts.has(email)) {
+        const attempts = loginAttempts.get(email);
+        if (attempts.lockedUntil && attempts.lockedUntil > now) {
+          const remainingTime = Math.ceil((attempts.lockedUntil - now) / 1000);
+          const minutes = Math.ceil(remainingTime / 60);
+          return res.status(429).json({
+            error: `Account locked due to too many failed attempts. Please try again in ${minutes} minute${minutes > 1 ? "s" : ""}.`,
+            locked: true,
+            remainingTime, // Dynamic time returned to frontend
+            lockedUntil: attempts.lockedUntil,
+          });
+        }
+      }
+
       const user = await User.findByEmail(email);
 
       if (!user) {
-        return res.status(401).json({ error: "Invalid credentials" });
+        const attempts = trackFailedAttempt(email);
+
+        if (attempts.lockedUntil) {
+          const remainingTime = Math.ceil((attempts.lockedUntil - now) / 1000);
+          return res.status(429).json({
+            error:
+              "Account locked due to too many failed attempts. Please try again in 15 minutes.",
+            locked: true,
+            remainingTime,
+            lockedUntil: attempts.lockedUntil,
+          });
+        }
+
+        return res.status(401).json({
+          error: "Invalid credentials",
+          attemptsRemaining: MAX_LOGIN_ATTEMPTS - attempts.attempts,
+        });
       }
 
       const isMatch = await bcrypt.compare(password, user.password_hash);
       if (!isMatch) {
-        return res.status(401).json({ error: "Invalid credentials" });
+        const attempts = trackFailedAttempt(email);
+
+        if (attempts.lockedUntil) {
+          const remainingTime = Math.ceil((attempts.lockedUntil - now) / 1000);
+          return res.status(429).json({
+            error:
+              "Account locked due to too many failed attempts. Please try again in 15 minutes.",
+            locked: true,
+            remainingTime,
+            lockedUntil: attempts.lockedUntil,
+          });
+        }
+
+        return res.status(401).json({
+          error: "Invalid credentials",
+          attemptsRemaining: MAX_LOGIN_ATTEMPTS - attempts.attempts,
+        });
       }
+
+      // Successful login - clear attempts on server
+      loginAttempts.delete(email);
 
       const token = jwt.sign(
         { userId: user.user_id, role: user.role || "customer" },
         process.env.JWT_SECRET,
         { expiresIn: "24h" },
       );
+
+      console.log(`✅ Successful login for ${email}`);
 
       res.json({
         token,
