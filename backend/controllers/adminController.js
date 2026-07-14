@@ -109,12 +109,18 @@ const adminController = {
   addTable: async (req, res) => {
     try {
       const { table_number, capacity } = req.body;
-      await TableStatus.createNewTable(table_number, capacity);
+      const parsedCapacity = Number(capacity);
+
+      if (!Number.isInteger(parsedCapacity) || parsedCapacity < 1 || parsedCapacity > 35) {
+        return res.status(400).json({ error: "Capacity must be between 1 and 35." });
+      }
+
+      await TableStatus.createNewTable(table_number, parsedCapacity);
       await logActivity(
         req.user?.userId || null,
         "ADD_TABLE",
         table_number,
-        { capacity },
+        { capacity: parsedCapacity },
         req,
       );
       res.status(201).json({ message: "Table created successfully" });

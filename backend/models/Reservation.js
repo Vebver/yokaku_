@@ -391,6 +391,10 @@ const Reservation = {
         finalReservationType = String(data.reservationType).toLowerCase();
       }
 
+      if (String(data.bookingType || "").toLowerCase().trim() === "takeout") {
+        finalReservationType = "takeout";
+      }
+
       console.log(
         "📊 Model: Creating reservation with type:",
         finalReservationType,

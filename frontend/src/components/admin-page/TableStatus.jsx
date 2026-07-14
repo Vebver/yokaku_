@@ -390,12 +390,19 @@ const TableStatus = ({ compact = false }) => {
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
+
+                      const parsedCapacity = Number(form.capacity);
+                      if (!Number.isInteger(parsedCapacity) || parsedCapacity < 1 || parsedCapacity > 7) {
+                        window.alert("Capacity must be between 1 and 7.");
+                        return;
+                      }
+
                       handleAction(
                         "post",
                         "/admin/add-table",
                         {
                           table_number: form.tableNum,
-                          capacity: form.capacity,
+                          capacity: parsedCapacity,
                         },
                         () => setUi((p) => ({ ...p, modal: null })),
                       );
@@ -421,6 +428,8 @@ const TableStatus = ({ compact = false }) => {
                       <input
                         type="number"
                         className="form-control"
+                        min="1"
+                        max="7"
                         onChange={(e) =>
                           setForm({ ...form, capacity: e.target.value })
                         }

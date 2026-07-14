@@ -354,7 +354,6 @@ function Inventory() {
       <div
         className="offcanvas offcanvas-end border-0 shadow"
         id="addInvDrawer"
-        data-bs-backdrop="false"
         style={{ width: "min(100%, 500px)" }}
       >
         <div className="offcanvas-header border-bottom">
@@ -369,6 +368,7 @@ function Inventory() {
             ref={closeBtnRef}
           ></button>
         </div>
+        {/*START DRAWER*/}
         <div className="offcanvas-body">
           <form onSubmit={handleSubmit} className="d-flex flex-column gap-3">
             <div className="row g-2">
@@ -497,7 +497,7 @@ function Inventory() {
               </button>
               <button
                 type="button"
-                className="btn btn-light w-100 mt-2 x-small border"
+                className="btn btn-light w-100 mt-2 py-2 fw-bold border"
                 data-bs-dismiss="offcanvas"
               >
                 Cancel

@@ -212,16 +212,16 @@ const WalkInReservations = () => {
       } else if (value === "takeout") {
         defaultPackage = "Take-Out";
       }
-      setNewRes({
-        ...newRes,
+      setNewRes((prev) => ({
+        ...prev,
         bookingType: value,
         packageName: defaultPackage,
-        tableIds: value === "takeout" ? ["takeout"] : [], // Auto-clear tables for takeout
-      });
+        tableIds: value === "takeout" ? ["takeout"] : [],
+      }));
     } else if (name === "tableIds") {
-      setNewRes({ ...newRes, tableIds: [value] });
+      setNewRes((prev) => ({ ...prev, tableIds: value ? [value] : [] }));
     } else {
-      setNewRes({ ...newRes, [name]: value });
+      setNewRes((prev) => ({ ...prev, [name]: value }));
     }
   };
 
@@ -229,10 +229,24 @@ const WalkInReservations = () => {
     e.preventDefault();
     setSubmitting(true);
     try {
+      if (newRes.bookingType === "table") {
+        const selectedTableId = newRes.tableIds?.[0];
+        if (!selectedTableId) {
+          showToast("Please select a table before creating the reservation.");
+          setSubmitting(false);
+          return;
+        }
+      }
+
       const payload = {
         ...newRes,
-        reservationType: newRes.bookingType, 
-        isWalkin: true, 
+        reservationType:
+          newRes.bookingType === "table" ? "per_table" : newRes.bookingType,
+        isWalkin: true,
+        tableIds:
+          newRes.bookingType === "table"
+            ? JSON.stringify(newRes.tableIds || [])
+            : [],
         selectedItems: JSON.stringify(orderCart),
       };
 

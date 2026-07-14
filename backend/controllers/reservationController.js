@@ -258,6 +258,10 @@ const reservationController = {
       // ===== FIX: Safely get reservation type (handle array case) =====
       let reservationType = "per_table";
       let isEvent = false;
+      const isTakeout =
+        String(body.bookingType || body.reservationType || body.reservation_type || "")
+          .toLowerCase()
+          .trim() === "takeout";
 
       // Check reservation_type (snake_case) - could be string or array
       if (
@@ -299,7 +303,7 @@ const reservationController = {
         if (type === "event") {
           isEvent = true;
           reservationType = "event";
-        } else if (type === "per_table") {
+        } else if (type === "per_table" || type === "table") {
           reservationType = "per_table";
         }
       }
@@ -325,35 +329,37 @@ const reservationController = {
       // ===== FIX: Table IDs parsing - ONLY for PER TABLE =====
       let tableIdsArray = [];
 
-      if (isEvent || reservationType === "event") {
-        // EVENT: No table IDs needed
+      if (isEvent || reservationType === "event" || isTakeout) {
+        // EVENT / TAKE-OUT: No table IDs needed
         tableIdsArray = [];
-        console.log("✅ EVENT reservation - skipping table validation");
+        console.log("✅ EVENT/TAKE-OUT reservation - skipping table validation");
       } else {
         // PER TABLE: Parse table IDs from request
         console.log("🔍 PER TABLE - parsing table IDs");
 
-        if (body.tableIds) {
+        const rawTableIds = body.tableIds ?? body.table_id ?? body.tableId ?? [];
+
+        if (rawTableIds !== undefined && rawTableIds !== null) {
           try {
-            if (typeof body.tableIds === "string") {
-              if (body.tableIds.startsWith("[")) {
-                const parsed = JSON.parse(body.tableIds);
+            if (typeof rawTableIds === "string") {
+              if (rawTableIds.startsWith("[")) {
+                const parsed = JSON.parse(rawTableIds);
                 tableIdsArray = Array.isArray(parsed) ? parsed : [parsed];
-              } else if (body.tableIds.includes(",")) {
-                tableIdsArray = body.tableIds
+              } else if (rawTableIds.includes(",")) {
+                tableIdsArray = rawTableIds
                   .split(",")
                   .map((id) => parseInt(id.trim()))
                   .filter((id) => !isNaN(id) && id > 0);
               } else {
-                const id = parseInt(body.tableIds);
+                const id = parseInt(rawTableIds);
                 if (!isNaN(id) && id > 0) {
                   tableIdsArray = [id];
                 }
               }
-            } else if (Array.isArray(body.tableIds)) {
-              tableIdsArray = body.tableIds;
-            } else if (typeof body.tableIds === "number") {
-              tableIdsArray = [body.tableIds];
+            } else if (Array.isArray(rawTableIds)) {
+              tableIdsArray = rawTableIds;
+            } else if (typeof rawTableIds === "number") {
+              tableIdsArray = [rawTableIds];
             }
           } catch (e) {
             console.error("❌ Failed to parse tableIds:", e);

@@ -180,19 +180,24 @@ getTodaySchedule: async () => {
   // 5. CREATE NEW TABLE
   createNewTable: async (tableNumber, capacity) => {
     try {
+      const parsedCapacity = Number(capacity);
+      if (!Number.isInteger(parsedCapacity) || parsedCapacity < 1 || parsedCapacity > 7) {
+        throw new Error("Capacity must be between 1 and 7.");
+      }
+
       const query = `
         INSERT INTO tables (table_number, capacity, available_seats, status)
         VALUES (?, ?, ?, 'available')
       `;
       const [result] = await db.execute(query, [
         tableNumber,
-        capacity,
-        capacity,
+        parsedCapacity,
+        parsedCapacity,
       ]);
       return {
         table_id: result.insertId,
         table_number: tableNumber,
-        capacity,
+        capacity: parsedCapacity,
         status: "available",
       };
     } catch (err) {
