@@ -1428,6 +1428,36 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     } else if (name === "customAllergy" || name === "customOccasion") {
       const sanitized = sanitizeStringInput(value);
       setForm((prev) => ({ ...prev, [name]: sanitized }));
+    } else if (name === "allergyCount") {
+      // ===== FIX: Restrict allergyCount to numbers only, max 40, no negative =====
+      // Remove any non-numeric characters
+      let numericValue = value.replace(/[^0-9]/g, "");
+
+      // If empty, set to empty string
+      if (numericValue === "") {
+        setForm((prev) => ({ ...prev, allergyCount: "" }));
+        return;
+      }
+
+      // Parse as integer
+      let numValue = parseInt(numericValue, 10);
+
+      // Check if it's a valid number and within range
+      if (!isNaN(numValue)) {
+        // Don't allow negative numbers (0 is the minimum)
+        if (numValue < 0) {
+          numValue = 0;
+        }
+        // Max is 40
+        if (numValue > 40) {
+          numValue = 40;
+          showToast(
+            "Maximum number of people with allergies is 40.",
+            "warning",
+          );
+        }
+        setForm((prev) => ({ ...prev, allergyCount: String(numValue) }));
+      }
     } else if (name === "pax") {
       if (value === "") {
         setForm((prev) => ({ ...prev, pax: "" }));
@@ -2356,17 +2386,48 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                       </label>
                       <div className="allergy-count-input-wrapper">
                         <input
-                          type="number"
+                          type="text"
                           name="allergyCount"
                           className="allergy-count-input"
-                          min="1"
-                          max={35}
                           value={form.allergyCount}
                           onChange={handleInputChange}
-                          placeholder="Enter number (1-35)"
+                          placeholder="Enter number (1-40)"
+                          maxLength={2}
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          onKeyDown={(e) => {
+                            // Allow: backspace, delete, tab, escape, enter
+                            if (
+                              e.key === "Backspace" ||
+                              e.key === "Delete" ||
+                              e.key === "Tab" ||
+                              e.key === "Escape" ||
+                              e.key === "Enter"
+                            ) {
+                              return;
+                            }
+                            // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+                            if (
+                              e.ctrlKey &&
+                              (e.key === "a" ||
+                                e.key === "c" ||
+                                e.key === "v" ||
+                                e.key === "x")
+                            ) {
+                              return;
+                            }
+                            // Prevent: any non-numeric key
+                            if (!/^[0-9]$/.test(e.key)) {
+                              e.preventDefault();
+                            }
+                          }}
                         />
                         <span className="allergy-count-hint">
-                          Out of 35 total guest(s)
+                          Out of{" "}
+                          {reservationType === "event"
+                            ? "35"
+                            : parseInt(form.pax) || totalSeats || 0}{" "}
+                          total guest(s)
                         </span>
                       </div>
                     </div>
@@ -3146,14 +3207,43 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                       </label>
                       <div className="allergy-count-input-wrapper">
                         <input
-                          type="number"
+                          type="text"
                           name="allergyCount"
                           className="allergy-count-input"
                           min="1"
-                          max={parseInt(form.pax) || totalSeats || 10}
+                          max={40}
                           value={form.allergyCount}
                           onChange={handleInputChange}
-                          placeholder={`Enter number (1-${parseInt(form.pax) || totalSeats || 10})`}
+                          placeholder={`Enter number (1-${Math.min(parseInt(form.pax) || totalSeats || 10, 40)})`}
+                          maxLength={2}
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          onKeyDown={(e) => {
+                            // Allow: backspace, delete, tab, escape, enter
+                            if (
+                              e.key === "Backspace" ||
+                              e.key === "Delete" ||
+                              e.key === "Tab" ||
+                              e.key === "Escape" ||
+                              e.key === "Enter"
+                            ) {
+                              return;
+                            }
+                            // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+                            if (
+                              e.ctrlKey &&
+                              (e.key === "a" ||
+                                e.key === "c" ||
+                                e.key === "v" ||
+                                e.key === "x")
+                            ) {
+                              return;
+                            }
+                            // Prevent: any non-numeric key
+                            if (!/^[0-9]$/.test(e.key)) {
+                              e.preventDefault();
+                            }
+                          }}
                         />
                         <span className="allergy-count-hint">
                           Out of {parseInt(form.pax) || totalSeats || 0} total
