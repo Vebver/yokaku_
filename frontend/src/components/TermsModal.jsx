@@ -73,10 +73,10 @@ const TermsModal = ({ isOpen, onAccept, onClose }) => {
             <strong>1. Cancellation Policy:</strong> Customers can cancel their
             reservations, but please note that the Hangout Policy has{" "}
             <span style={{ color: "red" }}>
-              NO REFUND, if you want a REFUND kindly go to store and discuss
-              with the manager.
+              NO REFUND, if you want a REFUND kindly click in "File a Refund"
+              Button in My Reservation and Fill up and wait for approval of the
+              store.
             </span>
-            .
           </p>
           <p>
             <strong>2. Late Arrival:</strong> Tables will be held for a maximum
