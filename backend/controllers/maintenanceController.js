@@ -101,57 +101,33 @@ const maintenanceController = {
     }
   },
 
-  // DOWNLOAD FINANCIAL REPORT AS PDF (Profit Weekly/Monthly/Yearly + Revenue Trends)
-  // Inside controllers/maintenanceController.js
-
   exportFinancialPdf: async (req, res) => {
     try {
-      // 1. Get the local date string to prevent undefined bind parameters
-      const todayStr = new Date().toLocaleDateString("en-CA", {
-        timeZone: "Asia/Manila",
-      });
+      const { startDate, endDate } = req.query; 
 
-      const [
-        stats,
-        profitWeekly,
-        profitMonthly,
-        profitYearly,
-        weeklyTrend,
-        monthlyTrend,
-        yearlyTrend,
-      ] = await Promise.all([
-        FinancialReport.getFinancialStats(todayStr),
-        FinancialReport.getProfitWeekly(todayStr), // Pass todayStr
-        FinancialReport.getProfitMonthly(todayStr), // Pass todayStr
-        FinancialReport.getProfitYearly(todayStr), // Pass todayStr
-        FinancialReport.getWeeklyProfitTrend(todayStr), // Pass todayStr
-        FinancialReport.getMonthlyTrend(),
-        FinancialReport.getYearlyProfitTrend(todayStr), // Pass todayStr
+      // 1. CALL THE NEW "PDF" SPECIFIC FUNCTIONS
+      const [stats, weeklyTrend, monthlyTrend, yearlyTrend] = await Promise.all([
+        FinancialReport.getPdfStats(startDate, endDate),
+        FinancialReport.getPdfWeeklyTrend(startDate, endDate),
+        FinancialReport.getPdfMonthlyTrend(startDate, endDate),
+        FinancialReport.getPdfYearlyTrend(startDate, endDate),
       ]);
 
-      res.setHeader("Content-Type", "application/pdf");
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename="Financial Report ${Date.now()}.pdf"`,
-      );
-
       const doc = buildFinancialPdf({
-        title: "Financial Report (Profit Trend)",
+        title: "Financial Performance Report",
         payload: {
           summary: stats || {},
-          profit: {
-            weekly: profitWeekly || 0,
-            monthly: profitMonthly || 0,
-            yearly: profitYearly || 0,
-          },
           trends: {
             weekly: weeklyTrend || [],
             monthly: monthlyTrend || [],
             yearly: yearlyTrend || [],
           },
         },
+        startDate: startDate,
+        endDate: endDate,
       });
 
+      res.setHeader("Content-Type", "application/pdf");
       doc.pipe(res);
       doc.end();
 
@@ -159,8 +135,10 @@ const maintenanceController = {
         req.user?.userId || null,
         "EXPORT_FINANCIAL_REPORT_PDF",
         null,
-        { message: "Official financial performance statement (PDF) requested and downloaded." },
-        req
+        {
+          message: `Financial report generated for period: ${startDate} to ${endDate}`,
+        },
+        req,
       );
     } catch (error) {
       console.error("exportFinancialPdf error:", error);

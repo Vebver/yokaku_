@@ -1,304 +1,116 @@
 const PDFDocument = require("pdfkit");
 const fs = require("fs");
-const path = require("path"); // Added to resolve the path issue
+const path = require("path");
 
 function formatCurrencyPHP(amount) {
   const n = Number(amount || 0);
   return `PHP ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function formatDate(date) {
-  return date.toLocaleString("en-PH", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+function formatDateLong(dateStr) {
+  if (!dateStr) return null;
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return null;
+  return date.toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" });
 }
 
-function buildFinancialPdf({ title, payload }) {
-  const doc = new PDFDocument({ margin: 50, size: "A4", layout: "landscape" });
-  const today = new Date();
-  const dateLabel = formatDate(today);
+function buildFinancialPdf({ title, payload, startDate, endDate }) {
+  // 1. Reduced margins to 30 to prevent unwanted page breaks
+  const doc = new PDFDocument({ margin: 30, size: "A4", layout: "landscape" });
+  
+  const today = new Date().toLocaleDateString("en-PH", {
+    year: "numeric", month: "long", day: "numeric",
+  });
 
-  // ============ SPREADSHEET-STYLE BRANDED HEADER ============
-
-  // Resolves path relative to this script's directory
+  // ============ BRANDED HEADER (COMPACT) ============
   const logoPath = path.join(__dirname, "../../frontend/public/favicon.png");
   const hasLogo = fs.existsSync(logoPath);
-  let textStartX = 50;
+  let textStartX = 40;
 
   if (hasLogo) {
-    doc.image(logoPath, 50, 40, { width: 45, height: 45 });
-    textStartX = 110;
-  } else {
-    // Helpful log to console to verify path if logo is still missing
-    console.warn(`[PDF Export] Logo not found at resolved path: ${logoPath}`);
+    doc.image(logoPath, 40, 30, { width: 35, height: 35 });
+    textStartX = 85;
   }
 
-  doc
-    .fillColor("#000000")
-    .font("Helvetica-Bold")
-    .fontSize(22)
-    .text("HANGOUT RESTOBAR", textStartX, 45);
+  doc.fillColor("#0f172a").font("Helvetica-Bold").fontSize(20).text("HANGOUT RESTOBAR", textStartX, 35);
+  doc.fillColor("#d97706").font("Helvetica-Bold").fontSize(9).text("FINANCIAL PERFORMANCE REPORT", textStartX, 58);
 
-  doc
-    .fillColor("#d97706")
-    .font("Helvetica-Bold")
-    .fontSize(9)
-    .text(title.toUpperCase(), textStartX, 70);
+  // ============ METADATA (TOP RIGHT) ============
+  const metaX = doc.page.width - 240;
+  doc.fillColor("#64748b").font("Helvetica-Bold").fontSize(7.5).text("SALESPERSON: Hangout Manager", metaX, 35, { align: "right", width: 200 });
+  doc.text("LOCATION: Purok 3, Ibayo, Marilao, Bulacan, 3019", metaX, 45, { align: "right", width: 200 });
+  doc.fillColor("#94a3b8").font("Helvetica").text(`DATE: ${today}`, metaX, 55, { align: "right", width: 200 });
 
-  // Right Side: Metadata
-  doc
-    .fillColor("#64748b")
-    .font("Helvetica-Bold")
-    .fontSize(8)
-    .text("SALESPERSON: Hangout Manager", doc.page.width - 250, 48, {
-      align: "right",
-      width: 200,
-    });
+  // ============ REPORTING PERIOD BOX (COMPACT) ============
+  const rangeX = doc.page.width - 240;
+  const rangeY = 115;
+  doc.fillColor("#f8fafc").roundedRect(rangeX, rangeY, 200, 32, 5).fill();
+  doc.lineWidth(0.5).strokeColor("#e2e8f0").roundedRect(rangeX, rangeY, 200, 32, 5).stroke();
+  doc.fillColor("#64748b").font("Helvetica-Bold").fontSize(7).text("REPORTING PERIOD", rangeX + 10, rangeY + 6);
+  
+  const startDisplay = formatDateLong(startDate);
+  const endDisplay = formatDateLong(endDate);
+  const dateRangeString = (startDisplay && endDisplay) ? `${startDisplay} — ${endDisplay}` : "All Time History";
+  doc.fillColor("#1e293b").font("Helvetica-Bold").fontSize(8).text(dateRangeString, rangeX + 10, rangeY + 16);
 
-  doc
-    .fillColor("#64748b")
-    .font("Helvetica")
-    .fontSize(8)
-    .text(
-      "LOCATION: Purok 3, Ibayo, Marilao, Bulacan, 3019",
-      doc.page.width - 250,
-      62,
-      { align: "right", width: 200 },
-    );
+  // ============ DIVIDER ============
+  doc.moveTo(40, 110).lineTo(doc.page.width - 40, 110).strokeColor("#e2e8f0").lineWidth(0.5).stroke();
 
-  doc
-    .fillColor("#94a3b8")
-    .font("Helvetica")
-    .fontSize(8)
-    .text(`DATE: ${dateLabel}`, doc.page.width - 250, 76, {
-      align: "right",
-      width: 200,
-    });
+  // ============ ACTIVITY TRENDS ANALYSIS ============
+  doc.y = 120;
+  doc.fillColor("#1e293b").font("Helvetica-Bold").fontSize(14).text("Activity Trends Analysis", 70, doc.y);
+  
+  const tableStartY = 160; // Fixed starting point for tables
+  const totalWidth = doc.page.width - 80;
+  const colWidth = (totalWidth - 40) / 3;
 
-  // Thin header decorative rule
-  doc
-    .moveTo(50, 95)
-    .lineTo(doc.page.width - 50, 95)
-    .strokeColor("#e2e8f0")
-    .lineWidth(0.8)
-    .stroke();
-
-  doc.y = 115;
-
-  // ============ STATS METRICS (HORIZONTAL ROW LAYOUT) ============
-  const summary = payload?.summary || {};
-  const profitWeekly = payload?.profit?.weekly || 0;
-  const profitMonthly = payload?.profit?.monthly || 0;
-  const profitYearly = payload?.profit?.yearly || 0;
-  const totalOrders = summary.total_orders || 0;
-  const avgOrder = summary.aov || 0;
-
-  const startX = 50;
-  const totalWidth = doc.page.width - 100;
-  const cardWidth5Col = (totalWidth - 48) / 5;
-  let cardY = doc.y;
-
-  function renderCard(x, label, value, subtext = null, isNumber = false) {
-    const displayValue = isNumber
-      ? value.toLocaleString()
-      : formatCurrencyPHP(value);
-
-    doc.fillColor("#ffffff").roundedRect(x, cardY, cardWidth5Col, 65, 8).fill();
-    doc
-      .roundedRect(x, cardY, cardWidth5Col, 65, 8)
-      .strokeColor("#e2e8f0")
-      .lineWidth(0.5)
-      .stroke();
-
-    doc.rect(x, cardY, 3, 65).fillColor("#eab308").fill();
-
-    doc
-      .fillColor("#64748b")
-      .font("Helvetica-Bold")
-      .fontSize(7.5)
-      .text(label, x + 12, cardY + 12);
-
-    doc
-      .fillColor("#0f172a")
-      .font("Helvetica-Bold")
-      .fontSize(14)
-      .text(displayValue, x + 12, cardY + 26, { width: cardWidth5Col - 20 });
-
-    if (subtext) {
-      doc
-        .fillColor("#94a3b8")
-        .font("Helvetica")
-        .fontSize(6.5)
-        .text(subtext, x + 12, cardY + 44, { width: cardWidth5Col - 20 });
-    }
-  }
-
-  renderCard(startX, "WEEKLY REVENUE", profitWeekly);
-  renderCard(
-    startX + (cardWidth5Col + 12) * 1,
-    "MONTHLY REVENUE",
-    profitMonthly,
-  );
-  renderCard(startX + (cardWidth5Col + 12) * 2, "YEARLY REVENUE", profitYearly);
-  renderCard(
-    startX + (cardWidth5Col + 12) * 3,
-    "TOTAL ORDERS",
-    totalOrders,
-    "Completed orders",
-    true,
-  );
-  renderCard(
-    startX + (cardWidth5Col + 12) * 4,
-    "AVERAGE ORDER VALUE",
-    avgOrder,
-    "Per transaction",
-  );
-
-  doc.y = cardY + 85;
-
-  // ============ SECTION DIVIDER ============
-  doc
-    .fillColor("#1e293b")
-    .font("Helvetica-Bold")
-    .fontSize(15)
-    .text("Activity Trends Analysis", startX, doc.y, {
-      align: "center",
-      width: totalWidth,
-    });
-
-  doc.moveDown(1.0);
-
-  // ============ TREND TABLES (SIDE-BY-SIDE COLUMN LAYOUT) ============
-  function renderTrendTable(title, trends, x, startY, width) {
+  function renderTrendTable(tableTitle, trends, x, startY, width) {
     if (!trends || trends.length === 0) return;
+    
+    let localY = startY;
+    const rowHeight = 14;    // Slightly tighter
+    const headerHeight = 18; // Slightly tighter
 
-    const rowHeight = 16;
-    const headerHeight = 22;
-    const totalsHeight = 20;
+    doc.fillColor("#d97706").font("Helvetica-Bold").fontSize(8.5).text(tableTitle.toUpperCase(), x, localY);
+    localY += 12;
 
-    let y = startY;
+    doc.rect(x, localY, width, headerHeight).fillColor("#f8fafc").fill();
+    doc.rect(x, localY, width, headerHeight).strokeColor("#cbd5e1").lineWidth(0.5).stroke();
+    doc.fillColor("#475569").font("Helvetica-Bold").fontSize(7).text("PERIOD", x + 8, localY + 5);
+    doc.text("REVENUE", x + width / 2, localY + 5, { width: width / 2 - 8, align: "right" });
 
-    doc
-      .fillColor("#d97706")
-      .font("Helvetica-Bold")
-      .fontSize(10.5)
-      .text(title.toUpperCase(), x, y);
+    localY += headerHeight;
+    let total = 0;
 
-    y += 16;
-
-    doc.rect(x, y, width, headerHeight).fillColor("#ffffff").fill();
-    doc
-      .rect(x, y, width, headerHeight)
-      .strokeColor("#cbd5e1")
-      .lineWidth(0.5)
-      .stroke();
-
-    const textY = y + 7;
-    doc.fillColor("#facc15").font("Helvetica-Bold").fontSize(7.5);
-    doc.text("PERIOD", x + 10, textY, { width: width / 2 - 10, align: "left" });
-    doc.text("REVENUE", x + width / 2, textY, {
-      width: width / 2 - 10,
-      align: "right",
+    trends.forEach((item) => {
+      const val = Number(item.value || item.revenue || 0);
+      total += val;
+      doc.rect(x, localY, width, rowHeight).strokeColor("#e2e8f0").lineWidth(0.5).stroke();
+      doc.fillColor("#334155").font("Helvetica").fontSize(7.5).text(item.label || "N/A", x + 8, localY + 3.5);
+      doc.text(formatCurrencyPHP(val), x + width / 2, localY + 3.5, { width: width / 2 - 8, align: "right" });
+      localY += rowHeight;
     });
 
-    y += headerHeight;
-
-    let totalActual = 0;
-
-    trends.forEach((item, idx) => {
-      const period =
-        item.label || item.period || item.month || item.week || item.date || "";
-      const actualVal = Number(item.value || item.revenue || 0);
-
-      totalActual += actualVal;
-
-      doc
-        .rect(x, y, width, rowHeight)
-        .strokeColor("#cbd5e1")
-        .lineWidth(0.5)
-        .stroke();
-
-      doc.fillColor("#334155").font("Helvetica").fontSize(8);
-      doc.text(period, x + 10, y + 4, { width: width / 2 - 10, align: "left" });
-      doc.text(formatCurrencyPHP(actualVal), x + width / 2, y + 4, {
-        width: width / 2 - 10,
-        align: "right",
-      });
-
-      y += rowHeight;
-    });
-
-    doc.rect(x, y, width, totalsHeight).fillColor("#1e293b").fill();
-    doc
-      .rect(x, y, width, totalsHeight)
-      .strokeColor("#cbd5e1")
-      .lineWidth(0.5)
-      .stroke();
-
-    doc.fillColor("#facc15").font("Helvetica-Bold").fontSize(8.5);
-    doc.text("Totals", x + 10, y + 6, { width: width / 2 - 10, align: "left" });
-    doc.text(formatCurrencyPHP(totalActual), x + width / 2, y + 6, {
-      width: width / 2 - 10,
-      align: "right",
-    });
+    // Total Row
+    doc.rect(x, localY, width, rowHeight).fillColor("#f1f5f9").fill();
+    doc.rect(x, localY, width, rowHeight).strokeColor("#cbd5e1").lineWidth(0.5).stroke();
+    doc.fillColor("#0f172a").font("Helvetica-Bold").fontSize(7.5).text("TOTAL", x + 8, localY + 3.5);
+    doc.text(formatCurrencyPHP(total), x + width / 2, localY + 3.5, { width: width / 2 - 8, align: "right" });
   }
 
-  const tableStartY = doc.y;
-  const colWidth = (totalWidth - 30) / 3;
-  const colX1 = startX;
-  const colX2 = startX + colWidth + 15;
-  const colX3 = startX + (colWidth + 15) * 2;
-
-  renderTrendTable(
-    "Weekly Revenue Trend",
-    payload?.trends?.weekly,
-    colX1,
-    tableStartY,
-    colWidth,
+  // Draw tables - Note they all use the same tableStartY
+  renderTrendTable("Weekly Trend", (payload?.trends?.weekly || []).slice(0, 18), 70, tableStartY, colWidth);
+  renderTrendTable("Monthly Trend", (payload?.trends?.monthly || []).slice(0, 18), 70 + colWidth + 20, tableStartY, colWidth);
+  renderTrendTable("Yearly Trend", (payload?.trends?.yearly || []).slice(0, 18), 70 + (colWidth + 20) * 2, tableStartY, colWidth);
+  // ============ FOOTER SECTION ============
+  const footerY = doc.page.height - 25; 
+  doc.save();
+  doc.moveTo(40, footerY - 8).lineTo(doc.page.width - 40, footerY - 8).strokeColor("#e2e8f0").lineWidth(0.5).stroke();
+  doc.fillColor("#94a3b8").font("Helvetica").fontSize(6.5).text(
+    "Generated by Hangout System | Official Financial Document",
+    40, footerY, { align: "center", width: doc.page.width - 80 }
   );
-  renderTrendTable(
-    "Monthly Revenue Trend",
-    payload?.trends?.monthly,
-    colX2,
-    tableStartY,
-    colWidth,
-  );
-  renderTrendTable(
-    "Yearly Revenue Trend",
-    payload?.trends?.yearly,
-    colX3,
-    tableStartY,
-    colWidth,
-  );
-
-  // ============ FOOTER SECTION WITH ADDRESS ============
-  // Moved footer up to height - 75 to keep it safely within the page boundaries
-  const footerY = doc.page.height - 75;
-
-  // Footer divider rule (Moved up in proportion)
-  doc
-    .moveTo(50, footerY - 12)
-    .lineTo(doc.page.width - 50, footerY - 12)
-    .strokeColor("#cbd5e1")
-    .lineWidth(0.5)
-    .stroke();
-
-  // Footer address text
-  doc
-    .fillColor("#94a3b8")
-    .font("Helvetica")
-    .fontSize(7.5)
-    .text(
-      "Hangout Restobar | Purok 3, Ibayo, Marilao, Bulacan, 3019 (PS Bank RCH Building near 7-Eleven) | abrevointernational@gmail.com",
-      50,
-      footerY,
-      {
-        align: "center",
-        width: doc.page.width - 100,
-      },
-    );
+  doc.restore();
 
   return doc;
 }

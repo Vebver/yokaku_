@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from "react";
+import React, { useState, useEffect } from "react";
 import {
   FileSpreadsheet,
   Archive,
@@ -12,6 +12,8 @@ import api from "../../api";
 import { useToast } from "../ToastContext";
 
 const SystemMaintenance = () => {
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const { showToast } = useToast();
   const [kioskReservationId, setKioskReservationId] = useState("");
   const runTask = async (endpoint, taskName, warningText) => {
@@ -30,7 +32,7 @@ const SystemMaintenance = () => {
         },
       );
 
-      showToast("Success: " + res.data.message,"success");
+      showToast("Success: " + res.data.message, "success");
 
       if (endpoint === "reset") {
         window.location.reload();
@@ -42,49 +44,57 @@ const SystemMaintenance = () => {
   };
 
   const handleSetKioskReservation = async () => {
-  if (!kioskReservationId.trim()) return;
+    if (!kioskReservationId.trim()) return;
 
-  const confirmed = window.confirm(`Assign reservation ID ${kioskReservationId} to the kiosk?`);
-  if (!confirmed) return;
-
-  try {
-    const token = localStorage.getItem("token");
-    const res = await api.post(
-      `/admin/set-kiosk-reservation`, 
-      { reservationId: kioskReservationId }, 
-      { headers: { Authorization: `Bearer ${token}` } }
+    const confirmed = window.confirm(
+      `Assign reservation ID ${kioskReservationId} to the kiosk?`,
     );
-    
-    showToast("Success: " + res.data.message);
-    setKioskReservationId(""); // Reset input on success
-  } catch (err) {
-    console.error(err);
-    showToast("Error: " + (err.response?.data?.error || "Action failed"));
-  }
-};
+    if (!confirmed) return;
 
-  const downloadFinancialPdf = async () => {
     try {
       const token = localStorage.getItem("token");
-      const response = await api.get(
-        `/admin/export-financial-pdf`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-          responseType: "blob",
-        },
+      const res = await api.post(
+        `/admin/set-kiosk-reservation`,
+        { reservationId: kioskReservationId },
+        { headers: { Authorization: `Bearer ${token}` } },
       );
+
+      showToast("Success: " + res.data.message);
+      setKioskReservationId(""); // Reset input on success
+    } catch (err) {
+      console.error(err);
+      showToast("Error: " + (err.response?.data?.error || "Action failed"));
+    }
+  };
+
+  const downloadFinancialPdf = async () => {
+    if (!startDate || !endDate) {
+      showToast("Please select both start and end dates.");
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("token");
+      const response = await api.get(`/admin/export-financial-pdf`, {
+        params: { startDate, endDate }, // Send dates as query parameters
+        headers: { Authorization: `Bearer ${token}` },
+        responseType: "blob",
+      });
 
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", `Financial Report ${Date.now()}.pdf`);
+      link.setAttribute(
+        "download",
+        `Financial_Report_${startDate}_to_${endDate}.pdf`,
+      );
       document.body.appendChild(link);
       link.click();
       link.parentNode.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error("Financial PDF download failed", err);
-      showToast("Failed to download financial PDF. Please check your connection.");
+      showToast("Failed to download financial PDF.");
     }
   };
 
@@ -122,125 +132,151 @@ const SystemMaintenance = () => {
 
       {/* Grid: 2 columns on tablets/desktops, 1 column on mobile */}
       <div className="row g-4">
-        {/* 1. EXPORT DATA */}
-        <div className="col-12 col-md-6">
-          <div
-            className="p-4 border rounded text-center h-100 bg-white shadow-sm d-flex flex-column justify-content-between"
-            style={{ borderRadius: "8px" }}
-          >
-            <div>
-              <FileSpreadsheet className="text-success mb-3" size={40} />
-              <h5 className="fw-bold">Export Records</h5>
-              <p className="small text-muted mb-4">
-                Download all reservation history as in CSV file.
-              </p>
-            </div>
-            <button
-              onClick={downloadReport}
-              className="btn btn-success btn-lg w-100 py-3 fw-bold shadow-sm"
-              style={{ borderRadius: "8px" }}
-            >
-              Download Report
-            </button>
-          </div>
-        </div>
+  {/* 1. EXPORT DATA (CSV) */}
+  <div className="col-12 col-md-6">
+    <div
+      className="p-4 border rounded text-center h-100 bg-white shadow-sm d-flex flex-column justify-content-between"
+      style={{ borderRadius: "8px" }}
+    >
+      <div>
+        <FileSpreadsheet className="text-success mb-3" size={40} />
+        <h5 className="fw-bold">Export Records</h5>
+        <p className="small text-muted mb-4">
+          Download all reservation history as a CSV file for spreadsheet analysis.
+        </p>
+      </div>
+      <button
+        onClick={downloadReport}
+        className="btn btn-success btn-lg w-100 py-3 fw-bold shadow-sm"
+        style={{ borderRadius: "8px" }}
+      >
+        Download CSV
+      </button>
+    </div>
+  </div>
 
-        {/* 2. ASSIGNING KIOSK ID*/}
-        <div className="col-12 col-md-6">
-          <div
-            className="p-4 border rounded text-center h-100 bg-white shadow-sm d-flex flex-column justify-content-between"
-            style={{ borderRadius: "8px" }}
-          >
-            <div>
-              <Monitor className="text-primary mb-3" size={40} />
-              <h5 className="fw-bold">Set Kiosk Reservation</h5>
-              <p className="small text-muted mb-4">
-                Input the reservation ID to route this specific record directly
-                to the active kiosk.
-              </p>
-              <input
-                type="text"
-                className="form-control mb-3 text-center"
-                placeholder="Enter Reservation ID"
-                value={kioskReservationId}
-                onChange={(e) => setKioskReservationId(e.target.value)}
-                style={{
-                  borderRadius: "8px",
-                  maxWidth: "250px",
-                  margin: "0 auto",
-                }}
-              />
-            </div>
-            <button
-              onClick={handleSetKioskReservation}
-              className="btn btn-primary btn-lg w-100 py-3 fw-bold shadow-sm"
-              style={{ borderRadius: "8px" }}
-              disabled={!kioskReservationId.trim()}
-            >
-              Assign to Kiosk
-            </button>
-          </div>
-        </div>
+  {/* 2. ASSIGNING KIOSK ID */}
+  <div className="col-12 col-md-6">
+    <div
+      className="p-4 border rounded text-center h-100 bg-white shadow-sm d-flex flex-column justify-content-between"
+      style={{ borderRadius: "8px" }}
+    >
+      <div>
+        <Monitor className="text-primary mb-3" size={40} />
+        <h5 className="fw-bold">Set Kiosk Reservation</h5>
+        <p className="small text-muted mb-4">
+          Input the reservation ID to route this specific record directly
+          to the active kiosk.
+        </p>
+        <input
+          type="text"
+          className="form-control mb-3 text-center"
+          placeholder="Enter Reservation ID"
+          value={kioskReservationId}
+          onChange={(e) => setKioskReservationId(e.target.value)}
+          style={{
+            borderRadius: "8px",
+            maxWidth: "250px",
+            margin: "0 auto",
+          }}
+        />
+      </div>
+      <button
+        onClick={handleSetKioskReservation}
+        className="btn btn-primary btn-lg w-100 py-3 fw-bold shadow-sm"
+        style={{ borderRadius: "8px" }}
+        disabled={!kioskReservationId.trim()}
+      >
+        Assign to Kiosk
+      </button>
+    </div>
+  </div>
 
-        {/* 3. FINANCIAL PDF */}
-        <div className="col-12 col-md-6">
-          <div
-            className="p-4 border rounded text-center h-100 bg-white shadow-sm d-flex flex-column justify-content-between"
-            style={{ borderRadius: "8px" }}
-          >
-            <div>
-              <FileText className="text-danger mb-3" size={40} />
-              <h5 className="fw-bold">Export Financial PDF</h5>
-              <p className="small text-muted mb-4">
-                Download revenue trend (weekly/monthly/yearly).
-              </p>
-            </div>
-            <button
-              onClick={downloadFinancialPdf}
-              className="btn btn-danger btn-lg w-100 py-3 fw-bold shadow-sm"
-              style={{ borderRadius: "8px" }}
-            >
-              Download PDF
-            </button>
+  {/* 3. FINANCIAL PDF (With Date Range Design) */}
+  <div className="col-12 col-md-6">
+    <div
+      className="p-4 border rounded text-center h-100 bg-white shadow-sm d-flex flex-column justify-content-between"
+      style={{ borderRadius: "8px" }}
+    >
+      <div>
+        <FileText className="text-danger mb-3" size={40} />
+        <h5 className="fw-bold">Financial Performance Report</h5>
+        <p className="small text-muted mb-3">
+          Select a date range to generate a professional revenue analysis.
+        </p>
+        
+        {/* Date Selection Area */}
+        <div className="row g-2 mb-4">
+          <div className="col-6">
+            <label className="text-start d-block small fw-bold text-muted mb-1">START DATE</label>
+            <input
+              type="date"
+              className="form-control"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              style={{ borderRadius: "8px", fontSize: "0.9rem" }}
+            />
           </div>
-        </div>
-
-        {/* 4. SHIFT RESET */}
-        <div className="col-12 col-md-6">
-          <div
-            className="p-4 border rounded text-center h-100 bg-white shadow-sm d-flex flex-column justify-content-between"
-            style={{ borderRadius: "8px" }}
-          >
-            <div>
-              <RefreshCcw className="text-warning mb-3" size={40} />
-              <h5 className="fw-bold">Table Reset</h5>
-              <p className="small text-muted mb-4">
-                Prepares the floor for a new shift by resetting all table
-                statuses.
-              </p>
-            </div>
-            <button
-              onClick={() =>
-                runTask(
-                  "reset",
-                  "Table Reset",
-                  "Warning: This will set all tables to 'Available'.",
-                )
-              }
-              className="btn btn-warning btn-lg w-100 py-3 fw-bold shadow-sm text-dark"
-              style={{ borderRadius: "8px" }}
-            >
-              Start New Shift
-            </button>
+          <div className="col-6">
+            <label className="text-start d-block small fw-bold text-muted mb-1">END DATE</label>
+            <input
+              type="date"
+              className="form-control"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              style={{ borderRadius: "8px", fontSize: "0.9rem" }}
+            />
           </div>
         </div>
       </div>
+
+      <button
+        onClick={downloadFinancialPdf}
+        className="btn btn-danger btn-lg w-100 py-3 fw-bold shadow-sm"
+        style={{ borderRadius: "8px" }}
+        disabled={!startDate || !endDate}
+      >
+        Generate PDF Report
+      </button>
+    </div>
+  </div>
+
+  {/* 4. SHIFT RESET */}
+  <div className="col-12 col-md-6">
+    <div
+      className="p-4 border rounded text-center h-100 bg-white shadow-sm d-flex flex-column justify-content-between"
+      style={{ borderRadius: "8px" }}
+    >
+      <div>
+        <RefreshCcw className="text-warning mb-3" size={40} />
+        <h5 className="fw-bold">Table Reset</h5>
+        <p className="small text-muted mb-4">
+          Prepares the floor for a new shift by resetting all table
+          statuses.
+        </p>
+      </div>
+      <button
+        onClick={() =>
+          runTask(
+            "reset",
+            "Table Reset",
+            "Warning: This will set all tables to 'Available'.",
+          )
+        }
+        className="btn btn-warning btn-lg w-100 py-3 fw-bold shadow-sm text-dark"
+        style={{ borderRadius: "8px" }}
+      >
+        Start New Shift
+      </button>
+    </div>
+  </div>
+</div>
 
       {/* Warning Footer */}
       <div className="mt-4 p-3 bg-light rounded border-start border-warning border-4 d-flex align-items-center">
         <AlertTriangle size={20} className="text-warning me-3 flex-shrink-0" />
         <span className="small text-muted">
-          <b>Manager Note:</b> System actions are permanent. We recommend{" "}
+          <b>Note:</b> System actions are permanent. We recommend{" "}
           <b>Exporting Records</b> regularly for your physical archives.
         </span>
       </div>
