@@ -812,6 +812,104 @@
   font-weight: normal;
 }
 
+/* Tabs */
+.reservation-tabs {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  border-bottom: 2px solid #e8ecf1;
+  padding-bottom: 4px;
+}
+
+.tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border: none;
+  background: none;
+  color: #6b7280;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 8px 8px 0 0;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.tab-btn:hover {
+  color: #f38d31;
+  background: #fef3e8;
+}
+
+.tab-btn.active {
+  color: #f38d31;
+  background: #fef3e8;
+  border-bottom: 3px solid #f38d31;
+}
+
+.tab-badge {
+  background: #f38d31;
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: 12px;
+  margin-left: 4px;
+}
+
+/* History Cards */
+.history-card {
+  opacity: 0.85;
+  border-left: 4px solid #d1d5db;
+}
+
+.history-card.cancelled {
+  border-left-color: #ef4444;
+}
+
+.history-card.completed {
+  border-left-color: #22c55e;
+}
+
+.history-card.refunded {
+  border-left-color: #f59e0b;
+}
+
+.history-icon {
+  margin-right: 6px;
+}
+
+.history-icon.cancelled {
+  color: #ef4444;
+}
+
+.history-icon.completed {
+  color: #22c55e;
+}
+
+.history-icon.refunded {
+  color: #f59e0b;
+}
+
+.cancellation-reason {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: #fef2f2;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #dc2626;
+}
+
+/* Status Badge - Refunded */
+.status-refunded {
+  background: #fef3c7;
+  color: #d97706;
+}
+
 /* Animations */
 @keyframes slideUp {
   from {

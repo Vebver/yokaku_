@@ -259,7 +259,12 @@ const reservationController = {
       let reservationType = "per_table";
       let isEvent = false;
       const isTakeout =
-        String(body.bookingType || body.reservationType || body.reservation_type || "")
+        String(
+          body.bookingType ||
+            body.reservationType ||
+            body.reservation_type ||
+            "",
+        )
           .toLowerCase()
           .trim() === "takeout";
 
@@ -332,12 +337,15 @@ const reservationController = {
       if (isEvent || reservationType === "event" || isTakeout) {
         // EVENT / TAKE-OUT: No table IDs needed
         tableIdsArray = [];
-        console.log("✅ EVENT/TAKE-OUT reservation - skipping table validation");
+        console.log(
+          "✅ EVENT/TAKE-OUT reservation - skipping table validation",
+        );
       } else {
         // PER TABLE: Parse table IDs from request
         console.log("🔍 PER TABLE - parsing table IDs");
 
-        const rawTableIds = body.tableIds ?? body.table_id ?? body.tableId ?? [];
+        const rawTableIds =
+          body.tableIds ?? body.table_id ?? body.tableId ?? [];
 
         if (rawTableIds !== undefined && rawTableIds !== null) {
           try {
@@ -709,13 +717,15 @@ const reservationController = {
     }
   },
 
-// ==================== REFUND FUNCTIONS ====================
-    processRefund: async (req, res) => {
+  // ==================== REFUND FUNCTIONS ====================
+  processRefund: async (req, res) => {
     const { id } = req.params; // Reservation ID
     const { refundAmount } = req.body; // Amount from req.body
 
     if (refundAmount === undefined || isNaN(refundAmount) || refundAmount < 0) {
-      return res.status(400).json({ error: "Please provide a valid refund amount." });
+      return res
+        .status(400)
+        .json({ error: "Please provide a valid refund amount." });
     }
 
     const connection = await db.getConnection();
@@ -725,7 +735,7 @@ const reservationController = {
       // 1. Fetch the reservation to verify it exists and get the customer's user_id
       const [rows] = await connection.execute(
         "SELECT user_id, first_name, last_name FROM reservations WHERE reservation_id = ?",
-        [id]
+        [id],
       );
 
       if (rows.length === 0) {
@@ -740,7 +750,7 @@ const reservationController = {
       // (Ensure your database reservations table has a refund_amount column)
       await connection.execute(
         "UPDATE refund_requests SET refund_amount = ? WHERE reservation_id = ?",
-        [refundAmount, id]
+        [refundAmount, id],
       );
 
       // 3. Send notification to the customer
@@ -750,21 +760,34 @@ const reservationController = {
           reservationId: id,
           title: "Refund Processed",
           message: `A refund of ₱${Number(refundAmount).toFixed(2)} has been processed for your reservation (${id}).`,
-          type: "reservation", 
-          isAdminAlert: false
+          type: "reservation",
+          isAdminAlert: false,
         });
       }
 
       await connection.commit();
-      res.json({ message: "Refund updated and customer notified successfully." });
+      res.json({
+        message: "Refund updated and customer notified successfully.",
+      });
     } catch (error) {
       await connection.rollback();
       console.error("Error processing refund:", error);
-      res.status(500).json({ error: "Failed to process refund. " + error.message });
+      res
+        .status(500)
+        .json({ error: "Failed to process refund. " + error.message });
     } finally {
       connection.release();
     }
-  }
+  },
+  // In reservationController.js
+  getAllUserReservations: async (req, res) => {
+    try {
+      const rows = await Reservation.findAllByUserId(req.params.userId);
+      res.json(rows);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
 };
 
 module.exports = reservationController;

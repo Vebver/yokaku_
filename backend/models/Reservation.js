@@ -56,6 +56,38 @@ const Reservation = {
     return rows[0];
   },
 
+  // ===== NEW: Get ALL reservations for a user (including history) =====
+  findAllByUserId: async (userId) => {
+    const sql = `
+    SELECT 
+      r.reservation_id, 
+      r.status, 
+      r.package_name, 
+      r.allergy,
+      r.cancellation_reason,
+      r.cancelled_at,
+      DATE_FORMAT(r.reservation_date, '%Y-%m-%d') as reservation_date,
+      TIME_FORMAT(r.reservation_time, '%h:%i %p') as reservation_time,
+      TIME_FORMAT(r.end_time, '%h:%i %p') as end_time,
+      p.payment_status, 
+      p.amount,
+      p.payment_method,
+      GROUP_CONCAT(DISTINCT t.table_number SEPARATOR ', ') as assigned_tables,
+      CONCAT(IFNULL(b.brgy_name, 'N/A'), ', ', IFNULL(m.muni_name, 'N/A')) AS full_address
+    FROM reservations r
+    LEFT JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
+    LEFT JOIN tables t ON rt.table_id = t.table_id
+    LEFT JOIN payments p ON r.reservation_id = p.reservation_id
+    LEFT JOIN barangays b ON r.brgy_code = b.brgy_code
+    LEFT JOIN municipalities m ON b.muni_code = m.muni_code
+    WHERE r.user_id = ?
+    GROUP BY r.reservation_id
+    ORDER BY r.created_at DESC
+  `;
+    const [rows] = await db.execute(sql, [userId]);
+    return rows;
+  },
+
   findAllActiveByUserId: async (userId) => {
     const sql = `
           SELECT 
@@ -391,7 +423,11 @@ const Reservation = {
         finalReservationType = String(data.reservationType).toLowerCase();
       }
 
-      if (String(data.bookingType || "").toLowerCase().trim() === "takeout") {
+      if (
+        String(data.bookingType || "")
+          .toLowerCase()
+          .trim() === "takeout"
+      ) {
         finalReservationType = "takeout";
       }
 

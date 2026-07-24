@@ -10,6 +10,11 @@ import {
   X,
   AlertCircle,
   Upload,
+  History,
+  XCircle,
+  CheckCircle,
+  RefreshCw,
+  TriangleAlert,
 } from "lucide-react";
 import TermsModal from "../TermsModal";
 import "../../Style/MyReservation.css";
@@ -21,10 +26,13 @@ const MyReservation = () => {
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [reservations, setReservations] = useState([]);
+  const [historyReservations, setHistoryReservations] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [selectedReservation, setSelectedReservation] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showWarningModal, setShowWarningModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelReasonText, setCancelReasonText] = useState("");
@@ -32,6 +40,7 @@ const MyReservation = () => {
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [showTermsFromCancel, setShowTermsFromCancel] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [activeTab, setActiveTab] = useState("active");
 
   // New states for re-uploading payment proof
   const [uploading, setUploading] = useState(false);
@@ -50,6 +59,7 @@ const MyReservation = () => {
 
   useEffect(() => {
     fetchUserReservations();
+    fetchUserHistory();
   }, []);
 
   const fetchUserReservations = async () => {
@@ -92,7 +102,49 @@ const MyReservation = () => {
     }
   };
 
-  // Re-upload handlers
+  const fetchUserHistory = async () => {
+    try {
+      setHistoryLoading(true);
+      const token = localStorage.getItem("token");
+      const userId = localStorage.getItem("userId");
+
+      if (!userId) {
+        console.error("No user ID found");
+        setHistoryLoading(false);
+        return;
+      }
+
+      const response = await axios.get(
+        `${API_BASE}/reservations/user/${userId}/all`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+
+      let allReservations = [];
+      if (Array.isArray(response.data)) {
+        allReservations = response.data;
+      } else if (response.data && Array.isArray(response.data.data)) {
+        allReservations = response.data.data;
+      } else if (response.data && Array.isArray(response.data.reservations)) {
+        allReservations = response.data.reservations;
+      }
+
+      const historyStatuses = ["cancelled", "completed", "refunded"];
+      const history = allReservations.filter((res) => {
+        const status = res.status?.toLowerCase() || "";
+        return historyStatuses.includes(status);
+      });
+
+      setHistoryReservations(history);
+    } catch (error) {
+      console.error("Error fetching history:", error);
+      setHistoryReservations([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -185,79 +237,52 @@ const MyReservation = () => {
     return false;
   };
 
-  // ===== FIX: Check if reservation is PER TABLE (for disabling File a Refund) =====
+  // ===== NEW: Handle warning confirmation =====
+  const handleWarningConfirm = () => {
+    setShowWarningModal(false);
+    handleConfirmCancellation();
+  };
+
+  const handleWarningCancel = () => {
+    setShowWarningModal(false);
+  };
+
+  // ===== Modified: Show warning before proceeding =====
+  const handleProceedToWarning = () => {
+    if (isConfirmDisabled()) return;
+    setShowWarningModal(true);
+  };
+
   const isPerTableReservation = () => {
     if (!selectedReservation) return false;
 
-    // Log for debugging
-    console.log(
-      "🔍 isPerTableReservation - selectedReservation:",
-      selectedReservation,
-    );
-    console.log("🔍 reservation_type:", selectedReservation.reservation_type);
-    console.log("🔍 reservationType:", selectedReservation.reservationType);
-    console.log("🔍 package_name:", selectedReservation.package_name);
-
-    // Check both field names
     const reservationType =
       selectedReservation.reservation_type ||
       selectedReservation.reservationType ||
       "";
 
-    // Also check package name to detect EVENT
     const packageName = selectedReservation.package_name || "";
     const isEventPackage =
       packageName.toLowerCase().includes("standard") ||
       packageName.toLowerCase().includes("premium") ||
       packageName.toLowerCase().includes("event");
 
-    // If it has an event package, it's an EVENT reservation
     if (isEventPackage) {
-      console.log("🔍 Detected EVENT from package name");
-      return false; // Not PER TABLE, so refund is allowed
+      return false;
     }
 
-    // If reservation_type is explicitly 'event', it's not PER TABLE
     if (reservationType.toLowerCase() === "event") {
-      console.log("🔍 Detected EVENT from reservation_type");
-      return false; // Not PER TABLE, so refund is allowed
+      return false;
     }
 
-    // If reservation_type is explicitly 'per_table', it's PER TABLE
-    const result = reservationType.toLowerCase() === "per_table";
-    console.log("🔍 isPerTableReservation result:", result);
-
-    // If reservation_type is empty or undefined, check package name again
     if (!reservationType) {
-      // If no reservation_type but package is not event, treat as PER TABLE
-      console.log("🔍 No reservation_type found, treating as PER TABLE");
       return true;
     }
 
-    return result;
+    return reservationType.toLowerCase() === "per_table";
   };
 
-  // ===== FIX: Check if reservation is EVENT =====
-  const isEventReservation = () => {
-    if (!selectedReservation) return false;
-
-    const reservationType =
-      selectedReservation.reservation_type ||
-      selectedReservation.reservationType ||
-      "";
-
-    const packageName = selectedReservation.package_name || "";
-    const isEventPackage =
-      packageName.toLowerCase().includes("standard") ||
-      packageName.toLowerCase().includes("premium") ||
-      packageName.toLowerCase().includes("event");
-
-    return reservationType.toLowerCase() === "event" || isEventPackage;
-  };
-
-  // FIX: New function to handle "File a Refund" - navigates to file-a-refund page
   const handleFileRefund = () => {
-    // Check if it's PER TABLE - if so, don't proceed
     if (isPerTableReservation()) {
       showToast("Refund is not available for PER TABLE reservations.", "error");
       return;
@@ -267,16 +292,14 @@ const MyReservation = () => {
       cancelReason === "Other" ? cancelReasonText : cancelReason;
     if (!finalReason || !agreeToTerms) return;
 
-    // Navigate to file-a-refund page with state
     navigate("/file-a-refund", {
       state: {
         reservationId: selectedReservation?.reservation_id,
         reason: finalReason,
-        reservationType: "event", // Always send 'event' for refund requests
+        reservationType: "event",
       },
     });
 
-    // Close the cancel modal
     handleCloseCancelModal();
     closeModal();
   };
@@ -310,6 +333,7 @@ const MyReservation = () => {
       showToast(`Reservation cancelled successfully.\nReason: ${finalReason}`);
 
       await fetchUserReservations();
+      await fetchUserHistory();
       handleCloseCancelModal();
       closeModal();
     } catch (error) {
@@ -352,8 +376,23 @@ const MyReservation = () => {
         return "status-completed";
       case "cancelled":
         return "status-cancelled";
+      case "refunded":
+        return "status-refunded";
       default:
         return "";
+    }
+  };
+
+  const getHistoryStatusIcon = (status) => {
+    switch (status?.toLowerCase()) {
+      case "cancelled":
+        return <XCircle size={16} className="history-icon cancelled" />;
+      case "completed":
+        return <CheckCircle size={16} className="history-icon completed" />;
+      case "refunded":
+        return <RefreshCw size={16} className="history-icon refunded" />;
+      default:
+        return null;
     }
   };
 
@@ -371,25 +410,20 @@ const MyReservation = () => {
     return reservation.assigned_tables || "Not assigned";
   };
 
-  // ===== NEW: Helper function to properly display guest count =====
   const getGuestDisplay = (reservation) => {
     const numGuests = reservation.num_guests;
 
-    // If no value
     if (!numGuests && numGuests !== 0) return "Not specified";
 
-    // If it's a pure number
     const parsed = parseInt(numGuests);
     if (!isNaN(parsed) && String(parsed) === String(numGuests)) {
       return `${parsed} ${parsed === 1 ? "Guest" : "Guests"}`;
     }
 
-    // If it contains table IDs (comma-separated with T prefix or numbers)
     if (
       typeof numGuests === "string" &&
       (numGuests.includes(",") || /T\d+/.test(numGuests))
     ) {
-      // Try to get actual guest count from other fields
       const actualCount =
         reservation.guests ||
         reservation.pax ||
@@ -401,19 +435,235 @@ const MyReservation = () => {
         return `${count} ${count === 1 ? "Guest" : "Guests"}`;
       }
 
-      // If we have pax from the form data
       if (reservation.pax && !isNaN(parseInt(reservation.pax))) {
         const count = parseInt(reservation.pax);
         return `${count} ${count === 1 ? "Guest" : "Guests"}`;
       }
 
-      // Show as table assignment info
       return `Tables: ${numGuests}`;
     }
 
-    // Default: show the value as-is
     return numGuests;
   };
+
+  // ===== NEW: Warning Modal =====
+  const renderWarningModal = () => (
+    <div className="warning-modal-overlay" onClick={handleWarningCancel}>
+      <div className="warning-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="warning-modal-header">
+          <div className="warning-icon">
+            <TriangleAlert size={32} />
+          </div>
+          <h3>⚠️ Confirm Cancellation</h3>
+        </div>
+        <div className="warning-modal-body">
+          <p className="warning-message">
+            Are you sure you want to cancel this reservation?
+          </p>
+          <div className="warning-info">
+            <AlertCircle size={16} />
+            <span>
+              <strong>No refund</strong> will be issued for cancellation.
+            </span>
+          </div>
+          <div className="warning-refund-hint">
+            <span>
+              If you want a refund, click the <strong>"File a Refund"</strong>{" "}
+              button below before confirming cancellation.
+            </span>
+          </div>
+        </div>
+        <div className="warning-modal-footer">
+          <button className="warning-cancel-btn" onClick={handleWarningCancel}>
+            Cancel
+          </button>
+          <button
+            className="warning-confirm-btn"
+            onClick={handleWarningConfirm}
+          >
+            Confirm Cancellation
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderActiveReservations = () => (
+    <div className="reservations-list">
+      {loading ? (
+        <div className="loading-state">
+          <div className="spinner"></div>
+          <p>Loading your reservations...</p>
+        </div>
+      ) : reservations.length === 0 ? (
+        <div className="empty-state">
+          <Calendar size={64} />
+          <h3>No Active Reservations</h3>
+          <p>You don't have any upcoming reservations.</p>
+          <button
+            className="reserve-now-btn"
+            onClick={() => (window.location.href = "/tablereservation")}
+          >
+            Reserve a Table
+          </button>
+        </div>
+      ) : (
+        reservations.map((reservation) => (
+          <div key={reservation.reservation_id} className="reservation-card">
+            <div className="reservation-card-header">
+              <div className="reservation-id">
+                <span className="id-label">Reservation ID:</span>
+                <span className="id-value">{reservation.reservation_id}</span>
+              </div>
+              <div
+                className={`status-badge ${getStatusBadgeClass(reservation.status)}`}
+              >
+                {reservation.status}
+              </div>
+            </div>
+
+            <div className="reservation-card-body">
+              <div className="reservation-info-row">
+                <div className="info-item">
+                  <Calendar size={16} />
+                  <span>{formatDate(reservation.reservation_date)}</span>
+                </div>
+                <div className="info-item">
+                  <Clock size={16} />
+                  <span>
+                    {formatTimeDisplay(reservation.reservation_time)} -{" "}
+                    {formatTimeDisplay(reservation.end_time)}
+                  </span>
+                </div>
+                <div className="info-item">
+                  <Users size={16} />
+                  <span>{getGuestDisplay(reservation)}</span>
+                </div>
+              </div>
+
+              <div className="reservation-tables">
+                <span className="tables-label">Tables:</span>
+                <span className="tables-value">
+                  {getAssignedTablesDisplay(reservation)}
+                </span>
+              </div>
+
+              {reservation.package_name &&
+                reservation.package_name !== "Table Reservation" && (
+                  <div className="reservation-package">
+                    <span className="package-label">Package:</span>
+                    <span className="package-value">
+                      {reservation.package_name}
+                    </span>
+                  </div>
+                )}
+            </div>
+
+            <div className="reservation-card-footer">
+              <button
+                className="view-details-btn"
+                onClick={() => handleViewDetails(reservation)}
+              >
+                <Eye size={16} />
+                View Reservation Details
+              </button>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+
+  const renderHistoryReservations = () => (
+    <div className="reservations-list history-list">
+      {historyLoading ? (
+        <div className="loading-state">
+          <div className="spinner"></div>
+          <p>Loading history...</p>
+        </div>
+      ) : historyReservations.length === 0 ? (
+        <div className="empty-state">
+          <History size={64} />
+          <h3>No History</h3>
+          <p>You don't have any past reservations.</p>
+        </div>
+      ) : (
+        historyReservations.map((reservation) => (
+          <div
+            key={reservation.reservation_id}
+            className={`reservation-card history-card ${reservation.status?.toLowerCase()}`}
+          >
+            <div className="reservation-card-header">
+              <div className="reservation-id">
+                <span className="id-label">Reservation ID:</span>
+                <span className="id-value">{reservation.reservation_id}</span>
+              </div>
+              <div
+                className={`status-badge ${getStatusBadgeClass(reservation.status)}`}
+              >
+                {getHistoryStatusIcon(reservation.status)}
+                {reservation.status}
+              </div>
+            </div>
+
+            <div className="reservation-card-body">
+              <div className="reservation-info-row">
+                <div className="info-item">
+                  <Calendar size={16} />
+                  <span>{formatDate(reservation.reservation_date)}</span>
+                </div>
+                <div className="info-item">
+                  <Clock size={16} />
+                  <span>
+                    {formatTimeDisplay(reservation.reservation_time)} -{" "}
+                    {formatTimeDisplay(reservation.end_time)}
+                  </span>
+                </div>
+                <div className="info-item">
+                  <Users size={16} />
+                  <span>{getGuestDisplay(reservation)}</span>
+                </div>
+              </div>
+
+              <div className="reservation-tables">
+                <span className="tables-label">Tables:</span>
+                <span className="tables-value">
+                  {getAssignedTablesDisplay(reservation)}
+                </span>
+              </div>
+
+              {reservation.package_name &&
+                reservation.package_name !== "Table Reservation" && (
+                  <div className="reservation-package">
+                    <span className="package-label">Package:</span>
+                    <span className="package-value">
+                      {reservation.package_name}
+                    </span>
+                  </div>
+                )}
+
+              {reservation.cancellation_reason && (
+                <div className="cancellation-reason">
+                  <AlertCircle size={14} />
+                  <span>Reason: {reservation.cancellation_reason}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="reservation-card-footer">
+              <button
+                className="view-details-btn"
+                onClick={() => handleViewDetails(reservation)}
+              >
+                <Eye size={16} />
+                View Details
+              </button>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
 
   return (
     <>
@@ -424,94 +674,32 @@ const MyReservation = () => {
             <p>View and manage your upcoming table reservations</p>
           </div>
 
-          <div className="reservations-list">
-            {loading ? (
-              <div className="loading-state">
-                <div className="spinner"></div>
-                <p>Loading your reservations...</p>
-              </div>
-            ) : reservations.length === 0 ? (
-              <div className="empty-state">
-                <Calendar size={64} />
-                <h3>No Active Reservations</h3>
-                <p>You don't have any upcoming reservations.</p>
-                <button
-                  className="reserve-now-btn"
-                  onClick={() => (window.location.href = "/tablereservation")}
-                >
-                  Reserve a Table
-                </button>
-              </div>
-            ) : (
-              reservations.map((reservation) => (
-                <div
-                  key={reservation.reservation_id}
-                  className="reservation-card"
-                >
-                  <div className="reservation-card-header">
-                    <div className="reservation-id">
-                      <span className="id-label">Reservation ID:</span>
-                      <span className="id-value">
-                        {reservation.reservation_id}
-                      </span>
-                    </div>
-                    <div
-                      className={`status-badge ${getStatusBadgeClass(reservation.status)}`}
-                    >
-                      {reservation.status}
-                    </div>
-                  </div>
-
-                  <div className="reservation-card-body">
-                    <div className="reservation-info-row">
-                      <div className="info-item">
-                        <Calendar size={16} />
-                        <span>{formatDate(reservation.reservation_date)}</span>
-                      </div>
-                      <div className="info-item">
-                        <Clock size={16} />
-                        <span>
-                          {formatTimeDisplay(reservation.reservation_time)} -{" "}
-                          {formatTimeDisplay(reservation.end_time)}
-                        </span>
-                      </div>
-                      <div className="info-item">
-                        <Users size={16} />
-                        <span>{getGuestDisplay(reservation)}</span>
-                      </div>
-                    </div>
-
-                    <div className="reservation-tables">
-                      <span className="tables-label">Tables:</span>
-                      <span className="tables-value">
-                        {getAssignedTablesDisplay(reservation)}
-                      </span>
-                    </div>
-
-                    {reservation.package_name &&
-                      reservation.package_name !== "Table Reservation" && (
-                        <div className="reservation-package">
-                          <span className="package-label">Package:</span>
-                          <span className="package-value">
-                            {reservation.package_name}
-                          </span>
-                        </div>
-                      )}
-                  </div>
-
-                  <div className="reservation-card-footer">
-                    <button
-                      className="view-details-btn"
-                      onClick={() => handleViewDetails(reservation)}
-                    >
-                      <Eye size={16} />
-                      View Reservation Details
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
+          <div className="reservation-tabs">
+            <button
+              className={`tab-btn ${activeTab === "active" ? "active" : ""}`}
+              onClick={() => setActiveTab("active")}
+            >
+              <Calendar size={16} />
+              Active Reservations
+              {reservations.length > 0 && (
+                <span className="tab-badge">{reservations.length}</span>
+              )}
+            </button>
+            <button
+              className={`tab-btn ${activeTab === "history" ? "active" : ""}`}
+              onClick={() => setActiveTab("history")}
+            >
+              <History size={16} />
+              History
+              {historyReservations.length > 0 && (
+                <span className="tab-badge">{historyReservations.length}</span>
+              )}
+            </button>
           </div>
+
+          {activeTab === "active"
+            ? renderActiveReservations()
+            : renderHistoryReservations()}
         </div>
 
         {/* Reservation Detail Modal */}
@@ -608,6 +796,15 @@ const MyReservation = () => {
                       {selectedReservation.full_address || "Not specified"}
                     </span>
                   </div>
+
+                  {selectedReservation.cancellation_reason && (
+                    <div className="detail-row">
+                      <span className="detail-label">Cancellation Reason:</span>
+                      <span className="detail-value">
+                        {selectedReservation.cancellation_reason}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="modal-divider"></div>
@@ -635,7 +832,6 @@ const MyReservation = () => {
                     </div>
                   )}
 
-                  {/* RE-UPLOAD MODULE */}
                   {selectedReservation.payment_status?.toLowerCase() ===
                     "rejected" && (
                     <div
@@ -692,13 +888,17 @@ const MyReservation = () => {
               </div>
 
               <div className="reservation-modal-footer">
-                <button
-                  className="cancel-reservation-btn"
-                  onClick={handleCancelClick}
-                >
-                  <AlertCircle size={16} />
-                  Cancel Reservation
-                </button>
+                {selectedReservation.status?.toLowerCase() !== "cancelled" &&
+                  selectedReservation.status?.toLowerCase() !== "completed" &&
+                  selectedReservation.status?.toLowerCase() !== "refunded" && (
+                    <button
+                      className="cancel-reservation-btn"
+                      onClick={handleCancelClick}
+                    >
+                      <AlertCircle size={16} />
+                      Cancel Reservation
+                    </button>
+                  )}
               </div>
             </div>
           </div>
@@ -791,7 +991,6 @@ const MyReservation = () => {
               </div>
 
               <div className="cancel-modal-footer">
-                {/* ===== FIX: "File a Refund" button ===== */}
                 <button
                   className={`cancel-modal-refund-btn ${isConfirmDisabled() || isPerTableReservation() ? "disabled" : ""}`}
                   onClick={handleFileRefund}
@@ -819,9 +1018,10 @@ const MyReservation = () => {
                     </span>
                   )}
                 </button>
+                {/* ===== CHANGED: This button now shows warning ===== */}
                 <button
                   className={`cancel-modal-confirm-btn ${isConfirmDisabled() ? "disabled" : ""}`}
-                  onClick={handleConfirmCancellation}
+                  onClick={handleProceedToWarning}
                   disabled={isConfirmDisabled()}
                 >
                   {isCancelling ? (
@@ -837,6 +1037,9 @@ const MyReservation = () => {
             </div>
           </div>
         )}
+
+        {/* ===== NEW: Warning Modal ===== */}
+        {showWarningModal && renderWarningModal()}
 
         {/* Terms Modal */}
         <TermsModal

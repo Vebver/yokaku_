@@ -13,8 +13,12 @@ router.get("/table-schedule", reservationController.getSpecificTableSchedule);
 router.get("/table-statuses", reservationController.getTableStatuses);
 router.get("/update-ongoing", reservationController.updateOngoingReservations);
 router.get("/all-tables", reservationController.getAllTables);
-router.get('/details/:id', reservationController.getReservationById);
-
+router.get("/details/:id", reservationController.getReservationById);
+router.get(
+  "/user/:userId/all",
+  protect,
+  reservationController.getAllUserReservations,
+);
 // ==================== PROTECTED ROUTES ====================
 router.get(
   "/user-active/:userId",
@@ -37,7 +41,6 @@ router.post(
   reservationController.recordCancellation,
 );
 router.post("/:id/refund", protect, reservationController.processRefund);
-
 
 // ==================== ADMIN ROUTES ====================
 router.get("/", protect, adminOnly, reservationController.getReservations);
