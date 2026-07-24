@@ -15,7 +15,7 @@ function formatDateLong(dateStr) {
 }
 
 function buildFinancialPdf({ title, payload, startDate, endDate }) {
-  // 1. Reduced margins to 30 to prevent unwanted page breaks
+  // Reduced margins to prevent unwanted page breaks
   const doc = new PDFDocument({ margin: 30, size: "A4", layout: "landscape" });
   
   const today = new Date().toLocaleDateString("en-PH", {
@@ -58,38 +58,95 @@ function buildFinancialPdf({ title, payload, startDate, endDate }) {
 
   // ============ ACTIVITY TRENDS ANALYSIS ============
   doc.y = 120;
-  doc.fillColor("#1e293b").font("Helvetica-Bold").fontSize(14).text("Activity Trends Analysis", 70, doc.y);
   
-  const tableStartY = 160; // Fixed starting point for tables
-  const totalWidth = doc.page.width - 80;
-  const colWidth = (totalWidth - 40) / 3;
+  // Set a comfortable, centered width for a single table on a landscape sheet
+  const colWidth = 460;
+  const tableStartX = (doc.page.width - colWidth) / 2;
+  const tableStartY = 160; 
+
+  doc.fillColor("#1e293b").font("Helvetica-Bold").fontSize(14).text("Daily Activity Trends", tableStartX, doc.y);
+
+  // ============ GENERATE RANGE INCLUDING ZEROES ============
+  let dailyTrend = payload?.trends?.daily || [];
+
+  if (startDate && endDate) {
+    // Parse using string tokens to avoid local server timezone conversions
+    const [startY, startM, startD] = startDate.split("-").map(Number);
+    const [endY, endM, endD] = endDate.split("-").map(Number);
+    
+    const start = new Date(startY, startM - 1, startD);
+    const end = new Date(endY, endM - 1, endD);
+    
+    const rowMap = {};
+    dailyTrend.forEach(row => {
+      rowMap[row.label] = Number(row.value || row.revenue || 0);
+    });
+    
+    const filledTrends = [];
+    const current = new Date(start);
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    
+    while (current <= end) {
+      const m = months[current.getMonth()];
+      const d = String(current.getDate()).padStart(2, '0');
+      const y = current.getFullYear();
+      const label = `${m} ${d}, ${y}`; // Formatted matching: "Jul 01, 2026"
+      
+      filledTrends.push({
+        label: label,
+        value: rowMap[label] || 0
+      });
+      
+      current.setDate(current.getDate() + 1);
+    }
+    
+    dailyTrend = filledTrends;
+  }
 
   function renderTrendTable(tableTitle, trends, x, startY, width) {
     if (!trends || trends.length === 0) return;
     
     let localY = startY;
-    const rowHeight = 14;    // Slightly tighter
-    const headerHeight = 18; // Slightly tighter
+    const rowHeight = 14;    
+    const headerHeight = 18; 
 
     doc.fillColor("#d97706").font("Helvetica-Bold").fontSize(8.5).text(tableTitle.toUpperCase(), x, localY);
     localY += 12;
 
-    doc.rect(x, localY, width, headerHeight).fillColor("#f8fafc").fill();
-    doc.rect(x, localY, width, headerHeight).strokeColor("#cbd5e1").lineWidth(0.5).stroke();
-    doc.fillColor("#475569").font("Helvetica-Bold").fontSize(7).text("PERIOD", x + 8, localY + 5);
-    doc.text("REVENUE", x + width / 2, localY + 5, { width: width / 2 - 8, align: "right" });
+    const drawHeader = (yCoord) => {
+      doc.rect(x, yCoord, width, headerHeight).fillColor("#f8fafc").fill();
+      doc.rect(x, yCoord, width, headerHeight).strokeColor("#cbd5e1").lineWidth(0.5).stroke();
+      doc.fillColor("#475569").font("Helvetica-Bold").fontSize(7).text("DATE", x + 8, yCoord + 5);
+      doc.text("REVENUE", x + width / 2, yCoord + 5, { width: width / 2 - 8, align: "right" });
+    };
 
+    drawHeader(localY);
     localY += headerHeight;
     let total = 0;
 
     trends.forEach((item) => {
       const val = Number(item.value || item.revenue || 0);
       total += val;
+
+      // Automatically add a new page if the table overflows the bottom margin
+      if (localY > doc.page.height - 45) {
+        doc.addPage({ margin: 30, size: "A4", layout: "landscape" });
+        localY = 40; // Reset top Y spacing on the new page
+        drawHeader(localY);
+        localY += headerHeight;
+      }
+
       doc.rect(x, localY, width, rowHeight).strokeColor("#e2e8f0").lineWidth(0.5).stroke();
       doc.fillColor("#334155").font("Helvetica").fontSize(7.5).text(item.label || "N/A", x + 8, localY + 3.5);
       doc.text(formatCurrencyPHP(val), x + width / 2, localY + 3.5, { width: width / 2 - 8, align: "right" });
       localY += rowHeight;
     });
+
+    // Handle potential overflow page shift for the total row
+    if (localY > doc.page.height - 45) {
+      doc.addPage({ margin: 30, size: "A4", layout: "landscape" });
+      localY = 40;
+    }
 
     // Total Row
     doc.rect(x, localY, width, rowHeight).fillColor("#f1f5f9").fill();
@@ -98,10 +155,9 @@ function buildFinancialPdf({ title, payload, startDate, endDate }) {
     doc.text(formatCurrencyPHP(total), x + width / 2, localY + 3.5, { width: width / 2 - 8, align: "right" });
   }
 
-  // Draw tables - Note they all use the same tableStartY
-  renderTrendTable("Weekly Trend", (payload?.trends?.weekly || []).slice(0, 18), 70, tableStartY, colWidth);
-  renderTrendTable("Monthly Trend", (payload?.trends?.monthly || []).slice(0, 18), 70 + colWidth + 20, tableStartY, colWidth);
-  renderTrendTable("Yearly Trend", (payload?.trends?.yearly || []).slice(0, 18), 70 + (colWidth + 20) * 2, tableStartY, colWidth);
+  // Draw the single Daily Trend table centered on the page
+  renderTrendTable("Daily Performance", dailyTrend, tableStartX, tableStartY, colWidth);
+
   // ============ FOOTER SECTION ============
   const footerY = doc.page.height - 25; 
   doc.save();

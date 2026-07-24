@@ -105,12 +105,10 @@ const maintenanceController = {
     try {
       const { startDate, endDate } = req.query; 
 
-      // 1. CALL THE NEW "PDF" SPECIFIC FUNCTIONS
-      const [stats, weeklyTrend, monthlyTrend, yearlyTrend] = await Promise.all([
+      // Fetch financial summary stats and the daily trend data concurrently
+      const [stats, dailyTrend] = await Promise.all([
         FinancialReport.getPdfStats(startDate, endDate),
-        FinancialReport.getPdfWeeklyTrend(startDate, endDate),
-        FinancialReport.getPdfMonthlyTrend(startDate, endDate),
-        FinancialReport.getPdfYearlyTrend(startDate, endDate),
+        FinancialReport.getPdfDailyTrend(startDate, endDate),
       ]);
 
       const doc = buildFinancialPdf({
@@ -118,9 +116,7 @@ const maintenanceController = {
         payload: {
           summary: stats || {},
           trends: {
-            weekly: weeklyTrend || [],
-            monthly: monthlyTrend || [],
-            yearly: yearlyTrend || [],
+            daily: dailyTrend || [], // Pass the retrieved daily trend list to the PDF builder
           },
         },
         startDate: startDate,

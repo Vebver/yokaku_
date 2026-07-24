@@ -6,9 +6,10 @@ import "../../Style/Navbar.css";
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL;
 const API_BASE = import.meta.env.VITE_API_URL;
+
 function CustomerNavbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [hasUnread, setHasUnread] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0); // Changed from boolean to number
   const [socket, setSocket] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
@@ -19,7 +20,6 @@ function CustomerNavbar() {
 
     // Setup Socket.IO for real-time notifications
     if (token && userId) {
-      // Use direct connection:
       const newSocket = io(SOCKET_URL, {
         transports: ["websocket", "polling"],
       });
@@ -32,11 +32,13 @@ function CustomerNavbar() {
 
       newSocket.on("new_notification", () => {
         console.log("New notification received");
-        setHasUnread(true);
+        setUnreadCount((prev) => prev + 1); // Increment count when new notification arrives
       });
 
       newSocket.on("unread_count_updated", (data) => {
-        setHasUnread(data.unreadCount > 0);
+        if (data && typeof data.unreadCount === "number") {
+          setUnreadCount(data.unreadCount);
+        }
       });
 
       newSocket.on("connect_error", (error) => {
@@ -59,7 +61,7 @@ function CustomerNavbar() {
           headers: { Authorization: `Bearer ${token}` },
         });
 
-        // FIX: Handle both array and object responses
+        // Handle both array and object responses
         let notificationsArray = [];
         if (Array.isArray(res.data)) {
           notificationsArray = res.data;
@@ -71,8 +73,9 @@ function CustomerNavbar() {
           notificationsArray = [];
         }
 
-        const unread = notificationsArray.some((n) => !n.is_read);
-        setHasUnread(unread);
+        // Count only the unread notifications
+        const unread = notificationsArray.filter((n) => !n.is_read).length;
+        setUnreadCount(unread);
       } catch (error) {
         console.error("Error checking notifications:", error);
       }
@@ -186,8 +189,12 @@ function CustomerNavbar() {
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
             <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
           </svg>
-          {/* RED DOT */}
-          {hasUnread && <span className="notification-dot"></span>}
+          {/* NUMBER BADGE */}
+          {unreadCount > 0 && (
+            <span className="notification-badge">
+              {unreadCount > 99 ? "99+" : unreadCount}
+            </span>
+          )}
         </div>
 
         {/* BURGER MENU - force-show class ensures it's visible on desktop */}
@@ -225,7 +232,7 @@ function CustomerNavbar() {
                   closeMenu();
                 }}
               >
-                Notifications
+                Notifications {unreadCount > 0 && `(${unreadCount})`}
               </div>
               <div
                 className="dropdown-item"

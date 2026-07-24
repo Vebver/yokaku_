@@ -48,7 +48,7 @@ const AuditLogs = () => {
                 <th className="ps-4">Timestamp</th>
                 <th>User (Actor)</th>
                 <th>Action</th>
-                <th>Target ID</th>
+                <th>Target User</th>
                 <th>Details</th>
               </tr>
             </thead>
@@ -67,13 +67,26 @@ const AuditLogs = () => {
                         {log.action}
                       </span>
                     </td>
-                    <td className="font-monospace small">{log.target_id || "N/A"}</td>
+                    <td className="small text-muted">
+                      {log.target_name ? (
+                        <span>
+                          <strong className="text-dark">{log.target_name}</strong>{" "}
+                          <span className="text-secondary font-monospace" style={{ fontSize: "0.8rem" }}>
+                            (ID: {log.target_id})
+                          </span>
+                        </span>
+                      ) : log.target_id ? (
+                        <span className="font-monospace text-secondary">ID: {log.target_id}</span>
+                      ) : (
+                        "N/A"
+                      )}
+                    </td>
                     <td className="small text-muted">{log.details || "N/A"}</td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="6" className="text-center py-4 text-muted">No logs recorded yet.</td>
+                  <td colSpan="5" className="text-center py-4 text-muted">No logs recorded yet.</td>
                 </tr>
               )}
             </tbody>

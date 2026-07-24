@@ -1,7 +1,8 @@
+// models/Billing.js
 const db = require("../config/db");
 
 const Billing = {
-  // Get all rows with table numbers
+  // 1. Get all rows with table numbers (Updated to select total_bill)
   getAll: async () => {
     try {
       const sql = `
@@ -12,7 +13,8 @@ const Billing = {
           r.status as order_status,
           r.reservation_date,
           p.payment_id,
-          p.amount,
+          p.amount,              -- Amount currently paid / deposit
+          p.total_bill,          -- The ACTUAL calculated bill (Added)
           p.payment_method,
           p.payment_status,
           p.rejection_reason,
@@ -34,6 +36,7 @@ const Billing = {
     }
   },
 
+  // 2. Prevent duplicate updates from downgrading the total_bill
   createWalkinPayment: async (reservationId, amount, paymentMethod, paymentStatus = "pending") => {
     try {
       const sql = `
@@ -42,7 +45,8 @@ const Billing = {
         VALUES (?, ?, ?, ?, ?, NOW())
         ON DUPLICATE KEY UPDATE 
           amount = VALUES(amount),
-          total_bill = VALUES(total_bill),
+          -- Keeps the highest calculated bill to prevent overwriting kiosk sync calculations (Fixed)
+          total_bill = GREATEST(COALESCE(total_bill, 0), VALUES(total_bill)), 
           payment_status = VALUES(payment_status),
           payment_method = VALUES(payment_method),
           paid_at = NOW()
@@ -64,9 +68,18 @@ const Billing = {
   },
 
   settleReservation: async (resId) => {
+    // Mark reservation as completed
     await db.execute("UPDATE reservations SET status = 'completed' WHERE reservation_id = ?", [resId]);
+    
+    // Set paid_at to NOW() if it is currently NULL, so it registers in reports (Fixed)
     await db.execute(
-      "UPDATE payments SET amount = total_bill, payment_status = 'verified', rejection_reason = NULL, rejected_at = NULL WHERE reservation_id = ?", 
+      `UPDATE payments 
+       SET amount = total_bill, 
+           payment_status = 'verified', 
+           rejection_reason = NULL, 
+           rejected_at = NULL,
+           paid_at = COALESCE(paid_at, NOW()) 
+       WHERE reservation_id = ?`, 
       [resId]
     );
     return true;
@@ -74,10 +87,17 @@ const Billing = {
 
   updatePaymentStatusByReservation: async (resId, paymentStatus) => {
     try {
-      const sql = "UPDATE payments SET payment_status = ? WHERE reservation_id = ?";
-      const [result] = await db.execute(sql, [paymentStatus, resId]);
+      // Automatically assign paid_at timestamp if setting status to 'verified' (Fixed)
+      const sql = `
+        UPDATE payments 
+        SET payment_status = ?,
+            paid_at = CASE WHEN ? = 'verified' THEN COALESCE(paid_at, NOW()) ELSE paid_at END
+        WHERE reservation_id = ?`;
+      const [result] = await db.execute(sql, [paymentStatus, paymentStatus, resId]);
       return result.affectedRows > 0;
-    } catch (err) { throw err; }
+    } catch (err) { 
+      throw err; 
+    }
   },
 
   confirmReservationStatus: async (resId) => {
@@ -86,7 +106,6 @@ const Billing = {
     return result.affectedRows > 0;
   },
 
-  // Reject payment and record rejection metadata
   rejectPaymentByReservation: async (resId, reason) => {
     try {
       await db.execute(

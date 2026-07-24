@@ -76,7 +76,7 @@ const KioskMenu = () => {
   const [timeLeft, setTimeLeft] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
 
-  // 1. ADD THIS: Extract physical table configuration from URL
+  // Extract physical table configuration from URL
   const queryParams = useMemo(
     () => new URLSearchParams(window.location.search),
     [],
@@ -129,7 +129,6 @@ const KioskMenu = () => {
 
   const currentTableId = localStorage.getItem("tableId") || "takeout";
 
-  // Helper to generate a short, easy-to-read walk-in ID (Matches backend format)
   const generateShortWalkInId = () => {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     let result = "";
@@ -137,7 +136,7 @@ const KioskMenu = () => {
       result += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return `WALK-${result}`;
-  }; // Helper to generate a short, easy-to-read walk-in ID (Matches backend format)
+  };
 
   const getAuthHeader = () => {
     const token =
@@ -341,6 +340,7 @@ const KioskMenu = () => {
     setShowFlavorModal(true);
   };
 
+
   useEffect(() => {
     const syncTimer = () => {
       const savedEnd = sessionStorage.getItem(TIMER_KEY);
@@ -371,8 +371,8 @@ const KioskMenu = () => {
   const fetchCurrentBill = async () => {
     const resId = storage.getItem(SAVED_RES_ID);
 
-    // SAFE CHECK: If it is a WALK-IN guest, skip the request (walk-ins have no reservations)
-    if (!resId || resId.startsWith("WALK-")) {
+    // Removed the "WALK-" key block to allow Walk-in sessions to properly fetch their items (Fixed)
+    if (!resId) {
       return [];
     }
 
@@ -388,6 +388,9 @@ const KioskMenu = () => {
       return [];
     }
   };
+
+  // Inside KioskMenu.jsx
+
   const confirmPaymentChoice = async (choice) => {
     if (isLoading) return;
     const itemsToSubmit = [...cart];
@@ -399,7 +402,6 @@ const KioskMenu = () => {
     const dynamicResId = activeResId || generateShortWalkInId();
     const isPayNow = choice === "Pay Now";
 
-    // SAFE CHECK: Prevents crash if 'name' property is null or undefined
     const hasUnlimited = itemsToSubmit.some((i) =>
       (i?.name || i?.item_name || "").toLowerCase().includes("unlimited"),
     );
@@ -427,6 +429,7 @@ const KioskMenu = () => {
         getAuthHeader(),
       );
 
+      // Queue state updates for the background UI
       setLocalBillHistory((prev) => [...prev, ...itemsToSubmit]);
       setCart([]);
       storage.setItem(SAVED_TABLE_ID, tableId || "takeout");
@@ -438,21 +441,41 @@ const KioskMenu = () => {
         setIsTimerRunning(true);
         setTimeLeft(DURATION / 1000);
       }
-      setCart([]);
 
       if (isPayNow) {
-        const outstandingBalance = parseFloat(calculateTotalDue());
-        const newTotalPaidInStorage = calculateSessionTotal();
+        // --- SYNCHRONOUS CALCULATION (Prevents React State Lag) ---
+        const currentHistory = billItems.length > 0 ? billItems : localBillHistory;
+        const combinedSessionItems = [...currentHistory, ...itemsToSubmit];
 
+        const computedSessionTotal = combinedSessionItems.reduce((sum, item) => {
+          const q = parseInt(item.quantity || item.qty || 1);
+          let p = parseFloat(item.price);
+          if (isNaN(p)) p = parseFloat(item.unit_price);
+          if (isNaN(p) && item.item_price) p = parseFloat(item.item_price) / q;
+          if (isNaN(p)) p = 0;
+
+          const isRefill =
+            item.is_refill === 1 ||
+            item.is_refill === true ||
+            (item.customizations &&
+              item.customizations.toString().includes("[REFILL]"));
+          if (isRefill) p = 0;
+
+          return sum + p * q;
+        }, 0);
+
+        const computedOutstandingBalance = Math.max(0, computedSessionTotal - localTotalPaid);
+
+        // Submit the precise, synchronously calculated balance
         await syncWithDashboard(
           dynamicResId,
-          outstandingBalance,
+          computedOutstandingBalance,
           "Cash",
           "verified",
         );
 
-        storage.setItem(TOTAL_PAID_KEY, newTotalPaidInStorage.toString());
-        setLocalTotalPaid(newTotalPaidInStorage);
+        storage.setItem(TOTAL_PAID_KEY, computedSessionTotal.toString());
+        setLocalTotalPaid(computedSessionTotal);
 
         storage.setItem(PAYMENT_CHOICE_KEY, "verified");
         setIsPaid(true);
@@ -535,6 +558,10 @@ const KioskMenu = () => {
   };
 
   useEffect(() => {
+    fetchCurrentBill();
+  }, []);
+
+  useEffect(() => {
     fetchMenu();
     const interval = setInterval(fetchMenu, 10000);
     const handleFocus = () => fetchMenu();
@@ -546,9 +573,8 @@ const KioskMenu = () => {
     };
   }, []);
 
-  // Safe Item click handler that handles undefined database properties without throwing crashes
   const handleItemClick = (item) => {
-    console.log("Kiosk Item Clicked:", item); // Safe Diagnostic Log
+    console.log("Kiosk Item Clicked:", item);
     const itemName = (item?.name || "").toLowerCase();
 
     if (activeCategory === "Chicken") {
@@ -659,7 +685,6 @@ const KioskMenu = () => {
   return (
     <div className="res-kiosk-container">
       <div className="kiosk-timer-wrapper">
-        {/* LEFT */}
         <div className="header-left-group">
           <div className="header-id-section">
             <ShoppingBag size={20} color="#ffcc00" />
@@ -907,7 +932,6 @@ const KioskMenu = () => {
                 onClick={() => {
                   setShowAllergyModal(false);
 
-                  // If they are checking out an existing active order session
                   if (storage.getItem(SAVED_RES_ID)) {
                     setPendingOrderDetails({
                       tableId: storage.getItem(SAVED_TABLE_ID),
@@ -918,20 +942,17 @@ const KioskMenu = () => {
                     });
                     setShowPaymentModal(true);
                   } else {
-                    // AUTOMATIC BYPASS: Check if the kiosk is locked to a physical table
                     const fixedTable =
                       setupTable ||
                       window.localStorage.getItem(FIXED_KIOSK_KEY);
 
                     if (fixedTable) {
-                      // Lock into physical table automatically, bypassing the table picker grid
                       setPendingOrderDetails({
                         tableId: fixedTable,
                         mode: "Dine-In",
                       });
                       setShowPaymentModal(true);
                     } else {
-                      // Standard flow: Ask user to choose order mode and select table
                       setShowTypeModal(true);
                     }
                   }
@@ -1101,7 +1122,6 @@ const KioskMenu = () => {
       )}
 
       {/* Bill Info / Receipt Modal */}
-
       {showBillInfo && (
         <div className="res-modal-overlay" style={{ zIndex: 10000 }}>
           <div className="res-modal-card">
@@ -1122,7 +1142,6 @@ const KioskMenu = () => {
                 margin: "20px 0",
               }}
             >
-              {/* FALLBACK: If billItems is empty (walk-ins), map over localBillHistory */}
               {(isFinalCheckout
                 ? billItems.length > 0
                   ? billItems
@@ -1158,7 +1177,6 @@ const KioskMenu = () => {
                     }}
                   >
                     <div style={{ textAlign: "left", flex: 1 }}>
-                      {/* Added color: "#ffffff" to force text visibility on dark background */}
                       <span
                         style={{
                           fontWeight: "bold",
@@ -1330,6 +1348,7 @@ const KioskMenu = () => {
           </div>
         </div>
       )}
+
       {/* COOLDOWN & NOTICE FEEDBACK MODAL */}
       {cooldownMessage && (
         <div className="res-modal-overlay" style={{ zIndex: 12000 }}>

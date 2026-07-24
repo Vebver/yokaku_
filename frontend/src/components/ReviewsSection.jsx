@@ -81,7 +81,7 @@ function ReviewsSection() {
           headers: { Authorization: `Bearer ${token}` },
         },
       );
-      showToast("Feedback submitted!");
+      showToast("Feedback submitted!",success);
       setComment("");
       setShowForm(false);
       fetchReviews();
