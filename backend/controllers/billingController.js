@@ -17,7 +17,7 @@ exports.createWalkinPayment = async (req, res) => {
   try {
     const { reservation_id, amount, payment_method, payment_status } = req.body;
 
-    console.log("[Billing Controller] Creating walk-in payment:", {
+    console.log("[Billing Controller] Processing walk-in payment request:", {
       reservation_id,
       amount,
       payment_method,
@@ -25,53 +25,92 @@ exports.createWalkinPayment = async (req, res) => {
     });
 
     if (!reservation_id || amount === undefined || amount === null) {
-      return res
-        .status(400)
-        .json({
-          error:
-            "Missing required fields - reservation_id and amount are required",
-        });
+      return res.status(400).json({
+        error: "Missing required fields - reservation_id and amount are required",
+      });
     }
 
-    const paymentId = await Billing.createWalkinPayment(
-      reservation_id,
-      amount,
-      payment_method || "Cash",
-      payment_status || "Pending",
+    const numericAmount = parseFloat(amount);
+
+    // 1. Check if a payment record already exists for this reservation
+    const [existing] = await db.execute(
+      "SELECT payment_id, amount FROM payments WHERE reservation_id = ?",
+      [reservation_id]
     );
 
-    await logActivity(
-      req.user?.userId || null,
-      "CREATE_WALKIN_PAYMENT",
-      reservation_id,
-      { payment_id: paymentId, amount, payment_method, payment_status },
-      req,
-    );
+    let paymentId;
+    let notificationTitle = "New Walk-in Payment";
+    let notificationMessage = "";
 
-    // Emit socket event for new payment
+    if (existing.length > 0) {
+      // --- STACK UP / UPDATE EXISTING PAYMENT ---
+      paymentId = existing[0].payment_id;
+      const previousAmount = parseFloat(existing[0].amount || 0);
+      const addedAmount = numericAmount - previousAmount;
+
+      // Update the existing record with the new cumulative amount
+      await db.execute(
+        `UPDATE payments 
+         SET amount = ?, payment_status = ?, payment_method = ?, paid_at = NOW() 
+         WHERE reservation_id = ?`,
+        [numericAmount, payment_status || "verified", payment_method || "Cash", reservation_id]
+      );
+
+      notificationTitle = "Walk-in Payment Updated";
+      if (addedAmount > 0) {
+        notificationMessage = `Added ₱${addedAmount} (Total: ₱${numericAmount}) for reservation ${reservation_id}`;
+      } else {
+        notificationMessage = `Payment updated to ₱${numericAmount} for reservation ${reservation_id}`;
+      }
+
+      await logActivity(
+        req.user?.userId || null,
+        "UPDATE_WALKIN_PAYMENT",
+        reservation_id,
+        { payment_id: paymentId, added_amount: addedAmount, total_amount: numericAmount, payment_method, payment_status },
+        req,
+      );
+    } else {
+      // --- CREATE NEW PAYMENT RECORD ---
+      paymentId = await Billing.createWalkinPayment(
+        reservation_id,
+        numericAmount,
+        payment_method || "Cash",
+        payment_status || "Pending",
+      );
+
+      notificationMessage = `Payment of ₱${numericAmount} created for reservation ${reservation_id}`;
+
+      await logActivity(
+        req.user?.userId || null,
+        "CREATE_WALKIN_PAYMENT",
+        reservation_id,
+        { payment_id: paymentId, amount: numericAmount, payment_method, payment_status },
+        req,
+      );
+    }
+
+    // Emit consolidated socket event
     const io = req.app.get("io");
     if (io) {
       io.emit("new_notification", {
-        title: "New Walk-in Payment",
-        message: `Payment of ₱${amount} created for reservation ${reservation_id}`,
+        title: notificationTitle,
+        message: notificationMessage,
         type: "payment",
         is_read: 0,
         created_at: new Date().toISOString(),
       });
     }
 
-    console.log("[Billing Controller] Payment created with ID:", paymentId);
+    console.log("[Billing Controller] Payment process completed for ID:", paymentId);
 
     res.status(201).json({
       success: true,
       payment_id: paymentId,
-      message: "Walk-in payment record created",
+      message: existing.length > 0 ? "Walk-in payment record updated" : "Walk-in payment record created",
     });
   } catch (error) {
-    console.error(
-      "[Billing Controller] Error creating walk-in payment:",
-      error,
-    );
+    console.error("[Billing Controller] Error in createWalkinPayment:", error);
     res.status(500).json({ error: error.message });
   }
 };

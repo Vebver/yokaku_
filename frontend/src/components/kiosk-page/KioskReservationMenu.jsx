@@ -623,7 +623,7 @@ const KioskReservationMenu = () => {
         storage.setItem(TOTAL_PAID_KEY, totalSessionAmount.toString());
         storage.setItem(PAYMENT_CHOICE_KEY, "verified");
         setIsPaid(true);
-        await playCashAlert();
+        await playCashierAlert();
       }
 
       await fetchCurrentBill();

@@ -31,7 +31,6 @@ import axios from "axios";
 import alertMusicFile from "../../assets/alert-sound.mp3";
 import { useToast } from "../ToastContext";
 
-
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 const BASE_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
 const HIDDEN_CATEGORIES = [
@@ -340,7 +339,6 @@ const KioskMenu = () => {
     setShowFlavorModal(true);
   };
 
-
   useEffect(() => {
     const syncTimer = () => {
       const savedEnd = sessionStorage.getItem(TIMER_KEY);
@@ -371,7 +369,6 @@ const KioskMenu = () => {
   const fetchCurrentBill = async () => {
     const resId = storage.getItem(SAVED_RES_ID);
 
-    // Removed the "WALK-" key block to allow Walk-in sessions to properly fetch their items (Fixed)
     if (!resId) {
       return [];
     }
@@ -388,8 +385,6 @@ const KioskMenu = () => {
       return [];
     }
   };
-
-  // Inside KioskMenu.jsx
 
   const confirmPaymentChoice = async (choice) => {
     if (isLoading) return;
@@ -464,12 +459,10 @@ const KioskMenu = () => {
           return sum + p * q;
         }, 0);
 
-        const computedOutstandingBalance = Math.max(0, computedSessionTotal - localTotalPaid);
-
-        // Submit the precise, synchronously calculated balance
+        // Submit the cumulative total paid to sync precisely with the backend overwrite behavior
         await syncWithDashboard(
           dynamicResId,
-          computedOutstandingBalance,
+          computedSessionTotal,
           "Cash",
           "verified",
         );
