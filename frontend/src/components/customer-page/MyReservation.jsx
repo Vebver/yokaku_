@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import {
@@ -15,6 +15,9 @@ import {
   CheckCircle,
   RefreshCw,
   TriangleAlert,
+  Filter,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import TermsModal from "../TermsModal";
 import "../../Style/MyReservation.css";
@@ -41,6 +44,8 @@ const MyReservation = () => {
   const [showTermsFromCancel, setShowTermsFromCancel] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [activeTab, setActiveTab] = useState("active");
+  const [historyFilter, setHistoryFilter] = useState("all");
+  const [showAllHistory, setShowAllHistory] = useState(false);
 
   // New states for re-uploading payment proof
   const [uploading, setUploading] = useState(false);
@@ -145,6 +150,25 @@ const MyReservation = () => {
     }
   };
 
+  // ===== Filtered history based on selected filter =====
+  const filteredHistory = useMemo(() => {
+    if (historyFilter === "all") {
+      return historyReservations;
+    }
+    return historyReservations.filter((res) => {
+      const status = res.status?.toLowerCase() || "";
+      return status === historyFilter;
+    });
+  }, [historyReservations, historyFilter]);
+
+  // ===== Display limited to 5 unless "Show All" is clicked =====
+  const displayedHistory = useMemo(() => {
+    if (showAllHistory) {
+      return filteredHistory;
+    }
+    return filteredHistory.slice(0, 5);
+  }, [filteredHistory, showAllHistory]);
+
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -237,7 +261,6 @@ const MyReservation = () => {
     return false;
   };
 
-  // ===== NEW: Handle warning confirmation =====
   const handleWarningConfirm = () => {
     setShowWarningModal(false);
     handleConfirmCancellation();
@@ -247,7 +270,6 @@ const MyReservation = () => {
     setShowWarningModal(false);
   };
 
-  // ===== Modified: Show warning before proceeding =====
   const handleProceedToWarning = () => {
     if (isConfirmDisabled()) return;
     setShowWarningModal(true);
@@ -334,6 +356,8 @@ const MyReservation = () => {
 
       await fetchUserReservations();
       await fetchUserHistory();
+      setActiveTab("history");
+      setShowAllHistory(false); // Reset to show only 5
       handleCloseCancelModal();
       closeModal();
     } catch (error) {
@@ -446,7 +470,6 @@ const MyReservation = () => {
     return numGuests;
   };
 
-  // ===== NEW: Warning Modal =====
   const renderWarningModal = () => (
     <div className="warning-modal-overlay" onClick={handleWarningCancel}>
       <div className="warning-modal" onClick={(e) => e.stopPropagation()}>
@@ -574,6 +597,7 @@ const MyReservation = () => {
     </div>
   );
 
+  // ===== Render history reservations with limit =====
   const renderHistoryReservations = () => (
     <div className="reservations-list history-list">
       {historyLoading ? (
@@ -581,87 +605,176 @@ const MyReservation = () => {
           <div className="spinner"></div>
           <p>Loading history...</p>
         </div>
-      ) : historyReservations.length === 0 ? (
+      ) : displayedHistory.length === 0 ? (
         <div className="empty-state">
           <History size={64} />
           <h3>No History</h3>
-          <p>You don't have any past reservations.</p>
+          <p>
+            {historyFilter === "all"
+              ? "You don't have any past reservations."
+              : `No ${historyFilter} reservations found.`}
+          </p>
         </div>
       ) : (
-        historyReservations.map((reservation) => (
-          <div
-            key={reservation.reservation_id}
-            className={`reservation-card history-card ${reservation.status?.toLowerCase()}`}
-          >
-            <div className="reservation-card-header">
-              <div className="reservation-id">
-                <span className="id-label">Reservation ID:</span>
-                <span className="id-value">{reservation.reservation_id}</span>
-              </div>
-              <div
-                className={`status-badge ${getStatusBadgeClass(reservation.status)}`}
-              >
-                {getHistoryStatusIcon(reservation.status)}
-                {reservation.status}
-              </div>
-            </div>
-
-            <div className="reservation-card-body">
-              <div className="reservation-info-row">
-                <div className="info-item">
-                  <Calendar size={16} />
-                  <span>{formatDate(reservation.reservation_date)}</span>
+        <>
+          {displayedHistory.map((reservation) => (
+            <div
+              key={reservation.reservation_id}
+              className={`reservation-card history-card ${reservation.status?.toLowerCase()}`}
+            >
+              <div className="reservation-card-header">
+                <div className="reservation-id">
+                  <span className="id-label">Reservation ID:</span>
+                  <span className="id-value">{reservation.reservation_id}</span>
                 </div>
-                <div className="info-item">
-                  <Clock size={16} />
-                  <span>
-                    {formatTimeDisplay(reservation.reservation_time)} -{" "}
-                    {formatTimeDisplay(reservation.end_time)}
-                  </span>
-                </div>
-                <div className="info-item">
-                  <Users size={16} />
-                  <span>{getGuestDisplay(reservation)}</span>
+                <div
+                  className={`status-badge ${getStatusBadgeClass(reservation.status)}`}
+                >
+                  {getHistoryStatusIcon(reservation.status)}
+                  {reservation.status}
                 </div>
               </div>
 
-              <div className="reservation-tables">
-                <span className="tables-label">Tables:</span>
-                <span className="tables-value">
-                  {getAssignedTablesDisplay(reservation)}
-                </span>
-              </div>
-
-              {reservation.package_name &&
-                reservation.package_name !== "Table Reservation" && (
-                  <div className="reservation-package">
-                    <span className="package-label">Package:</span>
-                    <span className="package-value">
-                      {reservation.package_name}
+              <div className="reservation-card-body">
+                <div className="reservation-info-row">
+                  <div className="info-item">
+                    <Calendar size={16} />
+                    <span>{formatDate(reservation.reservation_date)}</span>
+                  </div>
+                  <div className="info-item">
+                    <Clock size={16} />
+                    <span>
+                      {formatTimeDisplay(reservation.reservation_time)} -{" "}
+                      {formatTimeDisplay(reservation.end_time)}
                     </span>
                   </div>
-                )}
-
-              {reservation.cancellation_reason && (
-                <div className="cancellation-reason">
-                  <AlertCircle size={14} />
-                  <span>Reason: {reservation.cancellation_reason}</span>
+                  <div className="info-item">
+                    <Users size={16} />
+                    <span>{getGuestDisplay(reservation)}</span>
+                  </div>
                 </div>
-              )}
-            </div>
 
-            <div className="reservation-card-footer">
-              <button
-                className="view-details-btn"
-                onClick={() => handleViewDetails(reservation)}
-              >
-                <Eye size={16} />
-                View Details
-              </button>
+                <div className="reservation-tables">
+                  <span className="tables-label">Tables:</span>
+                  <span className="tables-value">
+                    {getAssignedTablesDisplay(reservation)}
+                  </span>
+                </div>
+
+                {reservation.package_name &&
+                  reservation.package_name !== "Table Reservation" && (
+                    <div className="reservation-package">
+                      <span className="package-label">Package:</span>
+                      <span className="package-value">
+                        {reservation.package_name}
+                      </span>
+                    </div>
+                  )}
+
+                {reservation.cancellation_reason && (
+                  <div className="cancellation-reason">
+                    <AlertCircle size={14} />
+                    <span>Reason: {reservation.cancellation_reason}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="reservation-card-footer">
+                <button
+                  className="view-details-btn"
+                  onClick={() => handleViewDetails(reservation)}
+                >
+                  <Eye size={16} />
+                  View Details
+                </button>
+              </div>
             </div>
-          </div>
-        ))
+          ))}
+
+          {/* ===== Show All / Show Less Button ===== */}
+          {filteredHistory.length > 5 && (
+            <button
+              className="show-all-btn"
+              onClick={() => setShowAllHistory(!showAllHistory)}
+            >
+              {showAllHistory ? (
+                <>
+                  <ChevronUp size={18} />
+                  Show Less
+                </>
+              ) : (
+                <>
+                  <ChevronDown size={18} />
+                  Show All ({filteredHistory.length - 5} more)
+                </>
+              )}
+            </button>
+          )}
+        </>
       )}
+    </div>
+  );
+
+  // ===== Filter buttons for history =====
+  const renderFilterButtons = () => (
+    <div className="history-filters">
+      <button
+        className={`filter-btn ${historyFilter === "all" ? "active" : ""}`}
+        onClick={() => {
+          setHistoryFilter("all");
+          setShowAllHistory(false);
+        }}
+      >
+        All ({historyReservations.length})
+      </button>
+      <button
+        className={`filter-btn ${historyFilter === "cancelled" ? "active" : ""}`}
+        onClick={() => {
+          setHistoryFilter("cancelled");
+          setShowAllHistory(false);
+        }}
+      >
+        <XCircle size={14} />
+        Cancelled (
+        {
+          historyReservations.filter(
+            (r) => r.status?.toLowerCase() === "cancelled",
+          ).length
+        }
+        )
+      </button>
+      <button
+        className={`filter-btn ${historyFilter === "completed" ? "active" : ""}`}
+        onClick={() => {
+          setHistoryFilter("completed");
+          setShowAllHistory(false);
+        }}
+      >
+        <CheckCircle size={14} />
+        Completed (
+        {
+          historyReservations.filter(
+            (r) => r.status?.toLowerCase() === "completed",
+          ).length
+        }
+        )
+      </button>
+      <button
+        className={`filter-btn ${historyFilter === "refunded" ? "active" : ""}`}
+        onClick={() => {
+          setHistoryFilter("refunded");
+          setShowAllHistory(false);
+        }}
+      >
+        <RefreshCw size={14} />
+        Refunded (
+        {
+          historyReservations.filter(
+            (r) => r.status?.toLowerCase() === "refunded",
+          ).length
+        }
+        )
+      </button>
     </div>
   );
 
@@ -696,6 +809,8 @@ const MyReservation = () => {
               )}
             </button>
           </div>
+
+          {activeTab === "history" && renderFilterButtons()}
 
           {activeTab === "active"
             ? renderActiveReservations()
@@ -1018,7 +1133,6 @@ const MyReservation = () => {
                     </span>
                   )}
                 </button>
-                {/* ===== CHANGED: This button now shows warning ===== */}
                 <button
                   className={`cancel-modal-confirm-btn ${isConfirmDisabled() ? "disabled" : ""}`}
                   onClick={handleProceedToWarning}
@@ -1038,10 +1152,8 @@ const MyReservation = () => {
           </div>
         )}
 
-        {/* ===== NEW: Warning Modal ===== */}
         {showWarningModal && renderWarningModal()}
 
-        {/* Terms Modal */}
         <TermsModal
           isOpen={showTermsModal}
           onClose={handleCloseTermsModal}
