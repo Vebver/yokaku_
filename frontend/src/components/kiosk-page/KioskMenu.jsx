@@ -1093,7 +1093,7 @@ const KioskMenu = () => {
                 disabled={isLoading}
                 onClick={() => confirmPaymentChoice("Pay Now")}
               >
-                <Banknote size={18} className="me-2" /> PAY NOW (CASHIER)
+                <div className="me-2" /> PAY NOW (CASHIER)
               </button>
               <button
                 className="res-modal-btn-primary"
@@ -1101,13 +1101,13 @@ const KioskMenu = () => {
                 style={{ background: "#ffcc00" }}
                 onClick={() => confirmPaymentChoice("Pay Later")}
               >
-                <Clock size={18} className="me-2" /> ORDER NOW, PAY LATER
+                <div className="me-2" /> ORDER NOW, PAY LATER
               </button>
               <button
                 className="res-btn-cancel"
                 onClick={() => setShowPaymentModal(false)}
               >
-                Back
+                BACK
               </button>
             </div>
           </div>
@@ -1245,8 +1245,7 @@ const KioskMenu = () => {
                     }
                   }}
                 >
-                  <Banknote size={18} className="me-2" /> PAY NOW (₱
-                  {calculateTotalDue(isFinalCheckout)})
+                  <div className="me-2" /> PAY NOW
                 </button>
               ) : (
                 <button
@@ -1263,7 +1262,7 @@ const KioskMenu = () => {
                 onClick={() => setShowBillInfo(false)}
               >
                 {parseFloat(calculateTotalDue(isFinalCheckout)) > 0
-                  ? "Pay Later & Exit Menu"
+                  ? "PAY LATER"
                   : "Close"}
               </button>
             </div>
