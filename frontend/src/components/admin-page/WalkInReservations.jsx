@@ -627,7 +627,6 @@ const WalkInReservations = () => {
                 >
                   <option value="Cash">Cash (Paid at Counter)</option>
                   <option value="GCash">GCash</option>
-                  <option value="Bank Transfer">Bank Transfer</option>
                 </select>
                 <div className="x-small text-muted mt-1 italic">
                   * Manual entries are automatically verified.

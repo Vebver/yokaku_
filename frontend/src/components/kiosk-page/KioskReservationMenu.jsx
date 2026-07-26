@@ -285,10 +285,16 @@ const KioskReservationMenu = () => {
     return databaseTotal + pendingTotal;
   };
 
-  const calculateTotalDue = () => {
-    const totalSession = calculateSessionTotal();
-    return totalSession > 0 ? totalSession.toFixed(2) : "0.00";
-  };
+ const calculateTotalDue = () => {
+  const totalSession = calculateSessionTotal();
+  // Get what the user already paid from storage
+  const alreadyPaid = parseFloat(storage.getItem(TOTAL_PAID_KEY) || 0);
+  
+  const remaining = totalSession - alreadyPaid;
+  
+  // Use a small 0.01 check to avoid floating point math errors (e.g., 0.00000001)
+  return remaining > 0.01 ? remaining.toFixed(2) : "0.00";
+};
 
   const fetchCurrentBill = async () => {
     try {
@@ -304,7 +310,7 @@ const KioskReservationMenu = () => {
     }
   };
 
-  const playCashierAlert = async () => {
+  const playAlert = async () => {
     try {
       audioObj.currentTime = 0;
       await audioObj.play();
@@ -621,7 +627,6 @@ const KioskReservationMenu = () => {
         storage.setItem(TOTAL_PAID_KEY, totalSessionAmount.toString());
         storage.setItem(PAYMENT_CHOICE_KEY, "verified");
         setIsPaid(true);
-        await playCashierAlert();
       }
 
       await fetchCurrentBill();
@@ -641,6 +646,9 @@ const KioskReservationMenu = () => {
   };
 
   const handleEndSession = async () => {
+
+    await playAlert();
+
     setIsLoading(true);
     try {
       const currentTableId = getCurrentTableId();
@@ -687,13 +695,18 @@ const KioskReservationMenu = () => {
   };
 
   const handleHeaderPayClick = async () => {
-    setIsPaymentProcessing(false);
+  setIsLoading(true); // Show loader while fetching latest
+  try {
     await fetchCurrentBill();
-    setIsFinalCheckout(true);
     const due = parseFloat(calculateTotalDue());
-    setIsPaid(due <= 0);
+    
+    setIsFinalCheckout(true);
+    setIsPaid(due <= 0); // This is key!
     setShowBillInfo(true);
-  };
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   useEffect(() => {
     if (!activeResId) return;
@@ -1166,6 +1179,7 @@ const KioskReservationMenu = () => {
                         const totalBill = calculateSessionTotal();
                         setIsLoading(true);
                         try {
+                          // 1. Tell backend payment is made
                           await axios.post(
                             `${API_BASE}/billing/walkin`,
                             {
@@ -1177,19 +1191,32 @@ const KioskReservationMenu = () => {
                             getAuthHeader(),
                           );
 
+                          // 2. Update LocalStorage immediately so UI reflects 0 due
                           storage.setItem(TOTAL_PAID_KEY, totalBill.toString());
+
+                          // 3. Update the state so the "PAY" button turns into "FINISH"
+                          setIsPaid(true);
+
+                          // 4. Refresh items from server
                           await fetchCurrentBill();
-                          await playCashierAlert();
+
+                          showToast(
+                            "Payment recorded! You can now finish your session.","success"
+                          );
                         } catch (err) {
-                          showToast("Payment processing failed.");
+                          console.error(err);
+                          showToast(
+                            "Payment processing failed. Please call staff.",
+                          );
                         } finally {
                           setIsLoading(false);
                         }
                       }}
                     >
-                      <Banknote size={18} style={{ marginRight: "8px" }} /> PAY
-                      NOW (₱{calculateTotalDue()})
+                      <div style={{ marginRight: "8px" }} /> PAY NOW (₱
+                      {calculateTotalDue()})
                     </button>
+
                     <button
                       className="res-btn-cancel"
                       onClick={() => setShowBillInfo(false)}

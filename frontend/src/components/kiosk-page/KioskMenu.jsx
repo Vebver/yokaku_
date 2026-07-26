@@ -162,7 +162,7 @@ const KioskMenu = () => {
     return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
-  const playCashierAlert = async () => {
+  const playAlert = async () => {
     try {
       if (!audioRef.current) return;
       audioRef.current.currentTime = 0;
@@ -257,6 +257,9 @@ const KioskMenu = () => {
   }, [activeCategory, hasOrderedUnlimited, menuData]);
 
   const handleEndSession = async () => {
+
+    await playAlert();
+
     const activeTable = storage.getItem(SAVED_TABLE_ID);
     const activeResId = storage.getItem(SAVED_RES_ID);
     if (activeResId) {
@@ -472,7 +475,6 @@ const KioskMenu = () => {
 
         storage.setItem(PAYMENT_CHOICE_KEY, "verified");
         setIsPaid(true);
-        await playCashierAlert();
         setShowBillInfo(true);
       } else {
         setIsPaid(false);
@@ -1238,7 +1240,6 @@ const KioskMenu = () => {
                       setIsLoading(false);
 
                       fetchCurrentBill();
-                      playCashierAlert();
                     } catch (err) {
                       showToast("Payment processing failed.");
                       setIsLoading(false);
