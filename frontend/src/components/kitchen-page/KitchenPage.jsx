@@ -55,7 +55,6 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
         </div>
       );
     }
-    // ... (rest of your customization logic remains the same)
   };
 
   const handleStatusUpdate = async (newStatus) => {
@@ -233,15 +232,35 @@ const KitchenPage = () => {
             className="logo-section"
             style={{ display: "flex", alignItems: "center", gap: "15px" }}
           >
-            <img
-              src="./public/favicon.png"
-              alt="Hangout Logo"
-              style={{ width: "40px", height: "40px", objectFit: "contain" }}
-            />
+            {/* STYLIZED "H" LOGO BOX */}
+            <div
+              style={{
+                width: "42px",
+                height: "42px",
+                backgroundColor: "#ffcc00", // Brand orange
+                color: "white",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: "10px",
+                fontSize: "1.8rem",
+                fontWeight: "900",
+                fontFamily: "'Inter', sans-serif",
+                boxShadow: "0 2px 10px rgba(243, 141, 49, 0.3)",
+              }}
+            >
+              H
+            </div>
+
             <div>
               <h1
                 className="brand-name"
-                style={{ fontSize: "1.2rem", fontWeight: "800", margin: 0 }}
+                style={{
+                  fontSize: "1.2rem",
+                  fontWeight: "800",
+                  margin: 0,
+                  letterSpacing: "0.5px",
+                }}
               >
                 HANGOUT KITCHEN
               </h1>
