@@ -115,6 +115,8 @@ function AppContent() {
                 <Navigate to="/admin" replace />
               ) : userRole === "cashier" || userRole === "staff" ? (
                 <Navigate to="/cashier/dashboard" replace />
+              ) : userRole === "cook" ? ( // ADD THIS LINE
+                <Navigate to="/kitchen-page" replace />
               ) : (
                 <Navigate to="/customer" replace />
               )
@@ -194,10 +196,7 @@ function AppContent() {
         <Route
           path="/cashier/dashboard"
           element={
-            isLoggedIn &&
-            (userRole === "cashier" ||
-              userRole === "staff" ||
-              userRole === "admin") ? (
+            isLoggedIn && (userRole === "cashier" || userRole === "admin") ? (
               <Cashier />
             ) : (
               <Navigate to="/" replace />
@@ -214,6 +213,8 @@ function AppContent() {
             />
           }
         />
+
+        {/* KIOSK SELECTION */}
         <Route path="/kiosk-selection" element={<KioskSelection />} />
         <Route path="/kiosk-selection/kiosk-menu" element={<KioskMenu />} />
         <Route
@@ -224,9 +225,22 @@ function AppContent() {
           path="/kiosk-selection/kiosk-reservation-menu"
           element={<KioskReservationMenu />}
         />
-        <Route path="/kitchen-page" element={<KitchenPage />} />
+
+        {/*KITCHEN PAGE */}
+        <Route
+          path="/kitchen-page"
+          element={
+            isLoggedIn && (userRole === "cook" || userRole === "admin") ? (
+              <KitchenPage />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/menu" element={<FullMenu />} />
+        
         {/* 6. CATCH ALL - MUST BE AT THE VERY BOTTOM */}
         <Route
           path="*"
@@ -236,6 +250,8 @@ function AppContent() {
                 <Navigate to="/admin" replace />
               ) : userRole === "cashier" || userRole === "staff" ? (
                 <Navigate to="/cashier/dashboard" replace />
+              ) : userRole === "cook" ? ( // ADD THIS LINE
+                <Navigate to="/kitchen-page" replace />
               ) : (
                 <Navigate to="/customer" replace />
               )

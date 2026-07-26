@@ -72,11 +72,11 @@ const adminController = {
       const { role } = req.body;
 
       // 1. FIXED VALIDATION: Added 'cashier' to the allowed list
-      const allowedRoles = ["admin", "customer", "cashier"];
+      const allowedRoles = ["admin", "customer", "cashier", "cook"];
 
       if (!allowedRoles.includes(role)) {
         return res.status(400).json({
-          error: "Invalid role. Must be 'admin', 'customer', or 'cashier'.",
+          error: "Invalid role. Must be admin.",
         });
       }
 

@@ -23,7 +23,7 @@ const AccountManagement = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem("token");
+      // Removed unused token variable for clarity, assuming api instance handles headers
       const res = await api.get(`/admin/users`);
       setUsers(res.data);
     } catch (err) {
@@ -37,7 +37,6 @@ const AccountManagement = () => {
     if (!window.confirm(`Change this user's role to ${newRole.toUpperCase()}?`)) return;
     try {
       setUpdatingUserId(userId);
-      const token = localStorage.getItem("token");
       await api.put(
         `/admin/users/${userId}/update-role`,
         { role: newRole }
@@ -125,13 +124,14 @@ const AccountManagement = () => {
                   </td>
                   <td>
                     <div className="fw-bold text-dark">{user.first_name} {user.last_name}</div>
-                    <code className="text-muted" style={{ fontSize: '0.6rem' }}></code>
                   </td>
                   <td className="text-muted small">{user.email || "No Email"}</td>
                   <td>
+                    {/* UPDATED ROLE BADGES */}
                     <span className={`badge rounded-pill px-3 py-1 small fw-normal ${
                       user.role === 'admin' ? 'bg-primary text-white' : 
                       user.role === 'cashier' ? 'bg-info-subtle text-info border border-info-subtle' : 
+                      user.role === 'cook' ? 'bg-success-subtle text-success border border-success-subtle' : 
                       'bg-light text-dark border'
                     }`}>
                       {user.role?.toUpperCase()}
@@ -150,6 +150,7 @@ const AccountManagement = () => {
                         >
                           <option value="customer">Customer</option>
                           <option value="cashier">Cashier</option>
+                          <option value="cook">Cook</option> {/* ADDED COOK OPTION */}
                           <option value="admin">Admin</option>
                         </select>
                       )}
