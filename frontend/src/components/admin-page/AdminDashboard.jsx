@@ -483,7 +483,7 @@ function AdminDashboard() {
 
       {/* TODAY'S TIMELINE PANEL */}
 
-      {/* <div className="mb-4 bg-white p-3 rounded-4 shadow-sm border-start border-4 border-warning">
+      <div className="mb-4 bg-white p-3 rounded-4 shadow-sm border-start border-4 border-warning">
         <div className="d-flex align-items-center mb-2">
           <Info size={16} className="text-warning me-2" />
           <span className="fw-bold small">Today's Timeline</span>
@@ -506,7 +506,7 @@ function AdminDashboard() {
                 <span className="text-muted opacity-50">|</span>
 
                 {/* BOOKING TYPE */}
-                {/* <span 
+                <span 
                   className="badge bg-secondary-subtle text-secondary border text-uppercase" 
                   style={{ fontSize: "0.62rem", padding: "3px 6px" }}
                 >
@@ -516,7 +516,7 @@ function AdminDashboard() {
                 </span>
 
                 {/* RESERVATION STATUS BADGE */}
-                {/* <span 
+               <span 
                   className={`badge text-uppercase border ${
                     res.status?.toLowerCase() === "seated"
                       ? "bg-danger-subtle text-danger border-danger-subtle"
@@ -527,8 +527,8 @@ function AdminDashboard() {
                   {res.status || "CONFIRMED"}
                 </span>
 
-                {/* TABLE NUMBER */}
-                {/* <span className="badge bg-dark" style={{ fontSize: "0.62rem", padding: "3px 6px" }}>
+                {/* TABLE NUMBER*/}
+                <span className="badge bg-dark" style={{ fontSize: "0.62rem", padding: "3px 6px" }}>
                   {res.reservation_type === "event" ? "All Tables occupied" : (res.table_names ? `Table: ${res.table_names}` : "No Table")}
                 </span>
               </div>
@@ -537,7 +537,7 @@ function AdminDashboard() {
             <span className="text-muted small p-1">No arrivals for today.</span>
           )}
         </div>
-      </div> */}
+      </div>
 
       {/* STATS CARDS */}
       <h2 className="fw-bold mb-00">Report Overview</h2>
