@@ -1,4 +1,4 @@
-const db = require('../config/db');
+const db = require("../config/db");
 
 const BestSellerProduct = {
   // 1. Get Top 5 Sellers
@@ -35,15 +35,28 @@ const BestSellerProduct = {
   // 3. Get Overall Performance Summary (Total Revenue & Total Items Sold)
   GetPerformanceSummary: async () => {
     const [rows] = await db.execute(`
-      SELECT 
-        IFNULL(SUM(k.quantity), 0) as total_items_sold, 
-        IFNULL(SUM(k.quantity * m.price), 0) as total_revenue
-      FROM kiosk_orders k
-      JOIN menu_items m ON k.item_id = m.item_id
-      WHERE k.kitchen_status IN ('served', 'completed')
-    `);
-    return rows[0]; // Returns a single object { total_items_sold: X, total_revenue: Y }
-  }
+    SELECT 
+      COALESCE(SUM(amount), 0) as total_revenue,
+      COUNT(*) as total_orders,
+      COALESCE(AVG(amount), 0) as aov
+    FROM payments 
+    WHERE payment_status = 'verified'
+  `);
+
+    // Also get total items sold from kiosk_orders
+    const [items] = await db.execute(`
+    SELECT IFNULL(SUM(quantity), 0) as total_items_sold
+    FROM kiosk_orders
+    WHERE kitchen_status IN ('served', 'completed')
+  `);
+
+    return {
+      total_revenue: rows[0]?.total_revenue || 0,
+      total_orders: rows[0]?.total_orders || 0,
+      aov: rows[0]?.aov || 0,
+      total_items_sold: items[0]?.total_items_sold || 0,
+    };
+  },
 };
 
 module.exports = BestSellerProduct;
