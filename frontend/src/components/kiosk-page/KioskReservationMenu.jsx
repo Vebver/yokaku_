@@ -71,7 +71,7 @@ const KioskReservationMenu = () => {
   // 1. Extract physical table assignment from URL
   const queryParams = useMemo(
     () => new URLSearchParams(window.location.search),
-    []
+    [],
   );
   const setupTable = queryParams.get("setupTable");
   const [kioskMode, setKioskMode] = useState("loading"); // "loading" | "event_waiting" | "active"
@@ -248,7 +248,7 @@ const KioskReservationMenu = () => {
         nameStr.includes("reservation fee") ||
         nameStr.includes("downpayment")
       ) {
-        return sum;
+        return sum; // ← Skip downpayment items
       }
 
       return sum + p * q;
@@ -276,7 +276,7 @@ const KioskReservationMenu = () => {
           nameStr.includes("reservation fee") ||
           nameStr.includes("downpayment")
         ) {
-          return sum;
+          return sum; // ← Skip downpayment items
         }
 
         return sum + p * q;
@@ -294,7 +294,7 @@ const KioskReservationMenu = () => {
     try {
       const res = await axios.get(
         `${API_BASE}/reservations/${reservationId}/items`,
-        getAuthHeader()
+        getAuthHeader(),
       );
       if (res.data) setBillItems(res.data);
       return res.data;
@@ -337,7 +337,7 @@ const KioskReservationMenu = () => {
         const m = Math.floor(remainingSeconds / 60);
         const s = remainingSeconds % 60;
         setCooldownMessage(
-          `Refill is on cooldown. Please wait ${m}m ${s}s before requesting another.`
+          `Refill is on cooldown. Please wait ${m}m ${s}s before requesting another.`,
         );
         return;
       }
@@ -346,7 +346,7 @@ const KioskReservationMenu = () => {
     const unlimitedItem = findUnlimitedItem();
     if (!unlimitedItem) {
       setCooldownMessage(
-        "No active Unlimited package found in the system registry."
+        "No active Unlimited package found in the system registry.",
       );
       return;
     }
@@ -361,7 +361,7 @@ const KioskReservationMenu = () => {
   useEffect(() => {
     if (activeCategory === "Unlimited" && hasOrderedUnlimited) {
       const fallbackCategory = Object.keys(menuData).find(
-        (cat) => !HIDDEN_CATEGORIES.includes(cat) && cat !== "Unlimited"
+        (cat) => !HIDDEN_CATEGORIES.includes(cat) && cat !== "Unlimited",
       );
       if (fallbackCategory) {
         setActiveCategory(fallbackCategory);
@@ -403,20 +403,20 @@ const KioskReservationMenu = () => {
       setMenuData(grouped);
       setDynamicFlavors(
         (grouped["Chicken"] || grouped["Chicken Wings"] || []).map(
-          (i) => i.menu_name || i.name
-        )
+          (i) => i.menu_name || i.name,
+        ),
       );
       setDynamicRamenFlavors(
-        (grouped["Ramen"] || []).map((i) => i.menu_name || i.name)
+        (grouped["Ramen"] || []).map((i) => i.menu_name || i.name),
       );
       setDynamicDrinks(
         [...(grouped["Beverages"] || []), ...(grouped["Drinks"] || [])].map(
-          (i) => i.menu_name || i.name
-        )
+          (i) => i.menu_name || i.name,
+        ),
       );
 
       const cats = Object.keys(grouped).filter(
-        (c) => !HIDDEN_CATEGORIES.includes(c)
+        (c) => !HIDDEN_CATEGORIES.includes(c),
       );
       setActiveCategory((prev) => {
         if (prev && grouped[prev]) return prev;
@@ -439,12 +439,12 @@ const KioskReservationMenu = () => {
       try {
         const [prodRes, resItemsRes, reservationRes] = await Promise.all([
           fetch(`${API_BASE}/products`, { headers: getFetchHeaders() }).then(
-            (r) => r.json()
+            (r) => r.json(),
           ),
           axios
             .get(
               `${API_BASE}/reservations/${reservationId}/items`,
-              getAuthHeader()
+              getAuthHeader(),
             )
             .then((r) => r.data)
             .catch(() => null),
@@ -458,7 +458,7 @@ const KioskReservationMenu = () => {
             reservationRes.data || reservationRes.reservation || reservationRes;
           setReservationDetails(targetData);
           const paidAmount = parseFloat(
-            targetData.amount || targetData.downpayment || 0
+            targetData.amount || targetData.downpayment || 0,
           );
           storage.setItem(TOTAL_PAID_KEY, paidAmount.toString());
         }
@@ -490,14 +490,14 @@ const KioskReservationMenu = () => {
               quantity: parseInt(i.qty || i.quantity || 1),
               customizations: i.customizations,
               is_placed: true,
-            }))
+            })),
           );
 
           // === AUTO TRIGGER TIMER FOR PRE-BOOKED UNLIMITED RESERVATIONS ===
           const hasUnlimitedPreBooked = resItemsRes.some((item) =>
             (item.item_name || item.menu_name || "")
               .toLowerCase()
-              .includes("unlimited")
+              .includes("unlimited"),
           );
           const currentTimerKey = `kiosk_res_timer_${activeResId}`;
           if (hasUnlimitedPreBooked && !storage.getItem(currentTimerKey)) {
@@ -540,20 +540,20 @@ const KioskReservationMenu = () => {
 
         setDynamicFlavors(
           (grouped["Chicken"] || grouped["Chicken Wings"] || []).map(
-            (i) => i.menu_name || i.name
-          )
+            (i) => i.menu_name || i.name,
+          ),
         );
         setDynamicRamenFlavors(
-          (grouped["Ramen"] || []).map((i) => i.menu_name || i.name)
+          (grouped["Ramen"] || []).map((i) => i.menu_name || i.name),
         );
         setDynamicDrinks(
           [...(grouped["Beverages"] || []), ...(grouped["Drinks"] || [])].map(
-            (i) => i.menu_name || i.name
-          )
+            (i) => i.menu_name || i.name,
+          ),
         );
 
         const cats = Object.keys(grouped).filter(
-          (c) => !HIDDEN_CATEGORIES.includes(c)
+          (c) => !HIDDEN_CATEGORIES.includes(c),
         );
         if (cats.length > 0) {
           setActiveCategory(cats[0]);
@@ -574,9 +574,7 @@ const KioskReservationMenu = () => {
     const pendingItems = cart.filter((i) => !i.is_placed);
 
     const hasUnlimitedPackage = [...billItems, ...cart].some((item) =>
-      (item.menu_name || "")
-        .toLowerCase()
-        .includes("unlimited")
+      (item.menu_name || "").toLowerCase().includes("unlimited"),
     );
 
     try {
@@ -593,7 +591,7 @@ const KioskReservationMenu = () => {
               customizations: i.customizations,
             })),
           },
-          getAuthHeader()
+          getAuthHeader(),
         );
       }
 
@@ -617,7 +615,7 @@ const KioskReservationMenu = () => {
             payment_method: "Cash",
             payment_status: "verified",
           },
-          getAuthHeader()
+          getAuthHeader(),
         );
 
         storage.setItem(TOTAL_PAID_KEY, totalSessionAmount.toString());
@@ -652,7 +650,7 @@ const KioskReservationMenu = () => {
           reservation_id: reservationId,
           table_id: currentTableId,
         },
-        getAuthHeader()
+        getAuthHeader(),
       );
 
       [
@@ -702,7 +700,7 @@ const KioskReservationMenu = () => {
     const savedEndTime = storage.getItem(TIMER_KEY);
     if (savedEndTime) {
       const remaining = Math.floor(
-        (parseInt(savedEndTime) - Date.now()) / 1000
+        (parseInt(savedEndTime) - Date.now()) / 1000,
       );
       if (remaining > 0) {
         setTimeLeft(remaining);
@@ -717,7 +715,7 @@ const KioskReservationMenu = () => {
         const savedEndTime = storage.getItem(TIMER_KEY);
         if (!savedEndTime) return;
         const remaining = Math.floor(
-          (parseInt(savedEndTime) - Date.now()) / 1000
+          (parseInt(savedEndTime) - Date.now()) / 1000,
         );
         if (remaining <= 0) {
           clearInterval(timerRef.current);
@@ -768,7 +766,7 @@ const KioskReservationMenu = () => {
               },
             ],
           },
-          getAuthHeader()
+          getAuthHeader(),
         );
 
         storage.setItem(LAST_REFILL_KEY, Date.now().toString());
@@ -793,7 +791,7 @@ const KioskReservationMenu = () => {
   };
 
   const handleItemClick = (item) => {
-    const itemName = ((item.menu_name || item.name) || "").toLowerCase();
+    const itemName = (item.menu_name || item.name || "").toLowerCase();
     if (itemName.includes("unlimited") || itemName.includes("ramen")) {
       setSelectedItem(item);
       setSelectedFlavors([]);
@@ -1150,8 +1148,8 @@ const KioskReservationMenu = () => {
               <span>Total Due:</span>
               <span style={{ color: "#ffcc00" }}>₱{calculateTotalDue()}</span>
             </div>
-            
-           <div
+
+            <div
               style={{
                 display: "flex",
                 flexDirection: "column",
@@ -1176,7 +1174,7 @@ const KioskReservationMenu = () => {
                               payment_method: "Cash",
                               payment_status: "verified",
                             },
-                            getAuthHeader()
+                            getAuthHeader(),
                           );
 
                           storage.setItem(TOTAL_PAID_KEY, totalBill.toString());
@@ -1216,46 +1214,44 @@ const KioskReservationMenu = () => {
                     </button>
                   </>
                 )
+              ) : isEventReservation ? (
+                <>
+                  <button
+                    className="res-modal-btn-primary"
+                    style={{ background: "#ffcc00" }}
+                    onClick={() => confirmPaymentChoice("Pay Later")}
+                  >
+                    CONFIRM ORDER
+                  </button>
+                  <button
+                    className="res-btn-cancel"
+                    onClick={() => setShowBillInfo(false)}
+                  >
+                    CANCEL
+                  </button>
+                </>
               ) : (
-                isEventReservation ? (
-                  <>
-                    <button
-                      className="res-modal-btn-primary"
-                      style={{ background: "#ffcc00" }}
-                      onClick={() => confirmPaymentChoice("Pay Later")}
-                    >
-                      CONFIRM ORDER
-                    </button>
-                    <button
-                      className="res-btn-cancel"
-                      onClick={() => setShowBillInfo(false)}
-                    >
-                      CANCEL
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      className="res-modal-btn-primary"
-                      onClick={() => confirmPaymentChoice("Pay Now")}
-                    >
-                      PAY NOW (CASHIER)
-                    </button>
-                    <button
-                      className="res-modal-btn-primary"
-                      style={{ background: "#ffcc00" }}
-                      onClick={() => confirmPaymentChoice("Pay Later")}
-                    >
-                      ORDER NOW, PAY LATER
-                    </button>
-                    <button
-                      className="res-btn-cancel"
-                      onClick={() => setShowBillInfo(false)}
-                    >
-                      CANCEL
-                    </button>
-                  </>
-                )
+                <>
+                  <button
+                    className="res-modal-btn-primary"
+                    onClick={() => confirmPaymentChoice("Pay Now")}
+                  >
+                    PAY NOW (CASHIER)
+                  </button>
+                  <button
+                    className="res-modal-btn-primary"
+                    style={{ background: "#ffcc00" }}
+                    onClick={() => confirmPaymentChoice("Pay Later")}
+                  >
+                    ORDER NOW, PAY LATER
+                  </button>
+                  <button
+                    className="res-btn-cancel"
+                    onClick={() => setShowBillInfo(false)}
+                  >
+                    CANCEL
+                  </button>
+                </>
               )}
             </div>
           </div>
@@ -1271,7 +1267,9 @@ const KioskReservationMenu = () => {
               <section className="modal-section">
                 <h3 className="section-label">Select Flavors (Up to 4)</h3>
                 <div className="flavor-grid">
-                  {(((selectedItem?.menu_name || selectedItem?.name) || "").toLowerCase().includes("ramen")
+                  {((selectedItem?.menu_name || selectedItem?.name || "")
+                    .toLowerCase()
+                    .includes("ramen")
                     ? dynamicRamenFlavors
                     : dynamicFlavors
                   ).map((f) => (
@@ -1284,7 +1282,7 @@ const KioskReservationMenu = () => {
                           }
                           if (prev.length >= 4) {
                             setCooldownMessage(
-                              "You can select a maximum of 4 flavors."
+                              "You can select a maximum of 4 flavors.",
                             );
                             return prev;
                           }
@@ -1397,7 +1395,7 @@ const KioskReservationMenu = () => {
               (i) =>
                 i.id === newItem.id &&
                 i.customizations === newItem.customizations &&
-                !i.is_placed
+                !i.is_placed,
             );
 
             if (existingIdx > -1) {
