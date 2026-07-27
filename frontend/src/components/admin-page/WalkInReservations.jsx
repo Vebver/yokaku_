@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   Armchair,
-  User,
   Package,
   ChevronLeft,
   ChevronRight,
@@ -756,12 +755,9 @@ const WalkInReservations = () => {
             <div className="d-flex flex-column h-100">
               <div className="p-3 border-bottom bg-light-subtle">
                 <div className="d-flex align-items-center gap-3">
-                  <div className="p-2 bg-primary text-white rounded-circle shadow-sm">
-                    <User size={18} />
-                  </div>
                   <div>
                     <div className="fw-bold text-dark lh-1 mb-1">
-                      {selectedRes.first_name} {selectedRes.last_name || ""}
+                      Name: {selectedRes.first_name} {selectedRes.last_name || ""}
                     </div>
                     <div className="x-small text-muted font-monospace">
                       ID: {selectedRes.reservation_id}

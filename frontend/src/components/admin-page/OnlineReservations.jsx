@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import api from "../../api";
 import {
   Armchair,
-  User,
   Package,
   ChevronLeft,
   ChevronRight,
@@ -13,8 +12,6 @@ import {
   Search,
 } from "lucide-react";
 import { useToast } from "../ToastContext";
-
-
 
 const OnlineReservations = () => {
   const { showToast } = useToast();
@@ -116,7 +113,8 @@ const OnlineReservations = () => {
       );
 
       showToast(
-        "Refund processed successfully. Notification has been sent to the customer.", "success"
+        "Refund processed successfully. Notification has been sent to the customer.",
+        "success",
       );
 
       // Update selected reservation state locally so UI updates
@@ -130,7 +128,8 @@ const OnlineReservations = () => {
     } catch (err) {
       console.error(err);
       showToast(
-        "Failed to process refund. Please verify your connection or backend configuration.","error"
+        "Failed to process refund. Please verify your connection or backend configuration.",
+        "error",
       );
     } finally {
       setRefunding(false);
@@ -256,7 +255,9 @@ const OnlineReservations = () => {
                     <span className="small fw-bold">
                       {item.reservation_type === "event"
                         ? "Whole Table Reserve"
-                        : item.assigned_tables || "T-?"}
+                        : item.assigned_tables
+                          ? `Table ${item.assigned_tables}`
+                          : "T-?"}
                     </span>
                   </td>
                   <td>
@@ -356,18 +357,15 @@ const OnlineReservations = () => {
               {/* 1. HEADER */}
               <div className="p-3 border-bottom bg-light-subtle">
                 <div className="d-flex align-items-center gap-3 mb-2">
-                  <div className="p-2 bg-primary text-white rounded-circle shadow-sm">
-                    <User size={18} />
-                  </div>
                   <div className="overflow-hidden">
                     <div className="fw-bold text-dark lh-1 mb-1">
-                      {selectedRes.first_name} {selectedRes.last_name}
+                      Name: {selectedRes.first_name} {selectedRes.last_name}
                     </div>
                     <div className="x-small text-muted text-truncate mb-1">
-                      {selectedRes.email}
+                      Email: {selectedRes.email}
                     </div>
                     <div className="d-flex align-items-center gap-1">
-                      <a
+                      Number:<a
                         href={`tel:${selectedRes.phone_number || selectedRes.phone}`}
                         className="x-small fw-bold text-decoration-none text-primary"
                       >
@@ -437,7 +435,10 @@ const OnlineReservations = () => {
                       displayComment = parts[1].slice(0, -1); // Trim off the closing parenthesis
                     }
                     // 3. Fallback for plain text comments that were saved directly
-                    else if (!displayComment && rawReason.includes("Comment:")) {
+                    else if (
+                      !displayComment &&
+                      rawReason.includes("Comment:")
+                    ) {
                       const parts = rawReason.split("Comment:");
                       displayReason = parts[0].trim();
                       displayComment = parts[1].trim();
@@ -548,7 +549,7 @@ const OnlineReservations = () => {
                   <div className="d-flex align-items-center gap-2">
                     <Clock size={14} className="text-muted" />
                     <span className="x-small fw-bold text-muted text-uppercase">
-                      Timeline
+                      Time
                     </span>
                   </div>
                   <div className="small fw-bold">

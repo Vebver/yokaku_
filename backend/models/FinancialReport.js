@@ -17,7 +17,7 @@ const FinancialReport = {
           UNION ALL
           SELECT ko.created_at as d, (ko.quantity * m.price) as amount 
           FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
-          WHERE (ko.reservation_id LIKE 'WALK%' OR ko.reservation_id IS NULL)
+          WHERE ko.reservation_id IS NULL
       ) as all_tx`;
     const [rows] = await db.execute(query, [
       todayStr,
@@ -38,7 +38,7 @@ const FinancialReport = {
         UNION ALL
         SELECT ko.created_at as d, (ko.quantity * m.price) as amount 
         FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
-        WHERE (ko.reservation_id LIKE 'WALK%' OR ko.reservation_id IS NULL)
+        WHERE ko.reservation_id IS NULL
       ) as combined GROUP BY label LIMIT 6`);
     return rows;
   },
@@ -65,7 +65,7 @@ const FinancialReport = {
         UNION ALL
         SELECT ko.created_at as d, (ko.quantity * m.price) as amount 
         FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
-        WHERE (ko.reservation_id LIKE 'WALK%' OR ko.reservation_id IS NULL)
+        WHERE ko.reservation_id IS NULL
       ) as combined 
       WHERE d >= DATE_SUB(?, INTERVAL 6 DAY)
       GROUP BY DATE(d), label
@@ -84,7 +84,7 @@ const FinancialReport = {
         UNION ALL
         SELECT ko.created_at as d, (ko.quantity * m.price) as amount
         FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
-        WHERE (ko.reservation_id LIKE 'WALK%' OR ko.reservation_id IS NULL)
+        WHERE ko.reservation_id IS NULL
       ) as combined
       WHERE d >= DATE_SUB(?, INTERVAL ${days - 1} DAY)
       GROUP BY DATE(d) ORDER BY DATE(d) ASC LIMIT ${days}
@@ -104,7 +104,7 @@ const FinancialReport = {
         UNION ALL
         SELECT ko.created_at as d, (ko.quantity * m.price) as amount
         FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
-        WHERE (ko.reservation_id LIKE 'WALK%' OR ko.reservation_id IS NULL)
+        WHERE ko.reservation_id IS NULL
       ) as combined
       WHERE d >= DATE_SUB(?, INTERVAL ${years - 1} YEAR)
       GROUP BY YEAR(d) ORDER BY YEAR(d) ASC LIMIT ${years}
@@ -124,7 +124,7 @@ const FinancialReport = {
         UNION ALL
         SELECT ko.created_at as d, (ko.quantity * m.price) as amount
         FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
-        WHERE (ko.reservation_id LIKE 'WALK%' OR ko.reservation_id IS NULL)
+        WHERE ko.reservation_id IS NULL
       ) as combined
       WHERE d >= DATE_SUB(?, INTERVAL 6 DAY)
     `,
@@ -143,7 +143,7 @@ const FinancialReport = {
         UNION ALL
         SELECT ko.created_at as d, (ko.quantity * m.price) as amount
         FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
-        WHERE (ko.reservation_id LIKE 'WALK%' OR ko.reservation_id IS NULL)
+        WHERE ko.reservation_id IS NULL
       ) as combined
       WHERE MONTH(d) = MONTH(?) AND YEAR(d) = YEAR(?)
     `,
@@ -162,7 +162,7 @@ const FinancialReport = {
         UNION ALL
         SELECT ko.created_at as d, (ko.quantity * m.price) as amount
         FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
-        WHERE (ko.reservation_id LIKE 'WALK%' OR ko.reservation_id IS NULL)
+        WHERE ko.reservation_id IS NULL
       ) as combined
       WHERE YEAR(d) = YEAR(?)
     `,
@@ -182,7 +182,7 @@ const FinancialReport = {
         UNION ALL
         SELECT ko.created_at as d, (ko.quantity * m.price) as amount 
         FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
-        WHERE (ko.reservation_id LIKE 'WALK%' OR ko.reservation_id IS NULL)
+        WHERE ko.reservation_id IS NULL
       ) as all_tx WHERE d BETWEEN ? AND ?`,
       [start, end],
     );
@@ -198,7 +198,7 @@ const FinancialReport = {
         UNION ALL
         SELECT ko.created_at as d, (ko.quantity * m.price) as amount 
         FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
-        WHERE (ko.reservation_id LIKE 'WALK%' OR ko.reservation_id IS NULL)
+        WHERE ko.reservation_id IS NULL
       ) as combined WHERE d BETWEEN ? AND ? GROUP BY label ORDER BY MIN(d) ASC`,
       [start, end],
     );
@@ -215,7 +215,7 @@ const FinancialReport = {
         UNION ALL
         SELECT ko.created_at as d, (ko.quantity * m.price) as amount
         FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
-        WHERE (ko.reservation_id LIKE 'WALK%' OR ko.reservation_id IS NULL)
+        WHERE ko.reservation_id IS NULL
       ) as combined 
       WHERE d BETWEEN ? AND ? 
       GROUP BY YEARWEEK(d) -- Groups by week instead of day
@@ -233,7 +233,7 @@ const FinancialReport = {
         UNION ALL
         SELECT ko.created_at as d, (ko.quantity * m.price) as amount
         FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
-        WHERE (ko.reservation_id LIKE 'WALK%' OR ko.reservation_id IS NULL)
+        WHERE ko.reservation_id IS NULL
       ) as combined WHERE d BETWEEN ? AND ? GROUP BY YEAR(d) ORDER BY YEAR(d) ASC`,
       [start, end],
     );
