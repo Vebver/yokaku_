@@ -51,15 +51,71 @@ function AppContent() {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("token"));
-  const [userRole, setUserRole] = useState(localStorage.getItem("role"));
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userRole, setUserRole] = useState(null);
 
-  // Update state when localStorage changes
+  // Utility to clear all session data
+  const clearSession = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("userId");
+    localStorage.removeItem("userRole");
+    localStorage.removeItem("role");
+    localStorage.removeItem("firstName");
+    localStorage.removeItem("lastName");
+    localStorage.removeItem("email");
+  };
+
+  // Check token validity on mount and after storage changes
+  const checkTokenValidity = () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setIsLoggedIn(false);
+      setUserRole(null);
+      return false;
+    }
+
+    // Decode JWT payload to check expiry (base64 decode)
+    try {
+      const payloadBase64 = token.split(".")[1];
+      if (!payloadBase64) throw new Error("Invalid token format");
+      
+      // Decode base64 URL-safe
+      const payload = JSON.parse(atob(payloadBase64.replace(/-/g, "+").replace(/_/g, "/")));
+      
+      if (payload.exp) {
+        const expiryMs = payload.exp * 1000; // JWT exp is in seconds
+        if (Date.now() >= expiryMs) {
+          console.warn("⚠️ Token expired — clearing session");
+          clearSession();
+          setIsLoggedIn(false);
+          setUserRole(null);
+          return false;
+        }
+      }
+
+      // Token is valid
+      setIsLoggedIn(true);
+      const role = localStorage.getItem("role");
+      setUserRole(role);
+      return true;
+    } catch (e) {
+      console.error("❌ Failed to decode token:", e);
+      clearSession();
+      setIsLoggedIn(false);
+      setUserRole(null);
+      return false;
+    }
+  };
+
+  // Validate token on mount
+  useEffect(() => {
+    checkTokenValidity();
+  }, []);
+
+  // Listen for storage changes (login in another tab, etc.)
   useEffect(() => {
     const handleStorageChange = () => {
-      const token = localStorage.getItem("token");
-      setIsLoggedIn(!!token);
-      setUserRole(localStorage.getItem("role"));
+      checkTokenValidity();
     };
 
     window.addEventListener("storage", handleStorageChange);

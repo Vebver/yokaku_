@@ -166,10 +166,18 @@ function LoginSection({ onClose }) {
     try {
       const res = await api.post("/auth/login", { email, password });
       
-      // Clear persistence on successful login
+      // ===== CRITICAL: Clear ALL old session data before setting new =====
+      localStorage.removeItem("token");
+      localStorage.removeItem("userId");
+      localStorage.removeItem("userRole");
+      localStorage.removeItem("role");
+      localStorage.removeItem("firstName");
+      localStorage.removeItem("lastName");
+      localStorage.removeItem("email");
       localStorage.removeItem(`lockout_${email}`);
       localStorage.removeItem(`attempts_${email}`);
 
+      // Now set the fresh session data
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("userId", res.data.user.id);
       localStorage.setItem("userRole", res.data.user.role);
@@ -178,12 +186,12 @@ function LoginSection({ onClose }) {
       localStorage.setItem("lastName", res.data.user.lastName);
       localStorage.setItem("role", res.data.user.role);
       
+      // Force a full page reload to break any stale in-memory state
       if (res.data.user.role === "admin") {
         window.location.href = "/admin/dashboard";
       } else {
         window.location.reload();
       }
-      onClose();
     } catch (err) {
       if (err.response?.status === 429) {
         const errMsg = err.response?.data?.error || "Account locked";

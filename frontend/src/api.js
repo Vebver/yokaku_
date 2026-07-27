@@ -19,7 +19,7 @@ const api = axios.create({
   },
 });
 
-// 2. Automated Token Attachment (The Interceptor)
+// 2. Automated Token Attachment (Request Interceptor)
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
   if (token) {
@@ -27,5 +27,35 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+// 3. Response Interceptor — Auto-logout on 401 (Session Expired / Invalid Token)
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Check if we're NOT on a public auth-related request (login, signup, verify-otp, forgot-password)
+      const url = error.config?.url || "";
+      const isAuthRoute = url.includes("/auth/");
+      
+      // Only auto-logout for protected routes, not for login/signup auth attempts
+      if (!isAuthRoute) {
+        console.warn("🔒 Session expired or invalid token — logging out.");
+        
+        // Clear all session data
+        localStorage.removeItem("token");
+        localStorage.removeItem("userId");
+        localStorage.removeItem("userRole");
+        localStorage.removeItem("role");
+        localStorage.removeItem("firstName");
+        localStorage.removeItem("lastName");
+        localStorage.removeItem("email");
+        
+        // Redirect to home page (force reload to reset state)
+        window.location.href = "/";
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 export default api;
