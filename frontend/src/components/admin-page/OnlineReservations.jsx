@@ -254,7 +254,9 @@ const OnlineReservations = () => {
                   <td>
                     <Armchair size={14} className="me-1 text-muted" />
                     <span className="small fw-bold">
-                      {item.assigned_tables || "T-?"}
+                      {item.reservation_type === "event"
+                        ? "Whole Table Reserve"
+                        : item.assigned_tables || "T-?"}
                     </span>
                   </td>
                   <td>

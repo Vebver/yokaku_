@@ -79,13 +79,9 @@ function Product() {
 
   const handleAddOrUpdateMenuItem = async (e) => {
     e.preventDefault();
-    const token = localStorage.getItem("token");
 
-    const config = {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    };
+    // No need for manual config — the axios interceptor in api.js
+    // automatically attaches the Authorization header to every request.
 
     const formData = new FormData();
     const finalName = isEditing && !String(newItem.name || "").trim()
@@ -105,10 +101,10 @@ function Product() {
 
     try {
       if (isEditing) {
-        await api.put(`/products/${editId}`, formData, config);
+        await api.put(`/products/${editId}`, formData);
         showToast("Dish updated successfully!", "success");
       } else {
-        await api.post(`/products`, formData, config);
+        await api.post(`/products`, formData);
         showToast("New dish added successfully!", "success");
       }
       

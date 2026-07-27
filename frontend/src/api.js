@@ -14,9 +14,11 @@ export const SOCKET_URL = isLocal
 
 const api = axios.create({
   baseURL: API_BASE,
-  headers: {
-    "Content-Type": "application/json",
-  },
+  // NOTE: Do NOT set a default Content-Type header.
+  // Axios auto-detects the correct Content-Type:
+  // - "application/json" for plain objects
+  // - "multipart/form-data" for FormData (file uploads)
+  // A forced "application/json" breaks FormData uploads.
 });
 
 // 2. Automated Token Attachment (The Interceptor)
