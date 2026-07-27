@@ -197,24 +197,18 @@ function LoginSection({ onClose }) {
         const expiryTimestamp = Date.now() + remainingTime * 1000;
         localStorage.setItem(`lockout_${email}`, expiryTimestamp);
         localStorage.setItem(`attempts_${email}`, 0);
-
-        showToast(errMsg, "error");
       } else {
         const errMsg = err.response?.data?.error || "Login failed.";
         const remaining = err.response?.data?.attemptsRemaining ?? 4;
-        setError(errMsg);
         setAttemptsRemaining(remaining);
         
         // Store remaining attempts count in localStorage
         localStorage.setItem(`attempts_${email}`, remaining);
 
         if (remaining > 0) {
-          showToast(
-            `${errMsg} (${remaining} attempt${remaining !== 1 ? "s" : ""} remaining)`,
-            "error"
-          );
+          setError(`${errMsg} (${remaining} attempt${remaining !== 1 ? "s" : ""} remaining)`);
         } else {
-          showToast(errMsg, "error");
+          setError(errMsg);
         }
       }
     } finally {
@@ -379,7 +373,7 @@ function LoginSection({ onClose }) {
                       style={{
                         color: "#c92a2a",
                         margin: "0 0 8px 0",
-                        fontSize: "13px",
+                        fontSize: "17px",
                         fontWeight: "bold",
                       }}
                     >
@@ -389,21 +383,21 @@ function LoginSection({ onClose }) {
                       style={{
                         color: "#c92a2a",
                         margin: "0 0 6px 0",
-                        fontSize: "12px",
+                        fontSize: "15px",
                       }}
                     >
-                      Too many failed login attempts
+                      {error || "Too many failed login attempts, Please try again in:"}
                     </p>
                     <p
                       style={{
-                        color: "#c92a2a",
+                        color: "#cf3e3e",
                         margin: "0",
-                        fontSize: "14px",
+                        fontSize: "18px",
                         fontWeight: "bold",
                       }}
                     >
-                      Try again in:{" "}
-                      <span style={{ color: "#ff6b6b" }}>
+                      
+                      <span style={{ color: "#000000" }}>
                         {Math.floor(lockdownTimeLeft / 60)}:
                         {(lockdownTimeLeft % 60).toString().padStart(2, "0")}
                       </span>
@@ -411,33 +405,30 @@ function LoginSection({ onClose }) {
                   </div>
                 )}
 
-                {/* Remaining Attempts Warning */}
-                {!isAccountLocked &&
-                  view === "login" &&
-                  attemptsRemaining > 0 &&
-                  attemptsRemaining < 4 && (
-                    <div
+                {/* Generic Error Message - Always visible when error is set */}
+                {error && view === "login" && !isAccountLocked && (
+                  <div
+                    style={{
+                      backgroundColor: attemptsRemaining > 0 && attemptsRemaining < 4 ? "#e42222" : "#ff4444",
+                      border: "1px solid #c92a2a96",
+                      borderRadius: "8px",
+                      padding: "10px 12px",
+                      marginBottom: "16px",
+                      textAlign: "center",
+                    }}
+                  >
+                    <p
                       style={{
-                        backgroundColor: "#f72222",
-                        border: "1px solid #c92a2a",
-                        borderRadius: "8px",
-                        padding: "10px 12px",
-                        marginBottom: "16px",
-                        textAlign: "center",
+                        color: "#fffefe",
+                        margin: "0",
+                        fontSize: "12px",
+                        fontWeight: "bold",
                       }}
                     >
-                      <p
-                        style={{
-                          color: "#fffefe",
-                          margin: "0",
-                          fontSize: "12px",
-                          fontWeight: "bold",
-                        }}
-                      >
-                        The email or password is incorrect.
-                      </p>
-                    </div>
-                  )}
+                      {error}
+                    </p>
+                  </div>
+                )}
 
                 <form
                   onSubmit={

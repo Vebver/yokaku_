@@ -2,19 +2,38 @@ require("dotenv").config();
 process.env.TZ = "UTC";
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 const path = require("path");
 const http = require("http");
 const { Server } = require("socket.io");
 const db = require("./config/db");
+const {
+  missingVars,
+  globalRateLimit,
+  helmetConfig,
+} = require("./config/security");
 
 const PORT = process.env.PORT || 5000;
+
+// ──────────────────────────────────────────────
+// 0. CRITICAL: Warn about missing env vars at startup
+// ──────────────────────────────────────────────
+if (missingVars.length > 0) {
+  console.warn("⚠️  Some critical env vars are missing. Check config/security.js");
+}
 
 // 1. Initialize Express app and HTTP server FIRST
 const app = express();
 const server = http.createServer(app);
 app.set("trust proxy", 1);
 
-// 2. Set up a single, complete list of allowed CORS origins
+// ──────────────────────────────────────────────
+// 2. SECURITY HEADERS (Helmet.js)
+// ──────────────────────────────────────────────
+app.use(helmet(helmetConfig));
+
+// 3. Set up a single, complete list of allowed CORS origins
 const allowedOrigins = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
@@ -37,7 +56,12 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// 4. Configure other standard middlewares
+// ──────────────────────────────────────────────
+// 4. GLOBAL RATE LIMITING
+// ──────────────────────────────────────────────
+app.use(rateLimit(globalRateLimit));
+
+// 5. Configure other standard middlewares
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
 
