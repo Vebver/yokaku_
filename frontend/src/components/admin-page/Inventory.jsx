@@ -32,7 +32,6 @@ function Inventory() {
     unit_price: "",
     reorder_level: "",
     expiry_date: "",
-    supplier: "",
     storage_location: "Dry Pantry",
   });
 
@@ -57,7 +56,6 @@ function Inventory() {
         price: item.unit_price,
         reorder: item.reorder_level,
         expiry: item.expiry_date,
-        supplier: item.supplier,
         location: item.storage_location,
         updated: item.last_updated,
       }));
@@ -85,7 +83,6 @@ function Inventory() {
       unit_price: "",
       reorder_level: "",
       expiry_date: "",
-      supplier: "",
       storage_location: "Dry Pantry",
     });
   };
@@ -107,7 +104,6 @@ function Inventory() {
       unit_price: item.price,
       reorder_level: item.reorder,
       expiry_date: formattedExpiry,
-      supplier: item.supplier || "",
       storage_location: item.location || "Dry Pantry",
     });
   };
@@ -141,10 +137,15 @@ function Inventory() {
     }
   };
 
+  const isExpired = (date) => {
+    if (!date) return false;
+    return new Date(date).setHours(0,0,0,0) < new Date().setHours(0,0,0,0);
+  };
+
   const isExpiringSoon = (date) => {
     if (!date) return false;
     const diff = (new Date(date) - new Date()) / (1000 * 60 * 60 * 24);
-    return diff <= 3;
+    return diff <= 3 && !isExpired(date);
   };
 
   const filtered = inventory.filter(
@@ -237,7 +238,7 @@ function Inventory() {
                 <th>Unit Cost</th>
                 <th>Status</th>
                 <th>Expiry</th>
-                <th>Supplier</th>
+                <th>Storage</th>
                 <th className="text-end pe-4">Action</th>
               </tr>
             </thead>
@@ -273,27 +274,36 @@ function Inventory() {
                       className={`badge rounded-pill px-2 py-1 x-small ${
                         item.stock <= 0
                           ? "bg-danger"
-                          : item.stock <= item.reorder
-                            ? "bg-warning text-dark"
-                            : "bg-success"
+                          : isExpired(item.expiry)
+                            ? "bg-dark"
+                            : item.stock <= item.reorder
+                              ? "bg-warning text-dark"
+                              : "bg-success"
                       }`}
                     >
                       {item.stock <= 0
                         ? "OUT OF STOCK"
-                        : item.stock <= item.reorder
-                          ? "LOW STOCK"
-                          : "HEALTHY"}
+                        : isExpired(item.expiry)
+                          ? "EXPIRED"
+                          : item.stock <= item.reorder
+                            ? "LOW STOCK"
+                            : "HEALTHY"}
                     </span>
                   </td>
                   <td>
-                    {isExpiringSoon(item.expiry) && (
+                    {isExpired(item.expiry) && (
                       <AlertTriangle size={12} className="text-danger me-1" />
+                    )}
+                    {!isExpired(item.expiry) && isExpiringSoon(item.expiry) && (
+                      <AlertTriangle size={12} className="text-warning me-1" />
                     )}
                     <span
                       className={
-                        isExpiringSoon(item.expiry)
+                        isExpired(item.expiry)
                           ? "text-danger fw-bold"
-                          : "text-muted small"
+                          : isExpiringSoon(item.expiry)
+                            ? "text-warning fw-bold"
+                            : "text-muted small"
                       }
                     >
                       {item.expiry
@@ -301,7 +311,7 @@ function Inventory() {
                         : "---"}
                     </span>
                   </td>
-                  <td className="small text-muted">{item.supplier || "---"}</td>
+                  <td className="small text-muted">{item.location || "---"}</td>
                   <td className="text-end pe-4">
                     <button
                       className="btn btn-sm btn-outline-primary border-0 me-1"
@@ -434,6 +444,13 @@ function Inventory() {
                   <option value="kg">kg</option>
                   <option value="L">L</option>
                   <option value="pcs">pcs</option>
+                  <option value="g">g</option>
+                  <option value="mL">mL</option>
+                  <option value="oz">oz</option>
+                  <option value="lb">lb</option>
+                  <option value="tbsp">tbsp</option>
+                  <option value="tsp">tsp</option>
+                  <option value="cup">cup</option>
                 </select>
               </div>
               <div className="col-4">
@@ -473,18 +490,6 @@ function Inventory() {
                   className="form-control"
                   onChange={handleInputChange}
                   required
-                />
-              </div>
-            </div>
-            <div className="row g-2">
-              <div className="col-12">
-                <label className="x-small fw-bold text-muted">SUPPLIER</label>
-                <input
-                  type="text"
-                  name="supplier"
-                  value={newItem.supplier}
-                  className="form-control"
-                  onChange={handleInputChange}
                 />
               </div>
             </div>

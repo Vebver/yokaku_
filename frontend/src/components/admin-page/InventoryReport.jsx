@@ -3,36 +3,21 @@ import {
   AlertCircle,
   Activity,
   Package,
-  TrendingDown,
-  TrendingUp,
   AlertTriangle,
   CheckCircle,
-  BarChart3,
   Clock,
-  Download,
-  Printer,
 } from "lucide-react";
-import api from "../../api";
+
 const InventoryReport = ({ data }) => {
   const lowStockCount = data?.low_stock_count || 0;
   const lowStockList = data?.low_stock_list || [];
+  const expiredItems = data?.expiredItems || data?.expired_items || [];
   const usageData = data?.inventory_usage || [];
   const summary = data?.summary || {};
 
   const totalInventoryValue = summary?.total_inventory_value || 0;
-  const totalItemsUsed = summary?.total_items_used || 0;
-  const consumptionRate = summary?.consumption_rate || 0;
   const reorderItems = summary?.reorder_items || 0;
 
-
-  const fetchReportData = async () => {
-  try {
-    const response = await api.get(`/reports`, getAuthHeader());
-    setReportData(response.data.data);
-  } catch (err) {
-    console.error(err);
-  }
-};
   const formatCurrency = (num) =>
     new Intl.NumberFormat("en-PH", {
       style: "currency",
@@ -42,12 +27,23 @@ const InventoryReport = ({ data }) => {
 
   const formatNumber = (num) => new Intl.NumberFormat("en-PH").format(num);
 
+  const formatDate = (dateStr) => {
+    if (!dateStr) return "---";
+    return new Date(dateStr).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
+
+  const isExpired = (dateStr) => {
+    if (!dateStr) return false;
+    return new Date(dateStr) < new Date(new Date().toDateString());
+  };
+
   // Calculate urgent low stock (less than 5 units)
   const urgentLowStock = lowStockList.filter(
     (item) => item.current_stock < 5,
-  ).length;
-  const warningLowStock = lowStockList.filter(
-    (item) => item.current_stock >= 5 && item.current_stock < 10,
   ).length;
 
   const StatCard = ({
@@ -94,7 +90,6 @@ const InventoryReport = ({ data }) => {
         </div>
         <h3 className="fw-bold mb-1 text-dark">
           {isCurrency ? formatCurrency(value) : formatNumber(value)}
-          {!isCurrency && label !== "Reorder Items" && " units"}
         </h3>
         <p className="text-muted small mb-0 text-uppercase fw-semibold">
           {label}
@@ -122,7 +117,7 @@ const InventoryReport = ({ data }) => {
       {/* KPI Cards Row */}
       <div className="row g-4 mb-4">
         {/* Total Inventory Value */}
-        <div className="col-lg-3 col-md-6">
+        <div className="col-md-6">
           <StatCard
             label="Total Inventory Value"
             value={totalInventoryValue}
@@ -131,30 +126,8 @@ const InventoryReport = ({ data }) => {
           />
         </div>
 
-        {/* Items Used */}
-        <div className="col-lg-3 col-md-6">
-          <StatCard
-            label="Items Used"
-            value={totalItemsUsed}
-            icon={TrendingDown}
-            color="success"
-            isCurrency={false}
-          />
-        </div>
-
-        {/* Consumption Rate */}
-        <div className="col-lg-3 col-md-6">
-          <StatCard
-            label="Consumption Rate"
-            value={consumptionRate}
-            icon={BarChart3}
-            color="warning"
-            isCurrency={false}
-          />
-        </div>
-
         {/* Reorder Items */}
-        <div className="col-lg-3 col-md-6">
+        <div className="col-md-6">
           <div className="card border-0 shadow-sm rounded-4 h-100 bg-gradient-warning text-white">
             <div className="card-body p-4">
               <div className="d-flex align-items-center justify-content-between mb-3">
@@ -176,12 +149,13 @@ const InventoryReport = ({ data }) => {
         </div>
       </div>
 
-      {/* Low Stock Alerts & Consumption Table Row */}
+      {/* Low Stock Alerts, Expired Items & Consumption Table Row */}
       <div className="row g-4">
-        {/* Low Stock Alerts Card */}
-        <div className="col-12 col-md-5">
+        {/* Left Column: Low Stock + Expired Cards stacked */}
+        <div className="col-12 col-md-5 d-flex flex-column gap-4">
+          {/* Low Stock Alerts Card */}
           <div
-            className={`card border-0 shadow-sm rounded-4 h-100 overflow-hidden ${lowStockCount > 0 ? "border-start border-4 border-danger" : "border-start border-4 border-success"}`}
+            className={`card border-0 shadow-sm rounded-4 overflow-hidden ${lowStockCount > 0 ? "border-start border-4 border-danger" : "border-start border-4 border-success"}`}
           >
             <div className="card-header bg-white border-0 pt-4 px-4">
               <div className="d-flex align-items-center gap-2">
@@ -227,7 +201,7 @@ const InventoryReport = ({ data }) => {
                           {urgentLowStock}
                         </div>
                         <small className="text-muted">
-                          Urgent (&lt;5 units)
+                          Urgent (less than 5 units)
                         </small>
                       </div>
                     </div>
@@ -270,6 +244,77 @@ const InventoryReport = ({ data }) => {
               )}
             </div>
           </div>
+
+          {/* Expired Items Card */}
+          <div
+            className={`card border-0 shadow-sm rounded-4 overflow-hidden ${expiredItems.length > 0 ? "border-start border-4 border-dark" : "border-start border-4 border-success"}`}
+          >
+            <div className="card-header bg-white border-0 pt-4 px-4">
+              <div className="d-flex align-items-center gap-2">
+                <AlertTriangle
+                  size={18}
+                  className={expiredItems.length > 0 ? "text-dark" : "text-success"}
+                />
+                <h6 className="fw-bold mb-0">Expired Items</h6>
+              </div>
+            </div>
+            <div className="card-body p-4 pt-0">
+              {expiredItems.length > 0 ? (
+                <>
+                  <div className="d-flex align-items-center gap-3 mb-3">
+                    <div className="p-3 rounded-circle bg-dark bg-opacity-10">
+                      <AlertTriangle
+                        size={32}
+                        className="text-dark"
+                      />
+                    </div>
+                    <div>
+                      <h2 className="fw-bold mb-0 text-dark">
+                        {expiredItems.length}
+                      </h2>
+                      <p className="text-muted small mb-0">
+                        Items past expiry date
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="expired-list mt-2">
+                    <p className="small fw-semibold text-dark mb-2">
+                      Items that have expired:
+                    </p>
+                    <div className="d-flex flex-wrap gap-2">
+                      {expiredItems.slice(0, 5).map((item, idx) => (
+                        <span
+                          key={idx}
+                          className="badge bg-dark bg-opacity-10 text-dark rounded-pill px-3 py-2 text-start"
+                        >
+                          <div className="fw-bold">{item.name}</div>
+                          <small className="opacity-75">
+                            Expired: {formatDate(item.expiry_date)} | {item.current_stock} {item.unit} left
+                          </small>
+                        </span>
+                      ))}
+                      {expiredItems.length > 5 && (
+                        <span className="badge bg-light text-muted rounded-pill px-3 py-2">
+                          +{expiredItems.length - 5} more
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-4">
+                  <CheckCircle size={48} className="text-success mb-3" />
+                  <h5 className="fw-bold text-success mb-1">
+                    No Expired Items
+                  </h5>
+                  <p className="text-muted small mb-0">
+                    All inventory items are within their expiry dates
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Consumption Table */}
@@ -290,6 +335,7 @@ const InventoryReport = ({ data }) => {
                       <th className="fw-semibold text-center">Starting</th>
                       <th className="fw-semibold text-center">Used</th>
                       <th className="fw-semibold text-center">Current</th>
+                      <th className="fw-semibold text-center">Expiry</th>
                       <th className="fw-semibold text-end pe-4">Value</th>
                     </tr>
                   </thead>
@@ -298,11 +344,23 @@ const InventoryReport = ({ data }) => {
                       usageData.map((item, idx) => {
                         const isLowStock = item.current_stock < 10;
                         const isCritical = item.current_stock < 5;
+                        const itemExpired = isExpired(item.expiry_date);
                         return (
-                          <tr key={idx}>
+                          <tr key={idx} className={itemExpired ? "bg-dark bg-opacity-10" : ""}>
                             <td className="py-3 fw-semibold text-dark ps-4">
                               {item.name}
-                              {isCritical && (
+                              {itemExpired && (
+                                <span
+                                  className="ms-2 badge bg-dark text-white rounded-pill"
+                                  style={{
+                                    fontSize: "10px",
+                                    fontWeight: "600",
+                                  }}
+                                >
+                                  EXPIRED
+                                </span>
+                              )}
+                              {!itemExpired && isCritical && (
                                 <span
                                   className="ms-2 badge bg-danger text-white rounded-pill"
                                   style={{
@@ -313,7 +371,7 @@ const InventoryReport = ({ data }) => {
                                   CRITICAL
                                 </span>
                               )}
-                              {!isCritical && isLowStock && (
+                              {!itemExpired && !isCritical && isLowStock && (
                                 <span
                                   className="ms-2 badge bg-warning text-dark rounded-pill"
                                   style={{
@@ -333,10 +391,15 @@ const InventoryReport = ({ data }) => {
                             </td>
                             <td className="text-center">
                               <span
-                                className={`badge ${isCritical ? "bg-danger text-white" : isLowStock ? "bg-warning text-dark" : "bg-light text-dark"} px-3 py-2 rounded-pill`}
+                                className={`badge ${itemExpired ? "bg-dark text-white" : isCritical ? "bg-danger text-white" : isLowStock ? "bg-warning text-dark" : "bg-light text-dark"} px-3 py-2 rounded-pill`}
                                 style={{ fontWeight: "600" }}
                               >
                                 {item.current_stock} {item.unit}
+                              </span>
+                            </td>
+                            <td className="text-center">
+                              <span className={`small ${itemExpired ? "text-dark fw-bold" : "text-muted"}`}>
+                                {item.expiry_date ? formatDate(item.expiry_date) : "---"}
                               </span>
                             </td>
                             <td className="fw-semibold text-end pe-4 text-dark">
@@ -347,7 +410,7 @@ const InventoryReport = ({ data }) => {
                       })
                     ) : (
                       <tr>
-                        <td colSpan="5" className="text-center py-5 text-muted">
+                        <td colSpan="6" className="text-center py-5 text-muted">
                           <Package size={40} className="mb-3 opacity-25" />
                           <p>No inventory data available</p>
                         </td>

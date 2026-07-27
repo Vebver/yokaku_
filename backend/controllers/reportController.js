@@ -8,7 +8,7 @@ const getFinancialAnalytics = async (req, res) => {
       timeZone: "Asia/Manila",
     });
 
-    const [
+const [
       topSellers,
       slowMoving,
       lowStockItems,
@@ -19,6 +19,7 @@ const getFinancialAnalytics = async (req, res) => {
       yearlyTrend,
       performanceSummary,
       inventorySummary,
+      expiredItems,
     ] = await Promise.all([
       ReportModel.GetTopSellers(),
       ReportModel.GetSlowMoving(),
@@ -30,6 +31,7 @@ const getFinancialAnalytics = async (req, res) => {
       FinancialReport.getYearlyProfitTrend(todayStr),
       ReportModel.GetPerformanceSummary(),
       InventoryModel.GetInventorySummary(),
+      InventoryModel.GetExpiredItems(),
     ]);
 
     const calculatedItemsUsed = Number(inventorySummary?.items_used || 0);
@@ -72,6 +74,8 @@ const getFinancialAnalytics = async (req, res) => {
         needToReorder: calculatedLowStockCount,
 
         low_stock_list: lowStockItems,
+        expired_items: expiredItems,
+        expiredItems: expiredItems,
         inventory_usage: inventoryUsage,
         // --- For FinancialOverview.jsx & Nested summaries ---
         summary: {
