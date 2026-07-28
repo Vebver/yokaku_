@@ -1,4 +1,4 @@
-// TableReservationUtils.js
+// TableReservationUtils.js - FIXED
 export const sanitizeStringInput = (value) => {
   return value.replace(/[^a-zA-Z\s\-'\.]/g, "");
 };
@@ -21,10 +21,18 @@ export const formatTime = (timeStr) => {
   return `${hours % 12 || 12}:${parts[1]} ${ampm}`;
 };
 
-export const isReservationOngoing = (startTime, endTime) => {
+// ===== FIX: Add date parameter to check both date AND time =====
+export const isReservationOngoing = (startTime, endTime, reservationDate) => {
   if (!startTime || !endTime) return false;
+
   const now = new Date();
+  const todayStr = now.toISOString().split("T")[0];
   const currentTime = now.getHours() * 60 + now.getMinutes();
+
+  // ===== FIX: Check if the reservation is for today =====
+  if (reservationDate && reservationDate !== todayStr) {
+    return false; // Not today, so not ongoing
+  }
 
   let startM, endM;
 
@@ -79,12 +87,15 @@ export const isReservationCompleted = (reservation, selectedDate) => {
   return false;
 };
 
-// FIXED: getScheduleItemClass - returns "ongoing" for red, "reserved" for yellow
+// FIXED: getScheduleItemClass - checks date AND time
 export const getScheduleItemClass = (reservation) => {
   let status = reservation.status;
+
+  // ===== FIX: Pass the reservation date to isReservationOngoing =====
   const isOngoingNow = isReservationOngoing(
     reservation.startTime,
     reservation.endTime,
+    reservation.reservation_date || reservation.date,
   );
 
   // If it's ongoing (time is between start and end) -> RED
@@ -107,9 +118,12 @@ export const getScheduleItemClass = (reservation) => {
 
 export const getStatusDisplayText = (reservation) => {
   let status = reservation.status;
+
+  // ===== FIX: Pass the reservation date to isReservationOngoing =====
   const isOngoingNow = isReservationOngoing(
     reservation.startTime,
     reservation.endTime,
+    reservation.reservation_date || reservation.date,
   );
 
   if ((status === "Confirmed" || status === "Pending") && isOngoingNow) {

@@ -5,36 +5,37 @@ import { useNavigate } from "react-router-dom";
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
 import "../Style/FeaturedMenu.css";
+import ExistingModal from "./ExistingModal";
 
 const API_BASE = "https://yokaku-backend.onrender.com/api";
 const BASE_URL = "https://yokaku-backend.onrender.com";
 
 function FeaturedMenu({ onLoginClick }) {
   const [featuredItems, setFeaturedItems] = useState([]);
-  const [slidesToShow, setSlidesToShow] = useState(1); // Start with mobile default
+  const [slidesToShow, setSlidesToShow] = useState(1);
+  const [showExistingModal, setShowExistingModal] = useState(false);
+  const [existingReservation, setExistingReservation] = useState(null);
+  const [checking, setChecking] = useState(false);
   const navigate = useNavigate();
   const isLoggedIn = !!localStorage.getItem("token");
 
-  // Function to determine slides based on screen width
   const getSlidesToShow = () => {
     if (typeof window === "undefined") return 1;
     const width = window.innerWidth;
-    if (width >= 1024) return 3; // Desktop - 3 items
-    if (width >= 768) return 2; // Tablet - 2 items
-    return 1; // Mobile - 1 item
+    if (width >= 1024) return 3;
+    if (width >= 768) return 2;
+    return 1;
   };
 
   useEffect(() => {
     const fetchFeatured = async () => {
       try {
         const res = await axios.get(`${API_BASE}/products/featured`);
-        // Handle both array and object responses
         if (Array.isArray(res.data)) {
           setFeaturedItems(res.data);
         } else if (res.data && Array.isArray(res.data.data)) {
           setFeaturedItems(res.data.data);
         } else if (res.data && typeof res.data === "object") {
-          // If it's a single object, wrap it in an array
           setFeaturedItems([res.data]);
         } else {
           setFeaturedItems([]);
@@ -47,19 +48,68 @@ function FeaturedMenu({ onLoginClick }) {
     fetchFeatured();
   }, []);
 
-  // Handle screen resize
   useEffect(() => {
     const handleResize = () => {
       setSlidesToShow(getSlidesToShow());
     };
-
-    // Set initial value
     setSlidesToShow(getSlidesToShow());
-
-    // Listen for resize events
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  // ===== NEW: Check active reservation =====
+  const checkExistingReservation = async () => {
+    const userId = localStorage.getItem("userId");
+    if (!userId) return false;
+
+    try {
+      setChecking(true);
+      const response = await axios.get(
+        `${API_BASE}/reservations/check-active/${userId}`,
+      );
+
+      if (response.data.hasActive) {
+        const token = localStorage.getItem("token");
+        const detailsRes = await axios.get(
+          `${API_BASE}/reservations/user-active/${userId}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
+        setExistingReservation(detailsRes.data);
+        setShowExistingModal(true);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error("Error checking existing reservation:", error);
+      return false;
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  // ===== FIXED: Check active reservation before navigating =====
+  const handleCardClick = async (item) => {
+    if (!isLoggedIn) {
+      if (onLoginClick) {
+        onLoginClick();
+      }
+      return;
+    }
+
+    // Check for existing reservation
+    const hasActive = await checkExistingReservation();
+    if (!hasActive) {
+      navigate("/tablereservation");
+    }
+    // If has active, modal will show and user cannot proceed
+  };
+
+  const handleCloseModal = () => {
+    setShowExistingModal(false);
+    setExistingReservation(null);
+  };
 
   const getImageUrl = (item) => {
     const imagePath = item.local_path || item.image_url;
@@ -69,20 +119,9 @@ function FeaturedMenu({ onLoginClick }) {
     return `${BASE_URL}/uploads/${imagePath}`;
   };
 
-  // Handle card click - redirect to login if not logged in, otherwise go to Table Reservation
-  const handleCardClick = (item) => {
-    if (!isLoggedIn) {
-      if (onLoginClick) {
-        onLoginClick();
-      }
-    } else {
-      navigate("/tablereservation");
-    }
-  };
-
   const settings = {
     dots: true,
-    arrows: slidesToShow > 1, // Only show arrows if more than 1 slide
+    arrows: slidesToShow > 1,
     infinite: true,
     speed: 500,
     slidesToShow: slidesToShow,
@@ -92,33 +131,46 @@ function FeaturedMenu({ onLoginClick }) {
   };
 
   return (
-    <section className="featured-menu">
-      <h2>FEATURED ITEMS</h2>
+    <>
+      <section className="featured-menu">
+        <h2>FEATURED ITEMS</h2>
 
-      <div className="carousel-container">
-        <Slider {...settings}>
-          {featuredItems.map((item) => (
-            <div key={item.id} className="menu-card-wrapper">
-              <div className="menu-card">
-                <img src={getImageUrl(item)} alt={item.name} />
-                <span>{item.menu_name}</span>
-                <small>₱{item.price}</small>
-                <button
-                  className="card-order-btn"
-                  onClick={() => handleCardClick(item)}
-                >
-                  {isLoggedIn ? "ORDER" : "ORDER NOW"}
-                </button>
+        <div className="carousel-container">
+          <Slider {...settings}>
+            {featuredItems.map((item) => (
+              <div key={item.id} className="menu-card-wrapper">
+                <div className="menu-card">
+                  <img src={getImageUrl(item)} alt={item.name} />
+                  <span>{item.menu_name}</span>
+                  <small>₱{item.price}</small>
+                  <button
+                    className="card-order-btn"
+                    onClick={() => handleCardClick(item)}
+                    disabled={checking}
+                  >
+                    {checking
+                      ? "CHECKING..."
+                      : isLoggedIn
+                        ? "ORDER"
+                        : "ORDER NOW"}
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
-        </Slider>
-      </div>
+            ))}
+          </Slider>
+        </div>
 
-      <button className="all-menu-btn" onClick={() => navigate("/menu")}>
-        VIEW FULL MENU
-      </button>
-    </section>
+        <button className="all-menu-btn" onClick={() => navigate("/menu")}>
+          VIEW FULL MENU
+        </button>
+      </section>
+
+      <ExistingModal
+        isOpen={showExistingModal}
+        onClose={handleCloseModal}
+        reservationDetails={existingReservation}
+      />
+    </>
   );
 }
 

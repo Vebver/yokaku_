@@ -944,10 +944,16 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   );
   const hasActiveReservationForTable = (tableId) =>
     (tableSchedules[tableId] || []).length > 0;
+  // In ReservationSteps.jsx - find this function
   const hasOngoingReservation = (tableId) => {
     const schedule = tableSchedules[tableId] || [];
     return schedule.some((r) => {
-      const isOngoing = isReservationOngoing(r.startTime, r.endTime);
+      // ===== FIX: Pass the reservation date =====
+      const isOngoing = isReservationOngoing(
+        r.startTime,
+        r.endTime,
+        r.reservation_date || r.date || form.date,
+      );
       return (
         (r.status === "Confirmed" ||
           r.status === "Pending" ||
@@ -1642,9 +1648,11 @@ export default function ReservationSteps({ onClose, onSuccess }) {
 
   const getScheduleItemClassWithColor = (reservation) => {
     const status = reservation.status;
+    // ===== FIX: Pass the reservation date =====
     const isOngoing = isReservationOngoing(
       reservation.startTime,
       reservation.endTime,
+      reservation.reservation_date || reservation.date,
     );
     if ((status === "Confirmed" || status === "Pending") && isOngoing)
       return "ongoing";

@@ -51,25 +51,15 @@ function HeroSection({ onLoginClick, onReserveClick, isLoggedIn }) {
   };
 
   const handleReserveTable = async () => {
-    console.log("🔍 Reserve button clicked, isLoggedIn:", isLoggedIn);
-
     if (!isLoggedIn) {
       onLoginClick();
       return;
     }
 
-    // Check for existing reservation before proceeding
     const hasActive = await checkExistingReservation();
-    console.log("🔍 Has active reservation:", hasActive);
-
     if (!hasActive) {
-      // No active reservation, proceed to table reservation
-      console.log("🔍 Proceeding to table reservation");
       onReserveClick();
-    } else {
-      console.log("🔍 Blocking reservation - user has active reservation");
     }
-    // If has active, modal will show and user cannot proceed
   };
 
   const handleCloseModal = () => {
