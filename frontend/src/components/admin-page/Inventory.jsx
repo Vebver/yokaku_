@@ -44,9 +44,7 @@ function Inventory() {
   const fetchInventory = async () => {
     try {
       setLoading(true);
-      const response = await api.get(
-        `/inventory`
-      );
+      const response = await api.get(`/inventory`);
       const mappedData = response.data.map((item) => ({
         id: item.inventory_id,
         name: item.item_name,
@@ -112,17 +110,16 @@ function Inventory() {
     e.preventDefault();
     try {
       if (isEditMode) {
-        await api.put(
-          `/inventory/${editItemId}`,
-          newItem
-        );
+        await api.put(`/inventory/${editItemId}`, newItem);
       } else {
         await api.post(`/inventory`, newItem);
       }
       fetchInventory();
       if (closeBtnRef.current) closeBtnRef.current.click();
     } catch (err) {
-      showToast(isEditMode ? "Failed to update stock." : "Failed to add stock.");
+      showToast(
+        isEditMode ? "Failed to update stock." : "Failed to add stock.",
+      );
     }
   };
 
@@ -139,7 +136,9 @@ function Inventory() {
 
   const isExpired = (date) => {
     if (!date) return false;
-    return new Date(date).setHours(0,0,0,0) < new Date().setHours(0,0,0,0);
+    return (
+      new Date(date).setHours(0, 0, 0, 0) < new Date().setHours(0, 0, 0, 0)
+    );
   };
 
   const isExpiringSoon = (date) => {
@@ -429,8 +428,36 @@ function Inventory() {
                   name="quantity"
                   value={newItem.quantity}
                   className="form-control"
-                  onChange={handleInputChange}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value);
+                    // Only allow numbers 1 and above
+                    if (e.target.value === "") {
+                      setNewItem({ ...newItem, quantity: "" });
+                    } else if (val >= 1) {
+                      setNewItem({ ...newItem, quantity: val });
+                    }
+                  }}
                   required
+                  min="1"
+                  step="1"
+                  onKeyDown={(e) => {
+                    // Prevent minus sign, 'e', 'E' (exponent), and '.' (decimal)
+                    if (
+                      e.key === "-" ||
+                      e.key === "e" ||
+                      e.key === "E" ||
+                      e.key === "."
+                    ) {
+                      e.preventDefault();
+                    }
+                  }}
+                  onBlur={(e) => {
+                    // If empty or 0, set to 1
+                    const val = parseInt(e.target.value);
+                    if (!e.target.value || val < 1) {
+                      setNewItem({ ...newItem, quantity: 1 });
+                    }
+                  }}
                 />
               </div>
               <div className="col-4">
