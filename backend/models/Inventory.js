@@ -12,14 +12,23 @@ const Inventory = {
         unit,
         unit_price,
         expiry_date,
-        supplier,
         storage_location,
         reorder_level,
         last_updated, 
         status
-        
       FROM inventory 
-      ORDER BY last_updated DESC
+      ORDER BY
+        CASE 
+          WHEN quantity <= 0 THEN 0
+          WHEN quantity <= reorder_level THEN 1
+          WHEN expiry_date IS NOT NULL AND expiry_date < CURDATE() THEN 2
+          ELSE 3
+        END ASC,
+        CASE 
+          WHEN expiry_date IS NOT NULL AND expiry_date < CURDATE() THEN expiry_date 
+          ELSE NULL 
+        END ASC,
+        last_updated DESC
     `;
     const [rows] = await db.query(sql);
     return rows;
@@ -28,8 +37,8 @@ const Inventory = {
   // CREATE NEW ITEM
   create: async (data) => {
     const sql = `INSERT INTO inventory 
-            (item_name, category, quantity, unit, unit_price, expiry_date, supplier, storage_location, reorder_level) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+            (item_name, category, quantity, unit, unit_price, expiry_date, storage_location, reorder_level) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
 
     const values = [
       data.item_name,
@@ -38,7 +47,6 @@ const Inventory = {
       data.unit,
       data.unit_price,
       data.expiry_date,
-      data.supplier,
       data.storage_location,
       data.reorder_level,
     ];
@@ -62,7 +70,6 @@ const Inventory = {
                 unit = ?, 
                 unit_price = ?, 
                 expiry_date = ?, 
-                supplier = ?, 
                 storage_location = ?, 
                 reorder_level = ?,
                 last_updated = NOW()
@@ -74,8 +81,7 @@ const Inventory = {
       data.quantity,
       data.unit,
       data.unit_price,
-      data.expiry_date ? data.expiry_date : null, // Handle empty expiry dates
-      data.supplier ? data.supplier : null,
+      data.expiry_date ? data.expiry_date : null,
       data.storage_location,
       data.reorder_level,
       id,
@@ -85,8 +91,7 @@ const Inventory = {
     return { inventory_id: id, ...data };
   },
 
-  // 1. Get Low Stock Items (Updated to support case-insensitive statuses)
-  // 1. Get Low Stock Items (Updated with current_stock alias)
+  // 1. Get Low Stock Items
   GetLowStockItems: async () => {
     const [rows] = await db.execute(`
       SELECT 
@@ -101,6 +106,21 @@ const Inventory = {
     `);
     return rows;
   },
+  // Get Expired Items
+  GetExpiredItems: async () => {
+    const [rows] = await db.execute(`
+      SELECT 
+        item_name as name,
+        quantity as current_stock,
+        unit,
+        expiry_date
+      FROM inventory
+      WHERE expiry_date IS NOT NULL 
+        AND expiry_date < CURDATE()
+      ORDER BY expiry_date ASC
+    `);
+    return rows;
+  },
   // 2. Get Inventory Value and Status (Updated to match React keys)
   GetInventoryUsage: async () => {
     const [rows] = await db.execute(`
@@ -110,7 +130,8 @@ const Inventory = {
         quantity as current_stock,
         ROUND(quantity * 1.25, 2) as starting_stock,
         ROUND(quantity * 0.25, 2) as used_stock,
-        ROUND(quantity * unit_price, 2) as inventory_value
+        ROUND(quantity * unit_price, 2) as inventory_value,
+        expiry_date
       FROM inventory
       LIMIT 10
     `);

@@ -2,6 +2,7 @@ const Product = require("../models/Product");
 // Commented out unused model during peak-pricing disablement
 // const PriceMaintenance = require("../models/PriceMaintenance");
 const Setting = require("../models/Settings"); 
+const { logActivity } = require("../utils/logger");
 const cloudinary = require('cloudinary').v2;
 
 cloudinary.config({
@@ -117,12 +118,31 @@ const productController = {
         local_path: cloudinary_url, is_available: parseInt(is_available) || 1,
         is_featured: parseInt(is_featured) || 0,
       });
+
+      await logActivity(
+        req.user?.userId || null,
+        "CREATE_MENU_ITEM",
+        newId,
+        { menu_name, price: parseFloat(price) || 0, category_id: parseInt(category_id) },
+        req,
+      );
+
       res.status(201).json({ success: true, id: newId });
     } catch (error) { res.status(500).json({ error: error.message }); }
   },
 
   deleteProduct: async (req, res) => {
     try {
+      const { id } = req.params;
+
+      await logActivity(
+        req.user?.userId || null,
+        "DELETE_MENU_ITEM",
+        id,
+        { message: "Menu item deleted permanently" },
+        req,
+      );
+
       await Product.delete(req.params.id);
       res.json({ message: "Product deleted" });
     } catch (error) { res.status(500).json({ error: error.message }); }
@@ -141,6 +161,15 @@ const productController = {
         } catch (err) { console.error("Cloudinary update failed:", err.message); }
       }
       await Product.update(id, data);
+
+      await logActivity(
+        req.user?.userId || null,
+        "UPDATE_MENU_ITEM",
+        id,
+        { menu_name, price: parseFloat(price) || 0, category_id: parseInt(category_id) },
+        req,
+      );
+
       res.json({ success: true, message: "Product updated successfully" });
     } catch (error) { res.status(500).json({ error: error.message }); }
   },

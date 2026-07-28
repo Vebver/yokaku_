@@ -128,7 +128,7 @@ const ProductPerformance = ({ data }) => {
         {/* Total Revenue */}
         <div className="col-lg-4 col-md-6">
           <StatCard
-            label="Total Revenue"
+            label="Kiosk Sales Revenue"
             value={totalRevenue}
             icon={DollarSign}
             color="primary"

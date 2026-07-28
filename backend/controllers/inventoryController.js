@@ -17,12 +17,12 @@ const inventoryController = {
   createInventoryItem: async (req, res) => {
     try {
       // The req.body will contain: item_name, category, quantity, unit,
-      // unit_price, expiry_date, supplier, storage_location, reorder_level
+      // unit_price, expiry_date, storage_location, reorder_level
       const newItem = await Inventory.create(req.body);
       await logActivity(
         req.user?.userId || null,
         "CREATE_INVENTORY_ITEM",
-        newItem?.insertId || null, // Assuming the model returns insertId
+        newItem?.inventory_id || null,
         { item_name: req.body.item_name, quantity: req.body.quantity },
         req,
       );
@@ -40,9 +40,9 @@ const inventoryController = {
       await Inventory.delete(id);
       await logActivity(
         req.user?.userId || null,
-        "CREATE_INVENTORY_ITEM",
-        newItem?.insertId || null, // Assuming the model returns insertId
-        { item_name: req.body.item_name, quantity: req.body.quantity },
+        "DELETE_INVENTORY_ITEM",
+        id,
+        { inventory_id: id },
         req,
       );
       res.json({ message: "Item deleted successfully" });
@@ -61,7 +61,6 @@ const inventoryController = {
         unit,
         unit_price,
         expiry_date,
-        //supplier
         storage_location,
         reorder_level,
       } = req.body;
@@ -74,15 +73,14 @@ const inventoryController = {
         unit,
         unit_price,
         expiry_date,
-        //supplier,
         storage_location,
         reorder_level,
       });
       await logActivity(
         req.user?.userId || null,
-        "CREATE_INVENTORY_ITEM",
-        newItem?.insertId || null, // Assuming the model returns insertId
-        { item_name: req.body.item_name, quantity: req.body.quantity },
+        "UPDATE_INVENTORY_ITEM",
+        id,
+        { item_name, quantity },
         req,
       );
       return res.status(200).json({
