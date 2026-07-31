@@ -3,6 +3,7 @@ const router = express.Router();
 const adminController = require('../controllers/adminController');
 const maintenanceController = require('../controllers/maintenanceController');
 const blockedDateController = require('../controllers/blockedDateController');
+const backupController = require('../controllers/backupController');
 const { getFinancialAnalytics } = require('../controllers/reportController');
 const { protect, adminOnly } = require("../middleware/authMiddleware");
 
@@ -30,6 +31,13 @@ router.post('/set-kiosk-reservation',protect, adminOnly, maintenanceController.u
 router.post('/reset', protect, adminOnly, maintenanceController.reset);
 router.get('/export-csv', protect, adminOnly, maintenanceController.exportData);
 router.get('/export-financial-pdf', protect, adminOnly, maintenanceController.exportFinancialPdf);
+
+// --- BACKUP & RESTORE ROUTES ---
+router.post('/backup', protect, adminOnly, backupController.createBackup);
+router.get('/backups', protect, adminOnly, backupController.listBackups);
+router.post('/backup/restore/:filename', protect, adminOnly, backupController.restoreBackup);
+router.delete('/backup/:filename', protect, adminOnly, backupController.deleteBackup);
+router.get('/backup/download/:filename', protect, adminOnly, backupController.downloadBackup);
 
 // --- BLOCKED DATES ---
 router.get('/blocked-dates', blockedDateController.list); 
