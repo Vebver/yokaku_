@@ -217,6 +217,30 @@ function Product() {
       : `${SOCKET_URL}/${path.replace(/^\//, "")}`;
   };
 
+  // Resolve a raw DB path (e.g. "/uploads/x.png" or a full URL) to a usable URL.
+  const resolvePath = (path, SOCKET_URL) => {
+    if (!path) return null;
+    return path.startsWith("http")
+      ? path
+      : `${SOCKET_URL}/${path.replace(/^\//, "")}`;
+  };
+
+  // If the preferred image (local_path) fails to load, fall back to
+  // image_url, then to a placeholder. Fixes blank images in admin.
+  const handleImageError = (e, item) => {
+    const used = e.currentTarget.getAttribute("data-src-type") || "local_path";
+    if (used === "local_path") {
+      const fallback = resolvePath(item.image_url, SOCKET_URL);
+      if (fallback) {
+        e.currentTarget.setAttribute("data-src-type", "image_url");
+        e.currentTarget.src = fallback;
+        return;
+      }
+    }
+    e.currentTarget.onerror = null;
+    e.currentTarget.src = "https://placehold.co/150?text=No+Image";
+  };
+
   if (loading) return <div className="p-5 text-center">Loading Menu...</div>;
 
   return (
@@ -296,6 +320,8 @@ function Product() {
                       <img
                         src={getImageUrl(item, SOCKET_URL)}
                         alt=""
+                        data-src-type="local_path"
+                        onError={(e) => handleImageError(e, item)}
                         className="rounded shadow-sm me-3 border"
                         width="48"
                         height="48"
@@ -491,6 +517,8 @@ function Product() {
                   <img
                     src={getImageUrl(newItem, SOCKET_URL)}
                     alt="Preview"
+                    data-src-type="local_path"
+                    onError={(e) => handleImageError(e, newItem)}
                     className="img-thumbnail"
                     style={{
                       height: "140px",
