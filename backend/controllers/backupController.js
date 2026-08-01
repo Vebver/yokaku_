@@ -25,12 +25,11 @@ const backupController = {
 
       const { DB_HOST, DB_USER, DB_PASSWORD, DB_NAME, DB_PORT } = process.env;
 
-      // Build mysqldump command — use --single-transaction for InnoDB consistency
+      // Build mysqldump command — without --password flag to avoid CLI warnings
       const dumpCmd = [
         "mysqldump",
         `--host=${DB_HOST}`,
         `--user=${DB_USER}`,
-        DB_PASSWORD ? `--password=${DB_PASSWORD}` : "",
         `--port=${DB_PORT || 3306}`,
         "--single-transaction",
         "--routines",
@@ -42,11 +41,17 @@ const backupController = {
         .filter(Boolean)
         .join(" ");
 
-      await execPromise(dumpCmd);
+      // Pass the password securely inside the environment variables
+      await execPromise(dumpCmd, {
+        env: {
+          ...process.env,
+          MYSQL_PWD: DB_PASSWORD,
+        },
+      });
 
       // Verify backup was created
       if (!fs.existsSync(filepath)) {
-        throw new Error("Backup file was not created — mysqldump may have failed silently.");
+        throw new Error("Backup file was not created.");
       }
 
       const stats = fs.statSync(filepath);
@@ -132,12 +137,11 @@ const backupController = {
     try {
       const { DB_HOST, DB_USER, DB_PASSWORD, DB_NAME, DB_PORT } = process.env;
 
-      // Build mysql restore command
+      // Build mysql restore command — without --password flag to avoid CLI warnings
       const restoreCmd = [
         "mysql",
         `--host=${DB_HOST}`,
         `--user=${DB_USER}`,
-        DB_PASSWORD ? `--password=${DB_PASSWORD}` : "",
         `--port=${DB_PORT || 3306}`,
         DB_NAME,
         `< "${filepath}"`,
@@ -145,7 +149,13 @@ const backupController = {
         .filter(Boolean)
         .join(" ");
 
-      await execPromise(restoreCmd);
+      // Pass password securely via env variables context (Runs exactly once)
+      await execPromise(restoreCmd, {
+        env: {
+          ...process.env,
+          MYSQL_PWD: DB_PASSWORD,
+        },
+      });
 
       await logActivity(
         req.user?.userId || null,

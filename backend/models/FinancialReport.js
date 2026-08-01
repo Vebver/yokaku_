@@ -5,10 +5,10 @@ const FinancialReport = {
   getFinancialStats: async (todayStr) => {
     const query = `
       SELECT 
-          CAST(COALESCE(SUM(CASE WHEN DATE(paid_at) = ? THEN amount ELSE 0 END), 0) AS DECIMAL(10,2)) as today_revenue,
-          CAST(COALESCE(SUM(CASE WHEN paid_at >= DATE_SUB(?, INTERVAL 6 DAY) THEN amount ELSE 0 END), 0) AS DECIMAL(10,2)) as weekly_revenue,
-          CAST(COALESCE(SUM(CASE WHEN MONTH(paid_at) = MONTH(?) AND YEAR(paid_at) = YEAR(?) THEN amount ELSE 0 END), 0) AS DECIMAL(10,2)) as monthly_revenue,
-          CAST(COALESCE(SUM(CASE WHEN YEAR(paid_at) = YEAR(?) THEN amount ELSE 0 END), 0) AS DECIMAL(10,2)) as yearly_revenue,
+          CAST(COALESCE(SUM(CASE WHEN DATE(d) = ? THEN amount ELSE 0 END), 0) AS DECIMAL(10,2)) as today_revenue,
+          CAST(COALESCE(SUM(CASE WHEN d >= DATE_SUB(?, INTERVAL 6 DAY) THEN amount ELSE 0 END), 0) AS DECIMAL(10,2)) as weekly_revenue,
+          CAST(COALESCE(SUM(CASE WHEN MONTH(d) = MONTH(?) AND YEAR(d) = YEAR(?) THEN amount ELSE 0 END), 0) AS DECIMAL(10,2)) as monthly_revenue,
+          CAST(COALESCE(SUM(CASE WHEN YEAR(d) = YEAR(?) THEN amount ELSE 0 END), 0) AS DECIMAL(10,2)) as yearly_revenue,
           COUNT(*) as total_orders,
           CAST(COALESCE(AVG(amount), 0) AS DECIMAL(10,2)) as aov
       FROM (
