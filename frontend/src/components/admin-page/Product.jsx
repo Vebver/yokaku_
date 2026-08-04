@@ -289,8 +289,94 @@ function Product() {
         </div>
       </div>
 
-      {/* TABLE */}
-      <div className="card shadow-sm border-0" style={{ borderRadius: "12px" }}>
+{/* MOBILE CARDS */}
+      <div className="d-lg-none">
+        {currentItems.length === 0 ? (
+          <div className="card shadow-sm border-0 text-center p-5 text-muted">
+            No items found.
+          </div>
+        ) : (
+          <div className="d-flex flex-column gap-3">
+            {currentItems.map((item) => (
+              <div
+                key={`mobile-${item.item_id}`}
+                className="card shadow-sm border-0"
+                style={{ borderRadius: "12px" }}
+              >
+                <div className="card-body p-3">
+                  <div className="d-flex align-items-start gap-3">
+                    <img
+                      src={getImageUrl(item, SOCKET_URL)}
+                      alt={item.menu_name}
+                      data-src-type="local_path"
+                      onError={(e) => handleImageError(e, item)}
+                      className="rounded shadow-sm border flex-shrink-0"
+                      width="64"
+                      height="64"
+                      style={{ objectFit: "cover" }}
+                    />
+                    <div className="flex-grow-1 min-w-0">
+                      <div className="d-flex justify-content-between align-items-start gap-2">
+                        <div className="fw-bold text-dark text-truncate">
+                          {item.menu_name}
+                        </div>
+                        <button
+                          className="btn btn-link p-0 flex-shrink-0"
+                          onClick={() =>
+                            toggleFeature(item.item_id, item.is_featured)
+                          }
+                          aria-label="Toggle featured"
+                        >
+                          <Star
+                            fill={item.is_featured ? "#ffcc00" : "none"}
+                            color={item.is_featured ? "#ffcc00" : "#cbd5e1"}
+                            size={20}
+                          />
+                        </button>
+                      </div>
+                      <div className="text-muted small mb-1">
+                        {item.category_name}
+                      </div>
+                      <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                        <span className="fw-bold text-success">
+                          ₱{Number(item.price).toFixed(2)}
+                        </span>
+                        <span
+                          className={`badge rounded-pill px-3 py-2 small ${item.is_available ? "bg-success-subtle text-success" : "bg-danger-subtle text-danger"}`}
+                        >
+                          {item.is_available ? "Available" : "Not Available"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="d-flex gap-2 mt-3">
+                    <button
+                      className="btn btn-sm btn-outline-primary flex-fill shadow-sm"
+                      onClick={() => openEditDrawer(item)}
+                      data-bs-toggle="offcanvas"
+                      data-bs-target="#addMenuDrawer"
+                    >
+                      <Edit3 size={16} className="me-1" /> Edit
+                    </button>
+                    <button
+                      className="btn btn-sm btn-outline-danger flex-fill shadow-sm"
+                      onClick={() => deleteMenuItem(item.item_id)}
+                    >
+                      <Trash2 size={16} className="me-1" /> Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* TABLE (desktop) */}
+      <div
+        className="card shadow-sm border-0 d-none d-lg-block"
+        style={{ borderRadius: "12px" }}
+      >
         <div className="table-responsive">
           <table
             className="table table-hover align-middle mb-0"
