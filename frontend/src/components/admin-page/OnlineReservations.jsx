@@ -163,8 +163,9 @@ const OnlineReservations = () => {
   };
 
   const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filteredInquiries.slice(
-    (currentPage - 1) * itemsPerPage,
+    indexOfFirstItem,
     indexOfLastItem,
   );
   const totalPages = Math.ceil(filteredInquiries.length / itemsPerPage);
@@ -180,14 +181,14 @@ const OnlineReservations = () => {
     <div className="container-fluid py-4 bg-light min-vh-100">
       {/* HEADER */}
       <div className="row align-items-center mb-4 px-2">
-        <div className="col">
+        <div className="col-12">
           <h2 className="fw-bold mb-1">Online Reservations</h2>
           <p className="text-muted small mb-0">
             Manage bookings and check their details.
           </p>
         </div>
-        <div className="col-auto">
-          <div className="bg-white border rounded-pill px-3 py-1 shadow-sm small fw-bold">
+        <div className="col-12 mt-3">
+          <div className="bg-white border rounded-pill px-3 py-1 shadow-sm small fw-bold d-inline-block">
             {filteredInquiries.length} Bookings
           </div>
         </div>
@@ -219,8 +220,8 @@ const OnlineReservations = () => {
         </div>
       </div>
 
-      {/* TABLE */}
-      <div className="card border-0 shadow-sm rounded-4 overflow-hidden mx-2">
+      {/* TABLE (DESKTOP ONLY) */}
+      <div className="card border-0 shadow-sm rounded-4 overflow-hidden mx-2 d-none d-md-block">
         <div className="table-responsive">
           <table
             className="table table-hover align-middle mb-0"
@@ -300,34 +301,123 @@ const OnlineReservations = () => {
                 </tr>
               ))}
             </tbody>
-          </table>
+</table>
         </div>
       </div>
 
+      {/* MOBILE CARD LIST */}
+      <div className="d-md-none px-2">
+        {currentItems.length === 0 ? (
+          <div className="text-center text-muted small py-5">
+            No online reservations found.
+          </div>
+        ) : (
+          currentItems.map((item) => (
+            <div
+              key={item.reservation_id}
+              className="card border-0 shadow-sm rounded-4 mb-3 overflow-hidden"
+            >
+              <div className="card-body p-3">
+                <div className="d-flex justify-content-between align-items-start mb-2">
+                  <div>
+                    <div className="fw-bold text-dark lh-sm">
+                      {item.first_name} {item.last_name}
+                    </div>
+                    <code
+                      className="text-muted"
+                      style={{ fontSize: "0.6rem" }}
+                    >
+                      {item.reservation_id}
+                    </code>
+                  </div>
+                  <span
+                    className={`badge rounded-pill px-3 py-1 small flex-shrink-0 ${getStatusBadge(item.status)}`}
+                  >
+                    {item.status}
+                  </span>
+                </div>
+
+                <div className="d-flex flex-wrap gap-2 small text-muted mb-2">
+                  <span className="d-flex align-items-center gap-1">
+                    <Armchair size={13} />
+                    {item.reservation_type === "event"
+                      ? "Whole Table Reserve"
+                      : item.assigned_tables
+                        ? `Table ${item.assigned_tables}`
+                        : "T-?"}
+                  </span>
+                  <span className="d-flex align-items-center gap-1">
+                    <Clock size={13} />
+                    {new Date(item.reservation_date).toLocaleDateString()}
+                  </span>
+                </div>
+
+                <div className="mb-3">
+                  <span
+                    className={`badge border px-2 py-1 small fw-normal ${
+                      item.payment_status?.toLowerCase() === "verified"
+                        ? "bg-success-subtle text-success border-success-subtle"
+                        : "bg-warning-subtle text-warning border-warning-subtle"
+                    }`}
+                  >
+                    {item.payment_status?.toUpperCase() || "PENDING"}
+                  </span>
+                </div>
+
+                <button
+                  className="btn btn-sm btn-dark px-3 py-1 shadow-sm fw-bold w-100"
+                  data-bs-toggle="offcanvas"
+                  data-bs-target="#onlineDrawer"
+                  onClick={() => {
+                    setSelectedRes(item);
+                    setRefundAmount(item.refund_amount || "");
+                    fetchItems(item.reservation_id);
+                  }}
+                >
+                  View
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
       {/* PAGINATION */}
-      <div className="mt-4 px-3 d-flex justify-content-between align-items-center">
-        <span className="small text-muted">
-          Showing {currentItems.length} of {filteredInquiries.length} items
-        </span>
-        <div className="btn-group shadow-sm bg-white rounded border">
-          <button
-            className="btn btn-sm btn-white border-0 px-3"
-            disabled={currentPage === 1}
-            onClick={() => setCurrentPage((p) => p - 1)}
-          >
-            <ChevronLeft size={16} />
-          </button>
-          <span className="btn btn-sm disabled border-0 px-3 text-dark fw-bold">
-            Page {currentPage}
-          </span>
-          <button
-            className="btn btn-sm btn-white border-0 px-3"
-            disabled={currentPage >= totalPages}
-            onClick={() => setCurrentPage((p) => p + 1)}
-          >
-            <ChevronRight size={16} />
-          </button>
+      <div className="mt-4 px-3 d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
+        <div className="text-muted small">
+          Showing <strong>{indexOfFirstItem + 1}</strong> to{" "}
+          <strong>{Math.min(indexOfLastItem, filteredInquiries.length)}</strong> of{" "}
+          <strong>{filteredInquiries.length}</strong>
         </div>
+        <nav>
+          <ul className="pagination pagination-sm mb-0 shadow-sm border rounded bg-white">
+            <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
+              <button
+                className="page-link border-0 px-3 py-2"
+                onClick={() => setCurrentPage((prev) => prev - 1)}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft size={16} />
+              </button>
+            </li>
+            <li className="page-item disabled">
+              <span className="page-link border-0 text-dark fw-bold px-3 py-2">
+                Page {currentPage} of {totalPages || 1}
+              </span>
+            </li>
+            <li
+              className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}
+            >
+              <button
+                className="page-link border-0 px-3 py-2"
+                onClick={() => setCurrentPage((prev) => prev + 1)}
+                disabled={currentPage >= totalPages}
+              >
+                <ChevronRight size={16} />
+              </button>
+            </li>
+          </ul>
+        </nav>
       </div>
 
       {/* DRAWER */}

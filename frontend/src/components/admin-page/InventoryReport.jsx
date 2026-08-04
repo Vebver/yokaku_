@@ -346,50 +346,52 @@ const InventoryReport = ({ data }) => {
                         const isCritical = item.current_stock < 5;
                         const itemExpired = isExpired(item.expiry_date);
                         return (
-                          <tr key={idx} className={itemExpired ? "bg-dark bg-opacity-10" : ""}>
-                            <td className="py-3 fw-semibold text-dark ps-4">
-                              {item.name}
-                              {itemExpired && (
-                                <span
-                                  className="ms-2 badge bg-dark text-white rounded-pill"
-                                  style={{
-                                    fontSize: "10px",
-                                    fontWeight: "600",
-                                  }}
-                                >
-                                  EXPIRED
-                                </span>
-                              )}
-                              {!itemExpired && isCritical && (
-                                <span
-                                  className="ms-2 badge bg-danger text-white rounded-pill"
-                                  style={{
-                                    fontSize: "10px",
-                                    fontWeight: "600",
-                                  }}
-                                >
-                                  CRITICAL
-                                </span>
-                              )}
-                              {!itemExpired && !isCritical && isLowStock && (
-                                <span
-                                  className="ms-2 badge bg-warning text-dark rounded-pill"
-                                  style={{
-                                    fontSize: "10px",
-                                    fontWeight: "600",
-                                  }}
-                                >
-                                  LOW STOCK
-                                </span>
-                              )}
+<tr key={idx} className={itemExpired ? "bg-dark bg-opacity-10" : ""}>
+                            <td className="py-3 fw-semibold text-dark ps-4" data-label="Ingredient">
+                              <div className="d-flex flex-wrap align-items-center gap-1">
+                                {item.name}
+                                {itemExpired && (
+                                  <span
+                                    className="ms-1 badge bg-dark text-white rounded-pill"
+                                    style={{
+                                      fontSize: "10px",
+                                      fontWeight: "600",
+                                    }}
+                                  >
+                                    EXPIRED
+                                  </span>
+                                )}
+                                {!itemExpired && isCritical && (
+                                  <span
+                                    className="ms-1 badge bg-danger text-white rounded-pill"
+                                    style={{
+                                      fontSize: "10px",
+                                      fontWeight: "600",
+                                    }}
+                                  >
+                                    CRITICAL
+                                  </span>
+                                )}
+                                {!itemExpired && !isCritical && isLowStock && (
+                                  <span
+                                    className="ms-1 badge bg-warning text-dark rounded-pill"
+                                    style={{
+                                      fontSize: "10px",
+                                      fontWeight: "600",
+                                    }}
+                                  >
+                                    LOW STOCK
+                                  </span>
+                                )}
+                              </div>
                             </td>
-                            <td className="text-center text-muted small">
+                            <td className="text-center text-muted small" data-label="Starting">
                               {item.starting_stock} {item.unit}
                             </td>
-                            <td className="text-center text-muted small">
+                            <td className="text-center text-muted small" data-label="Used">
                               {item.used_stock} {item.unit}
                             </td>
-                            <td className="text-center">
+                            <td className="text-center" data-label="Current">
                               <span
                                 className={`badge ${itemExpired ? "bg-dark text-white" : isCritical ? "bg-danger text-white" : isLowStock ? "bg-warning text-dark" : "bg-light text-dark"} px-3 py-2 rounded-pill`}
                                 style={{ fontWeight: "600" }}
@@ -397,12 +399,12 @@ const InventoryReport = ({ data }) => {
                                 {item.current_stock} {item.unit}
                               </span>
                             </td>
-                            <td className="text-center">
+                            <td className="text-center" data-label="Expiry">
                               <span className={`small ${itemExpired ? "text-dark fw-bold" : "text-muted"}`}>
                                 {item.expiry_date ? formatDate(item.expiry_date) : "---"}
                               </span>
                             </td>
-                            <td className="fw-semibold text-end pe-4 text-dark">
+                            <td className="fw-semibold text-end pe-4 text-dark" data-label="Value">
                               {formatCurrency(item.inventory_value)}
                             </td>
                           </tr>
@@ -452,9 +454,61 @@ const InventoryReport = ({ data }) => {
           padding: 12px 16px;
           vertical-align: middle;
         }
-        .low-stock-list .badge {
+.low-stock-list .badge {
           font-weight: 500;
           font-size: 0.7rem;
+        }
+        @media (max-width: 768px) {
+          .inventory-report-container .table-responsive {
+            overflow: visible;
+          }
+          .inventory-report-container thead {
+            display: none;
+          }
+          .inventory-report-container .table,
+          .inventory-report-container .table tbody,
+          .inventory-report-container .table tr,
+          .inventory-report-container .table td {
+            display: block;
+            width: 100%;
+          }
+          .inventory-report-container .table tbody tr {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            padding: 12px 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+          }
+          .inventory-report-container .table td {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            border: none;
+            padding: 8px 0;
+            text-align: right !important;
+          }
+          .inventory-report-container .table td[data-label]::before {
+            content: attr(data-label);
+            font-weight: 600;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #64748b;
+            text-align: left;
+            flex-shrink: 0;
+          }
+          .inventory-report-container .table td[data-label="Ingredient"] {
+            display: block;
+            text-align: left !important;
+            border-bottom: 1px dashed #e2e8f0;
+            margin-bottom: 6px;
+            padding-bottom: 10px;
+          }
+          .inventory-report-container .table td[data-label="Ingredient"]::before {
+            display: none;
+          }
         }
         @media print {
           .btn, .card-header button {

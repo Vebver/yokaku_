@@ -7,8 +7,8 @@ import {
   Clock,
   ReceiptText,
   Info,
-  Plus, 
-  CalendarCheck, 
+  Plus,
+  CalendarCheck,
   Search,
 } from "lucide-react";
 import api from "../../api";
@@ -31,9 +31,19 @@ const WalkInReservations = () => {
     return new Date(Date.now() - tzOffset).toISOString().slice(0, 10);
   };
 
+  const getTableDisplay = (item) => {
+    if (
+      item.reservation_type === "event" ||
+      item.package_name?.toLowerCase().includes("package")
+    ) {
+      return "Whole Table Reserved";
+    }
+    return item.assigned_tables || "Take-Out";
+  };
+
   // --- STATES FOR MANUALLY PLACING AN ORDER ---
   const [products, setProducts] = useState([]);
-  const [orderCart, setOrderCart] = useState([]); 
+  const [orderCart, setOrderCart] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [newRes, setNewRes] = useState({
@@ -60,7 +70,7 @@ const WalkInReservations = () => {
     fetchProducts();
   }, []);
 
-   useEffect(() => {
+  useEffect(() => {
     return () => {
       const backdrops = document.querySelectorAll(".offcanvas-backdrop");
       backdrops.forEach((el) => el.remove());
@@ -104,7 +114,7 @@ const WalkInReservations = () => {
   const fetchTables = async () => {
     try {
       const res = await api.get("/admin/table-status");
-      
+
       // Fallback searches for direct array, nested data array, or a tables array
       let raw = [];
       if (Array.isArray(res.data)) {
@@ -114,7 +124,9 @@ const WalkInReservations = () => {
       } else if (res.data && Array.isArray(res.data.tables)) {
         raw = res.data.tables;
       } else if (res.data && typeof res.data === "object") {
-        const foundArray = Object.values(res.data).find((val) => Array.isArray(val));
+        const foundArray = Object.values(res.data).find((val) =>
+          Array.isArray(val),
+        );
         if (foundArray) raw = foundArray;
       }
 
@@ -132,12 +144,24 @@ const WalkInReservations = () => {
 
     return rawTables.map((t) => {
       const tableId = t.table_id ?? t.id ?? t.tableId;
-      const tableNumber = t.table_number ?? t.tableNumber ?? t.number ?? t.table_num ?? t.label ?? "Unknown";
+      const tableNumber =
+        t.table_number ??
+        t.tableNumber ??
+        t.number ??
+        t.table_num ??
+        t.label ??
+        "Unknown";
       const capacity = t.capacity ?? t.seats ?? 2;
-      
-      const status = (t.bridge_status || t.status || "available").toString().toLowerCase();
+
+      const status = (t.bridge_status || t.status || "available")
+        .toString()
+        .toLowerCase();
       // Real-time occupant labels only apply if the booking is scheduled for today
-      const isOccupiedLive = status === "occupied" || status === "reserved" || status === "busy" || status === "seated";
+      const isOccupiedLive =
+        status === "occupied" ||
+        status === "reserved" ||
+        status === "busy" ||
+        status === "seated";
       const isOccupied = isToday && isOccupiedLive;
 
       return {
@@ -149,7 +173,7 @@ const WalkInReservations = () => {
     });
   }, [rawTables, newRes.date]);
 
-    const formatTime = (timeStr) => {
+  const formatTime = (timeStr) => {
     if (!timeStr) return "--:--";
 
     const parts = timeStr.split(":");
@@ -165,7 +189,6 @@ const WalkInReservations = () => {
     return `${hours}:${minutes} ${ampm}`;
   };
 
-
   // --- HANDLERS FOR MANUALLY ADDING DISHES ---
   const handleAddProductToCart = (product) => {
     setOrderCart((prev) => {
@@ -174,7 +197,7 @@ const WalkInReservations = () => {
         return prev.map((item) =>
           item.product_id === product.item_id
             ? { ...item, quantity: item.quantity + 1 }
-            : item
+            : item,
         );
       }
       return [
@@ -195,9 +218,9 @@ const WalkInReservations = () => {
         .map((item) =>
           item.product_id === productId
             ? { ...item, quantity: item.quantity + delta }
-            : item
+            : item,
         )
-        .filter((item) => item.quantity > 0)
+        .filter((item) => item.quantity > 0),
     );
   };
 
@@ -255,8 +278,8 @@ const WalkInReservations = () => {
 
       if (closeBtnRef.current) closeBtnRef.current.click();
       setShowAddModal(false);
-      setOrderCart([]); 
-      fetchWalkIns(); 
+      setOrderCart([]);
+      fetchWalkIns();
     } catch (err) {
       console.error(err);
       showToast("Error creating order.");
@@ -311,35 +334,42 @@ const WalkInReservations = () => {
     >
       {/* HEADER */}
       <div className="row align-items-center mb-4 px-2">
-        <div className="col">
+        <div className="col-12">
           <h2 className="fw-bold mb-1">Walk-ins & Kiosk</h2>
           <p className="text-muted small mb-0">
             Monitor instant orders and on-site customers
           </p>
         </div>
-        <div className="col-auto d-flex gap-2">
+        <div className="col-12 d-flex flex-wrap flex-md-nowrap gap-2 mt-3">
           <button
-            className="btn btn-primary fw-bold shadow-sm d-flex align-items-center gap-2"
+            className="btn btn-primary fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2 flex-grow-1 flex-md-grow-0"
             data-bs-toggle="offcanvas"
             data-bs-target="#addReservationDrawer"
           >
             <Plus size={18} /> Make a Reservation
           </button>
-          <div className="bg-white border rounded-pill px-3 py-1 shadow-sm small fw-bold d-flex align-items-center">
+          <div className="bg-white border rounded-pill px-3 py-1 shadow-sm small fw-bold d-flex align-items-center justify-content-center flex-grow-1 flex-md-grow-0">
             {inquiries.length} Orders
           </div>
         </div>
       </div>
 
-
       {/* SEARCH BAR */}
       <div className="col-12 col-md-8 col-lg-5 mb-3 px-2">
-        <div className="d-flex align-items-center bg-white rounded-3 border shadow-sm px-3" style={{ height: '48px' }}>
+        <div
+          className="d-flex align-items-center bg-white rounded-3 border shadow-sm px-3"
+          style={{ height: "48px" }}
+        >
           <Search size={20} className="text-muted flex-shrink-0" />
           <input
             type="text"
             className="form-control border-0 bg-transparent shadow-none w-100 ms-2"
-            style={{ color: "#212529", fontSize: "16px", fontWeight: "500", height: "100%" }}
+            style={{
+              color: "#212529",
+              fontSize: "16px",
+              fontWeight: "500",
+              height: "100%",
+            }}
             placeholder="Search by guest name or ID..."
             value={searchQuery}
             onChange={(e) => {
@@ -350,8 +380,8 @@ const WalkInReservations = () => {
         </div>
       </div>
 
-      {/* TABLE */}
-      <div className="card border-0 shadow-sm rounded-4 overflow-hidden mx-2">
+      {/* TABLE (DESKTOP ONLY) */}
+      <div className="card border-0 shadow-sm rounded-4 overflow-hidden mx-2 d-none d-md-block">
         <div className="table-responsive">
           <table
             className="table table-hover align-middle mb-0"
@@ -384,7 +414,7 @@ const WalkInReservations = () => {
                     <div className="d-flex align-items-center gap-2">
                       <Armchair size={14} className="text-muted" />
                       <span className="small fw-bold">
-                        {item.assigned_tables || "Take-Out"}
+                        {getTableDisplay(item)}
                       </span>
                     </div>
                   </td>
@@ -418,6 +448,63 @@ const WalkInReservations = () => {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* MOBILE CARD LIST */}
+      <div className="d-md-none px-2">
+        {currentItems.length === 0 ? (
+          <div className="text-center text-muted small py-5">
+            No walk-in reservations found.
+          </div>
+        ) : (
+          currentItems.map((item) => (
+            <div
+              key={item.reservation_id}
+              className="card border-0 shadow-sm rounded-4 mb-3 overflow-hidden"
+            >
+              <div className="card-body p-3">
+                <div className="d-flex justify-content-between align-items-start mb-2">
+                  <div>
+                    <div className="fw-bold text-dark lh-sm">
+                      {item.first_name} {item.last_name || ""}
+                    </div>
+                    <code className="text-muted" style={{ fontSize: "0.6rem" }}>
+                      {item.reservation_id}
+                    </code>
+                  </div>
+                  <span
+                    className={`badge rounded-pill px-3 py-1 small flex-shrink-0 ${item.status === "completed" ? "bg-secondary" : "bg-success"}`}
+                  >
+                    {item.status?.toUpperCase()}
+                  </span>
+                </div>
+
+                <div className="d-flex flex-wrap gap-2 small text-muted mb-3">
+                  <span className="d-flex align-items-center gap-1">
+                    <Armchair size={13} />
+                    {getTableDisplay(item)}
+                  </span>
+                  <span className="d-flex align-items-center gap-1">
+                    <Clock size={13} />
+                    {new Date(item.reservation_date).toLocaleDateString()}
+                  </span>
+                </div>
+
+                <button
+                  className="btn btn-sm btn-dark fw-bold px-3 py-1 shadow-sm w-100"
+                  data-bs-toggle="offcanvas"
+                  data-bs-target="#walkinDetailsDrawer"
+                  onClick={() => {
+                    setSelectedRes(item);
+                    fetchItems(item.reservation_id);
+                  }}
+                >
+                  Review Order
+                </button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       {/* --- ADD RESERVATION SIDEBAR --- */}
@@ -523,45 +610,76 @@ const WalkInReservations = () => {
                     ✓ Take-Out Order Selected
                   </div>
                   <div className="x-small text-muted mt-1">
-                    No physical tables will be marked as occupied for this session.
+                    No physical tables will be marked as occupied for this
+                    session.
                   </div>
                 </div>
               )}
 
               {/* DYNAMIC FOOD & DRINK SELECTOR */}
-              {(newRes.bookingType === "takeout" || newRes.bookingType === "table") && (
+              {(newRes.bookingType === "takeout" ||
+                newRes.bookingType === "table") && (
                 <div className="mb-4 animate-fade-in">
                   <label className="form-label small fw-bold text-uppercase text-muted">
                     Add Menu Items (Optional)
                   </label>
-                  <select 
+                  <select
                     className="form-select form-select-sm fw-semibold mb-2"
-                    value="" 
+                    value=""
                     onChange={(e) => {
                       const selectedId = parseInt(e.target.value, 10);
-                      const found = products.find(p => p.item_id === selectedId);
+                      const found = products.find(
+                        (p) => p.item_id === selectedId,
+                      );
                       if (found) handleAddProductToCart(found);
                       e.target.value = "";
                     }}
                   >
                     <option value="">-- Add food or drink --</option>
-                    {products.map(p => (
+                    {products.map((p) => (
                       <option key={p.item_id} value={p.item_id}>
-                        {p.menu_name || p.name} (₱{parseFloat(p.price).toFixed(2)})
+                        {p.menu_name || p.name} (₱
+                        {parseFloat(p.price).toFixed(2)})
                       </option>
                     ))}
                   </select>
 
                   {/* Selected Items Tray List */}
                   {orderCart.length > 0 && (
-                    <div className="p-3 bg-white border rounded-3 mb-3" style={{ maxHeight: "150px", overflowY: "auto" }}>
-                      {orderCart.map(item => (
-                        <div key={item.product_id} className="d-flex justify-content-between align-items-center mb-2 small fw-semibold">
-                          <span className="text-dark-emphasis">{item.name}</span>
+                    <div
+                      className="p-3 bg-white border rounded-3 mb-3"
+                      style={{ maxHeight: "150px", overflowY: "auto" }}
+                    >
+                      {orderCart.map((item) => (
+                        <div
+                          key={item.product_id}
+                          className="d-flex justify-content-between align-items-center mb-2 small fw-semibold"
+                        >
+                          <span className="text-dark-emphasis">
+                            {item.name}
+                          </span>
                           <div className="d-flex align-items-center gap-2">
-                            <button type="button" onClick={() => handleUpdateCartQty(item.product_id, -1)} className="btn btn-light btn-sm border py-0 px-2 fw-bold">-</button>
-                            <span className="font-monospace">{item.quantity}</span>
-                            <button type="button" onClick={() => handleUpdateCartQty(item.product_id, 1)} className="btn btn-light btn-sm border py-0 px-2 fw-bold">+</button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleUpdateCartQty(item.product_id, -1)
+                              }
+                              className="btn btn-light btn-sm border py-0 px-2 fw-bold"
+                            >
+                              -
+                            </button>
+                            <span className="font-monospace">
+                              {item.quantity}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleUpdateCartQty(item.product_id, 1)
+                              }
+                              className="btn btn-light btn-sm border py-0 px-2 fw-bold"
+                            >
+                              +
+                            </button>
                           </div>
                         </div>
                       ))}
@@ -608,7 +726,8 @@ const WalkInReservations = () => {
                     <option value="Premium Package">Premium Package</option>
                   </select>
                   <div className="x-small text-muted">
-                    * Booking an event reserves all floor layout tables automatically.
+                    * Booking an event reserves all floor layout tables
+                    automatically.
                   </div>
                 </div>
               )}
@@ -756,7 +875,8 @@ const WalkInReservations = () => {
                 <div className="d-flex align-items-center gap-3">
                   <div>
                     <div className="fw-bold text-dark lh-1 mb-1">
-                      Name: {selectedRes.first_name} {selectedRes.last_name || ""}
+                      Name: {selectedRes.first_name}{" "}
+                      {selectedRes.last_name || ""}
                     </div>
                     <div className="x-small text-muted font-monospace">
                       ID: {selectedRes.reservation_id}
@@ -812,7 +932,9 @@ const WalkInReservations = () => {
                     </span>
                   </div>
                   <div className="col-6">
-                    <small className="text-muted d-block">Number of Guests</small>
+                    <small className="text-muted d-block">
+                      Number of Guests
+                    </small>
                     <span className="small fw-bold text-dark">
                       {selectedRes.num_guests || selectedRes.guests || "1"}
                     </span>

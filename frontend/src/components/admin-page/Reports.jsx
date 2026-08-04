@@ -54,7 +54,7 @@ function Reports() {
   return (
     <div className="reports-container p-3 pt-2">
       {/* HEADER WITH REFRESH */}
-      <div className="d-flex justify-content-between align-items-center mb-2">
+      <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
         <div>
           <h2 className="fw-bold mb-0 text-dark">Business Reports</h2>
           <p className="text-muted small mb-0">
@@ -170,10 +170,13 @@ function Reports() {
             .animate-spin { animation: spin 1s linear infinite; }
             @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-            @media (max-width: 768px) {
+@media (max-width: 768px) {
               .report-tabs-wrapper { display: block; }
+              .report-tabs-container { width: 100%; }
               .report-tab-btn { flex: 1; justify-content: center; padding: 10px 5px; font-size: 12px; }
             }
+
+            .min-w-0 { min-width: 0; }
           `}</style>
     </div>
   );

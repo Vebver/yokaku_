@@ -262,7 +262,7 @@ const FinancialOverview = ({ data }) => {
               <h5 className="fw-bold mb-0">{getPeriodLabel()}</h5>
               <small className="text-muted">Revenue performance tracking</small>
             </div>
-            <div className="d-flex gap-2 mt-3 mt-md-0">
+<div className="d-flex flex-wrap gap-2 mt-3 mt-md-0">
               <button
                 onClick={() => setPeriod("weekly")}
                 className={`btn btn-sm px-4 rounded-pill fw-semibold transition-all ${period === "weekly" ? "btn-warning text-white shadow-sm" : "btn-light text-muted"}`}
@@ -284,7 +284,7 @@ const FinancialOverview = ({ data }) => {
             </div>
           </div>
         </div>
-        <div className="card-body p-4" style={{ height: "420px" }}>
+<div className="card-body p-4 chart-body" style={{ height: "420px" }}>
           <Line
             options={chartOptions}
             data={{
@@ -471,9 +471,14 @@ const FinancialOverview = ({ data }) => {
           letter-spacing: 0.5px;
           color: #64748b;
         }
-        .alert-light {
+.alert-light {
           background-color: #f8fafc;
           border-color: #e2e8f0;
+        }
+        @media (max-width: 768px) {
+          .financial-overview .chart-body {
+            height: 300px !important;
+          }
         }
         @media print {
           .btn, .card-header button {

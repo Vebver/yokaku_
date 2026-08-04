@@ -194,7 +194,7 @@ const ProductPerformance = ({ data }) => {
             <div className="card-body p-0">
               <div className="table-responsive">
                 <table className="table table-hover align-middle mb-0">
-                  <thead className="table-light">
+<thead className="table-light">
                     <tr>
                       <th className="fw-semibold ps-4">Item</th>
                       <th className="fw-semibold text-center">Sold</th>
@@ -207,7 +207,7 @@ const ProductPerformance = ({ data }) => {
       const rank = topIndexOfFirstItem + i + 1;
       return (
         <tr key={i}>
-          <td className="py-3 ps-4">
+          <td className="py-3 ps-4" data-label="Item">
             <div className="d-flex align-items-center gap-3">
               <div
                 className={`rounded-circle d-flex align-items-center justify-content-center fw-bold ${rank === 1 ? "bg-warning text-white" : "bg-light text-dark"}`}
@@ -220,12 +220,12 @@ const ProductPerformance = ({ data }) => {
               >
                 {rank}
               </div>
-              <div>
-                <div className="fw-semibold text-dark">
+<div className="min-w-0">
+                <div className="fw-semibold text-dark d-flex flex-wrap align-items-center gap-1">
                   {p.menu_name}
                   {rank === 1 && (
                     <span
-                      className="ms-2 badge bg-warning text-dark rounded-pill"
+                      className="badge bg-warning text-dark rounded-pill"
                       style={{
                         fontSize: "10px",
                         fontWeight: "600",
@@ -238,7 +238,7 @@ const ProductPerformance = ({ data }) => {
               </div>
             </div>
           </td>
-          <td className="text-center">
+          <td className="text-center" data-label="Sold">
             <span className="fw-semibold">
               {p.total_sold}
             </span>
@@ -246,7 +246,7 @@ const ProductPerformance = ({ data }) => {
               units
             </small>
           </td>
-          <td className="text-end pe-4">
+          <td className="text-end pe-4" data-label="Revenue">
             <span className="fw-bold text-primary">
               {formatCurrency(p.total_revenue)}
             </span>
@@ -323,9 +323,66 @@ const ProductPerformance = ({ data }) => {
         .list-group-item {
           transition: all 0.2s ease;
         }
-        .list-group-item:hover {
+.list-group-item:hover {
           background-color: #f8fafc;
           transform: translateX(4px);
+        }
+        @media (max-width: 768px) {
+          .product-performance-container .table-responsive {
+            overflow: visible;
+          }
+          .product-performance-container thead {
+            display: none;
+          }
+          .product-performance-container .table,
+          .product-performance-container .table tbody,
+          .product-performance-container .table tr,
+          .product-performance-container .table td {
+            display: block;
+            width: 100%;
+          }
+          .product-performance-container .table tbody tr {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            padding: 12px 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+          }
+          .product-performance-container .table td {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            border: none;
+            padding: 8px 0;
+            text-align: right !important;
+          }
+          .product-performance-container .table td[data-label]::before {
+            content: attr(data-label);
+            font-weight: 600;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #64748b;
+            text-align: left;
+            flex-shrink: 0;
+          }
+          .product-performance-container .table td[data-label="Item"] {
+            display: block;
+            text-align: left !important;
+            border-bottom: 1px dashed #e2e8f0;
+            margin-bottom: 6px;
+            padding-bottom: 10px;
+          }
+          .product-performance-container .table td[data-label="Item"]::before {
+            display: none;
+          }
+          .product-performance-container .card-footer .d-flex {
+            flex-direction: column;
+            gap: 8px;
+            align-items: flex-start;
+          }
         }
         @media print {
           .btn, .card-header button {
