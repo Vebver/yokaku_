@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, Suspense, lazy } from "react";
 import api, { SOCKET_URL } from "../../api";
 import io from "socket.io-client";
 import {
@@ -28,22 +28,29 @@ import {
   Archive,
 } from "lucide-react";
 
-// Internal Components
-import Billing from "./Billing";
-import Inventory from "./Inventory";
-import Product from "./Product";
-import Reports from "./Reports";
-import Profile from "./Profile";
-import Categories from "./Categories";
-import RecipeManager from "./RecipeManager";
-import AccountManagement from "./AccountManagement";
-import TableStatus from "./TableStatus";
-import Maintenance from "./Maintenance";
-import OnlineReservations from "./OnlineReservations";
-import WalkInReservations from "./WalkInReservations";
-import AuditLogs from "./AuditLogs";
+// Internal Components (lazy-loaded so each admin panel loads on demand)
+const Billing = lazy(() => import("./Billing"));
+const Inventory = lazy(() => import("./Inventory"));
+const Product = lazy(() => import("./Product"));
+const Reports = lazy(() => import("./Reports"));
+const Profile = lazy(() => import("./Profile"));
+const Categories = lazy(() => import("./Categories"));
+const RecipeManager = lazy(() => import("./RecipeManager"));
+const AccountManagement = lazy(() => import("./AccountManagement"));
+const TableStatus = lazy(() => import("./TableStatus"));
+const Maintenance = lazy(() => import("./Maintenance"));
+const OnlineReservations = lazy(() => import("./OnlineReservations"));
+const WalkInReservations = lazy(() => import("./WalkInReservations"));
+const AuditLogs = lazy(() => import("./AuditLogs"));
 
 import "../../Style/AdminDashboard.css";
+
+// Loading fallback shown while a lazy admin panel chunk is being fetched
+const PanelLoader = () => (
+  <div className="text-center py-5">
+    <div className="spinner-border text-primary"></div>
+  </div>
+);
 
 ChartJS.register(
   CategoryScale,
@@ -890,13 +897,13 @@ function AdminDashboard() {
           </div>
         </header>
 
-        <main className="app-content-area px-4 py-3">
+<main className="app-content-area px-4 py-3">
           {loading ? (
             <div className="text-center py-5">
               <div className="spinner-border text-primary"></div>
             </div>
           ) : (
-            renderSection()
+            <Suspense fallback={<PanelLoader />}>{renderSection()}</Suspense>
           )}
         </main>
       </div>

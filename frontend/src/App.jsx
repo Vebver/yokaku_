@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense, lazy } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -8,34 +8,72 @@ import {
   useNavigate,
 } from "react-router-dom";
 
-// Imports
+// Imports (kept small or essential components)
 import Navbar from "./components/Navbar";
 import HeroSection from "./components/HeroSection";
 import FeaturedMenu from "./components/FeaturedMenu";
-import FullMenu from "./components/FullMenu";
 import AboutSection from "./components/AboutSection";
 import PromoSection from "./components/PromoSection";
 import ReviewsSection from "./components/ReviewsSection";
 import Footer from "./components/Footer";
 import LoginSection from "./components/LoginSection";
-import AdminDashboard from "./components/admin-page/AdminDashboard.jsx";
-import CustomerPage from "./components/customer-page/CustomerPage";
-import CustomerProfile from "./components/customer-page/CustomerProfile";
 import CustomerNavbar from "./components/customer-page/CustomerNavbar.jsx";
-import Notifications from "./components/customer-page/Notifications";
-import KioskSelection from "./components/kiosk-page/KioskSelection.jsx";
-import KioskMenu from "./components/kiosk-page/KioskMenu.jsx";
-import KioskReservation from "./components/kiosk-page/KioskReservation.jsx";
-import KioskReservationMenu from "./components/kiosk-page/KioskReservationMenu.jsx";
-import KitchenPage from "./components/kitchen-page/KitchenPage.jsx";
-import TableReservation from "./components/ReservationSteps.jsx";
 import TermsModal from "./components/TermsModal";
-import ResetPasswordPage from "./components/ResetPasswordPage";
-import MyReservation from "./components/customer-page/MyReservation";
-import Cashier from "./components/cashier/Cashier.jsx";
-import FileARefund from "./components/FileARefund";
+
+// Lazy-loaded route components (code-split so each page loads on demand)
+const FullMenu = lazy(() => import("./components/FullMenu"));
+const AdminDashboard = lazy(() =>
+  import("./components/admin-page/AdminDashboard.jsx")
+);
+const CustomerPage = lazy(() =>
+  import("./components/customer-page/CustomerPage")
+);
+const CustomerProfile = lazy(() =>
+  import("./components/customer-page/CustomerProfile")
+);
+const Notifications = lazy(() =>
+  import("./components/customer-page/Notifications")
+);
+const KioskSelection = lazy(() =>
+  import("./components/kiosk-page/KioskSelection.jsx")
+);
+const KioskMenu = lazy(() => import("./components/kiosk-page/KioskMenu.jsx"));
+const KioskReservation = lazy(() =>
+  import("./components/kiosk-page/KioskReservation.jsx")
+);
+const KioskReservationMenu = lazy(() =>
+  import("./components/kiosk-page/KioskReservationMenu.jsx")
+);
+const KitchenPage = lazy(() =>
+  import("./components/kitchen-page/KitchenPage.jsx")
+);
+const TableReservation = lazy(() =>
+  import("./components/ReservationSteps.jsx")
+);
+const ResetPasswordPage = lazy(() =>
+  import("./components/ResetPasswordPage")
+);
+const MyReservation = lazy(() =>
+  import("./components/customer-page/MyReservation")
+);
+const Cashier = lazy(() => import("./components/cashier/Cashier.jsx"));
+const FileARefund = lazy(() => import("./components/FileARefund"));
 
 import "./Style/App.css";
+
+// Loading fallback shown while a lazy chunk is being fetched
+const PageLoader = () => (
+  <div
+    style={{
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+      minHeight: "60vh",
+    }}
+  >
+    <div className="spinner-border text-primary" role="status"></div>
+  </div>
+);
 // 1. MAIN APP COMPONENT
 function App() {
   return (
@@ -161,6 +199,7 @@ function AppContent() {
         userRole={userRole}
       />
 
+<Suspense fallback={<PageLoader />}>
       <Routes>
         {/* 1. LANDING PAGE REDIRECTS */}
         <Route
@@ -317,8 +356,9 @@ function AppContent() {
           }
         />
 
-        <Route path="/file-a-refund" element={<FileARefund />} />
+<Route path="/file-a-refund" element={<FileARefund />} />
       </Routes>
+      </Suspense>
 
       {/* Modals */}
       {isLoginOpen && <LoginSection onClose={() => setIsLoginOpen(false)} />}
