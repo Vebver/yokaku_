@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from "react";
 import api from "../../api";
-import { Save, Smartphone, Wallet, CreditCard, Cog } from "lucide-react";
+import { Save, Smartphone, Wallet, CreditCard } from "lucide-react";
 
 // Components
 import SystemMaintenance from "./SystemMaintenance"; // Renamed from DatabaseMaintenance
 import HolidayMaintenance from "./HolidayMaintenance";
 import { useToast } from "../ToastContext";
-
 
 const Maintenance = () => {
   const { showToast } = useToast();
@@ -62,11 +61,15 @@ const Maintenance = () => {
     );
 
   return (
-    <div className="container-fluid p-3 p-md-4 bg-light min-vh-100">
+<div className="container-fluid p-3 p-md-4 bg-light min-vh-100">
       <div className="d-flex align-items-center mb-4 flex-wrap gap-2">
-        <Cog className="me-2 text-secondary flex-shrink-0" />
+        <div className="me-2 text-secondary flex-shrink-0" />
         <h2 className="fw-bold mb-0">Operations & Settings</h2>
       </div>
+
+      <p className="text-muted mb-4">
+        Manage your operations in one place: update GCash details, perform system maintenance (backups, exports, and resets), and set closure dates to pause reservations.
+      </p>
 
       {/* SECTION 1: Payment Settings */}
       <section className="mb-5">
@@ -136,7 +139,6 @@ const Maintenance = () => {
           </form>
         </div>
       </section>
-
 
       {/* SECTION 3: System Housekeeping (Archive, Reset, Export) */}
       <section className="mb-5">

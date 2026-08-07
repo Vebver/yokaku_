@@ -19,6 +19,7 @@ router.get('/reports/financial-analytics', protect, adminOnly, getFinancialAnaly
 // --- OPERATIONAL ROUTES (Walk-in / Checkout) ---
 router.post('/walk-in/:tableId', protect, adminOnly, adminController.Walkin);
 router.put('/checkout/:tableId', protect, adminOnly, adminController.CheckOut);
+router.post('/stop-kiosk', protect, adminOnly, adminController.stopKiosk);
 router.post('/add-table', protect, adminOnly, adminController.addTable);
 router.delete('/tables/:tableId', protect, adminOnly, adminController.deleteTable);
 

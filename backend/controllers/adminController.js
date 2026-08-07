@@ -106,6 +106,30 @@ const adminController = {
       res.status(500).json({ error: error.message });
     }
   },
+  // STOP KIOSK: Reset the active kiosk session so the kiosk returns to home
+  stopKiosk: async (req, res) => {
+    const { reservationId } = req.body;
+    try {
+      const result = await TableStatus.stopKiosk(reservationId);
+      const affected = result?.affected ?? result?.affectedRows ?? 0;
+      if (affected === 0) {
+        return res.status(404).json({ error: "No active kiosk found to stop." });
+      }
+      await logActivity(
+        req.user?.userId || null,
+        "STOP_KIOSK",
+        reservationId || null,
+        { message: "Kiosk session stopped by admin/cashier." },
+        req,
+      );
+      const io = req.app.get("io");
+      if (io) io.emit("table_updated");
+      res.json({ message: "Kiosk stopped successfully." });
+    } catch (error) {
+      console.error("Stop Kiosk Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
   addTable: async (req, res) => {
     try {
       const { table_number, capacity } = req.body;

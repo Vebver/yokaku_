@@ -29,7 +29,31 @@ const TableStatus = {
            JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
            WHERE rt.table_id = t.table_id 
            AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
-           ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed') LIMIT 1) AS reservation_id
+           ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed') LIMIT 1) AS reservation_id,
+
+          /* Reservation-related metadata for the current occupant (event timer + kiosk stop) */
+          (SELECT r.reservation_type FROM reservations r 
+           JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
+           WHERE rt.table_id = t.table_id 
+           AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
+           ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed') LIMIT 1) AS reservation_type,
+
+          (SELECT r.is_kiosk_active FROM reservations r 
+           JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
+           WHERE rt.table_id = t.table_id 
+           AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
+           ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed') LIMIT 1) AS is_kiosk_active,
+
+          (SELECT TIME_FORMAT(r.end_time, '%H:%i:%s') FROM reservations r 
+           JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
+           WHERE rt.table_id = t.table_id 
+           AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
+           ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed') LIMIT 1) AS end_time,
+
+          (SELECT TIME_FORMAT(rt.check_in_time, '%H:%i:%s') FROM reservation_tables rt
+           WHERE rt.table_id = t.table_id 
+           AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
+           ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed') LIMIT 1) AS check_in_time
 
       FROM tables t
       GROUP BY t.table_id
@@ -61,7 +85,7 @@ getTodaySchedule: async () => {
         [today, today, nowTime]
       );
 
-      const query = `
+const query = `
         SELECT 
           r.reservation_id,
           r.first_name, 
@@ -74,8 +98,13 @@ getTodaySchedule: async () => {
         FROM reservations r
         LEFT JOIN reservation_tables rt ON TRIM(r.reservation_id) = TRIM(rt.reservation_id)
         LEFT JOIN tables t ON rt.table_id = t.table_id
-        WHERE DATE(r.reservation_date) = DATE(?) 
-        AND LOWER(r.status) = 'seated'
+        WHERE (
+          /* Reservations scheduled for today */
+          DATE(r.reservation_date) = DATE(?) AND LOWER(r.status) = 'seated'
+          OR
+          /* ACTIVE KIOSK reservations even if their reserve date is far away */
+          r.is_kiosk_active = 1 AND LOWER(r.status) IN ('seated', 'confirmed')
+        )
         GROUP BY 
           r.reservation_id, 
           r.first_name, 
@@ -171,7 +200,20 @@ getTodaySchedule: async () => {
         [tableId],
       );
 
-      return { success: true };
+return { success: true };
+    } catch (err) {
+      throw err;
+    }
+  },
+
+  // 4.5 STOP KIOSK (Clears the active kiosk flag for a single reservation)
+  stopKiosk: async (reservationId) => {
+    try {
+      const [result] = await db.query(
+        "UPDATE reservations SET is_kiosk_active = 0 WHERE reservation_id = ? AND is_kiosk_active = 1",
+        [reservationId],
+      );
+      return { success: true, affected: result.affectedRows, reservationId };
     } catch (err) {
       throw err;
     }

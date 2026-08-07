@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import api from "../../api";
-import { Shield, Clock, User, Info, ChevronLeft, ChevronRight } from "lucide-react";
+import {Clock, User, Info, ChevronLeft, ChevronRight } from "lucide-react";
 
 const AuditLogs = () => {
   const [logs, setLogs] = useState([]);
@@ -35,7 +35,7 @@ const AuditLogs = () => {
     <div className="audit-logs-container container-fluid py-4 bg-light">
       <div className="mb-4">
         <h2 className="fw-bold mb-1 text-dark d-flex align-items-center">
-          <Shield className="me-2 text-primary" size={24} /> System Audit Trail
+          <div className="me-2 text-primary" size={24} /> System Audit Trail
         </h2>
         <p className="text-muted small">Accountability log tracking all critical administrative updates and actions.</p>
       </div>

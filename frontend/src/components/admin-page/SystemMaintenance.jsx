@@ -4,7 +4,6 @@ import {
   Archive,
   RefreshCcw,
   AlertTriangle,
-  Settings,
   FileText,
   Monitor,
   Database,
@@ -283,7 +282,7 @@ const SystemMaintenance = () => {
       style={{ borderRadius: "12px" }}
     >
       <div className="d-flex align-items-center mb-4">
-        <Settings className="text-secondary me-2" size={24} />
+        <div className="text-secondary me-2" size={24} />
         <h5 className="mb-0 fw-bold text-dark">System Maintenance</h5>
       </div>
 
