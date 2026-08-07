@@ -68,7 +68,7 @@ const AccountManagement = () => {
   );
 
   return (
-    <div className="container-fluid py-3 py-md-4 text-dark bg-light" style={{ minHeight: '100vh' }}>
+    <div className="account-mgmt-container container-fluid py-3 py-md-4 text-dark bg-light" style={{ minHeight: '100vh' }}>
       
       {/* RESPONSIVE HEADER */}
       <div className="row align-items-center g-3 mb-4 px-2">
@@ -113,7 +113,7 @@ const AccountManagement = () => {
             <tbody>
               {currentUsers.map((user) => (
                 <tr key={user.user_id}>
-                  <td className="ps-4">
+                  <td className="ps-4" data-label="Profile">
                     <img
                       src={`https://ui-avatars.com/api/?name=${user.first_name}+${user.last_name}&background=random&color=fff`}
                       alt="Avatar"
@@ -122,11 +122,11 @@ const AccountManagement = () => {
                       height="40"
                     />
                   </td>
-                  <td>
+                  <td data-label="Full Name">
                     <div className="fw-bold text-dark">{user.first_name} {user.last_name}</div>
                   </td>
-                  <td className="text-muted small">{user.email || "No Email"}</td>
-                  <td>
+                  <td className="text-muted small" data-label="Email Address">{user.email || "No Email"}</td>
+                  <td data-label="Current Role">
                     {/* UPDATED ROLE BADGES */}
                     <span className={`badge rounded-pill px-3 py-1 small fw-normal ${
                       user.role === 'admin' ? 'bg-primary text-white' : 
@@ -137,7 +137,7 @@ const AccountManagement = () => {
                       {user.role?.toUpperCase()}
                     </span>
                   </td>
-                  <td className="text-end pe-4">
+                  <td className="text-end pe-4" data-label="Manage Permissions">
                     <div className="d-flex justify-content-end align-items-center gap-2">
                       {updatingUserId === user.user_id ? (
                         <Loader2 className="animate-spin text-muted" size={16} />
@@ -205,6 +205,61 @@ const AccountManagement = () => {
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .page-link:focus { box-shadow: none; }
         .form-select:focus { border-color: #10b981; box-shadow: 0 0 0 0.25rem rgba(16, 185, 129, 0.1); }
+
+        @media (max-width: 768px) {
+          .account-mgmt-container .table-responsive { overflow: visible; }
+          .account-mgmt-container thead { display: none; }
+          .account-mgmt-container .table,
+          .account-mgmt-container .table tbody,
+          .account-mgmt-container .table tr,
+          .account-mgmt-container .table td { display: block; width: 100%; min-width: 0; }
+          .account-mgmt-container .table { min-width: 0 !important; }
+          .account-mgmt-container .table tbody tr {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            padding: 12px 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+          }
+          .account-mgmt-container .table td {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            border: none;
+            padding: 8px 0;
+            text-align: right !important;
+          }
+          .account-mgmt-container .table td[data-label]::before {
+            content: attr(data-label);
+            font-weight: 600;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #64748b;
+            text-align: left;
+            flex-shrink: 0;
+          }
+          .account-mgmt-container .table td[data-label="Full Name"] {
+            display: block;
+            text-align: left !important;
+            border-bottom: 1px dashed #e2e8f0;
+            margin-bottom: 6px;
+            padding-bottom: 10px;
+          }
+          .account-mgmt-container .table td[data-label="Full Name"]::before { display: none; }
+          .account-mgmt-container .table td[data-label="Profile"] {
+            justify-content: flex-start;
+          }
+          .account-mgmt-container .table td[data-label="Manage Permissions"] .d-flex {
+            justify-content: flex-end;
+          }
+          .account-mgmt-container .table td[data-label="Manage Permissions"] .form-select {
+            width: 100% !important;
+            max-width: 140px;
+          }
+        }
       `}</style>
 
     </div>

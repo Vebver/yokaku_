@@ -66,18 +66,18 @@ function Profile() {
       style={{ backgroundColor: "#f8f9fa", minHeight: "100vh" }}
     >
       {/* PAGE HEADER - Title on the Left */}
-      <div className="d-flex justify-content-between align-items-start mb-1">
+      <div className="profile-header d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-4">
         <div>
-          <h1 className="fw-bold mb-0 text-dark" style={{ fontSize: "2.5rem" }}>
+          <h1 className="fw-bold mb-0 text-dark profile-title" style={{ fontSize: "2.5rem" }}>
             Profile & Settings
           </h1>
           <p className="text-muted small">
             Manage your account information and security preferences
           </p>
         </div>
-        <button
+<button
           onClick={() => window.location.reload()}
-          className="btn btn-dark px-4 fw-bold shadow-sm"
+          className="btn btn-dark px-4 fw-bold shadow-sm profile-refresh-btn"
           style={{ borderRadius: "8px" }}
         >
           Refresh Data
@@ -216,7 +216,7 @@ function Profile() {
               <div className="mt-5">
                 <button
                   type="submit"
-                  className="btn btn-dark px-5 py-2 fw-bold"
+                  className="btn btn-dark px-5 py-2 fw-bold profile-submit-btn"
                   disabled={isSaving}
                 >
                   {isSaving ? "Saving Changes..." : "Save Profile Changes"}
@@ -260,7 +260,7 @@ function Profile() {
               <div className="col-md-6 text-md-end">
                 <button
                   type="button"
-                  className="btn btn-outline-dark fw-bold px-4"
+                  className="btn btn-outline-dark fw-bold px-4 profile-password-btn"
                 >
                   Update Password
                 </button>
@@ -269,6 +269,24 @@ function Profile() {
           </div>
         </div>
       </div>
+
+<style>{`
+        .profile-refresh-btn,
+        .profile-submit-btn,
+        .profile-password-btn {
+          width: auto;
+        }
+        @media (max-width: 767.98px) {
+          .profile-title { font-size: 1.75rem !important; }
+          .profile-header { gap: 0.75rem !important; }
+          .profile-header > div { width: 100%; }
+          .profile-refresh-btn,
+          .profile-submit-btn,
+          .profile-password-btn {
+            width: 100%;
+          }
+        }
+      `}</style>
     </div>
   );
 }

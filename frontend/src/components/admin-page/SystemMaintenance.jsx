@@ -279,7 +279,7 @@ const SystemMaintenance = () => {
 
   return (
     <div
-      className="card shadow-sm border-0 p-3 p-md-4 mt-4"
+      className="system-maintenance-container card shadow-sm border-0 p-3 p-md-4 mt-4"
       style={{ borderRadius: "12px" }}
     >
       <div className="d-flex align-items-center mb-4">
@@ -490,13 +490,13 @@ const SystemMaintenance = () => {
                   <tbody>
                     {backups.map((backup) => (
                       <tr key={backup.filename}>
-                        <td className="small text-break" style={{ maxWidth: "300px" }}>
+                        <td className="small text-break" style={{ maxWidth: "300px" }} data-label="Filename">
                           <Archive className="text-secondary me-2" size={16} />
                           {backup.filename}
                         </td>
-                        <td className="small text-muted">{formatSize(backup.size_bytes)}</td>
-                        <td className="small text-muted">{formatDate(backup.created_at)}</td>
-                        <td className="text-end">
+                        <td className="small text-muted" data-label="Size">{formatSize(backup.size_bytes)}</td>
+                        <td className="small text-muted" data-label="Created">{formatDate(backup.created_at)}</td>
+                        <td className="text-end" data-label="Actions">
                           <div className="d-flex gap-2 justify-content-end">
                             {/* Download */}
                             <button
@@ -545,6 +545,63 @@ const SystemMaintenance = () => {
           <b>creating database backups</b> regularly and <b>Exporting Records</b> for your physical archives.
         </span>
       </div>
+
+      <style>{`
+        @media (max-width: 768px) {
+          .system-maintenance-container .table-responsive { overflow: visible; }
+          .system-maintenance-container thead { display: none; }
+          .system-maintenance-container .table,
+          .system-maintenance-container .table tbody,
+          .system-maintenance-container .table tr,
+          .system-maintenance-container .table td { display: block; width: 100%; min-width: 0; }
+          .system-maintenance-container .table tbody tr {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            padding: 12px 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+          }
+          .system-maintenance-container .table td {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            border: none;
+            padding: 8px 0;
+            text-align: right !important;
+            min-width: 0;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+          }
+          .system-maintenance-container .table td[data-label]::before {
+            content: attr(data-label);
+            font-weight: 600;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #64748b;
+            text-align: left;
+            flex-shrink: 0;
+          }
+          .system-maintenance-container .table td[data-label="Filename"] {
+            display: block;
+            text-align: left !important;
+            border-bottom: 1px dashed #e2e8f0;
+            margin-bottom: 6px;
+            padding-bottom: 10px;
+            max-width: 100% !important;
+          }
+          .system-maintenance-container .table td[data-label="Filename"]::before { display: none; }
+          .system-maintenance-container .card-body .d-flex.justify-content-between {
+            flex-direction: column;
+            align-items: flex-start !important;
+          }
+          .system-maintenance-container .card-body .d-flex.justify-content-between .btn {
+            width: 100%;
+          }
+        }
+      `}</style>
     </div>
   );
 };

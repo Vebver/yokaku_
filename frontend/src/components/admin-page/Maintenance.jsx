@@ -63,8 +63,8 @@ const Maintenance = () => {
 
   return (
     <div className="container-fluid p-3 p-md-4 bg-light min-vh-100">
-      <div className="d-flex align-items-center mb-4">
-        <Cog className="me-2 text-secondary" />
+      <div className="d-flex align-items-center mb-4 flex-wrap gap-2">
+        <Cog className="me-2 text-secondary flex-shrink-0" />
         <h2 className="fw-bold mb-0">Operations & Settings</h2>
       </div>
 

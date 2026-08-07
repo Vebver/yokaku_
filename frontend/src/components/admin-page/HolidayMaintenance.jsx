@@ -38,7 +38,7 @@ const HolidayMaintenance = () => {
   };
 
   return (
-    <div className="card shadow-sm border-0 p-4 mt-4">
+    <div className="holiday-maintenance-container card shadow-sm border-0 p-4 mt-4">
       <h5 className="mb-4 text-warning fw-bold d-flex align-items-center">
         <CalendarOff className="me-2" /> Holiday & Closure Management
       </h5>
@@ -93,15 +93,15 @@ const HolidayMaintenance = () => {
             )}
             {holidays.map((h) => (
               <tr key={h.id}>
-                <td>
+                <td data-label="Date">
                   {new Date(h.block_date).toLocaleDateString("en-US", {
                     month: "long",
                     day: "numeric",
                     year: "numeric",
                   })}
                 </td>
-                <td>{h.reason}</td>
-                <td className="text-end">
+                <td data-label="Reason">{h.reason}</td>
+                <td className="text-end" data-label="Action">
                   <button
                     className="btn btn-link text-danger p-0"
                     onClick={() => handleDelete(h.id)}
@@ -114,6 +114,55 @@ const HolidayMaintenance = () => {
           </tbody>
         </table>
       </div>
+
+      <style>{`
+        @media (max-width: 768px) {
+          .holiday-maintenance-container .table-responsive { overflow: visible; }
+          .holiday-maintenance-container thead { display: none; }
+          .holiday-maintenance-container .table,
+          .holiday-maintenance-container .table tbody,
+          .holiday-maintenance-container .table tr,
+          .holiday-maintenance-container .table td { display: block; width: 100%; min-width: 0; }
+          .holiday-maintenance-container .table tbody tr {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            padding: 12px 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+          }
+          .holiday-maintenance-container .table td {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            border: none;
+            padding: 8px 0;
+            text-align: right !important;
+            min-width: 0;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+          }
+          .holiday-maintenance-container .table td[data-label]::before {
+            content: attr(data-label);
+            font-weight: 600;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #64748b;
+            text-align: left;
+            flex-shrink: 0;
+          }
+          .holiday-maintenance-container .table td[data-label="Date"] {
+            display: block;
+            text-align: left !important;
+            border-bottom: 1px dashed #e2e8f0;
+            margin-bottom: 6px;
+            padding-bottom: 10px;
+          }
+          .holiday-maintenance-container .table td[data-label="Date"]::before { display: none; }
+        }
+      `}</style>
     </div>
   );
 };

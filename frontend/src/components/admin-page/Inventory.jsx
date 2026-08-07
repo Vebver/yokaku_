@@ -167,7 +167,7 @@ function Inventory() {
 
   return (
     <div
-      className="container-fluid py-3 py-md-4 text-dark bg-light"
+      className="inventory-container container-fluid py-3 py-md-4 text-dark bg-light"
       style={{ minHeight: "100vh" }}
     >
       <div className="row g-3 align-items-center mb-4 px-2">
@@ -244,15 +244,15 @@ function Inventory() {
             <tbody>
               {currentItems.map((item) => (
                 <tr key={item.id}>
-                  <td className="ps-4">
+                  <td className="ps-4" data-label="Item Name">
                     <div className="fw-bold text-dark">{item.name}</div>
                   </td>
-                  <td>
+                  <td data-label="Category">
                     <span className="badge bg-white text-dark border fw-normal">
                       {item.category}
                     </span>
                   </td>
-                  <td>
+                  <td data-label="Stock Level">
                     <div
                       className={`fw-bold ${item.stock <= item.reorder ? "text-danger" : "text-dark"}`}
                     >
@@ -265,10 +265,10 @@ function Inventory() {
                       Reorder at: {item.reorder}
                     </div>
                   </td>
-                  <td className="fw-bold text-success">
+                  <td className="fw-bold text-success" data-label="Unit Cost">
                     ₱{Number(item.price).toFixed(2)}
                   </td>
-                  <td>
+                  <td data-label="Status">
                     <span
                       className={`badge rounded-pill px-2 py-1 x-small ${
                         item.stock <= 0
@@ -289,7 +289,7 @@ function Inventory() {
                             : "HEALTHY"}
                     </span>
                   </td>
-                  <td>
+                  <td data-label="Expiry">
                     {isExpired(item.expiry) && (
                       <AlertTriangle size={12} className="text-danger me-1" />
                     )}
@@ -310,22 +310,26 @@ function Inventory() {
                         : "---"}
                     </span>
                   </td>
-                  <td className="small text-muted">{item.location || "---"}</td>
-                  <td className="text-end pe-4">
-                    <button
-                      className="btn btn-sm btn-outline-primary border-0 me-1"
-                      data-bs-toggle="offcanvas"
-                      data-bs-target="#addInvDrawer"
-                      onClick={() => openEditMode(item)}
-                    >
-                      <Edit2 size={16} />
-                    </button>
-                    <button
-                      className="btn btn-sm btn-outline-danger border-0"
-                      onClick={() => deleteItem(item.id)}
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                  <td className="small text-muted" data-label="Storage">
+                    {item.location || "---"}
+                  </td>
+                  <td className="text-end pe-4" data-label="Action">
+                    <div className="d-inline-flex">
+                      <button
+                        className="btn btn-sm btn-outline-primary border-0 me-1"
+                        data-bs-toggle="offcanvas"
+                        data-bs-target="#addInvDrawer"
+                        onClick={() => openEditMode(item)}
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button
+                        className="btn btn-sm btn-outline-danger border-0"
+                        onClick={() => deleteItem(item.id)}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -539,7 +543,52 @@ function Inventory() {
         </div>
       </div>
 
-      <style>{`.x-small { font-size: 0.65rem; letter-spacing: 0.5px; } .animate-spin { animation: spin 1s linear infinite; } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+<style>{`.x-small { font-size: 0.65rem; letter-spacing: 0.5px; } .animate-spin { animation: spin 1s linear infinite; } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @media (max-width: 768px) {
+          .inventory-container .table-responsive { overflow: visible; }
+          .inventory-container thead { display: none; }
+          .inventory-container .table, .inventory-container .table tbody, .inventory-container .table tr, .inventory-container .table td { display: block; width: 100%; min-width: 0; }
+          .inventory-container .table { min-width: 0 !important; }
+          .inventory-container .table tbody tr {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            padding: 12px 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+          }
+          .inventory-container .table td {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            border: none;
+            padding: 8px 0;
+            text-align: right !important;
+            min-width: 0;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+          }
+          .inventory-container .table td[data-label]::before {
+            content: attr(data-label);
+            font-weight: 600;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #64748b;
+            text-align: left;
+            flex-shrink: 0;
+          }
+          .inventory-container .table td[data-label="Item Name"] {
+            display: block;
+            text-align: left !important;
+            border-bottom: 1px dashed #e2e8f0;
+            margin-bottom: 6px;
+            padding-bottom: 10px;
+          }
+          .inventory-container .table td[data-label="Item Name"]::before { display: none; }
+        }
+      `}</style>
     </div>
   );
 }

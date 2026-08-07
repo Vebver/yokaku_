@@ -32,7 +32,7 @@ const AuditLogs = () => {
   if (loading) return <div className="text-center py-5"><div className="spinner-border text-primary"></div></div>;
 
   return (
-    <div className="container-fluid py-4 bg-light">
+    <div className="audit-logs-container container-fluid py-4 bg-light">
       <div className="mb-4">
         <h2 className="fw-bold mb-1 text-dark d-flex align-items-center">
           <Shield className="me-2 text-primary" size={24} /> System Audit Trail
@@ -56,18 +56,18 @@ const AuditLogs = () => {
               {currentLogs.length > 0 ? (
                 currentLogs.map((log) => (
                   <tr key={log.log_id}>
-                    <td className="ps-4 small text-muted">
+                    <td className="ps-4 small text-muted" data-label="Timestamp">
                       {new Date(log.created_at).toLocaleString()}
                     </td>
-                    <td>
+                    <td data-label="User (Actor)">
                       <span className="fw-bold">{log.first_name || "System"}</span>
                     </td>
-                    <td>
+                    <td data-label="Action">
                       <span className={`badge px-2 py-1 ${log.action.includes("REJECT") || log.action.includes("DELETE") ? "bg-danger-subtle text-danger" : "bg-primary-subtle text-primary"}`}>
                         {log.action}
                       </span>
                     </td>
-                    <td className="small text-muted">
+                    <td className="small text-muted" data-label="Target User">
                       {log.target_name ? (
                         <span>
                           <strong className="text-dark">{log.target_name}</strong>{" "}
@@ -81,7 +81,7 @@ const AuditLogs = () => {
                         "N/A"
                       )}
                     </td>
-                    <td className="small text-muted">{log.details || "N/A"}</td>
+                    <td className="small text-muted" data-label="Details">{log.details || "N/A"}</td>
                   </tr>
                 ))
               ) : (
@@ -130,6 +130,58 @@ const AuditLogs = () => {
           </nav>
         </div>
       )}
+
+      <style>{`
+        @media (max-width: 768px) {
+          .audit-logs-container .table-responsive { overflow: visible; }
+          .audit-logs-container thead { display: none; }
+          .audit-logs-container .table,
+          .audit-logs-container .table tbody,
+          .audit-logs-container .table tr,
+          .audit-logs-container .table td { display: block; width: 100%; min-width: 0; }
+          .audit-logs-container .table tbody tr {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            padding: 12px 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+          }
+          .audit-logs-container .table td {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            border: none;
+            padding: 8px 0;
+            text-align: right !important;
+            min-width: 0;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+          }
+          .audit-logs-container .table td[data-label]::before {
+            content: attr(data-label);
+            font-weight: 600;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #64748b;
+            text-align: left;
+            flex-shrink: 0;
+          }
+          .audit-logs-container .table td[data-label="Timestamp"] {
+            display: block;
+            text-align: left !important;
+            border-bottom: 1px dashed #e2e8f0;
+            margin-bottom: 6px;
+            padding-bottom: 10px;
+          }
+          .audit-logs-container .table td[data-label="Timestamp"]::before { display: none; }
+          .audit-logs-container .table td[data-label="Details"] {
+            display: flex;
+          }
+        }
+      `}</style>
     </div>
   );
 };
