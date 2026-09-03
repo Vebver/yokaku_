@@ -547,7 +547,7 @@ function AdminDashboard() {
       </div>
 
       {/* STATS CARDS */}
-      <h2 className="fw-bold mb-00">Report Overview</h2>
+      <h2 className="fw-bold mb-3 mt-4">Report Overview</h2>
       <div className="row g-3 mb-4">
         <StatCard
           title="Total Bookings"
@@ -634,7 +634,7 @@ function AdminDashboard() {
       <div className="bg-white rounded-4 shadow-sm border p-4 overflow-hidden">
         <div
           className="floor-status-wrapper"
-          style={{ maxHeight: "500px", overflowY: "auto", overflowX: "hidden" }}
+          style={{ maxHeight: "700px", overflowY: "auto", overflowX: "hidden" }}
         >
           <h2 className="fw-bold mb-3">Table Status</h2>
           <TableStatus compact={true} />

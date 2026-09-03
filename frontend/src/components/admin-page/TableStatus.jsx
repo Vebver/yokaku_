@@ -298,7 +298,7 @@ const TableStatus = ({ compact = false }) => {
       )}
 
       {/* Responsive Grid */}
-      <div className="row g-2 row-cols-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-8">
+      <div className="row g-4 row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xl-4">
         {data.tables.map((t) => {
           let activeStatus = t.bridge_status?.toLowerCase() || "available";
           const resDate = getTableReservationDateString(
@@ -326,11 +326,11 @@ const TableStatus = ({ compact = false }) => {
 
           return (
             <div key={t.table_id} className="col">
-              <div className="card border-0 shadow-sm h-100">
+              <div className="card border-0 shadow-sm h-100" style={{ minHeight: "220px" }}>
                 <div
-                  style={{ height: "3px", backgroundColor: cfg.color }}
+                  style={{ height: "5px", backgroundColor: cfg.color }}
                 ></div>
-                <div className="card-body p-2 d-flex flex-column justify-content-between">
+                <div className="card-body p-4 d-flex flex-column justify-content-between">
                   {/* EVENT 3-HOUR TIMER */}
                   {isEvent && (
                     <div
@@ -349,7 +349,7 @@ const TableStatus = ({ compact = false }) => {
                     <div className="d-flex justify-content-between align-items-start mb-0">
                       <h6
                         className="fw-bold mb-0 text-truncate"
-                        style={{ fontSize: "0.75rem" }}
+                        style={{ fontSize: "1.1rem" }}
                       >
                         Table {t.table_number}
                       </h6>
@@ -388,18 +388,18 @@ const TableStatus = ({ compact = false }) => {
 
                     <div
                       className="text-muted mb-1"
-                      style={{ fontSize: "0.6rem" }}
+                        style={{ fontSize: "0.85rem" }}
                     >
                       <Users size={9} /> {t.capacity} Pax
                     </div>
 
                     <div
                       className="bg-light rounded-2 p-1 mb-2 border text-center d-flex align-items-center justify-content-center"
-                      style={{ minHeight: "40px" }}
+                      style={{ minHeight: "72px" }}
                     >
                       <span
                         className="text-dark fw-bold"
-                        style={{ fontSize: "0.65rem" }}
+                        style={{ fontSize: "0.95rem" }}
                       >
                         {isAvailable
                           ? "Vacant"
@@ -412,7 +412,7 @@ const TableStatus = ({ compact = false }) => {
                     {isKioskActive && (
                       <button
                         className="btn btn-sm btn-danger w-100 py-0 fw-bold mb-1"
-                        style={{ fontSize: "0.65rem", height: "22px" }}
+                        style={{ fontSize: "0.75rem", height: "32px" }}
                         onClick={(e) => stopKiosk(t.reservation_id, e)}
                       >
                         <Square size={10} className="me-1" /> Stop Kiosk
@@ -421,7 +421,7 @@ const TableStatus = ({ compact = false }) => {
                     {activeStatus === "seated" ? (
                       <button
                         className="btn btn-sm btn-primary w-100 py-0 fw-bold"
-                        style={{ fontSize: "0.65rem", height: "22px" }}
+                        style={{ fontSize: "0.75rem", height: "32px" }}
                         onClick={() => openBill(t)}
                       >
                         View Orders
@@ -429,7 +429,7 @@ const TableStatus = ({ compact = false }) => {
                     ) : activeStatus === "confirmed" ? (
                       <button
                         className="btn btn-sm btn-warning w-100 py-0 fw-bold text-white"
-                        style={{ fontSize: "0.65rem", height: "22px" }}
+                        style={{ fontSize: "0.75rem", height: "32px" }}
                         onClick={() =>
                           handleAction(
                             "put",

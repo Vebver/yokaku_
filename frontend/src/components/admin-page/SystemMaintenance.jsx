@@ -18,6 +18,7 @@ import { useToast } from "../ToastContext";
 const SystemMaintenance = () => {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [reportPeriod, setReportPeriod] = useState("");
   const { showToast } = useToast();
   const [kioskReservationId, setKioskReservationId] = useState("");
   const [backups, setBackups] = useState([]);
@@ -235,6 +236,22 @@ const SystemMaintenance = () => {
     }
   };
 
+  const selectReportPeriod = (period) => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
+
+    setReportPeriod(period);
+    if (period === "monthly") {
+      setStartDate(`${year}-${month}-01`);
+      setEndDate(`${year}-${month}-${String(lastDay).padStart(2, "0")}`);
+    } else {
+      setStartDate(`${year}-01-01`);
+      setEndDate(`${year}-12-31`);
+    }
+  };
+
   const downloadReport = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -360,6 +377,25 @@ const SystemMaintenance = () => {
         <p className="small text-muted mb-3">
           Select a date range to generate a professional revenue analysis.
         </p>
+
+        <div className="d-flex gap-2 mb-3">
+          <button
+            type="button"
+            onClick={() => selectReportPeriod("monthly")}
+            className={`btn flex-fill fw-bold ${reportPeriod === "monthly" ? "btn-danger" : "btn-outline-danger"}`}
+            style={{ borderRadius: "8px" }}
+          >
+            Monthly
+          </button>
+          <button
+            type="button"
+            onClick={() => selectReportPeriod("yearly")}
+            className={`btn flex-fill fw-bold ${reportPeriod === "yearly" ? "btn-danger" : "btn-outline-danger"}`}
+            style={{ borderRadius: "8px" }}
+          >
+            Yearly
+          </button>
+        </div>
         
         {/* Date Selection Area */}
         <div className="row g-2 mb-4">
