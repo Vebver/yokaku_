@@ -1,4 +1,5 @@
 const Product = require("../models/Product");
+const Notification = require("../models/Notification");
 // Commented out unused model during peak-pricing disablement
 // const PriceMaintenance = require("../models/PriceMaintenance");
 const Setting = require("../models/Settings"); 
@@ -126,6 +127,16 @@ const productController = {
         { menu_name, price: parseFloat(price) || 0, category_id: parseInt(category_id) },
         req,
       );
+
+      try {
+        await Notification.createForCustomers(null, {
+          title: "New menu item available",
+          message: `${menu_name} has been added to the menu. Check it out now!`,
+          type: "menu",
+        });
+      } catch (notificationError) {
+        console.error("New menu notification error:", notificationError.message);
+      }
 
       res.status(201).json({ success: true, id: newId });
     } catch (error) { res.status(500).json({ error: error.message }); }

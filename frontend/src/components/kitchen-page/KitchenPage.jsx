@@ -7,6 +7,7 @@ import {
   Timer,
   Loader2,
   LogOut,
+  Boxes,
 } from "lucide-react";
 import { io } from "socket.io-client";
 import { useLocation, useNavigate } from "react-router-dom"; // Added useNavigate
@@ -298,6 +299,14 @@ const KitchenPage = () => {
         </div>
 
         <div className="nav-right">
+          <button
+            onClick={() => navigate("/kitchen-inventory")}
+            className="inventory-nav-btn"
+            title="Open inventory"
+          >
+            <Boxes size={20} />
+            <span>INVENTORY</span>
+          </button>
           <div className="user-profile">
             <div className="user-info text-end">
               <span className="user-name">
@@ -367,6 +376,12 @@ const KitchenPage = () => {
         .count-pill { background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; }
 
         .nav-right { display: flex; align-items: center; gap: 20px; }
+        .inventory-nav-btn {
+          display: inline-flex; align-items: center; gap: 7px; padding: 8px 12px;
+          border: 1px solid #4a4a4a; border-radius: 8px; background: #2d2d2d;
+          color: #f5f5f5; cursor: pointer; font-size: 0.72rem; font-weight: 700;
+        }
+        .inventory-nav-btn:hover { background: #3b3b3b; border-color: #f38d31; }
         .user-profile { display: flex; align-items: center; gap: 12px; border-right: 1px solid #333; padding-right: 20px; }
         .user-name { display: block; font-size: 0.9rem; font-weight: 600; }
         .user-role { display: block; font-size: 0.7rem; color: #f38d31; }

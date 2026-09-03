@@ -33,4 +33,14 @@ const adminOnly = (req, res, next) => {
   }
 };
 
-module.exports = { protect, adminOnly };
+const inventoryAccess = (req, res, next) => {
+  const allowedRoles = ["admin", "cook"];
+
+  if (req.user && allowedRoles.includes(req.user.role)) {
+    next();
+  } else {
+    res.status(403).json({ error: "Access denied. Kitchen staff only." });
+  }
+};
+
+module.exports = { protect, adminOnly, inventoryAccess };

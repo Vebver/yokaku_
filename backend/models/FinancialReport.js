@@ -42,6 +42,44 @@ const FinancialReport = {
     return rows;
   },
 
+  getDailyProfitTrend: async (todayStr) => {
+    const [rows] = await db.execute(
+      `
+      SELECT DATE_FORMAT(d, '%b %e') as label, SUM(amount) as value
+      FROM (
+        SELECT paid_at as d, amount FROM payments WHERE payment_status = 'verified'
+        UNION ALL
+        SELECT ko.created_at as d, (ko.quantity * m.price) as amount
+        FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
+        WHERE ko.reservation_id IS NULL
+      ) as combined
+      WHERE YEAR(d) = YEAR(?) AND MONTH(d) = MONTH(?)
+      GROUP BY DATE(d) ORDER BY DATE(d) ASC
+      `,
+      [todayStr, todayStr],
+    );
+    return rows;
+  },
+
+  getMonthlyProfitTrend: async (todayStr) => {
+    const [rows] = await db.execute(
+      `
+      SELECT DATE_FORMAT(d, '%b') as label, SUM(amount) as value
+      FROM (
+        SELECT paid_at as d, amount FROM payments WHERE payment_status = 'verified'
+        UNION ALL
+        SELECT ko.created_at as d, (ko.quantity * m.price) as amount
+        FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
+        WHERE ko.reservation_id IS NULL
+      ) as combined
+      WHERE YEAR(d) = YEAR(?)
+      GROUP BY MONTH(d), DATE_FORMAT(d, '%b') ORDER BY MONTH(d) ASC
+      `,
+      [todayStr],
+    );
+    return rows;
+  },
+
   // Parameterized with todayStr
   getRecentTrend: async (todayStr) => {
     const query = `

@@ -47,6 +47,7 @@ const KioskReservationMenu = lazy(() =>
 const KitchenPage = lazy(() =>
   import("./components/kitchen-page/KitchenPage.jsx")
 );
+const Inventory = lazy(() => import("./components/admin-page/Inventory.jsx"));
 const TableReservation = lazy(() =>
   import("./components/ReservationSteps.jsx")
 );
@@ -327,6 +328,16 @@ function AppContent() {
           element={
             isLoggedIn && (userRole === "cook" || userRole === "admin") ? (
               <KitchenPage />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+        <Route
+          path="/kitchen-inventory"
+          element={
+            isLoggedIn && (userRole === "cook" || userRole === "admin") ? (
+              <Inventory />
             ) : (
               <Navigate to="/" replace />
             )

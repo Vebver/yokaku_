@@ -14,9 +14,8 @@ const [
       lowStockItems,
       inventoryUsage,
       financialStats,
+      dailyTrend,
       monthlyTrend,
-      weeklyTrend,
-      yearlyTrend,
       performanceSummary,
       inventorySummary,
       expiredItems,
@@ -26,9 +25,8 @@ const [
       InventoryModel.GetLowStockItems(),
       InventoryModel.GetInventoryUsage(),
       FinancialReport.getFinancialStats(todayStr),
-      FinancialReport.getMonthlyTrend(),
-      FinancialReport.getWeeklyProfitTrend(todayStr),
-      FinancialReport.getYearlyProfitTrend(todayStr),
+      FinancialReport.getDailyProfitTrend(todayStr),
+      FinancialReport.getMonthlyProfitTrend(todayStr),
       ReportModel.GetPerformanceSummary(),
       InventoryModel.GetInventorySummary(),
       InventoryModel.GetExpiredItems(),
@@ -116,17 +114,15 @@ const [
           lowStockList: lowStockItems,
         },
 
-        // Map database fields to the exact keys expected by the React monthly table
-        monthlyTrend: (monthlyTrend || []).map((item) => ({
-          month: item.label,
+        // Monthly mode displays daily revenue for the current month.
+        dailyTrend: (dailyTrend || []).map((item) => ({
+          date: item.label,
           revenue: Number(item.value || 0),
         })),
 
-        weeklyTrend: weeklyTrend || [],
-
-        // Map database fields to the exact keys expected by the React yearly table
-        yearlyTrend: (yearlyTrend || []).map((item) => ({
-          year: item.label,
+        // Yearly mode displays one revenue total for each month of the current year.
+        monthlyTrend: (monthlyTrend || []).map((item) => ({
+          month: item.label,
           revenue: Number(item.value || 0),
         })),
       },

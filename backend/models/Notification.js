@@ -9,6 +9,20 @@ const setIo = (io) => {
 const Notification = {
   setIo,
 
+  createForCustomers: async (connection, data) => {
+    const conn = connection || db;
+    const [customers] = await conn.execute(
+      "SELECT user_id FROM users WHERE LOWER(role) = 'customer'",
+    );
+
+    for (const customer of customers) {
+      await Notification.create(conn, {
+        ...data,
+        userId: customer.user_id,
+      });
+    }
+  },
+
   create: async (connection, data) => {
     const conn = connection || db;
 
