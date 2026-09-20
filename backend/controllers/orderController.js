@@ -1,5 +1,6 @@
 const db = require("../config/db");
 const Order = require("../models/Order");
+const Notification = require("../models/Notification");
 
 const orderController = {
   // --- 1. Update Status ---
@@ -21,6 +22,13 @@ const orderController = {
   // --- 2. Place Order (Fixed) ---
  placeOrder: async (req, res) => {
     const { reservation_id, table_id, items } = req.body;
+    const requestedGuests = Number.parseInt(
+      req.body.guests ?? req.body.num_guests,
+      10,
+    );
+    const guestCount = Number.isInteger(requestedGuests)
+      ? Math.min(Math.max(requestedGuests, 1), 35)
+      : 1;
     console.log("📡 [DEBUG] placeOrder called with ID:", reservation_id);
     const conn = await db.getConnection();
 
@@ -67,7 +75,12 @@ const orderController = {
       if (existing.length === 0) {
         if (isWalkIn) {
           // Automatically create a Walk-in session since it doesn't exist in the database yet
-          await Order.createWalkinSession(conn, reservation_id, "Walk-in");
+          await Order.createWalkinSession(
+            conn,
+            reservation_id,
+            "Walk-in",
+            guestCount,
+          );
           
           if (table_id && table_id !== "takeout" && table_id !== "null") {
             await Order.linkTableToSession(conn, reservation_id, table_id);
@@ -82,6 +95,13 @@ const orderController = {
           "UPDATE reservations SET status = 'Seated' WHERE reservation_id = ?",
           [reservation_id]
         );
+
+        if (isWalkIn) {
+          await conn.execute(
+            "UPDATE reservations SET num_guests = ? WHERE reservation_id = ?",
+            [guestCount, reservation_id],
+          );
+        }
         
         if (table_id && table_id !== "takeout" && table_id !== "null") {
           await conn.execute(
@@ -118,6 +138,7 @@ const orderController = {
           item.customizations,
           item.is_refill ? 1 : 0,
           req.body.allergy_note,
+          table_id,
         );
 
         enrichedItems.push({
@@ -133,6 +154,23 @@ const orderController = {
       // =========================================================================
 
       await conn.commit();
+
+      // Persist an admin alert so the order remains visible after refresh.
+      try {
+        const itemSummary = enrichedItems
+          .map((item) => `${item.qty}x ${item.name}`)
+          .join(", ");
+        await Notification.create(null, {
+          reservationId: reservation_id,
+          title: "New Kiosk Order",
+          message: `${itemSummary || "New items"} from ${table_id ? `Table ${table_id}` : "Walk-in"}.`,
+          type: "order",
+          isAdminAlert: true,
+        });
+      } catch (notificationError) {
+        // Do not reject a successfully saved order if notification delivery fails.
+        console.error("❌ Kiosk order notification error:", notificationError);
+      }
 
       // 3. Emit socket events
       const io = req.app.get("io");

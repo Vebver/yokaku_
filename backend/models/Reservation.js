@@ -269,8 +269,30 @@ const Reservation = {
       hour12: false,
       timeZone: "Asia/Manila",
     });
+    const parsedTableId = Number.parseInt(tableId, 10);
+    const hasTable = Number.isInteger(parsedTableId);
+    const tableFilter = hasTable
+      ? "AND EXISTS (SELECT 1 FROM reservation_tables rt_filter WHERE rt_filter.reservation_id = r.reservation_id AND rt_filter.table_id = ?)"
+      : "";
+    const tableParams = hasTable ? [parsedTableId] : [];
 
-    // 1. Check if there is an active event reservation scheduled for right now
+    // 1. An explicitly opened event takes priority on its assigned table only.
+    const activeEventSql = `
+          SELECT r.*
+          FROM reservations r
+          WHERE r.reservation_type = 'event'
+            AND r.is_kiosk_active = 1
+            AND r.status IN ('Confirmed', 'Seated', 'Pending')
+            ${tableFilter}
+          ORDER BY r.reservation_date ASC, r.reservation_time ASC
+          LIMIT 1
+        `;
+    const [activeEvents] = await db.execute(activeEventSql, tableParams);
+    if (activeEvents.length > 0) {
+      return { mode: "event_active", reservation: activeEvents[0] };
+    }
+
+    // 2. Check if there is an event reservation scheduled for right now.
     const eventSql = `
           SELECT r.* 
           FROM reservations r
@@ -279,9 +301,10 @@ const Reservation = {
             AND r.reservation_date = ?
             AND r.reservation_time <= ? 
             AND r.end_time >= ?
+            ${tableFilter}
           LIMIT 1
         `;
-    const [events] = await db.execute(eventSql, [today, now, now]);
+    const [events] = await db.execute(eventSql, [today, now, now, ...tableParams]);
 
     if (events.length > 0) {
       const event = events[0];
@@ -291,16 +314,19 @@ const Reservation = {
         return { mode: "event_waiting", reservation: event };
       }
     }
-    // 2. Check globally if there is any reservation actively pushed to the kiosk by the admin (fail-safe version)
+    // 3. Single-customer sessions are intentionally separate from events.
     const activeSql = `
           SELECT r.* 
           FROM reservations r
           WHERE r.is_kiosk_active = 1
+            AND COALESCE(r.reservation_type, 'per_table') <> 'event'
+            AND r.status IN ('Confirmed', 'Seated', 'Pending')
+            ${tableFilter}
           LIMIT 1
         `;
-    const [actives] = await db.execute(activeSql);
+    const [actives] = await db.execute(activeSql, tableParams);
     if (actives.length > 0) {
-      return { mode: "table_assigned", reservation: actives[0] };
+      return { mode: "single_active", reservation: actives[0] };
     }
 
     return { mode: "table_default" };
@@ -520,16 +546,29 @@ const Reservation = {
         }
       }
 
-      // 3. Insert payment record
+      // 3. Insert payment record. Keep package pricing authoritative even if
+      // the client omits a total for a Standard or Premium package.
       const payStatus = data.isWalkin ? "verified" : "pending";
+      const packageBasePrice =
+        String(data.packageName || "").toLowerCase().includes("premium")
+          ? 12500
+          : String(data.packageName || "").toLowerCase().includes("standard")
+            ? 10000
+            : 0;
+      const submittedTotal = Number(data.totalAmount || data.amount || 0);
+      const totalBill = Math.max(submittedTotal, packageBasePrice);
+      const paidAmount = Math.min(
+        Math.max(Number(data.downpayment || 0), 0),
+        totalBill,
+      );
       await conn.query(
         `INSERT INTO payments 
         (reservation_id, amount, total_bill, payment_method, payment_status, paid_at) 
         VALUES (?, ?, ?, ?, ?, NOW())`,
         [
           customId,
-          data.downpayment || 0,
-          data.totalAmount || data.amount || 0,
+          paidAmount,
+          totalBill,
           data.paymentMethod || "Cash",
           payStatus,
         ],
@@ -646,7 +685,13 @@ const Reservation = {
   },
 
   getAll: async () => {
-    const sql = `SELECT r.*, p.payment_status, p.amount, GROUP_CONCAT(DISTINCT t.table_number SEPARATOR ' + ') AS assigned_tables FROM reservations r LEFT JOIN payments p ON r.reservation_id = p.reservation_id LEFT JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id LEFT JOIN tables t ON rt.table_id = t.table_id GROUP BY r.reservation_id ORDER BY r.created_at DESC`;
+    const sql = `SELECT r.*, p.payment_status, p.amount, p.total_bill,
+      GREATEST(COALESCE(p.total_bill, 0) - COALESCE(p.amount, 0), 0) AS balance_due,
+      GROUP_CONCAT(DISTINCT t.table_number SEPARATOR ' + ') AS assigned_tables
+      FROM reservations r LEFT JOIN payments p ON r.reservation_id = p.reservation_id
+      LEFT JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
+      LEFT JOIN tables t ON rt.table_id = t.table_id
+      GROUP BY r.reservation_id ORDER BY r.created_at DESC`;
     const [rows] = await db.execute(sql);
     return rows;
   },

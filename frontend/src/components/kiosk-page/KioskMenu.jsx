@@ -935,7 +935,8 @@ const KioskMenu = () => {
                           ? "Take-Out"
                           : "Dine-In",
                     });
-                    setShowPaymentModal(true);
+                    setIsFinalCheckout(false);
+                    setShowBillInfo(true);
                   } else {
                     const fixedTable =
                       setupTable ||
@@ -946,7 +947,8 @@ const KioskMenu = () => {
                         tableId: fixedTable,
                         mode: "Dine-In",
                       });
-                      setShowPaymentModal(true);
+                      setIsFinalCheckout(false);
+                      setShowBillInfo(true);
                     } else {
                       setShowTypeModal(true);
                     }
@@ -978,7 +980,8 @@ const KioskMenu = () => {
                   if (fixed) {
                     setPendingOrderDetails({ tableId: fixed, mode: "Dine-In" });
                     setShowTypeModal(false);
-                    setShowPaymentModal(true);
+                    setIsFinalCheckout(false);
+                    setShowBillInfo(true);
                   } else {
                     axios
                       .get(`${API_BASE}/admin/public/getTable`, getAuthHeader())
@@ -999,7 +1002,8 @@ const KioskMenu = () => {
                     mode: "Take-Out",
                   });
                   setShowTypeModal(false);
-                  setShowPaymentModal(true);
+                  setIsFinalCheckout(false);
+                  setShowBillInfo(true);
                 }}
               >
                 TAKE-OUT
@@ -1039,7 +1043,8 @@ const KioskMenu = () => {
                       mode: "Dine-In",
                     });
                     setShowTablePicker(false);
-                    setShowPaymentModal(true);
+                    setIsFinalCheckout(false);
+                    setShowBillInfo(true);
                   }}
                   style={{
                     padding: "15px",
@@ -1220,7 +1225,25 @@ const KioskMenu = () => {
                 marginTop: "20px",
               }}
             >
-              {parseFloat(calculateTotalDue(isFinalCheckout)) > 0 ? (
+              {!isFinalCheckout ? (
+                <>
+                  <button
+                    className="res-modal-btn-primary"
+                    onClick={() => confirmPaymentChoice("Pay Now")}
+                    disabled={isLoading}
+                  >
+                    PAY NOW (CASHIER)
+                  </button>
+                  <button
+                    className="res-modal-btn-primary"
+                    style={{ background: "#ffcc00" }}
+                    onClick={() => confirmPaymentChoice("Pay Later")}
+                    disabled={isLoading}
+                  >
+                    ORDER NOW, PAY LATER
+                  </button>
+                </>
+              ) : parseFloat(calculateTotalDue(isFinalCheckout)) > 0 ? (
                 <button
                   className="res-modal-btn-primary"
                   onClick={async () => {
@@ -1262,7 +1285,9 @@ const KioskMenu = () => {
                 className="res-btn-cancel"
                 onClick={() => setShowBillInfo(false)}
               >
-                {parseFloat(calculateTotalDue(isFinalCheckout)) > 0
+                {!isFinalCheckout
+                  ? "BACK"
+                  : parseFloat(calculateTotalDue(isFinalCheckout)) > 0
                   ? "PAY LATER"
                   : "Close"}
               </button>

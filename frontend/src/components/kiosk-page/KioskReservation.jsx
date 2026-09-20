@@ -43,8 +43,8 @@ const KioskReservation = () => {
             // Lock this entry interface down into the event waiting screen
             setEventMode("event_waiting");
           }
-          // EXCLUSIVELY FOR PRIVATE EVENTS: Auto-unlocks and enters the menu
-          else if (mode === "event_active") {
+          // Opened event and single-customer sessions both enter the menu directly.
+          else if (mode === "event_active" || mode === "single_active") {
             sessionStorage.setItem("resId", reservation.reservation_id);
             if (reservation.table_id) {
               sessionStorage.setItem(

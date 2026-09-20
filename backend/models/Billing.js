@@ -15,6 +15,13 @@ const Billing = {
           p.payment_id,
           p.amount,              -- Amount currently paid / deposit
           p.total_bill,          -- The ACTUAL calculated bill (Added)
+          GREATEST(COALESCE(p.total_bill, 0) - COALESCE(p.amount, 0), 0) AS balance_due,
+          CASE
+            WHEN p.payment_id IS NULL THEN 'unpaid'
+            WHEN COALESCE(p.amount, 0) >= COALESCE(p.total_bill, 0) THEN 'paid'
+            WHEN COALESCE(p.amount, 0) > 0 THEN 'partial'
+            ELSE 'unpaid'
+          END AS settlement_status,
           p.payment_method,
           p.payment_status,
           p.rejection_reason,

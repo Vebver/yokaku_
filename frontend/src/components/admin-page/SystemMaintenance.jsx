@@ -20,9 +20,21 @@ const SystemMaintenance = () => {
   const [endDate, setEndDate] = useState("");
   const { showToast } = useToast();
   const [kioskReservationId, setKioskReservationId] = useState("");
+  const [kioskType, setKioskType] = useState("single");
+  const [activeKiosk, setActiveKiosk] = useState(null);
   const [backups, setBackups] = useState([]);
   const [backupsLoading, setBackupsLoading] = useState(false);
   const [creatingBackup, setCreatingBackup] = useState(false);
+
+  const fetchKioskStatus = useCallback(async () => {
+    try {
+      const res = await api.get("/reservations/active-kiosk");
+      const isOpen = ["event_active", "single_active"].includes(res.data?.mode);
+      setActiveKiosk(isOpen ? res.data.reservation : null);
+    } catch (err) {
+      console.error("Failed to fetch kiosk status:", err);
+    }
+  }, []);
 
   // ──────────────────────────────────────────────
   // BACKUP & RESTORE FUNCTIONS
@@ -45,7 +57,8 @@ const SystemMaintenance = () => {
 
   useEffect(() => {
     fetchBackups();
-  }, [fetchBackups]);
+    fetchKioskStatus();
+  }, [fetchBackups, fetchKioskStatus]);
 
   const handleCreateBackup = async () => {
     const confirmed = window.confirm(
@@ -192,15 +205,34 @@ const SystemMaintenance = () => {
       const token = localStorage.getItem("token");
       const res = await api.post(
         `/admin/set-kiosk-reservation`,
-        { reservationId: kioskReservationId },
+        { reservationId: kioskReservationId, kioskType },
         { headers: { Authorization: `Bearer ${token}` } },
       );
 
       showToast("Success: " + res.data.message);
       setKioskReservationId(""); // Reset input on success
+      await fetchKioskStatus();
     } catch (err) {
       console.error(err);
       showToast("Error: " + (err.response?.data?.error || "Action failed"));
+    }
+  };
+
+  const handleCloseKiosk = async () => {
+    if (!activeKiosk?.reservation_id) {
+      showToast("No kiosk session is currently open.");
+      return;
+    }
+    if (!window.confirm(`Close the ${activeKiosk.reservation_type === "event" ? "event" : "single-customer"} kiosk session?`)) return;
+
+    try {
+      await api.post("/admin/stop-kiosk", {
+        reservationId: activeKiosk.reservation_id,
+      });
+      showToast("Kiosk closed successfully.", "success");
+      await fetchKioskStatus();
+    } catch (err) {
+      showToast(err.response?.data?.error || "Failed to close kiosk.");
     }
   };
 
@@ -319,11 +351,35 @@ const SystemMaintenance = () => {
     >
       <div>
         <Monitor className="text-primary mb-3" size={40} />
-        <h5 className="fw-bold">Set Kiosk Reservation</h5>
+        <h5 className="fw-bold">Open Kiosk Session</h5>
         <p className="small text-muted mb-4">
-          Input the reservation ID to route this specific record directly
-          to the active kiosk.
+          Choose whether the kiosk should serve an event or one customer, then
+          enter the matching reservation ID.
         </p>
+        <div className="d-flex justify-content-center gap-3 mb-3">
+          <label className="form-check">
+            <input
+              className="form-check-input"
+              type="radio"
+              name="kioskType"
+              value="single"
+              checked={kioskType === "single"}
+              onChange={(e) => setKioskType(e.target.value)}
+            />
+            <span className="form-check-label">Single customer</span>
+          </label>
+          <label className="form-check">
+            <input
+              className="form-check-input"
+              type="radio"
+              name="kioskType"
+              value="event"
+              checked={kioskType === "event"}
+              onChange={(e) => setKioskType(e.target.value)}
+            />
+            <span className="form-check-label">Event</span>
+          </label>
+        </div>
         <input
           type="text"
           className="form-control mb-3 text-center"
@@ -343,8 +399,25 @@ const SystemMaintenance = () => {
         style={{ borderRadius: "8px" }}
         disabled={!kioskReservationId.trim()}
       >
-        Assign to Kiosk
+        Open Kiosk
       </button>
+      <div className="mt-3 pt-3 border-top small text-muted">
+        {activeKiosk ? (
+          <>
+            <div className="mb-2">
+              Open: <strong>{activeKiosk.reservation_id}</strong> ({activeKiosk.reservation_type === "event" ? "Event" : "Single customer"})
+            </div>
+            <button
+              onClick={handleCloseKiosk}
+              className="btn btn-outline-danger w-100 fw-bold"
+            >
+              Close Kiosk
+            </button>
+          </>
+        ) : (
+          "No kiosk session is open."
+        )}
+      </div>
     </div>
   </div>
 

@@ -210,6 +210,28 @@ const adminController = {
       res.status(500).json({ error: error.message });
     }
   },
+  setTableStatus: async (req, res) => {
+    try {
+      const { tableId } = req.params;
+      const { status } = req.body;
+      const result = await TableStatus.setManualStatus(tableId, status);
+
+      await logActivity(
+        req.user?.userId || null,
+        "SET_TABLE_STATUS",
+        tableId,
+        { status: result.status },
+        req,
+      );
+
+      const io = req.app.get("io");
+      if (io) io.emit("table_updated");
+
+      res.json({ success: true, ...result });
+    } catch (error) {
+      res.status(error.statusCode || 500).json({ error: error.message });
+    }
+  },
   // controllers/adminController.js
   // Inside controllers/adminController.js
 

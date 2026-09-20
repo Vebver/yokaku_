@@ -83,11 +83,15 @@ const Billing = () => {
   };
 
   const getRemainingBalanceInfo = () => {
-    const total = calculateItemsSum();
+    const total = Number(selectedPayment?.total_bill || calculateItemsSum());
     const paid = Number(selectedPayment?.amount || 0);
-    const exceeds = total > paid;
+    const remaining = Math.max(
+      Number(selectedPayment?.balance_due ?? total - paid),
+      0,
+    );
+    const exceeds = remaining > 0;
     return {
-      remaining: exceeds ? total - paid : 0,
+      remaining,
       exceeds,
       overpaid: paid > total ? paid - total : 0,
     };
@@ -242,7 +246,9 @@ const Billing = () => {
               >
                 <th className="ps-4 py-3">Customer Profile</th>
                 <th>Method</th>
-                <th>Downpayment Paid</th>
+                <th>Paid</th>
+                <th>Total Bill</th>
+                <th>Balance Due</th>
                 <th>Payment Proof</th>
                 <th>Settlement Status</th>
                 <th className="text-center">Order status</th>
@@ -300,6 +306,18 @@ const Billing = () => {
                         </div>
                       </td>
                       <td>
+                        ₱{Number(p.total_bill || 0).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                        })}
+                      </td>
+                      <td>
+                        <span className={Number(p.balance_due || 0) > 0 ? "text-danger fw-bold" : "text-success fw-bold"}>
+                          ₱{Number(p.balance_due || 0).toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                          })}
+                        </span>
+                      </td>
+                      <td>
                         <span
                           className={`badge rounded-pill px-3 py-1.5 fw-semibold ${
                             payStatus === "verified"
@@ -313,13 +331,13 @@ const Billing = () => {
                         </span>
                       </td>
                       <td>
-                        {isCompleted ? (
+                        {p.settlement_status === "paid" ? (
                           <span className="badge bg-info-subtle text-info border border-info-subtle px-3 py-1.5 fw-semibold">
                             FULLY PAID
                           </span>
                         ) : (
                           <span className="badge bg-light text-muted border px-3 py-1.5 fw-semibold">
-                            PARTIAL BILL
+                            {p.settlement_status === "unpaid" ? "UNPAID" : "PARTIAL BILL"}
                           </span>
                         )}
                       </td>
@@ -349,7 +367,7 @@ const Billing = () => {
                 })
               ) : (
                 <tr>
-                  <td colSpan="7" className="text-center py-5 text-muted">
+                  <td colSpan="9" className="text-center py-5 text-muted">
                     <div className="py-3">
                       <p className="mb-0 fw-semibold">
                         No transactions available
@@ -454,7 +472,7 @@ const Billing = () => {
                         : "PENDING"}
                     </span>
                     <span className="d-flex align-items-center gap-1">
-                      <strong>₱
+                      <strong>Paid: ₱
                         {p.amount
                           ? Number(p.amount).toLocaleString(undefined, {
                               minimumFractionDigits: 2,
@@ -462,16 +480,21 @@ const Billing = () => {
                           : "0.00"}
                       </strong>
                     </span>
+                    <span className={Number(p.balance_due || 0) > 0 ? "text-danger fw-bold" : "text-success fw-bold"}>
+                      Balance: ₱{Number(p.balance_due || 0).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                      })}
+                    </span>
                   </div>
 
                   <div className="d-flex flex-wrap gap-2 mb-3">
-                    {isCompleted ? (
+                    {p.settlement_status === "paid" ? (
                       <span className="badge bg-info-subtle text-info border border-info-subtle px-3 py-1.5 fw-semibold">
                         FULLY PAID
                       </span>
                     ) : (
                       <span className="badge bg-light text-muted border px-3 py-1.5 fw-semibold">
-                        PARTIAL BILL
+                        {p.settlement_status === "unpaid" ? "UNPAID" : "PARTIAL BILL"}
                       </span>
                     )}
                     <span
@@ -765,18 +788,18 @@ const Billing = () => {
                   <span>Total Bill</span>
                   <span className="text-white">
                     ₱
-                    {calculateItemsSum().toLocaleString(undefined, {
+                    {Number(selectedPayment?.total_bill || calculateItemsSum()).toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                     })}
                   </span>
                 </div>
 
-                {/* Only render Downpayment & Balance controls if the guest is NOT a walk-in */}
-                {!isWalkIn && (
+                {/* Show the same paid and outstanding balance breakdown for walk-ins and reservations. */}
+                {(
                   <>
                     <div className="d-flex justify-content-between align-items-center mb-1.5 pb-1.5 border-bottom border-secondary border-opacity-50">
                       <span className="text-white-50 small">
-                        Downpayment Paid
+                        Paid Amount
                       </span>
                       {isEditingAmount ? (
                         <div className="d-flex align-items-center gap-2 animate-fade-in">

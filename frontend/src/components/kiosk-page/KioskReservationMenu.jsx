@@ -177,7 +177,9 @@ const KioskReservationMenu = () => {
 
   const getCurrentTableId = () => {
     const rawTableId =
-      sessionStorage.getItem("tableId") || localStorage.getItem("tableId");
+      sessionStorage.getItem("tableId") ||
+      localStorage.getItem("tableId") ||
+      setupTable;
     const parsed = parseInt(rawTableId, 10);
     return Number.isInteger(parsed) ? parsed : null;
   };

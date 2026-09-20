@@ -1,17 +1,32 @@
 const db = require("../config/db")
 
 const Maintenance = {
-  setKioskReservation: async (reservationId) => {
+  setKioskReservation: async (reservationId, kioskType) => {
     const conn = await db.getConnection();
     try {
       await conn.beginTransaction();
 
-      // 1. Reset any previous active kiosk reservations
-      await conn.execute(
-        "UPDATE reservations SET is_kiosk_active = 0 WHERE is_kiosk_active = 1",
+      // Kiosk state is stored per reservation so event and single-customer
+      // sessions can run on different physical tables at the same time.
+      const [reservations] = await conn.execute(
+        "SELECT reservation_id, reservation_type FROM reservations WHERE reservation_id = ? LIMIT 1",
+        [reservationId],
       );
 
-      // 2. Set the newly selected reservation as active for the kiosk
+      if (reservations.length === 0) {
+        await conn.rollback();
+        return { affectedRows: 0, reason: "not_found" };
+      }
+
+      const actualType = String(reservations[0].reservation_type || "per_table")
+        .toLowerCase()
+        .trim();
+      const expectedType = kioskType === "event" ? "event" : "per_table";
+      if (actualType !== expectedType) {
+        await conn.rollback();
+        return { affectedRows: 0, reason: "type_mismatch", actualType };
+      }
+
       const sql = "UPDATE reservations SET is_kiosk_active = 1 WHERE reservation_id = ?";
       const [result] = await conn.execute(sql, [reservationId]);
 
@@ -39,7 +54,7 @@ const Maintenance = {
       }
 
       await conn.commit();
-      return result.affectedRows;
+      return { affectedRows: result.affectedRows || 1, actualType };
     } catch (error) {
       await conn.rollback();
       console.error("Set Kiosk Reservation Transaction Error:", error);

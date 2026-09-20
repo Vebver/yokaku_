@@ -75,7 +75,7 @@ const KioskSelection = () => {
       sessionStorage.setItem("kiosk_mode", "reservation");
 
       // BYPASS CHECK: If admin has already assigned a Table Reservation on the dashboard
-      if (kioskDetails && kioskDetails.mode === "table_assigned") {
+      if (kioskDetails && kioskDetails.mode === "single_active") {
         const { reservation_id, table_id } = kioskDetails.reservation;
         
         // Write to sessionStorage so the menu page can read it successfully

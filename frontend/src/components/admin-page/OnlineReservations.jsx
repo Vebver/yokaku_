@@ -235,7 +235,7 @@ const OnlineReservations = () => {
                 <th className="ps-4 py-3">Guest & ID</th>
                 <th>Table</th>
                 <th>Schedule</th>
-                <th>Down Payment</th>
+                <th>Paid / Due</th>
                 <th className="text-center">Status</th>
                 <th className="text-end pe-4">Actions</th>
               </tr>
@@ -274,7 +274,9 @@ const OnlineReservations = () => {
                           : "bg-warning-subtle text-warning border-warning-subtle"
                       }`}
                     >
-                      {item.payment_status?.toUpperCase() || "PENDING"}
+                      Paid ₱{Number(item.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      <br />
+                      Due ₱{Number(item.balance_due || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </span>
                   </td>
                   <td className="text-center">
@@ -735,6 +737,12 @@ const OnlineReservations = () => {
                     className={`badge py-2 px-3 ${getStatusBadge(selectedRes.status)}`}
                   >
                     {selectedRes.status?.toUpperCase()}
+                  </span>
+                </div>
+                <div className="small text-white-50 mb-1">
+                  Paid: ₱{Number(selectedRes.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  <span className="float-end">
+                    Due: ₱{Number(selectedRes.balance_due || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </span>
                 </div>
                 <button

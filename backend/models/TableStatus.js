@@ -15,6 +15,7 @@ const TableStatus = {
              AND status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
              ORDER BY FIELD(LOWER(status), 'seated', 'confirmed') 
              LIMIT 1),
+            LOWER(t.status),
             'available'
           ) AS bridge_status,    
 
@@ -248,6 +249,38 @@ return { success: true };
   },
 
   // 6. DELETE TABLE
+  setManualStatus: async (tableId, status) => {
+    const normalizedStatus = String(status || "").toLowerCase();
+    if (!["available", "occupied"].includes(normalizedStatus)) {
+      throw new Error("Table status must be available or occupied.");
+    }
+
+    const [activeReservations] = await db.execute(
+      `SELECT reservation_id FROM reservation_tables
+       WHERE table_id = ? AND LOWER(status) IN ('confirmed', 'seated')
+       LIMIT 1`,
+      [tableId],
+    );
+
+    if (activeReservations.length > 0) {
+      const error = new Error(
+        "This table has an active reservation and cannot be changed manually.",
+      );
+      error.statusCode = 409;
+      throw error;
+    }
+
+    const [result] = await db.execute(
+      `UPDATE tables
+       SET status = ?, available_seats = CASE WHEN ? = 'occupied' THEN 0 ELSE capacity END
+       WHERE table_id = ?`,
+      [normalizedStatus, normalizedStatus, tableId],
+    );
+
+    return { affectedRows: result.affectedRows, status: normalizedStatus };
+  },
+
+  // 7. DELETE TABLE
   deleteTable: async (tableId) => {
     try {
       const query = `DELETE FROM tables WHERE table_id = ?`;

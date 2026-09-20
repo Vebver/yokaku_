@@ -26,6 +26,11 @@ const WalkInReservations = () => {
 
   const closeBtnRef = useRef(null);
 
+  const PACKAGE_PRICES = {
+    "Standard Package": 10000,
+    "Premium Package": 12500,
+  };
+
   const getLocalISODate = () => {
     const tzOffset = new Date().getTimezoneOffset() * 60000; // offset in milliseconds
     return new Date(Date.now() - tzOffset).toISOString().slice(0, 10);
@@ -53,9 +58,9 @@ const WalkInReservations = () => {
     phone: "",
     date: getLocalISODate(),
     startTime: "",
-    guests: 1,
     bookingType: "table", // 'table', 'takeout', or 'event'
     packageName: "Regular Table",
+    amountPaid: 0,
     paymentMethod: "Cash",
     tableIds: [],
   });
@@ -260,8 +265,22 @@ const WalkInReservations = () => {
         }
       }
 
+      const packagePrice = PACKAGE_PRICES[newRes.packageName] || 0;
+      const addOnTotal = orderCart.reduce(
+        (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 1),
+        0,
+      );
+      const totalBill = packagePrice + addOnTotal;
+      const amountPaid = Math.min(
+        Math.max(Number(newRes.amountPaid || 0), 0),
+        totalBill,
+      );
+
       const payload = {
         ...newRes,
+        totalAmount: totalBill,
+        downpayment: amountPaid,
+        amount: amountPaid,
         reservationType:
           newRes.bookingType === "table" ? "per_table" : newRes.bookingType,
         isWalkin: true,
@@ -515,10 +534,13 @@ const WalkInReservations = () => {
         style={{ width: "min(100%, 450px)" }}
       >
         <div className="offcanvas-header border-bottom bg-dark text-white">
+          <div>
           <h5 className="fw-bold m-0 d-flex align-items-center">
             <CalendarCheck size={20} className="me-2 text-warning" />
-            New Reservation
+            Create Reservation
           </h5>
+          <small className="text-white-50 ms-4">Set the table, order, and payment details.</small>
+          </div>
           <button
             type="button"
             className="btn-close btn-close-white shadow-none"
@@ -534,7 +556,7 @@ const WalkInReservations = () => {
           >
             <div className="p-4 flex-grow-1 overflow-auto">
               {/* SECTION: CUSTOMER */}
-              <p className="x-small fw-bold text-muted text-uppercase mb-3">
+              <p className="x-small fw-bold text-primary text-uppercase mb-3 border-bottom pb-2">
                 Customer Information
               </p>
               <div className="row g-3 mb-4">
@@ -583,7 +605,7 @@ const WalkInReservations = () => {
               <hr />
 
               {/* SECTION: BOOKING DETAILS */}
-              <p className="x-small fw-bold text-primary text-uppercase mb-3">
+              <p className="x-small fw-bold text-primary text-uppercase mb-3 border-bottom pb-2">
                 Booking Details
               </p>
 
@@ -620,8 +642,8 @@ const WalkInReservations = () => {
               {(newRes.bookingType === "takeout" ||
                 newRes.bookingType === "table") && (
                 <div className="mb-4 animate-fade-in">
-                  <label className="form-label small fw-bold text-uppercase text-muted">
-                    Add Menu Items (Optional)
+                    <label className="form-label small fw-bold text-uppercase text-muted">
+                    Order Items <span className="fw-normal">(optional)</span>
                   </label>
                   <select
                     className="form-select form-select-sm fw-semibold mb-2"
@@ -711,30 +733,47 @@ const WalkInReservations = () => {
                 </div>
               )}
 
-              {newRes.bookingType === "event" && (
+              {newRes.bookingType !== "takeout" && (
                 <div className="mb-3 p-3 bg-warning-subtle rounded-3 border border-warning-subtle animate-fade-in">
                   <label className="form-label small fw-bold text-warning-emphasis">
-                    Select Event Package
+                    Reservation Package
                   </label>
-                  <select
-                    name="packageName"
-                    className="form-select bg-white mb-2"
-                    value={newRes.packageName}
-                    onChange={handleInputChange}
-                  >
-                    <option value="Standard Package">Standard Package</option>
-                    <option value="Premium Package">Premium Package</option>
-                  </select>
-                  <div className="x-small text-muted">
-                    * Booking an event reserves all floor layout tables
-                    automatically.
+                  <div className="row g-2 mb-2">
+                    {[
+                      { name: "Regular Table", price: 0, label: "No package" },
+                      { name: "Standard Package", price: 10000, label: "Standard" },
+                      { name: "Premium Package", price: 12500, label: "Premium" },
+                    ].map((option) => (
+                      <div className="col-12 col-sm-4" key={option.name}>
+                        <button
+                          type="button"
+                          className={`w-100 text-start p-2 rounded-3 ${newRes.packageName === option.name ? "border border-2 border-warning bg-warning-subtle" : "border bg-white"}`}
+                          onClick={() =>
+                            setNewRes((prev) => ({ ...prev, packageName: option.name }))
+                          }
+                        >
+                          <span className="d-block fw-bold small">{option.label}</span>
+                          <span className="d-block text-muted small">
+                            {option.price ? `₱${option.price.toLocaleString()}` : "Base menu only"}
+                          </span>
+                        </button>
+                      </div>
+                    ))}
                   </div>
+                  <div className="x-small text-muted mb-2">
+                    Standard: ₱10,000 · Premium: ₱12,500
+                  </div>
+                  {newRes.bookingType === "event" && (
+                    <div className="x-small text-muted">
+                      Event packages reserve the full venue automatically.
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* NEW SECTION: PAYMENT METHOD */}
               <div className="mb-4">
-                <label className="form-label small fw-bold text-success text-uppercase">
+                <label className="form-label small fw-bold text-success text-uppercase border-bottom pb-2 w-100">
                   Payment Method
                 </label>
                 <select
@@ -750,6 +789,49 @@ const WalkInReservations = () => {
                   * Manual entries are automatically verified.
                 </div>
               </div>
+
+              {(() => {
+                const packagePrice = PACKAGE_PRICES[newRes.packageName] || 0;
+                const addOnTotal = orderCart.reduce(
+                  (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 1),
+                  0,
+                );
+                const totalBill = packagePrice + addOnTotal;
+                const paid = Math.min(Math.max(Number(newRes.amountPaid || 0), 0), totalBill);
+                return (
+                  <div className="p-3 mb-4 bg-white border rounded-3 shadow-sm">
+                    <div className="d-flex justify-content-between small mb-1">
+                      <span className="text-muted">Package</span>
+                      <strong>₱{packagePrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong>
+                    </div>
+                    <div className="d-flex justify-content-between small mb-1">
+                      <span className="text-muted">Add-ons</span>
+                      <strong>₱{addOnTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong>
+                    </div>
+                    <div className="d-flex justify-content-between border-top pt-2 mb-2">
+                      <strong>Total Bill</strong>
+                      <strong>₱{totalBill.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong>
+                    </div>
+                    <label className="form-label small fw-bold mb-1">Amount Paid</label>
+                    <input
+                      type="number"
+                      name="amountPaid"
+                      min="0"
+                      max={totalBill}
+                      step="0.01"
+                      className="form-control form-control-sm mb-2"
+                      value={newRes.amountPaid}
+                      onChange={handleInputChange}
+                    />
+                    <div className="d-flex justify-content-between small">
+                      <span className="text-muted">Remaining Balance</span>
+                      <strong className={totalBill - paid > 0 ? "text-danger" : "text-success"}>
+                        ₱{(totalBill - paid).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </strong>
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div className="row g-3">
                 <div className="col-6">
@@ -768,20 +850,6 @@ const WalkInReservations = () => {
                     type="time"
                     name="startTime"
                     className="form-control"
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-                <div className="col-12">
-                  <label className="form-label small fw-bold">
-                    Number of Guests
-                  </label>
-                  <input
-                    type="number"
-                    name="guests"
-                    className="form-control"
-                    min="1"
-                    value={newRes.guests}
                     onChange={handleInputChange}
                     required
                   />
@@ -931,14 +999,6 @@ const WalkInReservations = () => {
                       {selectedRes.package_name || "Regular Table"}
                     </span>
                   </div>
-                  <div className="col-6">
-                    <small className="text-muted d-block">
-                      Number of Guests
-                    </small>
-                    <span className="small fw-bold text-dark">
-                      {selectedRes.num_guests || selectedRes.guests || "1"}
-                    </span>
-                  </div>
                 </div>
               </div>
 
@@ -1024,7 +1084,18 @@ const WalkInReservations = () => {
               <div className="p-3 bg-dark text-white sticky-bottom">
                 <div className="d-flex justify-content-between align-items-center mb-3">
                   <h5 className="fw-bold mb-0">Total Bill</h5>
-                  <span className="badge py-2 px-3 bg-success">PAID</span>
+                  <span className={`badge py-2 px-3 ${Number(selectedRes.balance_due || 0) > 0 ? "bg-warning text-dark" : "bg-success"}`}>
+                    {Number(selectedRes.balance_due || 0) > 0 ? "BALANCE DUE" : "PAID"}
+                  </span>
+                </div>
+                <div className="small text-white-50 mb-1">
+                  Total: ₱{Number(selectedRes.total_bill || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </div>
+                <div className="small text-white-50">
+                  Paid: ₱{Number(selectedRes.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  <span className="float-end">
+                    Due: ₱{Number(selectedRes.balance_due || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </span>
                 </div>
                 <button
                   className="btn btn-outline-light btn-sm w-100 fw-bold border-opacity-25"

@@ -180,7 +180,7 @@ function AdminDashboard() {
 
       socket.on("connect", () => {
         if (userId) {
-          socket.emit("join", userId);
+          socket.emit("join_user", userId);
         }
       });
 

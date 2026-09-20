@@ -90,14 +90,16 @@ const Order = {
     customizations,
     isRefill = 0,
     allergyNote = null,
+    tableId = null,
   ) => {
     const query = `
       INSERT INTO kiosk_orders 
-      (reservation_id, item_id, quantity, kitchen_status, customizations, is_refill, allergy_note) 
-      VALUES (?, ?, ?, ?, ?, ?, ?)`;
+      (reservation_id, table_id, item_id, quantity, kitchen_status, customizations, is_refill, allergy_note) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
     const customData = customizations ? JSON.stringify(customizations) : null;
     return await conn.execute(query, [
       reservationId,
+      tableId,
       itemId,
       quantity,
       "pending",
@@ -107,7 +109,12 @@ const Order = {
     ]);
   },
   // 5. Create the main reservation record for a Walk-in
-  createWalkinSession: async (conn, reservationId, firstName = "Walk-in") => {
+  createWalkinSession: async (
+    conn,
+    reservationId,
+    firstName = "Walk-in",
+    guestCount = 1,
+  ) => {
     // Generate dates aligned with the local Philippine timezone (Asia/Manila)
     const options = { timeZone: "Asia/Manila", hour12: false };
     const localDate = new Date().toLocaleDateString("en-CA", options); // Returns YYYY-MM-DD
@@ -118,9 +125,15 @@ const Order = {
         reservation_id, first_name, last_name, email, phone, status, 
         reservation_date, reservation_time, brgy_code, num_guests, package_name, occasion
       ) 
-      VALUES (?, ?, '', '', '', 'seated', ?, ?, NULL, 1, 'Walk-in', 'none')
+      VALUES (?, ?, '', '', '', 'seated', ?, ?, NULL, ?, 'Walk-in', 'none')
     `;
-    return await conn.execute(query, [reservationId, firstName, localDate, localTime]);
+    return await conn.execute(query, [
+      reservationId,
+      firstName,
+      localDate,
+      localTime,
+      guestCount,
+    ]);
   },
 
   // 6. Link the table and update status to occupied
@@ -243,14 +256,14 @@ const Order = {
   getPreReservedItems: async (reservationId) => {
     try {
       const query = `
-        SELECT m.*, ri.quantity, ri.customizations, 0 AS is_refill
+        SELECT m.*, ri.quantity, ri.customizations, 0 AS is_refill, NULL AS table_id
         FROM menu_items m 
         JOIN reservation_items ri ON m.item_id = ri.product_id 
         WHERE ri.reservation_id = ?
         
         UNION ALL -- Keeps duplicate items (Fixed)
         
-        SELECT m.*, ko.quantity, ko.customizations, ko.is_refill
+        SELECT m.*, ko.quantity, ko.customizations, ko.is_refill, ko.table_id
         FROM menu_items m 
         JOIN kiosk_orders ko ON m.item_id = ko.item_id 
         WHERE ko.reservation_id = ?
@@ -268,6 +281,7 @@ const Order = {
     SELECT 
       ko.order_id as id,
       ko.reservation_id,
+      ko.table_id,
       ko.item_id,
       ko.quantity,
       ko.kitchen_status as status,
@@ -277,6 +291,7 @@ const Order = {
       mi.menu_name as item_name,
       mi.price,
       CASE 
+        WHEN ko.table_id IS NOT NULL THEN CONCAT('Table ', ko.table_id)
         WHEN rt.table_id IS NOT NULL THEN CONCAT('Table ', rt.table_id)
         ELSE 'Walk-in'
       END as \`table\`
@@ -290,9 +305,12 @@ const Order = {
 
     const groupedOrders = {};
     rows.forEach((row) => {
-      if (!groupedOrders[row.reservation_id]) {
-        groupedOrders[row.reservation_id] = {
-          id: row.reservation_id,
+      const groupKey = `${row.reservation_id}:${row.table_id || "walkin"}`;
+      if (!groupedOrders[groupKey]) {
+        groupedOrders[groupKey] = {
+          id: groupKey,
+          reservation_id: row.reservation_id,
+          table_id: row.table_id,
           table: row.table,
           status: row.status,
           timestamp: row.timestamp,
@@ -300,7 +318,7 @@ const Order = {
           items: [],
         };
       }
-      groupedOrders[row.reservation_id].items.push({
+      groupedOrders[groupKey].items.push({
         id: row.item_id,
         name: row.item_name,
         quantity: row.quantity,
