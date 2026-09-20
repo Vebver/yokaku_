@@ -7,7 +7,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "migrate:kiosk-orders": "node migrate_kiosk_orders.js"
+    "migrate:kiosk-orders": "node migrate_kiosk_orders.js",
+    "migrate:table-status": "node migrate_table_manual_status.js"
   },
   "keywords": [],
   "author": "",

@@ -10,6 +10,7 @@ const TableStatus = {
           
           /* PRIORITIZE 'seated' status for the color */
           COALESCE(
+            CASE WHEN t.manual_status IS NOT NULL THEN LOWER(t.manual_status) END,
             (SELECT status FROM reservation_tables 
              WHERE table_id = t.table_id 
              AND status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
@@ -255,26 +256,11 @@ return { success: true };
       throw new Error("Table status must be available or occupied.");
     }
 
-    const [activeReservations] = await db.execute(
-      `SELECT reservation_id FROM reservation_tables
-       WHERE table_id = ? AND LOWER(status) IN ('confirmed', 'seated')
-       LIMIT 1`,
-      [tableId],
-    );
-
-    if (activeReservations.length > 0) {
-      const error = new Error(
-        "This table has an active reservation and cannot be changed manually.",
-      );
-      error.statusCode = 409;
-      throw error;
-    }
-
     const [result] = await db.execute(
       `UPDATE tables
-       SET status = ?, available_seats = CASE WHEN ? = 'occupied' THEN 0 ELSE capacity END
+       SET status = ?, manual_status = ?, available_seats = CASE WHEN ? = 'occupied' THEN 0 ELSE capacity END
        WHERE table_id = ?`,
-      [normalizedStatus, normalizedStatus, tableId],
+      [normalizedStatus, normalizedStatus, normalizedStatus, tableId],
     );
 
     return { affectedRows: result.affectedRows, status: normalizedStatus };
