@@ -110,13 +110,17 @@ const orderController = {
              ON DUPLICATE KEY UPDATE status = 'seated'`,
             [reservation_id, table_id]
           );
-
-          // Update physical table state to occupied
-          await conn.execute(
-            "UPDATE tables SET status = 'occupied' WHERE table_id = ?",
-            [table_id]
-          );
         }
+      }
+
+      // Always mark the physical table as occupied for the session, whether the
+      // reservation was just created or already existed. The Table Status page
+      // reads this through bridge_status, so it must be set on every order.
+      if (table_id && table_id !== "takeout" && table_id !== "null") {
+        await conn.execute(
+          "UPDATE tables SET status = 'occupied', available_seats = 0 WHERE table_id = ?",
+          [table_id]
+        );
       }
 
       // 2. Process order items
@@ -138,7 +142,6 @@ const orderController = {
           item.customizations,
           item.is_refill ? 1 : 0,
           req.body.allergy_note,
-          table_id,
         );
 
         enrichedItems.push({
@@ -175,6 +178,8 @@ const orderController = {
       // 3. Emit socket events
       const io = req.app.get("io");
       if (io) {
+        // Notify admin screens that the table is now occupied
+        io.emit("table_updated");
         io.emit("new_order", {
           id: reservation_id + "-" + Date.now(),
           table: table_id || "Walk-in",

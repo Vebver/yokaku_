@@ -272,7 +272,7 @@ const Reservation = {
     const parsedTableId = Number.parseInt(tableId, 10);
     const hasTable = Number.isInteger(parsedTableId);
     const tableFilter = hasTable
-      ? "AND EXISTS (SELECT 1 FROM reservation_tables rt_filter JOIN tables t_filter ON t_filter.table_id = rt_filter.table_id WHERE rt_filter.reservation_id = r.reservation_id AND rt_filter.table_id = ? AND COALESCE(LOWER(t_filter.manual_status), '') <> 'available')"
+      ? "AND EXISTS (SELECT 1 FROM reservation_tables rt_filter JOIN tables t_filter ON t_filter.table_id = rt_filter.table_id WHERE rt_filter.reservation_id = r.reservation_id AND rt_filter.table_id = ? AND COALESCE(LOWER(t_filter.status), 'available') <> 'available')"
       : "";
     const tableParams = hasTable ? [parsedTableId] : [];
 

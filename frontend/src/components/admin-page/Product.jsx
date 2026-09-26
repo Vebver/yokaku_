@@ -585,7 +585,6 @@ function Product() {
                 <option value={0}>Not Available</option>
               </select>
             </div>
-            // In Product.jsx - Update the image preview section
             <div className="mb-4 text-center">
               <div className="bg-light p-3 rounded border mb-2">
                 {newItem.image instanceof File ? (

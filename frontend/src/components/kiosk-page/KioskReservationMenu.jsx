@@ -637,7 +637,9 @@ const KioskReservationMenu = () => {
       setShowBillInfo(false);
 
       if (isPayNow) {
-        setShowSessionModal(true);
+        showToast("Your order has been placed. Thank you!", "success");
+      } else {
+        showToast("Your order has been placed.", "success");
       }
     } catch (e) {
       console.error("Order submission failed:", e);

@@ -38,6 +38,9 @@ const maintenanceController = {
         req,
       );
 
+      const io = req.app.get("io");
+      if (io) io.emit("table_updated");
+
       res.json({
         message: `Kiosk opened for ${kioskType} reservation ${reservationId}.`,
       });

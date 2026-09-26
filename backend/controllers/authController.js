@@ -6,16 +6,46 @@ const axios = require("axios");
 
 // In-memory OTP store
 const otpStore = new Map();
-// Account lockout disabled. Re-enable these values with the login checks below if needed.
-// const loginAttempts = new Map();
-// const MAX_LOGIN_ATTEMPTS = 4;
-// const LOCKOUT_TIME = 15 * 60 * 1000;
+
+// Account lockout tracking
+const loginAttempts = new Map();
+const MAX_LOGIN_ATTEMPTS = 3;
+const LOCKOUT_TIME = 15 * 60 * 1000;
 
 const generateOTP = () =>
   Math.floor(100000 + Math.random() * 900000).toString();
 
-// Account lockout tracking disabled.
-// const trackFailedAttempt = (email) => { ... };
+const attemptKey = (email) => String(email || "").trim().toLowerCase();
+
+// Returns the number of failed attempts currently recorded for an email
+const getFailedAttempts = (email) => {
+  const entry = loginAttempts.get(attemptKey(email));
+  if (!entry) return 0;
+  if (Date.now() - entry.firstFailedAt > LOCKOUT_TIME) {
+    loginAttempts.delete(attemptKey(email));
+    return 0;
+  }
+  return entry.count;
+};
+
+const isLocked = (email) => getFailedAttempts(email) >= MAX_LOGIN_ATTEMPTS;
+
+const trackFailedAttempt = (email) => {
+  const key = attemptKey(email);
+  const now = Date.now();
+  const entry = loginAttempts.get(key);
+
+  if (!entry || now - entry.firstFailedAt > LOCKOUT_TIME) {
+    loginAttempts.set(key, { count: 1, firstFailedAt: now });
+    return 1;
+  }
+  entry.count += 1;
+  return entry.count;
+};
+
+const clearFailedAttempts = (email) => {
+  loginAttempts.delete(attemptKey(email));
+};
 
 // Send email via Brevo API (reusable function)
 const sendEmail = async (email, subject, htmlContent, textContent) => {
@@ -160,9 +190,34 @@ const authController = {
       }
 
       const isMatch = await bcrypt.compare(password, user.password_hash);
-      if (!isMatch) {
-        return res.status(401).json({ error: "Invalid credentials" });
+
+      // A locked account is rejected before the password is even checked
+      if (isLocked(email)) {
+        return res.status(403).json({
+          error: `Your account is locked after ${MAX_LOGIN_ATTEMPTS} failed login attempts. Please try again in 15 minutes.`,
+          locked: true,
+        });
       }
+
+      if (!isMatch) {
+        const failedAttempts = trackFailedAttempt(email);
+
+        if (failedAttempts >= MAX_LOGIN_ATTEMPTS) {
+          console.log(`🔒 Account locked for ${email} after ${failedAttempts} failed attempts`);
+          return res.status(403).json({
+            error: `Your account is locked after ${MAX_LOGIN_ATTEMPTS} failed login attempts. Please try again in 15 minutes.`,
+            locked: true,
+          });
+        }
+
+        const remaining = MAX_LOGIN_ATTEMPTS - failedAttempts;
+        return res.status(401).json({
+          error: "Invalid credentials",
+          attemptsRemaining: remaining,
+        });
+      }
+
+      clearFailedAttempts(email);
 
       const token = jwt.sign(
         { userId: user.user_id, role: user.role || "customer" },
@@ -258,6 +313,9 @@ const authController = {
         reset_password_expires: null,
       });
 
+      // A successful password reset also clears any lockout from failed attempts
+      clearFailedAttempts(email);
+
       res.json({ message: "Password updated successfully" });
     } catch (error) {
       console.error("Reset Password Final Error:", error);
@@ -283,6 +341,7 @@ const authController = {
       const newHash = await bcrypt.hash(newPassword, salt);
 
       await User.update(user.user_id, { password_hash: newHash });
+      clearFailedAttempts(email);
 
       res.json({ message: "Password updated successfully" });
     } catch (error) {

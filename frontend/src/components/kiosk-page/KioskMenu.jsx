@@ -475,10 +475,12 @@ const KioskMenu = () => {
 
         storage.setItem(PAYMENT_CHOICE_KEY, "verified");
         setIsPaid(true);
-        setShowBillInfo(true);
+        setShowBillInfo(false);
+        showToast("Your order has been placed. Thank you!", "success");
       } else {
         setIsPaid(false);
         storage.removeItem(PAYMENT_CHOICE_KEY);
+        showToast("Your order has been placed. Thank you!", "success");
       }
 
       await fetchCurrentBill();

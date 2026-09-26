@@ -149,23 +149,28 @@ const adminController = {
       );
       res.status(201).json({ message: "Table created successfully" });
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      res.status(error.statusCode || 500).json({ error: error.message });
     }
   },
   deleteTable: async (req, res) => {
     try {
       const { tableId } = req.params;
       const result = await TableStatus.deleteTable(tableId);
+      if (!result.success) {
+        return res.status(404).json({ error: "Table not found." });
+      }
       await logActivity(
         req.user?.userId || null,
-        "ADD_TABLE",
-        table_number,
-        { capacity },
+        "DELETE_TABLE",
+        tableId,
+        {},
         req,
       );
+      const io = req.app.get("io");
+      if (io) io.emit("table_updated");
       res.json({ message: "Table deleted successfully", result });
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      res.status(error.statusCode || 500).json({ error: error.message });
     }
   },
   Walkin: async (req, res) => {

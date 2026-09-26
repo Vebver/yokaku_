@@ -135,6 +135,9 @@ function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeSection, setActiveSection] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 992);
+  const [adminName, setAdminName] = useState(
+    `${localStorage.getItem("firstName") || ""} ${localStorage.getItem("lastName") || ""}`.trim(),
+  );
   const [loading, setLoading] = useState(true);
   const [todaySchedule, setTodaySchedule] = useState([]);
 
@@ -250,6 +253,20 @@ function AdminDashboard() {
     };
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    const refreshAdminName = () => {
+      setAdminName(
+        `${localStorage.getItem("firstName") || ""} ${localStorage.getItem("lastName") || ""}`.trim(),
+      );
+    };
+    window.addEventListener("profile-updated", refreshAdminName);
+    window.addEventListener("storage", refreshAdminName);
+    return () => {
+      window.removeEventListener("profile-updated", refreshAdminName);
+      window.removeEventListener("storage", refreshAdminName);
+    };
   }, []);
 
   const fetchNotifications = async () => {
@@ -690,7 +707,10 @@ function AdminDashboard() {
       <aside className="app-sidebar shadow">
         <div className="sidebar-header-branding">
           <div className="brand-logo">H</div>
-          <span className="brand-name fw-bold">HANGOUT</span>
+          <div className="sidebar-brand-copy">
+            <span className="brand-name fw-bold">HANGOUT</span>
+            {adminName && <span className="sidebar-user-name">{adminName}</span>}
+          </div>
         </div>
 
         <nav className="sidebar-nav-list custom-scrollbar">
@@ -891,9 +911,13 @@ function AdminDashboard() {
             </div>
 
             <div className="text-end d-none d-sm-block">
-              <p className="mb-0 fw-bold small text-dark">HANGOUT MANAGER</p>
+              <p className="mb-0 fw-bold small text-dark">
+                {adminName || localStorage.getItem("userRole")?.toUpperCase() || "ADMIN"}
+              </p>
             </div>
-            <div className="avatar-circle">H</div>
+            <div className="avatar-circle" title={adminName || "Admin"}>
+              {adminName ? adminName.charAt(0).toUpperCase() : "A"}
+            </div>
           </div>
         </header>
 

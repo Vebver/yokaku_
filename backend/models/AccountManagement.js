@@ -18,7 +18,7 @@ const AccountManagement = {
         `;
         const [result] = await db.execute(sql, [role, user_id]);
         return result;
-    }
+    },
 }
 
 module.exports = AccountManagement;

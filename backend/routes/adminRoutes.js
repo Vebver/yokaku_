@@ -4,6 +4,7 @@ const adminController = require('../controllers/adminController');
 const maintenanceController = require('../controllers/maintenanceController');
 const blockedDateController = require('../controllers/blockedDateController');
 const backupController = require('../controllers/backupController');
+const backupUpload = require('../middleware/backupUpload');
 const { getFinancialAnalytics } = require('../controllers/reportController');
 const { protect, adminOnly } = require("../middleware/authMiddleware");
 
@@ -38,6 +39,7 @@ router.get('/export-financial-pdf', protect, adminOnly, maintenanceController.ex
 router.post('/backup', protect, adminOnly, backupController.createBackup);
 router.get('/backups', protect, adminOnly, backupController.listBackups);
 router.post('/backup/restore/:filename', protect, adminOnly, backupController.restoreBackup);
+router.post('/backup/restore-local', protect, adminOnly, backupUpload, backupController.restoreLocalBackup);
 router.delete('/backup/:filename', protect, adminOnly, backupController.deleteBackup);
 router.get('/backup/download/:filename', protect, adminOnly, backupController.downloadBackup);
 

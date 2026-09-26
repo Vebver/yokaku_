@@ -442,6 +442,31 @@ async function restoreProgrammaticBackup(filepath) {
   }
 }
 
+// Drops the legacy is_locked / account_status / failed_attempts columns left
+// over from the removed database-backed account lock. Login attempts are now
+// tracked in memory, so the users table needs no lock columns. Also removes
+// tables.manual_status, which duplicated tables.status.
+async function dropLegacyLockColumns() {
+  for (const column of ["is_locked", "account_status", "failed_attempts"]) {
+    const [existing] = await db.execute(
+      `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = ?`,
+      [column],
+    );
+    if (existing.length > 0) {
+      await db.execute(`ALTER TABLE users DROP COLUMN \`${column}\``);
+    }
+  }
+
+  const [manualColumn] = await db.execute(
+    `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'tables' AND COLUMN_NAME = 'manual_status'`,
+  );
+  if (manualColumn.length > 0) {
+    await db.execute("ALTER TABLE tables DROP COLUMN manual_status");
+  }
+}
+
 // ──────────────────────────────────────────────
 // CLI BACKUP / RESTORE (mysqldump / mysql)
 // ──────────────────────────────────────────────
@@ -617,6 +642,7 @@ const backupController = {
       } else {
         await restoreProgrammaticBackup(filepath);
       }
+      await dropLegacyLockColumns();
 
       await logActivity(
         req.user?.userId || null,
@@ -642,6 +668,43 @@ const backupController = {
           ? `Could not find mysql at '${mysqlBin}'. Set MYSQL_PATH in your .env to the full path of mysql (e.g. C:\\xampp\\mysql\\bin\\mysql.exe) or switch to the default BACKUP_METHOD=node.`
           : detail,
       });
+    }
+  },
+
+  restoreLocalBackup: async (req, res) => {
+    const filepath = req.file?.path;
+    if (!filepath) {
+      return res.status(400).json({ error: "Choose a .sql backup file to restore." });
+    }
+
+    try {
+      if (req.file.size === 0) {
+        return res.status(400).json({ error: "The selected backup file is empty." });
+      }
+
+      if (BACKUP_METHOD === "cli") {
+        await restoreCliBackup(filepath);
+      } else {
+        await restoreProgrammaticBackup(filepath);
+      }
+      await dropLegacyLockColumns();
+
+      await logActivity(
+        req.user?.userId || null,
+        "RESTORE_LOCAL_DATABASE_BACKUP",
+        null,
+        { filename: path.basename(req.file.originalname) },
+        req,
+      );
+
+      res.json({
+        message: `Database restored successfully from local file: ${path.basename(req.file.originalname)}`,
+      });
+    } catch (error) {
+      console.error("Local Backup Restore Error:", error);
+      res.status(500).json({ error: "Failed to restore the selected database backup.", detail: error.message });
+    } finally {
+      fs.promises.unlink(filepath).catch(() => {});
     }
   },
 

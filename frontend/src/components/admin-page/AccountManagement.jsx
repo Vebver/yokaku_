@@ -6,7 +6,7 @@ import {
   ChevronRight, 
   UserCircle, 
   ShieldCheck, 
-  Loader2 
+  Loader2,
 } from "lucide-react"
 
 const AccountManagement = () => {
@@ -69,14 +69,14 @@ const AccountManagement = () => {
 
   return (
     <div className="account-mgmt-container container-fluid py-3 py-md-4 text-dark bg-light" style={{ minHeight: '100vh' }}>
-      
+
       {/* RESPONSIVE HEADER */}
       <div className="row align-items-center g-3 mb-4 px-2">
         <div className="col-12 col-lg-6">
           <h2 className="fw-bold mb-1">Account Management</h2>
           <p className="text-muted small mb-0">Control system access and user permissions</p>
         </div>
-        
+
         <div className="col-12 col-lg-6">
           <div className="d-flex align-items-center bg-white rounded-3 border shadow-sm px-3" style={{ height: '45px' }}>
             <Search size={18} className="text-muted flex-shrink-0" />
@@ -100,7 +100,7 @@ const AccountManagement = () => {
       {/* TABLE SECTION */}
       <div className="card border-0 shadow-sm rounded-4 overflow-hidden mx-2">
         <div className="table-responsive">
-          <table className="table table-hover align-middle mb-0" style={{ minWidth: '850px' }}>
+          <table className="table table-hover align-middle mb-0" style={{ minWidth: '980px' }}>
             <thead className="bg-light border-bottom">
               <tr className="text-muted small text-uppercase" style={{ fontSize: "0.7rem", letterSpacing: '0.8px' }}>
                 <th className="ps-4 py-3">Profile</th>
@@ -129,9 +129,9 @@ const AccountManagement = () => {
                   <td data-label="Current Role">
                     {/* UPDATED ROLE BADGES */}
                     <span className={`badge rounded-pill px-3 py-1 small fw-normal ${
-                      user.role === 'admin' ? 'bg-primary text-white' : 
-                      user.role === 'cashier' ? 'bg-info-subtle text-info border border-info-subtle' : 
-                      user.role === 'cook' ? 'bg-success-subtle text-success border border-success-subtle' : 
+                      user.role === 'admin' ? 'bg-primary text-white' :
+                      user.role === 'cashier' ? 'bg-info-subtle text-info border border-info-subtle' :
+                      user.role === 'cook' ? 'bg-success-subtle text-success border border-success-subtle' :
                       'bg-light text-dark border'
                     }`}>
                       {user.role?.toUpperCase()}
@@ -150,7 +150,7 @@ const AccountManagement = () => {
                         >
                           <option value="customer">Customer</option>
                           <option value="cashier">Cashier</option>
-                          <option value="cook">Cook</option> {/* ADDED COOK OPTION */}
+                          <option value="cook">Cook</option>
                           <option value="admin">Admin</option>
                         </select>
                       )}

@@ -10,11 +10,13 @@ const TableStatus = {
           
           /* PRIORITIZE 'seated' status for the color */
           COALESCE(
-            CASE WHEN t.manual_status IS NOT NULL THEN LOWER(t.manual_status) END,
-            (SELECT status FROM reservation_tables 
-             WHERE table_id = t.table_id 
-             AND status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
-             ORDER BY FIELD(LOWER(status), 'seated', 'confirmed') 
+            (SELECT LOWER(rt.status) FROM reservation_tables rt
+             JOIN reservations r ON r.reservation_id = rt.reservation_id
+             WHERE rt.table_id = t.table_id
+             AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
+             ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed'),
+                   (r.reservation_type = 'event') DESC,
+                   r.reservation_date ASC, r.reservation_time ASC
              LIMIT 1),
             LOWER(t.status),
             'available'
@@ -25,37 +27,58 @@ const TableStatus = {
            JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
            WHERE rt.table_id = t.table_id 
            AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
-           ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed') LIMIT 1) AS first_name,
+             ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed'),
+                      (r.reservation_type = 'event') DESC,
+                      r.reservation_date ASC, r.reservation_time ASC LIMIT 1) AS first_name,
 
           (SELECT r.reservation_id FROM reservations r 
            JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
            WHERE rt.table_id = t.table_id 
            AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
-           ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed') LIMIT 1) AS reservation_id,
+             ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed'),
+                      (r.reservation_type = 'event') DESC,
+                      r.reservation_date ASC, r.reservation_time ASC LIMIT 1) AS reservation_id,
+
+            (SELECT DATE_FORMAT(r.reservation_date, '%Y-%m-%d') FROM reservations r
+             JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
+             WHERE rt.table_id = t.table_id
+             AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
+             ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed'),
+                      (r.reservation_type = 'event') DESC,
+                      r.reservation_date ASC, r.reservation_time ASC LIMIT 1) AS reservation_date,
 
           /* Reservation-related metadata for the current occupant (event timer + kiosk stop) */
           (SELECT r.reservation_type FROM reservations r 
            JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
            WHERE rt.table_id = t.table_id 
            AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
-           ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed') LIMIT 1) AS reservation_type,
+             ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed'),
+                      (r.reservation_type = 'event') DESC,
+                      r.reservation_date ASC, r.reservation_time ASC LIMIT 1) AS reservation_type,
 
           (SELECT r.is_kiosk_active FROM reservations r 
            JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
            WHERE rt.table_id = t.table_id 
            AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
-           ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed') LIMIT 1) AS is_kiosk_active,
+             ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed'),
+                      (r.reservation_type = 'event') DESC,
+                      r.reservation_date ASC, r.reservation_time ASC LIMIT 1) AS is_kiosk_active,
 
           (SELECT TIME_FORMAT(r.end_time, '%H:%i:%s') FROM reservations r 
            JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
            WHERE rt.table_id = t.table_id 
            AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
-           ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed') LIMIT 1) AS end_time,
+             ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed'),
+                      (r.reservation_type = 'event') DESC,
+                      r.reservation_date ASC, r.reservation_time ASC LIMIT 1) AS end_time,
 
           (SELECT TIME_FORMAT(rt.check_in_time, '%H:%i:%s') FROM reservation_tables rt
            WHERE rt.table_id = t.table_id 
            AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
-           ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed') LIMIT 1) AS check_in_time
+             ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed'),
+                      (SELECT r.reservation_type = 'event' FROM reservations r
+                       WHERE r.reservation_id = rt.reservation_id) DESC,
+                      rt.check_in_time DESC LIMIT 1) AS check_in_time
 
       FROM tables t
       GROUP BY t.table_id
@@ -224,9 +247,22 @@ return { success: true };
   // 5. CREATE NEW TABLE
   createNewTable: async (tableNumber, capacity) => {
     try {
+      const normalizedTableNumber = String(tableNumber || "").trim();
+      if (!normalizedTableNumber) {
+        throw Object.assign(new Error("Table number is required."), { statusCode: 400 });
+      }
+
       const parsedCapacity = Number(capacity);
       if (!Number.isInteger(parsedCapacity) || parsedCapacity < 1 || parsedCapacity > 7) {
-        throw new Error("Capacity must be between 1 and 7.");
+        throw Object.assign(new Error("Capacity must be between 1 and 7."), { statusCode: 400 });
+      }
+
+      const [existingTables] = await db.execute(
+        "SELECT table_id FROM tables WHERE LOWER(TRIM(table_number)) = LOWER(?) LIMIT 1",
+        [normalizedTableNumber],
+      );
+      if (existingTables.length > 0) {
+        throw Object.assign(new Error("A table with this number already exists."), { statusCode: 409 });
       }
 
       const query = `
@@ -234,13 +270,13 @@ return { success: true };
         VALUES (?, ?, ?, 'available')
       `;
       const [result] = await db.execute(query, [
-        tableNumber,
+        normalizedTableNumber,
         parsedCapacity,
         parsedCapacity,
       ]);
       return {
         table_id: result.insertId,
-        table_number: tableNumber,
+        table_number: normalizedTableNumber,
         capacity: parsedCapacity,
         status: "available",
       };
@@ -249,18 +285,38 @@ return { success: true };
     }
   },
 
-  // 6. DELETE TABLE
+  // Set a table's status directly (manual override from the Table Status page)
   setManualStatus: async (tableId, status) => {
     const normalizedStatus = String(status || "").toLowerCase();
     if (!["available", "occupied"].includes(normalizedStatus)) {
       throw new Error("Table status must be available or occupied.");
     }
 
+    // Freeing a table that still has a live reservation would leave the
+    // guest seated with no table, so block it and point to the checkout flow.
+    if (normalizedStatus === "available") {
+      const [seated] = await db.execute(
+        `SELECT rt.reservation_id
+         FROM reservation_tables rt
+         WHERE rt.table_id = ? AND LOWER(rt.status) IN ('confirmed', 'seated')
+         LIMIT 1`,
+        [tableId],
+      );
+      if (seated.length > 0) {
+        throw Object.assign(
+          new Error(
+            "This table still has a guest seated. Check out the table or stop the kiosk session before marking it vacant.",
+          ),
+          { statusCode: 409 },
+        );
+      }
+    }
+
     const [result] = await db.execute(
       `UPDATE tables
-       SET status = ?, manual_status = ?, available_seats = CASE WHEN ? = 'occupied' THEN 0 ELSE capacity END
+       SET status = ?, available_seats = CASE WHEN ? = 'occupied' THEN 0 ELSE capacity END
        WHERE table_id = ?`,
-      [normalizedStatus, normalizedStatus, normalizedStatus, tableId],
+      [normalizedStatus, normalizedStatus, tableId],
     );
 
     return { affectedRows: result.affectedRows, status: normalizedStatus };
@@ -269,9 +325,19 @@ return { success: true };
   // 7. DELETE TABLE
   deleteTable: async (tableId) => {
     try {
+      const [activeReservations] = await db.execute(
+        `SELECT reservation_id FROM reservation_tables
+         WHERE table_id = ? AND LOWER(status) IN ('confirmed', 'seated')
+         LIMIT 1`,
+        [tableId],
+      );
+      if (activeReservations.length > 0) {
+        throw Object.assign(new Error("Cannot delete a table assigned to an active reservation or event."), { statusCode: 409 });
+      }
+
       const query = `DELETE FROM tables WHERE table_id = ?`;
-      await db.execute(query, [tableId]);
-      return { success: true, message: "Table deleted successfully" };
+      const [result] = await db.execute(query, [tableId]);
+      return { success: result.affectedRows > 0, affectedRows: result.affectedRows };
     } catch (err) {
       throw err;
     }

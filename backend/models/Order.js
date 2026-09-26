@@ -90,16 +90,14 @@ const Order = {
     customizations,
     isRefill = 0,
     allergyNote = null,
-    tableId = null,
   ) => {
     const query = `
-      INSERT INTO kiosk_orders 
-      (reservation_id, table_id, item_id, quantity, kitchen_status, customizations, is_refill, allergy_note) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+      INSERT INTO kiosk_orders
+      (reservation_id, item_id, quantity, kitchen_status, customizations, is_refill, allergy_note)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`;
     const customData = customizations ? JSON.stringify(customizations) : null;
     return await conn.execute(query, [
       reservationId,
-      tableId,
       itemId,
       quantity,
       "pending",
@@ -122,9 +120,9 @@ const Order = {
 
     const query = `
       INSERT INTO reservations (
-        reservation_id, first_name, last_name, email, phone, status, 
+        reservation_id, first_name, last_name, email, phone, status,
         reservation_date, reservation_time, brgy_code, num_guests, package_name, occasion
-      ) 
+      )
       VALUES (?, ?, '', '', '', 'seated', ?, ?, NULL, ?, 'Walk-in', 'none')
     `;
     return await conn.execute(query, [
@@ -171,7 +169,7 @@ const Order = {
     const cleanStatus = status.toLowerCase(); // pending, preparing, ready, served, completed
 
     // --- FIX STARTS HERE ---
-    let reservationStatus = "seated"; 
+    let reservationStatus = "seated";
 
     // ONLY mark as 'completed' if the status is explicitly 'completed' (from Checkout)
     // Do NOT include 'served' here.
@@ -182,7 +180,7 @@ const Order = {
 
     let notifType = "info";
     if (cleanStatus === "ready") {
-      notifType = "success"; 
+      notifType = "success";
     } else if (cleanStatus === "alert") {
       notifType = "alert";
     }
@@ -195,8 +193,8 @@ const Order = {
       // This part is good - we deduct stock when food is served
       if (cleanStatus === "served" || cleanStatus === "completed") {
         const [orders] = await conn.execute(
-          `SELECT item_id, quantity 
-           FROM kiosk_orders 
+          `SELECT item_id, quantity
+           FROM kiosk_orders
            WHERE reservation_id = ? AND kitchen_status NOT IN ('served', 'completed')`,
           [reservationId]
         );
@@ -231,7 +229,7 @@ const Order = {
 
       if (resData.length > 0 && resData[0].user_id && resData[0].user_id !== "null") {
         await conn.execute(
-          `INSERT INTO notifications (user_id, reservation_id, title, message, type, is_read, created_at) 
+          `INSERT INTO notifications (user_id, reservation_id, title, message, type, is_read, created_at)
            VALUES (?, ?, ?, ?, ?, 0, NOW())`,
           [
             resData[0].user_id,
@@ -247,7 +245,7 @@ const Order = {
       return true;
     } catch (error) {
       await conn.rollback();
-      throw error; 
+      throw error;
     } finally {
       conn.release();
     }
@@ -256,16 +254,16 @@ const Order = {
   getPreReservedItems: async (reservationId) => {
     try {
       const query = `
-        SELECT m.*, ri.quantity, ri.customizations, 0 AS is_refill, NULL AS table_id
-        FROM menu_items m 
-        JOIN reservation_items ri ON m.item_id = ri.product_id 
+        SELECT m.*, ri.quantity, ri.customizations, 0 AS is_refill
+        FROM menu_items m
+        JOIN reservation_items ri ON m.item_id = ri.product_id
         WHERE ri.reservation_id = ?
-        
+
         UNION ALL -- Keeps duplicate items (Fixed)
-        
-        SELECT m.*, ko.quantity, ko.customizations, ko.is_refill, ko.table_id
-        FROM menu_items m 
-        JOIN kiosk_orders ko ON m.item_id = ko.item_id 
+
+        SELECT m.*, ko.quantity, ko.customizations, ko.is_refill
+        FROM menu_items m
+        JOIN kiosk_orders ko ON m.item_id = ko.item_id
         WHERE ko.reservation_id = ?
       `;
       const [rows] = await db.execute(query, [reservationId, reservationId]);
@@ -278,10 +276,10 @@ const Order = {
   // 10. Get all active orders (for Kitchen page)
   getActiveOrders: async () => {
     const [rows] = await db.execute(`
-    SELECT 
+    SELECT
       ko.order_id as id,
       ko.reservation_id,
-      ko.table_id,
+      rt.table_id,
       ko.item_id,
       ko.quantity,
       ko.kitchen_status as status,
@@ -290,8 +288,7 @@ const Order = {
       ko.created_at as timestamp,
       mi.menu_name as item_name,
       mi.price,
-      CASE 
-        WHEN ko.table_id IS NOT NULL THEN CONCAT('Table ', ko.table_id)
+      CASE
         WHEN rt.table_id IS NOT NULL THEN CONCAT('Table ', rt.table_id)
         ELSE 'Walk-in'
       END as \`table\`

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Monitor } from "lucide-react";
-import api from "../../api";
+import { Monitor, Armchair, CircleCheck } from "lucide-react";
+import io from "socket.io-client";
+import api, { SOCKET_URL } from "../../api";
 import { useToast } from "../ToastContext";
 
 const KioskControl = () => {
@@ -8,6 +9,30 @@ const KioskControl = () => {
   const [reservationId, setReservationId] = useState("");
   const [kioskType, setKioskType] = useState("single");
   const [activeKiosk, setActiveKiosk] = useState(null);
+  const [occupiedTables, setOccupiedTables] = useState([]);
+  const [tablesLoading, setTablesLoading] = useState(true);
+
+  // Tables marked as occupied from the Table Status page. These are floor
+  // state only - a manual occupancy is not a kiosk session, so the two are
+  // tracked separately.
+  const fetchOccupiedTables = useCallback(async () => {
+    try {
+      const response = await api.get("/admin/table-status");
+      const tables = response.data?.tables || [];
+      setOccupiedTables(
+        tables.filter((table) => {
+          const status = (table.bridge_status || table.status || "available")
+            .toString()
+            .toLowerCase();
+          return status !== "available" && status !== "maintenance";
+        }),
+      );
+    } catch (error) {
+      console.error("Failed to fetch table occupancy:", error);
+    } finally {
+      setTablesLoading(false);
+    }
+  }, []);
 
   const fetchKioskStatus = useCallback(async () => {
     try {
@@ -21,7 +46,19 @@ const KioskControl = () => {
 
   useEffect(() => {
     fetchKioskStatus();
-  }, [fetchKioskStatus]);
+    fetchOccupiedTables();
+    const socket = io(SOCKET_URL, {
+      transports: ["websocket", "polling"],
+      reconnection: true,
+    });
+    socket.on("table_updated", fetchKioskStatus);
+    socket.on("table_updated", fetchOccupiedTables);
+    return () => {
+      socket.off("table_updated", fetchKioskStatus);
+      socket.off("table_updated", fetchOccupiedTables);
+      socket.disconnect();
+    };
+  }, [fetchKioskStatus, fetchOccupiedTables]);
 
   const openKiosk = async () => {
     if (!reservationId.trim()) return;
@@ -33,6 +70,7 @@ const KioskControl = () => {
       showToast(`Kiosk opened for ${kioskType} reservation.`, "success");
       setReservationId("");
       await fetchKioskStatus();
+      await fetchOccupiedTables();
     } catch (error) {
       showToast(error.response?.data?.error || "Failed to open kiosk.");
     }
@@ -50,6 +88,7 @@ const KioskControl = () => {
       });
       showToast("Kiosk closed successfully.", "success");
       await fetchKioskStatus();
+      await fetchOccupiedTables();
     } catch (error) {
       showToast(error.response?.data?.error || "Failed to close kiosk.");
     }
@@ -96,6 +135,43 @@ const KioskControl = () => {
         <button className="btn btn-outline-danger btn-sm fw-bold" onClick={closeKiosk} disabled={!activeKiosk}>
           Close Kiosk
         </button>
+      </div>
+
+      {/* READ-ONLY: tables currently marked as occupied on the floor */}
+      <div className="mt-3 pt-3 border-top">
+        <div className="d-flex align-items-center gap-2 mb-2">
+          <Armchair className="text-secondary" size={18} />
+          <h6 className="fw-bold mb-0">Occupied Tables</h6>
+          <span className="badge rounded-pill bg-secondary-subtle text-secondary border ms-auto">
+            {occupiedTables.length}
+          </span>
+        </div>
+        <p className="small text-muted mb-2">
+          Read-only view. Marking a table as occupied does not open a kiosk session.
+        </p>
+        {tablesLoading ? (
+          <div className="text-center py-2">
+            <div className="spinner-border spinner-border-sm text-secondary" role="status">
+              <span className="visually-hidden">Loading tables...</span>
+            </div>
+          </div>
+        ) : occupiedTables.length === 0 ? (
+          <div className="d-flex align-items-center gap-2 small text-muted bg-light rounded px-3 py-2">
+            <CircleCheck size={16} className="text-success flex-shrink-0" />
+            All tables are available.
+          </div>
+        ) : (
+          <div className="d-flex flex-wrap gap-2">
+            {occupiedTables.map((table) => (
+              <span
+                key={table.table_id}
+                className="badge rounded-pill bg-danger-subtle text-danger border border-danger-subtle px-3 py-2 fw-normal"
+              >
+                Table {table.table_number}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

@@ -3,6 +3,7 @@ import io from "socket.io-client";
 import api, { SOCKET_URL } from "../../api";
 import { Plus, Armchair, Trash2, RefreshCw, Users, X, Square } from "lucide-react";
 import { useToast } from "../ToastContext";
+import KioskControl from "../shared/KioskControl";
 
 // Helpers to extract and compare dates (YYYY-MM-DD format)
 const getTodayDateString = () => {
@@ -387,7 +388,7 @@ const TableStatus = ({ compact = false }) => {
                             ) {
                               handleAction(
                                 "delete",
-                                `/admin/delete-table/${t.table_id}`,
+                                `/admin/tables/${t.table_id}`,
                               );
                             }
                           }}
@@ -475,6 +476,8 @@ const TableStatus = ({ compact = false }) => {
           );
         })}
       </div>
+
+      {!compact && <KioskControl />}
 
       {/* MODALS */}
       {ui.modal && (
