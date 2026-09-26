@@ -154,17 +154,6 @@ const TableStatus = ({ compact = false }) => {
     }
   };
 
-  const toggleTableAvailability = async (table, currentStatus, e) => {
-    if (e) e.stopPropagation();
-    const nextStatus = currentStatus === "available" ? "occupied" : "available";
-    await handleAction(
-      "put",
-      `/admin/table-status/${table.table_id}`,
-      { status: nextStatus },
-      () => showToast(`Table ${table.table_number} marked ${nextStatus}.`, "success"),
-    );
-  };
-
   // Compute seconds remaining for a given end time (HH:MM:SS) or check-in time + 3 hours
   const computeRemainingSeconds = (endTime, checkInTime) => {
     const now = new Date();
@@ -421,14 +410,6 @@ const TableStatus = ({ compact = false }) => {
                   </div>
 
                   <div className="mt-auto">
-                    <button
-                      className={`btn btn-sm w-100 py-0 fw-bold mb-1 ${isAvailable ? "btn-outline-danger" : "btn-outline-success"}`}
-                      style={{ fontSize: "0.65rem", height: "22px" }}
-                      onClick={(e) => toggleTableAvailability(t, activeStatus, e)}
-                      disabled={ui.updating}
-                    >
-                      {isAvailable ? "Mark Occupied" : "Mark Vacant"}
-                    </button>
                     {isKioskActive && (
                       <button
                         className="btn btn-sm btn-danger w-100 py-0 fw-bold mb-1"

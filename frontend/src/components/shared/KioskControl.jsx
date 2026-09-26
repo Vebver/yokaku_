@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { Monitor, Armchair, CircleCheck } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Monitor, Users } from "lucide-react";
 import io from "socket.io-client";
 import api, { SOCKET_URL } from "../../api";
 import { useToast } from "../ToastContext";
@@ -9,30 +9,24 @@ const KioskControl = () => {
   const [reservationId, setReservationId] = useState("");
   const [kioskType, setKioskType] = useState("single");
   const [activeKiosk, setActiveKiosk] = useState(null);
-  const [occupiedTables, setOccupiedTables] = useState([]);
-  const [tablesLoading, setTablesLoading] = useState(true);
+  const [candidates, setCandidates] = useState([]);
+  const [loadingCandidates, setLoadingCandidates] = useState(false);
 
-  // Tables marked as occupied from the Table Status page. These are floor
-  // state only - a manual occupancy is not a kiosk session, so the two are
-  // tracked separately.
-  const fetchOccupiedTables = useCallback(async () => {
+  const fetchCandidates = useCallback(async () => {
+    setLoadingCandidates(true);
     try {
-      const response = await api.get("/admin/table-status");
-      const tables = response.data?.tables || [];
-      setOccupiedTables(
-        tables.filter((table) => {
-          const status = (table.bridge_status || table.status || "available")
-            .toString()
-            .toLowerCase();
-          return status !== "available" && status !== "maintenance";
-        }),
-      );
+      const response = await api.get("/admin/kiosk-candidates");
+      setCandidates(response.data?.candidates || []);
     } catch (error) {
-      console.error("Failed to fetch table occupancy:", error);
+      console.error("Failed to fetch kiosk candidates:", error);
     } finally {
-      setTablesLoading(false);
+      setLoadingCandidates(false);
     }
   }, []);
+
+  useEffect(() => {
+    fetchCandidates();
+  }, [fetchCandidates]);
 
   const fetchKioskStatus = useCallback(async () => {
     try {
@@ -46,19 +40,47 @@ const KioskControl = () => {
 
   useEffect(() => {
     fetchKioskStatus();
-    fetchOccupiedTables();
     const socket = io(SOCKET_URL, {
       transports: ["websocket", "polling"],
       reconnection: true,
     });
     socket.on("table_updated", fetchKioskStatus);
-    socket.on("table_updated", fetchOccupiedTables);
     return () => {
       socket.off("table_updated", fetchKioskStatus);
-      socket.off("table_updated", fetchOccupiedTables);
       socket.disconnect();
     };
-  }, [fetchKioskStatus, fetchOccupiedTables]);
+  }, [fetchKioskStatus]);
+
+  // Selecting a session auto-syncs the type so the admin never sends a
+  // mismatched pairing that the backend would reject.
+  const handleSelect = (event) => {
+    const value = event.target.value;
+    setReservationId(value);
+    const chosen = candidates.find((c) => c.reservation_id === value);
+    if (chosen) setKioskType(chosen.is_event ? "event" : "single");
+  };
+
+  const grouped = useMemo(() => {
+    const events = candidates.filter((c) => c.is_event);
+    const walkins = candidates.filter((c) => !c.is_event && c.is_walkin);
+    const reservations = candidates.filter((c) => !c.is_event && !c.is_walkin);
+    return [
+      { label: "Events", items: events },
+      { label: "Walk-ins", items: walkins },
+      { label: "Reservations", items: reservations },
+    ].filter((g) => g.items.length > 0);
+  }, [candidates]);
+
+  const renderOption = (c) => {
+    const name = [c.first_name, c.last_name].filter(Boolean).join(" ").trim();
+    const parts = [
+      c.is_event ? "Event" : c.is_walkin ? "Walk-in" : "Reservation",
+      name || "(no name)",
+      c.table_names ? `Table ${c.table_names}` : null,
+      c.reservation_id,
+    ].filter(Boolean);
+    return `${parts.join(" - ")}${String(c.is_kiosk_active) === "1" ? " [KIOSK OPEN]" : ""}`;
+  };
 
   const openKiosk = async () => {
     if (!reservationId.trim()) return;
@@ -67,10 +89,13 @@ const KioskControl = () => {
         reservationId: reservationId.trim(),
         kioskType,
       });
-      showToast(`Kiosk opened for ${kioskType} reservation.`, "success");
+      showToast(
+        `Kiosk opened for ${kioskType === "event" ? "event" : "single customer"} session.`,
+        "success",
+      );
       setReservationId("");
       await fetchKioskStatus();
-      await fetchOccupiedTables();
+      await fetchCandidates();
     } catch (error) {
       showToast(error.response?.data?.error || "Failed to open kiosk.");
     }
@@ -88,7 +113,7 @@ const KioskControl = () => {
       });
       showToast("Kiosk closed successfully.", "success");
       await fetchKioskStatus();
-      await fetchOccupiedTables();
+      await fetchCandidates();
     } catch (error) {
       showToast(error.response?.data?.error || "Failed to close kiosk.");
     }
@@ -100,7 +125,7 @@ const KioskControl = () => {
         <Monitor className="text-primary me-2" size={24} />
         <div>
           <h5 className="fw-bold mb-0">Kiosk Control</h5>
-          <p className="small text-muted mb-0">Open an event or single-customer kiosk session.</p>
+          <p className="small text-muted mb-0">Open an event, walk-in, or single-customer kiosk session.</p>
         </div>
       </div>
       <div className="row g-3 align-items-end">
@@ -112,13 +137,33 @@ const KioskControl = () => {
           </select>
         </div>
         <div className="col-12 col-md-5">
-          <label className="form-label small fw-bold">Reservation ID</label>
-          <input
-            className="form-control"
-            placeholder="Enter reservation ID"
+          <label className="form-label small fw-bold">Session</label>
+          <select
+            className="form-select"
             value={reservationId}
-            onChange={(event) => setReservationId(event.target.value)}
-          />
+            onChange={handleSelect}
+          >
+            <option value="">
+              {loadingCandidates
+                ? "Loading sessions..."
+                : candidates.length === 0
+                  ? "No active events, walk-ins, or reservations"
+                  : "Select a session (event, walk-in, or reservation)"}
+            </option>
+            {grouped.map((group) => (
+              <optgroup key={group.label} label={group.label}>
+                {group.items.map((c) => (
+                  <option key={c.reservation_id} value={c.reservation_id}>
+                    {renderOption(c)}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          <div className="form-text">
+            The session type updates automatically to match your selection.{" "}
+            {candidates.length} active session(s) available.
+          </div>
         </div>
         <div className="col-12 col-md-3">
           <button className="btn btn-primary w-100 fw-bold" onClick={openKiosk} disabled={!reservationId.trim()}>
@@ -132,46 +177,18 @@ const KioskControl = () => {
             ? `Open: ${activeKiosk.reservation_id} (${activeKiosk.reservation_type === "event" ? "Event" : "Single customer"})`
             : "No kiosk session is open."}
         </span>
-        <button className="btn btn-outline-danger btn-sm fw-bold" onClick={closeKiosk} disabled={!activeKiosk}>
-          Close Kiosk
-        </button>
-      </div>
-
-      {/* READ-ONLY: tables currently marked as occupied on the floor */}
-      <div className="mt-3 pt-3 border-top">
-        <div className="d-flex align-items-center gap-2 mb-2">
-          <Armchair className="text-secondary" size={18} />
-          <h6 className="fw-bold mb-0">Occupied Tables</h6>
-          <span className="badge rounded-pill bg-secondary-subtle text-secondary border ms-auto">
-            {occupiedTables.length}
-          </span>
+        <div className="d-flex gap-2">
+          <button
+            className="btn btn-outline-secondary btn-sm fw-bold"
+            onClick={fetchCandidates}
+            disabled={loadingCandidates}
+          >
+            <Users size={14} className="me-1" /> Refresh
+          </button>
+          <button className="btn btn-outline-danger btn-sm fw-bold" onClick={closeKiosk} disabled={!activeKiosk}>
+            Close Kiosk
+          </button>
         </div>
-        <p className="small text-muted mb-2">
-          Read-only view. Marking a table as occupied does not open a kiosk session.
-        </p>
-        {tablesLoading ? (
-          <div className="text-center py-2">
-            <div className="spinner-border spinner-border-sm text-secondary" role="status">
-              <span className="visually-hidden">Loading tables...</span>
-            </div>
-          </div>
-        ) : occupiedTables.length === 0 ? (
-          <div className="d-flex align-items-center gap-2 small text-muted bg-light rounded px-3 py-2">
-            <CircleCheck size={16} className="text-success flex-shrink-0" />
-            All tables are available.
-          </div>
-        ) : (
-          <div className="d-flex flex-wrap gap-2">
-            {occupiedTables.map((table) => (
-              <span
-                key={table.table_id}
-                className="badge rounded-pill bg-danger-subtle text-danger border border-danger-subtle px-3 py-2 fw-normal"
-              >
-                Table {table.table_number}
-              </span>
-            ))}
-          </div>
-        )}
       </div>
     </section>
   );

@@ -276,7 +276,25 @@ const Reservation = {
       : "";
     const tableParams = hasTable ? [parsedTableId] : [];
 
-    // 1. An explicitly opened event takes priority on its assigned table only.
+    // 1. A single-customer session on THIS table always wins, so a walk-in
+    //    already seated keeps their own kiosk while an event runs elsewhere.
+    const tableScopedSingleSql = `
+          SELECT r.*
+          FROM reservations r
+          WHERE r.is_kiosk_active = 1
+            AND COALESCE(r.reservation_type, 'per_table') <> 'event'
+            AND r.status IN ('Confirmed', 'Seated', 'Pending')
+            ${tableFilter}
+          LIMIT 1
+        `;
+    if (hasTable) {
+      const [tableSingles] = await db.execute(tableScopedSingleSql, tableParams);
+      if (tableSingles.length > 0) {
+        return { mode: "single_active", reservation: tableSingles[0] };
+      }
+    }
+
+    // 2. An explicitly opened event takes priority on its assigned table only.
     const activeEventSql = `
           SELECT r.*
           FROM reservations r
@@ -292,7 +310,7 @@ const Reservation = {
       return { mode: "event_active", reservation: activeEvents[0] };
     }
 
-    // 2. Check if there is an event reservation scheduled for right now.
+    // 3. Check if there is an event reservation scheduled for right now.
     const eventSql = `
           SELECT r.* 
           FROM reservations r
@@ -314,7 +332,7 @@ const Reservation = {
         return { mode: "event_waiting", reservation: event };
       }
     }
-    // 3. Single-customer sessions are intentionally separate from events.
+    // 4. Fallback: any single-customer session not scoped to a table.
     const activeSql = `
           SELECT r.* 
           FROM reservations r
@@ -509,12 +527,22 @@ const Reservation = {
         finalReservationType === "event";
 
       if (isEvent) {
-        const [allTables] = await conn.query(
-          "SELECT table_id FROM tables WHERE status != 'maintenance'",
+        // Events claim every FREE table, but never displace a guest who is
+        // already seated or confirmed. Tables with a live reservation_tables
+        // row are skipped so walk-ins can coexist with an event.
+        const [freeTables] = await conn.query(
+          `SELECT t.table_id
+           FROM tables t
+           WHERE LOWER(COALESCE(t.status, 'available')) = 'available'
+             AND NOT EXISTS (
+               SELECT 1 FROM reservation_tables rt
+               WHERE rt.table_id = t.table_id
+                 AND LOWER(rt.status) IN ('seated', 'confirmed')
+             )`,
         );
-        finalTableIds = allTables.map((t) => t.table_id);
+        finalTableIds = freeTables.map((t) => t.table_id);
         console.log(
-          "✅ EVENT reservation - assigning all tables:",
+          "✅ EVENT reservation - assigning all FREE tables:",
           finalTableIds.length,
         );
       } else if (data.tableIds?.length > 0) {

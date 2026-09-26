@@ -22,6 +22,7 @@ router.post('/walk-in/:tableId', protect, adminOnly, adminController.Walkin);
 router.put('/checkout/:tableId', protect, adminOnly, adminController.CheckOut);
 router.put('/table-status/:tableId', protect, adminOnly, adminController.setTableStatus);
 router.post('/stop-kiosk', protect, adminOnly, adminController.stopKiosk);
+router.get('/kiosk-candidates', protect, adminOnly, adminController.getKioskCandidates);
 router.post('/add-table', protect, adminOnly, adminController.addTable);
 router.delete('/tables/:tableId', protect, adminOnly, adminController.deleteTable);
 

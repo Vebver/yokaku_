@@ -45,7 +45,7 @@ if (process.env.JWT_SECRET && process.env.JWT_SECRET.length < 32) {
 // ──────────────────────────────────────
 const globalRateLimit = {
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 200, // limit each IP to 200 requests per windowMs
+  max: 20000, // limit each IP to 20000 requests per windowMs
   message: {
     error: "Too many requests, please try again later.",
   },
@@ -58,7 +58,7 @@ const globalRateLimit = {
 // ──────────────────────────────────────
 const authRateLimit = {
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // limit each IP to 10 auth requests per windowMs
+  max: 30, // limit each IP to 30 auth requests per windowMs
   message: {
     error: "Too many authentication attempts, please try again later.",
   },

@@ -15,9 +15,10 @@ const TableStatus = {
              WHERE rt.table_id = t.table_id
              AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
              ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed'),
-                   (r.reservation_type = 'event') DESC,
-                   r.reservation_date ASC, r.reservation_time ASC
-             LIMIT 1),
+                         (r.reservation_type = 'event') ASC,
+                         rt.check_in_time DESC,
+                         r.reservation_date ASC, r.reservation_time ASC
+                   LIMIT 1),
             LOWER(t.status),
             'available'
           ) AS bridge_status,    
@@ -28,15 +29,17 @@ const TableStatus = {
            WHERE rt.table_id = t.table_id 
            AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
              ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed'),
-                      (r.reservation_type = 'event') DESC,
+                      (r.reservation_type = 'event') ASC,
+                      rt.check_in_time DESC,
                       r.reservation_date ASC, r.reservation_time ASC LIMIT 1) AS first_name,
 
-          (SELECT r.reservation_id FROM reservations r 
+          (SELECT r.reservation_id FROM reservations r
            JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
-           WHERE rt.table_id = t.table_id 
+           WHERE rt.table_id = t.table_id
            AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
              ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed'),
-                      (r.reservation_type = 'event') DESC,
+                      (r.reservation_type = 'event') ASC,
+                      rt.check_in_time DESC,
                       r.reservation_date ASC, r.reservation_time ASC LIMIT 1) AS reservation_id,
 
             (SELECT DATE_FORMAT(r.reservation_date, '%Y-%m-%d') FROM reservations r
@@ -44,40 +47,44 @@ const TableStatus = {
              WHERE rt.table_id = t.table_id
              AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
              ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed'),
-                      (r.reservation_type = 'event') DESC,
+                      (r.reservation_type = 'event') ASC,
+                      rt.check_in_time DESC,
                       r.reservation_date ASC, r.reservation_time ASC LIMIT 1) AS reservation_date,
 
           /* Reservation-related metadata for the current occupant (event timer + kiosk stop) */
-          (SELECT r.reservation_type FROM reservations r 
+          (SELECT r.reservation_type FROM reservations r
            JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
-           WHERE rt.table_id = t.table_id 
+           WHERE rt.table_id = t.table_id
            AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
              ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed'),
-                      (r.reservation_type = 'event') DESC,
+                      (r.reservation_type = 'event') ASC,
+                      rt.check_in_time DESC,
                       r.reservation_date ASC, r.reservation_time ASC LIMIT 1) AS reservation_type,
 
-          (SELECT r.is_kiosk_active FROM reservations r 
+          (SELECT r.is_kiosk_active FROM reservations r
            JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
-           WHERE rt.table_id = t.table_id 
+           WHERE rt.table_id = t.table_id
            AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
              ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed'),
-                      (r.reservation_type = 'event') DESC,
+                      (r.reservation_type = 'event') ASC,
+                      rt.check_in_time DESC,
                       r.reservation_date ASC, r.reservation_time ASC LIMIT 1) AS is_kiosk_active,
 
-          (SELECT TIME_FORMAT(r.end_time, '%H:%i:%s') FROM reservations r 
+          (SELECT TIME_FORMAT(r.end_time, '%H:%i:%s') FROM reservations r
            JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
-           WHERE rt.table_id = t.table_id 
+           WHERE rt.table_id = t.table_id
            AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
              ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed'),
-                      (r.reservation_type = 'event') DESC,
+                      (r.reservation_type = 'event') ASC,
+                      rt.check_in_time DESC,
                       r.reservation_date ASC, r.reservation_time ASC LIMIT 1) AS end_time,
 
           (SELECT TIME_FORMAT(rt.check_in_time, '%H:%i:%s') FROM reservation_tables rt
-           WHERE rt.table_id = t.table_id 
+           WHERE rt.table_id = t.table_id
            AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
              ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed'),
                       (SELECT r.reservation_type = 'event' FROM reservations r
-                       WHERE r.reservation_id = rt.reservation_id) DESC,
+                       WHERE r.reservation_id = rt.reservation_id) ASC,
                       rt.check_in_time DESC LIMIT 1) AS check_in_time
 
       FROM tables t
@@ -192,8 +199,13 @@ const query = `
   checkoutTable: async (tableId) => {
     try {
       const [rows] = await db.query(
-        `SELECT reservation_id FROM reservation_tables 
-         WHERE table_id = ? AND LOWER(status) IN ('seated', 'confirmed') 
+        `SELECT rt.reservation_id
+         FROM reservation_tables rt
+         JOIN reservations r ON r.reservation_id = rt.reservation_id
+         WHERE rt.table_id = ? AND LOWER(rt.status) IN ('seated', 'confirmed')
+         ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed'),
+                  (r.reservation_type = 'event') ASC,
+                  rt.check_in_time DESC
          LIMIT 1`,
         [tableId],
       );
@@ -239,6 +251,39 @@ return { success: true };
         [reservationId],
       );
       return { success: true, affected: result.affectedRows, reservationId };
+    } catch (err) {
+      throw err;
+    }
+  },
+
+  // Active sessions eligible for the kiosk: walk-ins, reservations, and events.
+  listKioskCandidates: async () => {
+    try {
+      const [rows] = await db.execute(
+        `SELECT r.reservation_id,
+                r.first_name,
+                r.last_name,
+                COALESCE(NULLIF(r.reservation_type, ''), 'per_table') AS reservation_type,
+                r.status,
+                r.is_kiosk_active,
+                GROUP_CONCAT(t.table_number ORDER BY t.table_number SEPARATOR ', ') AS table_names
+         FROM reservations r
+         LEFT JOIN reservation_tables rt ON TRIM(r.reservation_id) = TRIM(rt.reservation_id)
+         LEFT JOIN tables t ON t.table_id = rt.table_id
+         WHERE LOWER(r.status) IN ('seated', 'confirmed', 'pending')
+         GROUP BY r.reservation_id, r.first_name, r.last_name,
+                  r.reservation_type, r.status, r.is_kiosk_active
+         ORDER BY r.is_kiosk_active DESC,
+                  (LOWER(COALESCE(r.reservation_type, 'per_table')) = 'event') DESC,
+                  r.reservation_time DESC
+         LIMIT 50`,
+      );
+
+      return rows.map((r) => ({
+        ...r,
+        is_walkin: String(r.reservation_id || "").toUpperCase().startsWith("WALK-"),
+        is_event: String(r.reservation_type || "").toLowerCase() === "event",
+      }));
     } catch (err) {
       throw err;
     }

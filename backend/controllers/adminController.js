@@ -106,6 +106,16 @@ const adminController = {
       res.status(500).json({ error: error.message });
     }
   },
+  // List active sessions (walk-ins and reservations) that can be pushed to a kiosk.
+  getKioskCandidates: async (req, res) => {
+    try {
+      const rows = await TableStatus.listKioskCandidates();
+      res.json({ candidates: rows });
+    } catch (error) {
+      console.error("Kiosk Candidates Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
   // STOP KIOSK: Reset the active kiosk session so the kiosk returns to home
   stopKiosk: async (req, res) => {
     const { reservationId } = req.body;

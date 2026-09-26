@@ -44,11 +44,19 @@ const Maintenance = {
           [reservationId]
         );
 
-        // Update physical tables status to occupied (turning them red on the dashboard)
+        // Update physical tables status to occupied (turning them red on the dashboard).
+        // Never steal a table that another live reservation already holds.
         await conn.execute(
-          `UPDATE tables t 
-           JOIN reservation_tables rt ON t.table_id = rt.table_id 
-           SET t.status = 'occupied' WHERE rt.reservation_id = ?`,
+          `UPDATE tables t
+           JOIN reservation_tables rt ON t.table_id = rt.table_id
+           SET t.status = 'occupied', t.available_seats = 0
+           WHERE rt.reservation_id = ?
+             AND NOT EXISTS (
+               SELECT 1 FROM reservation_tables rt_other
+               WHERE rt_other.table_id = rt.table_id
+                 AND rt_other.reservation_id <> rt.reservation_id
+                 AND LOWER(rt_other.status) IN ('seated', 'confirmed')
+             )`,
           [reservationId]
         );
       }
