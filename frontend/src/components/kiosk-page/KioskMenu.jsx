@@ -28,6 +28,7 @@ import "../../Style/KioskReservationMenu.css";
 import ReservationOrderModal from "./ReservationOrderModal";
 import OrderSummary from "./OrderSummary";
 import axios from "axios";
+import { io as ioClient } from "socket.io-client";
 import alertMusicFile from "../../assets/alert-sound.mp3";
 import { useToast } from "../ToastContext";
 
@@ -441,8 +442,7 @@ const KioskMenu = () => {
       }
 
       if (isPayNow) {
-        // --- SYNCHRONOUS CALCULATION (Prevents React State Lag) ---
-        const currentHistory = billItems.length > 0 ? billItems : localBillHistory;
+        // --- SYNCHRONOUS CALCULATION (Prevents React State Lag) ---        const currentHistory = billItems.length > 0 ? billItems : localBillHistory;
         const combinedSessionItems = [...currentHistory, ...itemsToSubmit];
 
         const computedSessionTotal = combinedSessionItems.reduce((sum, item) => {
@@ -475,7 +475,6 @@ const KioskMenu = () => {
 
         storage.setItem(PAYMENT_CHOICE_KEY, "verified");
         setIsPaid(true);
-        setShowBillInfo(false);
         showToast("Your order has been placed. Thank you!", "success");
       } else {
         setIsPaid(false);
@@ -485,7 +484,11 @@ const KioskMenu = () => {
 
       await fetchCurrentBill();
 
+      // Close every checkout/payment overlay so the customer is not left
+      // staring at the Pay Now / Pay Later card after ordering.
       setShowPaymentModal(false);
+      setShowBillInfo(false);
+      setIsFinalCheckout(false);
     } catch (error) {
       console.error(error);
       showToast("Order failed.");
@@ -522,6 +525,7 @@ const KioskMenu = () => {
             : `${BASE_URL}/`;
           img = `${cleanBase}${cleanPath}`;
         }
+        const stockBlocked = item.is_stock_available === 0 || item.is_stock_available === false;
         acc[cat].push({
           id: item.item_id,
           name: item.menu_name || item.name,
@@ -529,6 +533,10 @@ const KioskMenu = () => {
           price: item.price,
           category: cat,
           description: item.description || "",
+          isStockAvailable: !stockBlocked,
+          unavailableReason: stockBlocked
+            ? item.availability_reason || "Not available"
+            : null,
         });
         return acc;
       }, {});
@@ -558,6 +566,66 @@ const KioskMenu = () => {
     fetchCurrentBill();
   }, []);
 
+  // Admin / cashier can interrupt a stuck (bugged) kiosk: when a staff member
+  // stops the session from Table Status, the kiosk is sent back to its home
+  // screen instead of leaving the customer trapped on a broken page.
+  useEffect(() => {
+    const BASE_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
+    let socket;
+    try {
+      socket = ioClient(BASE_URL, { transports: ["websocket", "polling"] });
+    } catch (err) {
+      console.warn("Kiosk interrupt listener unavailable:", err);
+      return;
+    }
+
+    const handleStopped = (payload) => {
+      const activeResId = storage.getItem(SAVED_RES_ID);
+      const activeTable = storage.getItem(SAVED_TABLE_ID);
+      const stoppedId = payload?.reservationId;
+      const stoppedTable = payload?.tableId;
+
+      // Only act on THIS kiosk's own session...
+      if (stoppedId && activeResId && stoppedId !== activeResId) return;
+      // ...and when a stop was scoped to a single table, only if that table is
+      // the one this kiosk is serving. An event stop on another table must not
+      // interrupt this guest.
+      if (
+        stoppedTable &&
+        activeTable &&
+        String(stoppedTable) !== String(activeTable)
+      ) {
+        return;
+      }
+
+      playAlert();
+      [
+        TIMER_KEY,
+        SAVED_TABLE_ID,
+        SAVED_RES_ID,
+        PAYMENT_CHOICE_KEY,
+        TOTAL_PAID_KEY,
+        LAST_REFILL_KEY,
+      ].forEach((k) => {
+        storage.removeItem(k);
+        sessionStorage.removeItem(k);
+        localStorage.removeItem(k);
+      });
+
+      setCart([]);
+      setBillItems([]);
+      setLocalBillHistory([]);
+      showToast("This kiosk session was stopped by staff. Please start over.", "error");
+      window.location.href = "/kiosk-selection";
+    };
+
+    socket.on("kiosk_stopped", handleStopped);
+    return () => {
+      socket.off("kiosk_stopped", handleStopped);
+      socket.disconnect();
+    };
+  }, []);
+
   useEffect(() => {
     fetchMenu();
     const interval = setInterval(fetchMenu, 10000);
@@ -572,6 +640,11 @@ const KioskMenu = () => {
 
   const handleItemClick = (item) => {
     console.log("Kiosk Item Clicked:", item);
+    // Blocked by inventory (expired / out of stock) raw materials
+    if (item && item.isStockAvailable === false) {
+      showToast(`${item.name} is currently not available.`);
+      return;
+    }
     const itemName = (item?.name || "").toLowerCase();
 
     if (activeCategory === "Chicken") {
@@ -771,7 +844,12 @@ const KioskMenu = () => {
             {(menuData[activeCategory] || []).map((item) => (
               <div
                 key={item.id}
-                className="res-food-card"
+                className={`res-food-card ${item.isStockAvailable === false ? "res-food-card-unavailable" : ""}`}
+                style={
+                  item.isStockAvailable === false
+                    ? { opacity: 0.45, filter: "grayscale(0.7)", cursor: "not-allowed" }
+                    : undefined
+                }
                 onClick={() => handleItemClick(item)}
               >
                 <div className="res-card-image-container">
@@ -784,11 +862,17 @@ const KioskMenu = () => {
                 </div>
                 <div className="res-card-info">
                   <h4 className="res-food-label">{item.name}</h4>
-                  <p style={{ color: "#ffcc00", fontWeight: "bold" }}>
-                    {activeCategory === "Chicken"
-                      ? "₱0.00 (REFILL)"
-                      : `₱${parseFloat(item.price).toFixed(2)}`}
-                  </p>
+                  {item.isStockAvailable === false ? (
+                    <p style={{ color: "#ff5c5c", fontWeight: "bold", margin: 0 }}>
+                      NOT AVAILABLE
+                    </p>
+                  ) : (
+                    <p style={{ color: "#ffcc00", fontWeight: "bold" }}>
+                      {activeCategory === "Chicken"
+                        ? "₱0.00 (REFILL)"
+                        : `₱${parseFloat(item.price).toFixed(2)}`}
+                    </p>
+                  )}
                 </div>
               </div>
             ))}
@@ -1265,6 +1349,7 @@ const KioskMenu = () => {
                       setIsLoading(false);
 
                       fetchCurrentBill();
+                      setShowBillInfo(false);
                     } catch (err) {
                       showToast("Payment processing failed.");
                       setIsLoading(false);

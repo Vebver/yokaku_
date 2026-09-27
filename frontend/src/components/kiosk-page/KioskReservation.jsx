@@ -12,12 +12,39 @@ import "../../Style/KioskReservation.css";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
+// Reservation dates arrive as YYYY-MM-DD, which the browser would otherwise
+// parse as UTC and shift a day backwards for some timezones.
+const formatDate = (value) => {
+  if (!value) return "-";
+  const raw = String(value);
+  const iso = raw.length > 10 ? raw.slice(0, 10) : raw;
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return raw;
+  return new Date(y, m - 1, d).toLocaleDateString("en-PH", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+
+const formatTime = (value) => {
+  if (!value) return "-";
+  const raw = String(value).slice(0, 5);
+  const [h, m] = raw.split(":").map(Number);
+  if (isNaN(h) || isNaN(m)) return String(value);
+  const suffix = h >= 12 ? "PM" : "AM";
+  const hour = h % 12 === 0 ? 12 : h % 12;
+  return `${hour}:${String(m).padStart(2, "0")} ${suffix}`;
+};
+
 const KioskReservation = () => {
   const navigate = useNavigate();
   const [resId, setResId] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [activeResId, setActiveResId] = useState(sessionStorage.getItem("resId") || null);
+  // Holds the looked-up reservation while the guest confirms it is theirs.
+  const [pending, setPending] = useState(null);
 
   // Track if an event has locked down the entry interface
   const [eventMode, setEventMode] = useState("default"); // "default" | "event_waiting"
@@ -76,7 +103,9 @@ const KioskReservation = () => {
     try {
       const token = localStorage.getItem("token");
 
-      const response = await fetch(`${API_BASE}/reservations/${id}`, {
+      // Step 1: side-effect-free lookup. This only reads the reservation so the
+      // guest can confirm it is theirs BEFORE anything is written to it.
+      const response = await fetch(`${API_BASE}/reservations/${id}/preview`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -86,16 +115,52 @@ const KioskReservation = () => {
 
       const data = await response.json();
 
-      if (response.ok) {
-        sessionStorage.setItem("resId", id);
-        sessionStorage.setItem("kiosk_mode", "reservation");
-
-        const searchString = setupTable ? `?setupTable=${setupTable}` : "";
-        navigate(`/kiosk-selection/kiosk-reservation-menu${searchString}`);
+      if (response.ok && data?.success) {
+        setPending({ id, reservation: data.reservation, tables: data.tables || [] });
+        setResId("");
       } else {
         setError(
           data.message || "Reservation not found. Please check your ID.",
         );
+      }
+    } catch (err) {
+      setError("Server connection failed. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Step 2: the guest confirms the details are theirs. Only now do we call the
+  // endpoint that actually seats the reservation and opens the menu.
+  const confirmAndEnter = async () => {
+    if (!pending) return;
+    setLoading(true);
+    setError("");
+    try {
+      const token = localStorage.getItem("token");
+
+      const response = await fetch(`${API_BASE}/reservations/${pending.id}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data?.success) {
+        sessionStorage.setItem("resId", pending.id);
+        sessionStorage.setItem("kiosk_mode", "reservation");
+        if (pending.tables.length > 0) {
+          sessionStorage.setItem("tableNames", pending.tables.join(", "));
+        }
+
+        const searchString = setupTable ? `?setupTable=${setupTable}` : "";
+        navigate(`/kiosk-selection/kiosk-reservation-menu${searchString}`);
+      } else {
+        setError(data.message || "Unable to start this reservation.");
+        setPending(null);
       }
     } catch (err) {
       setError("Server connection failed. Please try again later.");
@@ -218,11 +283,16 @@ const KioskReservation = () => {
 
       <button
         className="back-btn"
-        onClick={() =>
+        onClick={() => {
+          if (pending) {
+            setPending(null);
+            setError("");
+            return;
+          }
           navigate(
             `/kiosk-selection${setupTable ? "?setupTable=" + setupTable : ""}`,
-          )
-        }
+          );
+        }}
       >
         <ArrowLeft size={24} />
         <span>BACK</span>
@@ -235,10 +305,181 @@ const KioskReservation = () => {
         </div>
 
         <div className="res-header">
-          <h2 className="res-title">Reservation</h2>
-          <p className="res-subtitle">Enter your Reservation ID to continue</p>
+          <h2 className="res-title">
+            {pending ? "Confirm Reservation" : "Reservation"}
+          </h2>
+          <p className="res-subtitle">
+            {pending
+              ? "Please confirm these details are yours before ordering"
+              : "Enter your Reservation ID to continue"}
+          </p>
         </div>
 
+        {pending ? (
+          <div className="res-card fade-in">
+            {error && (
+              <div className="res-error-msg">
+                <AlertCircle size={18} />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <div style={{ textAlign: "center", padding: "10px 0 5px" }}>
+              <div
+                style={{
+                  fontSize: "1.9rem",
+                  fontWeight: "900",
+                  color: "#ffcc00",
+                  marginBottom: "6px",
+                }}
+              >
+                {[pending.reservation.first_name, pending.reservation.last_name]
+                  .filter(Boolean)
+                  .join(" ")
+                  .trim() || "(no name)"}
+              </div>
+
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  background: "#1e1a05",
+                  border: "1px solid #443c0c",
+                  color: "#ffcc00",
+                  padding: "6px 14px",
+                  borderRadius: "50px",
+                  fontSize: "0.85rem",
+                  fontWeight: "bold",
+                  marginBottom: "18px",
+                }}
+              >
+                <UtensilsCrossed size={16} />
+                {pending.reservation.num_guests || 1} pax
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+                gap: "12px",
+                marginBottom: "20px",
+              }}
+            >
+              <div
+                style={{
+                  background: "#151515",
+                  border: "1px solid #262626",
+                  borderRadius: "12px",
+                  padding: "12px",
+                }}
+              >
+                <div
+                  style={{
+                    color: "#888",
+                    fontSize: "0.68rem",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.8px",
+                    marginBottom: "4px",
+                  }}
+                >
+                  Date
+                </div>
+                <div style={{ color: "#fff", fontWeight: "bold" }}>
+                  {formatDate(pending.reservation.reservation_date)}
+                </div>
+              </div>
+              <div
+                style={{
+                  background: "#151515",
+                  border: "1px solid #262626",
+                  borderRadius: "12px",
+                  padding: "12px",
+                }}
+              >
+                <div
+                  style={{
+                    color: "#888",
+                    fontSize: "0.68rem",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.8px",
+                    marginBottom: "4px",
+                  }}
+                >
+                  Time
+                </div>
+                <div style={{ color: "#fff", fontWeight: "bold" }}>
+                  {formatTime(pending.reservation.reservation_time)}
+                </div>
+              </div>
+              <div
+                style={{
+                  background: "#151515",
+                  border: "1px solid #262626",
+                  borderRadius: "12px",
+                  padding: "12px",
+                }}
+              >
+                <div
+                  style={{
+                    color: "#888",
+                    fontSize: "0.68rem",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.8px",
+                    marginBottom: "4px",
+                  }}
+                >
+                  {pending.reservation.is_event ? "Event Space" : "Table"}
+                </div>
+                <div style={{ color: "#fff", fontWeight: "bold" }}>
+                  {pending.reservation.is_event
+                    ? "All Tables"
+                    : pending.tables.length > 0
+                      ? pending.tables.join(", ")
+                      : "Assigned on arrival"}
+                </div>
+              </div>
+            </div>
+
+            <p
+              style={{
+                color: "#aaa",
+                fontSize: "0.9rem",
+                textAlign: "center",
+                marginBottom: "20px",
+              }}
+            >
+              Is this you? If not, tap Back and enter the correct ID.
+            </p>
+
+            <div style={{ display: "flex", gap: "12px" }}>
+              <button
+                className="confirm-res-btn"
+                style={{
+                  flex: 1,
+                  background: "#333",
+                  color: "#fff",
+                }}
+                onClick={() => {
+                  setPending(null);
+                  setError("");
+                }}
+                disabled={loading}
+              >
+                Not me
+              </button>
+              <button
+                className="confirm-res-btn"
+                style={{ flex: 2 }}
+                onClick={confirmAndEnter}
+                disabled={loading}
+              >
+                Yes, start ordering
+              </button>
+            </div>
+          </div>
+        ) : (
         <div className="res-card fade-in">
           {error && (
             <div className="res-error-msg">
@@ -265,6 +506,7 @@ const KioskReservation = () => {
             </button>
           </div>
         </div>
+        )}
       </div>
 
       <style>{`

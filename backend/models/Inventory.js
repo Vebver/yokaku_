@@ -2,42 +2,58 @@ const db = require("../config/db");
 
 const Inventory = {
   // GET ALL ITEMS
+  // Each row also carries the dishes it is used in, so the inventory table can
+  // show "used in" inline without a request per row.
   getAll: async () => {
     const sql = `
-      SELECT 
-        inventory_id, 
-        item_name,
-        category,
-        quantity,
-        unit,
-        unit_price,
-        expiry_date,
-        storage_location,
-        reorder_level,
-        last_updated, 
-        status
-      FROM inventory 
-      ORDER BY
-        CASE 
-          WHEN quantity <= 0 THEN 0
-          WHEN quantity <= reorder_level THEN 1
-          WHEN expiry_date IS NOT NULL AND expiry_date < CURDATE() THEN 2
-          ELSE 3
-        END ASC,
-        CASE 
-          WHEN expiry_date IS NOT NULL AND expiry_date < CURDATE() THEN expiry_date 
-          ELSE NULL 
-        END ASC,
-        last_updated DESC
+      SELECT
+        i.inventory_id,
+        i.item_name,
+        i.category,
+        i.quantity,
+        i.unit,
+        i.unit_price,
+        i.expiry_date,
+        i.storage_location,
+        i.reorder_level,
+        i.last_updated,
+        i.status,
+        COALESCE((
+          SELECT JSON_ARRAYAGG(JSON_OBJECT(
+            'item_id', m.item_id,
+            'name', m.menu_name,
+            'quantity_required', r.quantity_required
+          ))
+          FROM menu_item_ingredients r
+          JOIN menu_items m ON m.item_id = r.item_id
+          WHERE r.inventory_id = i.inventory_id
+        ), JSON_ARRAY()) AS dishes
+      FROM inventory i
+      -- Alphabetical by name so staff can find an item without hunting.
+      -- Stock urgency is still surfaced by the Status column and colours.
+      ORDER BY i.item_name ASC
     `;
     const [rows] = await db.query(sql);
-    return rows;
+    // mysql2 may hand these back as strings depending on driver settings.
+    return rows.map((r) => {
+      let dishes = r.dishes;
+      if (typeof dishes === "string") {
+        try {
+          dishes = JSON.parse(dishes);
+        } catch {
+          dishes = [];
+        }
+      }
+      return { ...r, dishes: Array.isArray(dishes) ? dishes : [] };
+    });
   },
 
   // CREATE NEW ITEM
-  create: async (data) => {
-    const sql = `INSERT INTO inventory 
-            (item_name, category, quantity, unit, unit_price, expiry_date, storage_location, reorder_level) 
+  // Accepts an optional connection so callers that need the insert to be part
+  // of a transaction (e.g. linking dishes in the same step) can pass one in.
+  create: async (data, conn = db) => {
+    const sql = `INSERT INTO inventory
+            (item_name, category, quantity, unit, unit_price, expiry_date, storage_location, reorder_level)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
 
     const values = [
@@ -51,7 +67,7 @@ const Inventory = {
       data.reorder_level,
     ];
 
-    const [result] = await db.execute(sql, values);
+    const [result] = await conn.execute(sql, values);
     return { inventory_id: result.insertId, ...data };
   },
 

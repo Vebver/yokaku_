@@ -106,6 +106,26 @@ const adminController = {
       res.status(500).json({ error: error.message });
     }
   },
+  // List every live booking so staff can look up IDs for kiosk arming
+  getReservationsForKiosk: async (req, res) => {
+    try {
+      const rows = await TableStatus.listReservationsForKiosk();
+      res.json({ reservations: rows });
+    } catch (error) {
+      console.error("Kiosk Reservations Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+  // List live kiosk sessions that are already running (no manual pairing needed)
+  getActiveKiosks: async (req, res) => {
+    try {
+      const rows = await TableStatus.listActiveKiosks();
+      res.json({ kiosks: rows });
+    } catch (error) {
+      console.error("Active Kiosks Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
   // List active sessions (walk-ins and reservations) that can be pushed to a kiosk.
   getKioskCandidates: async (req, res) => {
     try {
@@ -118,22 +138,40 @@ const adminController = {
   },
   // STOP KIOSK: Reset the active kiosk session so the kiosk returns to home
   stopKiosk: async (req, res) => {
-    const { reservationId } = req.body;
+    const { reservationId, tableId } = req.body;
     try {
-      const result = await TableStatus.stopKiosk(reservationId);
+      const result = await TableStatus.stopKiosk(reservationId, tableId);
       const affected = result?.affected ?? result?.affectedRows ?? 0;
       if (affected === 0) {
-        return res.status(404).json({ error: "No active kiosk found to stop." });
+        const message =
+          result?.reason === "not_bound"
+            ? "This table is not part of that kiosk session."
+            : "No active kiosk found to stop.";
+        return res.status(404).json({ error: message });
       }
       await logActivity(
         req.user?.userId || null,
         "STOP_KIOSK",
         reservationId || null,
-        { message: "Kiosk session stopped by admin/cashier." },
+        {
+          message: tableId
+            ? `Kiosk session stopped for table ${tableId} by admin/cashier.`
+            : "Kiosk session stopped by admin/cashier.",
+        },
         req,
       );
       const io = req.app.get("io");
-      if (io) io.emit("table_updated");
+      if (io) {
+        io.emit("table_updated");
+        // Dedicated event so a stuck kiosk can immediately bounce to its home
+        // screen without waiting for a poll cycle.
+        io.emit("kiosk_stopped", {
+          reservationId: reservationId || null,
+          tableId: tableId || null,
+          stoppedBy: req.user?.role || null,
+          at: new Date().toISOString(),
+        });
+      }
       res.json({ message: "Kiosk stopped successfully." });
     } catch (error) {
       console.error("Stop Kiosk Error:", error);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import io from "socket.io-client";
 import api, { SOCKET_URL } from "../../api";
 import { Plus, Armchair, Trash2, RefreshCw, Users, X, Square } from "lucide-react";
@@ -123,63 +123,62 @@ const TableStatus = ({ compact = false }) => {
       seated: "#ef4444",
       confirmed: "#f59e0b",
       available: "#10b981",
+      // tables.status is set to 'occupied' by the backend; without this the
+      // card fell through to the green "AVAILABLE" styling.
+      occupied: "#ef4444",
     };
     const s = status?.toLowerCase() || "available";
     return { color: cfg[s] || cfg.available, label: s.toUpperCase() };
   };
 
-  // Stop the kiosk for a specific reservation (returns it to the home/selection screen)
-  const stopKiosk = async (reservationId, e) => {
+  // Only admins and cashiers/staff are allowed to interrupt or stop a kiosk
+  // (e.g. when it is stuck on a bugged screen). The API enforces the same rule.
+  const canControlKiosk = useMemo(() => {
+    const role =
+      localStorage.getItem("role") || localStorage.getItem("userRole") || "";
+    return ["admin", "cashier", "staff"].includes(role.toLowerCase());
+  }, []);
+
+  // Stop the kiosk session. When a tableId is supplied only THAT table is
+  // released, so stopping a kiosk during an event does not free every table
+  // the event has reserved (a walk-in may still be seated on one of them).
+  const stopKiosk = async (reservationId, tableId, e) => {
     if (e) e.stopPropagation();
+    if (!canControlKiosk) {
+      showToast("Only admins or cashiers can stop the kiosk.");
+      return;
+    }
     if (!reservationId) {
       showToast("No reservation linked to this kiosk.");
       return;
     }
     if (
       !window.confirm(
-        `Stop this kiosk? The customer session will be returned to the kiosk home screen.`,
+        `Interrupt this kiosk? The customer session will be returned to the kiosk home screen. Use this if the kiosk is stuck or showing an error.${
+          tableId ? " Only this table will be released." : ""
+        }`,
       )
     ) {
       return;
     }
     try {
       setUi((p) => ({ ...p, updating: true }));
-      await api.post("/admin/stop-kiosk", { reservationId });
-      showToast("Kiosk stopped. Returning to home screen.", "success");
+      await api.post("/admin/stop-kiosk", {
+        reservationId,
+        tableId: tableId || null,
+      });
+      showToast(
+        tableId
+          ? "Kiosk stopped. This table is now available."
+          : "Kiosk stopped. Returning to home screen.",
+        "success",
+      );
       fetchData();
     } catch (err) {
       showToast(err.response?.data?.error || "Failed to stop kiosk.");
     } finally {
       setUi((p) => ({ ...p, updating: false }));
     }
-  };
-
-  // Compute seconds remaining for a given end time (HH:MM:SS) or check-in time + 3 hours
-  const computeRemainingSeconds = (endTime, checkInTime) => {
-    const now = new Date();
-    let target = null;
-
-    if (endTime) {
-      const [h, m, s] = endTime.split(":").map(Number);
-      target = new Date();
-      target.setHours(h, m, s || 0, 0);
-    } else if (checkInTime) {
-      const [h, m, s] = checkInTime.split(":").map(Number);
-      target = new Date();
-      target.setHours(h, m, s || 0, 0);
-      target = new Date(target.getTime() + 3 * 60 * 60 * 1000); // +3 hours
-    }
-
-    if (!target) return 0;
-    return Math.floor((target - now) / 1000);
-  };
-
-  const formatCountdown = (secs) => {
-    if (secs <= 0) return "00:00:00";
-    const h = Math.floor(secs / 3600);
-    const m = Math.floor((secs % 3600) / 60);
-    const s = secs % 60;
-    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   };
 
   const todayStr = getTodayDateString();
@@ -192,13 +191,17 @@ const TableStatus = ({ compact = false }) => {
         t.reservation_date || t.date || t.resDate,
       );
 
+      if (s === "available" && (t.table_status || "").toLowerCase() === "occupied") {
+        s = "occupied";
+      }
+
       if (s === "confirmed" && resDate !== todayStr) {
         s = "available";
       }
       acc[s] = (acc[s] || 0) + 1;
       return acc;
     },
-    { available: 0, seated: 0, confirmed: 0 },
+    { available: 0, seated: 0, confirmed: 0, occupied: 0 },
   );
 
   return (
@@ -302,6 +305,11 @@ const TableStatus = ({ compact = false }) => {
       <div className="row g-2 row-cols-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-8">
         {data.tables.map((t) => {
           let activeStatus = t.bridge_status?.toLowerCase() || "available";
+          // A table physically marked occupied but with no live binding still
+          // counts as taken, otherwise it renders as an empty green card.
+          if (activeStatus === "available" && (t.table_status || "").toLowerCase() === "occupied") {
+            activeStatus = "occupied";
+          }
           const resDate = getTableReservationDateString(
             t.reservation_date || t.date || t.resDate,
           );
@@ -314,16 +322,9 @@ const TableStatus = ({ compact = false }) => {
           const cfg = getStatusCfg(activeStatus);
           const isAvailable = activeStatus === "available";
 
-          // Determine if this table has an active kiosk reservation or an event
+          // Determine if this table has an active kiosk reservation
           const isKioskActive =
             String(t.is_kiosk_active) === "1" || t.is_kiosk_active === 1;
-          const isEvent =
-            (t.reservation_type || "").toString().toLowerCase().includes(
-              "event",
-            );
-          const eventRemaining = isEvent
-            ? computeRemainingSeconds(t.end_time, t.check_in_time)
-            : 0;
 
           return (
             <div key={t.table_id} className="col">
@@ -332,20 +333,6 @@ const TableStatus = ({ compact = false }) => {
                   style={{ height: "3px", backgroundColor: cfg.color }}
                 ></div>
                 <div className="card-body p-2 d-flex flex-column justify-content-between">
-                  {/* EVENT 3-HOUR TIMER */}
-                  {isEvent && (
-                    <div
-                      className="text-center fw-bold mb-1 rounded-2 py-1"
-                      style={{
-                        fontSize: "0.6rem",
-                        backgroundColor: "#fff3cd",
-                        color: eventRemaining > 0 ? "#b8860b" : "#dc3545",
-                        border: "1px solid #ffeeba",
-                      }}
-                    >
-                      ⏱ Event ends in {formatCountdown(eventRemaining)}
-                    </div>
-                  )}
                   <div>
                     <div className="d-flex justify-content-between align-items-start mb-0">
                       <h6
@@ -394,12 +381,13 @@ const TableStatus = ({ compact = false }) => {
                       <Users size={9} /> {t.capacity} Pax
                     </div>
 
+                    {/* OCCUPANT */}
                     <div
-                      className="bg-light rounded-2 p-1 mb-2 border text-center d-flex align-items-center justify-content-center"
+                      className="bg-light rounded-2 p-1 mb-2 border text-center d-flex align-items-center justify-content-center overflow-hidden"
                       style={{ minHeight: "40px" }}
                     >
                       <span
-                        className="text-dark fw-bold"
+                        className="text-dark fw-bold text-truncate"
                         style={{ fontSize: "0.65rem" }}
                       >
                         {isAvailable
@@ -410,14 +398,26 @@ const TableStatus = ({ compact = false }) => {
                   </div>
 
                   <div className="mt-auto">
-                    {isKioskActive && (
+                    {isKioskActive && canControlKiosk && (
                       <button
                         className="btn btn-sm btn-danger w-100 py-0 fw-bold mb-1"
                         style={{ fontSize: "0.65rem", height: "22px" }}
-                        onClick={(e) => stopKiosk(t.reservation_id, e)}
+                        onClick={(e) =>
+                          stopKiosk(t.reservation_id, t.table_id, e)
+                        }
+                        title="Stop the kiosk on this table only"
                       >
                         <Square size={10} className="me-1" /> Stop Kiosk
                       </button>
+                    )}
+                    {isKioskActive && !canControlKiosk && (
+                      <div
+                        className="text-muted text-center fw-bold mb-1 py-1 border border-dashed rounded"
+                        style={{ fontSize: "0.6rem" }}
+                        title="Only admins and cashiers can stop the kiosk"
+                      >
+                        Kiosk Active
+                      </div>
                     )}
                     {activeStatus === "seated" ? (
                       <button

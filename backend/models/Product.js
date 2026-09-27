@@ -80,15 +80,34 @@ const Product = {
     return result;
   },
   getAll: async () => {
+    // A menu item is sellable only when NONE of its linked raw materials are
+    // expired or out of stock. A single bad ingredient blocks the whole item.
     const sql = `
-      SELECT 
-        menu_items.*, 
-        categories.category_name
-      FROM menu_items 
+      SELECT
+        menu_items.*,
+        categories.category_name,
+        (
+          SELECT COUNT(*)
+          FROM menu_item_ingredients r
+          JOIN inventory i ON i.inventory_id = r.inventory_id
+          WHERE r.item_id = menu_items.item_id
+            AND (
+              i.quantity <= 0
+              OR (i.expiry_date IS NOT NULL AND i.expiry_date < CURDATE())
+            )
+        ) AS blocked_ingredient_count
+      FROM menu_items
       LEFT JOIN categories ON menu_items.category_id = categories.category_id
     `;
     const [rows] = await db.query(sql);
-    return rows;
+    return rows.map((row) => {
+      const blocked = Number(row.blocked_ingredient_count) || 0;
+      return {
+        ...row,
+        is_stock_available: blocked === 0,
+        availability_reason: blocked === 0 ? null : "Raw materials expired or out of stock",
+      };
+    });
   },
 
   getFeatured: async () => {
@@ -133,6 +152,55 @@ const Product = {
       quantity_required,
     ]);
     return result.insertId;
+  },
+  // Which menu items already have at least one raw material linked.
+  // Returned in ONE query so the UI does not need a request per dish.
+  getItemsWithRecipes: async () => {
+    const sql = `
+      SELECT DISTINCT item_id
+      FROM menu_item_ingredients
+    `;
+    const [rows] = await db.execute(sql);
+    return rows.map((r) => Number(r.item_id));
+  },
+  // Create a dish recipe by linking several raw materials in one call.
+  // Used by the seeding script and the "new inventory item" form so staff can
+  // define a recipe at the moment they stock an item.
+  linkMany: async (links, conn = db) => {
+    if (!Array.isArray(links) || links.length === 0) return 0;
+
+    const values = links
+      .filter(
+        (l) =>
+          l &&
+          l.item_id &&
+          l.inventory_id &&
+          Number(l.quantity_required) > 0,
+      )
+      .map(() => "(?, ?, ?)");
+
+    if (values.length === 0) return 0;
+
+    const params = links
+      .filter(
+        (l) =>
+          l &&
+          l.item_id &&
+          l.inventory_id &&
+          Number(l.quantity_required) > 0,
+      )
+      .flatMap((l) => [
+        l.item_id,
+        l.inventory_id,
+        Number(l.quantity_required),
+      ]);
+
+    const sql = `INSERT INTO menu_item_ingredients
+                   (item_id, inventory_id, quantity_required)
+                   VALUES ${values.join(", ")}`;
+
+    const [result] = await conn.execute(sql, params);
+    return result.affectedRows;
   },
   removeIngredient: async (recipeId) => {
     const sql = "DELETE FROM menu_item_ingredients WHERE recipe_id = ?";

@@ -41,7 +41,21 @@ const OnlineReservations = () => {
         (item) => !item.reservation_id?.includes("WALK"),
       );
       setInquiries(
-        filtered.sort((a, b) => b.reservation_id - a.reservation_id),
+      // Newest first, by actual booking time. Sorting on reservation_id was
+      // unreliable because it is a VARCHAR (and walk-in ids are like
+      // "WALK-1712...-3456"), so numeric subtraction produced NaN and left the
+      // order effectively random.
+      filtered.sort((a, b) => {
+        const at = new Date(`${a.reservation_date || ""} ${a.reservation_time || "00:00:00"}`).getTime();
+        const bt = new Date(`${b.reservation_date || ""} ${b.reservation_time || "00:00:00"}`).getTime();
+        if (!isNaN(at) && !isNaN(bt) && at !== bt) return bt - at;
+        // Fall back to name when the timestamps are missing or equal.
+        return String(a.first_name || "").localeCompare(
+          String(b.first_name || ""),
+          undefined,
+          { sensitivity: "base" },
+        );
+      }),
       );
     } catch (err) {
       console.error(err);
@@ -69,13 +83,75 @@ const OnlineReservations = () => {
     });
   };
 
-  // Filter bookings based on guest name or reservation ID
+  // Filter controls. "all" means no filter on that field.
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState("all");
+  const [paymentFilter, setPaymentFilter] = useState("all");
+
+  const resetPage = () => setCurrentPage(1);
+
+  const clearFilters = () => {
+    setStatusFilter("all");
+    setTypeFilter("all");
+    setDateFilter("all");
+    setPaymentFilter("all");
+    resetPage();
+  };
+
+  const hasActiveFilters =
+    statusFilter !== "all" ||
+    typeFilter !== "all" ||
+    dateFilter !== "all" ||
+    paymentFilter !== "all";
+
+  const todayString = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  })();
+
+  // Filter bookings based on guest name or reservation ID, plus the dropdowns.
   const filteredInquiries = inquiries.filter((item) => {
     const fullName =
       `${item.first_name || ""} ${item.last_name || ""}`.toLowerCase();
     const resId = (item.reservation_id || "").toLowerCase();
     const term = searchQuery.toLowerCase();
-    return fullName.includes(term) || resId.includes(term);
+    if (term && !(fullName.includes(term) || resId.includes(term))) {
+      return false;
+    }
+
+    if (statusFilter !== "all") {
+      const s = (item.status || "").toLowerCase();
+      if (statusFilter === "pending") {
+        if (s !== "pending" && s !== "confirmed") return false;
+      } else if (s !== statusFilter) {
+        return false;
+      }
+    }
+
+    if (typeFilter !== "all") {
+      const isEvent =
+        String(item.reservation_type || "").toLowerCase() === "event";
+      if (typeFilter === "event" && !isEvent) return false;
+      if (typeFilter === "table" && isEvent) return false;
+    }
+
+    if (dateFilter !== "all") {
+      const d = String(item.reservation_date || "").slice(0, 10);
+      if (dateFilter === "today" && d !== todayString) return false;
+      if (dateFilter === "upcoming" && (d === "" || d < todayString))
+        return false;
+      if (dateFilter === "past" && d >= todayString) return false;
+    }
+
+    if (paymentFilter !== "all") {
+      const p = (item.payment_status || "").toLowerCase();
+      if (paymentFilter === "unpaid" && p === "verified") return false;
+      if (paymentFilter === "verified" && p !== "verified") return false;
+      if (paymentFilter === "rejected" && p !== "rejected") return false;
+    }
+
+    return true;
   });
 
   const fetchItems = async (resId) => {
@@ -220,7 +296,81 @@ const OnlineReservations = () => {
         </div>
       </div>
 
-      {/* TABLE (DESKTOP ONLY) */}
+      {/* FILTER BAR */}
+      <div className="col-12 mb-3 px-2">
+        <div className="d-flex flex-wrap gap-2 align-items-center">
+          <select
+            className="form-select form-select-sm"
+            style={{ width: "auto" }}
+            value={dateFilter}
+            onChange={(e) => {
+              setDateFilter(e.target.value);
+              resetPage();
+            }}
+          >
+            <option value="all">Any date</option>
+            <option value="today">Today</option>
+            <option value="upcoming">Upcoming</option>
+            <option value="past">Past</option>
+          </select>
+
+          <select
+            className="form-select form-select-sm"
+            style={{ width: "auto" }}
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              resetPage();
+            }}
+          >
+            <option value="all">Any status</option>
+            <option value="pending">Pending</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="seated">Seated</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+
+          <select
+            className="form-select form-select-sm"
+            style={{ width: "auto" }}
+            value={typeFilter}
+            onChange={(e) => {
+              setTypeFilter(e.target.value);
+              resetPage();
+            }}
+          >
+            <option value="all">Any type</option>
+            <option value="table">Table dining</option>
+            <option value="event">Events</option>
+          </select>
+
+          <select
+            className="form-select form-select-sm"
+            style={{ width: "auto" }}
+            value={paymentFilter}
+            onChange={(e) => {
+              setPaymentFilter(e.target.value);
+              resetPage();
+            }}
+          >
+            <option value="all">Any payment</option>
+            <option value="unpaid">Unpaid</option>
+            <option value="verified">Verified</option>
+            <option value="rejected">Rejected</option>
+          </select>
+
+          {hasActiveFilters && (
+            <button
+              className="btn btn-sm btn-link text-decoration-none px-0"
+              onClick={clearFilters}
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
+      </div>
+
       <div className="card border-0 shadow-sm rounded-4 overflow-hidden mx-2 d-none d-md-block">
         <div className="table-responsive">
           <table

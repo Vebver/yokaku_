@@ -90,7 +90,6 @@ const navItems = [
   { id: "billing", label: "Payments", icon: Icons.Billing },
   { id: "report", label: "Reports", icon: Icons.Sales },
   { id: "products", label: "Menu Items", icon: Icons.Products },
-  { id: "recipe", label: "Recipes", icon: Icons.Recipe },
   { id: "categories", label: "Categories", icon: Icons.Categories },
   { id: "inventory", label: "Inventory", icon: Icons.Inventory },
   { id: "account", label: "Account Manage", icon: Icons.Account },
@@ -100,9 +99,9 @@ const navItems = [
 ];
 
 const StatCard = ({ title, value, color, icon: Icon }) => (
-  <div className="col-12 col-md-4 mb-3 mt-0">
+  <div className="col-12 col-md-4">
     <div
-      className="card border-0 shadow-sm rounded-4 p-3 bg-white"
+      className="card border-0 shadow-sm rounded-4 p-3 bg-white h-100"
       style={{ minHeight: "100px", display: "block" }}
     >
       <div className="d-flex align-items-center h-100 gap-3">
@@ -169,14 +168,14 @@ function AdminDashboard() {
   useEffect(() => {
     const token = localStorage.getItem("token");
     const role = localStorage.getItem("role");
-    const userId = localStorage.getItem("userId"); 
+    const userId = localStorage.getItem("userId");
 
     if (token && role === "admin") {
       setIsAuthenticated(true);
       fetchDashboardData();
       fetchNotifications();
 
-      const socket = io(SOCKET_URL, { 
+      const socket = io(SOCKET_URL, {
         transports: ["websocket", "polling"],
         reconnection: true,
       });
@@ -190,8 +189,8 @@ function AdminDashboard() {
       // Standard Notification listener
       socket.on("new_notification", (notification) => {
         setNotifications((prev) => {
-          const isDuplicate = prev.some(n => 
-            (n.notification_id && n.notification_id === notification.notification_id) || 
+          const isDuplicate = prev.some(n =>
+            (n.notification_id && n.notification_id === notification.notification_id) ||
             (n.id && n.id === notification.id) ||
             (n.message === notification.message && n.created_at === notification.created_at)
           );
@@ -271,7 +270,7 @@ function AdminDashboard() {
 
   const fetchNotifications = async () => {
     try {
-      const res = await api.get(`/notifications`); 
+      const res = await api.get(`/notifications`);
       setNotifications(res.data);
       setUnreadCount(res.data.filter((n) => !n.is_read).length);
     } catch (err) {
@@ -530,8 +529,8 @@ function AdminDashboard() {
                 <span className="text-muted opacity-50">|</span>
 
                 {/* BOOKING TYPE */}
-                <span 
-                  className="badge bg-secondary-subtle text-secondary border text-uppercase" 
+                <span
+                  className="badge bg-secondary-subtle text-secondary border text-uppercase"
                   style={{ fontSize: "0.62rem", padding: "3px 6px" }}
                 >
                   {res.reservation_type === "event"
@@ -540,7 +539,7 @@ function AdminDashboard() {
                 </span>
 
                 {/* RESERVATION STATUS BADGE */}
-               <span 
+               <span
                   className={`badge text-uppercase border ${
                     res.status?.toLowerCase() === "seated"
                       ? "bg-danger-subtle text-danger border-danger-subtle"
@@ -564,7 +563,7 @@ function AdminDashboard() {
       </div>
 
       {/* STATS CARDS */}
-      <h2 className="fw-bold mb-00">Report Overview</h2>
+      <h2 className="fw-bold mb-3">Report Overview</h2>
       <div className="row g-3 mb-4">
         <StatCard
           title="Total Bookings"
@@ -665,7 +664,6 @@ function AdminDashboard() {
       dashboard: <DashboardOverview />,
       billing: <Billing />,
       inventory: <Inventory />,
-      recipe: <RecipeManager />,
       products: <Product />,
       categories: <Categories />,
       report: (

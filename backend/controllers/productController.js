@@ -174,6 +174,17 @@ const productController = {
     } catch (error) { res.status(500).json({ error: error.message }); }
   },
 
+  // Single query listing every menu item that already has a recipe, so the
+  // Recipe Manager can show coverage without one request per dish.
+  getRecipeCoverage: async (req, res) => {
+    try {
+      const linkedIds = await Product.getItemsWithRecipes();
+      res.json({ linkedItemIds: linkedIds });
+    } catch (error) {
+      console.error("getRecipeCoverage Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
   getIngredients: async (req, res) => {
     try {
       const ingredients = await Product.getIngredients(req.params.id);

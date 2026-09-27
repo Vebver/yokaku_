@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import api, { SOCKET_URL } from "../../api";
 import {
   Star,
@@ -62,11 +62,64 @@ function Product() {
     }
   };
 
-  const filteredItems = menuItems.filter(
-    (item) =>
-      item.menu_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.category_name?.toLowerCase().includes(searchTerm.toLowerCase()),
+  // Filter controls.
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [availabilityFilter, setAvailabilityFilter] = useState("all");
+
+  const resetPage = () => setCurrentPage(1);
+
+  const clearFilters = () => {
+    setCategoryFilter("all");
+    setAvailabilityFilter("all");
+    resetPage();
+  };
+
+  const hasActiveFilters =
+    categoryFilter !== "all" || availabilityFilter !== "all";
+
+  // Category names, derived from the loaded items so the list needs no
+  // separate request.
+  const categoryNames = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          menuItems
+            .map((i) => i.category_name)
+            .filter((c) => !!c && String(c).trim() !== ""),
+        ),
+      ).sort((a, b) =>
+        String(a).localeCompare(String(b), undefined, { sensitivity: "base" }),
+      ),
+    [menuItems],
   );
+
+  // Alphabetical by dish name so items are easy to find in the list.
+  const filteredItems = menuItems
+    .filter((item) => {
+      if (
+        !item.menu_name.toLowerCase().includes(searchTerm.toLowerCase()) &&
+        !item.category_name?.toLowerCase().includes(searchTerm.toLowerCase())
+      ) {
+        return false;
+      }
+      if (
+        categoryFilter !== "all" &&
+        String(item.category_name || "") !== categoryFilter
+      ) {
+        return false;
+      }
+      if (availabilityFilter !== "all") {
+        const isAvailable = Number(item.is_available) === 1;
+        if (availabilityFilter === "available" && !isAvailable) return false;
+        if (availabilityFilter === "unavailable" && isAvailable) return false;
+      }
+      return true;
+    })
+    .sort((a, b) =>
+      String(a.menu_name || "").localeCompare(String(b.menu_name || ""), undefined, {
+        sensitivity: "base",
+      }),
+    );
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -275,6 +328,49 @@ function Product() {
               }}
             />
           </div>
+        </div>
+
+        {/* FILTER BAR */}
+        <div className="col-12 d-flex flex-wrap gap-2 align-items-center mb-3">
+          <select
+            className="form-select form-select-sm"
+            style={{ width: "auto" }}
+            value={categoryFilter}
+            onChange={(e) => {
+              setCategoryFilter(e.target.value);
+              resetPage();
+            }}
+          >
+            <option value="all">All categories</option>
+            {categoryNames.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+
+          <select
+            className="form-select form-select-sm"
+            style={{ width: "auto" }}
+            value={availabilityFilter}
+            onChange={(e) => {
+              setAvailabilityFilter(e.target.value);
+              resetPage();
+            }}
+          >
+            <option value="all">Any availability</option>
+            <option value="available">Available</option>
+            <option value="unavailable">Not available</option>
+          </select>
+
+          {hasActiveFilters && (
+            <button
+              className="btn btn-sm btn-link text-decoration-none px-0"
+              onClick={clearFilters}
+            >
+              Clear filters
+            </button>
+          )}
         </div>
 
         <div className="col-12 col-md-4 col-lg-3 text-md-end">

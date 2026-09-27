@@ -14,6 +14,27 @@ import {
 import api from "../../api";
 import { useToast } from "../ToastContext";
 
+// "HH:MM" to minutes since midnight
+const toMinutes = (value) => {
+  const [h, m] = String(value || "").split(":").map(Number);
+  if (isNaN(h) || isNaN(m)) return null;
+  return h * 60 + m;
+};
+
+// Human readable span between two "HH:MM" values, e.g. "3h 30m".
+const formatDuration = (start, end) => {
+  const s = toMinutes(start);
+  const e = toMinutes(end);
+  if (s === null || e === null) return "";
+  let mins = e - s;
+  // Treat an end time earlier than the start as crossing midnight.
+  if (mins <= 0) mins += 24 * 60;
+  const hours = Math.floor(mins / 60);
+  const rem = mins % 60;
+  if (hours === 0) return `${rem}m`;
+  return rem === 0 ? `${hours}h` : `${hours}h ${rem}m`;
+};
+
 const WalkInReservations = () => {
   const { showToast } = useToast();
   const [inquiries, setInquiries] = useState([]);
@@ -58,6 +79,7 @@ const WalkInReservations = () => {
     phone: "",
     date: getLocalISODate(),
     startTime: "",
+    endTime: "",
     bookingType: "table", // 'table', 'takeout', or 'event'
     packageName: "Regular Table",
     amountPaid: 0,
@@ -107,7 +129,24 @@ const WalkInReservations = () => {
       );
 
       setInquiries(
-        filtered.sort((a, b) => b.reservation_id - a.reservation_id),
+      // Newest first, by actual booking time. Sorting on reservation_id was
+      // unreliable because it is a VARCHAR (and walk-in ids are like
+      // "WALK-1712...-3456"), so numeric subtraction produced NaN and left the
+      // order effectively random.
+      filtered.sort((a, b) => {
+        const at = new Date(`${a.reservation_date || ""} ${a.reservation_time || "00:00:00"}`).getTime();
+        const bt = new Date(`${b.reservation_date || ""} ${b.reservation_time || "00:00:00"}`).getTime();
+        if (!isNaN(at) && !isNaN(bt) && at !== bt) return bt - at;
+        // Walk-in ids embed a timestamp, so use it when date is missing.
+        const aNum = parseInt(String(a.reservation_id || "").replace(/\D/g, ""), 10);
+        const bNum = parseInt(String(b.reservation_id || "").replace(/\D/g, ""), 10);
+        if (!isNaN(aNum) && !isNaN(bNum) && aNum !== bNum) return bNum - aNum;
+        return String(a.first_name || "").localeCompare(
+          String(b.first_name || ""),
+          undefined,
+          { sensitivity: "base" },
+        );
+      }),
       );
     } catch (err) {
       console.error("Fetch Walk-ins error:", err);
@@ -247,6 +286,16 @@ const WalkInReservations = () => {
       }));
     } else if (name === "tableIds") {
       setNewRes((prev) => ({ ...prev, tableIds: value ? [value] : [] }));
+    } else if (name === "startTime") {
+      // Keep the end time sensible when the start moves past it.
+      setNewRes((prev) => ({
+        ...prev,
+        startTime: value,
+        endTime:
+          prev.endTime && prev.endTime <= value
+            ? ""
+            : prev.endTime,
+      }));
     } else {
       setNewRes((prev) => ({ ...prev, [name]: value }));
     }
@@ -265,6 +314,26 @@ const WalkInReservations = () => {
         }
       }
 
+      // The end time drives the event countdown and when tables free up, so
+      // it has to be present and after the start.
+      if (!newRes.startTime || !newRes.endTime) {
+        showToast("Please set both a start and end time.");
+        setSubmitting(false);
+        return;
+      }
+      const startMins = toMinutes(newRes.startTime);
+      const endMins = toMinutes(newRes.endTime);
+      if (startMins === null || endMins === null) {
+        showToast("Please enter valid start and end times.");
+        setSubmitting(false);
+        return;
+      }
+      if (endMins <= startMins) {
+        showToast("The end time must be after the start time.");
+        setSubmitting(false);
+        return;
+      }
+
       const packagePrice = PACKAGE_PRICES[newRes.packageName] || 0;
       const addOnTotal = orderCart.reduce(
         (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 1),
@@ -278,6 +347,12 @@ const WalkInReservations = () => {
 
       const payload = {
         ...newRes,
+        // Event length is derived from the entered times so the timer and the
+        // automatic table release both agree with what staff typed.
+        durationHours:
+          (endMins - startMins) / 60 > 0
+            ? (endMins - startMins) / 60
+            : (endMins + 24 * 60 - startMins) / 60,
         totalAmount: totalBill,
         downpayment: amountPaid,
         amount: amountPaid,
@@ -323,12 +398,48 @@ const WalkInReservations = () => {
     }
   };
 
+  // Filter controls.
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState("all");
+
+  const resetPage = () => setCurrentPage(1);
+
+  const clearFilters = () => {
+    setStatusFilter("all");
+    setDateFilter("all");
+    resetPage();
+  };
+
+  const todayString = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  })();
+
+  const hasActiveFilters = statusFilter !== "all" || dateFilter !== "all";
+
   const filteredInquiries = inquiries.filter((item) => {
     const fullName =
       `${item.first_name || ""} ${item.last_name || ""}`.toLowerCase();
     const resId = (item.reservation_id || "").toLowerCase();
     const term = searchQuery.toLowerCase();
-    return fullName.includes(term) || resId.includes(term);
+    if (term && !(fullName.includes(term) || resId.includes(term))) {
+      return false;
+    }
+
+    if (statusFilter !== "all") {
+      const s = (item.status || "").toLowerCase();
+      if (s !== statusFilter) return false;
+    }
+
+    if (dateFilter !== "all") {
+      const d = String(item.reservation_date || "").slice(0, 10);
+      if (dateFilter === "today" && d !== todayString) return false;
+      if (dateFilter === "upcoming" && (d === "" || d < todayString))
+        return false;
+      if (dateFilter === "past" && d >= todayString) return false;
+    }
+
+    return true;
   });
 
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -396,6 +507,49 @@ const WalkInReservations = () => {
               setCurrentPage(1);
             }}
           />
+        </div>
+      </div>
+
+      {/* FILTER BAR */}
+      <div className="col-12 mb-3 px-2">
+        <div className="d-flex flex-wrap gap-2 align-items-center">
+          <select
+            className="form-select form-select-sm"
+            style={{ width: "auto" }}
+            value={dateFilter}
+            onChange={(e) => {
+              setDateFilter(e.target.value);
+              resetPage();
+            }}
+          >
+            <option value="all">Any date</option>
+            <option value="today">Today</option>
+            <option value="upcoming">Upcoming</option>
+            <option value="past">Past</option>
+          </select>
+
+          <select
+            className="form-select form-select-sm"
+            style={{ width: "auto" }}
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              resetPage();
+            }}
+          >
+            <option value="all">Any status</option>
+            <option value="seated">Seated</option>
+            <option value="completed">Completed</option>
+          </select>
+
+          {hasActiveFilters && (
+            <button
+              className="btn btn-sm btn-link text-decoration-none px-0"
+              onClick={clearFilters}
+            >
+              Clear filters
+            </button>
+          )}
         </div>
       </div>
 
@@ -845,7 +999,7 @@ const WalkInReservations = () => {
                   />
                 </div>
                 <div className="col-6">
-                  <label className="form-label small fw-bold">Time</label>
+                  <label className="form-label small fw-bold">Start Time</label>
                   <input
                     type="time"
                     name="startTime"
@@ -853,6 +1007,25 @@ const WalkInReservations = () => {
                     onChange={handleInputChange}
                     required
                   />
+                </div>
+                <div className="col-6">
+                  <label className="form-label small fw-bold">End Time</label>
+                  <input
+                    type="time"
+                    name="endTime"
+                    className="form-control"
+                    min={newRes.startTime || undefined}
+                    onChange={handleInputChange}
+                    required
+                  />
+                  <div
+                    className="form-text"
+                    style={{ fontSize: "0.7rem" }}
+                  >
+                    {newRes.startTime && newRes.endTime
+                      ? `Duration: ${formatDuration(newRes.startTime, newRes.endTime)}`
+                      : "Used for the event timer and table release."}
+                  </div>
                 </div>
               </div>
             </div>

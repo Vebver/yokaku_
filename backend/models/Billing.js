@@ -27,6 +27,15 @@ const Billing = {
           p.rejection_reason,
           p.rejected_at,
           r.receipt_path AS receipt_path,
+          r.num_guests,
+          -- Allergy notes live on the order lines, not the reservation, so the
+          -- latest note for this session is used (null when none was given).
+          (SELECT MAX(ko.allergy_note)
+             FROM kiosk_orders ko
+            WHERE TRIM(ko.reservation_id) = TRIM(r.reservation_id)
+              AND ko.allergy_note IS NOT NULL
+              AND TRIM(ko.allergy_note) <> ''
+              AND LOWER(TRIM(ko.allergy_note)) <> 'none') AS allergy_note,
           GROUP_CONCAT(DISTINCT t.table_number SEPARATOR ', ') AS table_number
         FROM reservations r
         LEFT JOIN payments p ON r.reservation_id = p.reservation_id

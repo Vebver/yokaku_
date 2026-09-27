@@ -6,7 +6,7 @@ const blockedDateController = require('../controllers/blockedDateController');
 const backupController = require('../controllers/backupController');
 const backupUpload = require('../middleware/backupUpload');
 const { getFinancialAnalytics } = require('../controllers/reportController');
-const { protect, adminOnly } = require("../middleware/authMiddleware");
+const { protect, adminOnly, kioskControl } = require("../middleware/authMiddleware");
 
 // --- DASHBOARD & TABLE ROUTES (Accessible by Admin and Cashier) ---
 router.get('/today-schedule', protect, adminOnly, adminController.getTodaySchedule);
@@ -21,8 +21,10 @@ router.get('/reports/financial-analytics', protect, adminOnly, getFinancialAnaly
 router.post('/walk-in/:tableId', protect, adminOnly, adminController.Walkin);
 router.put('/checkout/:tableId', protect, adminOnly, adminController.CheckOut);
 router.put('/table-status/:tableId', protect, adminOnly, adminController.setTableStatus);
-router.post('/stop-kiosk', protect, adminOnly, adminController.stopKiosk);
-router.get('/kiosk-candidates', protect, adminOnly, adminController.getKioskCandidates);
+router.post('/stop-kiosk', protect, kioskControl, adminController.stopKiosk);
+router.get('/kiosk-candidates', protect, kioskControl, adminController.getKioskCandidates);
+router.get('/active-kiosks', protect, kioskControl, adminController.getActiveKiosks);
+router.get('/kiosk-reservations', protect, kioskControl, adminController.getReservationsForKiosk);
 router.post('/add-table', protect, adminOnly, adminController.addTable);
 router.delete('/tables/:tableId', protect, adminOnly, adminController.deleteTable);
 
@@ -31,7 +33,7 @@ router.put('/users/:userId/update-role', protect, adminOnly, adminController.upd
 router.get('/users', protect, adminOnly, adminController.getAllUsers);
 
 // --- MAINTENANCE ROUTES (Keep protected) ---
-router.post('/set-kiosk-reservation',protect, adminOnly, maintenanceController.updateKioskReservation);
+router.post('/set-kiosk-reservation', protect, kioskControl, maintenanceController.updateKioskReservation);
 router.post('/reset', protect, adminOnly, maintenanceController.reset);
 router.get('/export-csv', protect, adminOnly, maintenanceController.exportData);
 router.get('/export-financial-pdf', protect, adminOnly, maintenanceController.exportFinancialPdf);

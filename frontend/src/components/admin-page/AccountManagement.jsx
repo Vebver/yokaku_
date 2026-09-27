@@ -15,8 +15,18 @@ const AccountManagement = () => {
   const [status, setStatus] = useState({ type: "", msg: "" });
   const [updatingUserId, setUpdatingUserId] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [usersPerPage] = useState(15);
+
+  const resetPage = () => setCurrentPage(1);
+
+  const clearFilters = () => {
+    setRoleFilter("all");
+    resetPage();
+  };
+
+  const hasActiveFilters = roleFilter !== "all";
 
   useEffect(() => { fetchUsers(); }, []);
 
@@ -51,11 +61,25 @@ const AccountManagement = () => {
     }
   };
 
-  const filteredUsers = users.filter((user) => {
-    const fullName = `${user.first_name} ${user.last_name}`.toLowerCase();
-    const email = (user.email || "").toLowerCase();
-    return fullName.includes(searchTerm.toLowerCase()) || email.includes(searchTerm.toLowerCase());
-  });
+  // Alphabetical by name so staff can find a person without hunting.
+  const filteredUsers = users
+    .filter((user) => {
+      const fullName = `${user.first_name} ${user.last_name}`.toLowerCase();
+      const email = (user.email || "").toLowerCase();
+      const term = searchTerm.toLowerCase();
+      if (term && !(fullName.includes(term) || email.includes(term))) {
+        return false;
+      }
+      if (roleFilter !== "all") {
+        if ((user.role || "").toLowerCase() !== roleFilter) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      const an = `${a.first_name || ""} ${a.last_name || ""}`.trim();
+      const bn = `${b.first_name || ""} ${b.last_name || ""}`.trim();
+      return an.localeCompare(bn, undefined, { sensitivity: "base" });
+    });
 
   const indexOfLastUser = currentPage * usersPerPage;
   const currentUsers = filteredUsers.slice(indexOfLastUser - usersPerPage, indexOfLastUser);
@@ -78,15 +102,40 @@ const AccountManagement = () => {
         </div>
 
         <div className="col-12 col-lg-6">
-          <div className="d-flex align-items-center bg-white rounded-3 border shadow-sm px-3" style={{ height: '45px' }}>
-            <Search size={18} className="text-muted flex-shrink-0" />
-            <input
-              type="text"
-              className="form-control border-0 bg-transparent shadow-none w-100 ms-2"
-              placeholder="Search by name or email..."
-              value={searchTerm}
-              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-            />
+          <div className="d-flex flex-wrap gap-2">
+            <div className="d-flex align-items-center bg-white rounded-3 border shadow-sm px-3 flex-grow-1" style={{ height: '45px' }}>
+              <Search size={18} className="text-muted flex-shrink-0" />
+              <input
+                type="text"
+                className="form-control border-0 bg-transparent shadow-none w-100 ms-2"
+                placeholder="Search by name or email..."
+                value={searchTerm}
+                onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+              />
+            </div>
+            <select
+              className="form-select"
+              style={{ width: "auto" }}
+              value={roleFilter}
+              onChange={(e) => {
+                setRoleFilter(e.target.value);
+                resetPage();
+              }}
+            >
+              <option value="all">All roles</option>
+              <option value="admin">Admin</option>
+              <option value="cashier">Cashier</option>
+              <option value="staff">Staff</option>
+              <option value="customer">Customer</option>
+            </select>
+            {hasActiveFilters && (
+              <button
+                className="btn btn-sm btn-link text-decoration-none px-0 align-self-center"
+                onClick={clearFilters}
+              >
+                Clear
+              </button>
+            )}
           </div>
         </div>
       </div>

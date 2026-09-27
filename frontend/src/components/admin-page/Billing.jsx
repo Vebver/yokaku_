@@ -29,6 +29,10 @@ const Billing = () => {
   const [isEditingAmount, setIsEditingAmount] = useState(false);
   const [tempAmount, setTempAmount] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  // Filter controls.
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState("all");
+  const [settlementFilter, setSettlementFilter] = useState("all");
+  const [orderStatusFilter, setOrderStatusFilter] = useState("all");
   const { showToast } = useToast();
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
@@ -59,12 +63,60 @@ const Billing = () => {
     }
   };
 
-  const filteredPayments = payments.filter((p) => {
-    const fullName = `${p.first_name || ""} ${p.last_name || ""}`.toLowerCase();
-    const resId = (p.reservation_id || "").toLowerCase();
-    const term = searchQuery.toLowerCase();
-    return fullName.includes(term) || resId.includes(term);
-  });
+  const resetPage = () => setCurrentPage(1);
+
+  const clearFilters = () => {
+    setPaymentStatusFilter("all");
+    setSettlementFilter("all");
+    setOrderStatusFilter("all");
+    resetPage();
+  };
+
+  const hasActiveFilters =
+    paymentStatusFilter !== "all" ||
+    settlementFilter !== "all" ||
+    orderStatusFilter !== "all";
+
+  // Alphabetical by guest name so a bill is easy to find. The backend returns
+  // them by reservation_id, which for VARCHAR ids is not a useful order.
+  const filteredPayments = payments
+    .filter((p) => {
+      const fullName = `${p.first_name || ""} ${p.last_name || ""}`.toLowerCase();
+      const resId = (p.reservation_id || "").toLowerCase();
+      const term = searchQuery.toLowerCase();
+      return fullName.includes(term) || resId.includes(term);
+    })
+    .filter((p) => {
+      if (paymentStatusFilter !== "all") {
+        if ((p.payment_status || "").toLowerCase() !== paymentStatusFilter) {
+          return false;
+        }
+      }
+      if (settlementFilter !== "all") {
+        if ((p.settlement_status || "").toLowerCase() !== settlementFilter) {
+          return false;
+        }
+      }
+      if (orderStatusFilter !== "all") {
+        if ((p.order_status || "").toLowerCase() !== orderStatusFilter) {
+          return false;
+        }
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      const an = `${a.first_name || ""} ${a.last_name || ""}`.trim();
+      const bn = `${b.first_name || ""} ${b.last_name || ""}`.trim();
+      // Walk-in rows have no name, so fall back to their code.
+      if (!an && !bn) {
+        return String(a.reservation_id || "").localeCompare(
+          String(b.reservation_id || ""),
+        );
+      }
+      if (!an) return 1;
+      if (!bn) return -1;
+      return an.localeCompare(bn, undefined, { sensitivity: "base" });
+    });
 
   const getItemPrice = (item) => {
     const isRefill =
@@ -125,7 +177,7 @@ const Billing = () => {
 
       if (reservationRes && reservationRes.data) {
         const details = reservationRes.data.data || reservationRes.data.reservation || reservationRes.data;
-        
+
         setSelectedPayment((prev) => ({
           ...prev,
           ...details
@@ -180,8 +232,8 @@ const Billing = () => {
   const balanceInfo = getRemainingBalanceInfo();
 
   // Helper flag to detect walk-in reservations
-  const isWalkIn = 
-    selectedPayment?.first_name?.toLowerCase().includes("walk") || 
+  const isWalkIn =
+    selectedPayment?.first_name?.toLowerCase().includes("walk") ||
     selectedPayment?.reservation_id?.toUpperCase().startsWith("WALK");
 
   return (
@@ -229,6 +281,65 @@ const Billing = () => {
               setCurrentPage(1);
             }}
           />
+        </div>
+      </div>
+
+      {/* FILTER BAR */}
+      <div className="col-12 mb-3 px-2">
+        <div className="d-flex flex-wrap gap-2 align-items-center">
+          <select
+            className="form-select form-select-sm"
+            style={{ width: "auto" }}
+            value={paymentStatusFilter}
+            onChange={(e) => {
+              setPaymentStatusFilter(e.target.value);
+              resetPage();
+            }}
+          >
+            <option value="all">Any payment status</option>
+            <option value="pending">Pending</option>
+            <option value="verified">Verified</option>
+            <option value="rejected">Rejected</option>
+          </select>
+
+          <select
+            className="form-select form-select-sm"
+            style={{ width: "auto" }}
+            value={settlementFilter}
+            onChange={(e) => {
+              setSettlementFilter(e.target.value);
+              resetPage();
+            }}
+          >
+            <option value="all">Any balance</option>
+            <option value="unpaid">Unpaid</option>
+            <option value="partial">Partially paid</option>
+            <option value="paid">Paid in full</option>
+          </select>
+
+          <select
+            className="form-select form-select-sm"
+            style={{ width: "auto" }}
+            value={orderStatusFilter}
+            onChange={(e) => {
+              setOrderStatusFilter(e.target.value);
+              resetPage();
+            }}
+          >
+            <option value="all">Any order status</option>
+            <option value="seated">Seated</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+
+          {hasActiveFilters && (
+            <button
+              className="btn btn-sm btn-link text-decoration-none px-0"
+              onClick={clearFilters}
+            >
+              Clear filters
+            </button>
+          )}
         </div>
       </div>
 
@@ -590,6 +701,91 @@ const Billing = () => {
           <>
             {/* 1. ORDER SUMMARY SECTION (Scrollable Light Area) */}
             <div className="px-3 pt-3 pb-0 flex-grow-1 overflow-auto">
+              {/* GUEST CONTEXT HEADER */}
+              <div
+                className="bg-white border rounded-3 shadow-sm p-2 px-3 mb-3 d-flex justify-content-between align-items-center gap-2"
+              >
+                <div className="text-start">
+                  <div
+                    className="fw-bold text-dark"
+                    style={{ fontSize: "0.95rem" }}
+                  >
+                    {[
+                      selectedPayment?.first_name,
+                      selectedPayment?.last_name,
+                    ]
+                      .filter(Boolean)
+                      .join(" ")
+                      .trim() || "Walk-in Guest"}
+                  </div>
+                  <div className="text-muted" style={{ fontSize: "0.72rem" }}>
+                    {selectedPayment?.num_guests
+                      ? `${selectedPayment.num_guests} pax`
+                      : "Walk-in"}
+                    {selectedPayment?.table_number
+                      ? ` • Table ${selectedPayment.table_number}`
+                      : ""}
+                  </div>
+                </div>
+                <div className="text-end">
+                  <span
+                    className={`badge ${
+                      selectedPayment?.order_status?.toLowerCase() ===
+                      "completed"
+                        ? "text-bg-success"
+                        : "text-bg-warning"
+                    }`}
+                  >
+                    {selectedPayment?.order_status || "Pending"}
+                  </span>
+                  {balanceInfo.overpaid > 0 && (
+                    <div
+                      className="text-success fw-bold mt-1"
+                      style={{ fontSize: "0.68rem" }}
+                    >
+                      Overpaid ₱
+                      {balanceInfo.overpaid.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* ALLERGY WARNING — must be impossible to miss for the kitchen */}
+              {(() => {
+                const note = (selectedPayment?.allergy_note || "").trim();
+                if (!note || note.toLowerCase() === "none") return null;
+                return (
+                  <div
+                    className="alert alert-danger border-0 rounded-3 p-2 px-3 mb-3 d-flex align-items-start gap-2 shadow-sm"
+                    role="alert"
+                  >
+                    <AlertTriangle
+                      size={20}
+                      className="flex-shrink-0 mt-1"
+                    />
+                    <div>
+                      <div
+                        className="fw-bold text-uppercase"
+                        style={{ fontSize: "0.68rem", letterSpacing: "0.5px" }}
+                      >
+                        Allergy Alert
+                      </div>
+                      <div className="fw-bold" style={{ fontSize: "0.9rem" }}>
+                        {note}
+                      </div>
+                      <div
+                        className="text-danger-emphasis"
+                        style={{ fontSize: "0.7rem" }}
+                      >
+                        Inform the kitchen before preparing.
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
               <div className="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
                 <span
                   className="fw-bold text-muted text-uppercase tracking-wider"
@@ -739,41 +935,58 @@ const Billing = () => {
                     return (
                       <div
                         key={idx}
-                        className="mb-2 p-2 bg-white rounded-3 border shadow-sm"
+                        className="mb-2 p-2 bg-white rounded-3 border shadow-sm d-flex align-items-center gap-2"
                       >
-                        <div className="d-flex justify-content-between align-items-center">
-                          <div>
-                            <div className="fw-bold text-dark small">
-                              {item.name || item.item_name}
-                              {isRefill && (
-                                <span
-                                  className="badge bg-success-subtle text-success ms-2 text-uppercase"
-                                  style={{ fontSize: "0.65rem" }}
-                                >
-                                  Refill
-                                  </span>
-                              )}
+                        <span
+                          className="badge bg-dark rounded-1 flex-shrink-0"
+                          style={{
+                            fontSize: "0.7rem",
+                            width: "30px",
+                            padding: "6px 0",
+                          }}
+                        >
+                          x{item.quantity}
+                        </span>
+                        <div className="flex-grow-1 text-start overflow-hidden">
+                          <div
+                            className="fw-bold text-dark small text-truncate"
+                          >
+                            {item.name || item.item_name}
+                            {isRefill && (
+                              <span
+                                className="badge bg-success-subtle text-success ms-2 text-uppercase"
+                                style={{ fontSize: "0.6rem" }}
+                              >
+                                Refill
+                              </span>
+                            )}
+                          </div>
+                          {item.customizations && (
+                            <div
+                              className="text-muted"
+                              style={{
+                                fontSize: "0.7rem",
+                                lineHeight: 1.35,
+                              }}
+                            >
+                              {item.customizations}
                             </div>
-                            <small className="text-muted">
-                              Unit Price: ₱
-                              {currentPrice.toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                              })}
-                            </small>
-                          </div>
-                          <div className="text-end">
-                            <span className="badge bg-light text-dark border me-2">
-                              x{item.quantity}
-                            </span>
-                            <span className="fw-bold text-dark small">
-                              ₱
-                              {(item.quantity * currentPrice).toLocaleString(
-                                undefined,
-                                { minimumFractionDigits: 2 },
-                              )}
-                            </span>
-                          </div>
+                          )}
+                          <small className="text-muted">
+                            ₱{currentPrice.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                            })} each
+                          </small>
                         </div>
+                        <span
+                          className="fw-bold text-dark small text-end flex-shrink-0"
+                        >
+                          ₱
+                          {(item.quantity * currentPrice).toLocaleString(
+                            undefined,
+                            { minimumFractionDigits: 2 },
+                          )}
+                        </span>
                       </div>
                     );
                   })}

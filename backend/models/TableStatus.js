@@ -7,7 +7,8 @@ const TableStatus = {
           t.table_id, 
           t.table_number, 
           t.capacity, 
-          
+                    LOWER(t.status) AS table_status,
+
           /* PRIORITIZE 'seated' status for the color */
           COALESCE(
             (SELECT LOWER(rt.status) FROM reservation_tables rt
@@ -15,21 +16,23 @@ const TableStatus = {
              WHERE rt.table_id = t.table_id
              AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
              ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed'),
-                         (r.reservation_type = 'event') ASC,
+                         COALESCE(r.is_kiosk_active, 0) DESC,
+                       (r.reservation_type = 'event') DESC,
                          rt.check_in_time DESC,
                          r.reservation_date ASC, r.reservation_time ASC
                    LIMIT 1),
             LOWER(t.status),
             'available'
-          ) AS bridge_status,    
+          ) AS bridge_status,
 
           /* Get the name and reservation ID of the current occupant */
-          (SELECT r.first_name FROM reservations r 
+          (SELECT r.first_name FROM reservations r
            JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
-           WHERE rt.table_id = t.table_id 
+           WHERE rt.table_id = t.table_id
            AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
              ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed'),
-                      (r.reservation_type = 'event') ASC,
+                      COALESCE(r.is_kiosk_active, 0) DESC,
+                       (r.reservation_type = 'event') DESC,
                       rt.check_in_time DESC,
                       r.reservation_date ASC, r.reservation_time ASC LIMIT 1) AS first_name,
 
@@ -38,7 +41,8 @@ const TableStatus = {
            WHERE rt.table_id = t.table_id
            AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
              ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed'),
-                      (r.reservation_type = 'event') ASC,
+                      COALESCE(r.is_kiosk_active, 0) DESC,
+                       (r.reservation_type = 'event') DESC,
                       rt.check_in_time DESC,
                       r.reservation_date ASC, r.reservation_time ASC LIMIT 1) AS reservation_id,
 
@@ -47,9 +51,10 @@ const TableStatus = {
              WHERE rt.table_id = t.table_id
              AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
              ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed'),
-                      (r.reservation_type = 'event') ASC,
+                      COALESCE(r.is_kiosk_active, 0) DESC,
+                       (r.reservation_type = 'event') DESC,
                       rt.check_in_time DESC,
-                      r.reservation_date ASC, r.reservation_time ASC LIMIT 1) AS reservation_date,
+                                   r.reservation_date ASC, r.reservation_time ASC LIMIT 1) AS reservation_date,
 
           /* Reservation-related metadata for the current occupant (event timer + kiosk stop) */
           (SELECT r.reservation_type FROM reservations r
@@ -57,7 +62,8 @@ const TableStatus = {
            WHERE rt.table_id = t.table_id
            AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
              ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed'),
-                      (r.reservation_type = 'event') ASC,
+                      COALESCE(r.is_kiosk_active, 0) DESC,
+                       (r.reservation_type = 'event') DESC,
                       rt.check_in_time DESC,
                       r.reservation_date ASC, r.reservation_time ASC LIMIT 1) AS reservation_type,
 
@@ -66,7 +72,8 @@ const TableStatus = {
            WHERE rt.table_id = t.table_id
            AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
              ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed'),
-                      (r.reservation_type = 'event') ASC,
+                      COALESCE(r.is_kiosk_active, 0) DESC,
+                       (r.reservation_type = 'event') DESC,
                       rt.check_in_time DESC,
                       r.reservation_date ASC, r.reservation_time ASC LIMIT 1) AS is_kiosk_active,
 
@@ -75,7 +82,8 @@ const TableStatus = {
            WHERE rt.table_id = t.table_id
            AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
              ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed'),
-                      (r.reservation_type = 'event') ASC,
+                      COALESCE(r.is_kiosk_active, 0) DESC,
+                       (r.reservation_type = 'event') DESC,
                       rt.check_in_time DESC,
                       r.reservation_date ASC, r.reservation_time ASC LIMIT 1) AS end_time,
 
@@ -108,7 +116,7 @@ getTodaySchedule: async () => {
       // SAFEGUARD: Automatically complete any active reservations whose session times have already passed
       await conn.execute(
         `
-        UPDATE reservations r 
+        UPDATE reservations r
         LEFT JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
         SET r.status = 'Completed', rt.status = 'completed'
         WHERE (r.reservation_date < ?) OR (r.reservation_date = ? AND r.end_time < ?)
@@ -118,14 +126,14 @@ getTodaySchedule: async () => {
       );
 
 const query = `
-        SELECT 
+        SELECT
           r.reservation_id,
-          r.first_name, 
-          r.last_name, 
+          r.first_name,
+          r.last_name,
           TIME_FORMAT(r.reservation_time, '%h:%i %p') as formatted_time,
-          r.reservation_time, 
+          r.reservation_time,
           r.reservation_type,
-          r.status, 
+          r.status,
           GROUP_CONCAT(t.table_number SEPARATOR ', ') as table_names
         FROM reservations r
         LEFT JOIN reservation_tables rt ON TRIM(r.reservation_id) = TRIM(rt.reservation_id)
@@ -137,11 +145,11 @@ const query = `
           /* ACTIVE KIOSK reservations even if their reserve date is far away */
           r.is_kiosk_active = 1 AND LOWER(r.status) IN ('seated', 'confirmed')
         )
-        GROUP BY 
-          r.reservation_id, 
-          r.first_name, 
-          r.last_name, 
-          r.reservation_time, 
+        GROUP BY
+          r.reservation_id,
+          r.first_name,
+          r.last_name,
+          r.reservation_time,
           r.reservation_type,
           r.status
         ORDER BY r.reservation_time ASC
@@ -204,7 +212,8 @@ const query = `
          JOIN reservations r ON r.reservation_id = rt.reservation_id
          WHERE rt.table_id = ? AND LOWER(rt.status) IN ('seated', 'confirmed')
          ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed'),
-                  (r.reservation_type = 'event') ASC,
+                  COALESCE(r.is_kiosk_active, 0) DESC,
+                       (r.reservation_type = 'event') DESC,
                   rt.check_in_time DESC
          LIMIT 1`,
         [tableId],
@@ -243,14 +252,185 @@ return { success: true };
     }
   },
 
-  // 4.5 STOP KIOSK (Clears the active kiosk flag for a single reservation)
-  stopKiosk: async (reservationId) => {
+  // 4.5 STOP KIOSK (Clears the active kiosk flag and frees the table(s))
+  // Pass tableId to release only that table. Without it the whole reservation
+  // is freed, which during an event would release tables that other guests
+  // are still seated at.
+  stopKiosk: async (reservationId, tableId = null) => {
     try {
-      const [result] = await db.query(
-        "UPDATE reservations SET is_kiosk_active = 0 WHERE reservation_id = ? AND is_kiosk_active = 1",
+      const scopedTable = parseInt(tableId, 10);
+
+      if (!Number.isInteger(scopedTable)) {
+        const [result] = await db.query(
+          "UPDATE reservations SET is_kiosk_active = 0 WHERE reservation_id = ? AND is_kiosk_active = 1",
+          [reservationId],
+        );
+
+        // When a kiosk is stopped the table must be released too, otherwise the
+        // card stays stuck on 'Seated' even though the kiosk session is gone.
+        if (result.affectedRows > 0) {
+          await db.query(
+            "UPDATE reservation_tables SET status = 'completed' WHERE TRIM(reservation_id) = TRIM(?) AND LOWER(status) IN ('seated', 'confirmed')",
+            [reservationId],
+          );
+
+          await db.query(
+            "UPDATE reservations SET is_kiosk_active = 0, status = 'Completed' WHERE TRIM(reservation_id) = TRIM(?)",
+            [reservationId],
+          );
+
+          await db.query(
+            `UPDATE tables t
+             JOIN reservation_tables rt ON rt.table_id = t.table_id
+             SET t.status = 'available',
+                 t.available_seats = t.capacity
+             WHERE TRIM(rt.reservation_id) = TRIM(?)
+               AND rt.status = 'completed'
+               AND t.status <> 'available'`,
+            [reservationId],
+          );
+        }
+
+        return {
+          success: true,
+          affected: result.affectedRows,
+          reservationId,
+        };
+      }
+
+      // Table-scoped stop: only the clicked table is completed and freed.
+      // The reservation keeps its kiosk flag while other tables remain, so an
+      // event stays armed. Once its last table is released the session has
+      // nothing left to run on, so it is closed out completely.
+      const [bound] = await db.query(
+        `SELECT rt.reservation_id
+         FROM reservation_tables rt
+         WHERE rt.table_id = ?
+           AND TRIM(rt.reservation_id) = TRIM(?)
+           AND LOWER(rt.status) IN ('seated', 'confirmed')
+         LIMIT 1`,
+        [scopedTable, reservationId],
+      );
+
+      if (bound.length === 0) {
+        return { success: false, reason: "not_bound", reservationId, tableId: scopedTable };
+      }
+
+      await db.query(
+        "UPDATE reservation_tables SET status = 'completed' WHERE table_id = ? AND TRIM(reservation_id) = TRIM(?)",
+        [scopedTable, reservationId],
+      );
+
+      await db.query(
+        "UPDATE tables SET status = 'available', available_seats = capacity WHERE table_id = ?",
+        [scopedTable],
+      );
+
+      // If this was the last live table on the reservation, the kiosk session
+      // is over: clear the flag and close the reservation. Without this the
+      // reservation stays 'Seated' with is_kiosk_active = 1, so the next
+      // order re-occupies the table we just released.
+      const [remaining] = await db.query(
+        `SELECT COUNT(*) AS remaining
+         FROM reservation_tables
+         WHERE TRIM(reservation_id) = TRIM(?)
+           AND LOWER(status) IN ('seated', 'confirmed')`,
         [reservationId],
       );
-      return { success: true, affected: result.affectedRows, reservationId };
+
+      const isLastTable = Number(remaining[0]?.remaining || 0) === 0;
+
+      if (isLastTable) {
+        await db.query(
+          "UPDATE reservations SET is_kiosk_active = 0, status = 'Completed' WHERE TRIM(reservation_id) = TRIM(?)",
+          [reservationId],
+        );
+      }
+
+      return {
+        success: true,
+        affected: 1,
+        reservationId,
+        tableId: scopedTable,
+        reservationClosed: isLastTable,
+      };
+    } catch (err) {
+      throw err;
+    }
+  },
+
+  // Every live booking (walk-in, reservation, or event) regardless of the date
+  // it was made for. Staff use this to look up the ID they need to arm a
+  // kiosk, so it must not be limited to today's schedule.
+  listReservationsForKiosk: async () => {
+    try {
+      const [rows] = await db.execute(
+        `SELECT r.reservation_id,
+                r.first_name,
+                r.last_name,
+                COALESCE(NULLIF(r.reservation_type, ''), 'per_table') AS reservation_type,
+                r.status,
+                r.is_kiosk_active,
+                DATE_FORMAT(r.reservation_date, '%b %d, %Y') AS reservation_date,
+                TIME_FORMAT(r.reservation_time, '%h:%i %p') AS formatted_time,
+                TIME_FORMAT(r.end_time, '%h:%i %p') AS formatted_end_time,
+                r.end_time,
+                GROUP_CONCAT(t.table_number ORDER BY t.table_number SEPARATOR ', ') AS table_names
+         FROM reservations r
+         LEFT JOIN reservation_tables rt ON TRIM(r.reservation_id) = TRIM(rt.reservation_id)
+         LEFT JOIN tables t ON t.table_id = rt.table_id
+         WHERE LOWER(r.status) IN ('seated', 'confirmed', 'pending')
+         GROUP BY r.reservation_id, r.first_name, r.last_name,
+                  r.reservation_type, r.status, r.is_kiosk_active,
+                  r.reservation_date, r.reservation_time, r.end_time
+         ORDER BY (LOWER(COALESCE(r.reservation_type, 'per_table')) = 'event') DESC,
+                  r.reservation_time ASC
+         LIMIT 100`,
+      );
+
+      return rows.map((r) => ({
+        ...r,
+        is_walkin: String(r.reservation_id || "").toUpperCase().startsWith("WALK-"),
+        is_event: String(r.reservation_type || "").toLowerCase() === "event",
+      }));
+    } catch (err) {
+      throw err;
+    }
+  },
+
+  // Live kiosk sessions. A kiosk is "in use" once the customer has actually
+  // placed an order from it, so staff never have to guess which terminal is
+  // which — the panel simply shows what is running right now.
+  listActiveKiosks: async () => {
+    try {
+      const [rows] = await db.execute(
+        `SELECT r.reservation_id,
+                r.first_name,
+                r.last_name,
+                COALESCE(NULLIF(r.reservation_type, ''), 'per_table') AS reservation_type,
+                r.status,
+                r.is_kiosk_active,
+                GROUP_CONCAT(t.table_number ORDER BY t.table_number SEPARATOR ', ') AS table_names,
+                (SELECT MAX(ko.created_at)
+                   FROM kiosk_orders ko
+                  WHERE TRIM(ko.reservation_id) = TRIM(r.reservation_id)) AS last_order_at
+         FROM reservations r
+         LEFT JOIN reservation_tables rt ON TRIM(r.reservation_id) = TRIM(rt.reservation_id)
+         LEFT JOIN tables t ON t.table_id = rt.table_id
+         WHERE r.is_kiosk_active = 1
+           AND LOWER(r.status) IN ('seated', 'confirmed', 'pending')
+         GROUP BY r.reservation_id, r.first_name, r.last_name,
+                  r.reservation_type, r.status, r.is_kiosk_active
+         ORDER BY (LOWER(COALESCE(r.reservation_type, 'per_table')) = 'event') DESC,
+                  r.reservation_time ASC`,
+      );
+
+      return rows.map((r) => ({
+        ...r,
+        is_walkin: String(r.reservation_id || "").toUpperCase().startsWith("WALK-"),
+        is_event: String(r.reservation_type || "").toLowerCase() === "event",
+        has_orders: !!r.last_order_at,
+      }));
     } catch (err) {
       throw err;
     }

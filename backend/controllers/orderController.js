@@ -123,6 +123,14 @@ const orderController = {
         );
       }
 
+      // An order coming from a kiosk marks that session as a live kiosk, so
+      // Kiosk Control / Table Status can spot it automatically instead of the
+      // staff having to pick which terminal it belongs to.
+      await conn.execute(
+        "UPDATE reservations SET is_kiosk_active = 1 WHERE reservation_id = ?",
+        [reservation_id],
+      );
+
       // 2. Process order items
       const enrichedItems = [];
 
