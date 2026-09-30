@@ -5,8 +5,8 @@ import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
 import "../Style/ReviewsSection.css";
 import { useToast } from "./ToastContext";
+import { API_BASE } from "../api";
 
-const API_BASE = "https://yokaku-backend.onrender.com/api";
 
 function ReviewsSection() {
   const [reviews, setReviews] = useState([]);

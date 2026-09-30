@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import api from "../../api";
 import { useToast } from "../ToastContext";
+import { useSectionRefresh } from "../shared/sectionRefresh";
 
 // "HH:MM" to minutes since midnight
 const toMinutes = (value) => {
@@ -96,6 +97,13 @@ const WalkInReservations = () => {
     fetchTables();
     fetchProducts();
   }, []);
+
+  // Reload on the shared admin refresh button in the top bar.
+  useSectionRefresh(() => {
+    fetchWalkIns();
+    fetchTables();
+    fetchProducts();
+  });
 
   useEffect(() => {
     return () => {
@@ -484,72 +492,73 @@ const WalkInReservations = () => {
         </div>
       </div>
 
-      {/* SEARCH BAR */}
-      <div className="col-12 col-md-8 col-lg-5 mb-3 px-2">
-        <div
-          className="d-flex align-items-center bg-white rounded-3 border shadow-sm px-3"
-          style={{ height: "48px" }}
-        >
-          <Search size={20} className="text-muted flex-shrink-0" />
-          <input
-            type="text"
-            className="form-control border-0 bg-transparent shadow-none w-100 ms-2"
-            style={{
-              color: "#212529",
-              fontSize: "16px",
-              fontWeight: "500",
-              height: "100%",
-            }}
-            placeholder="Search by guest name or ID..."
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setCurrentPage(1);
-            }}
-          />
-        </div>
-      </div>
-
-      {/* FILTER BAR */}
+      {/* SEARCH BAR + FILTERS (same row on wide screens) */}
       <div className="col-12 mb-3 px-2">
-        <div className="d-flex flex-wrap gap-2 align-items-center">
-          <select
-            className="form-select form-select-sm"
-            style={{ width: "auto" }}
-            value={dateFilter}
-            onChange={(e) => {
-              setDateFilter(e.target.value);
-              resetPage();
-            }}
+        <div className="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center gap-2">
+          <div
+            className="d-flex align-items-center bg-white rounded-3 border shadow-sm px-3 flex-grow-1"
+            style={{ height: "48px", minWidth: "260px" }}
           >
-            <option value="all">Any date</option>
-            <option value="today">Today</option>
-            <option value="upcoming">Upcoming</option>
-            <option value="past">Past</option>
-          </select>
+            <Search size={20} className="text-muted flex-shrink-0" />
+            <input
+              type="text"
+              className="form-control border-0 bg-transparent shadow-none w-100 ms-2"
+              style={{
+                color: "#212529",
+                fontSize: "16px",
+                fontWeight: "500",
+                height: "100%",
+              }}
+              placeholder="Search by guest name or ID..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+            />
+          </div>
 
-          <select
-            className="form-select form-select-sm"
-            style={{ width: "auto" }}
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value);
-              resetPage();
-            }}
-          >
-            <option value="all">Any status</option>
-            <option value="seated">Seated</option>
-            <option value="completed">Completed</option>
-          </select>
-
-          {hasActiveFilters && (
-            <button
-              className="btn btn-sm btn-link text-decoration-none px-0"
-              onClick={clearFilters}
+          <div className="d-flex flex-wrap gap-2 align-items-center">
+            <select
+              className="form-select form-select-sm"
+              style={{ width: "auto" }}
+              aria-label="Filter by date"
+              value={dateFilter}
+              onChange={(e) => {
+                setDateFilter(e.target.value);
+                resetPage();
+              }}
             >
-              Clear filters
-            </button>
-          )}
+              <option value="all">Any date</option>
+              <option value="today">Today</option>
+              <option value="upcoming">Upcoming</option>
+              <option value="past">Past</option>
+            </select>
+
+            <select
+              className="form-select form-select-sm"
+              style={{ width: "auto" }}
+              aria-label="Filter by status"
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                resetPage();
+              }}
+            >
+              <option value="all">Any status</option>
+              <option value="seated">Seated</option>
+              <option value="completed">Completed</option>
+            </select>
+
+            {hasActiveFilters && (
+              <button
+                className="btn btn-sm btn-link text-decoration-none px-0"
+                onClick={clearFilters}
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

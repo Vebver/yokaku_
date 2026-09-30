@@ -11,8 +11,10 @@ import {
   Plus,
   Box,
   Edit2,
+  X,
 } from "lucide-react";
 import { useToast } from "../ToastContext";
+import { useSectionRefresh } from "../shared/sectionRefresh";
 
 function Inventory() {
   const { showToast } = useToast();
@@ -74,6 +76,12 @@ function Inventory() {
     fetchInventory();
     fetchMenuItems();
   }, []);
+
+  // Reload on the shared admin refresh button in the top bar.
+  useSectionRefresh(() => {
+    fetchInventory();
+    fetchMenuItems();
+  });
 
   const fetchMenuItems = async () => {
     try {
@@ -229,16 +237,36 @@ function Inventory() {
     return diff <= 3 && !isExpired(date);
   };
 
-  // Sorted A-Z so items are easy to find. The backend orders by stock
-  // urgency (out of stock first), which is useful for restocking alerts but
-  // makes the list hard to scan for a specific ingredient.
+  // Single source of truth for an item's health. The stock number, the status
+  // pill and the summary tiles all read from this, so they can never disagree
+  // (they previously each had their own copy of the same nested ternary).
+  const statusOf = (item) => {
+    const stock = Number(item.stock);
+    const reorder = Number(item.reorder);
+    if (stock <= 0) return "out";
+    if (isExpired(item.expiry)) return "expired";
+    if (!Number.isNaN(reorder) && stock <= reorder) return "low";
+    return "ok";
+  };
+
+  const STATUS_META = {
+    out: { label: "Out of stock", badge: "bg-danger", text: "text-danger" },
+    expired: { label: "Expired", badge: "bg-dark", text: "text-dark" },
+    low: { label: "Low stock", badge: "bg-warning text-dark", text: "text-warning" },
+    ok: { label: "Healthy", badge: "bg-success", text: "text-success" },
+  };
+
+  // Urgency first (things to reorder float to the top), then A-Z within a
+  // group so the list stays predictable.
+  const URGENCY_RANK = { out: 0, expired: 1, low: 2, ok: 3 };
+
   const filtered = inventory
     .filter((item) => {
       const term = searchTerm.toLowerCase();
       if (
         term &&
-        !item.name.toLowerCase().includes(term) &&
-        !item.category.toLowerCase().includes(term)
+        !String(item.name || "").toLowerCase().includes(term) &&
+        !String(item.category || "").toLowerCase().includes(term)
       ) {
         return false;
       }
@@ -246,26 +274,45 @@ function Inventory() {
         return false;
       }
       if (stockFilter !== "all") {
-        const out = item.stock <= 0;
-        const low = !out && item.stock <= item.reorder;
-        const expired = isExpired(item.expiry);
-        if (stockFilter === "out" && !out) return false;
-        if (stockFilter === "low" && !low) return false;
-        if (stockFilter === "expired" && !expired) return false;
-        if (stockFilter === "ok" && (out || low || expired)) return false;
+        const s = statusOf(item);
+        // "expiring soon" is surfaced as a warning icon rather than its own
+        // filter bucket, so it is treated as OK here.
+        if (stockFilter === s) return true;
+        return false;
       }
       return true;
     })
-    .sort((a, b) =>
-      String(a.name || "").localeCompare(String(b.name || ""), undefined, {
+    .sort((a, b) => {
+      const rank = URGENCY_RANK[statusOf(a)] - URGENCY_RANK[statusOf(b)];
+      if (rank !== 0) return rank;
+      return String(a.name || "").localeCompare(String(b.name || ""), undefined, {
         sensitivity: "base",
-      }),
-    );
+      });
+    });
+
+  // Counts across the whole inventory, so the tiles stay stable while filters
+  // are applied.
+  const statusCounts = useMemo(() => {
+    const counts = { out: 0, low: 0, expired: 0, ok: 0 };
+    inventory.forEach((i) => {
+      counts[statusOf(i)] += 1;
+    });
+    return counts;
+  }, [inventory]);
+
   const currentItems = filtered.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage,
   );
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
+
+  // Reset to the first page whenever the result set shrinks past the current
+  // page, otherwise the table renders empty with no way back.
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   if (loading)
     return (
@@ -279,49 +326,18 @@ function Inventory() {
       className="inventory-container container-fluid py-3 py-md-4 text-dark bg-light"
       style={{ minHeight: "100vh" }}
     >
-      <div className="row g-3 align-items-center mb-4 px-2">
-        <div className="col-12 col-lg-4">
+      {/* HEADER */}
+      <div className="row g-3 align-items-center mb-3 px-2">
+        <div className="col-12 col-lg-8">
           <h2 className="fw-bold mb-0">Kitchen Inventory</h2>
           <p className="text-muted small mb-0">
             Manage raw materials and stock levels
           </p>
         </div>
 
-        <div className="col-12 col-md-8 col-lg-5">
-          <div
-            className="d-flex align-items-center bg-white rounded-3 border shadow-sm px-3"
-            style={{ height: "45px" }}
-          >
-            <Search size={18} className="text-muted flex-shrink-0" />
-            <input
-              type="text"
-              className="form-control border-0 bg-transparent shadow-none w-100 ms-2"
-              placeholder="Search inventory items..."
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setCurrentPage(1);
-              }}
-            />
-          </div>
-        </div>
-
-        {/* ALIGNED REFRESH & RECEIVE STOCK BUTTON GROUP */}
-        <div className="col-12 col-md-4 col-lg-3 d-flex gap-2 align-items-center justify-content-md-end">
-          {/* Square Refresh Button */}
+        <div className="col-12 col-lg-4 d-flex justify-content-lg-end">
           <button
-            className="btn btn-light border shadow-sm d-flex align-items-center justify-content-center flex-shrink-0"
-            style={{ height: "45px", width: "45px" }}
-            onClick={fetchInventory}
-            title="Refresh Inventory"
-            type="button"
-          >
-            <RefreshCw size={18} className="text-muted" />
-          </button>
-
-          {/* Receive Stock Button matching 45px height */}
-          <button
-            className="btn btn-primary fw-bold shadow-sm d-flex align-items-center justify-content-center w-100"
+            className="btn btn-primary fw-bold shadow-sm d-flex align-items-center justify-content-center w-100 w-lg-auto px-4"
             style={{ height: "45px" }}
             data-bs-toggle="offcanvas"
             data-bs-target="#addInvDrawer"
@@ -332,49 +348,109 @@ function Inventory() {
         </div>
       </div>
 
-      {/* FILTER BAR */}
-      <div className="col-12 d-flex flex-wrap gap-2 align-items-center mb-3 px-2">
-        <select
-          className="form-select form-select-sm"
-          style={{ width: "auto" }}
-          value={categoryFilter}
-          onChange={(e) => {
-            setCategoryFilter(e.target.value);
-            resetPage();
-          }}
-        >
-          <option value="all">All categories</option>
-          {categoryNames.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-
-        <select
-          className="form-select form-select-sm"
-          style={{ width: "auto" }}
-          value={stockFilter}
-          onChange={(e) => {
-            setStockFilter(e.target.value);
-            resetPage();
-          }}
-        >
-          <option value="all">Any stock level</option>
-          <option value="out">Out of stock</option>
-          <option value="low">Low stock</option>
-          <option value="expired">Expired</option>
-          <option value="ok">Stocked / OK</option>
-        </select>
-
-        {hasActiveFilters && (
-          <button
-            className="btn btn-sm btn-link text-decoration-none px-0"
-            onClick={clearFilters}
+      {/* SEARCH + FILTERS — full width so everything sits on one line and only
+          wraps on phones, instead of stacking inside a narrow column. */}
+      <div className="row g-2 align-items-center mb-3 px-2">
+        <div className="col-12 col-xl-5 col-xxl-4">
+          <div
+            className="d-flex align-items-center bg-white rounded-3 border shadow-sm px-3"
+            style={{ height: "45px" }}
           >
-            Clear filters
-          </button>
-        )}
+            <Search size={18} className="text-muted flex-shrink-0" />
+            <input
+              type="text"
+              className="form-control border-0 bg-transparent shadow-none w-100 ms-2"
+              placeholder="Search inventory items..."
+              aria-label="Search inventory items"
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+            />
+          </div>
+        </div>
+
+        <div className="col-12 col-xl-7 col-xxl-8">
+          <div className="d-flex flex-wrap gap-2">
+            <select
+              className="form-select form-select-sm flex-grow-1 flex-sm-grow-0"
+              style={{ width: "auto", minWidth: "150px", height: "38px" }}
+              aria-label="Filter by category"
+              value={categoryFilter}
+              onChange={(e) => {
+                setCategoryFilter(e.target.value);
+                resetPage();
+              }}
+            >
+              <option value="all">All categories</option>
+              {categoryNames.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+
+            <select
+              className="form-select form-select-sm flex-grow-1 flex-sm-grow-0"
+              style={{ width: "auto", minWidth: "150px", height: "38px" }}
+              aria-label="Filter by stock level"
+              value={stockFilter}
+              onChange={(e) => {
+                setStockFilter(e.target.value);
+                resetPage();
+              }}
+            >
+              <option value="all">Any stock level</option>
+              <option value="out">Out of stock</option>
+              <option value="low">Low stock</option>
+              <option value="expired">Expired</option>
+              <option value="ok">Healthy</option>
+            </select>
+
+            {hasActiveFilters && (
+              <button
+                className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1 fw-bold"
+                style={{ height: "38px" }}
+                onClick={clearFilters}
+              >
+                <X size={14} /> Clear
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* STATUS SUMMARY — click a tile to filter to that bucket */}
+      <div className="row g-2 px-2 mb-3">
+        {[
+          { key: "out", label: "Out of stock", tone: "danger" },
+          { key: "low", label: "Low stock", tone: "warning" },
+          { key: "expired", label: "Expired", tone: "dark" },
+          { key: "ok", label: "Healthy", tone: "success" },
+        ].map((tile) => {
+          const isActive = stockFilter === tile.key;
+          return (
+            <div className="col-6 col-md-3" key={tile.key}>
+              <button
+                type="button"
+                onClick={() => {
+                  setStockFilter(isActive ? "all" : tile.key);
+                  resetPage();
+                }}
+                aria-pressed={isActive}
+                className={`inv-stat-card w-100 text-start border-0 shadow-sm rounded-3 p-3 inv-stat-${tile.tone} ${
+                  isActive ? "is-active" : ""
+                }`}
+              >
+                <div className="inv-stat-value">{statusCounts[tile.key]}</div>
+                <div className="inv-stat-label text-muted small fw-bold">
+                  {tile.label}
+                </div>
+              </button>
+            </div>
+          );
+        })}
       </div>
 
       <div className="card border-0 shadow-sm rounded-4 overflow-hidden mx-2">
@@ -397,35 +473,88 @@ function Inventory() {
               </tr>
             </thead>
             <tbody>
-              {currentItems.map((item) => (
-                <tr key={item.id}>
+              {currentItems.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="text-center py-5">
+                    <Package size={40} className="text-muted opacity-25 mb-2" />
+                    <p className="fw-bold text-dark mb-1">
+                      {inventory.length === 0
+                        ? "No inventory yet"
+                        : "No items match your filters"}
+                    </p>
+                    <p className="text-muted small mb-3">
+                      {inventory.length === 0
+                        ? "Receive your first stock to start tracking ingredients."
+                        : "Try a different search term or clear the filters."}
+                    </p>
+                    {inventory.length > 0 && (
+                      <button
+                        className="btn btn-sm btn-outline-secondary fw-bold"
+                        onClick={clearFilters}
+                      >
+                        Clear filters
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ) : (
+                currentItems.map((item) => {
+                  const status = statusOf(item);
+                  const meta = STATUS_META[status];
+                  const stock = Number(item.stock);
+                  const reorder = Number(item.reorder);
+                  // Bar fills relative to the reorder point; anything at or
+                  // below it reads as a nearly-empty bar.
+                  const barPct =
+                    !Number.isNaN(reorder) && reorder > 0
+                      ? Math.max(4, Math.min(100, (stock / (reorder * 2)) * 100))
+                      : stock > 0
+                        ? 100
+                        : 0;
+
+                  return (
+                  <tr key={item.id} className={status === "out" ? "table-danger-row" : ""}>
                   <td className="ps-4" data-label="Item Name">
                     <div className="fw-bold text-dark">{item.name}</div>
                   </td>
                   <td data-label="Category">
                     <span className="badge bg-white text-dark border fw-normal">
-                      {item.category}
+                      {item.category || "Uncategorised"}
                     </span>
                   </td>
                   <td data-label="Stock Level">
                     <div
-                      className={`fw-bold ${item.stock <= item.reorder ? "text-danger" : "text-dark"}`}
+                      className={`fw-bold ${status === "ok" ? "text-dark" : "text-danger"}`}
                     >
                       {item.stock}{" "}
                       <small className="text-muted fw-normal">
                         {item.unit}
                       </small>
                     </div>
+                    <div
+                      className="stock-bar mt-1"
+                      role="img"
+                      aria-label={`${item.stock} ${item.unit} in stock`}
+                    >
+                      <div
+                        className={`stock-bar-fill stock-${status}`}
+                        style={{ width: `${barPct}%` }}
+                      ></div>
+                    </div>
                     <div className="x-small text-muted">
                       Reorder at: {item.reorder}
                     </div>
                   </td>
                   <td className="fw-bold text-success" data-label="Unit Cost">
-                    ₱{Number(item.price).toFixed(2)}
+                    {"\u20B1"}
+                    {Number(item.price || 0).toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
                   </td>
                   <td data-label="Used in Dishes">
                     {item.dishes && item.dishes.length > 0 ? (
-                      <div className="d-flex flex-wrap gap-1">
+                      <div className="d-flex flex-wrap gap-1 justify-content-md-start justify-content-end">
                         {item.dishes.slice(0, 3).map((d) => (
                           <span
                             key={d.name}
@@ -452,23 +581,9 @@ function Inventory() {
                   </td>
                   <td data-label="Status">
                     <span
-                      className={`badge rounded-pill px-2 py-1 x-small ${
-                        item.stock <= 0
-                          ? "bg-danger"
-                          : isExpired(item.expiry)
-                            ? "bg-dark"
-                            : item.stock <= item.reorder
-                              ? "bg-warning text-dark"
-                              : "bg-success"
-                      }`}
+                      className={`badge rounded-pill px-2 py-1 x-small ${meta.badge}`}
                     >
-                      {item.stock <= 0
-                        ? "OUT OF STOCK"
-                        : isExpired(item.expiry)
-                          ? "EXPIRED"
-                          : item.stock <= item.reorder
-                            ? "LOW STOCK"
-                            : "HEALTHY"}
+                      {meta.label.toUpperCase()}
                     </span>
                   </td>
                   <td data-label="Expiry">
@@ -502,19 +617,25 @@ function Inventory() {
                         data-bs-toggle="offcanvas"
                         data-bs-target="#addInvDrawer"
                         onClick={() => openEditMode(item)}
+                        title={`Edit ${item.name}`}
+                        aria-label={`Edit ${item.name}`}
                       >
                         <Edit2 size={16} />
                       </button>
                       <button
                         className="btn btn-sm btn-outline-danger border-0"
                         onClick={() => deleteItem(item.id)}
+                        title={`Delete ${item.name}`}
+                        aria-label={`Delete ${item.name}`}
                       >
                         <Trash2 size={16} />
                       </button>
                     </div>
                   </td>
                 </tr>
-              ))}
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
@@ -522,7 +643,15 @@ function Inventory() {
 
       <div className="mt-4 px-3 d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
         <span className="small text-muted">
-          Showing {currentItems.length} of {filtered.length} items
+          Showing{" "}
+          <strong>
+            {filtered.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}
+          </strong>
+          {"\u2013"}
+          <strong>
+            {Math.min(currentPage * itemsPerPage, filtered.length)}
+          </strong>{" "}
+          of <strong>{filtered.length}</strong> items
         </span>
         <div className="btn-group shadow-sm bg-white rounded border overflow-hidden">
           <button
@@ -844,6 +973,41 @@ function Inventory() {
       </div>
 
 <style>{`.x-small { font-size: 0.65rem; letter-spacing: 0.5px; } .animate-spin { animation: spin 1s linear infinite; } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        /* --- Status summary tiles --- */
+        .inv-stat-card {
+          background: #fff;
+          border: 2px solid transparent !important;
+          transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+          cursor: pointer;
+        }
+        .inv-stat-card:hover { transform: translateY(-2px); box-shadow: 0 .5rem 1rem rgba(0,0,0,.08) !important; }
+        .inv-stat-card.is-active { border-color: currentColor !important; }
+        .inv-stat-value { font-size: 1.6rem; font-weight: 800; line-height: 1.1; }
+        .inv-stat-label { text-transform: uppercase; letter-spacing: .6px; font-size: .62rem; }
+        .inv-stat-danger  { color: #dc3545; }
+        .inv-stat-warning { color: #b58105; }
+        .inv-stat-dark    { color: #212529; }
+        .inv-stat-success { color: #198754; }
+
+        /* --- Stock level bar --- */
+        .stock-bar {
+          width: 100%;
+          max-width: 120px;
+          height: 5px;
+          background: #e9ecef;
+          border-radius: 999px;
+          overflow: hidden;
+        }
+        .stock-bar-fill { height: 100%; border-radius: 999px; transition: width .3s ease; }
+        .stock-bar-fill.stock-out     { background: #dc3545; }
+        .stock-bar-fill.stock-low     { background: #f0ad4e; }
+        .stock-bar-fill.stock-expired { background: #343a40; }
+        .stock-bar-fill.stock-ok      { background: #198754; }
+
+        .table-danger-row { background-color: rgba(220, 53, 69, .06); }
+        .table-danger-row:hover { background-color: rgba(220, 53, 69, .12) !important; }
+
         @media (max-width: 768px) {
           .inventory-container .table-responsive { overflow: visible; }
           .inventory-container thead { display: none; }
@@ -887,6 +1051,20 @@ function Inventory() {
             padding-bottom: 10px;
           }
           .inventory-container .table td[data-label="Item Name"]::before { display: none; }
+          /* On mobile the value sits right of the label, so let the stock bar
+             and reorder note drop onto their own full-width lines. */
+          .inventory-container .table td[data-label="Stock Level"] { flex-wrap: wrap; }
+          .inventory-container .table td[data-label="Stock Level"] .stock-bar {
+            max-width: none;
+            order: 3;
+            width: 100%;
+            margin-top: 6px;
+          }
+          .inventory-container .table td[data-label="Stock Level"] .x-small {
+            order: 4;
+            width: 100%;
+            text-align: right;
+          }
         }
       `}</style>
     </div>

@@ -3,8 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { RefreshCw, ShoppingBag, Calendar } from "lucide-react";
 import axios from "axios";
 import "../../Style/KioskSelection.css";
+import { API_BASE } from "../../api";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const KioskSelection = () => {
   const navigate = useNavigate();

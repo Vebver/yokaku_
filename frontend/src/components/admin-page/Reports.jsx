@@ -3,7 +3,8 @@ import api from "../../api";
 import FinancialOverview from "./FinancialOverview";
 import ProductPerformance from "./ProductPerformance";
 import InventoryReport from "./InventoryReport";
-import { RefreshCw, DollarSign, Package, BarChart2 } from "lucide-react";
+import { DollarSign, Package, BarChart2 } from "lucide-react";
+import { useSectionRefresh } from "../shared/sectionRefresh";
 
 function Reports() {
   const [financialData, setFinancialData] = useState(null);
@@ -35,6 +36,11 @@ function Reports() {
     fetchReportData();
   }, []);
 
+  // Reload on the shared admin refresh button in the top bar.
+  useSectionRefresh(() => {
+    fetchReportData();
+  });
+
   // Helper to render the selected component
   const renderActiveReport = () => {
     if (!financialData) return null;
@@ -53,7 +59,7 @@ function Reports() {
 
   return (
     <div className="reports-container p-3 pt-2">
-      {/* HEADER WITH REFRESH */}
+      {/* HEADER */}
       <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
         <div>
           <h2 className="fw-bold mb-0 text-dark">Business Reports</h2>
@@ -61,14 +67,6 @@ function Reports() {
             Select a category to view detailed analytics
           </p>
         </div>
-        <button
-          onClick={fetchReportData}
-          className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2"
-          disabled={loading}
-        >
-          <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-          Refresh
-        </button>
       </div>
 
       {/* SEGMENTED TAB NAVIGATION */}

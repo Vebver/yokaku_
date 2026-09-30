@@ -3,8 +3,8 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import "../Style/LoginModal.css";
 import { useToast } from "./ToastContext";
+import { API_BASE } from "../api";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 function ResetPasswordPage() {
   const [searchParams] = useSearchParams();

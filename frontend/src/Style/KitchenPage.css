@@ -669,6 +669,166 @@ body {
   cursor: wait;
 }
 
+/* ============================================ */
+/* TICKET HEADER: table badge + elapsed timer  */
+/* ============================================ */
+.kitchen-wrapper .card-header {
+  gap: 0.5rem;
+}
+
+.kitchen-wrapper .table-badge {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+  min-width: 0;
+}
+
+.kitchen-wrapper .table-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+}
+
+.kitchen-wrapper .table-id {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #000;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kitchen-wrapper .time-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: #f1f5f9;
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+}
+
+.kitchen-wrapper .time-badge.urgency-warning {
+  background: #fff7ed;
+  color: #c2410c;
+  border-color: #fed7aa;
+}
+
+.kitchen-wrapper .time-badge.urgency-critical {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-color: #fecaca;
+  animation: timerPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes timerPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(185, 28, 28, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(185, 28, 28, 0);
+  }
+}
+
+/* Status accent stripe down the left edge of the card */
+.kitchen-wrapper .order-card {
+  border-left: 4px solid var(--border-color);
+}
+
+.kitchen-wrapper .order-card.status-pending {
+  border-left-color: #f59e0b;
+}
+
+.kitchen-wrapper .order-card.status-preparing {
+  border-left-color: #3b82f6;
+}
+
+.kitchen-wrapper .order-card.status-ready {
+  border-left-color: #10b981;
+}
+
+.kitchen-wrapper .order-card.status-served {
+  border-left-color: #64748b;
+}
+
+/* ============================================ */
+/* ITEM ROWS                                       */
+/* ============================================ */
+.kitchen-wrapper .ticket-item {
+  padding: 0.5rem 0;
+  border-bottom: 1px dashed var(--border-color);
+}
+
+.kitchen-wrapper .ticket-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.kitchen-wrapper .ticket-item:first-child {
+  padding-top: 0;
+}
+
+.kitchen-wrapper .item-main-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.65rem;
+}
+
+.kitchen-wrapper .item-qty {
+  flex-shrink: 0;
+  min-width: 34px;
+  background: #000;
+  color: #fff;
+  border-radius: 6px;
+  padding: 2px 7px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.kitchen-wrapper .item-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #000;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+/* Customizations / special instructions */
+.kitchen-wrapper .item-customs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 6px 0 0 0;
+  padding-left: 2.6rem;
+}
+
+.kitchen-wrapper .custom-tag {
+  background: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fde68a;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.kitchen-wrapper .custom-tag.has-allergy {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
 /* --- Responsive Adjustments --- */
 @media (max-width: 640px) {
   .header {

@@ -12,16 +12,17 @@ import {
 } from "lucide-react";
 import "../Style/PackageModal.css";
 import { useToast } from "./ToastContext";
+import { API_BASE, resolveAssetUrl } from "../api";
 
-const API_BASE = "https://yokaku-backend.onrender.com/api";
-const BASE_URL = "https://yokaku-backend.onrender.com";
 
 const getImageUrl = (item) => {
   const imagePath = item.local_path || item.image_url;
   if (!imagePath) return null;
-  if (imagePath.startsWith("http")) return imagePath;
-  if (imagePath.startsWith("/uploads/")) return `${BASE_URL}${imagePath}`;
-  return `${BASE_URL}/uploads/${imagePath}`;
+  // A bare filename (no leading slash) is stored without the /uploads prefix.
+  if (!imagePath.startsWith("/") && !/^https?:|^data:/i.test(imagePath)) {
+    return resolveAssetUrl(`/uploads/${imagePath}`);
+  }
+  return resolveAssetUrl(imagePath);
 };
 
 const PackageModal = ({

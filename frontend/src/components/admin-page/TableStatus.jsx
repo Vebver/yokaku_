@@ -1,9 +1,19 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import io from "socket.io-client";
 import api, { SOCKET_URL } from "../../api";
-import { Plus, Armchair, Trash2, RefreshCw, Users, X, Square } from "lucide-react";
+import {
+  Plus,
+  Armchair,
+  Trash2,
+  Users,
+  X,
+  Square,
+  Monitor,
+  UserCheck,
+} from "lucide-react";
 import { useToast } from "../ToastContext";
 import KioskControl from "../shared/KioskControl";
+import { useSectionRefresh } from "../shared/sectionRefresh";
 
 // Helpers to extract and compare dates (YYYY-MM-DD format)
 const getTodayDateString = () => {
@@ -88,6 +98,11 @@ const TableStatus = ({ compact = false }) => {
     return () => clearInterval(inv);
   }, []);
 
+  // Reload on the shared admin refresh button in the top bar.
+  useSectionRefresh(() => {
+    fetchData();
+  });
+
   const handleAction = async (
     method,
     url,
@@ -106,6 +121,15 @@ const TableStatus = ({ compact = false }) => {
     }
   };
 
+  // Only admins and cashiers/staff are allowed to interrupt or stop a kiosk
+  // (e.g. when it is stuck on a bugged screen) or to open a new one.
+  // The API enforces the same rule.
+  const canControlKiosk = useMemo(() => {
+    const role =
+      localStorage.getItem("role") || localStorage.getItem("userRole") || "";
+    return ["admin", "cashier", "staff"].includes(role.toLowerCase());
+  }, []);
+
   const openBill = async (table) => {
     setSelectedTable(table);
     setBill({ items: [], loading: true, label: table.table_number });
@@ -115,6 +139,68 @@ const TableStatus = ({ compact = false }) => {
       setBill((p) => ({ ...p, items: res.data, loading: false }));
     } catch {
       setBill((p) => ({ ...p, loading: false }));
+    }
+  };
+
+  // Open the kiosk for the reservation sitting on this table so the guest's
+  // screen jumps straight into the menu. The kiosk type must match the
+  // reservation type or the backend rejects the request.
+  const openKiosk = async (t) => {
+    if (!canControlKiosk) {
+      showToast("Only admins or cashiers can open a kiosk.");
+      return;
+    }
+    if (!t.reservation_id) {
+      showToast("No reservation linked to this table.");
+      return;
+    }
+    const kioskType =
+      String(t.reservation_type || "").toLowerCase() === "event"
+        ? "event"
+        : "single";
+    if (
+      !window.confirm(
+        `Open the kiosk for reservation ${t.reservation_id} (Table ${t.table_number})? The guest's screen will go straight to the menu.`,
+      )
+    ) {
+      return;
+    }
+    try {
+      setUi((p) => ({ ...p, updating: true }));
+      await api.post("/admin/set-kiosk-reservation", {
+        reservationId: t.reservation_id,
+        kioskType,
+      });
+      showToast("Kiosk opened for this reservation.", "success");
+      fetchData();
+    } catch (err) {
+      showToast(err.response?.data?.error || "Failed to open the kiosk.");
+    } finally {
+      setUi((p) => ({ ...p, updating: false }));
+    }
+  };
+
+  // Manually flag the physical table as taken (walk-in seated by hand, or an
+  // event that has already started) without needing a linked reservation.
+  const makeOccupied = async (t) => {
+    if (
+      !window.confirm(
+        `Mark Table ${t.table_number} as occupied?`,
+      )
+    ) {
+      return;
+    }
+    try {
+      setUi((p) => ({ ...p, updating: true }));
+      await api.put(`/admin/table-status/${t.table_id}`, {
+        status: "occupied",
+      });
+      showToast(`Table ${t.table_number} marked as occupied.`, "success");
+      fetchData();
+    } catch (err) {
+      showToast(err.response?.data?.error || "Failed to update the table.");
+    } finally {
+      setUi((p) => ({ ...p, updating: false }));
     }
   };
 
@@ -130,14 +216,6 @@ const TableStatus = ({ compact = false }) => {
     const s = status?.toLowerCase() || "available";
     return { color: cfg[s] || cfg.available, label: s.toUpperCase() };
   };
-
-  // Only admins and cashiers/staff are allowed to interrupt or stop a kiosk
-  // (e.g. when it is stuck on a bugged screen). The API enforces the same rule.
-  const canControlKiosk = useMemo(() => {
-    const role =
-      localStorage.getItem("role") || localStorage.getItem("userRole") || "";
-    return ["admin", "cashier", "staff"].includes(role.toLowerCase());
-  }, []);
 
   // Stop the kiosk session. When a tableId is supplied only THAT table is
   // released, so stopping a kiosk during an event does not free every table
@@ -271,15 +349,6 @@ const TableStatus = ({ compact = false }) => {
             </div>
           </div>
           <div className="d-flex gap-1">
-            <button
-              className="btn btn-sm btn-white border shadow-sm"
-              onClick={fetchData}
-            >
-              <RefreshCw
-                size={16}
-                className={ui.loading ? "animate-spin" : ""}
-              />
-            </button>
             <button
               className={`btn btn-sm ${ui.deleteMode ? "btn-danger" : "btn-outline-danger"} fw-bold`}
               onClick={() =>
@@ -419,36 +488,111 @@ const TableStatus = ({ compact = false }) => {
                         Kiosk Active
                       </div>
                     )}
-                    {activeStatus === "seated" ? (
-                      <button
-                        className="btn btn-sm btn-primary w-100 py-0 fw-bold"
-                        style={{ fontSize: "0.65rem", height: "22px" }}
-                        onClick={() => openBill(t)}
-                      >
-                        View Orders
-                      </button>
+                    {activeStatus === "occupied" ? (
+                      // A table with no live reservation binding: staff marked it
+                      // taken by hand, so offer the kiosk shortcut only when a
+                      // reservation is actually linked.
+                      <div className="d-flex gap-1">
+                        {!isKioskActive && canControlKiosk && t.reservation_id && (
+                          <button
+                            className="btn btn-sm btn-primary w-100 py-0 fw-bold"
+                            style={{ fontSize: "0.65rem", height: "22px" }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openKiosk(t);
+                            }}
+                            title="Open the kiosk for the guest on this table"
+                          >
+                            <Monitor size={10} className="me-1" /> Open Kiosk
+                          </button>
+                        )}
+                        {canControlKiosk && (
+                          <button
+                            className="btn btn-sm btn-outline-secondary py-0 fw-bold flex-shrink-0"
+                            style={{ fontSize: "0.65rem", height: "22px" }}
+                            onClick={() =>
+                              handleAction(
+                                "put",
+                                `/admin/table-status/${t.table_id}`,
+                                { status: "available" },
+                              )
+                            }
+                            title="Release this table"
+                          >
+                            Free
+                          </button>
+                        )}
+                      </div>
+                    ) : activeStatus === "seated" ? (
+                      <div className="d-flex gap-1">
+                        <button
+                          className="btn btn-sm btn-primary w-100 py-0 fw-bold"
+                          style={{ fontSize: "0.65rem", height: "22px" }}
+                          onClick={() => openBill(t)}
+                        >
+                          View Orders
+                        </button>
+                        {!isKioskActive && canControlKiosk && t.reservation_id && (
+                          <button
+                            className="btn btn-sm btn-dark py-0 fw-bold flex-shrink-0"
+                            style={{ fontSize: "0.65rem", height: "22px" }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openKiosk(t);
+                            }}
+                            title="Open the kiosk for the guest on this table"
+                          >
+                            <Monitor size={10} className="me-1" /> Kiosk
+                          </button>
+                        )}
+                      </div>
                     ) : activeStatus === "confirmed" ? (
-                      <button
-                        className="btn btn-sm btn-warning w-100 py-0 fw-bold text-white"
-                        style={{ fontSize: "0.65rem", height: "22px" }}
-                        onClick={() =>
-                          handleAction(
-                            "put",
-                            `/reservations/${t.reservation_id}/status`,
-                            { status: "Seated" },
-                          )
-                        }
-                      >
-                        Seat Guest
-                      </button>
+                      <div className="d-flex gap-1">
+                        <button
+                          className="btn btn-sm btn-warning w-100 py-0 fw-bold text-white"
+                          style={{ fontSize: "0.65rem", height: "22px" }}
+                          onClick={() =>
+                            handleAction(
+                              "put",
+                              `/reservations/${t.reservation_id}/status`,
+                              { status: "Seated" },
+                            )
+                          }
+                        >
+                          Seat Guest
+                        </button>
+                        {!isKioskActive && canControlKiosk && t.reservation_id && (
+                          <button
+                            className="btn btn-sm btn-dark py-0 fw-bold flex-shrink-0"
+                            style={{ fontSize: "0.65rem", height: "22px" }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openKiosk(t);
+                            }}
+                            title="Open the kiosk for this reservation"
+                          >
+                            <Monitor size={10} className="me-1" /> Kiosk
+                          </button>
+                        )}
+                      </div>
                     ) : (
-                      <button
-                        className="btn btn-sm btn-outline-secondary w-100 py-0 fw-bold border-dashed text-muted bg-white"
-                        style={{ fontSize: "0.65rem", height: "22px" }}
-                        disabled
-                      >
-                        Vacant
-                      </button>
+                      <div className="d-flex gap-1">
+                        <button
+                          className="btn btn-sm btn-outline-secondary flex-grow-1 py-0 fw-bold border-dashed text-muted bg-white"
+                          style={{ fontSize: "0.65rem", height: "22px" }}
+                          disabled
+                        >
+                          Vacant
+                        </button>
+                        <button
+                          className="btn btn-sm btn-danger py-0 fw-bold flex-shrink-0"
+                          style={{ fontSize: "0.65rem", height: "22px" }}
+                          onClick={() => makeOccupied(t)}
+                          title="Mark this table as occupied"
+                        >
+                          <UserCheck size={10} className="me-1" /> Occupied
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>

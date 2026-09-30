@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, Suspense, lazy } from "react";
 import api, { SOCKET_URL } from "../../api";
+import { requestSectionRefresh } from "../shared/sectionRefresh";
 import io from "socket.io-client";
 import {
   Chart as ChartJS,
@@ -393,9 +394,13 @@ function AdminDashboard() {
     }
   };
 
+  // The single refresh control for the whole admin panel. It reloads the
+  // dashboard's own data and also pings whichever module is open, so no module
+  // needs its own duplicate refresh button.
   const handleRefreshAll = () => {
     fetchDashboardData();
     fetchNotifications();
+    requestSectionRefresh();
   };
 
   const formatCurrency = (val) =>

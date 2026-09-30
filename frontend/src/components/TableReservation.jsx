@@ -40,8 +40,8 @@ import {
   FormLoadingSpinner,
 } from "./TableReservationSpinners";
 import { useSocket, useAddressData } from "./TableReservationHooks";
+import { API_BASE } from "../api";
 
-const API_BASE = "https://yokaku-backend.onrender.com/api";
 
 export default function TableReservation({ onClose, onSuccess }) {
   const [selectedId, setSelectedId] = useState(null);

@@ -12,6 +12,7 @@ import {
   Search,
 } from "lucide-react";
 import { useToast } from "../ToastContext";
+import { useSectionRefresh } from "../shared/sectionRefresh";
 
 const OnlineReservations = () => {
   const { showToast } = useToast();
@@ -31,6 +32,11 @@ const OnlineReservations = () => {
   useEffect(() => {
     fetchReservations();
   }, []);
+
+  // Reload on the shared admin refresh button in the top bar.
+  useSectionRefresh(() => {
+    fetchReservations();
+  });
 
   const fetchReservations = async () => {
     try {
@@ -238,6 +244,74 @@ const OnlineReservations = () => {
     return "bg-danger text-white";
   };
 
+  const pesos = (v) =>
+    Number(v || 0).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
+  // Paid / Due block. The two amounts sit side by side so the row stays
+  // scannable, and the cell is tinted by whether the deposit covers the
+  // balance (fully paid, partially paid, or nothing received yet).
+  const PaymentCell = ({ item }) => {
+    const paid = Number(item.amount || 0);
+    const due = Number(item.balance_due || 0);
+    const isVerified = item.payment_status?.toLowerCase() === "verified";
+    const isRejected = item.payment_status?.toLowerCase() === "rejected";
+    const isSettled = due <= 0 && paid > 0;
+
+    const tone = isSettled
+      ? { bg: "bg-success-subtle", text: "text-success", border: "border-success-subtle" }
+      : paid > 0
+        ? { bg: "bg-warning-subtle", text: "text-warning", border: "border-warning-subtle" }
+        : { bg: "bg-danger-subtle", text: "text-danger", border: "border-danger-subtle" };
+
+    const stateLabel = isSettled
+      ? "Settled"
+      : isRejected
+        ? "Rejected"
+        : isVerified
+          ? "Verified"
+          : "Pending";
+
+    return (
+      <div
+        className={`border rounded-3 overflow-hidden ${tone.bg} ${tone.border}`}
+        style={{ minWidth: "180px" }}
+      >
+        <div
+          className={`px-2 py-1 text-uppercase fw-bold ${tone.text} border-bottom ${tone.border}`}
+          style={{ fontSize: "0.6rem", letterSpacing: "0.6px" }}
+        >
+          {stateLabel}
+        </div>
+        <div className="d-flex">
+          <div className="flex-fill px-2 py-1 border-end border-light">
+            <div className="text-uppercase text-muted fw-bold" style={{ fontSize: "0.55rem" }}>
+              Paid
+            </div>
+            <div className="fw-bold text-success" style={{ fontSize: "0.8rem" }}>
+              {"\u20B1"}
+              {pesos(paid)}
+            </div>
+          </div>
+          <div className="flex-fill px-2 py-1">
+            <div className="text-uppercase text-muted fw-bold" style={{ fontSize: "0.55rem" }}>
+              Due
+            </div>
+            <div
+              className={`fw-bold ${due > 0 ? "text-danger" : "text-muted"}`}
+              style={{ fontSize: "0.8rem" }}
+            >
+              {"\u20B1"}
+              {pesos(due)}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filteredInquiries.slice(
@@ -270,104 +344,107 @@ const OnlineReservations = () => {
         </div>
       </div>
 
-      {/* SEARCH BAR */}
-      <div className="col-12 col-md-8 col-lg-5 mb-3 px-2">
-        <div
-          className="d-flex align-items-center bg-white rounded-3 border shadow-sm px-3"
-          style={{ height: "48px" }}
-        >
-          <Search size={20} className="text-muted flex-shrink-0" />
-          <input
-            type="text"
-            className="form-control border-0 bg-transparent shadow-none w-100 ms-2"
-            style={{
-              color: "#212529",
-              fontSize: "16px",
-              fontWeight: "500",
-              height: "100%",
-            }}
-            placeholder="Search by guest name or ID..."
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setCurrentPage(1);
-            }}
-          />
-        </div>
-      </div>
-
-      {/* FILTER BAR */}
+      {/* SEARCH BAR + FILTERS (same row on wide screens) */}
       <div className="col-12 mb-3 px-2">
-        <div className="d-flex flex-wrap gap-2 align-items-center">
-          <select
-            className="form-select form-select-sm"
-            style={{ width: "auto" }}
-            value={dateFilter}
-            onChange={(e) => {
-              setDateFilter(e.target.value);
-              resetPage();
-            }}
+        <div className="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center gap-2">
+          <div
+            className="d-flex align-items-center bg-white rounded-3 border shadow-sm px-3 flex-grow-1"
+            style={{ height: "48px", minWidth: "260px" }}
           >
-            <option value="all">Any date</option>
-            <option value="today">Today</option>
-            <option value="upcoming">Upcoming</option>
-            <option value="past">Past</option>
-          </select>
+            <Search size={20} className="text-muted flex-shrink-0" />
+            <input
+              type="text"
+              className="form-control border-0 bg-transparent shadow-none w-100 ms-2"
+              style={{
+                color: "#212529",
+                fontSize: "16px",
+                fontWeight: "500",
+                height: "100%",
+              }}
+              placeholder="Search by guest name or ID..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+            />
+          </div>
 
-          <select
-            className="form-select form-select-sm"
-            style={{ width: "auto" }}
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value);
-              resetPage();
-            }}
-          >
-            <option value="all">Any status</option>
-            <option value="pending">Pending</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="seated">Seated</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-
-          <select
-            className="form-select form-select-sm"
-            style={{ width: "auto" }}
-            value={typeFilter}
-            onChange={(e) => {
-              setTypeFilter(e.target.value);
-              resetPage();
-            }}
-          >
-            <option value="all">Any type</option>
-            <option value="table">Table dining</option>
-            <option value="event">Events</option>
-          </select>
-
-          <select
-            className="form-select form-select-sm"
-            style={{ width: "auto" }}
-            value={paymentFilter}
-            onChange={(e) => {
-              setPaymentFilter(e.target.value);
-              resetPage();
-            }}
-          >
-            <option value="all">Any payment</option>
-            <option value="unpaid">Unpaid</option>
-            <option value="verified">Verified</option>
-            <option value="rejected">Rejected</option>
-          </select>
-
-          {hasActiveFilters && (
-            <button
-              className="btn btn-sm btn-link text-decoration-none px-0"
-              onClick={clearFilters}
+          <div className="d-flex flex-wrap gap-2 align-items-center">
+            <select
+              className="form-select form-select-sm"
+              style={{ width: "auto" }}
+              aria-label="Filter by date"
+              value={dateFilter}
+              onChange={(e) => {
+                setDateFilter(e.target.value);
+                resetPage();
+              }}
             >
-              Clear filters
-            </button>
-          )}
+              <option value="all">Any date</option>
+              <option value="today">Today</option>
+              <option value="upcoming">Upcoming</option>
+              <option value="past">Past</option>
+            </select>
+
+            <select
+              className="form-select form-select-sm"
+              style={{ width: "auto" }}
+              aria-label="Filter by status"
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                resetPage();
+              }}
+            >
+              <option value="all">Any status</option>
+              <option value="pending">Pending</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="seated">Seated</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+
+            <select
+              className="form-select form-select-sm"
+              style={{ width: "auto" }}
+              aria-label="Filter by type"
+              value={typeFilter}
+              onChange={(e) => {
+                setTypeFilter(e.target.value);
+                resetPage();
+              }}
+            >
+              <option value="all">Any type</option>
+              <option value="table">Table dining</option>
+              <option value="event">Events</option>
+            </select>
+
+            <select
+              className="form-select form-select-sm"
+              style={{ width: "auto" }}
+              aria-label="Filter by payment"
+              value={paymentFilter}
+              onChange={(e) => {
+                setPaymentFilter(e.target.value);
+                resetPage();
+              }}
+            >
+              <option value="all">Any payment</option>
+              <option value="unpaid">Unpaid</option>
+              <option value="verified">Verified</option>
+              <option value="rejected">Rejected</option>
+            </select>
+
+            {hasActiveFilters && (
+              <button
+                className="btn btn-sm btn-link text-decoration-none px-0"
+                onClick={clearFilters}
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -417,17 +494,7 @@ const OnlineReservations = () => {
                     </div>
                   </td>
                   <td>
-                    <span
-                      className={`badge border px-2 py-1 small fw-normal ${
-                        item.payment_status?.toLowerCase() === "verified"
-                          ? "bg-success-subtle text-success border-success-subtle"
-                          : "bg-warning-subtle text-warning border-warning-subtle"
-                      }`}
-                    >
-                      Paid ₱{Number(item.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                      <br />
-                      Due ₱{Number(item.balance_due || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    </span>
+                    <PaymentCell item={item} />
                   </td>
                   <td className="text-center">
                     <span
@@ -505,15 +572,7 @@ const OnlineReservations = () => {
                 </div>
 
                 <div className="mb-3">
-                  <span
-                    className={`badge border px-2 py-1 small fw-normal ${
-                      item.payment_status?.toLowerCase() === "verified"
-                        ? "bg-success-subtle text-success border-success-subtle"
-                        : "bg-warning-subtle text-warning border-warning-subtle"
-                    }`}
-                  >
-                    {item.payment_status?.toUpperCase() || "PENDING"}
-                  </span>
+                  <PaymentCell item={item} />
                 </div>
 
                 <button
@@ -889,10 +948,14 @@ const OnlineReservations = () => {
                     {selectedRes.status?.toUpperCase()}
                   </span>
                 </div>
-                <div className="small text-white-50 mb-1">
-                  Paid: ₱{Number(selectedRes.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                  <span className="float-end">
-                    Due: ₱{Number(selectedRes.balance_due || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                <div className="small text-white-50 mb-1 d-flex justify-content-between">
+                  <span>
+                    Paid: {"\u20B1"}
+                    {pesos(selectedRes.amount)}
+                  </span>
+                  <span>
+                    Due: {"\u20B1"}
+                    {pesos(selectedRes.balance_due)}
                   </span>
                 </div>
                 <button

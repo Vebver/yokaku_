@@ -9,8 +9,8 @@ import {
 } from "lucide-react";
 import axios from "axios";
 import "../../Style/KioskReservation.css";
+import { API_BASE } from "../../api";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 // Reservation dates arrive as YYYY-MM-DD, which the browser would otherwise
 // parse as UTC and shift a day backwards for some timezones.

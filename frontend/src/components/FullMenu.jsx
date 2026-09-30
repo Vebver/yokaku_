@@ -3,9 +3,8 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import "../Style/FullMenu.css";
+import { API_BASE, resolveAssetUrl } from "../api";
 
-const API_BASE = "https://yokaku-backend.onrender.com/api";
-const BASE_URL = "https://yokaku-backend.onrender.com";
 
 function FullMenu() {
   const navigate = useNavigate();
@@ -117,11 +116,8 @@ function FullMenu() {
             <div className="img-container">
               <img
                 src={
-                  item.local_path
-                    ? item.local_path
-                    : item.image_url
-                      ? `${BASE_URL}${item.image_url}`
-                      : "https://placehold.co/150"
+                  resolveAssetUrl(item.local_path || item.image_url) ||
+                  "https://placehold.co/150"
                 }
                 alt={item.name}
               />

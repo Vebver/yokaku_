@@ -6,9 +6,8 @@ import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
 import "../Style/FeaturedMenu.css";
 import ExistingModal from "./ExistingModal";
+import { API_BASE, resolveAssetUrl } from "../api";
 
-const API_BASE = "https://yokaku-backend.onrender.com/api";
-const BASE_URL = "https://yokaku-backend.onrender.com";
 
 function FeaturedMenu({ onLoginClick }) {
   const [featuredItems, setFeaturedItems] = useState([]);
@@ -114,9 +113,11 @@ function FeaturedMenu({ onLoginClick }) {
   const getImageUrl = (item) => {
     const imagePath = item.local_path || item.image_url;
     if (!imagePath) return null;
-    if (imagePath.startsWith("http")) return imagePath;
-    if (imagePath.startsWith("/uploads/")) return `${BASE_URL}${imagePath}`;
-    return `${BASE_URL}/uploads/${imagePath}`;
+    // A bare filename (no leading slash) is stored without the /uploads prefix.
+    if (!imagePath.startsWith("/") && !/^https?:|^data:/i.test(imagePath)) {
+      return resolveAssetUrl(`/uploads/${imagePath}`);
+    }
+    return resolveAssetUrl(imagePath);
   };
 
   const settings = {

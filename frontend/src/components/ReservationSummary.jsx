@@ -12,8 +12,8 @@ import {
   Clock,
 } from "lucide-react";
 import "../Style/ReservationSummary.css";
+import { API_BASE } from "../api";
 
-const API_BASE = "https://yokaku-backend.onrender.com/api";
 
 const ReservationSummary = ({
   orderSummary,

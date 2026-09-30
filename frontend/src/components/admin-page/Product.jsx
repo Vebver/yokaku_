@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import api, { SOCKET_URL } from "../../api";
+import api, { SOCKET_URL, resolveAssetUrl } from "../../api";
 import {
   Star,
   Trash2,
@@ -8,8 +8,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Plus,
+  X,
 } from "lucide-react";
 import { useToast } from "../ToastContext";
+import { useSectionRefresh } from "../shared/sectionRefresh";
 
 function Product() {
   const [menuItems, setMenuItems] = useState([]);
@@ -38,6 +40,11 @@ function Product() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Reload on the shared admin refresh button in the top bar.
+  useSectionRefresh(() => {
+    fetchData();
+  });
 
   const fetchData = async () => {
     try {
@@ -271,19 +278,14 @@ function Product() {
   };
 
   // Resolve a raw DB path (e.g. "/uploads/x.png" or a full URL) to a usable URL.
-  const resolvePath = (path, SOCKET_URL) => {
-    if (!path) return null;
-    return path.startsWith("http")
-      ? path
-      : `${SOCKET_URL}/${path.replace(/^\//, "")}`;
-  };
+  const resolvePath = (path) => resolveAssetUrl(path);
 
   // If the preferred image (local_path) fails to load, fall back to
   // image_url, then to a placeholder. Fixes blank images in admin.
   const handleImageError = (e, item) => {
     const used = e.currentTarget.getAttribute("data-src-type") || "local_path";
     if (used === "local_path") {
-      const fallback = resolvePath(item.image_url, SOCKET_URL);
+      const fallback = resolvePath(item.image_url);
       if (fallback) {
         e.currentTarget.setAttribute("data-src-type", "image_url");
         e.currentTarget.src = fallback;
@@ -321,6 +323,7 @@ function Product() {
                 height: "100%",
               }}
               placeholder="Search dishes or categories..."
+              aria-label="Search dishes or categories"
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
@@ -330,11 +333,25 @@ function Product() {
           </div>
         </div>
 
-        {/* FILTER BAR */}
-        <div className="col-12 d-flex flex-wrap gap-2 align-items-center mb-3">
+        <div className="col-12 col-md-4 col-lg-3 text-md-end">
+          <button
+            className="btn btn-primary w-100 w-md-auto px-4 py-2 fw-bold"
+            data-bs-toggle="offcanvas"
+            data-bs-target="#addMenuDrawer"
+            onClick={resetForm}
+          >
+            <Plus size={18} className="me-1" /> Add New Dish
+          </button>
+        </div>
+      </div>
+
+      {/* FILTERS — own full-width row so the dropdowns never stack */}
+      <div className="row g-2 align-items-center mb-4">
+        <div className="col-12 d-flex flex-wrap gap-2">
           <select
-            className="form-select form-select-sm"
-            style={{ width: "auto" }}
+            className="form-select form-select-sm flex-grow-1 flex-sm-grow-0"
+            style={{ width: "auto", minWidth: "160px" }}
+            aria-label="Filter by category"
             value={categoryFilter}
             onChange={(e) => {
               setCategoryFilter(e.target.value);
@@ -350,8 +367,9 @@ function Product() {
           </select>
 
           <select
-            className="form-select form-select-sm"
-            style={{ width: "auto" }}
+            className="form-select form-select-sm flex-grow-1 flex-sm-grow-0"
+            style={{ width: "auto", minWidth: "160px" }}
+            aria-label="Filter by availability"
             value={availabilityFilter}
             onChange={(e) => {
               setAvailabilityFilter(e.target.value);
@@ -365,23 +383,12 @@ function Product() {
 
           {hasActiveFilters && (
             <button
-              className="btn btn-sm btn-link text-decoration-none px-0"
+              className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1 fw-bold"
               onClick={clearFilters}
             >
-              Clear filters
+              <X size={14} /> Clear
             </button>
           )}
-        </div>
-
-        <div className="col-12 col-md-4 col-lg-3 text-md-end">
-          <button
-            className="btn btn-primary w-100 w-md-auto px-4 py-2 fw-bold"
-            data-bs-toggle="offcanvas"
-            data-bs-target="#addMenuDrawer"
-            onClick={resetForm}
-          >
-            <Plus size={18} className="me-1" /> Add New Dish
-          </button>
         </div>
       </div>
 

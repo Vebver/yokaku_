@@ -31,9 +31,8 @@ import axios from "axios";
 import { io as ioClient } from "socket.io-client";
 import alertMusicFile from "../../assets/alert-sound.mp3";
 import { useToast } from "../ToastContext";
+import { API_BASE, SERVER_URL as BASE_URL } from "../../api";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-const BASE_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
 const HIDDEN_CATEGORIES = [
   "Chicken Wings",
   "Beverages",
@@ -570,7 +569,6 @@ const KioskMenu = () => {
   // stops the session from Table Status, the kiosk is sent back to its home
   // screen instead of leaving the customer trapped on a broken page.
   useEffect(() => {
-    const BASE_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
     let socket;
     try {
       socket = ioClient(BASE_URL, { transports: ["websocket", "polling"] });

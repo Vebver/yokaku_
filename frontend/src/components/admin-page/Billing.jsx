@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from "react";
 import api from "../../api";
 import {
   Loader2,
-  RefreshCw,
   ReceiptText,
   ChevronLeft,
   ChevronRight,
@@ -16,6 +15,7 @@ import {
   Search,
 } from "lucide-react";
 import { useToast } from "../ToastContext";
+import { useSectionRefresh } from "../shared/sectionRefresh";
 
 const Billing = () => {
   const [payments, setPayments] = useState([]);
@@ -40,6 +40,11 @@ const Billing = () => {
   useEffect(() => {
     fetchPayments();
   }, []);
+
+  // Reload on the shared admin refresh button in the top bar.
+  useSectionRefresh(() => {
+    fetchPayments();
+  });
 
   useEffect(() => {
     return () => {
@@ -243,103 +248,99 @@ const Billing = () => {
     >
       {/* HEADER SECTION */}
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 px-3">
-        <div className="mb-3 mb-md-0">
+        <div>
           <h2 className="fw-bold mb-1 text-dark">Billing & Transactions</h2>
           <p className="text-muted small mb-0">
             Monitor incoming payments, verify customer receipts, and manage
             order settlements.
           </p>
         </div>
-        <button
-          className="btn btn-white border shadow-sm fw-bold px-4 py-2 text-dark bg-white d-flex align-items-center align-self-start"
-          onClick={fetchPayments}
-        >
-          <RefreshCw size={15} className="me-2 text-primary" /> Refresh Data
-        </button>
       </div>
 
-      {/* SEARCH BAR */}
-      <div className="col-12 col-md-8 col-lg-5 mb-3 px-2">
-        <div
-          className="d-flex align-items-center bg-white rounded-3 border shadow-sm px-3"
-          style={{ height: "48px" }}
-        >
-          <Search size={20} className="text-muted flex-shrink-0" />
-          <input
-            type="text"
-            className="form-control border-0 bg-transparent shadow-none w-100 ms-2"
-            style={{
-              color: "#212529",
-              fontSize: "16px",
-              fontWeight: "500",
-              height: "100%",
-            }}
-            placeholder="Search by guest name or ID..."
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setCurrentPage(1);
-            }}
-          />
-        </div>
-      </div>
-
-      {/* FILTER BAR */}
+      {/* SEARCH BAR + FILTERS (same row on wide screens) */}
       <div className="col-12 mb-3 px-2">
-        <div className="d-flex flex-wrap gap-2 align-items-center">
-          <select
-            className="form-select form-select-sm"
-            style={{ width: "auto" }}
-            value={paymentStatusFilter}
-            onChange={(e) => {
-              setPaymentStatusFilter(e.target.value);
-              resetPage();
-            }}
+        <div className="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center gap-2">
+          <div
+            className="d-flex align-items-center bg-white rounded-3 border shadow-sm px-3 flex-grow-1"
+            style={{ height: "48px", minWidth: "260px" }}
           >
-            <option value="all">Any payment status</option>
-            <option value="pending">Pending</option>
-            <option value="verified">Verified</option>
-            <option value="rejected">Rejected</option>
-          </select>
+            <Search size={20} className="text-muted flex-shrink-0" />
+            <input
+              type="text"
+              className="form-control border-0 bg-transparent shadow-none w-100 ms-2"
+              style={{
+                color: "#212529",
+                fontSize: "16px",
+                fontWeight: "500",
+                height: "100%",
+              }}
+              placeholder="Search by guest name or ID..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+            />
+          </div>
 
-          <select
-            className="form-select form-select-sm"
-            style={{ width: "auto" }}
-            value={settlementFilter}
-            onChange={(e) => {
-              setSettlementFilter(e.target.value);
-              resetPage();
-            }}
-          >
-            <option value="all">Any balance</option>
-            <option value="unpaid">Unpaid</option>
-            <option value="partial">Partially paid</option>
-            <option value="paid">Paid in full</option>
-          </select>
-
-          <select
-            className="form-select form-select-sm"
-            style={{ width: "auto" }}
-            value={orderStatusFilter}
-            onChange={(e) => {
-              setOrderStatusFilter(e.target.value);
-              resetPage();
-            }}
-          >
-            <option value="all">Any order status</option>
-            <option value="seated">Seated</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-
-          {hasActiveFilters && (
-            <button
-              className="btn btn-sm btn-link text-decoration-none px-0"
-              onClick={clearFilters}
+          <div className="d-flex flex-wrap gap-2 align-items-center">
+            <select
+              className="form-select form-select-sm"
+              style={{ width: "auto" }}
+              aria-label="Filter by payment status"
+              value={paymentStatusFilter}
+              onChange={(e) => {
+                setPaymentStatusFilter(e.target.value);
+                resetPage();
+              }}
             >
-              Clear filters
-            </button>
-          )}
+              <option value="all">Any payment status</option>
+              <option value="pending">Pending</option>
+              <option value="verified">Verified</option>
+              <option value="rejected">Rejected</option>
+            </select>
+
+            <select
+              className="form-select form-select-sm"
+              style={{ width: "auto" }}
+              aria-label="Filter by balance"
+              value={settlementFilter}
+              onChange={(e) => {
+                setSettlementFilter(e.target.value);
+                resetPage();
+              }}
+            >
+              <option value="all">Any balance</option>
+              <option value="unpaid">Unpaid</option>
+              <option value="partial">Partially paid</option>
+              <option value="paid">Paid in full</option>
+            </select>
+
+            <select
+              className="form-select form-select-sm"
+              style={{ width: "auto" }}
+              aria-label="Filter by order status"
+              value={orderStatusFilter}
+              onChange={(e) => {
+                setOrderStatusFilter(e.target.value);
+                resetPage();
+              }}
+            >
+              <option value="all">Any order status</option>
+              <option value="seated">Seated</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+
+            {hasActiveFilters && (
+              <button
+                className="btn btn-sm btn-link text-decoration-none px-0"
+                onClick={clearFilters}
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
