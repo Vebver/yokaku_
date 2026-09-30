@@ -203,6 +203,76 @@ const query = `
       conn.release();
     }
   },
+  // 3b. ATTACH A TABLE TO AN EXISTING RESERVATION
+  // A party of several walks in at once, or a guest is moved to a bigger table.
+  // The reservation is the session, so the table is joined to it and the two
+  // cards then share one kiosk control.
+  attachTableToReservation: async (reservationId, tableId) => {
+    const conn = await db.getConnection();
+    try {
+      await conn.beginTransaction();
+
+      const [resRows] = await conn.execute(
+        `SELECT reservation_id, first_name, status
+         FROM reservations
+         WHERE TRIM(reservation_id) = TRIM(?)`,
+        [reservationId],
+      );
+      if (resRows.length === 0) {
+        await conn.rollback();
+        throw new Error("Reservation not found.");
+      }
+      const res = resRows[0];
+
+      // Refuse to steal a table that another live party is already sitting on,
+      // otherwise the guest would silently vanish from their bill.
+      const [taken] = await conn.execute(
+        `SELECT rt.reservation_id
+         FROM reservation_tables rt
+         WHERE rt.table_id = ?
+           AND TRIM(rt.reservation_id) <> TRIM(?)
+           AND LOWER(rt.status) IN ('confirmed', 'seated')
+         LIMIT 1`,
+        [tableId, reservationId],
+      );
+      if (taken.length > 0) {
+        await conn.rollback();
+        throw new Error(
+          "That table already has a guest. Free it before linking.",
+        );
+      }
+
+      const bridgeStatus =
+        String(res.status || "").toLowerCase() === "confirmed"
+          ? "confirmed"
+          : "seated";
+
+      // Re-linking a table to the same reservation is a no-op rather than a
+      // duplicate row, so the UI can send the same request twice safely.
+      await conn.execute(
+        `INSERT INTO reservation_tables
+           (reservation_id, table_id, customer_name, status, check_in_time)
+         VALUES (?, ?, ?, ?, NOW())
+         ON DUPLICATE KEY UPDATE status = VALUES(status)`,
+        [reservationId, tableId, res.first_name, bridgeStatus],
+      );
+
+      await conn.execute(
+        `UPDATE tables
+         SET status = 'occupied', available_seats = 0
+         WHERE table_id = ?`,
+        [tableId],
+      );
+
+      await conn.commit();
+      return { reservation_id: reservationId, table_id: tableId };
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
+  },
   // 4. CHECKOUT (Updated to automatically clear active kiosk flag)
   checkoutTable: async (tableId) => {
     try {

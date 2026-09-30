@@ -9,10 +9,11 @@ import {
   X,
   Square,
   Monitor,
+  Link,
   UserCheck,
+  Clock,
 } from "lucide-react";
 import { useToast } from "../ToastContext";
-import KioskControl from "../shared/KioskControl";
 import { useSectionRefresh } from "../shared/sectionRefresh";
 
 // Helpers to extract and compare dates (YYYY-MM-DD format)
@@ -42,6 +43,8 @@ const TableStatus = ({ compact = false }) => {
   });
   const [bill, setBill] = useState({ items: [], loading: false, label: "" });
   const [selectedTable, setSelectedTable] = useState(null);
+  // Live reservations offered in the "link this table" picker.
+  const [linkCandidates, setLinkCandidates] = useState([]);
   // Tick every second to refresh the event countdown timers
   const [now, setNow] = useState(Date.now());
 
@@ -142,25 +145,53 @@ const TableStatus = ({ compact = false }) => {
     }
   };
 
-  // Open the kiosk for the reservation sitting on this table so the guest's
-  // screen jumps straight into the menu. The kiosk type must match the
-  // reservation type or the backend rejects the request.
-  const openKiosk = async (t) => {
+  // Link a free table to a party's existing reservation so both cards read as
+  // one session. Picking the party is a modal listing every live reservation,
+  // so staff never type an id and never join the wrong table.
+  const linkTable = async (table) => {
+    try {
+      setUi((p) => ({ ...p, updating: true, modal: "link", linkTable: table }));
+      const res = await api.get("/admin/kiosk-reservations");
+      const rows = res.data?.reservations || [];
+      setLinkCandidates(rows);
+    } catch (err) {
+      showToast(err.response?.data?.error || "Failed to load reservations.");
+    } finally {
+      setUi((p) => ({ ...p, updating: false }));
+    }
+  };
+
+  const confirmLink = async (candidate) => {
+    const table = ui.linkTable;
+    if (!table) return;
+    try {
+      setUi((p) => ({ ...p, updating: true }));
+      await api.post(`/admin/table-status/${table.table_id}/link`, {
+        reservationId: candidate.reservation_id,
+      });
+      showToast(
+        `Table ${table.table_number} linked to ${candidate.first_name || candidate.reservation_id}.`,
+        "success",
+      );
+      setUi((p) => ({ ...p, modal: null, linkTable: null }));
+      fetchData();
+    } catch (err) {
+      showToast(err.response?.data?.error || "Failed to link the table.");
+    } finally {
+      setUi((p) => ({ ...p, updating: false }));
+    }
+  };
+
+  // Open the kiosk for the session sitting on this table. A kiosk belongs to
+  // the reservation, not the table, so linked tables arm together.
+  const openKioskForSession = async (reservationId) => {
     if (!canControlKiosk) {
       showToast("Only admins or cashiers can open a kiosk.");
       return;
     }
-    if (!t.reservation_id) {
-      showToast("No reservation linked to this table.");
-      return;
-    }
-    const kioskType =
-      String(t.reservation_type || "").toLowerCase() === "event"
-        ? "event"
-        : "single";
     if (
       !window.confirm(
-        `Open the kiosk for reservation ${t.reservation_id} (Table ${t.table_number})? The guest's screen will go straight to the menu.`,
+        `Open the kiosk for reservation ${reservationId}? The guest's screen will go straight to the menu.`,
       )
     ) {
       return;
@@ -168,10 +199,10 @@ const TableStatus = ({ compact = false }) => {
     try {
       setUi((p) => ({ ...p, updating: true }));
       await api.post("/admin/set-kiosk-reservation", {
-        reservationId: t.reservation_id,
-        kioskType,
+        reservationId,
+        kioskType: "single",
       });
-      showToast("Kiosk opened for this reservation.", "success");
+      showToast("Kiosk opened for this session.", "success");
       fetchData();
     } catch (err) {
       showToast(err.response?.data?.error || "Failed to open the kiosk.");
@@ -180,8 +211,8 @@ const TableStatus = ({ compact = false }) => {
     }
   };
 
-  // Manually flag the physical table as taken (walk-in seated by hand, or an
-  // event that has already started) without needing a linked reservation.
+  // Manually flag the physical table as taken (a walk-in seated by hand)
+  // without needing a linked reservation.
   const makeOccupied = async (t) => {
     if (
       !window.confirm(
@@ -218,8 +249,7 @@ const TableStatus = ({ compact = false }) => {
   };
 
   // Stop the kiosk session. When a tableId is supplied only THAT table is
-  // released, so stopping a kiosk during an event does not free every table
-  // the event has reserved (a walk-in may still be seated on one of them).
+  // released, so stopping one seat does not free the whole party.
   const stopKiosk = async (reservationId, tableId, e) => {
     if (e) e.stopPropagation();
     if (!canControlKiosk) {
@@ -281,6 +311,39 @@ const TableStatus = ({ compact = false }) => {
     },
     { available: 0, seated: 0, confirmed: 0, occupied: 0 },
   );
+
+  // Group the floor by reservation so a party spanning several tables stays
+  // visually together. The grouping is presentational only: every control
+  // lives on the individual table card.
+  const sessions = useMemo(() => {
+    const groups = new Map();
+    data.tables.forEach((t) => {
+      const key = t.reservation_id ? String(t.reservation_id).trim() : "__free__";
+      if (!groups.has(key)) {
+        groups.set(key, {
+          key,
+          reservationId: t.reservation_id || null,
+          firstName: t.first_name || t.customer_name || null,
+          endTime: t.end_time || null,
+          isKioskActive: false,
+          tables: [],
+        });
+      }
+      const g = groups.get(key);
+      g.tables.push(t);
+      if (String(t.is_kiosk_active) === "1" || t.is_kiosk_active === 1) {
+        g.isKioskActive = true;
+      }
+    });
+
+    // Sessions with a kiosk or a real reservation first, unassigned last.
+    return [...groups.values()].sort((a, b) => {
+      if (a.reservationId && !b.reservationId) return -1;
+      if (!a.reservationId && b.reservationId) return 1;
+      if (a.isKioskActive !== b.isKioskActive) return a.isKioskActive ? -1 : 1;
+      return 0;
+    });
+  }, [data.tables]);
 
   return (
     <div
@@ -370,10 +433,51 @@ const TableStatus = ({ compact = false }) => {
         </div>
       )}
 
-      {/* Responsive Grid */}
-      <div className="row g-2 row-cols-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-8">
-        {data.tables.map((t) => {
-          let activeStatus = t.bridge_status?.toLowerCase() || "available";
+      {/* Floor. Tables that share a reservation are grouped so a party that
+          spans several tables stays visually together, but each card keeps its
+          own controls: the kiosk, orders, and linking all live on the card. */}
+      {sessions.map((s) => (
+        <div key={s.key} className="mb-3">
+          {/* Group label only. It carries no controls — the Kiosk Control panel
+              was removed because every card already has its own button. */}
+          {s.reservationId && s.tables.length > 1 && (
+            <div className="d-flex flex-wrap align-items-center gap-2 mb-2 px-2 py-1 bg-white rounded-3 shadow-sm border">
+              <span
+                className="badge rounded-pill fw-bold"
+                style={{
+                  fontSize: "0.55rem",
+                  backgroundColor: "#0ea5e915",
+                  color: "#0ea5e9",
+                }}
+              >
+                RESERVATION
+              </span>
+              <span className="fw-bold" style={{ fontSize: "0.8rem" }}>
+                {s.firstName || "Guest"}
+              </span>
+              <span className="text-muted" style={{ fontSize: "0.7rem" }}>
+                {s.reservationId}
+              </span>
+              <span
+                className="d-flex align-items-center gap-1 text-muted"
+                style={{ fontSize: "0.7rem" }}
+              >
+                <Users size={11} /> {s.tables.length} tables
+              </span>
+              {s.endTime && (
+                <span
+                  className="d-flex align-items-center gap-1 text-muted"
+                  style={{ fontSize: "0.7rem" }}
+                >
+                  <Clock size={11} /> ends {s.endTime}
+                </span>
+              )}
+            </div>
+          )}
+
+          <div className="row g-2 row-cols-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-8">
+            {s.tables.map((t) => {
+              let activeStatus = t.bridge_status?.toLowerCase() || "available";
           // A table physically marked occupied but with no live binding still
           // counts as taken, otherwise it renders as an empty green card.
           if (activeStatus === "available" && (t.table_status || "").toLowerCase() === "occupied") {
@@ -391,7 +495,8 @@ const TableStatus = ({ compact = false }) => {
           const cfg = getStatusCfg(activeStatus);
           const isAvailable = activeStatus === "available";
 
-          // Determine if this table has an active kiosk reservation
+          // The card shows kiosk state as a marker only; the switch itself is on
+          // the session header.
           const isKioskActive =
             String(t.is_kiosk_active) === "1" || t.is_kiosk_active === 1;
 
@@ -420,6 +525,14 @@ const TableStatus = ({ compact = false }) => {
                       >
                         {cfg.label}
                       </span>
+                      {isKioskActive && (
+                        <Monitor
+                          size={11}
+                          className="ms-1 flex-shrink-0"
+                          style={{ color: "#dc2626" }}
+                          title="Kiosk is live on this table"
+                        />
+                      )}
                        {ui.deleteMode && (
                         <button
                           className="btn btn-sm btn-link text-danger p-0 ms-2 border-0"
@@ -466,49 +579,56 @@ const TableStatus = ({ compact = false }) => {
                     </div>
                   </div>
 
-                  <div className="mt-auto">
-                    {isKioskActive && canControlKiosk && (
-                      <button
-                        className="btn btn-sm btn-danger w-100 py-0 fw-bold mb-1"
-                        style={{ fontSize: "0.65rem", height: "22px" }}
-                        onClick={(e) =>
-                          stopKiosk(t.reservation_id, t.table_id, e)
-                        }
-                        title="Stop the kiosk on this table only"
-                      >
-                        <Square size={10} className="me-1" /> Stop Kiosk
-                      </button>
+                  {/* Actions stack vertically so Activate/Stop Kiosk always
+                      sits directly above the table's own action. */}
+                  <div className="mt-auto d-flex flex-column gap-1">
+                    {/* Kiosk switch for this card's session. Stop is scoped to
+                        this table so closing one seat of a party leaves the rest
+                        of the session armed. */}
+                    {canControlKiosk && t.reservation_id && (
+                      isKioskActive ? (
+                        <button
+                          className="btn btn-sm btn-danger w-100 py-0 fw-bold"
+                          style={{ fontSize: "0.65rem", height: "22px" }}
+                          onClick={(e) =>
+                            stopKiosk(t.reservation_id, t.table_id, e)
+                          }
+                          title="Stop the kiosk on this table only"
+                        >
+                          <Square size={10} className="me-1" /> Stop Kiosk
+                        </button>
+                      ) : (
+                        <button
+                          className="btn btn-sm btn-dark w-100 py-0 fw-bold"
+                          style={{ fontSize: "0.65rem", height: "22px" }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openKioskForSession(t.reservation_id);
+                          }}
+                          title="Activate the kiosk for this reservation"
+                        >
+                          <Monitor size={10} className="me-1" /> Activate Kiosk
+                        </button>
+                      )
                     )}
                     {isKioskActive && !canControlKiosk && (
                       <div
-                        className="text-muted text-center fw-bold mb-1 py-1 border border-dashed rounded"
+                        className="text-muted text-center fw-bold py-1 border border-dashed rounded"
                         style={{ fontSize: "0.6rem" }}
                         title="Only admins and cashiers can stop the kiosk"
                       >
                         Kiosk Active
                       </div>
                     )}
+
                     {activeStatus === "occupied" ? (
                       // A table with no live reservation binding: staff marked it
                       // taken by hand, so offer the kiosk shortcut only when a
                       // reservation is actually linked.
                       <div className="d-flex gap-1">
-                        {!isKioskActive && canControlKiosk && t.reservation_id && (
-                          <button
-                            className="btn btn-sm btn-primary w-100 py-0 fw-bold"
-                            style={{ fontSize: "0.65rem", height: "22px" }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openKiosk(t);
-                            }}
-                            title="Open the kiosk for the guest on this table"
-                          >
-                            <Monitor size={10} className="me-1" /> Open Kiosk
-                          </button>
-                        )}
                         {canControlKiosk && (
                           <button
-                            className="btn btn-sm btn-outline-secondary py-0 fw-bold flex-shrink-0"
+                            className="btn btn-sm btn-outline-secondary py-0 fw-bold flex-shrink-0 w-100"
                             style={{ fontSize: "0.65rem", height: "22px" }}
                             onClick={() =>
                               handleAction(
@@ -532,19 +652,6 @@ const TableStatus = ({ compact = false }) => {
                         >
                           View Orders
                         </button>
-                        {!isKioskActive && canControlKiosk && t.reservation_id && (
-                          <button
-                            className="btn btn-sm btn-dark py-0 fw-bold flex-shrink-0"
-                            style={{ fontSize: "0.65rem", height: "22px" }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openKiosk(t);
-                            }}
-                            title="Open the kiosk for the guest on this table"
-                          >
-                            <Monitor size={10} className="me-1" /> Kiosk
-                          </button>
-                        )}
                       </div>
                     ) : activeStatus === "confirmed" ? (
                       <div className="d-flex gap-1">
@@ -561,19 +668,6 @@ const TableStatus = ({ compact = false }) => {
                         >
                           Seat Guest
                         </button>
-                        {!isKioskActive && canControlKiosk && t.reservation_id && (
-                          <button
-                            className="btn btn-sm btn-dark py-0 fw-bold flex-shrink-0"
-                            style={{ fontSize: "0.65rem", height: "22px" }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openKiosk(t);
-                            }}
-                            title="Open the kiosk for this reservation"
-                          >
-                            <Monitor size={10} className="me-1" /> Kiosk
-                          </button>
-                        )}
                       </div>
                     ) : (
                       <div className="d-flex gap-1">
@@ -583,6 +677,17 @@ const TableStatus = ({ compact = false }) => {
                           disabled
                         >
                           Vacant
+                        </button>
+                        <button
+                          className="btn btn-sm btn-dark py-0 fw-bold flex-shrink-0"
+                          style={{ fontSize: "0.65rem", height: "22px" }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            linkTable(t);
+                          }}
+                          title="Add this table to an existing party's reservation"
+                        >
+                          <Link size={10} className="me-1" /> Link
                         </button>
                         <button
                           className="btn btn-sm btn-danger py-0 fw-bold flex-shrink-0"
@@ -599,10 +704,13 @@ const TableStatus = ({ compact = false }) => {
               </div>
             </div>
           );
-        })}
-      </div>
+            })}
+          </div>
+        </div>
+      ))}
 
-      {!compact && <KioskControl />}
+      {/* The Kiosk Control panel was removed: every session now shows its own
+          Activate/Stop button on its table card, so the panel was duplicate. */}
 
       {/* MODALS */}
       {ui.modal && (
@@ -620,6 +728,8 @@ const TableStatus = ({ compact = false }) => {
                 <h5 className="modal-title fw-bold">
                   {ui.modal === "add"
                     ? "New Table"
+                    : ui.modal === "link"
+                    ? `Link Table ${ui.linkTable?.table_number} to a Party`
                     : `Table ${bill.label} - Read-Only Bill Preview`}
                 </h5>
                 <X
@@ -685,6 +795,57 @@ const TableStatus = ({ compact = false }) => {
                       Create Table
                     </button>
                   </form>
+                )}
+                {/* LINK: pick who is at the other table. Clicking a row moves
+                    the table into that party's session. */}
+                {ui.modal === "link" && (
+                  <div>
+                    <p className="text-muted small">
+                      Which party is using Table {ui.linkTable?.table_number}?
+                      The table joins their reservation so it shares one kiosk
+                      and one bill.
+                    </p>
+                    <div
+                      className="d-flex flex-column gap-2"
+                      style={{ maxHeight: "320px", overflowY: "auto" }}
+                    >
+                      {linkCandidates.length === 0 && (
+                        <div className="text-center text-muted small py-4">
+                          No live reservations found.
+                        </div>
+                      )}
+                      {linkCandidates.map((c) => (
+                        <button
+                          key={c.reservation_id}
+                          className="btn btn-light border text-start d-flex align-items-center gap-2 py-2"
+                          disabled={ui.updating}
+                          onClick={() => confirmLink(c)}
+                        >
+                          <Users size={16} className="flex-shrink-0" />
+                          <span className="flex-grow-1">
+                            <span className="d-block fw-bold small">
+                              {c.first_name || "Guest"}{" "}
+                              {c.last_name || ""}
+                            </span>
+                            <span className="d-block text-muted" style={{ fontSize: "0.65rem" }}>
+                              {c.reservation_id}
+                              {c.table_names ? ` • Tables ${c.table_names}` : ""}
+                              {c.reservation_date ? ` • ${c.reservation_date}` : ""}
+                            </span>
+                          </span>
+                          <Link size={14} className="text-muted flex-shrink-0" />
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      className="btn btn-outline-dark w-100 py-2 fw-bold mt-3"
+                      onClick={() =>
+                        setUi((p) => ({ ...p, modal: null, linkTable: null }))
+                      }
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 )}
                 {ui.modal === "bill" &&
                   (bill.loading ? (

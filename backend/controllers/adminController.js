@@ -246,6 +246,34 @@ const adminController = {
       res.status(500).json({ error: error.message });
     }
   },
+  // Join a free table to a party's existing reservation so both cards share
+  // one session (and therefore one kiosk).
+  linkTable: async (req, res) => {
+    try {
+      const { reservationId } = req.body;
+      const { tableId } = req.params;
+
+      if (!reservationId || !tableId) {
+        return res
+          .status(400)
+          .json({ error: "Reservation and table are both required." });
+      }
+
+      const result = await TableStatus.attachTableToReservation(
+        reservationId,
+        tableId,
+      );
+
+      res.json({
+        success: true,
+        message: "Table linked to the reservation.",
+        result,
+      });
+    } catch (error) {
+      console.error("Link table error:", error);
+      res.status(400).json({ error: error.message });
+    }
+  },
   CheckOut: async (req, res) => {
     try {
       const { tableId } = req.params;

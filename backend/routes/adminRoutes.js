@@ -21,6 +21,8 @@ router.get('/reports/financial-analytics', protect, adminOnly, getFinancialAnaly
 router.post('/walk-in/:tableId', protect, adminOnly, adminController.Walkin);
 router.put('/checkout/:tableId', protect, adminOnly, adminController.CheckOut);
 router.put('/table-status/:tableId', protect, adminOnly, adminController.setTableStatus);
+// Move a free table onto a party's existing reservation (one session, one kiosk)
+router.post('/table-status/:tableId/link', protect, adminOnly, adminController.linkTable);
 router.post('/stop-kiosk', protect, kioskControl, adminController.stopKiosk);
 router.get('/kiosk-candidates', protect, kioskControl, adminController.getKioskCandidates);
 router.get('/active-kiosks', protect, kioskControl, adminController.getActiveKiosks);
