@@ -66,7 +66,7 @@ export function ToastProvider({ children }) {
               padding: "0 0 0 5px",
             }}
           >
-            &times;
+            {"\u00d7"}
           </button>
         </div>
       )}

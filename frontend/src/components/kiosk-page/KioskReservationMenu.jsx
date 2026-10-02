@@ -31,9 +31,8 @@ import PortalModal from "./PortalModal";
 import axios from "axios";
 import alertMusicFile from "../../assets/alert-sound.mp3";
 import { useToast } from "../ToastContext";
+import { API_BASE, SERVER_URL as BASE_URL } from "../../api";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-const BASE_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
 const HIDDEN_CATEGORIES = [
   "Chicken Wings",
   "Beverages",
@@ -177,7 +176,9 @@ const KioskReservationMenu = () => {
 
   const getCurrentTableId = () => {
     const rawTableId =
-      sessionStorage.getItem("tableId") || localStorage.getItem("tableId");
+      sessionStorage.getItem("tableId") ||
+      localStorage.getItem("tableId") ||
+      setupTable;
     const parsed = parseInt(rawTableId, 10);
     return Number.isInteger(parsed) ? parsed : null;
   };
@@ -635,7 +636,9 @@ const KioskReservationMenu = () => {
       setShowBillInfo(false);
 
       if (isPayNow) {
-        setShowSessionModal(true);
+        showToast("Your order has been placed. Thank you!", "success");
+      } else {
+        showToast("Your order has been placed.", "success");
       }
     } catch (e) {
       console.error("Order submission failed:", e);

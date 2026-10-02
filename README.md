@@ -1,6 +1,17 @@
 # yokaku_  
 capstone project
 
+## Automatic Account Lock
+
+An account locks **itself after 3 consecutive failed login attempts** (`MAX_LOGIN_ATTEMPTS` in `backend/controllers/authController.js`). There is no admin lock/unlock button — lockout is fully automatic:
+
+- Failed attempts are counted in memory per email address (no database column is used). Three wrong passwords in a row lock the account for 15 minutes.
+- A locked account is rejected before the password is checked, and login returns HTTP 403.
+- A successful login or password reset clears the counter immediately.
+- `POST /api/auth/login` returns `attemptsRemaining` on failed attempts so the login form can warn the user.
+
+Because the counter lives in server memory, restarting the backend clears every lockout, and attempts are not shared across server instances. The Account Management page no longer shows lock state.
+
 ## Database Backup & Restore
 
 The backup/restore endpoints (`POST /api/admin/backup`, `POST /api/admin/backup/restore/:filename`) support two engines:

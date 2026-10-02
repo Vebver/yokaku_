@@ -3,8 +3,8 @@ import axios from "axios";
 import { RotateCcw, Trash2, X } from "lucide-react";
 import "../../Style/Notifications.css";
 import { useToast } from "../ToastContext";
+import { API_BASE } from "../../api";
 
-const API_BASE = "https://yokaku-backend.onrender.com/api";
 
 const DeletedNotifications = ({ onClose, onRestore }) => {
   const { showToast } = useToast();

@@ -7,13 +7,45 @@ const axios = require("axios");
 // In-memory OTP store
 const otpStore = new Map();
 
-// In-memory login attempt store for brute force protection
+// Account lockout tracking
 const loginAttempts = new Map();
-const MAX_LOGIN_ATTEMPTS = 4;
-const LOCKOUT_TIME = 15 * 60 * 1000; // 15 minutes in milliseconds
+const MAX_LOGIN_ATTEMPTS = 3;
+const LOCKOUT_TIME = 15 * 60 * 1000;
 
 const generateOTP = () =>
   Math.floor(100000 + Math.random() * 900000).toString();
+
+const attemptKey = (email) => String(email || "").trim().toLowerCase();
+
+// Returns the number of failed attempts currently recorded for an email
+const getFailedAttempts = (email) => {
+  const entry = loginAttempts.get(attemptKey(email));
+  if (!entry) return 0;
+  if (Date.now() - entry.firstFailedAt > LOCKOUT_TIME) {
+    loginAttempts.delete(attemptKey(email));
+    return 0;
+  }
+  return entry.count;
+};
+
+const isLocked = (email) => getFailedAttempts(email) >= MAX_LOGIN_ATTEMPTS;
+
+const trackFailedAttempt = (email) => {
+  const key = attemptKey(email);
+  const now = Date.now();
+  const entry = loginAttempts.get(key);
+
+  if (!entry || now - entry.firstFailedAt > LOCKOUT_TIME) {
+    loginAttempts.set(key, { count: 1, firstFailedAt: now });
+    return 1;
+  }
+  entry.count += 1;
+  return entry.count;
+};
+
+const clearFailedAttempts = (email) => {
+  loginAttempts.delete(attemptKey(email));
+};
 
 // Send email via Brevo API (reusable function)
 const sendEmail = async (email, subject, htmlContent, textContent) => {
@@ -106,25 +138,6 @@ const sendOTP = async (email, otp) => {
   }
 };
 
-const trackFailedAttempt = (email) => {
-  const now = Date.now();
-
-  if (!loginAttempts.has(email)) {
-    loginAttempts.set(email, { attempts: 0, lockedUntil: null });
-  }
-
-  const attempts = loginAttempts.get(email);
-  attempts.attempts += 1;
-
-  if (attempts.attempts >= MAX_LOGIN_ATTEMPTS) {
-    attempts.lockedUntil = now + LOCKOUT_TIME;
-    console.warn(
-      `⚠️ Account ${email} locked due to ${MAX_LOGIN_ATTEMPTS} failed attempts`,
-    );
-  }
-
-  return attempts;
-};
 // Send Password Reset Email
 const sendPasswordResetEmail = async (email, resetToken) => {
   // Use query parameter format
@@ -155,7 +168,7 @@ const sendPasswordResetEmail = async (email, resetToken) => {
   );
 };
 
-// Clean up expired OTPs and login attempts periodically (every minute)
+// Clean up expired OTPs periodically (every minute)
 setInterval(() => {
   const now = Date.now();
   // Clean expired OTPs
@@ -164,80 +177,47 @@ setInterval(() => {
       otpStore.delete(email);
     }
   }
-  // Clean expired login lockouts
-  for (const [email, data] of loginAttempts.entries()) {
-    if (data.lockedUntil && data.lockedUntil < now) {
-      loginAttempts.delete(email);
-    }
-  }
 }, 60000);
 
 const authController = {
   async login(req, res) {
     try {
       const { email, password } = req.body;
-      const now = Date.now();
-
-      // Check if account is locked
-      if (loginAttempts.has(email)) {
-        const attempts = loginAttempts.get(email);
-        if (attempts.lockedUntil && attempts.lockedUntil > now) {
-          const remainingTime = Math.ceil((attempts.lockedUntil - now) / 1000);
-          const minutes = Math.ceil(remainingTime / 60);
-          return res.status(429).json({
-            error: `Account locked due to too many failed attempts. Please try again in ${minutes} minute${minutes > 1 ? "s" : ""}.`,
-            locked: true,
-            remainingTime, // Dynamic time returned to frontend
-            lockedUntil: attempts.lockedUntil,
-          });
-        }
-      }
-
       const user = await User.findByEmail(email);
 
       if (!user) {
-        const attempts = trackFailedAttempt(email);
-
-        if (attempts.lockedUntil) {
-          const remainingTime = Math.ceil((attempts.lockedUntil - now) / 1000);
-          return res.status(429).json({
-            error:
-              "Account locked due to too many failed attempts. Please try again in 15 minutes.",
-            locked: true,
-            remainingTime,
-            lockedUntil: attempts.lockedUntil,
-          });
-        }
-
-        return res.status(401).json({
-          error: "Invalid credentials",
-          attemptsRemaining: MAX_LOGIN_ATTEMPTS - attempts.attempts,
-        });
+        return res.status(401).json({ error: "Invalid credentials" });
       }
 
       const isMatch = await bcrypt.compare(password, user.password_hash);
-      if (!isMatch) {
-        const attempts = trackFailedAttempt(email);
 
-        if (attempts.lockedUntil) {
-          const remainingTime = Math.ceil((attempts.lockedUntil - now) / 1000);
-          return res.status(429).json({
-            error:
-              "Account locked due to too many failed attempts. Please try again in 15 minutes.",
-            locked: true,
-            remainingTime,
-            lockedUntil: attempts.lockedUntil,
-          });
-        }
-
-        return res.status(401).json({
-          error: "Invalid credentials",
-          attemptsRemaining: MAX_LOGIN_ATTEMPTS - attempts.attempts,
+      // A locked account is rejected before the password is even checked
+      if (isLocked(email)) {
+        return res.status(403).json({
+          error: `Your account is locked after ${MAX_LOGIN_ATTEMPTS} failed login attempts. Please try again in 15 minutes.`,
+          locked: true,
         });
       }
 
-      // Successful login - clear attempts on server
-      loginAttempts.delete(email);
+      if (!isMatch) {
+        const failedAttempts = trackFailedAttempt(email);
+
+        if (failedAttempts >= MAX_LOGIN_ATTEMPTS) {
+          console.log(`🔒 Account locked for ${email} after ${failedAttempts} failed attempts`);
+          return res.status(403).json({
+            error: `Your account is locked after ${MAX_LOGIN_ATTEMPTS} failed login attempts. Please try again in 15 minutes.`,
+            locked: true,
+          });
+        }
+
+        const remaining = MAX_LOGIN_ATTEMPTS - failedAttempts;
+        return res.status(401).json({
+          error: "Invalid credentials",
+          attemptsRemaining: remaining,
+        });
+      }
+
+      clearFailedAttempts(email);
 
       const token = jwt.sign(
         { userId: user.user_id, role: user.role || "customer" },
@@ -333,6 +313,9 @@ const authController = {
         reset_password_expires: null,
       });
 
+      // A successful password reset also clears any lockout from failed attempts
+      clearFailedAttempts(email);
+
       res.json({ message: "Password updated successfully" });
     } catch (error) {
       console.error("Reset Password Final Error:", error);
@@ -358,6 +341,7 @@ const authController = {
       const newHash = await bcrypt.hash(newPassword, salt);
 
       await User.update(user.user_id, { password_hash: newHash });
+      clearFailedAttempts(email);
 
       res.json({ message: "Password updated successfully" });
     } catch (error) {

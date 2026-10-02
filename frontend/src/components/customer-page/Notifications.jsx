@@ -5,8 +5,7 @@ import { Trash2, Archive } from "lucide-react";
 import DeletedNotifications from "./DeletedNotifications";
 import "../../Style/Notifications.css";
 import { useToast } from "../ToastContext";
-const SOCKET_URL = "https://yokaku-backend.onrender.com";
-const API_BASE = "https://yokaku-backend.onrender.com/api";
+import { API_BASE, SOCKET_URL } from "../../api";
 
 const Notifications = () => {
   const { showToast } = useToast();

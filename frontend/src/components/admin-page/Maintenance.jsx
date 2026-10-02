@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import api from "../../api";
-import { Save, Smartphone, Wallet, CreditCard } from "lucide-react";
+import { Wallet, Settings, Smartphone } from "lucide-react";
 
 // Components
 import SystemMaintenance from "./SystemMaintenance"; // Renamed from DatabaseMaintenance
@@ -62,9 +62,9 @@ const Maintenance = () => {
 
   return (
 <div className="container-fluid p-3 p-md-4 bg-light min-vh-100">
-      <div className="d-flex align-items-center mb-4 flex-wrap gap-2">
-        <div className="me-2 text-secondary flex-shrink-0" />
-        <h2 className="fw-bold mb-0">Operations & Settings</h2>
+      <div className="d-flex align-items-center mb-2 flex-wrap gap-2">
+        <Settings className="text-secondary me-1 flex-shrink-0" size={26} />
+        <h2 className="fw-bold mb-0">Operations &amp; Settings</h2>
       </div>
 
       <p className="text-muted mb-4">
@@ -85,12 +85,12 @@ const Maintenance = () => {
               <div className="col-12 col-md-8 col-lg-6">
                 <div className="p-4 border rounded bg-white shadow-sm h-100">
                   <div className="d-flex align-items-center mb-3">
-                    {/* Made the 'G' icon circular and centered */}
                     <div
-                      className="bg-primary text-white p-2 rounded-circle me-2 fw-bold d-flex align-items-center justify-content-center"
+                      className="bg-primary text-white rounded-circle me-2 fw-bold d-flex align-items-center justify-content-center flex-shrink-0"
                       style={{ width: "36px", height: "36px" }}
+                      aria-hidden="true"
                     >
-                      G
+                      <Smartphone size={18} />
                     </div>
                     <h6 className="fw-bold mb-0">GCash Business Details</h6>
                   </div>

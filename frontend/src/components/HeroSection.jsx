@@ -2,8 +2,8 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import ExistingModal from "./ExistingModal";
 import "../Style/HeroSection.css";
+import { API_BASE } from "../api";
 
-const API_BASE = "https://yokaku-backend.onrender.com/api";
 
 function HeroSection({ onLoginClick, onReserveClick, isLoggedIn }) {
   const [showExistingModal, setShowExistingModal] = useState(false);

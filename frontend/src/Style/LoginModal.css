@@ -192,6 +192,24 @@
   cursor: not-allowed;
 }
 
+.login-lockout-warning {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid #ff6b6b;
+  border-radius: 8px;
+  background: #ffe5e5;
+  color: #c92a2a;
+  text-align: center;
+}
+
+.login-lockout-warning b {
+  color: #000;
+  font-size: 1.15rem;
+}
+
 /* --- OTP / EMAIL VERIFICATION --- */
 .verify-desc {
   color: #555;

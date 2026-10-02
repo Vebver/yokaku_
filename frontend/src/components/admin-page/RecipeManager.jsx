@@ -18,11 +18,15 @@ function RecipeManager() {
   const [inventoryItems, setInventoryItems] = useState([]);
   const [selectedItemId, setSelectedItemId] = useState("");
   const [currentRecipe, setCurrentRecipe] = useState([]);
+  // Dishes that have no raw materials linked yet. Loaded once alongside the
+  // base data so staff can see the remaining work at a glance instead of
+  // opening every dish to find out.
+  const [missingRecipeIds, setMissingRecipeIds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingRecipe, setLoadingRecipe] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const { showToast } = useToast();
-  
+
   // State to filter the ingredients list (table)
   const [ingredientSearchTerm, setIngredientSearchTerm] = useState("");
 
@@ -53,19 +57,29 @@ function RecipeManager() {
       setCurrentRecipe([]);
     }
     // Clear search filters when switching dishes
-    setIngredientSearchTerm(""); 
+    setIngredientSearchTerm("");
     setMaterialFilterTerm("");
   }, [selectedItemId]);
 
   const fetchBaseData = async () => {
     try {
       setLoading(true);
-      const [menuRes, invRes] = await Promise.all([
+      const [menuRes, invRes, covRes] = await Promise.all([
         api.get(`/products`, getAuthHeader()),
         api.get(`/inventory`, getAuthHeader()),
+        // One request for every dish's coverage, rather than one per dish.
+        api.get(`/products/recipes/coverage`, getAuthHeader()),
       ]);
-      setMenuItems(menuRes.data);
+      const items = menuRes.data || [];
+      setMenuItems(items);
       setInventoryItems(invRes.data);
+
+      const linked = new Set(
+        (covRes.data?.linkedItemIds || []).map(Number),
+      );
+      setMissingRecipeIds(
+        items.map((i) => Number(i.item_id)).filter((id) => !linked.has(id)),
+      );
     } catch (err) {
       console.error("Error fetching base data:", err);
     } finally {
@@ -153,14 +167,24 @@ function RecipeManager() {
 
   return (
     <div className="container-fluid py-3 py-md-4 text-dark bg-light" style={{ minHeight: '100vh' }}>
-      
+
       <div className="row align-items-center mb-4 px-2">
         <div className="col-12 col-md-8">
           <h2 className="fw-bold mb-1">Recipe Manager</h2>
           <p className="text-muted small mb-0">Link raw inventory materials to menu items</p>
         </div>
         <div className="col-12 col-md-4 text-md-end mt-2 mt-md-0">
-          <span className="badge bg-dark px-3 py-2">{menuItems.length} Total Dishes</span>
+          <div className="d-flex align-items-center gap-2 justify-content-end flex-wrap">
+            <span className="badge bg-dark px-3 py-2">{menuItems.length} Total Dishes</span>
+            {missingRecipeIds.length > 0 && (
+              <span
+                className="badge text-bg-warning px-3 py-2"
+                title="These dishes have no raw materials linked yet"
+              >
+                {missingRecipeIds.length} without a recipe
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -196,6 +220,9 @@ function RecipeManager() {
                   .map((item) => (
                     <option key={item.item_id} value={item.item_id}>
                       {item.menu_name}
+                      {missingRecipeIds.includes(item.item_id)
+                        ? "  — no recipe yet"
+                        : ""}
                     </option>
                   ))}
               </select>

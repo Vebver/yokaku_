@@ -12,16 +12,17 @@ import {
 } from "lucide-react";
 import "../Style/PackageModal.css";
 import { useToast } from "./ToastContext";
+import { API_BASE, resolveAssetUrl } from "../api";
 
-const API_BASE = "https://yokaku-backend.onrender.com/api";
-const BASE_URL = "https://yokaku-backend.onrender.com";
 
 const getImageUrl = (item) => {
   const imagePath = item.local_path || item.image_url;
   if (!imagePath) return null;
-  if (imagePath.startsWith("http")) return imagePath;
-  if (imagePath.startsWith("/uploads/")) return `${BASE_URL}${imagePath}`;
-  return `${BASE_URL}/uploads/${imagePath}`;
+  // A bare filename (no leading slash) is stored without the /uploads prefix.
+  if (!imagePath.startsWith("/") && !/^https?:|^data:/i.test(imagePath)) {
+    return resolveAssetUrl(`/uploads/${imagePath}`);
+  }
+  return resolveAssetUrl(imagePath);
 };
 
 const PackageModal = ({
@@ -33,6 +34,7 @@ const PackageModal = ({
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [itemSearch, setItemSearch] = useState("");
   const [selectedItems, setSelectedItems] = useState(initialSelectedItems);
   const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState(null);
@@ -65,6 +67,19 @@ const PackageModal = ({
     .includes("ramen set");
   const canCustomize = isUnliPackage || isRamenItem || isRamenSetItem;
   const HIDDEN_CATEGORIES = ["Chicken", "Drinks"];
+
+  const visibleProducts = products.filter((product) => {
+    const category = categories.find(
+      (entry) => entry.category_id === product.category_id,
+    );
+    const query = itemSearch.trim().toLowerCase();
+    const matchesSearch = !query ||
+      `${product.name || ""} ${category?.name || ""}`.toLowerCase().includes(query);
+    const matchesCategory = itemSearch.trim()
+      ? true
+      : Number(product.category_id) === Number(selectedCategory);
+    return matchesSearch && matchesCategory;
+  });
 
   // Get Ramen flavors from products with their images
   const ramenFlavors = products.filter(
@@ -256,15 +271,27 @@ const PackageModal = ({
             ))}
         </div>
 
+        <form
+          className="package-search-bar"
+          onSubmit={(event) => event.preventDefault()}
+        >
+          <input
+            type="search"
+            value={itemSearch}
+            onChange={(event) => setItemSearch(event.target.value)}
+            placeholder="Search items or categories..."
+            aria-label="Search items or categories"
+          />
+          <button type="submit" aria-label="Search items">
+            Search
+          </button>
+        </form>
+
         <div className="menu-items-grid">
           {loading ? (
             <div className="loading-spinner">Loading packages...</div>
-          ) : products.filter(
-              (p) => Number(p.category_id) === Number(selectedCategory),
-            ).length > 0 ? (
-            products
-              .filter((p) => Number(p.category_id) === Number(selectedCategory))
-              .map((item) => (
+          ) : visibleProducts.length > 0 ? (
+            visibleProducts.map((item) => (
                 <div
                   key={item.item_id}
                   className={`menu-item-card ${selectedItems.some((i) => i.id === item.item_id) ? "selected" : ""}`}

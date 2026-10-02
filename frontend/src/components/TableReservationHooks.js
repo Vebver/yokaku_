@@ -2,9 +2,8 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import io from "socket.io-client";
+import { API_BASE, SOCKET_URL } from "../api";
 
-const API_BASE = "https://yokaku-backend.onrender.com/api";
-const SOCKET_URL = "https://yokaku-backend.onrender.com";
 
 export const useSocket = () => {
   const [socket, setSocket] = useState(null);

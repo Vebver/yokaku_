@@ -22,8 +22,8 @@ import {
 import TermsModal from "../TermsModal";
 import "../../Style/MyReservation.css";
 import { useToast } from "../ToastContext";
+import { API_BASE } from "../../api";
 
-const API_BASE = "https://yokaku-backend.onrender.com/api";
 
 const MyReservation = () => {
   const { showToast } = useToast();

@@ -4,8 +4,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useToast } from "./ToastContext";
 import axios from "axios";
 import "../Style/FileARefund.css";
+import { API_BASE } from "../api";
 
-const API_BASE = "https://yokaku-backend.onrender.com/api";
 
 const FileARefund = () => {
   const location = useLocation();

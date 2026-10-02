@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
-import api, { SOCKET_URL } from "../../api";
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import api, { SOCKET_URL, resolveAssetUrl } from "../../api";
 import {
   Star,
   Trash2,
@@ -8,8 +8,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Plus,
+  X,
 } from "lucide-react";
 import { useToast } from "../ToastContext";
+import { useSectionRefresh } from "../shared/sectionRefresh";
 
 function Product() {
   const [menuItems, setMenuItems] = useState([]);
@@ -39,6 +41,11 @@ function Product() {
     fetchData();
   }, []);
 
+  // Reload on the shared admin refresh button in the top bar.
+  useSectionRefresh(() => {
+    fetchData();
+  });
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -62,11 +69,64 @@ function Product() {
     }
   };
 
-  const filteredItems = menuItems.filter(
-    (item) =>
-      item.menu_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.category_name?.toLowerCase().includes(searchTerm.toLowerCase()),
+  // Filter controls.
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [availabilityFilter, setAvailabilityFilter] = useState("all");
+
+  const resetPage = () => setCurrentPage(1);
+
+  const clearFilters = () => {
+    setCategoryFilter("all");
+    setAvailabilityFilter("all");
+    resetPage();
+  };
+
+  const hasActiveFilters =
+    categoryFilter !== "all" || availabilityFilter !== "all";
+
+  // Category names, derived from the loaded items so the list needs no
+  // separate request.
+  const categoryNames = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          menuItems
+            .map((i) => i.category_name)
+            .filter((c) => !!c && String(c).trim() !== ""),
+        ),
+      ).sort((a, b) =>
+        String(a).localeCompare(String(b), undefined, { sensitivity: "base" }),
+      ),
+    [menuItems],
   );
+
+  // Alphabetical by dish name so items are easy to find in the list.
+  const filteredItems = menuItems
+    .filter((item) => {
+      if (
+        !item.menu_name.toLowerCase().includes(searchTerm.toLowerCase()) &&
+        !item.category_name?.toLowerCase().includes(searchTerm.toLowerCase())
+      ) {
+        return false;
+      }
+      if (
+        categoryFilter !== "all" &&
+        String(item.category_name || "") !== categoryFilter
+      ) {
+        return false;
+      }
+      if (availabilityFilter !== "all") {
+        const isAvailable = Number(item.is_available) === 1;
+        if (availabilityFilter === "available" && !isAvailable) return false;
+        if (availabilityFilter === "unavailable" && isAvailable) return false;
+      }
+      return true;
+    })
+    .sort((a, b) =>
+      String(a.menu_name || "").localeCompare(String(b.menu_name || ""), undefined, {
+        sensitivity: "base",
+      }),
+    );
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -218,19 +278,14 @@ function Product() {
   };
 
   // Resolve a raw DB path (e.g. "/uploads/x.png" or a full URL) to a usable URL.
-  const resolvePath = (path, SOCKET_URL) => {
-    if (!path) return null;
-    return path.startsWith("http")
-      ? path
-      : `${SOCKET_URL}/${path.replace(/^\//, "")}`;
-  };
+  const resolvePath = (path) => resolveAssetUrl(path);
 
   // If the preferred image (local_path) fails to load, fall back to
   // image_url, then to a placeholder. Fixes blank images in admin.
   const handleImageError = (e, item) => {
     const used = e.currentTarget.getAttribute("data-src-type") || "local_path";
     if (used === "local_path") {
-      const fallback = resolvePath(item.image_url, SOCKET_URL);
+      const fallback = resolvePath(item.image_url);
       if (fallback) {
         e.currentTarget.setAttribute("data-src-type", "image_url");
         e.currentTarget.src = fallback;
@@ -268,6 +323,7 @@ function Product() {
                 height: "100%",
               }}
               placeholder="Search dishes or categories..."
+              aria-label="Search dishes or categories"
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
@@ -286,6 +342,53 @@ function Product() {
           >
             <Plus size={18} className="me-1" /> Add New Dish
           </button>
+        </div>
+      </div>
+
+      {/* FILTERS — own full-width row so the dropdowns never stack */}
+      <div className="row g-2 align-items-center mb-4">
+        <div className="col-12 d-flex flex-wrap gap-2">
+          <select
+            className="form-select form-select-sm flex-grow-1 flex-sm-grow-0"
+            style={{ width: "auto", minWidth: "160px" }}
+            aria-label="Filter by category"
+            value={categoryFilter}
+            onChange={(e) => {
+              setCategoryFilter(e.target.value);
+              resetPage();
+            }}
+          >
+            <option value="all">All categories</option>
+            {categoryNames.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+
+          <select
+            className="form-select form-select-sm flex-grow-1 flex-sm-grow-0"
+            style={{ width: "auto", minWidth: "160px" }}
+            aria-label="Filter by availability"
+            value={availabilityFilter}
+            onChange={(e) => {
+              setAvailabilityFilter(e.target.value);
+              resetPage();
+            }}
+          >
+            <option value="all">Any availability</option>
+            <option value="available">Available</option>
+            <option value="unavailable">Not available</option>
+          </select>
+
+          {hasActiveFilters && (
+            <button
+              className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1 fw-bold"
+              onClick={clearFilters}
+            >
+              <X size={14} /> Clear
+            </button>
+          )}
         </div>
       </div>
 
@@ -585,7 +688,6 @@ function Product() {
                 <option value={0}>Not Available</option>
               </select>
             </div>
-            // In Product.jsx - Update the image preview section
             <div className="mb-4 text-center">
               <div className="bg-light p-3 rounded border mb-2">
                 {newItem.image instanceof File ? (

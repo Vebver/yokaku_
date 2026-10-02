@@ -1,9 +1,7 @@
 import React, { useState, useEffect, forwardRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  MessageSquare,
   CheckCircle2,
-  PlayCircle,
   Timer,
   Loader2,
   LogOut,
@@ -12,11 +10,8 @@ import {
 import { io } from "socket.io-client";
 import { useLocation, useNavigate } from "react-router-dom"; // Added useNavigate
 import { useToast } from "../ToastContext";
-import api from "../../api";
+import api, { API_BASE, SOCKET_URL } from "../../api";
 import "../../Style/KitchenPage.css";
-
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const socket = io(SOCKET_URL, {
   transports: ["websocket", "polling"],
@@ -41,34 +36,69 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
   }, [order.timestamp]);
 
   const renderCustomizations = (customs) => {
-    if (!customs || customs === "null" || customs === "undefined")
-      return <div className="item-note-empty">—</div>;
+    // The API stores customizations as a plain string ("null"/"undefined" when
+    // unset), but older rows can hold a JSON blob, so parse defensively and
+    // fall back to showing the raw text.
+    if (customs === null || customs === undefined) return null;
+    if (typeof customs !== "string") return null;
 
-    if (typeof customs === "string" && !customs.trim().startsWith("{")) {
-      const hasAllergy = customs.toLowerCase().includes("allergy");
-      return (
-        <div className="custom-details-container">
-          <div
-            className={`highlight-custom-box ${hasAllergy ? "has-allergy" : ""}`}
-          >
-            {customs}
-          </div>
-        </div>
-      );
+    const raw = customs.trim();
+    if (!raw || raw === "null" || raw === "undefined") return null;
+
+    let lines = [raw];
+
+    if (raw.startsWith("{")) {
+      try {
+        const parsed = JSON.parse(raw);
+        lines = Object.entries(parsed)
+          .filter(([, v]) => v !== null && v !== "" && v !== "None")
+          .map(([k, v]) => `${k}: ${v}`);
+      } catch {
+        // Malformed JSON — fall back to the original text.
+        lines = [raw];
+      }
     }
+
+    if (lines.length === 0) return null;
+
+    return (
+      <div className="item-customs">
+        {lines.map((line, i) => (
+          <div
+            key={i}
+            className={`custom-tag ${
+              line.toLowerCase().includes("allergy")
+                ? "has-allergy"
+                : ""
+            }`}
+          >
+            {line}
+          </div>
+        ))}
+      </div>
+    );
   };
 
   const handleStatusUpdate = async (newStatus) => {
     if (isLoading) return;
     setIsLoading(true);
     try {
-      await onUpdateStatus(order.id, newStatus);
+      await onUpdateStatus(statusTargetId, newStatus);
     } finally {
       setIsLoading(false);
     }
   };
 
   const hasAllergy = order.allergyNote && order.allergyNote !== "None";
+
+  // The API returns either "Table 3" or "Walk-in", so strip the word "Table"
+  // to avoid rendering "TABLE Table 3" in the header.
+  const tableLabel = (order.table || "Walk-in").replace(/^Table\s*/i, "");
+
+  // The backend updates a whole reservation's kitchen status, so it needs the
+  // reservation id — NOT the grouped "reservationId:tableId" key we use as a
+  // React key. Sending the group key silently updated nothing.
+  const statusTargetId = order.reservation_id || order.id;
 
   return (
     <motion.div
@@ -82,10 +112,11 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
       <div className="card-header">
         <div className="table-badge">
           <span className="table-label">TABLE</span>
-          <span className="table-id">{order.table}</span>
+          <span className="table-id">{tableLabel}</span>
         </div>
         <div
           className={`time-badge ${elapsed >= 15 ? "urgency-critical" : elapsed >= 8 ? "urgency-warning" : "urgency-normal"}`}
+          title={`Waiting ${elapsed} minute${elapsed === 1 ? "" : "s"}`}
         >
           <Timer size={14} />
           <span>{elapsed}m</span>
@@ -106,6 +137,7 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
                 <span className="item-qty">{item.qty || item.quantity}x</span>
                 <span className="item-name">{item.name}</span>
               </div>
+              {renderCustomizations(item.customizations)}
             </div>
           ))}
         </div>
@@ -116,6 +148,7 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
           <button
             onClick={() => handleStatusUpdate("preparing")}
             className="btn-action start"
+            disabled={isLoading}
           >
             {isLoading ? (
               <Loader2 size={18} className="spinner-animation" />
@@ -128,6 +161,7 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
           <button
             onClick={() => handleStatusUpdate("ready")}
             className="btn-action ready"
+            disabled={isLoading}
           >
             {isLoading ? (
               <Loader2 size={18} className="spinner-animation" />
@@ -140,6 +174,7 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
           <button
             onClick={() => handleStatusUpdate("served")}
             className="btn-action clear"
+            disabled={isLoading}
           >
             {isLoading ? (
               <Loader2 size={18} className="spinner-animation" />
@@ -181,10 +216,16 @@ const KitchenPage = () => {
   const loadActiveOrders = async () => {
     try {
       setIsLoading(true);
-      const response = await api.get(`${API_URL}/orders/active`);
+      // The shared `api` instance already carries the /api base URL and the
+      // auth header, so pass only the path.
+      const response = await api.get(`/orders/active`);
       if (response.data) {
         const formatted = response.data.map((order) => ({
           id: order.id,
+          // Keep the real reservation id: the status endpoint updates a whole
+          // reservation, so the grouped "reservationId:tableId" key cannot be
+          // used to address it.
+          reservation_id: order.reservation_id,
           table: order.table,
           status: order.status,
           timestamp: order.timestamp,
@@ -212,7 +253,7 @@ const KitchenPage = () => {
 
   const updateStatus = async (id, newStatus) => {
     try {
-      await api.put(`${API_URL}/orders/${id}/status`, { status: newStatus });
+      await api.put(`/orders/${id}/status`, { status: newStatus });
       await loadActiveOrders();
       socket.emit("order_status_update", { orderId: id, newStatus });
     } catch (err) {
@@ -288,11 +329,14 @@ const KitchenPage = () => {
                 key={f}
                 onClick={() => setFilter(f)}
                 className={`tab-btn ${filter === f ? "active" : ""}`}
+                aria-pressed={filter === f}
               >
-                {f.toUpperCase()}
-                {f === "all" && (
-                  <span className="count-pill">{orders.length}</span>
-                )}
+                {f === "all" ? "ALL" : f.toUpperCase()}
+                <span className="count-pill">
+                  {f === "all"
+                    ? orders.length
+                    : orders.filter((o) => o.status === f).length}
+                </span>
               </button>
             ))}
           </div>
@@ -326,7 +370,13 @@ const KitchenPage = () => {
       </nav>
 
       <main className="container pt-4">
-        {filteredOrders.length > 0 ? (
+        {isLoading && orders.length === 0 ? (
+          <div className="empty-state">
+            <Loader2 size={48} color="#f38d31" className="spinner-animation" />
+            <h3>LOADING TICKETS</h3>
+            <p>Pulling the latest orders from the floor...</p>
+          </div>
+        ) : filteredOrders.length > 0 ? (
           <div className="order-grid">
             <AnimatePresence mode="popLayout">
               {filteredOrders.map((order) => (
@@ -392,6 +442,24 @@ const KitchenPage = () => {
         .logout-icon-btn:hover { background: rgba(239, 68, 68, 0.1); transform: scale(1.1); }
 
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+
+        /* --- Responsive: stack the bar on tablets/phones --- */
+        @media (max-width: 992px) {
+          .kitchen-navbar {
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+          }
+          .nav-center { order: 3; width: 100%; overflow-x: auto; }
+          .filter-tabs { width: 100%; }
+          .tab-btn { flex: 1; justify-content: center; padding: 8px 12px; }
+          .user-info { display: none; }
+          .user-profile { border-right: none; padding-right: 0; }
+        }
+        @media (max-width: 576px) {
+          .brand-name { font-size: 1rem; }
+          .tab-btn { font-size: 0.65rem; padding: 8px 6px; }
+        }
       `}</style>
     </div>
   );

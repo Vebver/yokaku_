@@ -54,8 +54,8 @@ import {
   FormLoadingSpinner,
 } from "./TableReservationSpinners";
 import { useSocket, useAddressData } from "./TableReservationHooks";
+import { API_BASE } from "../api";
 
-const API_BASE = "https://yokaku-backend.onrender.com/api";
 
 // Dynamic steps based on reservation type
 const getSteps = (reservationType) => {

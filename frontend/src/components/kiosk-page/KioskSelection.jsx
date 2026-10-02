@@ -3,8 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { RefreshCw, ShoppingBag, Calendar } from "lucide-react";
 import axios from "axios";
 import "../../Style/KioskSelection.css";
+import { API_BASE } from "../../api";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const KioskSelection = () => {
   const navigate = useNavigate();
@@ -75,7 +75,7 @@ const KioskSelection = () => {
       sessionStorage.setItem("kiosk_mode", "reservation");
 
       // BYPASS CHECK: If admin has already assigned a Table Reservation on the dashboard
-      if (kioskDetails && kioskDetails.mode === "table_assigned") {
+      if (kioskDetails && kioskDetails.mode === "single_active") {
         const { reservation_id, table_id } = kioskDetails.reservation;
         
         // Write to sessionStorage so the menu page can read it successfully

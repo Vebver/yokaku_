@@ -16,6 +16,7 @@ import OnlineReservations from "../admin-page/OnlineReservations";
 import WalkInReservations from "../admin-page/WalkInReservations";
 import Billing from "../admin-page/Billing";
 import Reports from "../admin-page/Reports";
+import KioskControl from "../shared/KioskControl";
 import "../../Style/Cashier.css"
 
 const CashierDashboard = () => {
@@ -50,6 +51,7 @@ const CashierDashboard = () => {
     { id: "tables", label: "Table Status", icon: LayoutDashboard },
     { id: "online", label: "Online Bookings", icon: CalendarCheck },
     { id: "walkins", label: "Walk-ins / Kiosk", icon: Store },
+    { id: "kiosk-control", label: "Kiosk Control", icon: Store },
     { id: "billing", label: "Payments", icon: Receipt },
     { id: "reports", label: "Reports", icon: BarChart3 },
   ];
@@ -59,6 +61,7 @@ const CashierDashboard = () => {
       tables: <TableStatus />,
       online: <OnlineReservations />,
       walkins: <WalkInReservations />,
+      "kiosk-control": <KioskControl />,
       billing: <Billing />,
       reports: <Reports />,
     };

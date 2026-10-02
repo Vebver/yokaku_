@@ -607,6 +607,95 @@ const reservationController = {
   },
 
   // ==================== KIOSK VERIFICATION ====================
+  // Side-effect-free lookup used by the kiosk confirmation step. It runs the
+  // same eligibility checks as checkReservationId but never seats the guest,
+  // so a mistyped ID cannot lock somebody else's reservation before the
+  // customer has confirmed it is theirs.
+  previewReservationId: async (req, res) => {
+    try {
+      const reservation = await Reservation.findById(req.params.id);
+
+      if (!reservation) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Invalid Reservation ID." });
+      }
+
+      if (reservation.status === "Completed") {
+        return res.status(400).json({
+          success: false,
+          message: "This reservation is already completed.",
+        });
+      }
+
+      if (
+        ["rejected", "cancelled", "no-show"].includes(
+          (reservation.status || "").toLowerCase(),
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: `This reservation is ${reservation.status}. Please see staff.`,
+        });
+      }
+
+      const isWalkin = (reservation.reservation_id || "")
+        .toString()
+        .toUpperCase()
+        .includes("WALK");
+
+      if (!isWalkin) {
+        const now = new Date();
+        const scheduledTime = new Date(
+          `${reservation.reservation_date} ${reservation.reservation_time}`,
+        );
+        const diffInMinutes = Math.floor(
+          (now - scheduledTime) / (1000 * 60),
+        );
+
+        if (diffInMinutes < -30) {
+          return res.status(400).json({
+            success: false,
+            message: `Too early! Check-in starts 30 mins before. Please wait until ${reservation.reservation_time}.`,
+          });
+        }
+      }
+
+      // Tables booked for this reservation, so the customer sees where to sit.
+      const [tables] = await db.execute(
+        `SELECT t.table_number
+         FROM reservation_tables rt
+         JOIN tables t ON t.table_id = rt.table_id
+         WHERE TRIM(rt.reservation_id) = TRIM(?)
+         ORDER BY t.table_number`,
+        [reservation.reservation_id],
+      );
+
+      res.json({
+        success: true,
+        reservation: {
+          reservation_id: reservation.reservation_id,
+          first_name: reservation.first_name,
+          last_name: reservation.last_name,
+          num_guests: reservation.num_guests,
+          reservation_date: reservation.reservation_date,
+          reservation_time: reservation.reservation_time,
+          reservation_type: reservation.reservation_type,
+          status: reservation.status,
+          is_event:
+            String(reservation.reservation_type || "").toLowerCase() ===
+            "event",
+        },
+        tables: tables.map((t) => t.table_number),
+      });
+    } catch (error) {
+      console.error("Preview Reservation Error:", error);
+      res
+        .status(500)
+        .json({ success: false, message: "Internal server error" });
+    }
+  },
+
   checkReservationId: async (req, res) => {
     try {
       const reservation = await Reservation.findById(req.params.id);

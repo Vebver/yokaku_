@@ -12,6 +12,9 @@ router.get('/featured', productController.getFeaturedProducts);
 // --- ADMIN ONLY ROUTES (Must be logged in AND be an admin) ---
 
 // Ingredient Management
+// Items that already have a recipe. Declared before "/:id/..." so the
+// literal path is never parsed as an id.
+router.get('/recipes/coverage', protect, adminOnly, productController.getRecipeCoverage);
 router.get('/:id/ingredients', protect, adminOnly, productController.getIngredients);
 router.post('/:id/ingredients', protect, adminOnly, productController.addIngredient);
 router.delete('/ingredients/:recipeId', protect, adminOnly, productController.removeIngredient);

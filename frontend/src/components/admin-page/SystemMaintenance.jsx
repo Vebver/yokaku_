@@ -5,12 +5,11 @@ import {
   RefreshCcw,
   AlertTriangle,
   FileText,
-  Monitor,
   Database,
   Download,
-  Upload,
   Trash2,
   RotateCcw,
+  Wrench,
 } from "lucide-react";
 import api from "../../api";
 import { useToast } from "../ToastContext";
@@ -20,10 +19,12 @@ const SystemMaintenance = () => {
   const [endDate, setEndDate] = useState("");
   const [reportPeriod, setReportPeriod] = useState("");
   const { showToast } = useToast();
-  const [kioskReservationId, setKioskReservationId] = useState("");
   const [backups, setBackups] = useState([]);
   const [backupsLoading, setBackupsLoading] = useState(false);
   const [creatingBackup, setCreatingBackup] = useState(false);
+  const [creatingLocalBackup, setCreatingLocalBackup] = useState(false);
+  const [localBackupFile, setLocalBackupFile] = useState(null);
+  const [restoringLocalBackup, setRestoringLocalBackup] = useState(false);
 
   // ──────────────────────────────────────────────
   // BACKUP & RESTORE FUNCTIONS
@@ -111,6 +112,27 @@ const SystemMaintenance = () => {
     }
   };
 
+  const handleRestoreLocalBackup = async () => {
+    if (!localBackupFile) return;
+    const confirmed = window.confirm(
+      `Restore database from ${localBackupFile.name}? This will overwrite current data and cannot be undone.`,
+    );
+    if (!confirmed) return;
+
+    const formData = new FormData();
+    formData.append("backup", localBackupFile);
+    setRestoringLocalBackup(true);
+    try {
+      const response = await api.post("/admin/backup/restore-local", formData);
+      showToast(response.data.message, "success");
+      setLocalBackupFile(null);
+    } catch (err) {
+      showToast(err.response?.data?.error || "Failed to restore local backup.");
+    } finally {
+      setRestoringLocalBackup(false);
+    }
+  };
+
   const handleDeleteBackup = async (filename) => {
     const confirmed = window.confirm(
       `Delete Backup: ${filename}?\n\nThis action cannot be undone.`,
@@ -148,9 +170,25 @@ const SystemMaintenance = () => {
       link.click();
       link.parentNode.removeChild(link);
       window.URL.revokeObjectURL(url);
+      return true;
     } catch (err) {
       console.error("Download backup failed", err);
       showToast("Failed to download backup file.");
+      return false;
+    }
+  };
+
+  const handleCreateAndDownloadBackup = async () => {
+    setCreatingLocalBackup(true);
+    try {
+      const response = await api.post("/admin/backup", {});
+      const downloaded = await handleDownloadBackup(response.data.filename);
+      await fetchBackups();
+      if (downloaded) showToast("Backup created and downloaded to this device.", "success");
+    } catch (err) {
+      showToast(err.response?.data?.error || "Failed to create backup.");
+    } finally {
+      setCreatingLocalBackup(false);
     }
   };
 
@@ -175,30 +213,6 @@ const SystemMaintenance = () => {
       if (endpoint === "reset") {
         window.location.reload();
       }
-    } catch (err) {
-      console.error(err);
-      showToast("Error: " + (err.response?.data?.error || "Action failed"));
-    }
-  };
-
-  const handleSetKioskReservation = async () => {
-    if (!kioskReservationId.trim()) return;
-
-    const confirmed = window.confirm(
-      `Assign reservation ID ${kioskReservationId} to the kiosk?`,
-    );
-    if (!confirmed) return;
-
-    try {
-      const token = localStorage.getItem("token");
-      const res = await api.post(
-        `/admin/set-kiosk-reservation`,
-        { reservationId: kioskReservationId },
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
-
-      showToast("Success: " + res.data.message);
-      setKioskReservationId(""); // Reset input on success
     } catch (err) {
       console.error(err);
       showToast("Error: " + (err.response?.data?.error || "Action failed"));
@@ -299,14 +313,14 @@ const SystemMaintenance = () => {
       style={{ borderRadius: "12px" }}
     >
       <div className="d-flex align-items-center mb-4">
-        <div className="text-secondary me-2" size={24} />
+        <Wrench className="text-secondary me-2 flex-shrink-0" size={24} />
         <h5 className="mb-0 fw-bold text-dark">System Maintenance</h5>
       </div>
 
-      {/* Grid: 2 columns on tablets/desktops, 1 column on mobile */}
+      {/* Grid: 3 columns on desktops, 2 on tablets, 1 on mobile */}
       <div className="row g-4">
   {/* 1. EXPORT DATA (CSV) */}
-  <div className="col-12 col-md-6">
+  <div className="col-12 col-md-6 col-lg-4">
     <div
       className="p-4 border rounded text-center h-100 bg-white shadow-sm d-flex flex-column justify-content-between"
       style={{ borderRadius: "8px" }}
@@ -328,45 +342,8 @@ const SystemMaintenance = () => {
     </div>
   </div>
 
-  {/* 2. ASSIGNING KIOSK ID */}
-  <div className="col-12 col-md-6">
-    <div
-      className="p-4 border rounded text-center h-100 bg-white shadow-sm d-flex flex-column justify-content-between"
-      style={{ borderRadius: "8px" }}
-    >
-      <div>
-        <Monitor className="text-primary mb-3" size={40} />
-        <h5 className="fw-bold">Set Kiosk Reservation</h5>
-        <p className="small text-muted mb-4">
-          Input the reservation ID to route this specific record directly
-          to the active kiosk.
-        </p>
-        <input
-          type="text"
-          className="form-control mb-3 text-center"
-          placeholder="Enter Reservation ID"
-          value={kioskReservationId}
-          onChange={(e) => setKioskReservationId(e.target.value)}
-          style={{
-            borderRadius: "8px",
-            maxWidth: "250px",
-            margin: "0 auto",
-          }}
-        />
-      </div>
-      <button
-        onClick={handleSetKioskReservation}
-        className="btn btn-primary btn-lg w-100 py-3 fw-bold shadow-sm"
-        style={{ borderRadius: "8px" }}
-        disabled={!kioskReservationId.trim()}
-      >
-        Assign to Kiosk
-      </button>
-    </div>
-  </div>
-
-  {/* 3. FINANCIAL PDF (With Date Range Design) */}
-  <div className="col-12 col-md-6">
+  {/* 2. FINANCIAL PDF (With Date Range Design) */}
+  <div className="col-12 col-md-6 col-lg-4">
     <div
       className="p-4 border rounded text-center h-100 bg-white shadow-sm d-flex flex-column justify-content-between"
       style={{ borderRadius: "8px" }}
@@ -378,25 +355,6 @@ const SystemMaintenance = () => {
           Select a date range to generate a professional revenue analysis.
         </p>
 
-        <div className="d-flex gap-2 mb-3">
-          <button
-            type="button"
-            onClick={() => selectReportPeriod("monthly")}
-            className={`btn flex-fill fw-bold ${reportPeriod === "monthly" ? "btn-danger" : "btn-outline-danger"}`}
-            style={{ borderRadius: "8px" }}
-          >
-            Monthly
-          </button>
-          <button
-            type="button"
-            onClick={() => selectReportPeriod("yearly")}
-            className={`btn flex-fill fw-bold ${reportPeriod === "yearly" ? "btn-danger" : "btn-outline-danger"}`}
-            style={{ borderRadius: "8px" }}
-          >
-            Yearly
-          </button>
-        </div>
-        
         {/* Date Selection Area */}
         <div className="row g-2 mb-4">
           <div className="col-6">
@@ -433,8 +391,8 @@ const SystemMaintenance = () => {
     </div>
   </div>
 
-  {/* 4. SHIFT RESET */}
-  <div className="col-12 col-md-6">
+  {/* 3. SHIFT RESET */}
+  <div className="col-12 col-md-6 col-lg-4">
     <div
       className="p-4 border rounded text-center h-100 bg-white shadow-sm d-flex flex-column justify-content-between"
       style={{ borderRadius: "8px" }}
@@ -466,36 +424,80 @@ const SystemMaintenance = () => {
 
       {/* ─── SECTION 2: DATABASE BACKUP & RESTORE ─── */}
       <div className="mt-5">
-        <div className="d-flex align-items-center mb-3">
-          <Database className="text-secondary me-2" size={24} />
-          <h5 className="mb-0 fw-bold text-dark">Database Backup & Restore</h5>
-        </div>
-
         <div className="card bg-white shadow-sm border-0" style={{ borderRadius: "12px" }}>
           <div className="card-body p-4">
             {/* Create Backup Button */}
-            <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-              <p className="text-muted small mb-0">
-                Create a full SQL dump of the database or restore from a previous backup.
-              </p>
-              <button
-                onClick={handleCreateBackup}
-                className="btn btn-secondary btn-lg fw-bold shadow-sm px-4"
-                style={{ borderRadius: "8px" }}
-                disabled={creatingBackup}
-              >
-                {creatingBackup ? (
-                  <>
-                    <span className="spinner-border spinner-border-sm me-2" role="status" />
-                    Creating Backup...
-                  </>
-                ) : (
-                  <>
-                    <Database className="me-2" size={20} />
-                    Create Backup
-                  </>
-                )}
-              </button>
+            <div className="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
+              <div className="d-flex align-items-start">
+                <Database className="text-secondary me-2 mt-1 flex-shrink-0" size={24} />
+                <div>
+                  <h5 className="mb-1 fw-bold text-dark">Database Backup &amp; Restore</h5>
+                  <p className="text-muted small mb-0">
+                    Create a full SQL dump of the database or restore from a previous backup.
+                  </p>
+                </div>
+              </div>
+              <div className="d-flex flex-wrap gap-2">
+                <button
+                  onClick={handleCreateBackup}
+                  className="btn btn-secondary btn-lg fw-bold shadow-sm px-4"
+                  style={{ borderRadius: "8px" }}
+                  disabled={creatingBackup || creatingLocalBackup}
+                >
+                  {creatingBackup ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2" role="status" />
+                      Creating Backup...
+                    </>
+                  ) : (
+                    <>
+                      <Database className="me-2" size={20} />
+                      Create Backup
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={handleCreateAndDownloadBackup}
+                  className="btn btn-outline-primary btn-lg fw-bold px-4"
+                  style={{ borderRadius: "8px" }}
+                  disabled={creatingBackup || creatingLocalBackup}
+                >
+                  {creatingLocalBackup ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2" role="status" />
+                      Preparing Download...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="me-2" size={20} />
+                      Create &amp; Download
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div className="row g-2 align-items-end mb-4">
+              <div className="col-12 col-md-8">
+                <label className="form-label small fw-bold" htmlFor="local-backup-file">Restore from device</label>
+                <input
+                  id="local-backup-file"
+                  className="form-control"
+                  type="file"
+                  accept=".sql,application/sql"
+                  onChange={(event) => setLocalBackupFile(event.target.files?.[0] || null)}
+                />
+              </div>
+              <div className="col-12 col-md-4">
+                <button
+                  className="btn btn-outline-danger w-100 fw-bold"
+                  type="button"
+                  onClick={handleRestoreLocalBackup}
+                  disabled={!localBackupFile || restoringLocalBackup}
+                >
+                  {restoringLocalBackup ? "Restoring..." : "Restore Local Backup"}
+                </button>
+              </div>
             </div>
 
             {/* Backup List */}
@@ -537,7 +539,8 @@ const SystemMaintenance = () => {
                             <button
                               onClick={() => handleDownloadBackup(backup.filename)}
                               className="btn btn-outline-primary btn-sm"
-                              title="Download Backup"
+                              title="Download backup to device"
+                              aria-label={`Download ${backup.filename} to device`}
                               style={{ borderRadius: "6px" }}
                             >
                               <Download size={16} />
@@ -630,7 +633,7 @@ const SystemMaintenance = () => {
           .system-maintenance-container .table td[data-label="Filename"]::before { display: none; }
           .system-maintenance-container .card-body .d-flex.justify-content-between {
             flex-direction: column;
-            align-items: flex-start !important;
+            align-items: stretch !important;
           }
           .system-maintenance-container .card-body .d-flex.justify-content-between .btn {
             width: 100%;

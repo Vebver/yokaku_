@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from "react";
 import api from "../../api";
 import {
   Loader2,
-  RefreshCw,
   ReceiptText,
   ChevronLeft,
   ChevronRight,
@@ -16,6 +15,7 @@ import {
   Search,
 } from "lucide-react";
 import { useToast } from "../ToastContext";
+import { useSectionRefresh } from "../shared/sectionRefresh";
 
 const Billing = () => {
   const [payments, setPayments] = useState([]);
@@ -29,6 +29,10 @@ const Billing = () => {
   const [isEditingAmount, setIsEditingAmount] = useState(false);
   const [tempAmount, setTempAmount] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  // Filter controls.
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState("all");
+  const [settlementFilter, setSettlementFilter] = useState("all");
+  const [orderStatusFilter, setOrderStatusFilter] = useState("all");
   const { showToast } = useToast();
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
@@ -36,6 +40,11 @@ const Billing = () => {
   useEffect(() => {
     fetchPayments();
   }, []);
+
+  // Reload on the shared admin refresh button in the top bar.
+  useSectionRefresh(() => {
+    fetchPayments();
+  });
 
   useEffect(() => {
     return () => {
@@ -59,12 +68,60 @@ const Billing = () => {
     }
   };
 
-  const filteredPayments = payments.filter((p) => {
-    const fullName = `${p.first_name || ""} ${p.last_name || ""}`.toLowerCase();
-    const resId = (p.reservation_id || "").toLowerCase();
-    const term = searchQuery.toLowerCase();
-    return fullName.includes(term) || resId.includes(term);
-  });
+  const resetPage = () => setCurrentPage(1);
+
+  const clearFilters = () => {
+    setPaymentStatusFilter("all");
+    setSettlementFilter("all");
+    setOrderStatusFilter("all");
+    resetPage();
+  };
+
+  const hasActiveFilters =
+    paymentStatusFilter !== "all" ||
+    settlementFilter !== "all" ||
+    orderStatusFilter !== "all";
+
+  // Alphabetical by guest name so a bill is easy to find. The backend returns
+  // them by reservation_id, which for VARCHAR ids is not a useful order.
+  const filteredPayments = payments
+    .filter((p) => {
+      const fullName = `${p.first_name || ""} ${p.last_name || ""}`.toLowerCase();
+      const resId = (p.reservation_id || "").toLowerCase();
+      const term = searchQuery.toLowerCase();
+      return fullName.includes(term) || resId.includes(term);
+    })
+    .filter((p) => {
+      if (paymentStatusFilter !== "all") {
+        if ((p.payment_status || "").toLowerCase() !== paymentStatusFilter) {
+          return false;
+        }
+      }
+      if (settlementFilter !== "all") {
+        if ((p.settlement_status || "").toLowerCase() !== settlementFilter) {
+          return false;
+        }
+      }
+      if (orderStatusFilter !== "all") {
+        if ((p.order_status || "").toLowerCase() !== orderStatusFilter) {
+          return false;
+        }
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      const an = `${a.first_name || ""} ${a.last_name || ""}`.trim();
+      const bn = `${b.first_name || ""} ${b.last_name || ""}`.trim();
+      // Walk-in rows have no name, so fall back to their code.
+      if (!an && !bn) {
+        return String(a.reservation_id || "").localeCompare(
+          String(b.reservation_id || ""),
+        );
+      }
+      if (!an) return 1;
+      if (!bn) return -1;
+      return an.localeCompare(bn, undefined, { sensitivity: "base" });
+    });
 
   const getItemPrice = (item) => {
     const isRefill =
@@ -83,11 +140,15 @@ const Billing = () => {
   };
 
   const getRemainingBalanceInfo = () => {
-    const total = calculateItemsSum();
+    const total = Number(selectedPayment?.total_bill || calculateItemsSum());
     const paid = Number(selectedPayment?.amount || 0);
-    const exceeds = total > paid;
+    const remaining = Math.max(
+      Number(selectedPayment?.balance_due ?? total - paid),
+      0,
+    );
+    const exceeds = remaining > 0;
     return {
-      remaining: exceeds ? total - paid : 0,
+      remaining,
       exceeds,
       overpaid: paid > total ? paid - total : 0,
     };
@@ -121,7 +182,7 @@ const Billing = () => {
 
       if (reservationRes && reservationRes.data) {
         const details = reservationRes.data.data || reservationRes.data.reservation || reservationRes.data;
-        
+
         setSelectedPayment((prev) => ({
           ...prev,
           ...details
@@ -176,8 +237,8 @@ const Billing = () => {
   const balanceInfo = getRemainingBalanceInfo();
 
   // Helper flag to detect walk-in reservations
-  const isWalkIn = 
-    selectedPayment?.first_name?.toLowerCase().includes("walk") || 
+  const isWalkIn =
+    selectedPayment?.first_name?.toLowerCase().includes("walk") ||
     selectedPayment?.reservation_id?.toUpperCase().startsWith("WALK");
 
   return (
@@ -187,44 +248,99 @@ const Billing = () => {
     >
       {/* HEADER SECTION */}
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 px-3">
-        <div className="mb-3 mb-md-0">
+        <div>
           <h2 className="fw-bold mb-1 text-dark">Billing & Transactions</h2>
           <p className="text-muted small mb-0">
             Monitor incoming payments, verify customer receipts, and manage
             order settlements.
           </p>
         </div>
-        <button
-          className="btn btn-white border shadow-sm fw-bold px-4 py-2 text-dark bg-white d-flex align-items-center align-self-start"
-          onClick={fetchPayments}
-        >
-          <RefreshCw size={15} className="me-2 text-primary" /> Refresh Data
-        </button>
       </div>
 
-      {/* SEARCH BAR */}
-      <div className="col-12 col-md-8 col-lg-5 mb-3 px-2">
-        <div
-          className="d-flex align-items-center bg-white rounded-3 border shadow-sm px-3"
-          style={{ height: "48px" }}
-        >
-          <Search size={20} className="text-muted flex-shrink-0" />
-          <input
-            type="text"
-            className="form-control border-0 bg-transparent shadow-none w-100 ms-2"
-            style={{
-              color: "#212529",
-              fontSize: "16px",
-              fontWeight: "500",
-              height: "100%",
-            }}
-            placeholder="Search by guest name or ID..."
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setCurrentPage(1);
-            }}
-          />
+      {/* SEARCH BAR + FILTERS (same row on wide screens) */}
+      <div className="col-12 mb-3 px-2">
+        <div className="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center gap-2">
+          <div
+            className="d-flex align-items-center bg-white rounded-3 border shadow-sm px-3 flex-grow-1"
+            style={{ height: "48px", minWidth: "260px" }}
+          >
+            <Search size={20} className="text-muted flex-shrink-0" />
+            <input
+              type="text"
+              className="form-control border-0 bg-transparent shadow-none w-100 ms-2"
+              style={{
+                color: "#212529",
+                fontSize: "16px",
+                fontWeight: "500",
+                height: "100%",
+              }}
+              placeholder="Search by guest name or ID..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+            />
+          </div>
+
+          <div className="d-flex flex-wrap gap-2 align-items-center">
+            <select
+              className="form-select form-select-sm"
+              style={{ width: "auto" }}
+              aria-label="Filter by payment status"
+              value={paymentStatusFilter}
+              onChange={(e) => {
+                setPaymentStatusFilter(e.target.value);
+                resetPage();
+              }}
+            >
+              <option value="all">Any payment status</option>
+              <option value="pending">Pending</option>
+              <option value="verified">Verified</option>
+              <option value="rejected">Rejected</option>
+            </select>
+
+            <select
+              className="form-select form-select-sm"
+              style={{ width: "auto" }}
+              aria-label="Filter by balance"
+              value={settlementFilter}
+              onChange={(e) => {
+                setSettlementFilter(e.target.value);
+                resetPage();
+              }}
+            >
+              <option value="all">Any balance</option>
+              <option value="unpaid">Unpaid</option>
+              <option value="partial">Partially paid</option>
+              <option value="paid">Paid in full</option>
+            </select>
+
+            <select
+              className="form-select form-select-sm"
+              style={{ width: "auto" }}
+              aria-label="Filter by order status"
+              value={orderStatusFilter}
+              onChange={(e) => {
+                setOrderStatusFilter(e.target.value);
+                resetPage();
+              }}
+            >
+              <option value="all">Any order status</option>
+              <option value="seated">Seated</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+
+            {hasActiveFilters && (
+              <button
+                className="btn btn-sm btn-link text-decoration-none px-0"
+                onClick={clearFilters}
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -242,7 +358,9 @@ const Billing = () => {
               >
                 <th className="ps-4 py-3">Customer Profile</th>
                 <th>Method</th>
-                <th>Downpayment Paid</th>
+                <th>Paid</th>
+                <th>Total Bill</th>
+                <th>Balance Due</th>
                 <th>Payment Proof</th>
                 <th>Settlement Status</th>
                 <th className="text-center">Order status</th>
@@ -300,6 +418,18 @@ const Billing = () => {
                         </div>
                       </td>
                       <td>
+                        ₱{Number(p.total_bill || 0).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                        })}
+                      </td>
+                      <td>
+                        <span className={Number(p.balance_due || 0) > 0 ? "text-danger fw-bold" : "text-success fw-bold"}>
+                          ₱{Number(p.balance_due || 0).toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                          })}
+                        </span>
+                      </td>
+                      <td>
                         <span
                           className={`badge rounded-pill px-3 py-1.5 fw-semibold ${
                             payStatus === "verified"
@@ -313,13 +443,13 @@ const Billing = () => {
                         </span>
                       </td>
                       <td>
-                        {isCompleted ? (
+                        {p.settlement_status === "paid" ? (
                           <span className="badge bg-info-subtle text-info border border-info-subtle px-3 py-1.5 fw-semibold">
                             FULLY PAID
                           </span>
                         ) : (
                           <span className="badge bg-light text-muted border px-3 py-1.5 fw-semibold">
-                            PARTIAL BILL
+                            {p.settlement_status === "unpaid" ? "UNPAID" : "PARTIAL BILL"}
                           </span>
                         )}
                       </td>
@@ -349,7 +479,7 @@ const Billing = () => {
                 })
               ) : (
                 <tr>
-                  <td colSpan="7" className="text-center py-5 text-muted">
+                  <td colSpan="9" className="text-center py-5 text-muted">
                     <div className="py-3">
                       <p className="mb-0 fw-semibold">
                         No transactions available
@@ -454,7 +584,7 @@ const Billing = () => {
                         : "PENDING"}
                     </span>
                     <span className="d-flex align-items-center gap-1">
-                      <strong>₱
+                      <strong>Paid: ₱
                         {p.amount
                           ? Number(p.amount).toLocaleString(undefined, {
                               minimumFractionDigits: 2,
@@ -462,16 +592,21 @@ const Billing = () => {
                           : "0.00"}
                       </strong>
                     </span>
+                    <span className={Number(p.balance_due || 0) > 0 ? "text-danger fw-bold" : "text-success fw-bold"}>
+                      Balance: ₱{Number(p.balance_due || 0).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                      })}
+                    </span>
                   </div>
 
                   <div className="d-flex flex-wrap gap-2 mb-3">
-                    {isCompleted ? (
+                    {p.settlement_status === "paid" ? (
                       <span className="badge bg-info-subtle text-info border border-info-subtle px-3 py-1.5 fw-semibold">
                         FULLY PAID
                       </span>
                     ) : (
                       <span className="badge bg-light text-muted border px-3 py-1.5 fw-semibold">
-                        PARTIAL BILL
+                        {p.settlement_status === "unpaid" ? "UNPAID" : "PARTIAL BILL"}
                       </span>
                     )}
                     <span
@@ -567,6 +702,91 @@ const Billing = () => {
           <>
             {/* 1. ORDER SUMMARY SECTION (Scrollable Light Area) */}
             <div className="px-3 pt-3 pb-0 flex-grow-1 overflow-auto">
+              {/* GUEST CONTEXT HEADER */}
+              <div
+                className="bg-white border rounded-3 shadow-sm p-2 px-3 mb-3 d-flex justify-content-between align-items-center gap-2"
+              >
+                <div className="text-start">
+                  <div
+                    className="fw-bold text-dark"
+                    style={{ fontSize: "0.95rem" }}
+                  >
+                    {[
+                      selectedPayment?.first_name,
+                      selectedPayment?.last_name,
+                    ]
+                      .filter(Boolean)
+                      .join(" ")
+                      .trim() || "Walk-in Guest"}
+                  </div>
+                  <div className="text-muted" style={{ fontSize: "0.72rem" }}>
+                    {selectedPayment?.num_guests
+                      ? `${selectedPayment.num_guests} pax`
+                      : "Walk-in"}
+                    {selectedPayment?.table_number
+                      ? ` • Table ${selectedPayment.table_number}`
+                      : ""}
+                  </div>
+                </div>
+                <div className="text-end">
+                  <span
+                    className={`badge ${
+                      selectedPayment?.order_status?.toLowerCase() ===
+                      "completed"
+                        ? "text-bg-success"
+                        : "text-bg-warning"
+                    }`}
+                  >
+                    {selectedPayment?.order_status || "Pending"}
+                  </span>
+                  {balanceInfo.overpaid > 0 && (
+                    <div
+                      className="text-success fw-bold mt-1"
+                      style={{ fontSize: "0.68rem" }}
+                    >
+                      Overpaid ₱
+                      {balanceInfo.overpaid.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* ALLERGY WARNING — must be impossible to miss for the kitchen */}
+              {(() => {
+                const note = (selectedPayment?.allergy_note || "").trim();
+                if (!note || note.toLowerCase() === "none") return null;
+                return (
+                  <div
+                    className="alert alert-danger border-0 rounded-3 p-2 px-3 mb-3 d-flex align-items-start gap-2 shadow-sm"
+                    role="alert"
+                  >
+                    <AlertTriangle
+                      size={20}
+                      className="flex-shrink-0 mt-1"
+                    />
+                    <div>
+                      <div
+                        className="fw-bold text-uppercase"
+                        style={{ fontSize: "0.68rem", letterSpacing: "0.5px" }}
+                      >
+                        Allergy Alert
+                      </div>
+                      <div className="fw-bold" style={{ fontSize: "0.9rem" }}>
+                        {note}
+                      </div>
+                      <div
+                        className="text-danger-emphasis"
+                        style={{ fontSize: "0.7rem" }}
+                      >
+                        Inform the kitchen before preparing.
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
               <div className="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
                 <span
                   className="fw-bold text-muted text-uppercase tracking-wider"
@@ -716,41 +936,58 @@ const Billing = () => {
                     return (
                       <div
                         key={idx}
-                        className="mb-2 p-2 bg-white rounded-3 border shadow-sm"
+                        className="mb-2 p-2 bg-white rounded-3 border shadow-sm d-flex align-items-center gap-2"
                       >
-                        <div className="d-flex justify-content-between align-items-center">
-                          <div>
-                            <div className="fw-bold text-dark small">
-                              {item.name || item.item_name}
-                              {isRefill && (
-                                <span
-                                  className="badge bg-success-subtle text-success ms-2 text-uppercase"
-                                  style={{ fontSize: "0.65rem" }}
-                                >
-                                  Refill
-                                  </span>
-                              )}
+                        <span
+                          className="badge bg-dark rounded-1 flex-shrink-0"
+                          style={{
+                            fontSize: "0.7rem",
+                            width: "30px",
+                            padding: "6px 0",
+                          }}
+                        >
+                          x{item.quantity}
+                        </span>
+                        <div className="flex-grow-1 text-start overflow-hidden">
+                          <div
+                            className="fw-bold text-dark small text-truncate"
+                          >
+                            {item.name || item.item_name}
+                            {isRefill && (
+                              <span
+                                className="badge bg-success-subtle text-success ms-2 text-uppercase"
+                                style={{ fontSize: "0.6rem" }}
+                              >
+                                Refill
+                              </span>
+                            )}
+                          </div>
+                          {item.customizations && (
+                            <div
+                              className="text-muted"
+                              style={{
+                                fontSize: "0.7rem",
+                                lineHeight: 1.35,
+                              }}
+                            >
+                              {item.customizations}
                             </div>
-                            <small className="text-muted">
-                              Unit Price: ₱
-                              {currentPrice.toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                              })}
-                            </small>
-                          </div>
-                          <div className="text-end">
-                            <span className="badge bg-light text-dark border me-2">
-                              x{item.quantity}
-                            </span>
-                            <span className="fw-bold text-dark small">
-                              ₱
-                              {(item.quantity * currentPrice).toLocaleString(
-                                undefined,
-                                { minimumFractionDigits: 2 },
-                              )}
-                            </span>
-                          </div>
+                          )}
+                          <small className="text-muted">
+                            ₱{currentPrice.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                            })} each
+                          </small>
                         </div>
+                        <span
+                          className="fw-bold text-dark small text-end flex-shrink-0"
+                        >
+                          ₱
+                          {(item.quantity * currentPrice).toLocaleString(
+                            undefined,
+                            { minimumFractionDigits: 2 },
+                          )}
+                        </span>
                       </div>
                     );
                   })}
@@ -765,18 +1002,18 @@ const Billing = () => {
                   <span>Total Bill</span>
                   <span className="text-white">
                     ₱
-                    {calculateItemsSum().toLocaleString(undefined, {
+                    {Number(selectedPayment?.total_bill || calculateItemsSum()).toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                     })}
                   </span>
                 </div>
 
-                {/* Only render Downpayment & Balance controls if the guest is NOT a walk-in */}
-                {!isWalkIn && (
+                {/* Show the same paid and outstanding balance breakdown for walk-ins and reservations. */}
+                {(
                   <>
                     <div className="d-flex justify-content-between align-items-center mb-1.5 pb-1.5 border-bottom border-secondary border-opacity-50">
                       <span className="text-white-50 small">
-                        Downpayment Paid
+                        Paid Amount
                       </span>
                       {isEditingAmount ? (
                         <div className="d-flex align-items-center gap-2 animate-fade-in">

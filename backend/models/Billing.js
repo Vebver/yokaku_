@@ -15,11 +15,27 @@ const Billing = {
           p.payment_id,
           p.amount,              -- Amount currently paid / deposit
           p.total_bill,          -- The ACTUAL calculated bill (Added)
+          GREATEST(COALESCE(p.total_bill, 0) - COALESCE(p.amount, 0), 0) AS balance_due,
+          CASE
+            WHEN p.payment_id IS NULL THEN 'unpaid'
+            WHEN COALESCE(p.amount, 0) >= COALESCE(p.total_bill, 0) THEN 'paid'
+            WHEN COALESCE(p.amount, 0) > 0 THEN 'partial'
+            ELSE 'unpaid'
+          END AS settlement_status,
           p.payment_method,
           p.payment_status,
           p.rejection_reason,
           p.rejected_at,
           r.receipt_path AS receipt_path,
+          r.num_guests,
+          -- Allergy notes live on the order lines, not the reservation, so the
+          -- latest note for this session is used (null when none was given).
+          (SELECT MAX(ko.allergy_note)
+             FROM kiosk_orders ko
+            WHERE TRIM(ko.reservation_id) = TRIM(r.reservation_id)
+              AND ko.allergy_note IS NOT NULL
+              AND TRIM(ko.allergy_note) <> ''
+              AND LOWER(TRIM(ko.allergy_note)) <> 'none') AS allergy_note,
           GROUP_CONCAT(DISTINCT t.table_number SEPARATOR ', ') AS table_number
         FROM reservations r
         LEFT JOIN payments p ON r.reservation_id = p.reservation_id

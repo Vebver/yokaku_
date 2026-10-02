@@ -1,4 +1,6 @@
 const Inventory = require("../models/Inventory");
+const Product = require("../models/Product");
+const db = require("../config/db");
 const { logActivity } = require("../utils/logger");
 
 const inventoryController = {
@@ -13,23 +15,62 @@ const inventoryController = {
     }
   },
 
-  // 2. Create a new inventory item
+  // 2. Create a new inventory item, optionally linking it to dishes in the
+  //    same step. This is the main friction reducer: staff answer "what dishes
+  //    use this raw material?" once, at the moment they stock it, instead of
+  //    later hunting through Recipe Manager.
   createInventoryItem: async (req, res) => {
+    const conn = await db.getConnection();
     try {
+      await conn.beginTransaction();
+
       // The req.body will contain: item_name, category, quantity, unit,
-      // unit_price, expiry_date, storage_location, reorder_level
-      const newItem = await Inventory.create(req.body);
+      // unit_price, expiry_date, storage_location, reorder_level, plus an
+      // optional recipeLinks array of { item_id, quantity_required }.
+      const { recipeLinks, ...itemData } = req.body;
+      const newItem = await Inventory.create(itemData, conn);
+
+      const links = Array.isArray(recipeLinks) ? recipeLinks : [];
+      let linkedCount = 0;
+
+      if (links.length > 0 && newItem?.inventory_id) {
+        linkedCount = await Product.linkMany(
+          links
+            .filter((l) => l && l.item_id && Number(l.quantity_required) > 0)
+            .map((l) => ({
+              item_id: parseInt(l.item_id, 10),
+              inventory_id: newItem.inventory_id,
+              quantity_required: Number(l.quantity_required),
+            })),
+          conn,
+        );
+      }
+
+      await conn.commit();
+
       await logActivity(
         req.user?.userId || null,
         "CREATE_INVENTORY_ITEM",
         newItem?.inventory_id || null,
-        { item_name: req.body.item_name, quantity: req.body.quantity },
+        {
+          item_name: req.body.item_name,
+          quantity: req.body.quantity,
+          linked_dishes: linkedCount,
+        },
         req,
       );
-      res.status(201).json(newItem);
+
+      res.status(201).json({ ...newItem, linked_dishes: linkedCount });
     } catch (error) {
+      try {
+        await conn.rollback();
+      } catch (_) {
+        /* connection already released */
+      }
       console.error("Error in createInventoryItem:", error.message);
       res.status(400).json({ error: "Failed to add item to inventory." });
+    } finally {
+      conn.release();
     }
   },
 

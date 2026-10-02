@@ -1,3 +1,28 @@
+.package-search-bar {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 18px;
+}
+
+.package-search-bar input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+}
+
+.package-search-bar button {
+  border: 0;
+  border-radius: 10px;
+  padding: 0 16px;
+  background: #f38d31;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 /* PackageModal.css - Styles for the package selection modal */
 
 /* ============================================ */

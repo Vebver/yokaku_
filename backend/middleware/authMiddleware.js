@@ -33,14 +33,20 @@ const adminOnly = (req, res, next) => {
   }
 };
 
-const inventoryAccess = (req, res, next) => {
-  const allowedRoles = ["admin", "cook"];
+// 3. KIOSK CONTROL: only Admin and Cashier/Staff may interrupt or stop a
+//    kiosk session (e.g. when the kiosk is stuck or showing a bug).
+const kioskControl = (req, res, next) => {
+  const allowedRoles = ["admin", "cashier", "staff"];
+  const role = req.user?.role;
 
-  if (req.user && allowedRoles.includes(req.user.role)) {
-    next();
-  } else {
-    res.status(403).json({ error: "Access denied. Kitchen staff only." });
+  if (role && allowedRoles.includes(role)) {
+    return next();
   }
+
+  console.log("Kiosk control denied for role:", role);
+  res.status(403).json({
+    error: "Access denied. Only admins or cashiers can control the kiosk.",
+  });
 };
 
-module.exports = { protect, adminOnly, inventoryAccess };
+module.exports = { protect, adminOnly, kioskControl };

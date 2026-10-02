@@ -57,6 +57,9 @@ router.delete(
 
 // 1. Static and Specific routes first
 router.get("/active-kiosk", reservationController.getActiveKiosk);
+// Side-effect-free preview for the kiosk confirmation screen. Declared before
+// "/:id" so "preview" is never swallowed as a reservation id.
+router.get("/:id/preview", reservationController.previewReservationId);
 router.get("/:id/items", protect, reservationController.getReservationItems);
 
 // 2. POST actions

@@ -4,8 +4,9 @@ const adminController = require('../controllers/adminController');
 const maintenanceController = require('../controllers/maintenanceController');
 const blockedDateController = require('../controllers/blockedDateController');
 const backupController = require('../controllers/backupController');
+const backupUpload = require('../middleware/backupUpload');
 const { getFinancialAnalytics } = require('../controllers/reportController');
-const { protect, adminOnly } = require("../middleware/authMiddleware");
+const { protect, adminOnly, kioskControl } = require("../middleware/authMiddleware");
 
 // --- DASHBOARD & TABLE ROUTES (Accessible by Admin and Cashier) ---
 router.get('/today-schedule', protect, adminOnly, adminController.getTodaySchedule);
@@ -19,7 +20,13 @@ router.get('/reports/financial-analytics', protect, adminOnly, getFinancialAnaly
 // --- OPERATIONAL ROUTES (Walk-in / Checkout) ---
 router.post('/walk-in/:tableId', protect, adminOnly, adminController.Walkin);
 router.put('/checkout/:tableId', protect, adminOnly, adminController.CheckOut);
-router.post('/stop-kiosk', protect, adminOnly, adminController.stopKiosk);
+router.put('/table-status/:tableId', protect, adminOnly, adminController.setTableStatus);
+// Move a free table onto a party's existing reservation (one session, one kiosk)
+router.post('/table-status/:tableId/link', protect, adminOnly, adminController.linkTable);
+router.post('/stop-kiosk', protect, kioskControl, adminController.stopKiosk);
+router.get('/kiosk-candidates', protect, kioskControl, adminController.getKioskCandidates);
+router.get('/active-kiosks', protect, kioskControl, adminController.getActiveKiosks);
+router.get('/kiosk-reservations', protect, kioskControl, adminController.getReservationsForKiosk);
 router.post('/add-table', protect, adminOnly, adminController.addTable);
 router.delete('/tables/:tableId', protect, adminOnly, adminController.deleteTable);
 
@@ -28,7 +35,7 @@ router.put('/users/:userId/update-role', protect, adminOnly, adminController.upd
 router.get('/users', protect, adminOnly, adminController.getAllUsers);
 
 // --- MAINTENANCE ROUTES (Keep protected) ---
-router.post('/set-kiosk-reservation',protect, adminOnly, maintenanceController.updateKioskReservation);
+router.post('/set-kiosk-reservation', protect, kioskControl, maintenanceController.updateKioskReservation);
 router.post('/reset', protect, adminOnly, maintenanceController.reset);
 router.get('/export-csv', protect, adminOnly, maintenanceController.exportData);
 router.get('/export-financial-pdf', protect, adminOnly, maintenanceController.exportFinancialPdf);
@@ -37,6 +44,7 @@ router.get('/export-financial-pdf', protect, adminOnly, maintenanceController.ex
 router.post('/backup', protect, adminOnly, backupController.createBackup);
 router.get('/backups', protect, adminOnly, backupController.listBackups);
 router.post('/backup/restore/:filename', protect, adminOnly, backupController.restoreBackup);
+router.post('/backup/restore-local', protect, adminOnly, backupUpload, backupController.restoreLocalBackup);
 router.delete('/backup/:filename', protect, adminOnly, backupController.deleteBackup);
 router.get('/backup/download/:filename', protect, adminOnly, backupController.downloadBackup);
 

@@ -13,6 +13,28 @@ import {
 } from "lucide-react";
 import api from "../../api";
 import { useToast } from "../ToastContext";
+import { useSectionRefresh } from "../shared/sectionRefresh";
+
+// "HH:MM" to minutes since midnight
+const toMinutes = (value) => {
+  const [h, m] = String(value || "").split(":").map(Number);
+  if (isNaN(h) || isNaN(m)) return null;
+  return h * 60 + m;
+};
+
+// Human readable span between two "HH:MM" values, e.g. "3h 30m".
+const formatDuration = (start, end) => {
+  const s = toMinutes(start);
+  const e = toMinutes(end);
+  if (s === null || e === null) return "";
+  let mins = e - s;
+  // Treat an end time earlier than the start as crossing midnight.
+  if (mins <= 0) mins += 24 * 60;
+  const hours = Math.floor(mins / 60);
+  const rem = mins % 60;
+  if (hours === 0) return `${rem}m`;
+  return rem === 0 ? `${hours}h` : `${hours}h ${rem}m`;
+};
 
 const WalkInReservations = () => {
   const { showToast } = useToast();
@@ -25,6 +47,11 @@ const WalkInReservations = () => {
   const [searchQuery, setSearchQuery] = useState("");
 
   const closeBtnRef = useRef(null);
+
+  const PACKAGE_PRICES = {
+    "Standard Package": 10000,
+    "Premium Package": 12500,
+  };
 
   const getLocalISODate = () => {
     const tzOffset = new Date().getTimezoneOffset() * 60000; // offset in milliseconds
@@ -53,9 +80,10 @@ const WalkInReservations = () => {
     phone: "",
     date: getLocalISODate(),
     startTime: "",
-    guests: 1,
+    endTime: "",
     bookingType: "table", // 'table', 'takeout', or 'event'
     packageName: "Regular Table",
+    amountPaid: 0,
     paymentMethod: "Cash",
     tableIds: [],
   });
@@ -69,6 +97,13 @@ const WalkInReservations = () => {
     fetchTables();
     fetchProducts();
   }, []);
+
+  // Reload on the shared admin refresh button in the top bar.
+  useSectionRefresh(() => {
+    fetchWalkIns();
+    fetchTables();
+    fetchProducts();
+  });
 
   useEffect(() => {
     return () => {
@@ -102,7 +137,24 @@ const WalkInReservations = () => {
       );
 
       setInquiries(
-        filtered.sort((a, b) => b.reservation_id - a.reservation_id),
+      // Newest first, by actual booking time. Sorting on reservation_id was
+      // unreliable because it is a VARCHAR (and walk-in ids are like
+      // "WALK-1712...-3456"), so numeric subtraction produced NaN and left the
+      // order effectively random.
+      filtered.sort((a, b) => {
+        const at = new Date(`${a.reservation_date || ""} ${a.reservation_time || "00:00:00"}`).getTime();
+        const bt = new Date(`${b.reservation_date || ""} ${b.reservation_time || "00:00:00"}`).getTime();
+        if (!isNaN(at) && !isNaN(bt) && at !== bt) return bt - at;
+        // Walk-in ids embed a timestamp, so use it when date is missing.
+        const aNum = parseInt(String(a.reservation_id || "").replace(/\D/g, ""), 10);
+        const bNum = parseInt(String(b.reservation_id || "").replace(/\D/g, ""), 10);
+        if (!isNaN(aNum) && !isNaN(bNum) && aNum !== bNum) return bNum - aNum;
+        return String(a.first_name || "").localeCompare(
+          String(b.first_name || ""),
+          undefined,
+          { sensitivity: "base" },
+        );
+      }),
       );
     } catch (err) {
       console.error("Fetch Walk-ins error:", err);
@@ -242,6 +294,16 @@ const WalkInReservations = () => {
       }));
     } else if (name === "tableIds") {
       setNewRes((prev) => ({ ...prev, tableIds: value ? [value] : [] }));
+    } else if (name === "startTime") {
+      // Keep the end time sensible when the start moves past it.
+      setNewRes((prev) => ({
+        ...prev,
+        startTime: value,
+        endTime:
+          prev.endTime && prev.endTime <= value
+            ? ""
+            : prev.endTime,
+      }));
     } else {
       setNewRes((prev) => ({ ...prev, [name]: value }));
     }
@@ -260,8 +322,48 @@ const WalkInReservations = () => {
         }
       }
 
+      // The end time drives the event countdown and when tables free up, so
+      // it has to be present and after the start.
+      if (!newRes.startTime || !newRes.endTime) {
+        showToast("Please set both a start and end time.");
+        setSubmitting(false);
+        return;
+      }
+      const startMins = toMinutes(newRes.startTime);
+      const endMins = toMinutes(newRes.endTime);
+      if (startMins === null || endMins === null) {
+        showToast("Please enter valid start and end times.");
+        setSubmitting(false);
+        return;
+      }
+      if (endMins <= startMins) {
+        showToast("The end time must be after the start time.");
+        setSubmitting(false);
+        return;
+      }
+
+      const packagePrice = PACKAGE_PRICES[newRes.packageName] || 0;
+      const addOnTotal = orderCart.reduce(
+        (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 1),
+        0,
+      );
+      const totalBill = packagePrice + addOnTotal;
+      const amountPaid = Math.min(
+        Math.max(Number(newRes.amountPaid || 0), 0),
+        totalBill,
+      );
+
       const payload = {
         ...newRes,
+        // Event length is derived from the entered times so the timer and the
+        // automatic table release both agree with what staff typed.
+        durationHours:
+          (endMins - startMins) / 60 > 0
+            ? (endMins - startMins) / 60
+            : (endMins + 24 * 60 - startMins) / 60,
+        totalAmount: totalBill,
+        downpayment: amountPaid,
+        amount: amountPaid,
         reservationType:
           newRes.bookingType === "table" ? "per_table" : newRes.bookingType,
         isWalkin: true,
@@ -304,12 +406,48 @@ const WalkInReservations = () => {
     }
   };
 
+  // Filter controls.
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState("all");
+
+  const resetPage = () => setCurrentPage(1);
+
+  const clearFilters = () => {
+    setStatusFilter("all");
+    setDateFilter("all");
+    resetPage();
+  };
+
+  const todayString = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  })();
+
+  const hasActiveFilters = statusFilter !== "all" || dateFilter !== "all";
+
   const filteredInquiries = inquiries.filter((item) => {
     const fullName =
       `${item.first_name || ""} ${item.last_name || ""}`.toLowerCase();
     const resId = (item.reservation_id || "").toLowerCase();
     const term = searchQuery.toLowerCase();
-    return fullName.includes(term) || resId.includes(term);
+    if (term && !(fullName.includes(term) || resId.includes(term))) {
+      return false;
+    }
+
+    if (statusFilter !== "all") {
+      const s = (item.status || "").toLowerCase();
+      if (s !== statusFilter) return false;
+    }
+
+    if (dateFilter !== "all") {
+      const d = String(item.reservation_date || "").slice(0, 10);
+      if (dateFilter === "today" && d !== todayString) return false;
+      if (dateFilter === "upcoming" && (d === "" || d < todayString))
+        return false;
+      if (dateFilter === "past" && d >= todayString) return false;
+    }
+
+    return true;
   });
 
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -354,29 +492,73 @@ const WalkInReservations = () => {
         </div>
       </div>
 
-      {/* SEARCH BAR */}
-      <div className="col-12 col-md-8 col-lg-5 mb-3 px-2">
-        <div
-          className="d-flex align-items-center bg-white rounded-3 border shadow-sm px-3"
-          style={{ height: "48px" }}
-        >
-          <Search size={20} className="text-muted flex-shrink-0" />
-          <input
-            type="text"
-            className="form-control border-0 bg-transparent shadow-none w-100 ms-2"
-            style={{
-              color: "#212529",
-              fontSize: "16px",
-              fontWeight: "500",
-              height: "100%",
-            }}
-            placeholder="Search by guest name or ID..."
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setCurrentPage(1);
-            }}
-          />
+      {/* SEARCH BAR + FILTERS (same row on wide screens) */}
+      <div className="col-12 mb-3 px-2">
+        <div className="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center gap-2">
+          <div
+            className="d-flex align-items-center bg-white rounded-3 border shadow-sm px-3 flex-grow-1"
+            style={{ height: "48px", minWidth: "260px" }}
+          >
+            <Search size={20} className="text-muted flex-shrink-0" />
+            <input
+              type="text"
+              className="form-control border-0 bg-transparent shadow-none w-100 ms-2"
+              style={{
+                color: "#212529",
+                fontSize: "16px",
+                fontWeight: "500",
+                height: "100%",
+              }}
+              placeholder="Search by guest name or ID..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+            />
+          </div>
+
+          <div className="d-flex flex-wrap gap-2 align-items-center">
+            <select
+              className="form-select form-select-sm"
+              style={{ width: "auto" }}
+              aria-label="Filter by date"
+              value={dateFilter}
+              onChange={(e) => {
+                setDateFilter(e.target.value);
+                resetPage();
+              }}
+            >
+              <option value="all">Any date</option>
+              <option value="today">Today</option>
+              <option value="upcoming">Upcoming</option>
+              <option value="past">Past</option>
+            </select>
+
+            <select
+              className="form-select form-select-sm"
+              style={{ width: "auto" }}
+              aria-label="Filter by status"
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                resetPage();
+              }}
+            >
+              <option value="all">Any status</option>
+              <option value="seated">Seated</option>
+              <option value="completed">Completed</option>
+            </select>
+
+            {hasActiveFilters && (
+              <button
+                className="btn btn-sm btn-link text-decoration-none px-0"
+                onClick={clearFilters}
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -515,10 +697,13 @@ const WalkInReservations = () => {
         style={{ width: "min(100%, 450px)" }}
       >
         <div className="offcanvas-header border-bottom bg-dark text-white">
+          <div>
           <h5 className="fw-bold m-0 d-flex align-items-center">
             <CalendarCheck size={20} className="me-2 text-warning" />
-            New Reservation
+            Create Reservation
           </h5>
+          <small className="text-white-50 ms-4">Set the table, order, and payment details.</small>
+          </div>
           <button
             type="button"
             className="btn-close btn-close-white shadow-none"
@@ -534,7 +719,7 @@ const WalkInReservations = () => {
           >
             <div className="p-4 flex-grow-1 overflow-auto">
               {/* SECTION: CUSTOMER */}
-              <p className="x-small fw-bold text-muted text-uppercase mb-3">
+              <p className="x-small fw-bold text-primary text-uppercase mb-3 border-bottom pb-2">
                 Customer Information
               </p>
               <div className="row g-3 mb-4">
@@ -583,7 +768,7 @@ const WalkInReservations = () => {
               <hr />
 
               {/* SECTION: BOOKING DETAILS */}
-              <p className="x-small fw-bold text-primary text-uppercase mb-3">
+              <p className="x-small fw-bold text-primary text-uppercase mb-3 border-bottom pb-2">
                 Booking Details
               </p>
 
@@ -620,8 +805,8 @@ const WalkInReservations = () => {
               {(newRes.bookingType === "takeout" ||
                 newRes.bookingType === "table") && (
                 <div className="mb-4 animate-fade-in">
-                  <label className="form-label small fw-bold text-uppercase text-muted">
-                    Add Menu Items (Optional)
+                    <label className="form-label small fw-bold text-uppercase text-muted">
+                    Order Items <span className="fw-normal">(optional)</span>
                   </label>
                   <select
                     className="form-select form-select-sm fw-semibold mb-2"
@@ -711,30 +896,47 @@ const WalkInReservations = () => {
                 </div>
               )}
 
-              {newRes.bookingType === "event" && (
+              {newRes.bookingType !== "takeout" && (
                 <div className="mb-3 p-3 bg-warning-subtle rounded-3 border border-warning-subtle animate-fade-in">
                   <label className="form-label small fw-bold text-warning-emphasis">
-                    Select Event Package
+                    Reservation Package
                   </label>
-                  <select
-                    name="packageName"
-                    className="form-select bg-white mb-2"
-                    value={newRes.packageName}
-                    onChange={handleInputChange}
-                  >
-                    <option value="Standard Package">Standard Package</option>
-                    <option value="Premium Package">Premium Package</option>
-                  </select>
-                  <div className="x-small text-muted">
-                    * Booking an event reserves all floor layout tables
-                    automatically.
+                  <div className="row g-2 mb-2">
+                    {[
+                      { name: "Regular Table", price: 0, label: "No package" },
+                      { name: "Standard Package", price: 10000, label: "Standard" },
+                      { name: "Premium Package", price: 12500, label: "Premium" },
+                    ].map((option) => (
+                      <div className="col-12 col-sm-4" key={option.name}>
+                        <button
+                          type="button"
+                          className={`w-100 text-start p-2 rounded-3 ${newRes.packageName === option.name ? "border border-2 border-warning bg-warning-subtle" : "border bg-white"}`}
+                          onClick={() =>
+                            setNewRes((prev) => ({ ...prev, packageName: option.name }))
+                          }
+                        >
+                          <span className="d-block fw-bold small">{option.label}</span>
+                          <span className="d-block text-muted small">
+                            {option.price ? `₱${option.price.toLocaleString()}` : "Base menu only"}
+                          </span>
+                        </button>
+                      </div>
+                    ))}
                   </div>
+                  <div className="x-small text-muted mb-2">
+                    Standard: ₱10,000 · Premium: ₱12,500
+                  </div>
+                  {newRes.bookingType === "event" && (
+                    <div className="x-small text-muted">
+                      Event packages reserve the full venue automatically.
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* NEW SECTION: PAYMENT METHOD */}
               <div className="mb-4">
-                <label className="form-label small fw-bold text-success text-uppercase">
+                <label className="form-label small fw-bold text-success text-uppercase border-bottom pb-2 w-100">
                   Payment Method
                 </label>
                 <select
@@ -751,6 +953,49 @@ const WalkInReservations = () => {
                 </div>
               </div>
 
+              {(() => {
+                const packagePrice = PACKAGE_PRICES[newRes.packageName] || 0;
+                const addOnTotal = orderCart.reduce(
+                  (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 1),
+                  0,
+                );
+                const totalBill = packagePrice + addOnTotal;
+                const paid = Math.min(Math.max(Number(newRes.amountPaid || 0), 0), totalBill);
+                return (
+                  <div className="p-3 mb-4 bg-white border rounded-3 shadow-sm">
+                    <div className="d-flex justify-content-between small mb-1">
+                      <span className="text-muted">Package</span>
+                      <strong>₱{packagePrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong>
+                    </div>
+                    <div className="d-flex justify-content-between small mb-1">
+                      <span className="text-muted">Add-ons</span>
+                      <strong>₱{addOnTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong>
+                    </div>
+                    <div className="d-flex justify-content-between border-top pt-2 mb-2">
+                      <strong>Total Bill</strong>
+                      <strong>₱{totalBill.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong>
+                    </div>
+                    <label className="form-label small fw-bold mb-1">Amount Paid</label>
+                    <input
+                      type="number"
+                      name="amountPaid"
+                      min="0"
+                      max={totalBill}
+                      step="0.01"
+                      className="form-control form-control-sm mb-2"
+                      value={newRes.amountPaid}
+                      onChange={handleInputChange}
+                    />
+                    <div className="d-flex justify-content-between small">
+                      <span className="text-muted">Remaining Balance</span>
+                      <strong className={totalBill - paid > 0 ? "text-danger" : "text-success"}>
+                        ₱{(totalBill - paid).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </strong>
+                    </div>
+                  </div>
+                );
+              })()}
+
               <div className="row g-3">
                 <div className="col-6">
                   <label className="form-label small fw-bold">Date</label>
@@ -763,7 +1008,7 @@ const WalkInReservations = () => {
                   />
                 </div>
                 <div className="col-6">
-                  <label className="form-label small fw-bold">Time</label>
+                  <label className="form-label small fw-bold">Start Time</label>
                   <input
                     type="time"
                     name="startTime"
@@ -772,19 +1017,24 @@ const WalkInReservations = () => {
                     required
                   />
                 </div>
-                <div className="col-12">
-                  <label className="form-label small fw-bold">
-                    Number of Guests
-                  </label>
+                <div className="col-6">
+                  <label className="form-label small fw-bold">End Time</label>
                   <input
-                    type="number"
-                    name="guests"
+                    type="time"
+                    name="endTime"
                     className="form-control"
-                    min="1"
-                    value={newRes.guests}
+                    min={newRes.startTime || undefined}
                     onChange={handleInputChange}
                     required
                   />
+                  <div
+                    className="form-text"
+                    style={{ fontSize: "0.7rem" }}
+                  >
+                    {newRes.startTime && newRes.endTime
+                      ? `Duration: ${formatDuration(newRes.startTime, newRes.endTime)}`
+                      : "Used for the event timer and table release."}
+                  </div>
                 </div>
               </div>
             </div>
@@ -931,14 +1181,6 @@ const WalkInReservations = () => {
                       {selectedRes.package_name || "Regular Table"}
                     </span>
                   </div>
-                  <div className="col-6">
-                    <small className="text-muted d-block">
-                      Number of Guests
-                    </small>
-                    <span className="small fw-bold text-dark">
-                      {selectedRes.num_guests || selectedRes.guests || "1"}
-                    </span>
-                  </div>
                 </div>
               </div>
 
@@ -1024,7 +1266,18 @@ const WalkInReservations = () => {
               <div className="p-3 bg-dark text-white sticky-bottom">
                 <div className="d-flex justify-content-between align-items-center mb-3">
                   <h5 className="fw-bold mb-0">Total Bill</h5>
-                  <span className="badge py-2 px-3 bg-success">PAID</span>
+                  <span className={`badge py-2 px-3 ${Number(selectedRes.balance_due || 0) > 0 ? "bg-warning text-dark" : "bg-success"}`}>
+                    {Number(selectedRes.balance_due || 0) > 0 ? "BALANCE DUE" : "PAID"}
+                  </span>
+                </div>
+                <div className="small text-white-50 mb-1">
+                  Total: ₱{Number(selectedRes.total_bill || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </div>
+                <div className="small text-white-50">
+                  Paid: ₱{Number(selectedRes.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  <span className="float-end">
+                    Due: ₱{Number(selectedRes.balance_due || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </span>
                 </div>
                 <button
                   className="btn btn-outline-light btn-sm w-100 fw-bold border-opacity-25"

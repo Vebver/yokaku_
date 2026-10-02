@@ -6,16 +6,27 @@ const { logActivity } = require("../utils/logger");
 const maintenanceController = {
   // kiosk reservation
   updateKioskReservation: async (req, res) => {
-    const { reservationId } = req.body;
+    const { reservationId, kioskType = "single" } = req.body;
 
     if (!reservationId) {
       return res.status(400).json({ error: "Reservation ID is required." });
     }
+    if (!["event", "single"].includes(kioskType)) {
+      return res.status(400).json({ error: "Kiosk type must be event or single." });
+    }
 
     try {
-      const affectedRows = await Maintenance.setKioskReservation(reservationId);
+      const result = await Maintenance.setKioskReservation(
+        reservationId,
+        kioskType,
+      );
 
-      if (affectedRows === 0) {
+      if (result.affectedRows === 0) {
+        if (result.reason === "type_mismatch") {
+          return res.status(400).json({
+            error: `This reservation is ${result.actualType === "event" ? "an event" : "a single-customer reservation"}. Choose the matching kiosk type.`,
+          });
+        }
         return res.status(404).json({ error: "Reservation ID not found." });
       }
 
@@ -23,12 +34,15 @@ const maintenanceController = {
         req.user?.userId || null,
         "UPDATE_KIOSK_RESERVATION",
         reservationId,
-        { message: "Reservation focus manually pushed to kiosk display." },
+        { message: `Kiosk opened for ${kioskType} reservation.` },
         req,
       );
 
+      const io = req.app.get("io");
+      if (io) io.emit("table_updated");
+
       res.json({
-        message: `Kiosk updated successfully with Reservation ID ${reservationId}.`,
+        message: `Kiosk opened for ${kioskType} reservation ${reservationId}.`,
       });
     } catch (error) {
       console.error(error);

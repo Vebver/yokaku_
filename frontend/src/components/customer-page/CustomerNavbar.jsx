@@ -3,9 +3,8 @@ import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import io from "socket.io-client";
 import "../../Style/Navbar.css";
+import { API_BASE, SOCKET_URL } from "../../api";
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL;
-const API_BASE = import.meta.env.VITE_API_URL;
 
 function CustomerNavbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);

@@ -106,24 +106,72 @@ const adminController = {
       res.status(500).json({ error: error.message });
     }
   },
+  // List every live booking so staff can look up IDs for kiosk arming
+  getReservationsForKiosk: async (req, res) => {
+    try {
+      const rows = await TableStatus.listReservationsForKiosk();
+      res.json({ reservations: rows });
+    } catch (error) {
+      console.error("Kiosk Reservations Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+  // List live kiosk sessions that are already running (no manual pairing needed)
+  getActiveKiosks: async (req, res) => {
+    try {
+      const rows = await TableStatus.listActiveKiosks();
+      res.json({ kiosks: rows });
+    } catch (error) {
+      console.error("Active Kiosks Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+  // List active sessions (walk-ins and reservations) that can be pushed to a kiosk.
+  getKioskCandidates: async (req, res) => {
+    try {
+      const rows = await TableStatus.listKioskCandidates();
+      res.json({ candidates: rows });
+    } catch (error) {
+      console.error("Kiosk Candidates Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
   // STOP KIOSK: Reset the active kiosk session so the kiosk returns to home
   stopKiosk: async (req, res) => {
-    const { reservationId } = req.body;
+    const { reservationId, tableId } = req.body;
     try {
-      const result = await TableStatus.stopKiosk(reservationId);
+      const result = await TableStatus.stopKiosk(reservationId, tableId);
       const affected = result?.affected ?? result?.affectedRows ?? 0;
       if (affected === 0) {
-        return res.status(404).json({ error: "No active kiosk found to stop." });
+        const message =
+          result?.reason === "not_bound"
+            ? "This table is not part of that kiosk session."
+            : "No active kiosk found to stop.";
+        return res.status(404).json({ error: message });
       }
       await logActivity(
         req.user?.userId || null,
         "STOP_KIOSK",
         reservationId || null,
-        { message: "Kiosk session stopped by admin/cashier." },
+        {
+          message: tableId
+            ? `Kiosk session stopped for table ${tableId} by admin/cashier.`
+            : "Kiosk session stopped by admin/cashier.",
+        },
         req,
       );
       const io = req.app.get("io");
-      if (io) io.emit("table_updated");
+      if (io) {
+        io.emit("table_updated");
+        // Dedicated event so a stuck kiosk can immediately bounce to its home
+        // screen without waiting for a poll cycle.
+        io.emit("kiosk_stopped", {
+          reservationId: reservationId || null,
+          tableId: tableId || null,
+          stoppedBy: req.user?.role || null,
+          at: new Date().toISOString(),
+        });
+      }
       res.json({ message: "Kiosk stopped successfully." });
     } catch (error) {
       console.error("Stop Kiosk Error:", error);
@@ -149,23 +197,28 @@ const adminController = {
       );
       res.status(201).json({ message: "Table created successfully" });
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      res.status(error.statusCode || 500).json({ error: error.message });
     }
   },
   deleteTable: async (req, res) => {
     try {
       const { tableId } = req.params;
       const result = await TableStatus.deleteTable(tableId);
+      if (!result.success) {
+        return res.status(404).json({ error: "Table not found." });
+      }
       await logActivity(
         req.user?.userId || null,
-        "ADD_TABLE",
-        table_number,
-        { capacity },
+        "DELETE_TABLE",
+        tableId,
+        {},
         req,
       );
+      const io = req.app.get("io");
+      if (io) io.emit("table_updated");
       res.json({ message: "Table deleted successfully", result });
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      res.status(error.statusCode || 500).json({ error: error.message });
     }
   },
   Walkin: async (req, res) => {
@@ -193,6 +246,34 @@ const adminController = {
       res.status(500).json({ error: error.message });
     }
   },
+  // Join a free table to a party's existing reservation so both cards share
+  // one session (and therefore one kiosk).
+  linkTable: async (req, res) => {
+    try {
+      const { reservationId } = req.body;
+      const { tableId } = req.params;
+
+      if (!reservationId || !tableId) {
+        return res
+          .status(400)
+          .json({ error: "Reservation and table are both required." });
+      }
+
+      const result = await TableStatus.attachTableToReservation(
+        reservationId,
+        tableId,
+      );
+
+      res.json({
+        success: true,
+        message: "Table linked to the reservation.",
+        result,
+      });
+    } catch (error) {
+      console.error("Link table error:", error);
+      res.status(400).json({ error: error.message });
+    }
+  },
   CheckOut: async (req, res) => {
     try {
       const { tableId } = req.params;
@@ -208,6 +289,28 @@ const adminController = {
       res.json({ message: "Checked out successfully", result });
     } catch (error) {
       res.status(500).json({ error: error.message });
+    }
+  },
+  setTableStatus: async (req, res) => {
+    try {
+      const { tableId } = req.params;
+      const { status } = req.body;
+      const result = await TableStatus.setManualStatus(tableId, status);
+
+      await logActivity(
+        req.user?.userId || null,
+        "SET_TABLE_STATUS",
+        tableId,
+        { status: result.status },
+        req,
+      );
+
+      const io = req.app.get("io");
+      if (io) io.emit("table_updated");
+
+      res.json({ success: true, ...result });
+    } catch (error) {
+      res.status(error.statusCode || 500).json({ error: error.message });
     }
   },
   // controllers/adminController.js

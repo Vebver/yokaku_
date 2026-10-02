@@ -12,8 +12,8 @@ import TableReservation from "../TableReservation";
 import ExistingModal from "../ExistingModal";
 import axios from "axios";
 import "../../Style/App.css";
+import { API_BASE } from "../../api";
 
-const API_BASE = "https://yokaku-backend.onrender.com/api";
 
 // Receive props passed from App.jsx
 function CustomerPage({ isLoggedIn, onLoginClick, onReserveClick, onSuccess }) {

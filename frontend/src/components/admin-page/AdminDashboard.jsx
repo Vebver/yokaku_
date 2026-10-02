@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, Suspense, lazy } from "react";
 import api, { SOCKET_URL } from "../../api";
+import { requestSectionRefresh } from "../shared/sectionRefresh";
 import io from "socket.io-client";
 import {
   Chart as ChartJS,
@@ -90,7 +91,6 @@ const navItems = [
   { id: "billing", label: "Payments", icon: Icons.Billing },
   { id: "report", label: "Reports", icon: Icons.Sales },
   { id: "products", label: "Menu Items", icon: Icons.Products },
-  { id: "recipe", label: "Recipes", icon: Icons.Recipe },
   { id: "categories", label: "Categories", icon: Icons.Categories },
   { id: "inventory", label: "Inventory", icon: Icons.Inventory },
   { id: "account", label: "Account Manage", icon: Icons.Account },
@@ -100,9 +100,9 @@ const navItems = [
 ];
 
 const StatCard = ({ title, value, color, icon: Icon }) => (
-  <div className="col-12 col-md-4 mb-3 mt-0">
+  <div className="col-12 col-md-4">
     <div
-      className="card border-0 shadow-sm rounded-4 p-3 bg-white"
+      className="card border-0 shadow-sm rounded-4 p-3 bg-white h-100"
       style={{ minHeight: "100px", display: "block" }}
     >
       <div className="d-flex align-items-center h-100 gap-3">
@@ -135,6 +135,9 @@ function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeSection, setActiveSection] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 992);
+  const [adminName, setAdminName] = useState(
+    `${localStorage.getItem("firstName") || ""} ${localStorage.getItem("lastName") || ""}`.trim(),
+  );
   const [loading, setLoading] = useState(true);
   const [todaySchedule, setTodaySchedule] = useState([]);
 
@@ -166,29 +169,29 @@ function AdminDashboard() {
   useEffect(() => {
     const token = localStorage.getItem("token");
     const role = localStorage.getItem("role");
-    const userId = localStorage.getItem("userId"); 
+    const userId = localStorage.getItem("userId");
 
     if (token && role === "admin") {
       setIsAuthenticated(true);
       fetchDashboardData();
       fetchNotifications();
 
-      const socket = io(SOCKET_URL, { 
+      const socket = io(SOCKET_URL, {
         transports: ["websocket", "polling"],
         reconnection: true,
       });
 
       socket.on("connect", () => {
         if (userId) {
-          socket.emit("join", userId);
+          socket.emit("join_user", userId);
         }
       });
 
       // Standard Notification listener
       socket.on("new_notification", (notification) => {
         setNotifications((prev) => {
-          const isDuplicate = prev.some(n => 
-            (n.notification_id && n.notification_id === notification.notification_id) || 
+          const isDuplicate = prev.some(n =>
+            (n.notification_id && n.notification_id === notification.notification_id) ||
             (n.id && n.id === notification.id) ||
             (n.message === notification.message && n.created_at === notification.created_at)
           );
@@ -252,9 +255,23 @@ function AdminDashboard() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  useEffect(() => {
+    const refreshAdminName = () => {
+      setAdminName(
+        `${localStorage.getItem("firstName") || ""} ${localStorage.getItem("lastName") || ""}`.trim(),
+      );
+    };
+    window.addEventListener("profile-updated", refreshAdminName);
+    window.addEventListener("storage", refreshAdminName);
+    return () => {
+      window.removeEventListener("profile-updated", refreshAdminName);
+      window.removeEventListener("storage", refreshAdminName);
+    };
+  }, []);
+
   const fetchNotifications = async () => {
     try {
-      const res = await api.get(`/notifications`); 
+      const res = await api.get(`/notifications`);
       setNotifications(res.data);
       setUnreadCount(res.data.filter((n) => !n.is_read).length);
     } catch (err) {
@@ -377,9 +394,13 @@ function AdminDashboard() {
     }
   };
 
+  // The single refresh control for the whole admin panel. It reloads the
+  // dashboard's own data and also pings whichever module is open, so no module
+  // needs its own duplicate refresh button.
   const handleRefreshAll = () => {
     fetchDashboardData();
     fetchNotifications();
+    requestSectionRefresh();
   };
 
   const formatCurrency = (val) =>
@@ -513,8 +534,8 @@ function AdminDashboard() {
                 <span className="text-muted opacity-50">|</span>
 
                 {/* BOOKING TYPE */}
-                <span 
-                  className="badge bg-secondary-subtle text-secondary border text-uppercase" 
+                <span
+                  className="badge bg-secondary-subtle text-secondary border text-uppercase"
                   style={{ fontSize: "0.62rem", padding: "3px 6px" }}
                 >
                   {res.reservation_type === "event"
@@ -523,7 +544,7 @@ function AdminDashboard() {
                 </span>
 
                 {/* RESERVATION STATUS BADGE */}
-               <span 
+               <span
                   className={`badge text-uppercase border ${
                     res.status?.toLowerCase() === "seated"
                       ? "bg-danger-subtle text-danger border-danger-subtle"
@@ -547,7 +568,7 @@ function AdminDashboard() {
       </div>
 
       {/* STATS CARDS */}
-      <h2 className="fw-bold mb-3 mt-4">Report Overview</h2>
+      <h2 className="fw-bold mb-3">Report Overview</h2>
       <div className="row g-3 mb-4">
         <StatCard
           title="Total Bookings"
@@ -648,7 +669,6 @@ function AdminDashboard() {
       dashboard: <DashboardOverview />,
       billing: <Billing />,
       inventory: <Inventory />,
-      recipe: <RecipeManager />,
       products: <Product />,
       categories: <Categories />,
       report: (
@@ -690,7 +710,10 @@ function AdminDashboard() {
       <aside className="app-sidebar shadow">
         <div className="sidebar-header-branding">
           <div className="brand-logo">H</div>
-          <span className="brand-name fw-bold">HANGOUT</span>
+          <div className="sidebar-brand-copy">
+            <span className="brand-name fw-bold">HANGOUT</span>
+            {adminName && <span className="sidebar-user-name">{adminName}</span>}
+          </div>
         </div>
 
         <nav className="sidebar-nav-list custom-scrollbar">
@@ -891,9 +914,13 @@ function AdminDashboard() {
             </div>
 
             <div className="text-end d-none d-sm-block">
-              <p className="mb-0 fw-bold small text-dark">HANGOUT MANAGER</p>
+              <p className="mb-0 fw-bold small text-dark">
+                {adminName || localStorage.getItem("userRole")?.toUpperCase() || "ADMIN"}
+              </p>
             </div>
-            <div className="avatar-circle">H</div>
+            <div className="avatar-circle" title={adminName || "Admin"}>
+              {adminName ? adminName.charAt(0).toUpperCase() : "A"}
+            </div>
           </div>
         </header>
 
