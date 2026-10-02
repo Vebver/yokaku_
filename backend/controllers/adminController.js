@@ -66,6 +66,15 @@ const adminController = {
       res.status(500).json({ error: error.message });
     }
   },
+  getIncomingReservations: async (req, res) => {
+    try {
+      const reservations = await TableStatus.getIncomingReservations();
+      res.json(reservations);
+    } catch (error) {
+      console.error("Incoming Reservations Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
   updateUserRole: async (req, res) => {
     try {
       const { userId } = req.params;

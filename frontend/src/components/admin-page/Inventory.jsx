@@ -328,34 +328,19 @@ function Inventory() {
     >
       {/* HEADER */}
       <div className="row g-3 align-items-center mb-3 px-2">
-        <div className="col-12 col-lg-8">
+        <div className="col-12">
           <h2 className="fw-bold mb-0">Kitchen Inventory</h2>
           <p className="text-muted small mb-0">
             Manage raw materials and stock levels
           </p>
         </div>
-
-        <div className="col-12 col-lg-4 d-flex justify-content-lg-end">
-          <button
-            className="btn btn-primary fw-bold shadow-sm d-flex align-items-center justify-content-center w-100 w-lg-auto px-4"
-            style={{ height: "45px" }}
-            data-bs-toggle="offcanvas"
-            data-bs-target="#addInvDrawer"
-            onClick={openAddMode}
-          >
-            <Plus size={18} className="me-1 flex-shrink-0" /> Receive Stock
-          </button>
-        </div>
       </div>
 
       {/* SEARCH + FILTERS — full width so everything sits on one line and only
           wraps on phones, instead of stacking inside a narrow column. */}
-      <div className="row g-2 align-items-center mb-3 px-2">
+      <div className="admin-toolbar row g-2 align-items-center mb-3 px-2">
         <div className="col-12 col-xl-5 col-xxl-4">
-          <div
-            className="d-flex align-items-center bg-white rounded-3 border shadow-sm px-3"
-            style={{ height: "45px" }}
-          >
+          <div className="admin-search d-flex align-items-center bg-white rounded-3 border shadow-sm px-3">
             <Search size={18} className="text-muted flex-shrink-0" />
             <input
               type="text"
@@ -372,7 +357,15 @@ function Inventory() {
         </div>
 
         <div className="col-12 col-xl-7 col-xxl-8">
-          <div className="d-flex flex-wrap gap-2">
+          <div className="d-flex flex-wrap align-items-center gap-2">
+            <button
+              className="btn btn-primary admin-toolbar-button fw-bold shadow-sm d-inline-flex align-items-center justify-content-center order-first"
+              data-bs-toggle="offcanvas"
+              data-bs-target="#addInvDrawer"
+              onClick={openAddMode}
+            >
+              <Plus size={18} className="me-1 flex-shrink-0" /> Receive Stock
+            </button>
             <select
               className="form-select form-select-sm flex-grow-1 flex-sm-grow-0"
               style={{ width: "auto", minWidth: "150px", height: "38px" }}

@@ -311,3 +311,95 @@
     opacity: 0;
     pointer-events: none;
 }
+
+/* Shared admin page primitives keep toolbars, tables and pagination consistent. */
+.admin-page-header,
+.admin-toolbar,
+.admin-pagination {
+    max-width: 1600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.admin-search {
+    height: 45px;
+    min-width: 0;
+}
+
+.admin-toolbar-button {
+    min-height: 45px;
+    white-space: nowrap;
+}
+
+.admin-pagination .pagination {
+    flex-wrap: nowrap;
+}
+
+.admin-pagination .page-link {
+    min-height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.admin-app-container,
+.app-main-viewport,
+.app-main-viewport > * {
+    min-width: 0;
+}
+
+.app-main-viewport {
+    overflow-x: hidden;
+}
+
+.app-top-nav {
+    padding-left: clamp(0.75rem, 2vw, 1.5rem) !important;
+    padding-right: clamp(0.75rem, 2vw, 1.5rem) !important;
+}
+
+.admin-app-container .table-responsive {
+    max-width: 100%;
+}
+
+.admin-app-container img {
+    max-width: 100%;
+}
+
+.admin-app-container .offcanvas {
+    max-width: 100vw;
+}
+
+@media (max-width: 767.98px) {
+    .admin-pagination {
+        align-items: stretch !important;
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+    }
+
+    .admin-pagination > nav,
+    .admin-pagination .pagination {
+        width: 100%;
+    }
+
+    .admin-pagination .pagination {
+        justify-content: center;
+    }
+
+    .admin-toolbar-button {
+        width: 100%;
+    }
+
+    .app-top-nav .admin-notif-dropdown {
+        position: fixed !important;
+        top: 60px;
+        left: 0.75rem !important;
+        right: 0.75rem !important;
+        width: auto !important;
+    }
+}
+
+@media (min-width: 768px) and (max-width: 1199.98px) {
+    .admin-toolbar-button {
+        flex: 1 1 100%;
+    }
+}

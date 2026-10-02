@@ -30,7 +30,11 @@ const getTableReservationDateString = (dateStr) => {
 
 const TableStatus = ({ compact = false }) => {
   const { showToast } = useToast();
-  const [data, setData] = useState({ tables: [], schedule: [] });
+  const [data, setData] = useState({
+    tables: [],
+    schedule: [],
+    reservations: [],
+  });
   const [ui, setUi] = useState({
     loading: true,
     updating: false,
@@ -55,14 +59,16 @@ const TableStatus = ({ compact = false }) => {
 
   const fetchData = useCallback(async () => {
     try {
-      const [tRes, sRes] = await Promise.all([
+      const [tRes, sRes, rRes] = await Promise.all([
         api.get("/admin/table-status"),
         api.get("/admin/today-schedule"),
+        api.get("/admin/incoming-reservations"),
       ]);
 
       setData({
         tables: tRes.data || [],
         schedule: sRes.data || [],
+        reservations: rRes.data || [],
       });
     } catch (err) {
       console.error("Fetch Error", err);
@@ -433,6 +439,43 @@ const TableStatus = ({ compact = false }) => {
         </div>
       )}
 
+      {!compact && (
+        <section className="card border-0 shadow-sm mb-3">
+          <div className="card-body p-3">
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <div>
+                <h2 className="h6 fw-bold mb-1">Incoming Reservations</h2>
+                <p className="text-muted small mb-0">Upcoming bookings, sorted by date and time</p>
+              </div>
+              <span className="badge rounded-pill bg-primary-subtle text-primary">
+                {data.reservations.length}
+              </span>
+            </div>
+            <div className="table-responsive">
+              <table className="table table-sm table-hover align-middle mb-0">
+                <thead className="text-muted small">
+                  <tr><th>Customer</th><th>Guests</th><th>Date</th><th>Time</th><th>Status</th><th>Notes</th></tr>
+                </thead>
+                <tbody>
+                  {data.reservations.length === 0 ? (
+                    <tr><td colSpan="6" className="text-center text-muted py-3">No upcoming reservations.</td></tr>
+                  ) : data.reservations.map((reservation) => (
+                    <tr key={reservation.reservation_id}>
+                      <td className="fw-semibold">{reservation.customer_name || "Guest"}</td>
+                      <td>{reservation.num_guests || "—"}</td>
+                      <td>{reservation.reservation_date || "—"}</td>
+                      <td>{reservation.reservation_time || "—"}</td>
+                      <td><span className="badge rounded-pill bg-warning-subtle text-warning-emphasis">{reservation.status}</span></td>
+                      <td className="text-muted text-truncate" style={{ maxWidth: "180px" }}>{reservation.notes || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Floor. Tables that share a reservation are grouped so a party that
           spans several tables stays visually together, but each card keeps its
           own controls: the kiosk, orders, and linking all live on the card. */}
@@ -639,7 +682,7 @@ const TableStatus = ({ compact = false }) => {
                             }
                             title="Release this table"
                           >
-                            Free
+                            Free Table  
                           </button>
                         )}
                       </div>
@@ -687,7 +730,7 @@ const TableStatus = ({ compact = false }) => {
                           }}
                           title="Add this table to an existing party's reservation"
                         >
-                          <Link size={10} className="me-1" /> Link
+                          <Link size={8} className="me-1" /> Link
                         </button>
                         <button
                           className="btn btn-sm btn-danger py-0 fw-bold flex-shrink-0"
@@ -695,7 +738,7 @@ const TableStatus = ({ compact = false }) => {
                           onClick={() => makeOccupied(t)}
                           title="Mark this table as occupied"
                         >
-                          <UserCheck size={10} className="me-1" /> Occupied
+                          Mark as Occupied
                         </button>
                       </div>
                     )}
@@ -811,7 +854,7 @@ const TableStatus = ({ compact = false }) => {
                     >
                       {linkCandidates.length === 0 && (
                         <div className="text-center text-muted small py-4">
-                          No live reservations found.
+                          No reservations found.
                         </div>
                       )}
                       {linkCandidates.map((c) => (

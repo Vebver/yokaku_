@@ -2,12 +2,11 @@ import React, { useState, useEffect } from "react";
 import api from "../../api";
 import { 
   Search, 
-  ChevronLeft, 
-  ChevronRight, 
-  UserCircle, 
-  ShieldCheck, 
+  UserCircle,
+  ShieldCheck,
   Loader2,
 } from "lucide-react"
+import AdminPagination from "../shared/AdminPagination";
 
 const AccountManagement = () => {
   const [users, setUsers] = useState([]);
@@ -95,15 +94,15 @@ const AccountManagement = () => {
     <div className="account-mgmt-container container-fluid py-3 py-md-4 text-dark bg-light" style={{ minHeight: '100vh' }}>
 
       {/* RESPONSIVE HEADER */}
-      <div className="row align-items-center g-3 mb-4 px-2">
-        <div className="col-12 col-lg-6">
-          <h2 className="fw-bold mb-1">Account Management</h2>
-          <p className="text-muted small mb-0">Control system access and user permissions</p>
-        </div>
+      <div className="admin-page-header px-2 mb-3">
+        <h2 className="fw-bold mb-1">Account Management</h2>
+        <p className="text-muted small mb-0">Control system access and user permissions</p>
+      </div>
 
-        <div className="col-12 col-lg-6">
+      <div className="admin-toolbar row g-2 align-items-center mb-4 px-2">
+        <div className="col-12 col-lg-8">
           <div className="d-flex flex-wrap gap-2">
-            <div className="d-flex align-items-center bg-white rounded-3 border shadow-sm px-3 flex-grow-1" style={{ height: '45px' }}>
+            <div className="admin-search d-flex align-items-center bg-white rounded-3 border shadow-sm px-3 flex-grow-1">
               <Search size={18} className="text-muted flex-shrink-0" />
               <input
                 type="text"
@@ -115,7 +114,7 @@ const AccountManagement = () => {
             </div>
             <select
               className="form-select"
-              style={{ width: "auto" }}
+              style={{ width: "auto", minWidth: "150px", height: "45px" }}
               value={roleFilter}
               onChange={(e) => {
                 setRoleFilter(e.target.value);
@@ -215,39 +214,13 @@ const AccountManagement = () => {
         </div>
       </div>
 
-      {/* PAGINATION SECTION */}
-      <div className="mt-4 px-3 d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
-        <div className="text-muted small">
-          Showing <strong>{indexOfLastUser - usersPerPage + 1}</strong> to <strong>{Math.min(indexOfLastUser, filteredUsers.length)}</strong> of <strong>{filteredUsers.length}</strong>
-        </div>
-        <nav>
-          <ul className="pagination pagination-sm mb-0 shadow-sm border rounded bg-white overflow-hidden">
-            <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
-              <button 
-                className="page-link border-0 px-3 py-2" 
-                onClick={() => setCurrentPage(prev => prev - 1)}
-                disabled={currentPage === 1}
-              >
-                <ChevronLeft size={16} />
-              </button>
-            </li>
-            <li className="page-item disabled">
-              <span className="page-link border-0 text-dark fw-bold px-3 py-2 bg-white">
-                Page {currentPage} of {totalPages || 1}
-              </span>
-            </li>
-            <li className={`page-item ${currentPage === totalPages || totalPages === 0 ? "disabled" : ""}`}>
-              <button 
-                className="page-link border-0 px-3 py-2" 
-                onClick={() => setCurrentPage(prev => prev + 1)}
-                disabled={currentPage >= totalPages}
-              >
-                <ChevronRight size={16} />
-              </button>
-            </li>
-          </ul>
-        </nav>
-      </div>
+      <AdminPagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={filteredUsers.length}
+        itemsPerPage={usersPerPage}
+        onPageChange={setCurrentPage}
+      />
 
       <style>{`
         .animate-spin { animation: spin 1s linear infinite; }

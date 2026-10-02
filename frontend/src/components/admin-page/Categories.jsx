@@ -4,12 +4,11 @@ import {
   Search, 
   Trash2, 
   Plus, 
-  ChevronLeft, 
-  ChevronRight, 
-  Loader2, 
+  Loader2,
   Tag
 } from "lucide-react";
 import { useToast } from "../ToastContext";
+import AdminPagination from "../shared/AdminPagination";
 
 function Categories() {
   const { showToast } = useToast();
@@ -32,15 +31,16 @@ function Categories() {
     try {
       setLoading(true);
       const response = await api.get(`/categories`);
-      
+
       // FIX 1: Ensure the mapped keys match what the UI calls
       const mappedData = response.data.map((cat, index) => ({
-        id: cat.category_id || cat.id || cat._id || `temp-${index}`, 
+        id: cat.category_id || cat.id || cat._id || `temp-${index}`,
         category_name: cat.category_name || cat.name || "Unnamed", // Keep category_name
         description: cat.description || "",
       }));
-      
+
       setCategories(mappedData);
+      setCurrentPage(1);
     } catch (err) {
       console.error("Error fetching categories:", err);
     } finally {
@@ -56,7 +56,7 @@ function Categories() {
   const handleAddCategory = async (e) => {
     e.preventDefault();
     try {
-      await api.post(`/categories`, newCategory, getAuthHeader());
+      await api.post(`/categories`, newCategory);
       fetchCategories();
       setNewCategory({ category_name: "", description: "" });
       if (closeBtnRef.current) closeBtnRef.current.click();
@@ -93,29 +93,29 @@ function Categories() {
 
   return (
     <div className="container-fluid py-3 py-md-4 text-dark bg-light" style={{ minHeight: '100vh' }}>
-      
-      {/* HEADER */}
-      <div className="row g-3 align-items-center mb-4 px-2">
-        <div className="col-12 col-md-4">
-          <h2 className="fw-bold mb-0">Categories</h2>
-          <p className="text-muted small mb-0">Organize menu items</p>
-        </div>
 
-        <div className="col-12 col-md-5">
-          <div className="d-flex align-items-center bg-white rounded-3 border shadow-sm px-3" style={{ height: '45px' }}>
+      {/* HEADER */}
+      <div className="admin-page-header px-2 mb-3">
+        <h2 className="fw-bold mb-0">Categories</h2>
+        <p className="text-muted small mb-0">Organize menu items</p>
+      </div>
+
+      <div className="admin-toolbar row g-2 align-items-center mb-4 px-2">
+        <div className="col-12 col-md-8 col-lg-9">
+          <div className="admin-search d-flex align-items-center bg-white rounded-3 border shadow-sm px-3">
             <Search size={18} className="text-muted flex-shrink-0" />
             <input
               type="text"
-              className="form-control border-0 bg-transparent shadow-none"
+              className="form-control border-0 bg-transparent shadow-none w-100 ms-2"
               placeholder="Search Categories"
+              aria-label="Search categories"
               value={searchTerm}
               onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
             />
           </div>
         </div>
-
-        <div className="col-12 col-md-3">
-          <button className="btn btn-primary w-100 py-2 fw-bold shadow-sm" data-bs-toggle="offcanvas" data-bs-target="#addCategoryDrawer">
+        <div className="col-12 col-md-4 col-lg-3">
+          <button className="btn btn-primary admin-toolbar-button w-100 fw-bold shadow-sm" data-bs-toggle="offcanvas" data-bs-target="#addCategoryDrawer">
             <Plus size={18} className="me-1" /> New Category
           </button>
         </div>
@@ -170,23 +170,16 @@ function Categories() {
       </div>
 
       {/* PAGINATION */}
-      <div className="mt-4 px-3 d-flex justify-content-between align-items-center">
-        <div className="text-muted small">{filtered.length} items</div>
-        <nav>
-          <ul className="pagination pagination-sm mb-0">
-            <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
-              <button className="page-link" onClick={() => setCurrentPage(prev => prev - 1)}><ChevronLeft size={16} /></button>
-            </li>
-            <li className="page-item disabled"><span className="page-link text-dark">{currentPage}</span></li>
-            <li className={`page-item ${currentPage >= totalPages ? "disabled" : ""}`}>
-              <button className="page-link" onClick={() => setCurrentPage(prev => prev + 1)}><ChevronRight size={16} /></button>
-            </li>
-          </ul>
-        </nav>
-      </div>
+      <AdminPagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={filtered.length}
+        itemsPerPage={itemsPerPage}
+        onPageChange={setCurrentPage}
+      />
 
       {/* ADD CATEGORY DRAWER */}
-      <div className="offcanvas offcanvas-end" id="addCategoryDrawer" style={{ width: "400px" }}>
+      <div className="offcanvas offcanvas-end" id="addCategoryDrawer" style={{ width: "min(100%, 400px)" }}>
         <div className="offcanvas-header border-bottom">
           <h5 className="fw-bold m-0"><Tag size={20} className="me-2 text-primary" />Create Category</h5>
           <button type="button" className="btn-close" data-bs-dismiss="offcanvas" ref={closeBtnRef}></button>

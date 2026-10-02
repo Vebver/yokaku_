@@ -102,10 +102,30 @@ const TableStatus = {
     const [rows] = await db.query(query);
     return rows;
   },
+getIncomingReservations: async () => {
+  const [rows] = await db.query(`
+    SELECT
+      r.reservation_id,
+      CONCAT_WS(' ', r.first_name, r.last_name) AS customer_name,
+      r.num_guests,
+      DATE_FORMAT(r.reservation_date, '%Y-%m-%d') AS reservation_date,
+      TIME_FORMAT(r.reservation_time, '%h:%i %p') AS reservation_time,
+      r.status,
+      r.allergy AS notes
+    FROM reservations r
+    WHERE r.status IN ('Pending', 'Confirmed', 'Seated')
+      AND (r.reservation_date > CURDATE()
+        OR (r.reservation_date = CURDATE() AND r.reservation_time >= CURTIME()))
+    ORDER BY r.reservation_date ASC, r.reservation_time ASC
+    LIMIT 100
+  `);
+  return rows;
+},
+
 getTodaySchedule: async () => {
-    const today = new Date().toLocaleDateString("en-CA", {
-      timeZone: "Asia/Manila",
-    });
+  const today = new Date().toLocaleDateString("en-CA", {
+    timeZone: "Asia/Manila",
+  });
     const nowTime = new Date().toLocaleTimeString("en-US", {
       hour12: false,
       timeZone: "Asia/Manila"

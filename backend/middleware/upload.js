@@ -33,13 +33,13 @@ const upload = multer({
   storage: storage,
   limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB max
   fileFilter: (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|webp/;
-    const extName = allowedTypes.test(
-      path.extname(file.originalname).toLowerCase(),
-    );
-    const mimeType = allowedTypes.test(file.mimetype);
-    if (extName && mimeType) return cb(null, true);
-    cb(new Error("Only image files (jpg, jpeg, png, webp) are allowed."));
+    const allowedExtensions = new Set([".jpg", ".jpeg", ".png", ".webp"]);
+    const allowedMimeTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+    const extension = path.extname(file.originalname).toLowerCase();
+    if (allowedExtensions.has(extension) && allowedMimeTypes.has(file.mimetype)) {
+      return cb(null, true);
+    }
+    cb(new Error("Unsupported file type. Please upload JPG, JPEG, PNG, or WEBP."));
   },
 });
 

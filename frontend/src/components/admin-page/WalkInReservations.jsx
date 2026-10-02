@@ -1,12 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   Armchair,
-  Package,
-  ChevronLeft,
+  X,
   ChevronRight,
   Clock,
   ReceiptText,
-  Info,
   Plus,
   CalendarCheck,
   Search,
@@ -14,10 +12,15 @@ import {
 import api from "../../api";
 import { useToast } from "../ToastContext";
 import { useSectionRefresh } from "../shared/sectionRefresh";
+import { getReservationStatusMeta } from "../shared/reservationStatus";
+import AdminPagination from "../shared/AdminPagination";
+import PackageMeta, { PACKAGE_PRICES } from "../shared/PackageMeta";
 
 // "HH:MM" to minutes since midnight
 const toMinutes = (value) => {
-  const [h, m] = String(value || "").split(":").map(Number);
+  const [h, m] = String(value || "")
+    .split(":")
+    .map(Number);
   if (isNaN(h) || isNaN(m)) return null;
   return h * 60 + m;
 };
@@ -48,10 +51,7 @@ const WalkInReservations = () => {
 
   const closeBtnRef = useRef(null);
 
-  const PACKAGE_PRICES = {
-    "Standard Package": 10000,
-    "Premium Package": 12500,
-  };
+  
 
   const getLocalISODate = () => {
     const tzOffset = new Date().getTimezoneOffset() * 60000; // offset in milliseconds
@@ -137,24 +137,34 @@ const WalkInReservations = () => {
       );
 
       setInquiries(
-      // Newest first, by actual booking time. Sorting on reservation_id was
-      // unreliable because it is a VARCHAR (and walk-in ids are like
-      // "WALK-1712...-3456"), so numeric subtraction produced NaN and left the
-      // order effectively random.
-      filtered.sort((a, b) => {
-        const at = new Date(`${a.reservation_date || ""} ${a.reservation_time || "00:00:00"}`).getTime();
-        const bt = new Date(`${b.reservation_date || ""} ${b.reservation_time || "00:00:00"}`).getTime();
-        if (!isNaN(at) && !isNaN(bt) && at !== bt) return bt - at;
-        // Walk-in ids embed a timestamp, so use it when date is missing.
-        const aNum = parseInt(String(a.reservation_id || "").replace(/\D/g, ""), 10);
-        const bNum = parseInt(String(b.reservation_id || "").replace(/\D/g, ""), 10);
-        if (!isNaN(aNum) && !isNaN(bNum) && aNum !== bNum) return bNum - aNum;
-        return String(a.first_name || "").localeCompare(
-          String(b.first_name || ""),
-          undefined,
-          { sensitivity: "base" },
-        );
-      }),
+        // Newest first, by actual booking time. Sorting on reservation_id was
+        // unreliable because it is a VARCHAR (and walk-in ids are like
+        // "WALK-1712...-3456"), so numeric subtraction produced NaN and left the
+        // order effectively random.
+        filtered.sort((a, b) => {
+          const at = new Date(
+            `${a.reservation_date || ""} ${a.reservation_time || "00:00:00"}`,
+          ).getTime();
+          const bt = new Date(
+            `${b.reservation_date || ""} ${b.reservation_time || "00:00:00"}`,
+          ).getTime();
+          if (!isNaN(at) && !isNaN(bt) && at !== bt) return bt - at;
+          // Walk-in ids embed a timestamp, so use it when date is missing.
+          const aNum = parseInt(
+            String(a.reservation_id || "").replace(/\D/g, ""),
+            10,
+          );
+          const bNum = parseInt(
+            String(b.reservation_id || "").replace(/\D/g, ""),
+            10,
+          );
+          if (!isNaN(aNum) && !isNaN(bNum) && aNum !== bNum) return bNum - aNum;
+          return String(a.first_name || "").localeCompare(
+            String(b.first_name || ""),
+            undefined,
+            { sensitivity: "base" },
+          );
+        }),
       );
     } catch (err) {
       console.error("Fetch Walk-ins error:", err);
@@ -299,10 +309,7 @@ const WalkInReservations = () => {
       setNewRes((prev) => ({
         ...prev,
         startTime: value,
-        endTime:
-          prev.endTime && prev.endTime <= value
-            ? ""
-            : prev.endTime,
+        endTime: prev.endTime && prev.endTime <= value ? "" : prev.endTime,
       }));
     } else {
       setNewRes((prev) => ({ ...prev, [name]: value }));
@@ -344,7 +351,8 @@ const WalkInReservations = () => {
 
       const packagePrice = PACKAGE_PRICES[newRes.packageName] || 0;
       const addOnTotal = orderCart.reduce(
-        (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 1),
+        (sum, item) =>
+          sum + Number(item.price || 0) * Number(item.quantity || 1),
         0,
       );
       const totalBill = packagePrice + addOnTotal;
@@ -471,34 +479,19 @@ const WalkInReservations = () => {
       style={{ minHeight: "100vh" }}
     >
       {/* HEADER */}
-      <div className="row align-items-center mb-4 px-2">
+      <div className="admin-page-header row align-items-center mb-3 px-2">
         <div className="col-12">
-          <h2 className="fw-bold mb-1">Walk-ins & Kiosk</h2>
+          <h2 className="fw-bold mb-1">Walk-In Reservations & Kiosk</h2>
           <p className="text-muted small mb-0">
-            Monitor instant orders and on-site customers
+            Monitor direct walk-in transactions and on-site customers
           </p>
-        </div>
-        <div className="col-12 d-flex flex-wrap flex-md-nowrap gap-2 mt-3">
-          <button
-            className="btn btn-primary fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2 flex-grow-1 flex-md-grow-0"
-            data-bs-toggle="offcanvas"
-            data-bs-target="#addReservationDrawer"
-          >
-            <Plus size={18} /> Make a Reservation
-          </button>
-          <div className="bg-white border rounded-pill px-3 py-1 shadow-sm small fw-bold d-flex align-items-center justify-content-center flex-grow-1 flex-md-grow-0">
-            {inquiries.length} Orders
-          </div>
         </div>
       </div>
 
-      {/* SEARCH BAR + FILTERS (same row on wide screens) */}
-      <div className="col-12 mb-3 px-2">
-        <div className="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center gap-2">
-          <div
-            className="d-flex align-items-center bg-white rounded-3 border shadow-sm px-3 flex-grow-1"
-            style={{ height: "48px", minWidth: "260px" }}
-          >
+      {/* SEARCH + FILTERS + ACTION (same row, aligned like Inventory) */}
+      <div className="admin-toolbar row g-2 align-items-center mb-3 px-2">
+        <div className="col-12 col-xl-5">
+          <div className="admin-search d-flex align-items-center bg-white rounded-3 border shadow-sm px-3">
             <Search size={20} className="text-muted flex-shrink-0" />
             <input
               type="text"
@@ -517,11 +510,21 @@ const WalkInReservations = () => {
               }}
             />
           </div>
+        </div>
 
+        <div className="col-12 col-xl-7">
           <div className="d-flex flex-wrap gap-2 align-items-center">
+            <button
+              className="btn btn-primary admin-toolbar-button fw-bold shadow-sm d-inline-flex align-items-center justify-content-center"
+              data-bs-toggle="offcanvas"
+              data-bs-target="#addReservationDrawer"
+            >
+              <Plus size={18} className="me-1 flex-shrink-0" /> Make a
+              Reservation
+            </button>
             <select
-              className="form-select form-select-sm"
-              style={{ width: "auto" }}
+              className="form-select form-select-sm flex-grow-1 flex-sm-grow-0"
+              style={{ width: "auto", minWidth: "140px", height: "38px" }}
               aria-label="Filter by date"
               value={dateFilter}
               onChange={(e) => {
@@ -536,8 +539,8 @@ const WalkInReservations = () => {
             </select>
 
             <select
-              className="form-select form-select-sm"
-              style={{ width: "auto" }}
+              className="form-select form-select-sm flex-grow-1 flex-sm-grow-0"
+              style={{ width: "auto", minWidth: "150px", height: "38px" }}
               aria-label="Filter by status"
               value={statusFilter}
               onChange={(e) => {
@@ -552,10 +555,11 @@ const WalkInReservations = () => {
 
             {hasActiveFilters && (
               <button
-                className="btn btn-sm btn-link text-decoration-none px-0"
+                className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1 fw-bold"
+                style={{ height: "38px" }}
                 onClick={clearFilters}
               >
-                Clear filters
+                <X size={14} /> Clear
               </button>
             )}
           </div>
@@ -607,9 +611,12 @@ const WalkInReservations = () => {
                   </td>
                   <td className="text-center">
                     <span
-                      className={`badge rounded-pill px-3 py-1 small ${item.status === "completed" ? "bg-secondary" : "bg-success"}`}
+                      className={`badge rounded-pill px-3 py-1 small ${getReservationStatusMeta(item.status, { walkIn: true }).className}`}
                     >
-                      {item.status?.toUpperCase()}
+                      {
+                        getReservationStatusMeta(item.status, { walkIn: true })
+                          .label
+                      }
                     </span>
                   </td>
                   <td className="text-end pe-4">
@@ -655,9 +662,12 @@ const WalkInReservations = () => {
                     </code>
                   </div>
                   <span
-                    className={`badge rounded-pill px-3 py-1 small flex-shrink-0 ${item.status === "completed" ? "bg-secondary" : "bg-success"}`}
+                    className={`badge rounded-pill px-3 py-1 small flex-shrink-0 ${getReservationStatusMeta(item.status, { walkIn: true }).className}`}
                   >
-                    {item.status?.toUpperCase()}
+                    {
+                      getReservationStatusMeta(item.status, { walkIn: true })
+                        .label
+                    }
                   </span>
                 </div>
 
@@ -698,11 +708,13 @@ const WalkInReservations = () => {
       >
         <div className="offcanvas-header border-bottom bg-dark text-white">
           <div>
-          <h5 className="fw-bold m-0 d-flex align-items-center">
-            <CalendarCheck size={20} className="me-2 text-warning" />
-            Create Reservation
-          </h5>
-          <small className="text-white-50 ms-4">Set the table, order, and payment details.</small>
+            <h5 className="fw-bold m-0 d-flex align-items-center">
+              <CalendarCheck size={20} className="me-2 text-warning" />
+              Create Reservation
+            </h5>
+            <small className="text-white-50 ms-4">
+              Set the table, order, and payment details.
+            </small>
           </div>
           <button
             type="button"
@@ -805,7 +817,7 @@ const WalkInReservations = () => {
               {(newRes.bookingType === "takeout" ||
                 newRes.bookingType === "table") && (
                 <div className="mb-4 animate-fade-in">
-                    <label className="form-label small fw-bold text-uppercase text-muted">
+                  <label className="form-label small fw-bold text-uppercase text-muted">
                     Order Items <span className="fw-normal">(optional)</span>
                   </label>
                   <select
@@ -904,20 +916,35 @@ const WalkInReservations = () => {
                   <div className="row g-2 mb-2">
                     {[
                       { name: "Regular Table", price: 0, label: "No package" },
-                      { name: "Standard Package", price: 10000, label: "Standard" },
-                      { name: "Premium Package", price: 12500, label: "Premium" },
+                      {
+                        name: "Standard Package",
+                        price: 10000,
+                        label: "Standard",
+                      },
+                      {
+                        name: "Premium Package",
+                        price: 12500,
+                        label: "Premium",
+                      },
                     ].map((option) => (
                       <div className="col-12 col-sm-4" key={option.name}>
                         <button
                           type="button"
                           className={`w-100 text-start p-2 rounded-3 ${newRes.packageName === option.name ? "border border-2 border-warning bg-warning-subtle" : "border bg-white"}`}
                           onClick={() =>
-                            setNewRes((prev) => ({ ...prev, packageName: option.name }))
+                            setNewRes((prev) => ({
+                              ...prev,
+                              packageName: option.name,
+                            }))
                           }
                         >
-                          <span className="d-block fw-bold small">{option.label}</span>
+                          <span className="d-block fw-bold small">
+                            {option.label}
+                          </span>
                           <span className="d-block text-muted small">
-                            {option.price ? `₱${option.price.toLocaleString()}` : "Base menu only"}
+                            {option.price
+                              ? `₱${option.price.toLocaleString()}`
+                              : "Base menu only"}
                           </span>
                         </button>
                       </div>
@@ -956,26 +983,47 @@ const WalkInReservations = () => {
               {(() => {
                 const packagePrice = PACKAGE_PRICES[newRes.packageName] || 0;
                 const addOnTotal = orderCart.reduce(
-                  (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 1),
+                  (sum, item) =>
+                    sum + Number(item.price || 0) * Number(item.quantity || 1),
                   0,
                 );
                 const totalBill = packagePrice + addOnTotal;
-                const paid = Math.min(Math.max(Number(newRes.amountPaid || 0), 0), totalBill);
+                const paid = Math.min(
+                  Math.max(Number(newRes.amountPaid || 0), 0),
+                  totalBill,
+                );
                 return (
                   <div className="p-3 mb-4 bg-white border rounded-3 shadow-sm">
                     <div className="d-flex justify-content-between small mb-1">
                       <span className="text-muted">Package</span>
-                      <strong>₱{packagePrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong>
+                      <strong>
+                        ₱
+                        {packagePrice.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                        })}
+                      </strong>
                     </div>
                     <div className="d-flex justify-content-between small mb-1">
                       <span className="text-muted">Add-ons</span>
-                      <strong>₱{addOnTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong>
+                      <strong>
+                        ₱
+                        {addOnTotal.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                        })}
+                      </strong>
                     </div>
                     <div className="d-flex justify-content-between border-top pt-2 mb-2">
                       <strong>Total Bill</strong>
-                      <strong>₱{totalBill.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong>
+                      <strong>
+                        ₱
+                        {totalBill.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                        })}
+                      </strong>
                     </div>
-                    <label className="form-label small fw-bold mb-1">Amount Paid</label>
+                    <label className="form-label small fw-bold mb-1">
+                      Amount Paid
+                    </label>
                     <input
                       type="number"
                       name="amountPaid"
@@ -988,8 +1036,15 @@ const WalkInReservations = () => {
                     />
                     <div className="d-flex justify-content-between small">
                       <span className="text-muted">Remaining Balance</span>
-                      <strong className={totalBill - paid > 0 ? "text-danger" : "text-success"}>
-                        ₱{(totalBill - paid).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      <strong
+                        className={
+                          totalBill - paid > 0 ? "text-danger" : "text-success"
+                        }
+                      >
+                        ₱
+                        {(totalBill - paid).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                        })}
                       </strong>
                     </div>
                   </div>
@@ -1027,10 +1082,7 @@ const WalkInReservations = () => {
                     onChange={handleInputChange}
                     required
                   />
-                  <div
-                    className="form-text"
-                    style={{ fontSize: "0.7rem" }}
-                  >
+                  <div className="form-text" style={{ fontSize: "0.7rem" }}>
                     {newRes.startTime && newRes.endTime
                       ? `Duration: ${formatDuration(newRes.startTime, newRes.endTime)}`
                       : "Used for the event timer and table release."}
@@ -1060,42 +1112,13 @@ const WalkInReservations = () => {
       </div>
 
       {/* PAGINATION */}
-      <div className="mt-4 px-3 d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
-        <div className="text-muted small">
-          Showing <strong>{indexOfFirstItem + 1}</strong> to{" "}
-          <strong>{Math.min(indexOfLastItem, inquiries.length)}</strong> of{" "}
-          <strong>{inquiries.length}</strong>
-        </div>
-        <nav>
-          <ul className="pagination pagination-sm mb-0 shadow-sm border rounded bg-white">
-            <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
-              <button
-                className="page-link border-0 px-3 py-2"
-                onClick={() => setCurrentPage((prev) => prev - 1)}
-                disabled={currentPage === 1}
-              >
-                <ChevronLeft size={16} />
-              </button>
-            </li>
-            <li className="page-item disabled">
-              <span className="page-link border-0 text-dark fw-bold px-3 py-2">
-                Page {currentPage} of {totalPages || 1}
-              </span>
-            </li>
-            <li
-              className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}
-            >
-              <button
-                className="page-link border-0 px-3 py-2"
-                onClick={() => setCurrentPage((prev) => prev + 1)}
-                disabled={currentPage >= totalPages}
-              >
-                <ChevronRight size={16} />
-              </button>
-            </li>
-          </ul>
-        </nav>
-      </div>
+      <AdminPagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={filteredInquiries.length}
+        itemsPerPage={itemsPerPage}
+        onPageChange={setCurrentPage}
+      />
 
       {/* COMPRESSED DRAWER (OFFCANVAS DETAILS VIEW) */}
       <div
@@ -1177,9 +1200,7 @@ const WalkInReservations = () => {
                     <small className="text-muted d-block">
                       Selected Package
                     </small>
-                    <span className="small fw-bold text-dark">
-                      {selectedRes.package_name || "Regular Table"}
-                    </span>
+                    <PackageMeta reservation={selectedRes} />
                   </div>
                 </div>
               </div>
@@ -1265,18 +1286,27 @@ const WalkInReservations = () => {
 
               <div className="p-3 bg-dark text-white sticky-bottom">
                 <div className="d-flex justify-content-between align-items-center mb-3">
-                  <h5 className="fw-bold mb-0">Total Bill</h5>
-                  <span className={`badge py-2 px-3 ${Number(selectedRes.balance_due || 0) > 0 ? "bg-warning text-dark" : "bg-success"}`}>
-                    {Number(selectedRes.balance_due || 0) > 0 ? "BALANCE DUE" : "PAID"}
-                  </span>
-                </div>
-                <div className="small text-white-50 mb-1">
-                  Total: ₱{Number(selectedRes.total_bill || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                </div>
-                <div className="small text-white-50">
-                  Paid: ₱{Number(selectedRes.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                  <span className="float-end">
-                    Due: ₱{Number(selectedRes.balance_due || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  <div>
+                    <div className="x-small text-white-50 text-uppercase fw-bold">
+                      Total Bill
+                    </div>
+                    <h5 className="fw-bold mb-0">
+                      {"\u20B1"}
+                      {Number(
+                        selectedRes.total_bill ??
+                          Number(selectedRes.amount || 0) +
+                            Number(selectedRes.balance_due || 0),
+                      ).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                      })}
+                    </h5>
+                  </div>
+                  <span
+                    className={`badge py-2 px-3 ${Number(selectedRes.balance_due || 0) > 0 ? "bg-warning text-dark" : "bg-success"}`}
+                  >
+                    {Number(selectedRes.balance_due || 0) > 0
+                      ? "BALANCE DUE"
+                      : "PAID"}
                   </span>
                 </div>
                 <button

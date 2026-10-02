@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import api from "../../api";
 import {
   Armchair,
-  Package,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -13,14 +12,14 @@ import {
 } from "lucide-react";
 import { useToast } from "../ToastContext";
 import { useSectionRefresh } from "../shared/sectionRefresh";
+import { getReservationStatusMeta } from "../shared/reservationStatus";
+import PackageMeta from "../shared/PackageMeta";
 
 const OnlineReservations = () => {
   const { showToast } = useToast();
   const [inquiries, setInquiries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedRes, setSelectedRes] = useState(null);
-  const [orderItems, setOrderItems] = useState([]);
-  const [loadingItems, setLoadingItems] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(13);
   const [searchQuery, setSearchQuery] = useState("");
@@ -160,22 +159,6 @@ const OnlineReservations = () => {
     return true;
   });
 
-  const fetchItems = async (resId) => {
-    setOrderItems([]);
-    setLoadingItems(true);
-    try {
-      const token = localStorage.getItem("token");
-      const res = await api.get(`/reservations/${resId}/items`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setOrderItems(res.data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoadingItems(false);
-    }
-  };
-
   // Handler to submit refund and trigger notification
   const handleProcessRefund = async () => {
     if (!refundAmount || isNaN(refundAmount) || Number(refundAmount) < 0) {
@@ -234,15 +217,7 @@ const OnlineReservations = () => {
     return `${hours}:${minutes} ${ampm}`;
   };
 
-  const getStatusBadge = (s) => {
-    const status = s?.toLowerCase();
-    if (status === "confirmed" || status === "verified")
-      return "bg-success text-white";
-    if (status === "pending") return "bg-warning text-dark";
-    if (status === "seated") return "bg-info text-white";
-    if (status === "completed") return "bg-secondary text-white";
-    return "bg-danger text-white";
-  };
+  const getStatusBadge = (s) => getReservationStatusMeta(s);
 
   const pesos = (v) =>
     Number(v || 0).toLocaleString(undefined, {
@@ -320,6 +295,15 @@ const OnlineReservations = () => {
   );
   const totalPages = Math.ceil(filteredInquiries.length / itemsPerPage);
 
+  // The drawer no longer lists ordered items, so the header total comes from
+  // the reservation record itself rather than a summed item list.
+  const reservationTotal =
+    Number(
+      selectedRes?.total_bill ??
+        selectedRes?.total_amount ??
+        (Number(selectedRes?.amount || 0) + Number(selectedRes?.balance_due || 0)),
+    ) || 0;
+
   if (loading)
     return (
       <div className="p-5 text-center text-muted">
@@ -336,11 +320,6 @@ const OnlineReservations = () => {
           <p className="text-muted small mb-0">
             Manage bookings and check their details.
           </p>
-        </div>
-        <div className="col-12 mt-3">
-          <div className="bg-white border rounded-pill px-3 py-1 shadow-sm small fw-bold d-inline-block">
-            {filteredInquiries.length} Bookings
-          </div>
         </div>
       </div>
 
@@ -498,9 +477,10 @@ const OnlineReservations = () => {
                   </td>
                   <td className="text-center">
                     <span
-                      className={`badge rounded-pill px-3 py-1 small ${getStatusBadge(item.status)}`}
+                      className={`badge rounded-pill px-3 py-1 small ${getStatusBadge(item.status).className}`}
+                      title={getStatusBadge(item.status).label}
                     >
-                      {item.status}
+                      {getStatusBadge(item.status).label}
                     </span>
                   </td>
                   <td className="text-end pe-4">
@@ -511,7 +491,6 @@ const OnlineReservations = () => {
                       onClick={() => {
                         setSelectedRes(item);
                         setRefundAmount(item.refund_amount || "");
-                        fetchItems(item.reservation_id);
                       }}
                     >
                       View
@@ -550,9 +529,9 @@ const OnlineReservations = () => {
                     </code>
                   </div>
                   <span
-                    className={`badge rounded-pill px-3 py-1 small flex-shrink-0 ${getStatusBadge(item.status)}`}
+                    className={`badge rounded-pill px-3 py-1 small flex-shrink-0 ${getStatusBadge(item.status).className}`}
                   >
-                    {item.status}
+                    {getStatusBadge(item.status).label}
                   </span>
                 </div>
 
@@ -582,7 +561,6 @@ const OnlineReservations = () => {
                   onClick={() => {
                     setSelectedRes(item);
                     setRefundAmount(item.refund_amount || "");
-                    fetchItems(item.reservation_id);
                   }}
                 >
                   View
@@ -889,41 +867,55 @@ const OnlineReservations = () => {
                 )}
               </div>
 
-              {/* 4. ORDERS */}
+              {/* 4. RESERVATION DETAILS (the actual order lives under Payments) */}
               <div className="p-3 flex-grow-1 overflow-auto">
                 <span className="x-small fw-bold text-muted text-uppercase d-block mb-2">
-                  Orders
+                  Reservation Details
                 </span>
-                {loadingItems ? (
-                  <div className="text-center py-3">
-                    <div className="spinner-border spinner-border-sm text-primary"></div>
+                <div className="bg-light rounded-3 border p-3">
+                  <div className="d-flex justify-content-between align-items-center mb-2">
+                    <span className="small text-muted">Booking type</span>
+                    <span className="small fw-bold text-dark text-end">
+                      {selectedRes.reservation_type === "event"
+                        ? "Whole Table Reserve"
+                        : selectedRes.assigned_tables
+                          ? `Table ${selectedRes.assigned_tables}`
+                          : "Table to be assigned"}
+                    </span>
                   </div>
-                ) : (
-                  <div className="item-list">
-                    {orderItems.length > 0 ? (
-                      orderItems.map((order, idx) => (
-                        <div
-                          key={idx}
-                          className="d-flex justify-content-between align-items-center mb-1 py-1"
-                        >
-                          <div className="small text-dark">
-                            {order.name || order.item_name}{" "}
-                            <span className="text-muted small">
-                              x{order.quantity}
-                            </span>
-                          </div>
-                          <div className="small fw-bold">
-                            ₱{Number(order.price * order.quantity).toFixed(2)}
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-2 text-muted x-small">
-                        No items.
-                      </div>
-                    )}
+                  <div className="d-flex justify-content-between align-items-center mb-2">
+                    <span className="small text-muted">Package</span>
+                    <span className="text-end">
+                      <PackageMeta reservation={selectedRes} />
+                    </span>
                   </div>
-                )}
+                  <div className="d-flex justify-content-between align-items-center mb-2">
+                    <span className="small text-muted">Date</span>
+                    <span className="small fw-bold text-dark text-end">
+                      {selectedRes.reservation_date
+                        ? new Date(selectedRes.reservation_date).toLocaleDateString()
+                        : "---"}
+                    </span>
+                  </div>
+                  <div className="d-flex justify-content-between align-items-center mb-2">
+                    <span className="small text-muted">Guests</span>
+                    <span className="small fw-bold text-dark text-end">
+                      {selectedRes.num_guests || 0} pax
+                    </span>
+                  </div>
+                  <div className="d-flex justify-content-between align-items-center">
+                    <span className="small text-muted">Schedule</span>
+                    <span className="small fw-bold text-dark text-end">
+                      {selectedRes.reservation_time
+                        ? formatTime(selectedRes.reservation_time)
+                        : "--:--"}
+                      {" - "}
+                      {selectedRes.end_time
+                        ? formatTime(selectedRes.end_time)
+                        : "--:--"}
+                    </span>
+                  </div>
+                </div>
               </div>
 
               {/* 5. STICKY FOOTER */}
@@ -934,28 +926,16 @@ const OnlineReservations = () => {
                       Total Bill
                     </div>
                     <h3 className="fw-bold mb-0">
-                      ₱
-                      {orderItems
-                        .reduce((t, i) => t + Number(i.price) * i.quantity, 0)
-                        .toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                        })}
+                      {"\u20B1"}
+                      {reservationTotal.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                      })}
                     </h3>
                   </div>
                   <span
-                    className={`badge py-2 px-3 ${getStatusBadge(selectedRes.status)}`}
+                    className={`badge py-2 px-3 ${getStatusBadge(selectedRes.status).className}`}
                   >
-                    {selectedRes.status?.toUpperCase()}
-                  </span>
-                </div>
-                <div className="small text-white-50 mb-1 d-flex justify-content-between">
-                  <span>
-                    Paid: {"\u20B1"}
-                    {pesos(selectedRes.amount)}
-                  </span>
-                  <span>
-                    Due: {"\u20B1"}
-                    {pesos(selectedRes.balance_due)}
+                    {getStatusBadge(selectedRes.status).label}
                   </span>
                 </div>
                 <button

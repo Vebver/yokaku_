@@ -107,60 +107,78 @@ const Inventory = {
     return { inventory_id: id, ...data };
   },
 
-  // 1. Get Low Stock Items
+  // Items requiring attention. Expired stock is never considered usable and is
+  // included even when its quantity is above the reorder threshold.
   GetLowStockItems: async () => {
     const [rows] = await db.execute(`
-      SELECT 
-        item_name as name, 
+      SELECT
+        item_name as name,
         quantity as current_stock,
-        reorder_level as threshold, 
-        unit 
+        reorder_level as threshold,
+        unit,
+        expiry_date,
+        CASE
+          WHEN expiry_date IS NOT NULL AND expiry_date < CURDATE()
+               AND quantity <= reorder_level THEN 'low_stock_expired'
+          WHEN expiry_date IS NOT NULL AND expiry_date < CURDATE() THEN 'expired'
+          ELSE 'low_stock'
+        END as attention_reason
       FROM inventory
-      WHERE quantity <= reorder_level 
-         OR LOWER(status) = 'low stock'
-      ORDER BY quantity ASC
+      WHERE quantity <= reorder_level
+         OR (expiry_date IS NOT NULL AND expiry_date < CURDATE())
+      ORDER BY
+        (expiry_date IS NOT NULL AND expiry_date < CURDATE()) DESC,
+        quantity ASC,
+        item_name ASC
     `);
     return rows;
   },
   // Get Expired Items
   GetExpiredItems: async () => {
     const [rows] = await db.execute(`
-      SELECT 
+      SELECT
         item_name as name,
         quantity as current_stock,
         unit,
         expiry_date
       FROM inventory
-      WHERE expiry_date IS NOT NULL 
+      WHERE expiry_date IS NOT NULL
         AND expiry_date < CURDATE()
       ORDER BY expiry_date ASC
     `);
     return rows;
   },
-  // 2. Get Inventory Value and Status (Updated to match React keys)
+  // Inventory report data comes from the same rows as the main Inventory page.
+  // There is no stock-movement ledger in this schema, so do not fabricate
+  // starting/used quantities from the current balance.
   GetInventoryUsage: async () => {
     const [rows] = await db.execute(`
-      SELECT 
-        item_name as name, 
+      SELECT
+        item_name as name,
         unit,
         quantity as current_stock,
-        ROUND(quantity * 1.25, 2) as starting_stock,
-        ROUND(quantity * 0.25, 2) as used_stock,
-        ROUND(quantity * unit_price, 2) as inventory_value,
-        expiry_date
+        NULL as starting_stock,
+        NULL as used_stock,
+        CASE
+          WHEN expiry_date IS NOT NULL AND expiry_date < CURDATE() THEN 0
+          ELSE ROUND(quantity * unit_price, 2)
+        END as inventory_value,
+        expiry_date,
+        reorder_level as threshold
       FROM inventory
-      LIMIT 10
+      ORDER BY item_name ASC
     `);
     return rows;
   },
 
-  // 3. Get Inventory KPIs (New query for overall stats cards)
+  // Inventory value excludes expired stock because it is not usable inventory.
   GetInventorySummary: async () => {
     const [rows] = await db.execute(`
-      SELECT 
-        IFNULL(SUM(quantity * unit_price), 0) as total_inventory_value,
-        IFNULL(SUM(quantity * 0.25), 0) as items_used,
-        IFNULL(SUM(quantity * 0.15), 0) as consumption_rate
+      SELECT
+        IFNULL(SUM(CASE WHEN expiry_date IS NULL OR expiry_date >= CURDATE()
+          THEN quantity * unit_price ELSE 0 END), 0) as total_inventory_value,
+        0 as items_used,
+        0 as consumption_rate
       FROM inventory
     `);
     return rows[0];
