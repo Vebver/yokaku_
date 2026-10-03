@@ -14,6 +14,7 @@ import {
   Search,
 } from "lucide-react";
 import { useToast } from "../ToastContext";
+import { useConfirmation } from "../ConfirmationContext";
 import { useSectionRefresh } from "../shared/sectionRefresh";
 import AdminPagination from "../shared/AdminPagination";
 
@@ -34,6 +35,7 @@ const Billing = () => {
   const [settlementFilter, setSettlementFilter] = useState("all");
   const [orderStatusFilter, setOrderStatusFilter] = useState("all");
   const { showToast } = useToast();
+  const { confirm } = useConfirmation();
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
 
@@ -1233,10 +1235,12 @@ const Billing = () => {
                       <button
                         className="btn btn-success fw-bold fs-6 py-2 shadow-sm d-flex align-items-center justify-content-center"
                         onClick={async () => {
-                          if (
-                            !window.confirm("Verify this proof of payment?")
-                          )
-                            return;
+                          if (!(await confirm({
+                            title: "Verify payment proof",
+                            message: "Mark this proof of payment as verified?",
+                            confirmLabel: "Verify payment",
+                            variant: "primary",
+                          }))) return;
                           try {
                             await api.put(
                               `/billing/verify/${selectedPayment.reservation_id}`,
@@ -1278,12 +1282,12 @@ const Billing = () => {
                     <button
                       className="btn btn-primary fw-bold py-2 d-flex align-items-center justify-content-center"
                       onClick={async () => {
-                        if (
-                          !window.confirm(
-                            "Mark this transaction as FULLY PAID and COMPLETED?",
-                          )
-                        )
-                          return;
+                        if (!(await confirm({
+                          title: "Settle transaction",
+                          message: "Mark this transaction as fully paid and completed?",
+                          confirmLabel: "Settle bill",
+                          variant: "primary",
+                        }))) return;
 
                         try {
                           await api.put(

@@ -7,8 +7,10 @@ import {
   Loader2,
 } from "lucide-react"
 import AdminPagination from "../shared/AdminPagination";
+import { useConfirmation } from "../ConfirmationContext";
 
 const AccountManagement = () => {
+  const { confirm } = useConfirmation();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState({ type: "", msg: "" });
@@ -43,7 +45,12 @@ const AccountManagement = () => {
   };
 
   const handleRoleChange = async (userId, newRole) => {
-    if (!window.confirm(`Change this user's role to ${newRole.toUpperCase()}?`)) return;
+    if (!(await confirm({
+      title: "Change user role",
+      message: `Change this user's role to ${newRole.toUpperCase()}?`,
+      confirmLabel: "Change role",
+      variant: "primary",
+    }))) return;
     try {
       setUpdatingUserId(userId);
       await api.put(

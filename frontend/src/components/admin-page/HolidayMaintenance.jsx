@@ -2,8 +2,10 @@ import React, { useState, useEffect } from "react";
 import api from "../../api";
 import { CalendarOff, Trash2, Plus } from "lucide-react";
 import { useToast } from "../ToastContext";
+import { useConfirmation } from "../ConfirmationContext";
 const HolidayMaintenance = () => {
   const { showToast } = useToast();
+  const { confirm } = useConfirmation();
   const [holidays, setHolidays] = useState([]);
   const [newHoliday, setNewHoliday] = useState({ date: "", reason: "" });
 
@@ -32,7 +34,12 @@ const HolidayMaintenance = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Unblock this date?")) return;
+    if (!(await confirm({
+      title: "Unblock date",
+      message: "Remove this date from the blocked dates list?",
+      confirmLabel: "Unblock date",
+      variant: "primary",
+    }))) return;
     await api.delete(`/admin/blocked-dates/${id}`);
     fetchHolidays();
   };

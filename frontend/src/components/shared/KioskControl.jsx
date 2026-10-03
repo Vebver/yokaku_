@@ -3,9 +3,11 @@ import { Monitor, RefreshCw } from "lucide-react";
 import io from "socket.io-client";
 import api, { SOCKET_URL } from "../../api";
 import { useToast } from "../ToastContext";
+import { useConfirmation } from "../ConfirmationContext";
 
 const KioskControl = () => {
   const { showToast } = useToast();
+  const { confirm } = useConfirmation();
   const [activeKiosks, setActiveKiosks] = useState([]);
   const [loadingKiosks, setLoadingKiosks] = useState(false);
   // Admin-entered event / reservation ID for arming a kiosk by hand.
@@ -42,11 +44,12 @@ const KioskControl = () => {
   const armById = async () => {
     const id = manualId.trim();
     if (!id) return;
-    if (
-      !window.confirm(
-        `Arm the kiosk for ${id}? The kiosk will open straight into the menu when the guest arrives.`,
-      )
-    ) {
+    if (!(await confirm({
+      title: "Start kiosk screen",
+      message: `Arm the kiosk for ${id}? It will open straight into the menu when the guest arrives.`,
+      confirmLabel: "Start screen",
+      variant: "primary",
+    }))) {
       return;
     }
     setArming(true);
@@ -100,11 +103,11 @@ const KioskControl = () => {
 
   const stopKioskById = async (id) => {
     if (!id) return;
-    if (
-      !window.confirm(
-        "Interrupt and close this kiosk session? The customer will be returned to the kiosk home screen.",
-      )
-    )
+    if (!(await confirm({
+      title: "Stop kiosk session",
+      message: "Interrupt and close this kiosk session? The customer will be returned to the kiosk home screen.",
+      confirmLabel: "Stop kiosk",
+    })))
       return;
     try {
       await api.post("/admin/stop-kiosk", { reservationId: id });

@@ -9,9 +9,11 @@ import {
 } from "lucide-react";
 import { useToast } from "../ToastContext";
 import AdminPagination from "../shared/AdminPagination";
+import { useConfirmation } from "../ConfirmationContext";
 
 function Categories() {
   const { showToast } = useToast();
+  const { confirm } = useConfirmation();
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -66,13 +68,16 @@ function Categories() {
   };
 
   const deleteCategory = async (id) => {
-    if (window.confirm("Delete this category?")) {
-      try {
-        await api.delete(`/categories/${id}`);
-        setCategories(categories.filter((c) => c.id !== id));
-      } catch (err) {
-        showToast("Error deleting category.");
-      }
+    if (!(await confirm({
+      title: "Delete category",
+      message: "Delete this category? Menu items assigned to it may be affected.",
+      confirmLabel: "Delete category",
+    }))) return;
+    try {
+      await api.delete(`/categories/${id}`);
+      setCategories(categories.filter((c) => c.id !== id));
+    } catch (err) {
+      showToast("Error deleting category.");
     }
   };
 

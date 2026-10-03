@@ -14,6 +14,7 @@ import {
   Clock,
 } from "lucide-react";
 import { useToast } from "../ToastContext";
+import { useConfirmation } from "../ConfirmationContext";
 import { useSectionRefresh } from "../shared/sectionRefresh";
 
 // Helpers to extract and compare dates (YYYY-MM-DD format)
@@ -30,6 +31,7 @@ const getTableReservationDateString = (dateStr) => {
 
 const TableStatus = ({ compact = false }) => {
   const { showToast } = useToast();
+  const { confirm } = useConfirmation();
   const [data, setData] = useState({
     tables: [],
     schedule: [],
@@ -195,11 +197,12 @@ const TableStatus = ({ compact = false }) => {
       showToast("Only admins or cashiers can open a kiosk.");
       return;
     }
-    if (
-      !window.confirm(
-        `Open the kiosk for reservation ${reservationId}? The guest's screen will go straight to the menu.`,
-      )
-    ) {
+    if (!(await confirm({
+      title: "Open kiosk session",
+      message: `Open the kiosk for reservation ${reservationId}? The guest's screen will go straight to the menu.`,
+      confirmLabel: "Open kiosk",
+      variant: "primary",
+    }))) {
       return;
     }
     try {
@@ -220,11 +223,12 @@ const TableStatus = ({ compact = false }) => {
   // Manually flag the physical table as taken (a walk-in seated by hand)
   // without needing a linked reservation.
   const makeOccupied = async (t) => {
-    if (
-      !window.confirm(
-        `Mark Table ${t.table_number} as occupied?`,
-      )
-    ) {
+    if (!(await confirm({
+      title: "Mark table occupied",
+      message: `Mark Table ${t.table_number} as occupied?`,
+      confirmLabel: "Mark occupied",
+      variant: "primary",
+    }))) {
       return;
     }
     try {
@@ -266,13 +270,13 @@ const TableStatus = ({ compact = false }) => {
       showToast("No reservation linked to this kiosk.");
       return;
     }
-    if (
-      !window.confirm(
-        `Interrupt this kiosk? The customer session will be returned to the kiosk home screen. Use this if the kiosk is stuck or showing an error.${
-          tableId ? " Only this table will be released." : ""
-        }`,
-      )
-    ) {
+    if (!(await confirm({
+      title: "Stop kiosk session",
+      message: `Interrupt this kiosk? The customer session will be returned to the kiosk home screen. Use this if the kiosk is stuck or showing an error.${
+        tableId ? " Only this table will be released." : ""
+      }`,
+      confirmLabel: "Stop kiosk",
+    }))) {
       return;
     }
     try {
@@ -580,18 +584,14 @@ const TableStatus = ({ compact = false }) => {
                         <button
                           className="btn btn-sm btn-link text-danger p-0 ms-2 border-0"
                           style={{ lineHeight: 1 }}
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation(); // Prevents triggering openBill or actions below
-                            if (
-                              window.confirm(
-                                `Are you sure you want to permanently delete Table ${t.table_number}?`,
-                              )
-                            ) {
-                              handleAction(
-                                "delete",
-                                `/admin/tables/${t.table_id}`,
-                              );
-                            }
+                            if (!(await confirm({
+                              title: "Delete table",
+                              message: `Permanently delete Table ${t.table_number}?`,
+                              confirmLabel: "Delete table",
+                            }))) return;
+                            handleAction("delete", `/admin/tables/${t.table_id}`);
                           }}
                         >
                           <Trash2 size={13} />
@@ -788,7 +788,7 @@ const TableStatus = ({ compact = false }) => {
 
                       const parsedCapacity = Number(form.capacity);
                       if (!Number.isInteger(parsedCapacity) || parsedCapacity < 1 || parsedCapacity > 7) {
-                        window.alert("Capacity must be between 1 and 7.");
+                        showToast("Capacity must be between 1 and 7.", "error");
                         return;
                       }
 

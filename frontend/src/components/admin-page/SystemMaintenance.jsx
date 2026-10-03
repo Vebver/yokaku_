@@ -13,11 +13,13 @@ import {
 } from "lucide-react";
 import api from "../../api";
 import { useToast } from "../ToastContext";
+import { useConfirmation } from "../ConfirmationContext";
 
 const SystemMaintenance = () => {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const { showToast } = useToast();
+  const { confirm } = useConfirmation();
   const [backups, setBackups] = useState([]);
   const [backupsLoading, setBackupsLoading] = useState(false);
   const [creatingBackup, setCreatingBackup] = useState(false);
@@ -49,10 +51,12 @@ const SystemMaintenance = () => {
   }, [fetchBackups]);
 
   const handleCreateBackup = async () => {
-    const confirmed = window.confirm(
-      `Create Database Backup?\n\nThis will dump the entire database into a .sql file.\n\nProceed?`,
-    );
-    if (!confirmed) return;
+    if (!(await confirm({
+      title: "Create database backup",
+      message: "This will dump the entire database into a .sql file.",
+      confirmLabel: "Create backup",
+      variant: "primary",
+    }))) return;
 
     setCreatingBackup(true);
     try {
@@ -77,21 +81,12 @@ const SystemMaintenance = () => {
   };
 
   const handleRestoreBackup = async (filename) => {
-    const confirmed = window.confirm(
-      `⚠️ DANGER: Restore Database from Backup\n\n` +
-        `File: ${filename}\n\n` +
-        `This will OVERWRITE all current data with the data from this backup.\n` +
-        `This action CANNOT be undone!\n\n` +
-        `Are you absolutely sure you want to proceed?`,
-    );
-    if (!confirmed) return;
-
-    // Second confirmation for safety
-    const doubleConfirmed = window.confirm(
-      `FINAL WARNING: Restore ${filename}?\n\n` +
-        `All current data will be replaced. Type "OK" to confirm.`,
-    );
-    if (!doubleConfirmed) return;
+    if (!(await confirm({
+      title: "Restore database backup",
+      message: `Restore ${filename}? This will overwrite all current data and cannot be undone.`,
+      confirmLabel: "Restore database",
+      requireText: "RESTORE",
+    }))) return;
 
     try {
       const token = localStorage.getItem("token");
@@ -113,10 +108,12 @@ const SystemMaintenance = () => {
 
   const handleRestoreLocalBackup = async () => {
     if (!localBackupFile) return;
-    const confirmed = window.confirm(
-      `Restore database from ${localBackupFile.name}? This will overwrite current data and cannot be undone.`,
-    );
-    if (!confirmed) return;
+    if (!(await confirm({
+      title: "Restore database backup",
+      message: `Restore ${localBackupFile.name}? This will overwrite all current data and cannot be undone.`,
+      confirmLabel: "Restore database",
+      requireText: "RESTORE",
+    }))) return;
 
     const formData = new FormData();
     formData.append("backup", localBackupFile);
@@ -133,10 +130,11 @@ const SystemMaintenance = () => {
   };
 
   const handleDeleteBackup = async (filename) => {
-    const confirmed = window.confirm(
-      `Delete Backup: ${filename}?\n\nThis action cannot be undone.`,
-    );
-    if (!confirmed) return;
+    if (!(await confirm({
+      title: "Delete backup",
+      message: `Delete ${filename}? This action cannot be undone.`,
+      confirmLabel: "Delete backup",
+    }))) return;
 
     try {
       const token = localStorage.getItem("token");
@@ -192,10 +190,11 @@ const SystemMaintenance = () => {
   };
 
   const runTask = async (endpoint, taskName, warningText) => {
-    const confirmed = window.confirm(
-      `Action: ${taskName}\n\n${warningText}\n\nAre you sure?`,
-    );
-    if (!confirmed) return;
+    if (!(await confirm({
+      title: taskName,
+      message: warningText,
+      confirmLabel: "Proceed",
+    }))) return;
 
     try {
       const token = localStorage.getItem("token");

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useToast } from "../ToastContext";
 import { useSectionRefresh } from "../shared/sectionRefresh";
+import { useConfirmation } from "../ConfirmationContext";
 
 function Product() {
   const [menuItems, setMenuItems] = useState([]);
@@ -24,6 +25,7 @@ function Product() {
   const [editId, setEditId] = useState(null);
   const [editOriginalName, setEditOriginalName] = useState("");
   const { showToast } = useToast();
+  const { confirm } = useConfirmation();
   const [imageError, setImageError] = useState("");
 
   const [newItem, setNewItem] = useState({
@@ -243,18 +245,20 @@ function Product() {
   };
 
   const deleteMenuItem = async (id) => {
-    if (window.confirm("Remove item?")) {
-      try {
-        const token = localStorage.getItem("token");
-        await api.delete(`/products/${id}`);
-        showToast("Dish deleted successfully!", "success");
-        fetchData();
-      } catch (err) {
-        console.error(err);
-        showToast(
-          "Error deleting item. Please check your connection or authorization.",
-        );
-      }
+    if (!(await confirm({
+      title: "Remove menu item",
+      message: "Remove this dish from the menu?",
+      confirmLabel: "Remove dish",
+    }))) return;
+    try {
+      await api.delete(`/products/${id}`);
+      showToast("Dish deleted successfully!", "success");
+      fetchData();
+    } catch (err) {
+      console.error(err);
+      showToast(
+        "Error deleting item. Please check your connection or authorization.",
+      );
     }
   };
 

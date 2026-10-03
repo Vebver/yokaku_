@@ -15,9 +15,11 @@ import {
 } from "lucide-react";
 import { useToast } from "../ToastContext";
 import { useSectionRefresh } from "../shared/sectionRefresh";
+import { useConfirmation } from "../ConfirmationContext";
 
 function Inventory() {
   const { showToast } = useToast();
+  const { confirm } = useConfirmation();
   const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -214,13 +216,16 @@ function Inventory() {
   };
 
   const deleteItem = async (id) => {
-    if (window.confirm("Remove this item?")) {
-      try {
-        await api.delete(`/inventory/${id}`);
-        fetchInventory();
-      } catch (err) {
-        showToast("Error deleting item.");
-      }
+    if (!(await confirm({
+      title: "Remove inventory item",
+      message: "Remove this item from inventory?",
+      confirmLabel: "Remove item",
+    }))) return;
+    try {
+      await api.delete(`/inventory/${id}`);
+      fetchInventory();
+    } catch (err) {
+      showToast("Error deleting item.");
     }
   };
 

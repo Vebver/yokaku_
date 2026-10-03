@@ -12,6 +12,7 @@ import {
   X 
 } from "lucide-react";
 import { useToast } from "../ToastContext";
+import { useConfirmation } from "../ConfirmationContext";
 
 function RecipeManager() {
   const [menuItems, setMenuItems] = useState([]);
@@ -26,6 +27,7 @@ function RecipeManager() {
   const [loadingRecipe, setLoadingRecipe] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const { showToast } = useToast();
+  const { confirm } = useConfirmation();
 
   // State to filter the ingredients list (table)
   const [ingredientSearchTerm, setIngredientSearchTerm] = useState("");
@@ -143,7 +145,11 @@ function RecipeManager() {
   };
 
   const removeIngredient = async (recipeId) => {
-    if (!window.confirm("Remove this ingredient?")) return;
+    if (!(await confirm({
+      title: "Remove recipe ingredient",
+      message: "Remove this raw material from the recipe?",
+      confirmLabel: "Remove ingredient",
+    }))) return;
     try {
       await api.delete(
         `/products/ingredients/${recipeId}`,
