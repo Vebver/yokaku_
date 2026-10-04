@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import api from "../../api";
 import { useToast } from "../ToastContext";
+import "../../Style/Profile.css";
 function Profile() {
   const [profile, setProfile] = useState({
     firstName: "",
@@ -373,24 +374,6 @@ function Profile() {
           </div>
         </div>
       </div>
-
-<style>{`
-        .profile-refresh-btn,
-        .profile-submit-btn,
-        .profile-password-btn {
-          width: auto;
-        }
-        @media (max-width: 767.98px) {
-          .profile-title { font-size: 1.75rem !important; }
-          .profile-header { gap: 0.75rem !important; }
-          .profile-header > div { width: 100%; }
-          .profile-refresh-btn,
-          .profile-submit-btn,
-          .profile-password-btn {
-            width: 100%;
-          }
-        }
-      `}</style>
     </div>
   );
 }

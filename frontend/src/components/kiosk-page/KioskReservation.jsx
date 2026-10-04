@@ -240,7 +240,6 @@ const KioskReservation = () => {
             </span>
           </div>
         </div>
-        <style>{` .spinner-loader { animation: spin 1.5s linear infinite; } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } `}</style>
       </div>
     );
   }
@@ -508,13 +507,6 @@ const KioskReservation = () => {
         </div>
         )}
       </div>
-
-      <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   );
 };

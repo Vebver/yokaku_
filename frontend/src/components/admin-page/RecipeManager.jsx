@@ -416,12 +416,6 @@ function RecipeManager() {
           </div>
         </div>
       </div>
-
-      <style>{`
-        .x-small { font-size: 0.65rem; letter-spacing: 0.5px; }
-        .animate-spin { animation: spin 1s linear infinite; }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-      `}</style>
     </div>
   );
 }

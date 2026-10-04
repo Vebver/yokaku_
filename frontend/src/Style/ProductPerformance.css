@@ -1,0 +1,157 @@
+/* ==========================================================================
+   Product Performance (admin → Reports → Products)
+   Extracted from the inline <style> block in ProductPerformance.jsx.
+   ========================================================================== */
+
+.product-performance-container {
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+.bg-gradient-danger {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.product-performance-container .table-light th {
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #64748b;
+  padding: 12px 16px;
+}
+
+.product-performance-container .table td {
+  padding: 12px 16px;
+  vertical-align: middle;
+}
+
+.list-group-item {
+  transition: all 0.2s ease;
+}
+
+.list-group-item:hover {
+  background-color: #f8fafc;
+  transform: translateX(4px);
+}
+
+/* --------------------------------------------------------------------------
+   Phones / tablets: the top-sellers table becomes stacked cards, with each
+   cell labelled from its data-label attribute.
+   -------------------------------------------------------------------------- */
+@media (max-width: 768px) {
+  .product-performance-container .table-responsive {
+    overflow: visible;
+  }
+
+  .product-performance-container thead {
+    display: none;
+  }
+
+  .product-performance-container .table,
+  .product-performance-container .table tbody,
+  .product-performance-container .table tr,
+  .product-performance-container .table td {
+    display: block;
+    width: 100%;
+  }
+
+  .product-performance-container .table tbody tr {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    margin-bottom: 12px;
+    padding: 12px 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  }
+
+  .product-performance-container .table td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border: none;
+    padding: 8px 0;
+    text-align: right !important;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .product-performance-container .table td[data-label]::before {
+    content: attr(data-label);
+    font-weight: 600;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #64748b;
+    text-align: left;
+    flex-shrink: 0;
+  }
+
+  /* The dish name is the row title, so give it its own full-width line. */
+  .product-performance-container .table td[data-label="Item"] {
+    display: block;
+    text-align: left !important;
+    border-bottom: 1px dashed #e2e8f0;
+    margin-bottom: 6px;
+    padding-bottom: 10px;
+  }
+
+  .product-performance-container .table td[data-label="Item"]::before {
+    display: none;
+  }
+
+  .product-performance-container .card-footer .d-flex {
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Phones
+   -------------------------------------------------------------------------- */
+@media (max-width: 576px) {
+  .product-performance-container {
+    padding: 0.75rem !important;
+  }
+
+  .pp-kpi-value {
+    font-size: 1.5rem;
+    overflow-wrap: anywhere;
+  }
+
+  .pp-kpi-label {
+    font-size: 0.65rem;
+    letter-spacing: 0.3px;
+  }
+
+  /* Rank circle stays on the title row instead of being orphaned. */
+  .product-performance-container .table td[data-label="Item"] {
+    padding-bottom: 8px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Print / PDF export
+   -------------------------------------------------------------------------- */
+@media print {
+  .btn,
+  .card-header button {
+    display: none !important;
+  }
+
+  .product-performance-container {
+    padding: 0 !important;
+  }
+
+  .card {
+    break-inside: avoid;
+    box-shadow: none !important;
+    border: 1px solid #e2e8f0 !important;
+  }
+}

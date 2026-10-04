@@ -1,11 +1,18 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense, lazy } from "react";
 import api from "../../api";
 import { Wallet, Settings, Smartphone } from "lucide-react";
 
-// Components
-import SystemMaintenance from "./SystemMaintenance"; // Renamed from DatabaseMaintenance
-import HolidayMaintenance from "./HolidayMaintenance";
+// Both housekeeping panels sit below the GCash form, so their chunks and
+  // their data fetches were running before the user had scrolled to them.
+const SystemMaintenance = lazy(() => import("./SystemMaintenance"));
+const HolidayMaintenance = lazy(() => import("./HolidayMaintenance"));
 import { useToast } from "../ToastContext";
+
+const SectionLoader = () => (
+  <div className="d-flex justify-content-center align-items-center py-5">
+    <div className="spinner-border text-secondary" role="status"></div>
+  </div>
+);
 
 const Maintenance = () => {
   const { showToast } = useToast();
@@ -63,7 +70,6 @@ const Maintenance = () => {
   return (
 <div className="container-fluid p-3 p-md-4 bg-light min-vh-100">
       <div className="d-flex align-items-center mb-2 flex-wrap gap-2">
-        <Settings className="text-secondary me-1 flex-shrink-0" size={26} />
         <h2 className="fw-bold mb-0">Operations &amp; Settings</h2>
       </div>
 
@@ -75,7 +81,6 @@ const Maintenance = () => {
       <section className="mb-5">
         <div className="card shadow-sm border-0 p-4">
           <div className="d-flex align-items-center mb-4">
-            <Wallet className="text-primary me-2" size={20} />
             <h5 className="mb-0 text-dark fw-bold">Payment Account</h5>
           </div>
 
@@ -85,13 +90,6 @@ const Maintenance = () => {
               <div className="col-12 col-md-8 col-lg-6">
                 <div className="p-4 border rounded bg-white shadow-sm h-100">
                   <div className="d-flex align-items-center mb-3">
-                    <div
-                      className="bg-primary text-white rounded-circle me-2 fw-bold d-flex align-items-center justify-content-center flex-shrink-0"
-                      style={{ width: "36px", height: "36px" }}
-                      aria-hidden="true"
-                    >
-                      <Smartphone size={18} />
-                    </div>
                     <h6 className="fw-bold mb-0">GCash Business Details</h6>
                   </div>
 
@@ -142,12 +140,16 @@ const Maintenance = () => {
 
       {/* SECTION 3: System Housekeeping (Archive, Reset, Export) */}
       <section className="mb-5">
-        <SystemMaintenance />
+        <Suspense fallback={<SectionLoader />}>
+          <SystemMaintenance />
+        </Suspense>
       </section>
 
       {/* SECTION 4: Holiday Management */}
       <section className="mb-5 pb-5">
-        <HolidayMaintenance />
+        <Suspense fallback={<SectionLoader />}>
+          <HolidayMaintenance />
+        </Suspense>
       </section>
     </div>
   );

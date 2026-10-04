@@ -1,0 +1,45 @@
+/* ==========================================================================
+   Billing & Transactions (admin + cashier)
+   Extracted from the inline <style> block in Billing.jsx.
+   ========================================================================== */
+
+/* .transition-all itself now lives in the shared utilities.css; only the
+   billing-specific hover tint is kept here. It is applied to table rows, which
+   sit outside any billing-specific wrapper, so it stays global. */
+.transition-all:hover {
+  background-color: rgba(0, 0, 0, 0.015);
+}
+
+.page-link {
+  color: #495057;
+  border: 1px solid #dee2e6;
+  background-color: #fff;
+}
+
+.page-link:hover {
+  background-color: #f8f9fa;
+  color: #212529;
+}
+
+.page-item.disabled .page-link {
+  color: #6c757d;
+  pointer-events: none;
+  background-color: #fff;
+  border-color: #dee2e6;
+}
+
+.animate-fade-in {
+  animation: billingFadeIn 0.25s ease-out forwards;
+}
+
+/* Named to avoid clashing with the fadeIn keyframes in Reports.css. */
+@keyframes billingFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

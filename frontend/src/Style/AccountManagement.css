@@ -1,0 +1,100 @@
+/* ==========================================================================
+   Account Management (admin → Account Manage)
+   Extracted from the inline <style> block in AccountManagement.jsx.
+   ========================================================================== */
+
+.page-link:focus {
+  box-shadow: none;
+}
+
+/* Green focus ring to match the theme. */
+.form-select:focus {
+  border-color: #10b981;
+  box-shadow: 0 0 0 0.25rem rgba(16, 185, 129, 0.1);
+}
+
+/* --------------------------------------------------------------------------
+   Phones / tablets: the users table becomes stacked cards, with each cell
+   labelled from its data-label attribute.
+   -------------------------------------------------------------------------- */
+@media (max-width: 768px) {
+  .account-mgmt-container .table-responsive {
+    overflow: visible;
+  }
+
+  .account-mgmt-container thead {
+    display: none;
+  }
+
+  .account-mgmt-container .table,
+  .account-mgmt-container .table tbody,
+  .account-mgmt-container .table tr,
+  .account-mgmt-container .table td {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .account-mgmt-container .table {
+    min-width: 0 !important;
+  }
+
+  .account-mgmt-container .table tbody tr {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    margin-bottom: 12px;
+    padding: 12px 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  }
+
+  .account-mgmt-container .table td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border: none;
+    padding: 8px 0;
+    text-align: right !important;
+  }
+
+  .account-mgmt-container .table td[data-label]::before {
+    content: attr(data-label);
+    font-weight: 600;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #64748b;
+    text-align: left;
+    flex-shrink: 0;
+  }
+
+  /* The name is the row title, so give it its own full-width line. */
+  .account-mgmt-container .table td[data-label="Full Name"] {
+    display: block;
+    text-align: left !important;
+    border-bottom: 1px dashed #e2e8f0;
+    margin-bottom: 6px;
+    padding-bottom: 10px;
+  }
+
+  .account-mgmt-container .table td[data-label="Full Name"]::before {
+    display: none;
+  }
+
+  .account-mgmt-container .table td[data-label="Profile"] {
+    justify-content: flex-start;
+  }
+
+  .account-mgmt-container .table td[data-label="Manage Permissions"] .d-flex {
+    justify-content: flex-end;
+  }
+
+  .account-mgmt-container
+    .table
+    td[data-label="Manage Permissions"]
+    .form-select {
+    width: 100% !important;
+    max-width: 140px;
+  }
+}

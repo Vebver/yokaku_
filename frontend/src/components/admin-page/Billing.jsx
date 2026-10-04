@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import api from "../../api";
+import "../../Style/Billing.css";
 import {
   Loader2,
   ReceiptText,
@@ -1339,21 +1340,6 @@ const Billing = () => {
         )}
       </div>
     </div>
-
-      <style>{`
-        .transition-all { transition: all 0.2s ease-in-out; }
-        .transition-all:hover { background-color: rgba(0, 0, 0, 0.015); }
-        .page-link { color: #495057; border: 1px solid #dee2e6; background-color: #fff; }
-        .page-link:hover { background-color: #f8f9fa; color: #212529; }
-        .page-item.disabled .page-link { color: #6c757d; pointer-events: none; background-color: #fff; border-color: #dee2e6; }
-        .animate-fade-in {
-          animation: fadeIn 0.25s ease-out forwards;
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(5px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
     </div>
   );
 };

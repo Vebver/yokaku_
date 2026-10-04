@@ -1,0 +1,165 @@
+/* ==========================================================================
+   Admin Dashboard — notification dropdown & hover helpers
+   Extracted from the inline <style> block in AdminDashboard.jsx.
+   ========================================================================== */
+
+.hover-bg {
+  transition: background-color 0.15s ease-in-out;
+}
+
+.hover-bg:hover {
+  background-color: #f8f9fa;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #dee2e6;
+  border-radius: 10px;
+}
+
+/* --- Notification dropdown --- */
+.admin-notif-dropdown {
+  width: 380px !important;
+  max-height: 480px !important;
+  padding: 0 !important;
+  border-radius: 16px !important;
+  overflow: hidden;
+}
+
+.notification-item {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f1f3f5;
+  transition: background-color 0.15s ease;
+}
+
+.notification-item.unread {
+  background-color: #f8f9fa;
+  border-left: 3px solid #0d6efd;
+}
+
+.notification-item.read {
+  background-color: #ffffff;
+  border-left: 3px solid transparent;
+}
+
+.notification-card-content {
+  display: flex;
+  gap: 12px;
+}
+
+.notification-icon {
+  font-size: 1.25rem;
+  display: flex;
+  align-items: flex-start;
+  padding-top: 2px;
+}
+
+.notification-content {
+  flex: 1;
+}
+
+.notification-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 4px;
+}
+
+.notification-title {
+  font-weight: 600;
+  color: #212529;
+  font-size: 0.85rem;
+}
+
+.notification-time {
+  font-size: 0.7rem;
+  color: #868e96;
+}
+
+.notification-message {
+  font-size: 0.8rem;
+  color: #495057;
+  margin-bottom: 8px;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.notif-res-id-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  background-color: #e9ecef;
+  color: #495057;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.notification-actions-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.notification-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* --- Notification action buttons --- */
+.mark-read-btn,
+.view-btn,
+.delete-notif-btn {
+  font-size: 0.7rem;
+  padding: 3px 6px;
+  border-radius: 4px;
+  border: none;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.mark-read-btn {
+  background-color: #e7f5ff;
+  color: #228be6;
+}
+
+.mark-read-btn:hover {
+  background-color: #d0ebff;
+}
+
+.mark-read-btn.already-read {
+  background-color: transparent;
+  color: #adb5bd;
+  cursor: default;
+  padding-left: 0;
+}
+
+.view-btn {
+  background-color: #f1f3f5;
+  color: #495057;
+}
+
+.view-btn:hover {
+  background-color: #e9ecef;
+}
+
+.delete-notif-btn {
+  background-color: transparent;
+  color: #fa5252;
+  display: flex;
+  align-items: center;
+  padding: 3px 6px;
+}
+
+.delete-notif-btn:hover {
+  background-color: #fff5f5;
+  border-radius: 4px;
+}

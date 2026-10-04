@@ -11,6 +11,7 @@ import { useLocation, useNavigate } from "react-router-dom"; // Added useNavigat
 import { useToast } from "../ToastContext";
 import api, { API_BASE, SOCKET_URL } from "../../api";
 import "../../Style/KitchenPage.css";
+import "../../Style/KitchenNavbar.css";
 
 const socket = io(SOCKET_URL, {
   transports: ["websocket", "polling"],
@@ -388,64 +389,6 @@ const KitchenPage = () => {
         )}
       </main>
 
-      {/* Internal CSS for the new Header components */}
-      <style>{`
-        .kitchen-navbar {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 0.5rem 2rem;
-          background: #1a1a1a;
-          color: white;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-          position: sticky;
-          top: 0;
-          z-index: 1000;
-        }
-        .logo-section { display: flex; align-items: center; gap: 12px; }
-        .brand-name { font-size: 1.2rem; font-weight: 800; margin: 0; letter-spacing: 1px; }
-        .live-status { font-size: 0.65rem; color: #4ade80; display: flex; align-items: center; gap: 5px; }
-        .dot { width: 6px; height: 6px; background: #4ade80; border-radius: 50%; animation: pulse 1.5s infinite; }
-        
-        .filter-tabs { display: flex; background: #2d2d2d; padding: 4px; border-radius: 12px; }
-        .tab-btn { 
-          padding: 8px 20px; border: none; background: transparent; color: #a3a3a3; 
-          font-size: 0.75rem; font-weight: 600; border-radius: 8px; transition: 0.3s;
-          display: flex; align-items: center; gap: 8px;
-        }
-        .tab-btn.active { background: #f38d31; color: white; }
-        .count-pill { background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; }
-
-        .nav-right { display: flex; align-items: center; gap: 20px; }
-        .user-profile { display: flex; align-items: center; gap: 12px; border-right: 1px solid #333; padding-right: 20px; }
-        .user-name { display: block; font-size: 0.9rem; font-weight: 600; }
-        .user-role { display: block; font-size: 0.7rem; color: #f38d31; }
-        .logout-icon-btn { 
-          background: transparent; border: none; color: #ef4444; cursor: pointer; 
-          transition: 0.2s; padding: 8px; border-radius: 50%;
-        }
-        .logout-icon-btn:hover { background: rgba(239, 68, 68, 0.1); transform: scale(1.1); }
-
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
-
-        /* --- Responsive: stack the bar on tablets/phones --- */
-        @media (max-width: 992px) {
-          .kitchen-navbar {
-            flex-wrap: wrap;
-            gap: 0.75rem;
-            padding: 0.75rem 1rem;
-          }
-          .nav-center { order: 3; width: 100%; overflow-x: auto; }
-          .filter-tabs { width: 100%; }
-          .tab-btn { flex: 1; justify-content: center; padding: 8px 12px; }
-          .user-info { display: none; }
-          .user-profile { border-right: none; padding-right: 0; }
-        }
-        @media (max-width: 576px) {
-          .brand-name { font-size: 1rem; }
-          .tab-btn { font-size: 0.65rem; padding: 8px 6px; }
-        }
-      `}</style>
     </div>
   );
 };

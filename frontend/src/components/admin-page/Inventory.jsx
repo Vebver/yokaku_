@@ -16,6 +16,7 @@ import {
 import { useToast } from "../ToastContext";
 import { useSectionRefresh } from "../shared/sectionRefresh";
 import { useConfirmation } from "../ConfirmationContext";
+import "../../Style/Inventory.css";
 
 function Inventory() {
   const { showToast } = useToast();
@@ -341,7 +342,7 @@ function Inventory() {
         </div>
       </div>
 
-      {/* SEARCH + FILTERS — full width so everything sits on one line and only
+      {/* SEARCH + FILTERS â€” full width so everything sits on one line and only
           wraps on phones, instead of stacking inside a narrow column. */}
       <div className="admin-toolbar row g-2 align-items-center mb-3 px-2">
         <div className="col-12 col-xl-5 col-xxl-4">
@@ -419,7 +420,7 @@ function Inventory() {
         </div>
       </div>
 
-      {/* STATUS SUMMARY — click a tile to filter to that bucket */}
+      {/* STATUS SUMMARY â€” click a tile to filter to that bucket */}
       <div className="row g-2 px-2 mb-3">
         {[
           { key: "out", label: "Out of stock", tone: "danger" },
@@ -819,7 +820,7 @@ function Inventory() {
                 </select>
               </div>
               <div className="col-4">
-                <label className="x-small fw-bold text-muted">COST (₱)</label>
+                <label className="x-small fw-bold text-muted">COST (â‚±)</label>
                 <input
                   type="number"
                   step="0.01"
@@ -858,7 +859,7 @@ function Inventory() {
                 />
               </div>
             </div>
-            {/* DISH RECIPE LINKS — capture the recipe as the item is stocked */}
+            {/* DISH RECIPE LINKS â€” capture the recipe as the item is stocked */}
             {!isEditMode && (
               <div className="border rounded-3 p-3 mt-3 bg-light">
                 <label className="x-small fw-bold text-muted d-block mb-1">
@@ -970,101 +971,6 @@ function Inventory() {
         </div>
       </div>
 
-<style>{`.x-small { font-size: 0.65rem; letter-spacing: 0.5px; } .animate-spin { animation: spin 1s linear infinite; } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-
-        /* --- Status summary tiles --- */
-        .inv-stat-card {
-          background: #fff;
-          border: 2px solid transparent !important;
-          transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
-          cursor: pointer;
-        }
-        .inv-stat-card:hover { transform: translateY(-2px); box-shadow: 0 .5rem 1rem rgba(0,0,0,.08) !important; }
-        .inv-stat-card.is-active { border-color: currentColor !important; }
-        .inv-stat-value { font-size: 1.6rem; font-weight: 800; line-height: 1.1; }
-        .inv-stat-label { text-transform: uppercase; letter-spacing: .6px; font-size: .62rem; }
-        .inv-stat-danger  { color: #dc3545; }
-        .inv-stat-warning { color: #b58105; }
-        .inv-stat-dark    { color: #212529; }
-        .inv-stat-success { color: #198754; }
-
-        /* --- Stock level bar --- */
-        .stock-bar {
-          width: 100%;
-          max-width: 120px;
-          height: 5px;
-          background: #e9ecef;
-          border-radius: 999px;
-          overflow: hidden;
-        }
-        .stock-bar-fill { height: 100%; border-radius: 999px; transition: width .3s ease; }
-        .stock-bar-fill.stock-out     { background: #dc3545; }
-        .stock-bar-fill.stock-low     { background: #f0ad4e; }
-        .stock-bar-fill.stock-expired { background: #343a40; }
-        .stock-bar-fill.stock-ok      { background: #198754; }
-
-        .table-danger-row { background-color: rgba(220, 53, 69, .06); }
-        .table-danger-row:hover { background-color: rgba(220, 53, 69, .12) !important; }
-
-        @media (max-width: 768px) {
-          .inventory-container .table-responsive { overflow: visible; }
-          .inventory-container thead { display: none; }
-          .inventory-container .table, .inventory-container .table tbody, .inventory-container .table tr, .inventory-container .table td { display: block; width: 100%; min-width: 0; }
-          .inventory-container .table { min-width: 0 !important; }
-          .inventory-container .table tbody tr {
-            background: #fff;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            margin-bottom: 12px;
-            padding: 12px 16px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-          }
-          .inventory-container .table td {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            border: none;
-            padding: 8px 0;
-            text-align: right !important;
-            min-width: 0;
-            overflow-wrap: anywhere;
-            word-break: break-word;
-          }
-          .inventory-container .table td[data-label]::before {
-            content: attr(data-label);
-            font-weight: 600;
-            font-size: 0.72rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: #64748b;
-            text-align: left;
-            flex-shrink: 0;
-          }
-          .inventory-container .table td[data-label="Item Name"] {
-            display: block;
-            text-align: left !important;
-            border-bottom: 1px dashed #e2e8f0;
-            margin-bottom: 6px;
-            padding-bottom: 10px;
-          }
-          .inventory-container .table td[data-label="Item Name"]::before { display: none; }
-          /* On mobile the value sits right of the label, so let the stock bar
-             and reorder note drop onto their own full-width lines. */
-          .inventory-container .table td[data-label="Stock Level"] { flex-wrap: wrap; }
-          .inventory-container .table td[data-label="Stock Level"] .stock-bar {
-            max-width: none;
-            order: 3;
-            width: 100%;
-            margin-top: 6px;
-          }
-          .inventory-container .table td[data-label="Stock Level"] .x-small {
-            order: 4;
-            width: 100%;
-            text-align: right;
-          }
-        }
-      `}</style>
     </div>
   );
 }

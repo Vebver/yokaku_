@@ -1,0 +1,109 @@
+/* ==========================================================================
+   Business Reports (admin → Reports) — the tab shell
+   Extracted from the inline <style> block in Reports.jsx.
+   ========================================================================== */
+
+.report-tabs-wrapper {
+  background: #e9ecef;
+  padding: 5px;
+  border-radius: 12px;
+  display: inline-block;
+}
+
+.report-tabs-container {
+  display: flex;
+  gap: 5px;
+}
+
+.report-tab-btn {
+  border: none;
+  background: transparent;
+  padding: 10px 25px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  color: #6c757d;
+  transition: all 0.2s ease;
+}
+
+.report-tab-btn:hover {
+  background: rgba(255, 255, 255, 0.5);
+  color: #333;
+}
+
+.report-tab-btn.active {
+  background: #fff;
+  color: #ffc107;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.report-content-card {
+  background: #fff;
+  border-radius: 15px;
+  overflow: hidden;
+}
+
+.fade-in-animation {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Phones: the three tabs share the full width instead of overflowing, and
+   long report content scrolls inside the card rather than stretching the page.
+   -------------------------------------------------------------------------- */
+@media (max-width: 768px) {
+  .reports-container {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .report-tabs-wrapper {
+    display: block;
+  }
+
+  .report-tabs-container {
+    width: 100%;
+  }
+
+  .report-tab-btn {
+    flex: 1;
+    justify-content: center;
+    padding: 10px 5px;
+    font-size: 12px;
+  }
+
+  .report-content-card {
+    overflow: hidden;
+  }
+}
+
+/* Very narrow handsets (around 360-400px): shrink the labels so all three
+   tabs still fit on one row. */
+@media (max-width: 400px) {
+  .report-tab-btn {
+    font-size: 0.7rem;
+    padding: 9px 2px;
+    letter-spacing: 0;
+  }
+
+  .report-tabs-container {
+    gap: 3px;
+  }
+
+  .report-tabs-wrapper {
+    padding: 4px;
+  }
+}

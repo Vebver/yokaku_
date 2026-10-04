@@ -45,6 +45,7 @@ const WalkInReservations = lazy(() => import("./WalkInReservations"));
 const AuditLogs = lazy(() => import("./AuditLogs"));
 
 import "../../Style/AdminDashboard.css";
+import "../../Style/AdminNotifications.css";
 
 // Loading fallback shown while a lazy admin panel chunk is being fetched
 const PanelLoader = () => (
@@ -99,20 +100,13 @@ const navItems = [
   { id: "maintenance", label: "Maintenance", icon: Icons.Maintenance },
 ];
 
-const StatCard = ({ title, value, color, icon: Icon }) => (
+const StatCard = ({ title, value, color }) => (
   <div className="col-12 col-md-4">
     <div
-      className="card border-0 shadow-sm rounded-4 p-3 bg-white h-100"
+      className={`card border-0 shadow-sm rounded-4 p-3 bg-white h-100 border-start border-4 border-${color}`}
       style={{ minHeight: "100px", display: "block" }}
     >
       <div className="d-flex align-items-center h-100 gap-3">
-        <div
-          className={`bg-${color}-subtle text-${color} d-flex align-items-center justify-content-center flex-shrink-0`}
-          style={{ width: "48px", height: "48px", borderRadius: "12px" }}
-        >
-          <Icon size={22} />
-        </div>
-
         <div className="overflow-hidden">
           <p
             className="text-muted fw-bold text-uppercase mb-1"
@@ -425,12 +419,11 @@ function AdminDashboard() {
     ],
   };
 
-  const MiniFinanceCard = ({ title, value, icon: Icon, colorClass, isNum }) => (
+  const MiniFinanceCard = ({ title, value, colorClass, isNum }) => (
     <div className="col-6">
-      <div className="finance-mini-card p-3 rounded-4 shadow-sm bg-white border h-100">
-        <div className={`icon-box ${colorClass} mb-2`}>
-          <Icon size={18} />
-        </div>
+      <div
+        className={`finance-mini-card p-5 rounded-4 bg-grey border h-100 border-start border-2 ${(colorClass || "").split(" ").pop()}`}
+      >
         <p
           className="text-muted fw-bold text-uppercase mb-1"
           style={{ fontSize: "0.6rem" }}
@@ -574,19 +567,16 @@ function AdminDashboard() {
           title="Total Bookings"
           value={stats.totalBookings}
           color="primary"
-          icon={TrendingUp}
         />
         <StatCard
           title="Tables Occupied"
           value={stats.activeTables}
           color="success"
-          icon={ShoppingBag}
         />
         <StatCard
           title="Kitchen Queue"
           value={stats.kitchenQueue}
           color="info"
-          icon={Info}
         />
       </div>
 
@@ -597,26 +587,18 @@ function AdminDashboard() {
             <MiniFinanceCard
               title="Weekly Revenue"
               value={stats.weeklyRevenue}
-              icon={TrendingUp}
-              colorClass="text-success bg-success-subtle"
             />
             <MiniFinanceCard
               title="Today's Revenue"
               value={stats.todayRevenue}
-              icon={PhilippinePeso}
-              colorClass="text-primary bg-primary-subtle"
             />
             <MiniFinanceCard
               title="Avg. Order"
               value={stats.avgOrder}
-              icon={ShoppingBag}
-              colorClass="text-info bg-info-subtle"
             />
             <MiniFinanceCard
               title="Total Orders"
               value={stats.totalOrders}
-              icon={CreditCard}
-              colorClass="text-warning bg-warning-subtle"
               isNum={true}
             />
           </div>
@@ -1086,129 +1068,6 @@ function AdminDashboard() {
         </div>
       )}
 
-      <style>{`
-        .hover-bg { transition: background-color 0.15s ease-in-out; }
-        .hover-bg:hover { background-color: #f8f9fa; }
-        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #dee2e6; border-radius: 10px; }
-
-        /* Copied Design Styles */
-        .admin-notif-dropdown {
-          width: 380px !important;
-          max-height: 480px !important;
-          padding: 0 !important;
-          border-radius: 16px !important;
-          overflow: hidden;
-        }
-        .notification-item {
-          padding: 12px 16px;
-          border-bottom: 1px solid #f1f3f5;
-          transition: background-color 0.15s ease;
-        }
-        .notification-item.unread {
-          background-color: #f8f9fa;
-          border-left: 3px solid #0d6efd;
-        }
-        .notification-item.read {
-          background-color: #ffffff;
-          border-left: 3px solid transparent;
-        }
-        .notification-card-content {
-          display: flex;
-          gap: 12px;
-        }
-        .notification-icon {
-          font-size: 1.25rem;
-          display: flex;
-          align-items: flex-start;
-          padding-top: 2px;
-        }
-        .notification-content {
-          flex: 1;
-        }
-        .notification-top {
-          display: flex;
-          justify-content: space-between;
-          align-items: baseline;
-          margin-bottom: 4px;
-        }
-        .notification-title {
-          font-weight: 600;
-          color: #212529;
-          font-size: 0.85rem;
-        }
-        .notification-time {
-          font-size: 0.7rem;
-          color: #868e96;
-        }
-        .notification-message {
-          font-size: 0.8rem;
-          color: #495057;
-          margin-bottom: 8px;
-          line-height: 1.4;
-          text-align: left;
-        }
-        .notif-res-id-badge {
-          display: inline-block;
-          font-size: 0.7rem;
-          background-color: #e9ecef;
-          color: #495057;
-          padding: 2px 6px;
-          border-radius: 4px;
-          margin-bottom: 8px;
-          font-weight: 500;
-        }
-        .notification-actions-bottom {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-        .notification-actions {
-          display: flex;
-          gap: 6px;
-        }
-        .mark-read-btn, .view-btn, .delete-notif-btn {
-          font-size: 0.7rem;
-          padding: 3px 6px;
-          border-radius: 4px;
-          border: none;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 0.1s ease;
-        }
-        .mark-read-btn {
-          background-color: #e7f5ff;
-          color: #228be6;
-        }
-        .mark-read-btn:hover {
-          background-color: #d0ebff;
-        }
-        .mark-read-btn.already-read {
-          background-color: transparent;
-          color: #adb5bd;
-          cursor: default;
-          padding-left: 0;
-        }
-        .view-btn {
-          background-color: #f1f3f5;
-          color: #495057;
-        }
-        .view-btn:hover {
-          background-color: #e9ecef;
-        }
-        .delete-notif-btn {
-          background-color: transparent;
-          color: #fa5252;
-          display: flex;
-          align-items: center;
-          padding: 3px 6px;
-        }
-        .delete-notif-btn:hover {
-          background-color: #fff5f5;
-          border-radius: 4px;
-        }
-      `}</style>
     </div>
   );
 }

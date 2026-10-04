@@ -451,9 +451,6 @@ const TableStatus = ({ compact = false }) => {
                 <h2 className="h6 fw-bold mb-1">Incoming Reservations</h2>
                 <p className="text-muted small mb-0">Upcoming bookings, sorted by date and time</p>
               </div>
-              <span className="badge rounded-pill bg-primary-subtle text-primary">
-                {data.reservations.length}
-              </span>
             </div>
             <div className="table-responsive">
               <table className="table table-sm table-hover align-middle mb-0">
@@ -957,7 +954,6 @@ const TableStatus = ({ compact = false }) => {
         </div>
       )}
 
-      <style>{`.animate-spin { animation: spin 1s linear infinite; } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } .cursor-pointer { cursor: pointer; }`}</style>
     </div>
   );
 };

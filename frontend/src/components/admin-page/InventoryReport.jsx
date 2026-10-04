@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import {
   AlertCircle,
   AlertTriangle,
   CheckCircle,
 } from "lucide-react";
 import AdminPagination from "../shared/AdminPagination";
+import "../../Style/InventoryReport.css";
 
 const InventoryReport = ({ data }) => {
   const attentionItems = data?.attention_items || data?.low_stock_list || [];
@@ -47,34 +48,34 @@ const InventoryReport = ({ data }) => {
   return (
     <div className="inventory-report-container p-3 p-md-4">
       {/* Header Section */}
-      <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 pb-2 border-bottom">
-        <div>
-          <h2 className="fw-bold mb-1 text-dark">Inventory Report</h2>
+      <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3 mb-md-4 pb-2 border-bottom">
+        <div className="min-w-0">
+          <h2 className="fw-bold mb-1 text-dark fs-5 fs-md-3">
+            Inventory Report
+          </h2>
           <p className="text-muted small mb-0">
             Stock alerts and expiry tracking
-            <span className="ms-2 text-warning">●</span>
-            <span className="ms-1 text-muted">Updated just now</span>
           </p>
         </div>
       </div>
 
       {/* Low Stock and Expired cards */}
-      <div className="row g-4">
+      <div className="row g-3 g-md-4">
         <div className="col-12 col-md-6">
           {/* Low Stock Alerts Card */}
           <div
             className={`card border-0 shadow-sm rounded-4 overflow-hidden ${lowStockCount > 0 ? "border-start border-4 border-danger" : "border-start border-4 border-success"}`}
           >
-            <div className="card-header bg-white border-0 pt-4 px-4">
-              <div className="d-flex align-items-center gap-2">
+            <div className="card-header bg-white border-0 pt-3 pt-md-4 px-3 px-md-4">
+              <div className="d-flex align-items-center gap-2 flex-wrap">
                 <AlertCircle
                   size={18}
-                  className={lowStockCount > 0 ? "text-danger" : "text-success"}
+                  className={`${lowStockCount > 0 ? "text-danger" : "text-success"} flex-shrink-0`}
                 />
-                <h6 className="fw-bold mb-0">Low Stock Alerts</h6>
+                <h6 className="fw-bold mb-0 fs-6">Low Stock Alerts</h6>
               </div>
             </div>
-            <div className="card-body p-4 pt-0">
+            <div className="card-body p-3 p-md-4 pt-0">
               {lowStockCount > 0 ? (
                 <>
                   <div className="d-flex align-items-center gap-3 mb-3">
@@ -120,12 +121,12 @@ const InventoryReport = ({ data }) => {
                         {lowStockList.slice(0, 5).map((item, idx) => (
                           <div
                             key={idx}
-                            className="d-flex align-items-center justify-content-between gap-2 border border-danger-subtle bg-danger bg-opacity-10 rounded-3 px-3 py-2"
+                            className="d-flex align-items-center justify-content-between gap-2 border border-danger-subtle bg-danger bg-opacity-10 rounded-3 px-3 py-2 alert-row"
                           >
                             <span className="small fw-bold text-danger text-truncate">
                               {item.name}
                             </span>
-                            <span className="small text-danger-emphasis text-nowrap">
+                            <span className="small text-danger-emphasis text-nowrap alert-row-value">
                               {item.current_stock} {item.unit} left
                             </span>
                           </div>
@@ -158,13 +159,13 @@ const InventoryReport = ({ data }) => {
           <div
             className={`card border-0 shadow-sm rounded-4 overflow-hidden ${expiredItems.length > 0 ? "border-start border-4 border-dark" : "border-start border-4 border-success"}`}
           >
-            <div className="card-header bg-white border-0 pt-4 px-4">
-              <div className="d-flex align-items-center gap-2">
+            <div className="card-header bg-white border-0 pt-3 pt-md-4 px-3 px-md-4">
+              <div className="d-flex align-items-center gap-2 flex-wrap">
                 <AlertTriangle
                   size={18}
-                  className={expiredItems.length > 0 ? "text-dark" : "text-success"}
+                  className={`${expiredItems.length > 0 ? "text-dark" : "text-success"} flex-shrink-0`}
                 />
-                <h6 className="fw-bold mb-0">Expired Items</h6>
+                <h6 className="fw-bold mb-0 fs-6">Expired Items</h6>
                 {expiredItems.length > 0 && (
                   <span className="badge bg-dark text-white rounded-pill">
                     {expiredItems.length}
@@ -172,14 +173,14 @@ const InventoryReport = ({ data }) => {
                 )}
               </div>
             </div>
-            <div className="card-body p-4 pt-0">
+            <div className="card-body p-3 p-md-4 pt-0">
               {expiredItems.length > 0 ? (
                 <>
                   <div className="d-flex flex-column gap-2">
                     {visibleExpired.map((item, idx) => (
                       <div
                         key={item.inventory_id || idx}
-                        className="d-flex align-items-center justify-content-between gap-2 border border-dark-subtle bg-dark bg-opacity-10 rounded-3 px-3 py-2"
+                        className="d-flex align-items-center justify-content-between gap-2 border border-dark-subtle bg-dark bg-opacity-10 rounded-3 px-3 py-2 alert-row"
                       >
                         <div className="min-w-0">
                           <span className="badge bg-dark text-white me-2" style={{ fontSize: "10px", fontWeight: "600" }}>
@@ -190,7 +191,7 @@ const InventoryReport = ({ data }) => {
                             Expired {formatDate(item.expiry_date)}
                           </div>
                         </div>
-                        <span className="small text-dark text-nowrap">
+                        <span className="small text-dark text-nowrap alert-row-value">
                           {item.current_stock} {item.unit} held
                         </span>
                       </div>
@@ -220,26 +221,6 @@ const InventoryReport = ({ data }) => {
           </div>
         </div>
       </div>
-
-      {/* Custom CSS */}
-      <style>{`
-        .inventory-report-container {
-          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        }
-        @media print {
-          .btn, .card-header button {
-            display: none !important;
-          }
-          .inventory-report-container {
-            padding: 0 !important;
-          }
-          .card {
-            break-inside: avoid;
-            box-shadow: none !important;
-            border: 1px solid #e2e8f0 !important;
-          }
-        }
-      `}</style>
     </div>
   );
 };

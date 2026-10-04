@@ -1,0 +1,31 @@
+/* ==========================================================================
+   Admin → Profile
+   Extracted from the inline <style> block in Profile.jsx.
+   ========================================================================== */
+
+.profile-refresh-btn,
+.profile-submit-btn,
+.profile-password-btn {
+  width: auto;
+}
+
+/* On phones the action buttons go full width so they stay easy to tap. */
+@media (max-width: 767.98px) {
+  .profile-title {
+    font-size: 1.75rem !important;
+  }
+
+  .profile-header {
+    gap: 0.75rem !important;
+  }
+
+  .profile-header > div {
+    width: 100%;
+  }
+
+  .profile-refresh-btn,
+  .profile-submit-btn,
+  .profile-password-btn {
+    width: 100%;
+  }
+}
