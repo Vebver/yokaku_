@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   Armchair,
-  X,
   ChevronRight,
   Clock,
   ReceiptText,
@@ -13,8 +12,13 @@ import api from "../../api";
 import { useToast } from "../ToastContext";
 import { useSectionRefresh } from "../shared/sectionRefresh";
 import { getReservationStatusMeta } from "../shared/reservationStatus";
+import { compareByBookingRecency } from "../shared/sortUtils";
 import AdminPagination from "../shared/AdminPagination";
-import PackageMeta, { PACKAGE_PRICES } from "../shared/PackageMeta";
+import PackageMeta, {
+  PACKAGE_PRICES,
+  EVENT_PACKAGE_LIMITS,
+  readPackageName,
+} from "../shared/PackageMeta";
 
 // "HH:MM" to minutes since midnight
 const toMinutes = (value) => {
@@ -51,7 +55,7 @@ const WalkInReservations = () => {
 
   const closeBtnRef = useRef(null);
 
-  
+
 
   const getLocalISODate = () => {
     const tzOffset = new Date().getTimezoneOffset() * 60000; // offset in milliseconds
@@ -137,34 +141,8 @@ const WalkInReservations = () => {
       );
 
       setInquiries(
-        // Newest first, by actual booking time. Sorting on reservation_id was
-        // unreliable because it is a VARCHAR (and walk-in ids are like
-        // "WALK-1712...-3456"), so numeric subtraction produced NaN and left the
-        // order effectively random.
-        filtered.sort((a, b) => {
-          const at = new Date(
-            `${a.reservation_date || ""} ${a.reservation_time || "00:00:00"}`,
-          ).getTime();
-          const bt = new Date(
-            `${b.reservation_date || ""} ${b.reservation_time || "00:00:00"}`,
-          ).getTime();
-          if (!isNaN(at) && !isNaN(bt) && at !== bt) return bt - at;
-          // Walk-in ids embed a timestamp, so use it when date is missing.
-          const aNum = parseInt(
-            String(a.reservation_id || "").replace(/\D/g, ""),
-            10,
-          );
-          const bNum = parseInt(
-            String(b.reservation_id || "").replace(/\D/g, ""),
-            10,
-          );
-          if (!isNaN(aNum) && !isNaN(bNum) && aNum !== bNum) return bNum - aNum;
-          return String(a.first_name || "").localeCompare(
-            String(b.first_name || ""),
-            undefined,
-            { sensitivity: "base" },
-          );
-        }),
+        // Newest walk-in first, by reservation date + time (never by name).
+        filtered.slice().sort(compareByBookingRecency),
       );
     } catch (err) {
       console.error("Fetch Walk-ins error:", err);
@@ -466,6 +444,61 @@ const WalkInReservations = () => {
   );
   const totalPages = Math.ceil(filteredInquiries.length / itemsPerPage);
 
+  // The timeline must reflect the real customer/order status. A completed or
+  // cancelled walk-in used to fall through to a hardcoded "Active".
+  const walkInTimelineLabel = (() => {
+    const status = String(
+      selectedRes?.order_status || selectedRes?.status || "",
+    ).toLowerCase();
+    if (status === "completed") return "Completed";
+    if (status === "cancelled" || status === "canceled") return "Cancelled";
+    if (status === "no_show") return "No-Show";
+    return "Active";
+  })();
+
+  // An event booking and a per-table booking are different products, so the
+  // drawer derives them explicitly instead of inferring one from the other.
+  const walkInIsEvent = (() => {
+    const type = String(
+      selectedRes?.reservation_type || selectedRes?.reservationType || "",
+    ).toLowerCase();
+    if (type === "event" || type === "event_a" || type === "event_b") return true;
+    // Fall back to the package name so older rows that lost their type still
+    // resolve to the correct branch.
+    return readPackageName(selectedRes) in EVENT_PACKAGE_LIMITS;
+  })();
+
+  // The quoted event limit (₱10,000 or ₱12,500), shown as package information.
+  const walkInEventLimit = walkInIsEvent
+    ? EVENT_PACKAGE_LIMITS[readPackageName(selectedRes)] ?? 0
+    : 0;
+
+  const walkInTableLabel =
+    selectedRes?.assigned_tables ||
+    selectedRes?.table_number ||
+    selectedRes?.table_names ||
+    "";
+
+  // The Order Summary lists ONLY what the guest actually ordered on the kiosk.
+  // The API injects a synthetic "Reservation Fee" row for the down payment and
+  // may include a package line; both are reservation/payment information and
+  // are filtered out here so they never inflate the food list.
+  const kioskOrderItems = orderItems.filter((order) => {
+    const lineType = String(order?.line_type ?? "").toLowerCase();
+    if (lineType === "downpayment" || lineType === "payment") return false;
+    if (lineType === "package" || lineType === "reservation") return false;
+
+    const name = String(order?.name || order?.item_name || "")
+      .trim()
+      .toLowerCase();
+    if (!name) return false;
+    // "Reservation Fee" = the down payment; package names = the event package.
+    if (name === "reservation fee") return false;
+    if (EVENT_PACKAGE_LIMITS[name]) return false;
+    if (name.includes("package")) return false;
+    return true;
+  });
+
   if (loading)
     return (
       <div className="p-5 text-center">
@@ -513,7 +546,7 @@ const WalkInReservations = () => {
         </div>
 
         <div className="col-12 col-xl-7">
-          <div className="d-flex flex-wrap gap-2 align-items-center">
+          <div className="d-flex flex-wrap gap-2 align-items-center admin-filter-bar">
             <button
               className="btn btn-primary admin-toolbar-button fw-bold shadow-sm d-inline-flex align-items-center justify-content-center"
               data-bs-toggle="offcanvas"
@@ -523,8 +556,7 @@ const WalkInReservations = () => {
               Reservation
             </button>
             <select
-              className="form-select form-select-sm flex-grow-1 flex-sm-grow-0"
-              style={{ width: "auto", minWidth: "140px", height: "38px" }}
+              className="form-select form-select-sm admin-filter-select"
               aria-label="Filter by date"
               value={dateFilter}
               onChange={(e) => {
@@ -539,8 +571,7 @@ const WalkInReservations = () => {
             </select>
 
             <select
-              className="form-select form-select-sm flex-grow-1 flex-sm-grow-0"
-              style={{ width: "auto", minWidth: "150px", height: "38px" }}
+              className="form-select form-select-sm admin-filter-select"
               aria-label="Filter by status"
               value={statusFilter}
               onChange={(e) => {
@@ -554,12 +585,13 @@ const WalkInReservations = () => {
             </select>
 
             {hasActiveFilters && (
+              // Same "Clear Filter" pattern used by Online Bookings so the two
+              // pages feel identical.
               <button
-                className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1 fw-bold"
-                style={{ height: "38px" }}
+                className="btn btn-sm btn-link text-decoration-none px-0 admin-clear-filter"
                 onClick={clearFilters}
               >
-                <X size={14} /> Clear
+                Clear Filter
               </button>
             )}
           </div>
@@ -1158,25 +1190,8 @@ const WalkInReservations = () => {
                 </div>
               </div>
 
-              <div className="p-3 border-bottom bg-white">
-                <span className="x-small fw-bold text-muted text-uppercase d-block mb-2">
-                  Guest Profile
-                </span>
-                <div className="row g-2">
-                  <div className="col-6">
-                    <small className="text-muted d-block">Email Address</small>
-                    <span className="small fw-semibold text-dark text-break">
-                      {selectedRes.email || "N/A"}
-                    </span>
-                  </div>
-                  <div className="col-6">
-                    <small className="text-muted d-block">Phone Number</small>
-                    <span className="small fw-semibold text-dark">
-                      {selectedRes.phone || "N/A"}
-                    </span>
-                  </div>
-                </div>
-              </div>
+              {/* The Guest Profile block (email + phone) was removed: managing a
+                  walk-in only needs the name, booking and order details below. */}
 
               <div className="p-3 border-bottom bg-white">
                 <span className="x-small fw-bold text-primary text-uppercase d-block mb-2">
@@ -1186,23 +1201,60 @@ const WalkInReservations = () => {
                   <div className="col-6">
                     <small className="text-muted d-block">Booking Type</small>
                     <span
-                      className="badge bg-primary-subtle text-primary text-uppercase font-monospace"
+                      className={`badge text-uppercase font-monospace ${
+                        walkInIsEvent
+                          ? "bg-warning-subtle text-warning-emphasis border border-warning-subtle"
+                          : "bg-primary-subtle text-primary"
+                      }`}
                       style={{ fontSize: "0.7rem" }}
                     >
-                      {selectedRes.reservation_type === "event"
+                      {walkInIsEvent
                         ? "Special Event"
                         : selectedRes.reservation_type === "takeout"
                           ? "Take-Out"
-                          : "Table Dining"}
+                          : "Per Table"}
                     </span>
                   </div>
                   <div className="col-6">
                     <small className="text-muted d-block">
-                      Selected Package
+                      {walkInIsEvent ? "Event Package" : "Selected Package"}
                     </small>
+                    {/* For an event the ₱10,000 / ₱12,500 limit is the point of
+                        this block; for a per-table booking it stays "No package"
+                        so a table booking is never mistaken for an event. */}
                     <PackageMeta reservation={selectedRes} />
                   </div>
                 </div>
+
+                {/* Event limit spelled out as reservation information, kept
+                    deliberately out of the Order Summary below. */}
+                {walkInIsEvent && walkInEventLimit > 0 && (
+                  <div className="mt-3 p-2 bg-warning-subtle border border-warning-subtle rounded-3">
+                    <div className="x-small fw-bold text-uppercase text-warning-emphasis">
+                      Event Package Limit
+                    </div>
+                    <div className="fw-bold text-dark">
+                      {"\u20B1"}
+                      {walkInEventLimit.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Per-table bookings name the table instead of a package. */}
+                {!walkInIsEvent &&
+                  selectedRes.reservation_type !== "takeout" &&
+                  walkInTableLabel && (
+                    <div className="mt-3 p-2 bg-light border rounded-3">
+                      <div className="x-small text-muted text-uppercase fw-bold">
+                        Table Reservation
+                      </div>
+                      <div className="small fw-bold text-dark">
+                        {walkInTableLabel}
+                      </div>
+                    </div>
+                  )}
               </div>
 
               {/* TIMELINE */}
@@ -1224,23 +1276,28 @@ const WalkInReservations = () => {
                     <span className="text-dark">
                       {selectedRes.end_time
                         ? formatTime(selectedRes.end_time)
-                        : "Active"}
+                        : walkInTimelineLabel}
                     </span>
                   </div>
                 </div>
               </div>
 
               <div className="p-3 flex-grow-1 overflow-auto bg-light-subtle">
-                <span className="x-small fw-bold text-muted text-uppercase d-block mb-2">
+                <span className="x-small fw-bold text-muted text-uppercase d-block mb-1">
                   Order Summary
+                </span>
+                {/* Clarifies that this list is kiosk food only, since the event
+                    package / down payment live in the blocks above. */}
+                <span className="x-small text-muted d-block mb-2">
+                  Items ordered through the kiosk
                 </span>
                 {loadingItems ? (
                   <div className="text-center py-3">
                     <div className="spinner-border spinner-border-sm text-primary"></div>
                   </div>
-                ) : orderItems.length > 0 ? (
+                ) : kioskOrderItems.length > 0 ? (
                   <div className="item-list">
-                    {orderItems.map((order, idx) => {
+                    {kioskOrderItems.map((order, idx) => {
                       const isRefill =
                         order.is_refill === 1 ||
                         order.is_refill === true ||
@@ -1284,7 +1341,7 @@ const WalkInReservations = () => {
                 )}
               </div>
 
-              <div className="p-3 bg-dark text-white sticky-bottom">
+              <div className="p-3 bg-dark text-white sticky-bottom mt-auto flex-shrink-0 drawer-footer">
                 <div className="d-flex justify-content-between align-items-center mb-3">
                   <div>
                     <div className="x-small text-white-50 text-uppercase fw-bold">
@@ -1310,7 +1367,7 @@ const WalkInReservations = () => {
                   </span>
                 </div>
                 <button
-                  className="btn btn-outline-light btn-sm w-100 fw-bold border-opacity-25"
+                  className="btn btn-outline-light btn-sm w-100 fw-bold border-opacity-25 drawer-footer-action"
                   data-bs-dismiss="offcanvas"
                 >
                   Close Details

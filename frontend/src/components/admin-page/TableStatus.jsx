@@ -10,8 +10,7 @@ import {
   Square,
   Monitor,
   Link,
-  UserCheck,
-  Clock,
+  AlertTriangle,
 } from "lucide-react";
 import { useToast } from "../ToastContext";
 import { useConfirmation } from "../ConfirmationContext";
@@ -27,6 +26,21 @@ const getTableReservationDateString = (dateStr) => {
   if (!dateStr) return "";
   const d = new Date(dateStr);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+// "18:00:00" / "6:00 PM" -> "6:00 PM". Times already carrying a meridiem are
+// returned untouched.
+const formatTimeDisplay = (timeStr) => {
+  const value = String(timeStr || "").trim();
+  if (!value) return "";
+  if (value.includes("AM") || value.includes("PM")) return value;
+
+  const [hours, minutes] = value.split(":");
+  const hour = parseInt(hours, 10);
+  if (Number.isNaN(hour)) return value;
+  const ampm = hour >= 12 ? "PM" : "AM";
+  const hour12 = hour % 12 || 12;
+  return `${hour12}:${minutes || "00"} ${ampm}`;
 };
 
 const TableStatus = ({ compact = false }) => {
@@ -322,7 +336,7 @@ const TableStatus = ({ compact = false }) => {
     { available: 0, seated: 0, confirmed: 0, occupied: 0 },
   );
 
-  // Group the floor by reservation so a party spanning several tables stays
+  // Group tables by reservation so a party spanning several tables stays
   // visually together. The grouping is presentational only: every control
   // lives on the individual table card.
   const sessions = useMemo(() => {
@@ -354,6 +368,18 @@ const TableStatus = ({ compact = false }) => {
       return 0;
     });
   }, [data.tables]);
+
+  // The items endpoint UNIONs the down payment in as a synthetic "Reservation
+  // Fee" line. That is payment information, not food, so it is excluded from
+  // this read-only bill preview — same rule the Billing drawer applies.
+  const billItems = bill.items.filter((item) => {
+    const lineType = String(item?.line_type ?? "").toLowerCase();
+    if (lineType === "downpayment" || lineType === "payment") return false;
+    const name = String(item?.name || item?.item_name || "")
+      .trim()
+      .toLowerCase();
+    return name !== "reservation fee";
+  });
 
   return (
     <div
@@ -453,26 +479,48 @@ const TableStatus = ({ compact = false }) => {
               </div>
             </div>
             <div className="table-responsive">
-              <table className="table table-sm table-hover align-middle mb-0">
-                <thead className="text-muted small">
-                  <tr><th>Customer</th><th>Guests</th><th>Date</th><th>Time</th><th>Status</th><th>Notes</th></tr>
-                </thead>
-                <tbody>
-                  {data.reservations.length === 0 ? (
-                    <tr><td colSpan="6" className="text-center text-muted py-3">No upcoming reservations.</td></tr>
-                  ) : data.reservations.map((reservation) => (
-                    <tr key={reservation.reservation_id}>
-                      <td className="fw-semibold">{reservation.customer_name || "Guest"}</td>
-                      <td>{reservation.num_guests || "—"}</td>
-                      <td>{reservation.reservation_date || "—"}</td>
-                      <td>{reservation.reservation_time || "—"}</td>
-                      <td><span className="badge rounded-pill bg-warning-subtle text-warning-emphasis">{reservation.status}</span></td>
-                      <td className="text-muted text-truncate" style={{ maxWidth: "180px" }}>{reservation.notes || "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                            <table className="table table-sm table-hover align-middle mb-0">
+                              <thead className="text-muted small">
+                                <tr><th>Customer</th><th>Guests</th><th>Date</th><th>Time</th><th>Status</th><th>Allergy</th></tr>
+                              </thead>
+                              <tbody>
+                                {data.reservations.length === 0 ? (
+                                  <tr><td colSpan="6" className="text-center text-muted py-3">No upcoming reservations.</td></tr>
+                                ) : data.reservations.map((reservation) => (
+                                  <tr key={reservation.reservation_id}>
+                                    <td className="fw-semibold">{reservation.customer_name || "Guest"}</td>
+                                    <td>{reservation.num_guests || "—"}</td>
+                                    <td>{reservation.reservation_date || "—"}</td>
+                                    <td className="fw-semibold text-nowrap">
+                                      {/* Both the real start and end times, e.g.
+                                          "6:00 PM – 8:00 PM". The duration is never
+                                          computed from a hardcoded value. */}
+                                      {formatTimeDisplay(reservation.reservation_time)}
+                                      {reservation.end_time
+                                        ? ` – ${formatTimeDisplay(reservation.end_time)}`
+                                        : ""}
+                                    </td>
+                                    <td><span className="badge rounded-pill bg-warning-subtle text-warning-emphasis">{reservation.status}</span></td>
+                                    {/* Exact customer-entered allergy text; empty means the
+                                        customer gave none, so we say so rather than implying
+                                        an allergy exists. */}
+                                    <td className="text-truncate" style={{ maxWidth: "200px" }}>
+                                      {reservation.allergy ? (
+                                        <span
+                                          className="badge bg-danger-subtle text-danger border border-danger-subtle fw-semibold"
+                                          title={reservation.allergy}
+                                        >
+                                          {reservation.allergy}
+                                        </span>
+                                      ) : (
+                                        <span className="text-muted small">None provided</span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
           </div>
         </section>
       )}
@@ -480,45 +528,13 @@ const TableStatus = ({ compact = false }) => {
       {/* Floor. Tables that share a reservation are grouped so a party that
           spans several tables stays visually together, but each card keeps its
           own controls: the kiosk, orders, and linking all live on the card. */}
+      {/* The former per-session group banner ("RESERVATION / Guest / ID /
+          N tables") sat directly above the cards and repeated information each
+          card already shows, which read as a second, duplicate header. Every
+          card carries its own occupant name and times, so the banner was
+          removed rather than restyled. */}
       {sessions.map((s) => (
         <div key={s.key} className="mb-3">
-          {/* Group label only. It carries no controls — the Kiosk Control panel
-              was removed because every card already has its own button. */}
-          {s.reservationId && s.tables.length > 1 && (
-            <div className="d-flex flex-wrap align-items-center gap-2 mb-2 px-2 py-1 bg-white rounded-3 shadow-sm border">
-              <span
-                className="badge rounded-pill fw-bold"
-                style={{
-                  fontSize: "0.55rem",
-                  backgroundColor: "#0ea5e915",
-                  color: "#0ea5e9",
-                }}
-              >
-                RESERVATION
-              </span>
-              <span className="fw-bold" style={{ fontSize: "0.8rem" }}>
-                {s.firstName || "Guest"}
-              </span>
-              <span className="text-muted" style={{ fontSize: "0.7rem" }}>
-                {s.reservationId}
-              </span>
-              <span
-                className="d-flex align-items-center gap-1 text-muted"
-                style={{ fontSize: "0.7rem" }}
-              >
-                <Users size={11} /> {s.tables.length} tables
-              </span>
-              {s.endTime && (
-                <span
-                  className="d-flex align-items-center gap-1 text-muted"
-                  style={{ fontSize: "0.7rem" }}
-                >
-                  <Clock size={11} /> ends {s.endTime}
-                </span>
-              )}
-            </div>
-          )}
-
           <div className="row g-2 row-cols-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-8">
             {s.tables.map((t) => {
               let activeStatus = t.bridge_status?.toLowerCase() || "available";
@@ -543,6 +559,15 @@ const TableStatus = ({ compact = false }) => {
           // the session header.
           const isKioskActive =
             String(t.is_kiosk_active) === "1" || t.is_kiosk_active === 1;
+
+          // Exact customer-provided allergy text for the current occupant.
+          // Empty / "None" is normalised to "" so the card shows nothing.
+          const occupantAllergy = (() => {
+            const raw = t.allergy ?? t.allergies ?? t.allergy_note ?? "";
+            const value = String(raw).trim();
+            if (!value || value.toLowerCase() === "none") return "";
+            return value;
+          })();
 
           return (
             <div key={t.table_id} className="col">
@@ -617,6 +642,27 @@ const TableStatus = ({ compact = false }) => {
                           : t.first_name || t.customer_name}
                       </span>
                     </div>
+
+                    {/* ALLERGY — shows the exact text the customer entered on the
+                        reservation, not a generic "has allergy" flag. Blank or
+                        "None" renders nothing so nothing misleading is implied. */}
+                    {!isAvailable && occupantAllergy && (
+                      <div
+                        className="rounded-2 border border-danger-subtle bg-danger-subtle text-danger px-1 py-1 mb-2 d-flex align-items-start gap-1"
+                        title={`Customer allergy: ${occupantAllergy}`}
+                      >
+                        <AlertTriangle
+                          size={10}
+                          className="flex-shrink-0 mt-1"
+                        />
+                        <span
+                          className="fw-bold"
+                          style={{ fontSize: "0.55rem", lineHeight: "1.3" }}
+                        >
+                          {occupantAllergy}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Actions stack vertically so Activate/Stop Kiosk always
@@ -628,8 +674,7 @@ const TableStatus = ({ compact = false }) => {
                     {canControlKiosk && t.reservation_id && (
                       isKioskActive ? (
                         <button
-                          className="btn btn-sm btn-danger w-100 py-0 fw-bold"
-                          style={{ fontSize: "0.65rem", height: "22px" }}
+                          className="btn btn-sm btn-danger w-100 py-0 fw-bold table-card-action"
                           onClick={(e) =>
                             stopKiosk(t.reservation_id, t.table_id, e)
                           }
@@ -639,8 +684,7 @@ const TableStatus = ({ compact = false }) => {
                         </button>
                       ) : (
                         <button
-                          className="btn btn-sm btn-dark w-100 py-0 fw-bold"
-                          style={{ fontSize: "0.65rem", height: "22px" }}
+                          className="btn btn-sm btn-dark w-100 py-0 fw-bold table-card-action"
                           onClick={(e) => {
                             e.stopPropagation();
                             openKioskForSession(t.reservation_id);
@@ -668,8 +712,7 @@ const TableStatus = ({ compact = false }) => {
                       <div className="d-flex gap-1">
                         {canControlKiosk && (
                           <button
-                            className="btn btn-sm btn-outline-secondary py-0 fw-bold flex-shrink-0 w-100"
-                            style={{ fontSize: "0.65rem", height: "22px" }}
+                            className="btn btn-sm btn-outline-secondary py-0 fw-bold flex-grow-1 table-card-action table-card-primary-action"
                             onClick={() =>
                               handleAction(
                                 "put",
@@ -679,25 +722,23 @@ const TableStatus = ({ compact = false }) => {
                             }
                             title="Release this table"
                           >
-                            Free Table  
+                            Free Table
                           </button>
                         )}
                       </div>
                     ) : activeStatus === "seated" ? (
-                      <div className="d-flex gap-1">
+                      <div className="d-flex flex-wrap gap-1 table-card-actions">
                         <button
-                          className="btn btn-sm btn-primary w-100 py-0 fw-bold"
-                          style={{ fontSize: "0.65rem", height: "22px" }}
+                          className="btn btn-sm btn-primary w-100 py-0 fw-bold table-card-action table-card-primary-action"
                           onClick={() => openBill(t)}
                         >
                           View Orders
                         </button>
                       </div>
                     ) : activeStatus === "confirmed" ? (
-                      <div className="d-flex gap-1">
+                      <div className="d-flex flex-wrap gap-1 table-card-actions">
                         <button
-                          className="btn btn-sm btn-warning w-100 py-0 fw-bold text-white"
-                          style={{ fontSize: "0.65rem", height: "22px" }}
+                          className="btn btn-sm btn-warning w-100 py-0 fw-bold text-white table-card-action table-card-primary-action"
                           onClick={() =>
                             handleAction(
                               "put",
@@ -710,28 +751,22 @@ const TableStatus = ({ compact = false }) => {
                         </button>
                       </div>
                     ) : (
-                      <div className="d-flex gap-1">
+                      // Free table: only the two real actions. The former
+                      // disabled "Vacant" placeholder was removed because it was
+                      // dead UI that squeezed the buttons on narrow cards.
+                      <div className="d-flex flex-wrap gap-1 table-card-actions">
                         <button
-                          className="btn btn-sm btn-outline-secondary flex-grow-1 py-0 fw-bold border-dashed text-muted bg-white"
-                          style={{ fontSize: "0.65rem", height: "22px" }}
-                          disabled
-                        >
-                          Vacant
-                        </button>
-                        <button
-                          className="btn btn-sm btn-dark py-0 fw-bold flex-shrink-0"
-                          style={{ fontSize: "0.65rem", height: "22px" }}
+                          className="btn btn-sm btn-dark py-0 fw-bold flex-grow-1 flex-sm-grow-0 table-card-action table-card-primary-action"
                           onClick={(e) => {
                             e.stopPropagation();
                             linkTable(t);
                           }}
                           title="Add this table to an existing party's reservation"
                         >
-                          <Link size={8} className="me-1" /> Link
+                          <Link size={11} className="me-1" /> Link
                         </button>
                         <button
-                          className="btn btn-sm btn-danger py-0 fw-bold flex-shrink-0"
-                          style={{ fontSize: "0.65rem", height: "22px" }}
+                          className="btn btn-sm btn-danger py-0 fw-bold flex-grow-1 flex-sm-grow-0 table-card-action table-card-primary-action"
                           onClick={() => makeOccupied(t)}
                           title="Mark this table as occupied"
                         >
@@ -755,29 +790,27 @@ const TableStatus = ({ compact = false }) => {
       {/* MODALS */}
       {ui.modal && (
         <div
-          className="modal show d-block"
-          style={{
-            backgroundColor: "rgba(0,0,0,0.5)",
-            backdropFilter: ui.modal === "bill" ? "blur(4px)" : "none",
-            zIndex: 2000,
-          }}
+          className="admin-confirm-backdrop"
+          style={{ zIndex: 2000 }}
         >
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content border-0 shadow-lg">
-              <div className="modal-header border-0 pt-4 px-4">
-                <h5 className="modal-title fw-bold">
-                  {ui.modal === "add"
-                    ? "New Table"
-                    : ui.modal === "link"
-                    ? `Link Table ${ui.linkTable?.table_number} to a Party`
-                    : `Table ${bill.label} - Read-Only Bill Preview`}
-                </h5>
+          <div className="admin-confirm-dialog">
+            <div className="admin-confirm-content">
+              <div className="admin-confirm-header">
+                <div className="d-flex align-items-center gap-2 min-w-0">
+                  <h5 className="modal-title admin-confirm-title">
+                    {ui.modal === "add"
+                      ? "New Table"
+                      : ui.modal === "link"
+                      ? `Link Table ${ui.linkTable?.table_number} to a Party`
+                      : `Table ${bill.label} - Read-Only Bill Preview`}
+                  </h5>
+                </div>
                 <X
-                  className="cursor-pointer"
+                  className="cursor-pointer flex-shrink-0 ms-auto"
                   onClick={() => setUi((p) => ({ ...p, modal: null }))}
                 />
               </div>
-              <div className="modal-body px-4 pb-4">
+              <div className="admin-confirm-body text-start">
                 {ui.modal === "add" && (
                   <form
                     onSubmit={(e) => {
@@ -892,7 +925,7 @@ const TableStatus = ({ compact = false }) => {
                     <div className="text-center py-5">
                       <div className="spinner-border text-primary"></div>
                     </div>
-                  ) : bill.items.length ? (
+                  ) : billItems.length ? (
                     <>
                       <table className="table table-borderless table-sm">
                         <thead>
@@ -903,7 +936,7 @@ const TableStatus = ({ compact = false }) => {
                           </tr>
                         </thead>
                         <tbody>
-                          {bill.items.map((item, i) => (
+                          {billItems.map((item, i) => (
                             <tr key={i}>
                               <td className="fw-bold small">
                                 {item.item_name ||
@@ -924,7 +957,7 @@ const TableStatus = ({ compact = false }) => {
                         <span>Current Bill Sum</span>
                         <span>
                           ₱
-                          {bill.items
+                          {billItems
                             .reduce((s, i) => s + i.price * i.quantity, 0)
                             .toLocaleString(undefined, {
                               minimumFractionDigits: 2,

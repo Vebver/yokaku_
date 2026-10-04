@@ -13,6 +13,7 @@ import {
 import { useToast } from "../ToastContext";
 import { useSectionRefresh } from "../shared/sectionRefresh";
 import { getReservationStatusMeta } from "../shared/reservationStatus";
+import { compareByBookingRecency } from "../shared/sortUtils";
 import PackageMeta from "../shared/PackageMeta";
 
 const OnlineReservations = () => {
@@ -45,23 +46,11 @@ const OnlineReservations = () => {
       const filtered = response.data.filter(
         (item) => !item.reservation_id?.includes("WALK"),
       );
-      setInquiries(
-      // Newest first, by actual booking time. Sorting on reservation_id was
-      // unreliable because it is a VARCHAR (and walk-in ids are like
-      // "WALK-1712...-3456"), so numeric subtraction produced NaN and left the
-      // order effectively random.
-      filtered.sort((a, b) => {
-        const at = new Date(`${a.reservation_date || ""} ${a.reservation_time || "00:00:00"}`).getTime();
-        const bt = new Date(`${b.reservation_date || ""} ${b.reservation_time || "00:00:00"}`).getTime();
-        if (!isNaN(at) && !isNaN(bt) && at !== bt) return bt - at;
-        // Fall back to name when the timestamps are missing or equal.
-        return String(a.first_name || "").localeCompare(
-          String(b.first_name || ""),
-          undefined,
-          { sensitivity: "base" },
-        );
-      }),
-      );
+      // Newest reservation first. The reservation date + time is the primary
+      // key (never the guest name); created_at is only a tie-breaker for rows
+      // that share the exact same slot, and the id digits as a last resort.
+      filtered.sort(compareByBookingRecency);
+      setInquiries(filtered);
     } catch (err) {
       console.error(err);
     } finally {
@@ -304,6 +293,26 @@ const OnlineReservations = () => {
         (Number(selectedRes?.amount || 0) + Number(selectedRes?.balance_due || 0)),
     ) || 0;
 
+  // A reservation made for a specific table is paid at the counter, so the
+  // Total Bill is not relevant to this drawer and is hidden. Event/whole-venue
+  // and other non-table bookings still show it.
+  const isSpecificTableBooking =
+    Boolean(selectedRes?.assigned_tables) &&
+    String(selectedRes?.reservation_type || "").toLowerCase() !== "event";
+
+  // Allergies are supplied by the customer when booking. Read them straight from
+  // the booking record (no placeholder text); "None"/blank means nothing to show.
+  const customerAllergies = (() => {
+    const raw =
+      selectedRes?.allergies ??
+      selectedRes?.allergy ??
+      selectedRes?.allergy_note ??
+      "";
+    const value = String(raw).trim();
+    if (!value || value.toLowerCase() === "none") return "";
+    return value;
+  })();
+
   if (loading)
     return (
       <div className="p-5 text-center text-muted">
@@ -326,10 +335,7 @@ const OnlineReservations = () => {
       {/* SEARCH BAR + FILTERS (same row on wide screens) */}
       <div className="col-12 mb-3 px-2">
         <div className="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center gap-2">
-          <div
-            className="d-flex align-items-center bg-white rounded-3 border shadow-sm px-3 flex-grow-1"
-            style={{ height: "48px", minWidth: "260px" }}
-          >
+          <div className="d-flex align-items-center bg-white rounded-3 border shadow-sm px-3 flex-grow-1 admin-search">
             <Search size={20} className="text-muted flex-shrink-0" />
             <input
               type="text"
@@ -349,10 +355,9 @@ const OnlineReservations = () => {
             />
           </div>
 
-          <div className="d-flex flex-wrap gap-2 align-items-center">
+          <div className="d-flex flex-wrap gap-2 align-items-center admin-filter-bar">
             <select
-              className="form-select form-select-sm"
-              style={{ width: "auto" }}
+              className="form-select form-select-sm admin-filter-select"
               aria-label="Filter by date"
               value={dateFilter}
               onChange={(e) => {
@@ -367,8 +372,7 @@ const OnlineReservations = () => {
             </select>
 
             <select
-              className="form-select form-select-sm"
-              style={{ width: "auto" }}
+              className="form-select form-select-sm admin-filter-select"
               aria-label="Filter by status"
               value={statusFilter}
               onChange={(e) => {
@@ -385,8 +389,7 @@ const OnlineReservations = () => {
             </select>
 
             <select
-              className="form-select form-select-sm"
-              style={{ width: "auto" }}
+              className="form-select form-select-sm admin-filter-select"
               aria-label="Filter by type"
               value={typeFilter}
               onChange={(e) => {
@@ -400,8 +403,7 @@ const OnlineReservations = () => {
             </select>
 
             <select
-              className="form-select form-select-sm"
-              style={{ width: "auto" }}
+              className="form-select form-select-sm admin-filter-select"
               aria-label="Filter by payment"
               value={paymentFilter}
               onChange={(e) => {
@@ -417,10 +419,10 @@ const OnlineReservations = () => {
 
             {hasActiveFilters && (
               <button
-                className="btn btn-sm btn-link text-decoration-none px-0"
+                className="btn btn-sm btn-link text-decoration-none px-0 admin-clear-filter"
                 onClick={clearFilters}
               >
-                Clear filters
+                Clear Filter
               </button>
             )}
           </div>
@@ -856,13 +858,18 @@ const OnlineReservations = () => {
                   : {selectedRes.status || "--"}
                 </div>
 
-                {selectedRes.allergies && (
+                {customerAllergies && (
                   <div className="p-2 bg-warning-subtle rounded border border-warning-subtle d-flex gap-2 mt-2">
                     <Info
                       size={14}
                       className="text-warning mt-1 flex-shrink-0"
                     />
-                    <div className="x-small">{selectedRes.allergies}</div>
+                    <div className="x-small">
+                      <span className="fw-bold d-block text-uppercase">
+                        Allergies
+                      </span>
+                      <span>{customerAllergies}</span>
+                    </div>
                   </div>
                 )}
               </div>
@@ -920,24 +927,43 @@ const OnlineReservations = () => {
 
               {/* 5. STICKY FOOTER */}
               <div className="p-3 bg-dark text-white sticky-bottom mt-auto">
-                <div className="d-flex justify-content-between align-items-center mb-3">
-                  <div>
-                    <div className="x-small text-white-50 text-uppercase fw-bold">
-                      Total Bill
+                {isSpecificTableBooking ? (
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                      <div className="x-small text-white-50 text-uppercase fw-bold">
+                        Booking
+                      </div>
+                      <h3 className="fw-bold mb-0">
+                        Table{" "}
+                        {selectedRes.assigned_tables}
+                      </h3>
                     </div>
-                    <h3 className="fw-bold mb-0">
-                      {"\u20B1"}
-                      {reservationTotal.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                      })}
-                    </h3>
+                    <span
+                      className={`badge py-2 px-3 ${getStatusBadge(selectedRes.status).className}`}
+                    >
+                      {getStatusBadge(selectedRes.status).label}
+                    </span>
                   </div>
-                  <span
-                    className={`badge py-2 px-3 ${getStatusBadge(selectedRes.status).className}`}
-                  >
-                    {getStatusBadge(selectedRes.status).label}
-                  </span>
-                </div>
+                ) : (
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                      <div className="x-small text-white-50 text-uppercase fw-bold">
+                        Total Bill
+                      </div>
+                      <h3 className="fw-bold mb-0">
+                        {"\u20B1"}
+                        {reservationTotal.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                        })}
+                      </h3>
+                    </div>
+                    <span
+                      className={`badge py-2 px-3 ${getStatusBadge(selectedRes.status).className}`}
+                    >
+                      {getStatusBadge(selectedRes.status).label}
+                    </span>
+                  </div>
+                )}
                 <button
                   className="btn btn-dark btn-sm w-100 fw-bold border border-white border-opacity-25 py-2"
                   data-bs-dismiss="offcanvas"

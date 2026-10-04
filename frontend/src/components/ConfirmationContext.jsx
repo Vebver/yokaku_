@@ -7,6 +7,7 @@ import React, {
   useState,
 } from "react";
 import { AlertTriangle } from "lucide-react";
+import "../Style/AdminDashboard.css";
 
 const ConfirmationContext = createContext(null);
 
@@ -48,40 +49,39 @@ export function ConfirmationProvider({ children }) {
       {children}
       {request && (
         <div
-          className="modal show d-block"
+          className="admin-confirm-backdrop"
           role="presentation"
-          style={{ backgroundColor: "rgba(0, 0, 0, 0.55)", zIndex: 3000 }}
         >
-          <div className="modal-dialog modal-dialog-centered">
+          <div className="admin-confirm-dialog">
             <div
-              className="modal-content border-0 shadow-lg"
+              className="admin-confirm-content"
               role="dialog"
               aria-modal="true"
               aria-labelledby="confirmation-title"
             >
-              <div className="modal-header border-0 pb-0">
-                <div className="d-flex align-items-center gap-2">
+              <div className="admin-confirm-header">
+                <div className="d-flex align-items-center gap-2 min-w-0">
                   <AlertTriangle
-                    size={20}
-                    className={request.variant === "primary" ? "text-primary" : "text-danger"}
+                    size={22}
+                    className={`flex-shrink-0 ${
+                      request.variant === "primary" ? "text-primary" : "text-danger"
+                    }`}
                   />
-                  <h5 className="modal-title fw-bold" id="confirmation-title">
+                  <h5 className="modal-title admin-confirm-title" id="confirmation-title">
                     {request.title || "Confirm action"}
                   </h5>
                 </div>
                 <button
                   type="button"
-                  className="btn-close"
+                  className="btn-close flex-shrink-0 ms-auto"
                   aria-label="Cancel"
                   onClick={() => close(false)}
                 />
               </div>
-              <div className="modal-body">
-                <p className="mb-0" style={{ whiteSpace: "pre-line" }}>
-                  {request.message}
-                </p>
+              <div className="admin-confirm-body">
+                <p className="admin-confirm-message">{request.message}</p>
                 {requiredText && (
-                  <div className="mt-3">
+                  <div className="mt-3 text-start">
                     <label
                       className="form-label small fw-semibold"
                       htmlFor="confirmation-phrase"
@@ -98,17 +98,19 @@ export function ConfirmationProvider({ children }) {
                   </div>
                 )}
               </div>
-              <div className="modal-footer border-0 pt-0">
+              <div className="admin-confirm-footer">
                 <button
                   type="button"
-                  className="btn btn-outline-secondary"
+                  className="btn btn-outline-secondary admin-confirm-btn"
                   onClick={() => close(false)}
                 >
                   {request.cancelLabel || "Cancel"}
                 </button>
                 <button
                   type="button"
-                  className={`btn ${request.variant === "primary" ? "btn-primary" : "btn-danger"}`}
+                  className={`btn admin-confirm-btn ${
+                    request.variant === "primary" ? "btn-primary" : "btn-danger"
+                  }`}
                   disabled={!canApprove}
                   onClick={() => close(true)}
                 >

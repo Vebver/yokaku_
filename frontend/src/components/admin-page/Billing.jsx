@@ -4,8 +4,6 @@ import "../../Style/Billing.css";
 import {
   Loader2,
   ReceiptText,
-  AlertTriangle,
-  X,
   CheckCircle2,
   Calendar,
   Layers,
@@ -18,6 +16,7 @@ import { useToast } from "../ToastContext";
 import { useConfirmation } from "../ConfirmationContext";
 import { useSectionRefresh } from "../shared/sectionRefresh";
 import AdminPagination from "../shared/AdminPagination";
+import { compareByPaymentRecency } from "../shared/sortUtils";
 
 const Billing = () => {
   const [payments, setPayments] = useState([]);
@@ -62,7 +61,8 @@ const Billing = () => {
     setLoading(true);
     try {
       const res = await api.get(`/billing`);
-      setPayments(res.data.sort((a, b) => b.payment_id - a.payment_id));
+      // Newest transaction first (payment date/time, never alphabetical).
+      setPayments(res.data.slice().sort(compareByPaymentRecency));
       setCurrentPage(1);
     } catch (err) {
       console.error("Fetch error:", err);
@@ -85,8 +85,8 @@ const Billing = () => {
     settlementFilter !== "all" ||
     orderStatusFilter !== "all";
 
-  // Alphabetical by guest name so a bill is easy to find. The backend returns
-  // them by reservation_id, which for VARCHAR ids is not a useful order.
+  // Newest transaction first by payment/transaction timestamp. Name sorting
+  // was removed: it made the newest payment impossible to find.
   const filteredPayments = payments
     .filter((p) => {
       const fullName = `${p.first_name || ""} ${p.last_name || ""}`.toLowerCase();
@@ -112,19 +112,7 @@ const Billing = () => {
       }
       return true;
     })
-    .sort((a, b) => {
-      const an = `${a.first_name || ""} ${a.last_name || ""}`.trim();
-      const bn = `${b.first_name || ""} ${b.last_name || ""}`.trim();
-      // Walk-in rows have no name, so fall back to their code.
-      if (!an && !bn) {
-        return String(a.reservation_id || "").localeCompare(
-          String(b.reservation_id || ""),
-        );
-      }
-      if (!an) return 1;
-      if (!bn) return -1;
-      return an.localeCompare(bn, undefined, { sensitivity: "base" });
-    });
+    .sort(compareByPaymentRecency);
 
   const getItemPrice = (item) => {
     const isRefill =
@@ -149,13 +137,32 @@ const Billing = () => {
       Number(selectedPayment?.balance_due ?? total - paid),
       0,
     );
-    const exceeds = remaining > 0;
     return {
       remaining,
-      exceeds,
       overpaid: paid > total ? paid - total : 0,
     };
   };
+
+  // The paid amount / down payment is payment information only. It must never
+  // be rendered as a line inside the Order Items list. The API tags the
+  // injected "Reservation Fee" row as line_type "downpayment"; the name checks
+  // are a safety net for older records.
+  const isPaymentRow = (item) => {
+    const lineType = String(item?.line_type ?? "").toLowerCase();
+    if (lineType === "downpayment" || lineType === "payment") return true;
+
+    const name = String(item?.name || item?.item_name || "")
+      .trim()
+      .toLowerCase();
+    return (
+      item?.is_payment === true ||
+      item?.is_payment === 1 ||
+      item?.is_payment === "1" ||
+      /^(amount\s)?(paid|down\s?payment|partial\s?payment|deposit)\b/.test(name)
+    );
+  };
+
+  const orderLineItems = orderItems.filter((item) => !isPaymentRow(item));
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -284,10 +291,9 @@ const Billing = () => {
         </div>
 
         <div className="col-12 col-xl-7">
-          <div className="d-flex flex-wrap gap-2 align-items-center">
+          <div className="d-flex flex-wrap gap-2 align-items-center admin-filter-bar">
             <select
-              className="form-select form-select-sm flex-grow-1 flex-sm-grow-0"
-              style={{ width: "auto", minWidth: "160px", height: "38px" }}
+              className="form-select form-select-sm admin-filter-select"
               aria-label="Filter by payment status"
               value={paymentStatusFilter}
               onChange={(e) => {
@@ -302,8 +308,7 @@ const Billing = () => {
             </select>
 
             <select
-              className="form-select form-select-sm flex-grow-1 flex-sm-grow-0"
-              style={{ width: "auto", minWidth: "140px", height: "38px" }}
+              className="form-select form-select-sm admin-filter-select"
               aria-label="Filter by balance"
               value={settlementFilter}
               onChange={(e) => {
@@ -318,8 +323,7 @@ const Billing = () => {
             </select>
 
             <select
-              className="form-select form-select-sm flex-grow-1 flex-sm-grow-0"
-              style={{ width: "auto", minWidth: "150px", height: "38px" }}
+              className="form-select form-select-sm admin-filter-select"
               aria-label="Filter by order status"
               value={orderStatusFilter}
               onChange={(e) => {
@@ -334,12 +338,12 @@ const Billing = () => {
             </select>
 
             {hasActiveFilters && (
+              // Same "Clear Filter" pattern as Online Bookings / Walk-ins.
               <button
-                className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1 fw-bold"
-                style={{ height: "38px" }}
+                className="btn btn-sm btn-link text-decoration-none px-0 admin-clear-filter"
                 onClick={clearFilters}
               >
-                <X size={14} /> Clear
+                Clear Filter
               </button>
             )}
           </div>
@@ -645,8 +649,12 @@ const Billing = () => {
         <div className="offcanvas-body p-0 d-flex flex-column bg-light-subtle">
         {selectedPayment && (
           <>
-            {/* 1. ORDER SUMMARY SECTION (Scrollable Light Area) */}
-            <div className="px-3 pt-3 pb-0 flex-grow-1 overflow-auto">
+            {/* 1. ORDER SUMMARY SECTION (Scrollable Light Area)
+                 min-height:0 is required so this flex child can actually
+                 shrink and scroll; without it the flex container refuses to
+                 shrink below content height, which pushed the action buttons
+                 in the dark footer below it off-screen/compressed. */}
+            <div className="px-3 pt-3 pb-0 flex-grow-1 overflow-auto drawer-scroll-area">
               {/* GUEST CONTEXT HEADER */}
               <div
                 className="bg-white border rounded-3 shadow-sm p-2 px-3 mb-3 d-flex justify-content-between align-items-center gap-2"
@@ -750,13 +758,13 @@ const Billing = () => {
               {/* ==================== INTEGRATED DYNAMIC EVENT SPEND TRACKER ==================== */}
               {(() => {
                 const totalBill = calculateItemsSum();
-                
+
                 const rawPackageName =
                   selectedPayment?.package_name ||
                   selectedPayment?.packageName ||
                   "";
-                
-                const eventItem = orderItems.find(item => {
+
+                const eventItem = orderLineItems.find(item => {
                   const name = (item.name || item.item_name || "").toLowerCase();
                   return name.includes("standard package") || name.includes("premium package") || name.includes("event");
                 });
@@ -764,7 +772,7 @@ const Billing = () => {
                 const matchedPackageName = eventItem ? (eventItem.name || eventItem.item_name) : rawPackageName;
                 const pkgName = matchedPackageName.toLowerCase().trim();
 
-                const isEvent = 
+                const isEvent =
                   selectedPayment?.reservation_type?.toLowerCase() === "event" ||
                   selectedPayment?.reservationType?.toLowerCase() === "event" ||
                   pkgName.includes("event") ||
@@ -868,7 +876,7 @@ const Billing = () => {
                 </div>
               ) : (
                 <div className="item-list">
-                  {orderItems.map((item, idx) => {
+                  {orderLineItems.map((item, idx) => {
                     const isRefill =
                       item.is_refill === 1 ||
                       item.is_refill === true ||
@@ -940,8 +948,10 @@ const Billing = () => {
               )}
             </div>
 
-            {/* 2. RECEIPT & METADATA SECTION (Dark Background Area) */}
-            <div className="p-3 bg-dark text-white rounded-top-4 shadow-lg mt-0">
+            {/* 2. RECEIPT & METADATA SECTION (Dark Background Area)
+                 flex-shrink:0 pins this block at its natural height instead of
+                 letting it collapse when the order list above grows long. */}
+            <div className="p-3 bg-dark text-white rounded-top-4 shadow-lg mt-0 flex-shrink-0 drawer-footer">
               <div className="card bg-secondary bg-opacity-25 border-secondary border-opacity-25 p-2 mb-1.5">
                 <div className="d-flex justify-content-between mb-1 text-white-50 small">
                   <span>Total Bill</span>
@@ -1066,30 +1076,20 @@ const Billing = () => {
                       <span className="small fw-semibold text-white-50">
                         Remaining Balance
                       </span>
-                      {balanceInfo.exceeds ? (
-                        <span className="fw-bold text-warning fs-5">
-                          ₱
-                          {balanceInfo.remaining.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                          })}
-                        </span>
-                      ) : (
-                        <span className="badge bg-success-subtle text-success fw-semibold">
-                          ₱0.00 (Paid in Full)
-                        </span>
-                      )}
-                    </div>
-
-                    {balanceInfo.exceeds && (
-                      <div
-                        className="mt-1 text-warning small d-flex align-items-center"
-                        style={{ fontSize: "0.75rem" }}
+                      <span
+                        className={
+                          balanceInfo.remaining > 0
+                            ? "fw-bold text-warning fs-5"
+                            : "badge bg-success-subtle text-success fw-semibold"
+                        }
                       >
-                        <AlertTriangle size={12} className="me-1 text-warning" />
-                        Amount exceeds downpayment. Collect remainder at
-                        settlement.
-                      </div>
-                    )}
+                        {balanceInfo.remaining > 0
+                          ? `₱${balanceInfo.remaining.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                            })}`
+                          : "₱0.00 (Paid in Full)"}
+                      </span>
+                    </div>
                   </>
                 )}
               </div>
@@ -1329,7 +1329,7 @@ const Billing = () => {
                   ))}
 
                 <button
-                  className="btn btn-outline-secondary text-white-50 border-0 mt-0.5 py-1.5 btn-sm"
+                  className="btn btn-outline-secondary text-white-50 border-0 mt-0.5 py-2 drawer-footer-action"
                   data-bs-dismiss="offcanvas"
                 >
                   Close Drawer

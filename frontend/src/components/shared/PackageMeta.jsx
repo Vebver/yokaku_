@@ -9,6 +9,14 @@ export const PACKAGE_PRICES = {
   "Regular Table": 0,
 };
 
+// The two event packages a guest can pick, keyed by the ₱ limit they were
+// quoted. An event reservation's limit is a package/reservation attribute —
+// it is NOT an ordered item and must never be summed into the Order Summary.
+export const EVENT_PACKAGE_LIMITS = {
+  "Standard Package": 10000,
+  "Premium Package": 12500,
+};
+
 const pesos = (v) =>
   Number(v || 0).toLocaleString(undefined, {
     minimumFractionDigits: 2,
@@ -17,7 +25,7 @@ const pesos = (v) =>
 
 // The reservation record stores the package under different keys depending on
 // which flow created it, so check the known ones before giving up.
-const readPackageName = (reservation) => {
+export const readPackageName = (reservation) => {
   const raw =
     reservation?.package_name ||
     reservation?.packageName ||

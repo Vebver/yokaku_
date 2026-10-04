@@ -24,19 +24,24 @@
   border-radius: 10px;
 }
 
-/* --- Notification dropdown --- */
+/* --- Notification dropdown ---
+   Width is fluid and clamped by the viewport instead of a fixed 380px, so the
+   panel never overflows a narrow (e.g. 760px) mobile viewport or at high zoom. */
 .admin-notif-dropdown {
-  width: 380px !important;
-  max-height: 480px !important;
+  width: clamp(260px, calc(100vw - 2rem), 380px) !important;
+  max-width: calc(100vw - 1rem) !important;
+  max-height: min(480px, calc(100vh - 80px)) !important;
   padding: 0 !important;
   border-radius: 16px !important;
   overflow: hidden;
+  font-size: 0.85rem;
 }
 
 .notification-item {
   padding: 12px 16px;
   border-bottom: 1px solid #f1f3f5;
   transition: background-color 0.15s ease;
+  overflow-wrap: anywhere;
 }
 
 .notification-item.unread {
@@ -52,6 +57,8 @@
 .notification-card-content {
   display: flex;
   gap: 12px;
+  align-items: flex-start;
+  min-width: 0;
 }
 
 .notification-icon {
@@ -59,16 +66,20 @@
   display: flex;
   align-items: flex-start;
   padding-top: 2px;
+  flex-shrink: 0;
 }
 
 .notification-content {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .notification-top {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 8px;
   margin-bottom: 4px;
 }
 
@@ -76,11 +87,15 @@
   font-weight: 600;
   color: #212529;
   font-size: 0.85rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .notification-time {
   font-size: 0.7rem;
   color: #868e96;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .notification-message {
@@ -89,6 +104,7 @@
   margin-bottom: 8px;
   line-height: 1.4;
   text-align: left;
+  overflow-wrap: anywhere;
 }
 
 .notif-res-id-badge {
@@ -106,10 +122,13 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .notification-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
