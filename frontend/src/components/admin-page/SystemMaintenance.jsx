@@ -21,7 +21,6 @@ const SystemMaintenance = () => {
   const [backups, setBackups] = useState([]);
   const [backupsLoading, setBackupsLoading] = useState(false);
   const [creatingBackup, setCreatingBackup] = useState(false);
-  const [creatingLocalBackup, setCreatingLocalBackup] = useState(false);
   const [localBackupFile, setLocalBackupFile] = useState(null);
   const [restoringLocalBackup, setRestoringLocalBackup] = useState(false);
 
@@ -48,10 +47,13 @@ const SystemMaintenance = () => {
     fetchBackups();
   }, [fetchBackups]);
 
-  const handleCreateBackup = async () => {
+  // Single-button backup: saves the dump in the system AND downloads it to
+  // this device in one action.
+  const handleBackup = async () => {
     if (!(await confirm({
       title: "Create database backup",
-      message: "This will dump the entire database into a .sql file.",
+      message:
+        "This will dump the entire database into a .sql file, save it in the system, and download a copy to this device.",
       confirmLabel: "Create backup",
       variant: "primary",
     }))) return;
@@ -66,8 +68,17 @@ const SystemMaintenance = () => {
           headers: { Authorization: `Bearer ${token}` },
         },
       );
-      showToast("Success: " + res.data.message, "success");
+
+      // The dump is already stored on the server; also pull it down locally.
+      const downloaded = await handleDownloadBackup(res.data.filename);
       await fetchBackups(); // Refresh the list
+
+      showToast(
+        downloaded
+          ? `Backup saved in the system and downloaded: ${res.data.filename}`
+          : `Backup saved in the system: ${res.data.filename}`,
+        "success",
+      );
     } catch (err) {
       console.error(err);
       showToast(
@@ -170,20 +181,6 @@ const SystemMaintenance = () => {
       console.error("Download backup failed", err);
       showToast("Failed to download backup file.");
       return false;
-    }
-  };
-
-  const handleCreateAndDownloadBackup = async () => {
-    setCreatingLocalBackup(true);
-    try {
-      const response = await api.post("/admin/backup", {});
-      const downloaded = await handleDownloadBackup(response.data.filename);
-      await fetchBackups();
-      if (downloaded) showToast("Backup created and downloaded to this device.", "success");
-    } catch (err) {
-      showToast(err.response?.data?.error || "Failed to create backup.");
-    } finally {
-      setCreatingLocalBackup(false);
     }
   };
 
@@ -433,10 +430,10 @@ const SystemMaintenance = () => {
               </div>
               <div className="d-flex flex-wrap gap-2">
                 <button
-                  onClick={handleCreateBackup}
+                  onClick={handleBackup}
                   className="btn btn-secondary btn-lg fw-bold shadow-sm px-4"
                   style={{ borderRadius: "8px" }}
-                  disabled={creatingBackup || creatingLocalBackup}
+                  disabled={creatingBackup}
                 >
                   {creatingBackup ? (
                     <>
@@ -445,24 +442,8 @@ const SystemMaintenance = () => {
                     </>
                   ) : (
                     <>
-                      Create Backup
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={handleCreateAndDownloadBackup}
-                  className="btn btn-outline-primary btn-lg fw-bold px-4"
-                  style={{ borderRadius: "8px" }}
-                  disabled={creatingBackup || creatingLocalBackup}
-                >
-                  {creatingLocalBackup ? (
-                    <>
-                      <span className="spinner-border spinner-border-sm me-2" role="status" />
-                      Preparing Download...
-                    </>
-                  ) : (
-                    <>
-                      Create &amp; Download
+                      <Download size={18} className="me-2" />
+                      Backup Database
                     </>
                   )}
                 </button>

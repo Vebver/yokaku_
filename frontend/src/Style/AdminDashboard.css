@@ -411,6 +411,11 @@
 .admin-confirm-content {
     border: 0;
     border-radius: 1rem;
+    /* Explicit opaque surface — without this the dialog inherits no
+       background and the dark backdrop shows through, making it look
+       transparent. */
+    background-color: #ffffff;
+    color: var(--bs-body-color, #212529);
     box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.25);
 }
 
