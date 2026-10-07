@@ -9,7 +9,6 @@ function AboutSection({ onLoginClick }) {
       <hr></hr>
       <div className="container">
         <div className="about-header">
-          <span className="subtitle">OUR STORY</span>
           <h2>About Us</h2>
           <div className="accent-line"></div>
         </div>
@@ -50,14 +49,7 @@ function AboutSection({ onLoginClick }) {
                 viewBox="0 0 24 24"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M12 2L15 8.5L22 9.5L17 14L18.5 21L12 17.5L5.5 21L7 14L2 9.5L9 8.5L12 2Z"
-                  fill="#ffcc00"
-                  stroke="#ffcc00"
-                  strokeWidth="1.5"
-                />
-              </svg>
+              ></svg>
             </div>
             <h3>Hangout Restobar</h3>
             <p className="main-para">
