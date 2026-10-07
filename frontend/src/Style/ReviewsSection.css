@@ -3,6 +3,36 @@
   padding: 3rem 2rem 4rem;
   text-align: center;
   background-color: #ededed;
+  position: relative; /* ← ADD THIS */
+}
+
+/* ✨ FADE EFFECT - Bottom of reviews blends into dark footer */
+.reviews::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 150px;
+  background: linear-gradient(
+    to bottom,
+    rgba(34, 34, 34, 0) 0%,
+    rgba(34, 34, 34, 0.08) 15%,
+    rgba(34, 34, 34, 0.2) 30%,
+    rgba(34, 34, 34, 0.4) 45%,
+    rgba(34, 34, 34, 0.65) 60%,
+    rgba(34, 34, 34, 0.85) 75%,
+    rgba(34, 34, 34, 0.96) 90%,
+    rgba(34, 34, 34, 1) 100%
+  );
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Make sure all reviews content is above the fade */
+.reviews > * {
+  position: relative;
+  z-index: 1;
 }
 
 .reviews h2 {

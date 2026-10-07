@@ -7,6 +7,7 @@ footer {
   flex-wrap: wrap;
   justify-content: space-around;
   gap: 2rem;
+  position: relative; /* ← ADD THIS */
 }
 
 footer .footer-logo {
@@ -17,13 +18,13 @@ footer .footer-logo {
 }
 
 footer .logo-circle {
-  background-color: #FFD400;
+  background-color: #ffd400;
   color: white;
-  text-shadow: 
-  -2px -2px 0 black,
-  2px -2px 0 black,
-  -2px 2px 0 black,
-  2px -2px 0 black;
+  text-shadow:
+    -2px -2px 0 black,
+    2px -2px 0 black,
+    -2px 2px 0 black,
+    2px -2px 0 black;
   width: 90px;
   height: 90px;
   border-radius: 50%;
@@ -67,7 +68,7 @@ footer p {
 }
 
 footer p strong {
-  color: #FFD400;
+  color: #ffd400;
 }
 
 @media (max-width: 900px) {
@@ -75,5 +76,17 @@ footer p strong {
     flex-direction: column;
     align-items: center;
   }
-}
+  .reviews {
+    padding: 2rem 1rem 3rem;
+    position: relative; /* ← Keep this too */
+  }
 
+  /* ✨ Fade height for mobile */
+  .reviews::after {
+    height: 100px; /* ← Shorter fade on mobile */
+  }
+
+  .reviews h2 {
+    font-size: 1.5rem;
+  }
+}
