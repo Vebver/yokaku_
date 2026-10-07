@@ -2,7 +2,7 @@
 .featured-menu {
   padding: 3rem 2rem;
   text-align: center;
-  background-color: #ededed;
+  background-color: #ffffff; /* ← Changed from #ededed to white */
 }
 
 .featured-menu h2 {
@@ -66,7 +66,6 @@
   transition:
     background 0.3s,
     color 0.3s;
-  cursor: pointer;
   transition: all 0.3s;
 }
 
@@ -76,68 +75,72 @@
   transform: translateY(-3px);
   box-shadow: 0 5px 15px rgba(255, 204, 0, 0.3);
 }
+
 .featured-menu .carousel-container {
   width: 95%;
   max-width: 1200px;
-  margin: 0 auto 50px auto; /* Increased bottom margin to make room for dots */
+  margin: 0 auto 50px auto;
   padding: 0 40px;
   position: relative;
-  /* Removed overflow: hidden; so dots can be seen */
   display: block;
   overflow: visible;
 }
+
 .featured-menu .slick-dots {
   bottom: -35px;
 }
+
 .featured-menu .slick-dots li button:before {
   font-size: 12px;
-  color: #ffcc00 !important; /* Your gold color */
+  color: #ffcc00 !important;
   opacity: 0.4;
 }
+
 .featured-menu .slick-dots li.slick-active button:before {
   opacity: 1;
   color: #ffcc00 !important;
 }
+
 .featured-menu .slick-prev,
 .featured-menu .slick-next {
   width: 50px;
   height: 50px;
-  z-index: 2; /* Make sure they stay on top */
+  z-index: 2;
   transition: all 0.3s ease;
 }
+
 .featured-menu .slick-prev:before,
 .featured-menu .slick-next:before {
   font-family: "slick";
-  font-size: 40px; /* Size of the arrow */
+  font-size: 40px;
   line-height: 1;
   opacity: 1;
-  color: #ffcc00; /* Use your theme's gold color */
+  color: #ffcc00;
   transition: color 0.3s;
 }
+
 .featured-menu .slick-prev {
-  left: -10px; /* Adjust this to move it left/right */
+  left: -10px;
 }
 
 .featured-menu .slick-next {
-  right: -10px; /* Adjust this to move it left/right */
+  right: -10px;
 }
 
-/* 5. Hover Effect */
 .featured-menu .slick-prev:hover:before,
 .featured-menu .slick-next:hover:before {
-  color: #000; /* Changes to black on hover to match your buttons */
+  color: #000;
 }
 
-/* Fix for alignment: ensure the track is centered */
 .featured-menu .slick-track {
   display: flex !important;
   align-items: center;
 }
+
 .carousel-container {
   width: 95%;
   max-width: 1200px;
   margin: 0 auto 30px auto;
-  margin: 0 auto 30px auto; /* Centers the container itself */
   display: block;
 }
 
@@ -146,13 +149,13 @@
   justify-content: center;
   align-items: center;
 }
-/* Adds padding so the cards don't touch each other */
+
 .menu-card-wrapper {
   padding: 10px;
 }
 
 .menu-card {
-  margin: 0 auto; /* Centers the card within its designated slide area */
+  margin: 0 auto;
   background-color: #1a1a1a;
   padding: 20px;
   border-radius: 15px;
@@ -160,7 +163,7 @@
   display: flex !important;
   flex-direction: column;
   align-items: center;
-  width: 100%; /* Occupies the slide width fully */
+  width: 100%;
   box-sizing: border-box;
 }
 
@@ -173,7 +176,6 @@
   margin-bottom: 10px;
 }
 
-/* Honor X9c and similar devices - proper mobile breakpoints */
 @media (max-width: 768px) {
   .featured-menu {
     padding: 2rem 0.5rem;
@@ -224,7 +226,6 @@
   }
 }
 
-/* Small phones and Honor X9c specific */
 @media (max-width: 480px) {
   .featured-menu {
     padding: 1.5rem 0.3rem;
@@ -247,9 +248,7 @@
   }
 }
 
-/* ============================================ */
-/* CARD ORDER BUTTON STYLES                    */
-/* ============================================ */
+/* CARD ORDER BUTTON STYLES */
 .featured-menu .menu-card .card-order-btn {
   margin-top: 12px;
   padding: 8px 16px;
@@ -270,7 +269,6 @@
   transform: translateY(-2px);
 }
 
-/* Mobile responsive for button */
 @media (max-width: 768px) {
   .featured-menu .menu-card .card-order-btn {
     padding: 6px 12px;
