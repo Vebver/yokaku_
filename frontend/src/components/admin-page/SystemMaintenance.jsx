@@ -1,24 +1,23 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
   FileSpreadsheet,
-  Archive,
   RefreshCcw,
-  AlertTriangle,
   FileText,
-  Database,
   Download,
   Trash2,
   RotateCcw,
-  Wrench,
 } from "lucide-react";
 import api from "../../api";
+import "../../Style/SystemMaintenance.css";
 import { useToast } from "../ToastContext";
+import { useConfirmation } from "../ConfirmationContext";
 
 const SystemMaintenance = () => {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [reportPeriod, setReportPeriod] = useState("");
   const { showToast } = useToast();
+  const { confirm } = useConfirmation();
   const [backups, setBackups] = useState([]);
   const [backupsLoading, setBackupsLoading] = useState(false);
   const [creatingBackup, setCreatingBackup] = useState(false);
@@ -50,10 +49,12 @@ const SystemMaintenance = () => {
   }, [fetchBackups]);
 
   const handleCreateBackup = async () => {
-    const confirmed = window.confirm(
-      `Create Database Backup?\n\nThis will dump the entire database into a .sql file.\n\nProceed?`,
-    );
-    if (!confirmed) return;
+    if (!(await confirm({
+      title: "Create database backup",
+      message: "This will dump the entire database into a .sql file.",
+      confirmLabel: "Create backup",
+      variant: "primary",
+    }))) return;
 
     setCreatingBackup(true);
     try {
@@ -78,21 +79,12 @@ const SystemMaintenance = () => {
   };
 
   const handleRestoreBackup = async (filename) => {
-    const confirmed = window.confirm(
-      `⚠️ DANGER: Restore Database from Backup\n\n` +
-        `File: ${filename}\n\n` +
-        `This will OVERWRITE all current data with the data from this backup.\n` +
-        `This action CANNOT be undone!\n\n` +
-        `Are you absolutely sure you want to proceed?`,
-    );
-    if (!confirmed) return;
-
-    // Second confirmation for safety
-    const doubleConfirmed = window.confirm(
-      `FINAL WARNING: Restore ${filename}?\n\n` +
-        `All current data will be replaced. Type "OK" to confirm.`,
-    );
-    if (!doubleConfirmed) return;
+    if (!(await confirm({
+      title: "Restore database backup",
+      message: `Restore ${filename}? This will overwrite all current data and cannot be undone.`,
+      confirmLabel: "Restore database",
+      requireText: "RESTORE",
+    }))) return;
 
     try {
       const token = localStorage.getItem("token");
@@ -114,10 +106,12 @@ const SystemMaintenance = () => {
 
   const handleRestoreLocalBackup = async () => {
     if (!localBackupFile) return;
-    const confirmed = window.confirm(
-      `Restore database from ${localBackupFile.name}? This will overwrite current data and cannot be undone.`,
-    );
-    if (!confirmed) return;
+    if (!(await confirm({
+      title: "Restore database backup",
+      message: `Restore ${localBackupFile.name}? This will overwrite all current data and cannot be undone.`,
+      confirmLabel: "Restore database",
+      requireText: "RESTORE",
+    }))) return;
 
     const formData = new FormData();
     formData.append("backup", localBackupFile);
@@ -134,10 +128,11 @@ const SystemMaintenance = () => {
   };
 
   const handleDeleteBackup = async (filename) => {
-    const confirmed = window.confirm(
-      `Delete Backup: ${filename}?\n\nThis action cannot be undone.`,
-    );
-    if (!confirmed) return;
+    if (!(await confirm({
+      title: "Delete backup",
+      message: `Delete ${filename}? This action cannot be undone.`,
+      confirmLabel: "Delete backup",
+    }))) return;
 
     try {
       const token = localStorage.getItem("token");
@@ -193,10 +188,11 @@ const SystemMaintenance = () => {
   };
 
   const runTask = async (endpoint, taskName, warningText) => {
-    const confirmed = window.confirm(
-      `Action: ${taskName}\n\n${warningText}\n\nAre you sure?`,
-    );
-    if (!confirmed) return;
+    if (!(await confirm({
+      title: taskName,
+      message: warningText,
+      confirmLabel: "Proceed",
+    }))) return;
 
     try {
       const token = localStorage.getItem("token");
@@ -313,7 +309,6 @@ const SystemMaintenance = () => {
       style={{ borderRadius: "12px" }}
     >
       <div className="d-flex align-items-center mb-4">
-        <Wrench className="text-secondary me-2 flex-shrink-0" size={24} />
         <h5 className="mb-0 fw-bold text-dark">System Maintenance</h5>
       </div>
 
@@ -429,7 +424,6 @@ const SystemMaintenance = () => {
             {/* Create Backup Button */}
             <div className="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
               <div className="d-flex align-items-start">
-                <Database className="text-secondary me-2 mt-1 flex-shrink-0" size={24} />
                 <div>
                   <h5 className="mb-1 fw-bold text-dark">Database Backup &amp; Restore</h5>
                   <p className="text-muted small mb-0">
@@ -451,7 +445,6 @@ const SystemMaintenance = () => {
                     </>
                   ) : (
                     <>
-                      <Database className="me-2" size={20} />
                       Create Backup
                     </>
                   )}
@@ -469,7 +462,6 @@ const SystemMaintenance = () => {
                     </>
                   ) : (
                     <>
-                      <Download className="me-2" size={20} />
                       Create &amp; Download
                     </>
                   )}
@@ -510,7 +502,6 @@ const SystemMaintenance = () => {
               </div>
             ) : backups.length === 0 ? (
               <div className="text-center py-4 bg-light rounded" style={{ borderRadius: "8px" }}>
-                <Archive className="text-muted mb-2" size={40} />
                 <p className="text-muted mb-0">No backups found. Create your first backup above.</p>
               </div>
             ) : (
@@ -528,7 +519,6 @@ const SystemMaintenance = () => {
                     {backups.map((backup) => (
                       <tr key={backup.filename}>
                         <td className="small text-break" style={{ maxWidth: "300px" }} data-label="Filename">
-                          <Archive className="text-secondary me-2" size={16} />
                           {backup.filename}
                         </td>
                         <td className="small text-muted" data-label="Size">{formatSize(backup.size_bytes)}</td>
@@ -561,7 +551,7 @@ const SystemMaintenance = () => {
                               title="Delete Backup"
                               style={{ borderRadius: "6px" }}
                             >
-                              <Trash2 size={16} />
+                            <Trash2 size={16} />
                             </button>
                           </div>
                         </td>
@@ -577,69 +567,11 @@ const SystemMaintenance = () => {
 
       {/* Warning Footer */}
       <div className="mt-4 p-3 bg-light rounded border-start border-warning border-4 d-flex align-items-center">
-        <AlertTriangle size={20} className="text-warning me-3 flex-shrink-0" />
         <span className="small text-muted">
           <b>Note:</b> System actions are permanent. We recommend{" "}
           <b>creating database backups</b> regularly and <b>Exporting Records</b> for your physical archives.
         </span>
       </div>
-
-      <style>{`
-        @media (max-width: 768px) {
-          .system-maintenance-container .table-responsive { overflow: visible; }
-          .system-maintenance-container thead { display: none; }
-          .system-maintenance-container .table,
-          .system-maintenance-container .table tbody,
-          .system-maintenance-container .table tr,
-          .system-maintenance-container .table td { display: block; width: 100%; min-width: 0; }
-          .system-maintenance-container .table tbody tr {
-            background: #fff;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            margin-bottom: 12px;
-            padding: 12px 16px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-          }
-          .system-maintenance-container .table td {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            border: none;
-            padding: 8px 0;
-            text-align: right !important;
-            min-width: 0;
-            overflow-wrap: anywhere;
-            word-break: break-word;
-          }
-          .system-maintenance-container .table td[data-label]::before {
-            content: attr(data-label);
-            font-weight: 600;
-            font-size: 0.72rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: #64748b;
-            text-align: left;
-            flex-shrink: 0;
-          }
-          .system-maintenance-container .table td[data-label="Filename"] {
-            display: block;
-            text-align: left !important;
-            border-bottom: 1px dashed #e2e8f0;
-            margin-bottom: 6px;
-            padding-bottom: 10px;
-            max-width: 100% !important;
-          }
-          .system-maintenance-container .table td[data-label="Filename"]::before { display: none; }
-          .system-maintenance-container .card-body .d-flex.justify-content-between {
-            flex-direction: column;
-            align-items: stretch !important;
-          }
-          .system-maintenance-container .card-body .d-flex.justify-content-between .btn {
-            width: 100%;
-          }
-        }
-      `}</style>
     </div>
   );
 };

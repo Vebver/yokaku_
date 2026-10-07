@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense, lazy } from "react";
 import api from "../../api";
 import FinancialOverview from "./FinancialOverview";
-import ProductPerformance from "./ProductPerformance";
 import InventoryReport from "./InventoryReport";
-import { DollarSign, Package, BarChart2 } from "lucide-react";
 import { useSectionRefresh } from "../shared/sectionRefresh";
+import "../../Style/Reports.css";
+
+const ProductPerformance = lazy(() => import("./ProductPerformance"));
 
 function Reports() {
   const [financialData, setFinancialData] = useState(null);
@@ -41,15 +42,26 @@ function Reports() {
     fetchReportData();
   });
 
-  // Helper to render the selected component
-  const renderActiveReport = () => {
-    if (!financialData) return null;
+  if (!financialData) return null;
 
+  // Only the active tab is mounted. Each panel also pulls its own CSS and
+  // chart library, so rendering the inactive one cost real time on open.
+  const renderActiveReport = () => {
     switch (activeTab) {
       case "financial":
         return <FinancialOverview data={financialData} />;
       case "products":
-        return <ProductPerformance data={financialData} />;
+        return (
+          <Suspense
+            fallback={
+              <div className="text-center py-5">
+                <div className="spinner-border text-warning" role="status"></div>
+              </div>
+            }
+          >
+            <ProductPerformance data={financialData} />
+          </Suspense>
+        );
       case "inventory":
         return <InventoryReport data={financialData} />;
       default:
@@ -61,8 +73,10 @@ function Reports() {
     <div className="reports-container p-3 pt-2">
       {/* HEADER */}
       <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-        <div>
-          <h2 className="fw-bold mb-0 text-dark">Business Reports</h2>
+        <div className="min-w-0">
+          <h2 className="fw-bold mb-0 text-dark fs-5 fs-md-3">
+            Business Reports
+          </h2>
           <p className="text-muted small mb-0">
             Select a category to view detailed analytics
           </p>
@@ -76,7 +90,6 @@ function Reports() {
             className={`report-tab-btn ${activeTab === "financial" ? "active" : ""}`}
             onClick={() => setActiveTab("financial")}
           >
-            <DollarSign size={18} />
             <span>Financials</span>
           </button>
 
@@ -84,7 +97,6 @@ function Reports() {
             className={`report-tab-btn ${activeTab === "products" ? "active" : ""}`}
             onClick={() => setActiveTab("products")}
           >
-            <BarChart2 size={18} />
             <span>Products</span>
           </button>
 
@@ -92,7 +104,6 @@ function Reports() {
             className={`report-tab-btn ${activeTab === "inventory" ? "active" : ""}`}
             onClick={() => setActiveTab("inventory")}
           >
-            <Package size={18} />
             <span>Inventory</span>
           </button>
         </div>
@@ -112,70 +123,6 @@ function Reports() {
           <div className="fade-in-animation">{renderActiveReport()}</div>
         )}
       </div>
-
-      <style>{`
-            .report-tabs-wrapper {
-              background: #e9ecef;
-              padding: 5px;
-              border-radius: 12px;
-              display: inline-block;
-            }
-
-            .report-tabs-container {
-              display: flex;
-              gap: 5px;
-            }
-
-            .report-tab-btn {
-              border: none;
-              background: transparent;
-              padding: 10px 25px;
-              border-radius: 8px;
-              display: flex;
-              align-items: center;
-              gap: 10px;
-              font-weight: 600;
-              color: #6c757d;
-              transition: all 0.2s ease;
-            }
-
-            .report-tab-btn:hover {
-              background: rgba(255,255,255,0.5);
-              color: #333;
-            }
-
-            .report-tab-btn.active {
-              background: #fff;
-              color: #ffc107; /* Matches your theme */
-              box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            }
-
-            .report-content-card {
-              background: #fff;
-              border-radius: 15px;
-              overflow: hidden;
-            }
-
-            .fade-in-animation {
-              animation: fadeIn 0.3s ease-in;
-            }
-
-            @keyframes fadeIn {
-              from { opacity: 0; transform: translateY(10px); }
-              to { opacity: 1; transform: translateY(0); }
-            }
-
-            .animate-spin { animation: spin 1s linear infinite; }
-            @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-
-@media (max-width: 768px) {
-              .report-tabs-wrapper { display: block; }
-              .report-tabs-container { width: 100%; }
-              .report-tab-btn { flex: 1; justify-content: center; padding: 10px 5px; font-size: 12px; }
-            }
-
-            .min-w-0 { min-width: 0; }
-          `}</style>
     </div>
   );
 }

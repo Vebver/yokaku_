@@ -45,6 +45,7 @@ const WalkInReservations = lazy(() => import("./WalkInReservations"));
 const AuditLogs = lazy(() => import("./AuditLogs"));
 
 import "../../Style/AdminDashboard.css";
+import "../../Style/AdminNotifications.css";
 
 // Loading fallback shown while a lazy admin panel chunk is being fetched
 const PanelLoader = () => (
@@ -99,32 +100,18 @@ const navItems = [
   { id: "maintenance", label: "Maintenance", icon: Icons.Maintenance },
 ];
 
-const StatCard = ({ title, value, color, icon: Icon }) => (
+const StatCard = ({ title, value, color }) => (
   <div className="col-12 col-md-4">
     <div
-      className="card border-0 shadow-sm rounded-4 p-3 bg-white h-100"
-      style={{ minHeight: "100px", display: "block" }}
+      className={`card border-0 shadow-sm rounded-4 p-3 bg-white h-100 border-start border-4 border-${color}`}
+      style={{ minHeight: "100px", display: "flex", alignItems: "center" }}
     >
-      <div className="d-flex align-items-center h-100 gap-3">
-        <div
-          className={`bg-${color}-subtle text-${color} d-flex align-items-center justify-content-center flex-shrink-0`}
-          style={{ width: "48px", height: "48px", borderRadius: "12px" }}
-        >
-          <Icon size={22} />
-        </div>
-
-        <div className="overflow-hidden">
-          <p
-            className="text-muted fw-bold text-uppercase mb-1"
-            style={{
-              fontSize: "0.65rem",
-              letterSpacing: "0.8px",
-              whiteSpace: "nowrap",
-            }}
-          >
+      <div className="d-flex align-items-center w-100 gap-3">
+        <div className="stat-card-body min-w-0">
+          <p className="stat-card-title text-muted fw-bold text-uppercase mb-1">
             {title}
           </p>
-          <h4 className="fw-bold mb-0 text-dark">{value}</h4>
+          <h4 className="fw-bold mb-0 text-dark text-break">{value}</h4>
         </div>
       </div>
     </div>
@@ -425,19 +412,20 @@ function AdminDashboard() {
     ],
   };
 
-  const MiniFinanceCard = ({ title, value, icon: Icon, colorClass, isNum }) => (
-    <div className="col-6">
-      <div className="finance-mini-card p-3 rounded-4 shadow-sm bg-white border h-100">
-        <div className={`icon-box ${colorClass} mb-2`}>
-          <Icon size={18} />
-        </div>
-        <p
-          className="text-muted fw-bold text-uppercase mb-1"
-          style={{ fontSize: "0.6rem" }}
-        >
+  // Mini stat tile. The title is centred inside the card (text-center plus an
+  // explicit centering helper) so it stays optically centred at every width and
+  // at high browser zoom, where rem-based paddings grow and used to push the
+  // label off-axis. Padding is done with the shared responsive class instead of
+  // a hardcoded p-5 so the tile never overflows on small screens.
+  const MiniFinanceCard = ({ title, value, colorClass, isNum }) => (
+    <div className="col-12 col-sm-6">
+      <div
+        className={`finance-mini-card finance-mini-card-inner p-3 p-md-4 rounded-4 bg-grey border h-100 border-start border-2 text-center d-flex flex-column align-items-center justify-content-center ${(colorClass || "").split(" ").pop()}`}
+      >
+        <p className="finance-mini-card-title text-muted fw-bold text-uppercase mb-1">
           {title}
         </p>
-        <h5 className="fw-bold mb-0 text-dark">
+        <h5 className="fw-bold mb-0 text-dark text-break">
           {isNum ? value : formatCurrency(value)}
         </h5>
       </div>
@@ -574,19 +562,16 @@ function AdminDashboard() {
           title="Total Bookings"
           value={stats.totalBookings}
           color="primary"
-          icon={TrendingUp}
         />
         <StatCard
           title="Tables Occupied"
           value={stats.activeTables}
           color="success"
-          icon={ShoppingBag}
         />
         <StatCard
           title="Kitchen Queue"
           value={stats.kitchenQueue}
           color="info"
-          icon={Info}
         />
       </div>
 
@@ -597,26 +582,18 @@ function AdminDashboard() {
             <MiniFinanceCard
               title="Weekly Revenue"
               value={stats.weeklyRevenue}
-              icon={TrendingUp}
-              colorClass="text-success bg-success-subtle"
             />
             <MiniFinanceCard
               title="Today's Revenue"
               value={stats.todayRevenue}
-              icon={PhilippinePeso}
-              colorClass="text-primary bg-primary-subtle"
             />
             <MiniFinanceCard
               title="Avg. Order"
               value={stats.avgOrder}
-              icon={ShoppingBag}
-              colorClass="text-info bg-info-subtle"
             />
             <MiniFinanceCard
               title="Total Orders"
               value={stats.totalOrders}
-              icon={CreditCard}
-              colorClass="text-warning bg-warning-subtle"
               isNum={true}
             />
           </div>
@@ -804,12 +781,7 @@ function AdminDashboard() {
               {showNotifications && (
                 <div
                   className="card shadow-lg border-0 rounded-4 position-absolute end-0 mt-2 py-2 admin-notif-dropdown"
-                  style={{
-                    width: "380px",
-                    zIndex: 1050,
-                    fontSize: "0.85rem",
-                    right: 0,
-                  }}
+                  style={{ zIndex: 1050 }}
                 >
                   <div className="px-3 py-2 border-bottom d-flex justify-content-between align-items-center bg-light rounded-top-4">
                     <span className="fw-bold text-dark">
@@ -938,39 +910,41 @@ function AdminDashboard() {
       {/* Confirm Delete Modal */}
       {showConfirmDelete && (
         <div
-          className="modal fade show d-block"
+          className="admin-confirm-backdrop"
           tabIndex="-1"
-          style={{ backgroundColor: "rgba(0,0,0,0.45)", zIndex: 1100 }}
         >
-          <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: "420px" }}>
-            <div className="modal-content border-0 rounded-4 shadow-lg">
-              <div className="modal-header border-bottom-0 pt-4 px-4 pb-1">
-                <h5 className="modal-title fw-bold">Delete Notification</h5>
+          <div className="admin-confirm-dialog">
+            <div className="admin-confirm-content">
+              <div className="admin-confirm-header">
+                <div className="d-flex align-items-center gap-2 min-w-0">
+                  <Trash2 size={22} className="text-danger flex-shrink-0" />
+                  <h5 className="modal-title admin-confirm-title">
+                    Delete Notification
+                  </h5>
+                </div>
                 <button
                   type="button"
-                  className="btn-close"
+                  className="btn-close flex-shrink-0 ms-auto"
                   onClick={() => setShowConfirmDelete(false)}
                 ></button>
               </div>
-              <div className="modal-body px-4 pb-4">
-                <p className="text-muted mb-0" style={{ fontSize: "0.85rem" }}>
+              <div className="admin-confirm-body">
+                <p className="admin-confirm-message">
                   Are you sure you want to delete this notification? It will be
                   moved to trash and automatically deleted after 30 days.
                 </p>
               </div>
-              <div className="modal-footer border-top-0 px-4 pb-4 gap-2 justify-content-end">
+              <div className="admin-confirm-footer">
                 <button
                   type="button"
-                  className="btn btn-light rounded-3 px-3 py-1.5 fw-semibold"
-                  style={{ fontSize: "0.8rem" }}
+                  className="btn btn-outline-secondary admin-confirm-btn"
                   onClick={() => setShowConfirmDelete(false)}
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
-                  className="btn btn-danger rounded-3 px-3 py-1.5 fw-semibold"
-                  style={{ fontSize: "0.8rem" }}
+                  className="btn btn-danger admin-confirm-btn"
                   onClick={handleDeleteNotification}
                 >
                   Yes, Delete
@@ -981,28 +955,28 @@ function AdminDashboard() {
         </div>
       )}
 
-      {/* Reservation Details Modal */}
+      {/* 2. RESERVATION DETAILS DETAIL MODAL */}
       {showReservationModal && (
-        <div
-          className="modal fade show d-block"
-          tabIndex="-1"
-          style={{ backgroundColor: "rgba(0,0,0,0.45)", zIndex: 1100 }}
-        >
-          <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: "460px" }}>
-            <div className="modal-content border-0 rounded-4 shadow-lg">
-              <div className="modal-header border-bottom-0 pt-4 px-4 pb-2">
-                <h5 className="modal-title fw-bold text-dark">Reservation Details</h5>
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={() => {
-                    setShowReservationModal(false);
-                    setSelectedReservation(null);
-                  }}
-                ></button>
-              </div>
-              <div className="modal-body px-4 pb-3">
-                {modalLoading ? (
+        <div className="admin-confirm-backdrop" style={{ zIndex: 1100 }}>
+              <div className="admin-confirm-dialog">
+                <div className="admin-confirm-content">
+                  <div className="admin-confirm-header">
+                    <div className="d-flex align-items-center gap-2 min-w-0">
+                      <h5 className="modal-title admin-confirm-title">
+                        Reservation Details
+                      </h5>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-close flex-shrink-0 ms-auto"
+                      onClick={() => {
+                        setShowReservationModal(false);
+                        setSelectedReservation(null);
+                      }}
+                    ></button>
+                  </div>
+                  <div className="admin-confirm-body text-start">
+                    {modalLoading ? (
                   <div className="text-center py-4">
                     <div className="spinner-border text-primary spinner-border-sm mb-2"></div>
                     <p className="text-muted small">Loading reservation details...</p>
@@ -1068,11 +1042,10 @@ function AdminDashboard() {
                   </div>
                 )}
               </div>
-              <div className="modal-footer border-top-0 px-4 pb-4">
+              <div className="admin-confirm-footer">
                 <button
                   type="button"
-                  className="btn btn-primary rounded-3 w-100 py-1.5 fw-semibold"
-                  style={{ fontSize: "0.85rem" }}
+                  className="btn btn-primary admin-confirm-btn"
                   onClick={() => {
                     setShowReservationModal(false);
                     setSelectedReservation(null);
@@ -1086,129 +1059,6 @@ function AdminDashboard() {
         </div>
       )}
 
-      <style>{`
-        .hover-bg { transition: background-color 0.15s ease-in-out; }
-        .hover-bg:hover { background-color: #f8f9fa; }
-        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #dee2e6; border-radius: 10px; }
-
-        /* Copied Design Styles */
-        .admin-notif-dropdown {
-          width: 380px !important;
-          max-height: 480px !important;
-          padding: 0 !important;
-          border-radius: 16px !important;
-          overflow: hidden;
-        }
-        .notification-item {
-          padding: 12px 16px;
-          border-bottom: 1px solid #f1f3f5;
-          transition: background-color 0.15s ease;
-        }
-        .notification-item.unread {
-          background-color: #f8f9fa;
-          border-left: 3px solid #0d6efd;
-        }
-        .notification-item.read {
-          background-color: #ffffff;
-          border-left: 3px solid transparent;
-        }
-        .notification-card-content {
-          display: flex;
-          gap: 12px;
-        }
-        .notification-icon {
-          font-size: 1.25rem;
-          display: flex;
-          align-items: flex-start;
-          padding-top: 2px;
-        }
-        .notification-content {
-          flex: 1;
-        }
-        .notification-top {
-          display: flex;
-          justify-content: space-between;
-          align-items: baseline;
-          margin-bottom: 4px;
-        }
-        .notification-title {
-          font-weight: 600;
-          color: #212529;
-          font-size: 0.85rem;
-        }
-        .notification-time {
-          font-size: 0.7rem;
-          color: #868e96;
-        }
-        .notification-message {
-          font-size: 0.8rem;
-          color: #495057;
-          margin-bottom: 8px;
-          line-height: 1.4;
-          text-align: left;
-        }
-        .notif-res-id-badge {
-          display: inline-block;
-          font-size: 0.7rem;
-          background-color: #e9ecef;
-          color: #495057;
-          padding: 2px 6px;
-          border-radius: 4px;
-          margin-bottom: 8px;
-          font-weight: 500;
-        }
-        .notification-actions-bottom {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-        .notification-actions {
-          display: flex;
-          gap: 6px;
-        }
-        .mark-read-btn, .view-btn, .delete-notif-btn {
-          font-size: 0.7rem;
-          padding: 3px 6px;
-          border-radius: 4px;
-          border: none;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 0.1s ease;
-        }
-        .mark-read-btn {
-          background-color: #e7f5ff;
-          color: #228be6;
-        }
-        .mark-read-btn:hover {
-          background-color: #d0ebff;
-        }
-        .mark-read-btn.already-read {
-          background-color: transparent;
-          color: #adb5bd;
-          cursor: default;
-          padding-left: 0;
-        }
-        .view-btn {
-          background-color: #f1f3f5;
-          color: #495057;
-        }
-        .view-btn:hover {
-          background-color: #e9ecef;
-        }
-        .delete-notif-btn {
-          background-color: transparent;
-          color: #fa5252;
-          display: flex;
-          align-items: center;
-          padding: 3px 6px;
-        }
-        .delete-notif-btn:hover {
-          background-color: #fff5f5;
-          border-radius: 4px;
-        }
-      `}</style>
     </div>
   );
 }

@@ -98,10 +98,9 @@ const KioskSelection = () => {
     return (
       <div className="kiosk-selection-wrapper" style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
         <div style={{ textProject: "center" }}>
-          <RefreshCw size={40} className="spinner-loader" color="#ffcc00" />
+          <RefreshCw size={40} className="spinner-loader-slow" color="#ffcc00" />
           <p style={{ marginTop: "15px", color: "#fff" }}>Loading Kiosk System...</p>
         </div>
-        <style>{` .spinner-loader { animation: spin 1.5s linear infinite; } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } `}</style>
       </div>
     );
   }

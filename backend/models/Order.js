@@ -254,19 +254,12 @@ const Order = {
   getPreReservedItems: async (reservationId) => {
     try {
       const query = `
-        SELECT m.*, ri.quantity, ri.customizations, 0 AS is_refill
-        FROM menu_items m
-        JOIN reservation_items ri ON m.item_id = ri.product_id
-        WHERE ri.reservation_id = ?
-
-        UNION ALL -- Keeps duplicate items (Fixed)
-
         SELECT m.*, ko.quantity, ko.customizations, ko.is_refill
         FROM menu_items m
         JOIN kiosk_orders ko ON m.item_id = ko.item_id
         WHERE ko.reservation_id = ?
       `;
-      const [rows] = await db.execute(query, [reservationId, reservationId]);
+      const [rows] = await db.execute(query, [reservationId]);
       return rows;
     } catch (err) {
       console.error("Error in getPreReservedItems:", err.message);

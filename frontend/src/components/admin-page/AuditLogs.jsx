@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import api from "../../api";
 import {Clock, User, Info, ChevronLeft, ChevronRight } from "lucide-react";
+import "../../Style/AuditLogs.css";
 
 const AuditLogs = () => {
   const [logs, setLogs] = useState([]);
@@ -131,57 +132,6 @@ const AuditLogs = () => {
         </div>
       )}
 
-      <style>{`
-        @media (max-width: 768px) {
-          .audit-logs-container .table-responsive { overflow: visible; }
-          .audit-logs-container thead { display: none; }
-          .audit-logs-container .table,
-          .audit-logs-container .table tbody,
-          .audit-logs-container .table tr,
-          .audit-logs-container .table td { display: block; width: 100%; min-width: 0; }
-          .audit-logs-container .table tbody tr {
-            background: #fff;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            margin-bottom: 12px;
-            padding: 12px 16px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-          }
-          .audit-logs-container .table td {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            border: none;
-            padding: 8px 0;
-            text-align: right !important;
-            min-width: 0;
-            overflow-wrap: anywhere;
-            word-break: break-word;
-          }
-          .audit-logs-container .table td[data-label]::before {
-            content: attr(data-label);
-            font-weight: 600;
-            font-size: 0.72rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: #64748b;
-            text-align: left;
-            flex-shrink: 0;
-          }
-          .audit-logs-container .table td[data-label="Timestamp"] {
-            display: block;
-            text-align: left !important;
-            border-bottom: 1px dashed #e2e8f0;
-            margin-bottom: 6px;
-            padding-bottom: 10px;
-          }
-          .audit-logs-container .table td[data-label="Timestamp"]::before { display: none; }
-          .audit-logs-container .table td[data-label="Details"] {
-            display: flex;
-          }
-        }
-      `}</style>
     </div>
   );
 };

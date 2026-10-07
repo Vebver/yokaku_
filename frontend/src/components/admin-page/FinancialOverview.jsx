@@ -11,19 +11,8 @@ import {
   Filler,
 } from "chart.js";
 import { Line } from "react-chartjs-2";
-import {
-  TrendingUp,
-  ShoppingBag,
-  Wallet,
-  CreditCard,
-  Calendar,
-  DollarSign,
-  BarChart3,
-  PieChart,
-  Download,
-  FileText,
-  Printer,
-} from "lucide-react";
+import { Calendar, BarChart3, PieChart } from "lucide-react";
+import "../../Style/FinancialOverview.css";
 
 ChartJS.register(
   CategoryScale,
@@ -126,7 +115,6 @@ const FinancialOverview = ({ data }) => {
   const StatCard = ({
     label,
     value,
-    icon: Icon,
     color,
     isCurrency = true,
     subtitle = null,
@@ -136,39 +124,18 @@ const FinancialOverview = ({ data }) => {
         className={`position-absolute top-0 end-0 w-25 h-100 opacity-10 bg-${color}`}
         style={{ clipPath: "polygon(100% 0, 0 0, 100% 100%)" }}
       ></div>
-      <div className="card-body p-4">
-        <div className="d-flex align-items-center justify-content-between mb-3">
-          <div
-            className={`bg-${color}-light text-${color} rounded-3 d-flex align-items-center justify-content-center`}
-            style={{
-              width: "48px",
-              height: "48px",
-              backgroundColor: `rgba(245, 158, 11, 0.1)`,
-            }}
-          >
-            <Icon
-              size={24}
-              color={
-                color === "warning"
-                  ? "#f59e0b"
-                  : color === "success"
-                    ? "#10b981"
-                    : color === "info"
-                      ? "#3b82f6"
-                      : "#f59e0b"
-              }
-            />
-          </div>
-          {subtitle && (
+      <div className="card-body p-3 p-sm-4 p-lg-5">
+        {subtitle && (
+          <div className="d-flex justify-content-end mb-2 mb-sm-3">
             <span className="badge bg-light text-muted rounded-pill">
               {subtitle}
             </span>
-          )}
-        </div>
-        <h3 className="fw-bold mb-1 text-dark">
+          </div>
+        )}
+        <h3 className="fw-bold mb-1 text-dark fo-kpi-value">
           {isCurrency ? formatCurrency(value) : value.toLocaleString()}
         </h3>
-        <p className="text-muted small mb-0 text-uppercase fw-semibold">
+        <p className="text-muted small mb-0 text-uppercase fw-semibold fo-kpi-label">
           {label}
         </p>
       </div>
@@ -183,14 +150,15 @@ const FinancialOverview = ({ data }) => {
   return (
     <div className="financial-overview p-3 p-md-4">
       {/* Header Section */}
-      <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 pb-2 border-bottom">
-        <div>
-          <h2 className="fw-bold mb-1 text-dark">Financial Report</h2>
+      <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3 mb-md-4 pb-2 border-bottom">
+        <div className="min-w-0">
+          <h2 className="fw-bold mb-1 text-dark fs-5 fs-md-3">
+            Financial Report
+          </h2>
           <p className="text-muted small mb-0">
             Profit Trend Analysis
-            <span className="ms-2 text-warning">●</span>
-            <span className="ms-1 text-muted">
-              Generated:{" "}
+            <span className="ms-1 text-muted d-block d-sm-inline">
+              Date:{" "}
               {new Date().toLocaleDateString("en-US", {
                 year: "numeric",
                 month: "long",
@@ -202,45 +170,36 @@ const FinancialOverview = ({ data }) => {
       </div>
 
       {/* Main KPI Cards */}
-      <div className="row g-4 mb-4">
-        <div className="col-lg-3 col-md-6">
+      <div className="row g-3 g-md-4 mb-3 mb-md-4">
+        <div className="col-6 col-lg-3">
           <StatCard
             label={`${period === "yearly" ? "Year-to-Date" : "Monthly"} Revenue`}
             value={getProfitLabel()}
-            icon={TrendingUp}
             color="warning"
           />
         </div>
-        <div className="col-lg-3 col-md-6">
+        <div className="col-6 col-lg-3">
           <StatCard
             label="Average Order Value"
             value={averageOrder}
-            icon={Wallet}
             color="info"
           />
         </div>
-        <div className="col-lg-3 col-md-6">
+        <div className="col-6 col-lg-3">
           <StatCard
             label="Total Orders"
             value={totalOrders}
-            icon={ShoppingBag}
             color="success"
             isCurrency={false}
           />
         </div>
-        <div className="col-lg-3 col-md-6">
+        <div className="col-6 col-lg-3">
           <div className="card border-0 shadow-sm rounded-4 h-100 bg-gradient-warning text-white">
-            <div className="card-body p-4">
-              <div className="d-flex align-items-center justify-content-between mb-3">
-                <div
-                  className="bg-white bg-opacity-25 rounded-3 d-flex align-items-center justify-content-center"
-                  style={{ width: "48px", height: "48px" }}
-                >
-                  <CreditCard size={24} color="white" />
-                </div>
-              </div>
-              <h3 className="fw-bold mb-1">{formatCurrency(totalYearly)}</h3>
-              <p className="mb-0 small text-white-50 text-uppercase fw-semibold">
+            <div className="card-body p-3 p-sm-4 p-lg-5">
+              <h3 className="fw-bold mb-1 fo-kpi-value text-break">
+                {formatCurrency(totalYearly)}
+              </h3>
+              <p className="mb-0 small text-white-50 text-uppercase fw-semibold fo-kpi-label">
                 Year-to-Date Revenue
               </p>
             </div>
@@ -249,30 +208,38 @@ const FinancialOverview = ({ data }) => {
       </div>
 
       {/* Chart Section */}
-      <div className="card border-0 shadow-sm rounded-4 mb-4">
-        <div className="card-header bg-white border-0 pt-4 px-4">
+      <div className="card border-0 shadow-sm rounded-4 mb-3 mb-md-4">
+        <div className="card-header bg-white border-0 pt-3 pt-md-4 px-3 px-md-4">
           <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
-            <div>
-              <h5 className="fw-bold mb-0">{getPeriodLabel()}</h5>
+            <div className="min-w-0">
+              <h5 className="fw-bold mb-0 fs-6 fs-md-5">
+                {getPeriodLabel()}
+              </h5>
               <small className="text-muted">Revenue performance tracking</small>
             </div>
-<div className="d-flex flex-wrap gap-2 mt-3 mt-md-0">
+<div className="d-flex flex-wrap gap-2 mt-3 mt-md-0 w-100 w-md-auto fo-period-tabs">
+              <button
+                onClick={() => setPeriod("weekly")}
+                className={`btn btn-sm px-3 px-md-4 rounded-pill fw-semibold transition-all flex-fill flex-md-grow-0 ${period === "weekly" ? "btn-warning text-white shadow-sm" : "btn-light text-muted"}`}
+              >
+                Weekly
+              </button>
               <button
                 onClick={() => setPeriod("monthly")}
-                className={`btn btn-sm px-4 rounded-pill fw-semibold transition-all ${period === "monthly" ? "btn-warning text-white shadow-sm" : "btn-light text-muted"}`}
+                className={`btn btn-sm px-3 px-md-4 rounded-pill fw-semibold transition-all flex-fill flex-md-grow-0 ${period === "monthly" ? "btn-warning text-white shadow-sm" : "btn-light text-muted"}`}
               >
                 Monthly
               </button>
               <button
                 onClick={() => setPeriod("yearly")}
-                className={`btn btn-sm px-4 rounded-pill fw-semibold transition-all ${period === "yearly" ? "btn-warning text-white shadow-sm" : "btn-light text-muted"}`}
+                className={`btn btn-sm px-3 px-md-4 rounded-pill fw-semibold transition-all flex-fill flex-md-grow-0 ${period === "yearly" ? "btn-warning text-white shadow-sm" : "btn-light text-muted"}`}
               >
                 Yearly
               </button>
             </div>
           </div>
         </div>
-<div className="card-body p-4 chart-body" style={{ height: "420px" }}>
+<div className="card-body p-2 p-md-4 chart-body">
           <Line
             options={chartOptions}
             data={{
@@ -322,15 +289,15 @@ const FinancialOverview = ({ data }) => {
           reportData.dailyTrend.length > 0 && (
             <div className="col-12">
               <div className="card border-0 shadow-sm rounded-4">
-                <div className="card-header bg-white border-0 pt-4 px-4">
+                <div className="card-header bg-white border-0 pt-3 pt-md-4 px-3 px-md-4">
                   <div className="d-flex align-items-center gap-2">
-                    <Calendar size={18} className="text-warning" />
-                    <h6 className="fw-bold mb-0">Daily Revenue Breakdown</h6>
+                    <Calendar size={18} className="text-warning flex-shrink-0" />
+                    <h6 className="fw-bold mb-0 fs-6">Weekly Revenue Breakdown</h6>
                   </div>
                 </div>
-                <div className="card-body p-4 pt-0">
+                <div className="card-body p-3 p-md-4 pt-0">
                   <div className="table-responsive">
-                    <table className="table table-hover align-middle">
+                    <table className="table table-hover align-middle fo-table">
                       <thead className="table-light">
                         <tr>
                           <th className="fw-semibold">Day</th>
@@ -340,8 +307,8 @@ const FinancialOverview = ({ data }) => {
                       <tbody>
                         {reportData.dailyTrend.map((item, idx) => (
                           <tr key={idx}>
-                            <td className="text-muted">
-                              {item.date}
+                            <td className="text-muted fo-cell-label" data-label="Period">
+                              {item.label || item.date}
                             </td>
                             <td className="text-end text-success fw-semibold">
                               {formatCurrency(item.revenue)}
@@ -360,17 +327,17 @@ const FinancialOverview = ({ data }) => {
         {period === "yearly" &&
           reportData.monthlyTrend &&
           reportData.monthlyTrend.length > 0 && (
-            <div className="col-md-6">
+            <div className="col-12">
               <div className="card border-0 shadow-sm rounded-4 h-100">
-                <div className="card-header bg-white border-0 pt-4 px-4">
+                <div className="card-header bg-white border-0 pt-3 pt-md-4 px-3 px-md-4">
                   <div className="d-flex align-items-center gap-2">
-                    <BarChart3 size={18} className="text-warning" />
-                    <h6 className="fw-bold mb-0">Monthly Revenue Breakdown</h6>
+                    <BarChart3 size={18} className="text-warning flex-shrink-0" />
+                    <h6 className="fw-bold mb-0 fs-6">Monthly Performance</h6>
                   </div>
                 </div>
-                <div className="card-body p-4 pt-0">
+                <div className="card-body p-3 p-md-4 pt-0">
                   <div className="table-responsive">
-                    <table className="table table-hover align-middle">
+                    <table className="table table-hover align-middle fo-table">
                       <thead className="table-light">
                         <tr>
                           <th className="fw-semibold">Month</th>
@@ -380,7 +347,9 @@ const FinancialOverview = ({ data }) => {
                       <tbody>
                         {reportData.monthlyTrend.map((item, idx) => (
                           <tr key={idx}>
-                            <td className="text-muted">{item.month}</td>
+                            <td className="text-muted fo-cell-label" data-label="Month">
+                              {item.month}
+                            </td>
                             <td className="text-end fw-semibold text-dark">
                               {formatCurrency(item.revenue)}
                             </td>
@@ -394,58 +363,48 @@ const FinancialOverview = ({ data }) => {
             </div>
           )}
 
+        {/* Yearly Trend Table */}
+        {period === "yearly" &&
+          reportData.yearlyTrend &&
+          reportData.yearlyTrend.length > 0 && (
+            <div className="col-12">
+              <div className="card border-0 shadow-sm rounded-4 h-100">
+                <div className="card-header bg-white border-0 pt-3 pt-md-4 px-3 px-md-4">
+                  <div className="d-flex align-items-center gap-2">
+                    <PieChart size={18} className="text-warning flex-shrink-0" />
+                    <h6 className="fw-bold mb-0 fs-6">Yearly Performance</h6>
+                  </div>
+                </div>
+                <div className="card-body p-3 p-md-4 pt-0">
+                  <div className="table-responsive">
+                    <table className="table table-hover align-middle fo-table">
+                      <thead className="table-light">
+                        <tr>
+                          <th className="fw-semibold">Year</th>
+                          <th className="fw-semibold text-end">Revenue</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reportData.yearlyTrend.map((item, idx) => (
+                          <tr key={idx}>
+                            <td className="text-muted fo-cell-label" data-label="Year">
+                              {item.year}
+                            </td>
+                            <td className="text-end fw-semibold text-dark">
+                              {formatCurrency(item.revenue)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
       </div>
 
-      {/* Custom CSS for styling */}
-      <style>{`
-        .financial-overview {
-          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        }
-        .bg-gradient-warning {
-          background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-        }
-        .transition-all {
-          transition: all 0.2s ease;
-        }
-        .btn-warning {
-          background: #f59e0b;
-          border-color: #f59e0b;
-        }
-        .btn-warning:hover {
-          background: #d97706;
-          border-color: #d97706;
-        }
-        .table-light th {
-          font-weight: 600;
-          font-size: 0.75rem;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          color: #64748b;
-        }
-.alert-light {
-          background-color: #f8fafc;
-          border-color: #e2e8f0;
-        }
-        @media (max-width: 768px) {
-          .financial-overview .chart-body {
-            height: 300px !important;
-          }
-        }
-        @media print {
-          .btn, .card-header button {
-            display: none !important;
-          }
-          .financial-overview {
-            padding: 0 !important;
-          }
-          .card {
-            break-inside: avoid;
-            box-shadow: none !important;
-            border: 1px solid #e2e8f0 !important;
-          }
-        }
-      `}</style>
-    </div>
+      </div>
   );
 };
 

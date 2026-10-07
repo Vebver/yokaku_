@@ -692,19 +692,23 @@ const Reservation = {
         mi.menu_name AS menu_name,
         ko.quantity, 
         mi.price, 
-        ko.customizations 
+        ko.customizations ,
+        'order' AS line_type
       FROM kiosk_orders ko
-      LEFT JOIN menu_items mi ON ko.item_id = mi.item_id 
+      LEFT JOIN menu_items mi ON ko.item_id = mi.item_id
       WHERE ko.reservation_id = ?
 
       UNION ALL
 
-      SELECT 
-        package_name AS item_name, 
+      SELECT
+        package_name AS item_name,
         package_name AS package_name,
-        1 AS quantity, 
-        downpayment_amount AS price, 
-        'Reservation Fee' AS customizations 
+        1 AS quantity,
+        downpayment_amount AS price,
+        'Reservation Fee' AS customizations,
+        -- Flagged so admin UIs keep the down payment in the payment section
+        -- only and never render it as an ordered item.
+        'downpayment' AS line_type
       FROM reservations 
       WHERE reservation_id = ? AND downpayment_amount > 0
     `;

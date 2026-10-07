@@ -1,11 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import api from "../../api";
+import "../../Style/Billing.css";
 import {
   Loader2,
   ReceiptText,
-  ChevronLeft,
-  ChevronRight,
-  AlertTriangle,
   CheckCircle2,
   Calendar,
   Layers,
@@ -15,7 +13,10 @@ import {
   Search,
 } from "lucide-react";
 import { useToast } from "../ToastContext";
+import { useConfirmation } from "../ConfirmationContext";
 import { useSectionRefresh } from "../shared/sectionRefresh";
+import AdminPagination from "../shared/AdminPagination";
+import { compareByPaymentRecency } from "../shared/sortUtils";
 
 const Billing = () => {
   const [payments, setPayments] = useState([]);
@@ -34,6 +35,7 @@ const Billing = () => {
   const [settlementFilter, setSettlementFilter] = useState("all");
   const [orderStatusFilter, setOrderStatusFilter] = useState("all");
   const { showToast } = useToast();
+  const { confirm } = useConfirmation();
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
 
@@ -59,7 +61,8 @@ const Billing = () => {
     setLoading(true);
     try {
       const res = await api.get(`/billing`);
-      setPayments(res.data.sort((a, b) => b.payment_id - a.payment_id));
+      // Newest transaction first (payment date/time, never alphabetical).
+      setPayments(res.data.slice().sort(compareByPaymentRecency));
       setCurrentPage(1);
     } catch (err) {
       console.error("Fetch error:", err);
@@ -82,8 +85,8 @@ const Billing = () => {
     settlementFilter !== "all" ||
     orderStatusFilter !== "all";
 
-  // Alphabetical by guest name so a bill is easy to find. The backend returns
-  // them by reservation_id, which for VARCHAR ids is not a useful order.
+  // Newest transaction first by payment/transaction timestamp. Name sorting
+  // was removed: it made the newest payment impossible to find.
   const filteredPayments = payments
     .filter((p) => {
       const fullName = `${p.first_name || ""} ${p.last_name || ""}`.toLowerCase();
@@ -109,19 +112,7 @@ const Billing = () => {
       }
       return true;
     })
-    .sort((a, b) => {
-      const an = `${a.first_name || ""} ${a.last_name || ""}`.trim();
-      const bn = `${b.first_name || ""} ${b.last_name || ""}`.trim();
-      // Walk-in rows have no name, so fall back to their code.
-      if (!an && !bn) {
-        return String(a.reservation_id || "").localeCompare(
-          String(b.reservation_id || ""),
-        );
-      }
-      if (!an) return 1;
-      if (!bn) return -1;
-      return an.localeCompare(bn, undefined, { sensitivity: "base" });
-    });
+    .sort(compareByPaymentRecency);
 
   const getItemPrice = (item) => {
     const isRefill =
@@ -146,13 +137,32 @@ const Billing = () => {
       Number(selectedPayment?.balance_due ?? total - paid),
       0,
     );
-    const exceeds = remaining > 0;
     return {
       remaining,
-      exceeds,
       overpaid: paid > total ? paid - total : 0,
     };
   };
+
+  // The paid amount / down payment is payment information only. It must never
+  // be rendered as a line inside the Order Items list. The API tags the
+  // injected "Reservation Fee" row as line_type "downpayment"; the name checks
+  // are a safety net for older records.
+  const isPaymentRow = (item) => {
+    const lineType = String(item?.line_type ?? "").toLowerCase();
+    if (lineType === "downpayment" || lineType === "payment") return true;
+
+    const name = String(item?.name || item?.item_name || "")
+      .trim()
+      .toLowerCase();
+    return (
+      item?.is_payment === true ||
+      item?.is_payment === 1 ||
+      item?.is_payment === "1" ||
+      /^(amount\s)?(paid|down\s?payment|partial\s?payment|deposit)\b/.test(name)
+    );
+  };
+
+  const orderLineItems = orderItems.filter((item) => !isPaymentRow(item));
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -161,7 +171,6 @@ const Billing = () => {
     indexOfLastItem,
   );
   const totalPages = Math.ceil(filteredPayments.length / itemsPerPage);
-  const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   const handleReviewClick = async (p) => {
     setSelectedPayment(p);
@@ -247,8 +256,8 @@ const Billing = () => {
       style={{ minHeight: "100vh" }}
     >
       {/* HEADER SECTION */}
-      <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 px-3">
-        <div>
+      <div className="admin-page-header row align-items-center mb-3 px-2">
+        <div className="col-12">
           <h2 className="fw-bold mb-1 text-dark">Billing & Transactions</h2>
           <p className="text-muted small mb-0">
             Monitor incoming payments, verify customer receipts, and manage
@@ -258,12 +267,9 @@ const Billing = () => {
       </div>
 
       {/* SEARCH BAR + FILTERS (same row on wide screens) */}
-      <div className="col-12 mb-3 px-2">
-        <div className="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center gap-2">
-          <div
-            className="d-flex align-items-center bg-white rounded-3 border shadow-sm px-3 flex-grow-1"
-            style={{ height: "48px", minWidth: "260px" }}
-          >
+      <div className="admin-toolbar row g-2 align-items-center mb-3 px-2">
+        <div className="col-12 col-xl-5">
+          <div className="admin-search d-flex align-items-center bg-white rounded-3 border shadow-sm px-3">
             <Search size={20} className="text-muted flex-shrink-0" />
             <input
               type="text"
@@ -282,11 +288,12 @@ const Billing = () => {
               }}
             />
           </div>
+        </div>
 
-          <div className="d-flex flex-wrap gap-2 align-items-center">
+        <div className="col-12 col-xl-7">
+          <div className="d-flex flex-wrap gap-2 align-items-center admin-filter-bar">
             <select
-              className="form-select form-select-sm"
-              style={{ width: "auto" }}
+              className="form-select form-select-sm admin-filter-select"
               aria-label="Filter by payment status"
               value={paymentStatusFilter}
               onChange={(e) => {
@@ -301,8 +308,7 @@ const Billing = () => {
             </select>
 
             <select
-              className="form-select form-select-sm"
-              style={{ width: "auto" }}
+              className="form-select form-select-sm admin-filter-select"
               aria-label="Filter by balance"
               value={settlementFilter}
               onChange={(e) => {
@@ -317,8 +323,7 @@ const Billing = () => {
             </select>
 
             <select
-              className="form-select form-select-sm"
-              style={{ width: "auto" }}
+              className="form-select form-select-sm admin-filter-select"
               aria-label="Filter by order status"
               value={orderStatusFilter}
               onChange={(e) => {
@@ -333,11 +338,12 @@ const Billing = () => {
             </select>
 
             {hasActiveFilters && (
+              // Same "Clear Filter" pattern as Online Bookings / Walk-ins.
               <button
-                className="btn btn-sm btn-link text-decoration-none px-0"
+                className="btn btn-sm btn-link text-decoration-none px-0 admin-clear-filter"
                 onClick={clearFilters}
               >
-                Clear filters
+                Clear Filter
               </button>
             )}
           </div>
@@ -492,45 +498,7 @@ const Billing = () => {
           </table>
         </div>
 
-        {/* PAGINATION */}
-        {filteredPayments.length > itemsPerPage && (
-          <div className="p-3 border-top bg-white d-flex flex-column flex-sm-row justify-content-between align-items-center gap-2">
-            <span className="text-muted small">
-              Showing {indexOfFirstItem + 1} to{" "}
-              {Math.min(indexOfLastItem, filteredPayments.length)} of{" "}
-              {filteredPayments.length}
-            </span>
-            <nav>
-              <ul className="pagination pagination-sm mb-0">
-                <li
-                  className={`page-item ${currentPage === 1 ? "disabled" : ""}`}
-                >
-                  <button
-                    className="page-link rounded-3 me-1"
-                    onClick={() => paginate(currentPage - 1)}
-                  >
-                    <ChevronLeft size={14} />
-                  </button>
-                </li>
-                <li className="page-item disabled">
-                  <span className="page-link text-dark fw-bold border-0 bg-transparent px-3">
-                    Page {currentPage} of {totalPages}
-                  </span>
-                </li>
-                <li
-                  className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}
-                >
-                  <button
-                    className="page-link rounded-3"
-                    onClick={() => paginate(currentPage + 1)}
-                  >
-                    <ChevronRight size={14} />
-                  </button>
-                </li>
-              </ul>
-            </nav>
-          </div>
-        )}
+        {/* PAGINATION — shared component (matches Inventory / Categories) */}
       </div>
 
       {/* MOBILE CARD LIST */}
@@ -633,47 +601,16 @@ const Billing = () => {
             <p className="mb-0 fw-semibold">No transactions available</p>
           </div>
         )}
-
-        {/* MOBILE PAGINATION */}
-        {filteredPayments.length > itemsPerPage && (
-          <div className="d-flex flex-column align-items-center justify-content-between gap-2 py-3">
-            <span className="text-muted small">
-              Showing {indexOfFirstItem + 1} to{" "}
-              {Math.min(indexOfLastItem, filteredPayments.length)} of{" "}
-              {filteredPayments.length}
-            </span>
-            <nav>
-              <ul className="pagination pagination-sm mb-0">
-                <li
-                  className={`page-item ${currentPage === 1 ? "disabled" : ""}`}
-                >
-                  <button
-                    className="page-link rounded-3 me-1"
-                    onClick={() => paginate(currentPage - 1)}
-                  >
-                    <ChevronLeft size={14} />
-                  </button>
-                </li>
-                <li className="page-item disabled">
-                  <span className="page-link text-dark fw-bold border-0 bg-transparent px-3">
-                    Page {currentPage} of {totalPages}
-                  </span>
-                </li>
-                <li
-                  className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}
-                >
-                  <button
-                    className="page-link rounded-3"
-                    onClick={() => paginate(currentPage + 1)}
-                  >
-                    <ChevronRight size={14} />
-                  </button>
-                </li>
-              </ul>
-            </nav>
-          </div>
-        )}
       </div>
+
+      <AdminPagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={filteredPayments.length}
+        itemsPerPage={itemsPerPage}
+        label="transactions"
+        onPageChange={setCurrentPage}
+      />
 
       {/* OFFCANVAS DRAWER */}
       <div
@@ -682,16 +619,28 @@ const Billing = () => {
         id="billingDrawer"
         data-bs-backdrop="true"
         data-bs-scroll="true"
-        style={{ width: "min(100%, 500px)" }}
+        style={{ width: "min(100%, 520px)" }}
       >
-        <div className="offcanvas-header border-bottom bg-white py-3">
-          <h5 className="fw-bold m-0 d-flex align-items-center text-dark">
-            <ReceiptText size={20} className="me-2 text-primary" /> Financial
-            Review
-          </h5>
+        <div className="offcanvas-header border-bottom bg-white py-3 px-3">
+          <div className="d-flex align-items-center gap-2 min-w-0">
+            <span
+              className="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0 bg-primary bg-opacity-10"
+              style={{ width: "36px", height: "36px" }}
+            >
+              <ReceiptText size={18} className="text-primary" />
+            </span>
+            <div className="min-w-0">
+              <h5 className="fw-bold mb-0 text-dark text-truncate">
+                Financial Review
+              </h5>
+              <small className="text-muted d-block text-truncate">
+                ID: {selectedPayment?.reservation_id || "---"}
+              </small>
+            </div>
+          </div>
           <button
             type="button"
-            className="btn-close shadow-none"
+            className="btn-close shadow-none flex-shrink-0"
             data-bs-dismiss="offcanvas"
             ref={closeBtnRef}
           ></button>
@@ -700,8 +649,12 @@ const Billing = () => {
         <div className="offcanvas-body p-0 d-flex flex-column bg-light-subtle">
         {selectedPayment && (
           <>
-            {/* 1. ORDER SUMMARY SECTION (Scrollable Light Area) */}
-            <div className="px-3 pt-3 pb-0 flex-grow-1 overflow-auto">
+            {/* 1. ORDER SUMMARY SECTION (Scrollable Light Area)
+                 min-height:0 is required so this flex child can actually
+                 shrink and scroll; without it the flex container refuses to
+                 shrink below content height, which pushed the action buttons
+                 in the dark footer below it off-screen/compressed. */}
+            <div className="px-3 pt-3 pb-0 flex-grow-1 overflow-auto drawer-scroll-area">
               {/* GUEST CONTEXT HEADER */}
               <div
                 className="bg-white border rounded-3 shadow-sm p-2 px-3 mb-3 d-flex justify-content-between align-items-center gap-2"
@@ -805,13 +758,13 @@ const Billing = () => {
               {/* ==================== INTEGRATED DYNAMIC EVENT SPEND TRACKER ==================== */}
               {(() => {
                 const totalBill = calculateItemsSum();
-                
+
                 const rawPackageName =
                   selectedPayment?.package_name ||
                   selectedPayment?.packageName ||
                   "";
-                
-                const eventItem = orderItems.find(item => {
+
+                const eventItem = orderLineItems.find(item => {
                   const name = (item.name || item.item_name || "").toLowerCase();
                   return name.includes("standard package") || name.includes("premium package") || name.includes("event");
                 });
@@ -819,7 +772,7 @@ const Billing = () => {
                 const matchedPackageName = eventItem ? (eventItem.name || eventItem.item_name) : rawPackageName;
                 const pkgName = matchedPackageName.toLowerCase().trim();
 
-                const isEvent = 
+                const isEvent =
                   selectedPayment?.reservation_type?.toLowerCase() === "event" ||
                   selectedPayment?.reservationType?.toLowerCase() === "event" ||
                   pkgName.includes("event") ||
@@ -923,7 +876,7 @@ const Billing = () => {
                 </div>
               ) : (
                 <div className="item-list">
-                  {orderItems.map((item, idx) => {
+                  {orderLineItems.map((item, idx) => {
                     const isRefill =
                       item.is_refill === 1 ||
                       item.is_refill === true ||
@@ -995,8 +948,10 @@ const Billing = () => {
               )}
             </div>
 
-            {/* 2. RECEIPT & METADATA SECTION (Dark Background Area) */}
-            <div className="p-3 bg-dark text-white rounded-top-4 shadow-lg mt-0">
+            {/* 2. RECEIPT & METADATA SECTION (Dark Background Area)
+                 flex-shrink:0 pins this block at its natural height instead of
+                 letting it collapse when the order list above grows long. */}
+            <div className="p-3 bg-dark text-white rounded-top-4 shadow-lg mt-0 flex-shrink-0 drawer-footer">
               <div className="card bg-secondary bg-opacity-25 border-secondary border-opacity-25 p-2 mb-1.5">
                 <div className="d-flex justify-content-between mb-1 text-white-50 small">
                   <span>Total Bill</span>
@@ -1121,30 +1076,20 @@ const Billing = () => {
                       <span className="small fw-semibold text-white-50">
                         Remaining Balance
                       </span>
-                      {balanceInfo.exceeds ? (
-                        <span className="fw-bold text-warning fs-5">
-                          ₱
-                          {balanceInfo.remaining.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                          })}
-                        </span>
-                      ) : (
-                        <span className="badge bg-success-subtle text-success fw-semibold">
-                          ₱0.00 (Paid in Full)
-                        </span>
-                      )}
-                    </div>
-
-                    {balanceInfo.exceeds && (
-                      <div
-                        className="mt-1 text-warning small d-flex align-items-center"
-                        style={{ fontSize: "0.75rem" }}
+                      <span
+                        className={
+                          balanceInfo.remaining > 0
+                            ? "fw-bold text-warning fs-5"
+                            : "badge bg-success-subtle text-success fw-semibold"
+                        }
                       >
-                        <AlertTriangle size={12} className="me-1 text-warning" />
-                        Amount exceeds downpayment. Collect remainder at
-                        settlement.
-                      </div>
-                    )}
+                        {balanceInfo.remaining > 0
+                          ? `₱${balanceInfo.remaining.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                            })}`
+                          : "₱0.00 (Paid in Full)"}
+                      </span>
+                    </div>
                   </>
                 )}
               </div>
@@ -1291,10 +1236,12 @@ const Billing = () => {
                       <button
                         className="btn btn-success fw-bold fs-6 py-2 shadow-sm d-flex align-items-center justify-content-center"
                         onClick={async () => {
-                          if (
-                            !window.confirm("Verify this proof of payment?")
-                          )
-                            return;
+                          if (!(await confirm({
+                            title: "Verify payment proof",
+                            message: "Mark this proof of payment as verified?",
+                            confirmLabel: "Verify payment",
+                            variant: "primary",
+                          }))) return;
                           try {
                             await api.put(
                               `/billing/verify/${selectedPayment.reservation_id}`,
@@ -1336,12 +1283,12 @@ const Billing = () => {
                     <button
                       className="btn btn-primary fw-bold py-2 d-flex align-items-center justify-content-center"
                       onClick={async () => {
-                        if (
-                          !window.confirm(
-                            "Mark this transaction as FULLY PAID and COMPLETED?",
-                          )
-                        )
-                          return;
+                        if (!(await confirm({
+                          title: "Settle transaction",
+                          message: "Mark this transaction as fully paid and completed?",
+                          confirmLabel: "Settle bill",
+                          variant: "primary",
+                        }))) return;
 
                         try {
                           await api.put(
@@ -1382,7 +1329,7 @@ const Billing = () => {
                   ))}
 
                 <button
-                  className="btn btn-outline-secondary text-white-50 border-0 mt-0.5 py-1.5 btn-sm"
+                  className="btn btn-outline-secondary text-white-50 border-0 mt-0.5 py-2 drawer-footer-action"
                   data-bs-dismiss="offcanvas"
                 >
                   Close Drawer
@@ -1393,21 +1340,6 @@ const Billing = () => {
         )}
       </div>
     </div>
-
-      <style>{`
-        .transition-all { transition: all 0.2s ease-in-out; }
-        .transition-all:hover { background-color: rgba(0, 0, 0, 0.015); }
-        .page-link { color: #495057; border: 1px solid #dee2e6; background-color: #fff; }
-        .page-link:hover { background-color: #f8f9fa; color: #212529; }
-        .page-item.disabled .page-link { color: #6c757d; pointer-events: none; background-color: #fff; border-color: #dee2e6; }
-        .animate-fade-in {
-          animation: fadeIn 0.25s ease-out forwards;
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(5px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
     </div>
   );
 };

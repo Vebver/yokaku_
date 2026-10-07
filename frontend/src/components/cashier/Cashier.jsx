@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense, lazy } from "react";
 import {
   LayoutDashboard,
   CalendarCheck,
@@ -11,12 +11,17 @@ import {
   X
 } from "lucide-react";
 
-import TableStatus from "../admin-page/TableStatus";
-import OnlineReservations from "../admin-page/OnlineReservations";
-import WalkInReservations from "../admin-page/WalkInReservations";
-import Billing from "../admin-page/Billing";
-import Reports from "../admin-page/Reports";
-import KioskControl from "../shared/KioskControl";
+// Every panel is split into its own chunk. These were previously all eager
+// imports, so opening the cashier app downloaded and evaluated all six at once
+// — including Reports, which drags in the whole chart.js library.
+const TableStatus = lazy(() => import("../admin-page/TableStatus"));
+const OnlineReservations = lazy(() =>
+  import("../admin-page/OnlineReservations"),
+);
+const WalkInReservations = lazy(() => import("../admin-page/WalkInReservations"));
+const Billing = lazy(() => import("../admin-page/Billing"));
+const Reports = lazy(() => import("../admin-page/Reports"));
+const KioskControl = lazy(() => import("../shared/KioskControl"));
 import "../../Style/Cashier.css"
 
 const CashierDashboard = () => {
@@ -28,10 +33,10 @@ const CashierDashboard = () => {
     const firstName = localStorage.getItem("firstName") || "";
     const lastName = localStorage.getItem("lastName") || "";
     const storedRole = localStorage.getItem("role") || "Cashier";
-    
-    setUser({ 
-      name: (firstName + " " + lastName).trim() || "Staff Member", 
-      role: storedRole 
+
+    setUser({
+      name: (firstName + " " + lastName).trim() || "Staff Member",
+      role: storedRole
     });
 
     const handleResize = () => {
@@ -56,8 +61,10 @@ const CashierDashboard = () => {
     { id: "reports", label: "Reports", icon: BarChart3 },
   ];
 
+  // Render only the active panel, so the other chunks stay unmounted and
+  // their data fetching does not run behind the visible screen.
   const renderContent = () => {
-    const components = {
+    const panels = {
       tables: <TableStatus />,
       online: <OnlineReservations />,
       walkins: <WalkInReservations />,
@@ -65,7 +72,17 @@ const CashierDashboard = () => {
       billing: <Billing />,
       reports: <Reports />,
     };
-    return components[activeTab] || <TableStatus />;
+    return (
+      <Suspense
+        fallback={
+          <div className="d-flex justify-content-center align-items-center p-5">
+            <div className="spinner-border text-primary" role="status"></div>
+          </div>
+        }
+      >
+        {panels[activeTab] || <TableStatus />}
+      </Suspense>
+    );
   };
 
   return (

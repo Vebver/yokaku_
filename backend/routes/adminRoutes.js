@@ -10,6 +10,7 @@ const { protect, adminOnly, kioskControl } = require("../middleware/authMiddlewa
 
 // --- DASHBOARD & TABLE ROUTES (Accessible by Admin and Cashier) ---
 router.get('/today-schedule', protect, adminOnly, adminController.getTodaySchedule);
+router.get('/incoming-reservations', protect, adminOnly, adminController.getIncomingReservations);
 router.get('/stats', protect, adminOnly, adminController.getDashboardStats);
 // router.get('/reports/financial', protect, adminOnly, adminController.getFinancialOverview);
 router.get('/table-status', protect, adminOnly, adminController.getTable);

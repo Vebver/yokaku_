@@ -1521,19 +1521,6 @@ const KioskMenu = () => {
         }}
         allProducts={menuData}
       />
-
-      <style>{`
-        .spinner-loader { animation: spin 1s linear infinite; }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .spin-fast { animation: spin 0.5s linear infinite; }
-        .urgent { color: #ff4444 !important; animation: blink 1s infinite; }
-        @keyframes blink { 50% { opacity: 0.5; } }
-        .allergy-input-group textarea:focus {
-          outline: none;
-          border-color: #ffcc00;
-          box-shadow: 0 0 5px rgba(255, 204, 0, 0.3);
-        }
-      `}</style>
     </div>
   );
 };

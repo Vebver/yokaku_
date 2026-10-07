@@ -1,0 +1,80 @@
+/* ==========================================================================
+   Shared utility classes
+   Imported once in main.jsx.
+
+   These were previously re-declared inside six different components
+   (AccountManagement, TableStatus, KioskMenu, KioskReservation,
+   KioskReservationMenu, KioskSelection), each shipping its own copy of the
+   same global @keyframes spin rule.
+   ========================================================================== */
+
+.min-w-0 {
+  min-width: 0;
+}
+
+.x-small {
+  font-size: 0.65rem;
+  letter-spacing: 0.5px;
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.transition-all {
+  transition: all 0.2s ease-in-out;
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+.spinner-loader {
+  animation: spin 1s linear infinite;
+}
+
+/* The kiosk waiting screens spin more slowly, so it reads as "idle" rather
+   than "busy". */
+.spinner-loader-slow {
+  animation: spin 1.5s linear infinite;
+}
+
+/* --------------------------------------------------------------------------
+   Kiosk Menu overrides.
+
+   KioskReservationMenu.css also defines .spin-fast and .urgent, but with
+   different values (1s spin, no blink). KioskMenu.jsx imports that stylesheet
+   and relies on its OWN values below, so these are scoped to the kiosk menu
+   with a higher-specificity selector rather than redefined globally.
+   -------------------------------------------------------------------------- */
+.kiosk-container .spin-fast {
+  animation: spin 0.5s linear infinite;
+}
+
+.kiosk-container .timer-digits.urgent {
+  color: #ff4444 !important;
+  animation: kiosk-blink 1s infinite;
+}
+
+@keyframes kiosk-blink {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* The only copy of this rule lives in KioskMenu.css, which is never imported.
+   Keeping it here so the allergy note field keeps its yellow focus ring. */
+.allergy-input-group textarea:focus {
+  outline: none;
+  border-color: #ffcc00;
+  box-shadow: 0 0 5px rgba(255, 204, 0, 0.3);
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

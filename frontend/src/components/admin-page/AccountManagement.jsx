@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from "react";
 import api from "../../api";
+import "../../Style/AccountManagement.css";
 import { 
   Search, 
-  ChevronLeft, 
-  ChevronRight, 
-  UserCircle, 
-  ShieldCheck, 
+  UserCircle,
+  ShieldCheck,
   Loader2,
 } from "lucide-react"
+import AdminPagination from "../shared/AdminPagination";
+import { useConfirmation } from "../ConfirmationContext";
 
 const AccountManagement = () => {
+  const { confirm } = useConfirmation();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState({ type: "", msg: "" });
@@ -44,7 +46,12 @@ const AccountManagement = () => {
   };
 
   const handleRoleChange = async (userId, newRole) => {
-    if (!window.confirm(`Change this user's role to ${newRole.toUpperCase()}?`)) return;
+    if (!(await confirm({
+      title: "Change user role",
+      message: `Change this user's role to ${newRole.toUpperCase()}?`,
+      confirmLabel: "Change role",
+      variant: "primary",
+    }))) return;
     try {
       setUpdatingUserId(userId);
       await api.put(
@@ -95,15 +102,15 @@ const AccountManagement = () => {
     <div className="account-mgmt-container container-fluid py-3 py-md-4 text-dark bg-light" style={{ minHeight: '100vh' }}>
 
       {/* RESPONSIVE HEADER */}
-      <div className="row align-items-center g-3 mb-4 px-2">
-        <div className="col-12 col-lg-6">
-          <h2 className="fw-bold mb-1">Account Management</h2>
-          <p className="text-muted small mb-0">Control system access and user permissions</p>
-        </div>
+      <div className="admin-page-header px-2 mb-3">
+        <h2 className="fw-bold mb-1">Account Management</h2>
+        <p className="text-muted small mb-0">Control system access and user permissions</p>
+      </div>
 
-        <div className="col-12 col-lg-6">
+      <div className="admin-toolbar row g-2 align-items-center mb-4 px-2">
+        <div className="col-12 col-lg-8">
           <div className="d-flex flex-wrap gap-2">
-            <div className="d-flex align-items-center bg-white rounded-3 border shadow-sm px-3 flex-grow-1" style={{ height: '45px' }}>
+            <div className="admin-search d-flex align-items-center bg-white rounded-3 border shadow-sm px-3 flex-grow-1">
               <Search size={18} className="text-muted flex-shrink-0" />
               <input
                 type="text"
@@ -115,7 +122,7 @@ const AccountManagement = () => {
             </div>
             <select
               className="form-select"
-              style={{ width: "auto" }}
+              style={{ width: "auto", minWidth: "150px", height: "45px" }}
               value={roleFilter}
               onChange={(e) => {
                 setRoleFilter(e.target.value);
@@ -215,101 +222,14 @@ const AccountManagement = () => {
         </div>
       </div>
 
-      {/* PAGINATION SECTION */}
-      <div className="mt-4 px-3 d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
-        <div className="text-muted small">
-          Showing <strong>{indexOfLastUser - usersPerPage + 1}</strong> to <strong>{Math.min(indexOfLastUser, filteredUsers.length)}</strong> of <strong>{filteredUsers.length}</strong>
-        </div>
-        <nav>
-          <ul className="pagination pagination-sm mb-0 shadow-sm border rounded bg-white overflow-hidden">
-            <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
-              <button 
-                className="page-link border-0 px-3 py-2" 
-                onClick={() => setCurrentPage(prev => prev - 1)}
-                disabled={currentPage === 1}
-              >
-                <ChevronLeft size={16} />
-              </button>
-            </li>
-            <li className="page-item disabled">
-              <span className="page-link border-0 text-dark fw-bold px-3 py-2 bg-white">
-                Page {currentPage} of {totalPages || 1}
-              </span>
-            </li>
-            <li className={`page-item ${currentPage === totalPages || totalPages === 0 ? "disabled" : ""}`}>
-              <button 
-                className="page-link border-0 px-3 py-2" 
-                onClick={() => setCurrentPage(prev => prev + 1)}
-                disabled={currentPage >= totalPages}
-              >
-                <ChevronRight size={16} />
-              </button>
-            </li>
-          </ul>
-        </nav>
-      </div>
+      <AdminPagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={filteredUsers.length}
+        itemsPerPage={usersPerPage}
+        onPageChange={setCurrentPage}
+      />
 
-      <style>{`
-        .animate-spin { animation: spin 1s linear infinite; }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .page-link:focus { box-shadow: none; }
-        .form-select:focus { border-color: #10b981; box-shadow: 0 0 0 0.25rem rgba(16, 185, 129, 0.1); }
-
-        @media (max-width: 768px) {
-          .account-mgmt-container .table-responsive { overflow: visible; }
-          .account-mgmt-container thead { display: none; }
-          .account-mgmt-container .table,
-          .account-mgmt-container .table tbody,
-          .account-mgmt-container .table tr,
-          .account-mgmt-container .table td { display: block; width: 100%; min-width: 0; }
-          .account-mgmt-container .table { min-width: 0 !important; }
-          .account-mgmt-container .table tbody tr {
-            background: #fff;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            margin-bottom: 12px;
-            padding: 12px 16px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-          }
-          .account-mgmt-container .table td {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            border: none;
-            padding: 8px 0;
-            text-align: right !important;
-          }
-          .account-mgmt-container .table td[data-label]::before {
-            content: attr(data-label);
-            font-weight: 600;
-            font-size: 0.72rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: #64748b;
-            text-align: left;
-            flex-shrink: 0;
-          }
-          .account-mgmt-container .table td[data-label="Full Name"] {
-            display: block;
-            text-align: left !important;
-            border-bottom: 1px dashed #e2e8f0;
-            margin-bottom: 6px;
-            padding-bottom: 10px;
-          }
-          .account-mgmt-container .table td[data-label="Full Name"]::before { display: none; }
-          .account-mgmt-container .table td[data-label="Profile"] {
-            justify-content: flex-start;
-          }
-          .account-mgmt-container .table td[data-label="Manage Permissions"] .d-flex {
-            justify-content: flex-end;
-          }
-          .account-mgmt-container .table td[data-label="Manage Permissions"] .form-select {
-            width: 100% !important;
-            max-width: 140px;
-          }
-        }
-      `}</style>
 
     </div>
   );

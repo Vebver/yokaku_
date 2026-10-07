@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useToast } from "../ToastContext";
 import { useSectionRefresh } from "../shared/sectionRefresh";
+import { useConfirmation } from "../ConfirmationContext";
 
 function Product() {
   const [menuItems, setMenuItems] = useState([]);
@@ -24,6 +25,8 @@ function Product() {
   const [editId, setEditId] = useState(null);
   const [editOriginalName, setEditOriginalName] = useState("");
   const { showToast } = useToast();
+  const { confirm } = useConfirmation();
+  const [imageError, setImageError] = useState("");
 
   const [newItem, setNewItem] = useState({
     name: "",
@@ -178,6 +181,15 @@ function Product() {
 
   const handleAddOrUpdateMenuItem = async (e) => {
     e.preventDefault();
+    if (newItem.image && newItem.image.size > 10 * 1024 * 1024) {
+      setImageError("File is too large. Please upload an image smaller than 10 MB.");
+      return;
+    }
+    if (newItem.image && !/\.(jpe?g|png|webp)$/i.test(newItem.image.name)) {
+      setImageError("Unsupported file type. Please upload JPG, JPEG, PNG, or WEBP.");
+      return;
+    }
+    setImageError("");
 
     // No need for manual config — the axios interceptor in api.js
     // automatically attaches the Authorization header to every request.
@@ -233,18 +245,20 @@ function Product() {
   };
 
   const deleteMenuItem = async (id) => {
-    if (window.confirm("Remove item?")) {
-      try {
-        const token = localStorage.getItem("token");
-        await api.delete(`/products/${id}`);
-        showToast("Dish deleted successfully!", "success");
-        fetchData();
-      } catch (err) {
-        console.error(err);
-        showToast(
-          "Error deleting item. Please check your connection or authorization.",
-        );
-      }
+    if (!(await confirm({
+      title: "Remove menu item",
+      message: "Remove this dish from the menu?",
+      confirmLabel: "Remove dish",
+    }))) return;
+    try {
+      await api.delete(`/products/${id}`);
+      showToast("Dish deleted successfully!", "success");
+      fetchData();
+    } catch (err) {
+      console.error(err);
+      showToast(
+        "Error deleting item. Please check your connection or authorization.",
+      );
     }
   };
 
@@ -301,17 +315,15 @@ function Product() {
   return (
     <div className="container-fluid p-3 p-md-4 bg-light">
       {/* HEADER */}
-      <div className="row g-3 align-items-center mb-4">
-        <div className="col-12 col-lg-4">
-          <h2 className="fw-bold mb-0">Menu Items</h2>
-          <p className="text-muted mb-0 small">Digital menu items</p>
-        </div>
+      <div className="admin-page-header px-2 mb-3">
+        <h2 className="fw-bold mb-0">Menu Items</h2>
+        <p className="text-muted mb-0 small">Digital menu items</p>
+      </div>
 
-        <div className="col-12 col-md-8 col-lg-5">
-          <div
-            className="d-flex align-items-center bg-white rounded-3 border shadow-sm px-3"
-            style={{ height: "48px" }}
-          >
+      {/* SEARCH, FILTERS, AND ACTIONS */}
+      <div className="admin-toolbar row g-2 align-items-center mb-4 px-2">
+        <div className="col-12 col-xl-5">
+          <div className="admin-search d-flex align-items-center bg-white rounded-3 border shadow-sm px-3">
             <Search size={20} className="text-muted flex-shrink-0" />
             <input
               type="text"
@@ -333,64 +345,42 @@ function Product() {
           </div>
         </div>
 
-        <div className="col-12 col-md-4 col-lg-3 text-md-end">
-          <button
-            className="btn btn-primary w-100 w-md-auto px-4 py-2 fw-bold"
-            data-bs-toggle="offcanvas"
-            data-bs-target="#addMenuDrawer"
-            onClick={resetForm}
-          >
-            <Plus size={18} className="me-1" /> Add New Dish
-          </button>
-        </div>
-      </div>
-
-      {/* FILTERS — own full-width row so the dropdowns never stack */}
-      <div className="row g-2 align-items-center mb-4">
-        <div className="col-12 d-flex flex-wrap gap-2">
-          <select
-            className="form-select form-select-sm flex-grow-1 flex-sm-grow-0"
-            style={{ width: "auto", minWidth: "160px" }}
-            aria-label="Filter by category"
-            value={categoryFilter}
-            onChange={(e) => {
-              setCategoryFilter(e.target.value);
-              resetPage();
-            }}
-          >
-            <option value="all">All categories</option>
-            {categoryNames.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-
-          <select
-            className="form-select form-select-sm flex-grow-1 flex-sm-grow-0"
-            style={{ width: "auto", minWidth: "160px" }}
-            aria-label="Filter by availability"
-            value={availabilityFilter}
-            onChange={(e) => {
-              setAvailabilityFilter(e.target.value);
-              resetPage();
-            }}
-          >
-            <option value="all">Any availability</option>
-            <option value="available">Available</option>
-            <option value="unavailable">Not available</option>
-          </select>
-
-          {hasActiveFilters && (
-            <button
-              className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1 fw-bold"
-              onClick={clearFilters}
+        <div className="col-12 col-xl-7">
+          <div className="d-flex flex-wrap align-items-center gap-2">
+            <select
+              className="form-select form-select-sm flex-grow-1 flex-sm-grow-0"
+              style={{ width: "auto", minWidth: "160px", height: "38px" }}
+              aria-label="Filter by category"
+              value={categoryFilter}
+              onChange={(e) => { setCategoryFilter(e.target.value); resetPage(); }}
             >
-              <X size={14} /> Clear
+              <option value="all">All categories</option>
+              {categoryNames.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <select
+              className="form-select form-select-sm flex-grow-1 flex-sm-grow-0"
+              style={{ width: "auto", minWidth: "160px", height: "38px" }}
+              aria-label="Filter by availability"
+              value={availabilityFilter}
+              onChange={(e) => { setAvailabilityFilter(e.target.value); resetPage(); }}
+            >
+              <option value="all">Any availability</option>
+              <option value="available">Available</option>
+              <option value="unavailable">Not available</option>
+            </select>
+            {hasActiveFilters && <button className="btn btn-sm btn-outline-secondary fw-bold" onClick={clearFilters}><X size={14} /> Clear</button>}
+            <button
+              className="btn btn-primary admin-toolbar-button fw-bold shadow-sm d-inline-flex align-items-center justify-content-center ms-xl-auto"
+              data-bs-toggle="offcanvas"
+              data-bs-target="#addMenuDrawer"
+              onClick={resetForm}
+            >
+              <Plus size={18} className="me-1" /> Add New Dish
             </button>
-          )}
+          </div>
         </div>
       </div>
+
 
 {/* MOBILE CARDS */}
       <div className="d-lg-none">
@@ -726,16 +716,27 @@ function Product() {
               <input
                 type="file"
                 className="form-control"
-                accept="image/*"
-                onChange={(e) => {
-                  const file = e.target.files[0];
-                  if (file) {
-                    console.log("📎 File selected:", file.name);
-                    setNewItem({ ...newItem, image: file });
-                  }
-                }}
-              />
-            </div>
+                    accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      setImageError("");
+                      if (!file) return;
+                      if (!/\.(jpe?g|png|webp)$/i.test(file.name) || !["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+                        setImageError("Unsupported file type. Please upload JPG, JPEG, PNG, or WEBP.");
+                        e.target.value = "";
+                        return;
+                      }
+                      if (file.size > 10 * 1024 * 1024) {
+                        setImageError("File is too large. Please upload an image smaller than 10 MB.");
+                        e.target.value = "";
+                        return;
+                      }
+                      setNewItem({ ...newItem, image: file });
+                    }}
+                  />
+                  <div className="form-text text-start">Upload a compressed image (JPG, JPEG, PNG, or WEBP). Maximum file size: 10 MB.</div>
+                  {imageError && <div className="text-danger small text-start mt-1" role="alert">{imageError}</div>}
+                </div>
             <button
               type="submit"
               className="btn btn-primary w-100 py-2 fw-bold shadow-sm"

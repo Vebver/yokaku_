@@ -11,6 +11,7 @@ import {
   DollarSign,
   BarChart3,
 } from "lucide-react";
+import "../../Style/ProductPerformance.css";
 
 const ProductPerformance = ({ data }) => {
   const topProducts = data?.top_selling_products || [];
@@ -58,7 +59,6 @@ const ProductPerformance = ({ data }) => {
   const StatCard = ({
     label,
     value,
-    icon: Icon,
     color,
     isCurrency = true,
     subtitle = null,
@@ -68,39 +68,11 @@ const ProductPerformance = ({ data }) => {
         className={`position-absolute top-0 end-0 w-25 h-100 opacity-10 bg-${color}`}
         style={{ clipPath: "polygon(100% 0, 0 0, 100% 100%)" }}
       ></div>
-      <div className="card-body p-4">
-        <div className="d-flex align-items-center justify-content-between mb-3">
-          <div
-            className="rounded-3 d-flex align-items-center justify-content-center"
-            style={{
-              width: "48px",
-              height: "48px",
-              backgroundColor: `rgba(245, 158, 11, 0.1)`,
-            }}
-          >
-            <Icon
-              size={24}
-              color={
-                color === "warning"
-                  ? "#f59e0b"
-                  : color === "success"
-                    ? "#10b981"
-                    : color === "info"
-                      ? "#3b82f6"
-                      : "#f59e0b"
-              }
-            />
-          </div>
-          {subtitle && (
-            <span className="badge bg-light text-muted rounded-pill">
-              {subtitle}
-            </span>
-          )}
-        </div>
-        <h3 className="fw-bold mb-1 text-dark">
+      <div className="card-body p-3 p-sm-4 p-lg-5">
+        <h3 className="fw-bold mb-1 text-dark pp-kpi-value">
           {isCurrency ? formatCurrency(value) : formatNumber(value)}
         </h3>
-        <p className="text-muted small mb-0 text-uppercase fw-semibold">
+        <p className="text-muted small mb-0 text-uppercase fw-semibold pp-kpi-label">
           {label}
         </p>
       </div>
@@ -112,46 +84,43 @@ const ProductPerformance = ({ data }) => {
   return (
     <div className="product-performance-container p-3 p-md-4">
       {/* Header Section */}
-      <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 pb-2 border-bottom">
-        <div>
-          <h2 className="fw-bold mb-1 text-dark">Product Performance</h2>
+      <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3 mb-md-4 pb-2 border-bottom">
+        <div className="min-w-0">
+          <h2 className="fw-bold mb-1 text-dark fs-5 fs-md-3">
+            Product Performance
+          </h2>
           <p className="text-muted small mb-0">
             Insights into your menu's popularity
-            <span className="ms-2 text-warning">●</span>
-            <span className="ms-1 text-muted">Real-time analytics</span>
           </p>
         </div>
       </div>
 
       {/* KPI Cards Row */}
-      <div className="row g-4 mb-4">
+      <div className="row g-3 g-md-4 mb-3 mb-md-4">
         {/* Total Revenue */}
-        <div className="col-lg-4 col-md-6">
+        <div className="col-12 col-sm-6 col-lg-4">
           <StatCard
             label="Kiosk Sales Revenue"
             value={totalRevenue}
-            icon={DollarSign}
             color="primary"
           />
         </div>
 
         {/* Total Items Sold */}
-        <div className="col-lg-4 col-md-6">
+        <div className="col-12 col-sm-6 col-lg-4">
           <StatCard
             label="Total Items Sold"
             value={totalItemsSold}
-            icon={Package}
             color="success"
             isCurrency={false}
           />
         </div>
 
         {/* Top Selling Items */}
-        <div className="col-lg-4 col-md-12">
+        <div className="col-12 col-sm-12 col-lg-4">
           <StatCard
             label="Top Selling Items"
             value={topProductCount}
-            icon={Star}
             color="warning"
             isCurrency={false}
           />
@@ -165,11 +134,11 @@ const ProductPerformance = ({ data }) => {
         {/* Top Sellers Section */}
         <div className="col-12 col-lg-12">
           <div className="card border-0 shadow-sm rounded-4 h-100">
-            <div className="card-header bg-white border-0 pt-4 px-4">
-              <div className="d-flex align-items-center justify-content-between w-100">
-                <div className="d-flex align-items-center gap-2">
-                  <Award size={18} className="text-warning" />
-                  <h6 className="fw-bold mb-0">Top Selling Items</h6>
+            <div className="card-header bg-white border-0 pt-3 pt-md-4 px-3 px-md-4">
+              <div className="d-flex align-items-center justify-content-between w-100 gap-2">
+                <div className="d-flex align-items-center gap-2 min-w-0">
+                  <Award size={18} className="text-warning flex-shrink-0" />
+                  <h6 className="fw-bold mb-0 fs-6">Top Selling Items</h6>
                 </div>
                 <div className="d-flex gap-1">
                   <button
@@ -267,7 +236,7 @@ const ProductPerformance = ({ data }) => {
               </div>
             </div>
             {totalTopPages > 1 && (
-              <div className="card-footer bg-white border-0 pt-2 pb-3 px-4">
+              <div className="card-footer bg-white border-0 pt-2 pb-3 px-3 px-md-4">
                 <div className="d-flex justify-content-between align-items-center">
                   <small className="text-muted">
                     Showing {topIndexOfFirstItem + 1} -{" "}
@@ -299,105 +268,6 @@ const ProductPerformance = ({ data }) => {
           </div>
         </div>
       </div>
-
-      {/* Custom CSS */}
-      <style>{`
-        .product-performance-container {
-          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        }
-        .bg-gradient-danger {
-          background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-        }
-        .table-light th {
-          font-weight: 600;
-          font-size: 0.75rem;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          color: #64748b;
-          padding: 12px 16px;
-        }
-        .table td {
-          padding: 12px 16px;
-          vertical-align: middle;
-        }
-        .list-group-item {
-          transition: all 0.2s ease;
-        }
-.list-group-item:hover {
-          background-color: #f8fafc;
-          transform: translateX(4px);
-        }
-        @media (max-width: 768px) {
-          .product-performance-container .table-responsive {
-            overflow: visible;
-          }
-          .product-performance-container thead {
-            display: none;
-          }
-          .product-performance-container .table,
-          .product-performance-container .table tbody,
-          .product-performance-container .table tr,
-          .product-performance-container .table td {
-            display: block;
-            width: 100%;
-          }
-          .product-performance-container .table tbody tr {
-            background: #fff;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            margin-bottom: 12px;
-            padding: 12px 16px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-          }
-          .product-performance-container .table td {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            border: none;
-            padding: 8px 0;
-            text-align: right !important;
-          }
-          .product-performance-container .table td[data-label]::before {
-            content: attr(data-label);
-            font-weight: 600;
-            font-size: 0.72rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: #64748b;
-            text-align: left;
-            flex-shrink: 0;
-          }
-          .product-performance-container .table td[data-label="Item"] {
-            display: block;
-            text-align: left !important;
-            border-bottom: 1px dashed #e2e8f0;
-            margin-bottom: 6px;
-            padding-bottom: 10px;
-          }
-          .product-performance-container .table td[data-label="Item"]::before {
-            display: none;
-          }
-          .product-performance-container .card-footer .d-flex {
-            flex-direction: column;
-            gap: 8px;
-            align-items: flex-start;
-          }
-        }
-        @media print {
-          .btn, .card-header button {
-            display: none !important;
-          }
-          .product-performance-container {
-            padding: 0 !important;
-          }
-          .card {
-            break-inside: avoid;
-            box-shadow: none !important;
-            border: 1px solid #e2e8f0 !important;
-          }
-        }
-      `}</style>
     </div>
   );
 };

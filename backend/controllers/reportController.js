@@ -33,7 +33,13 @@ const [
     ]);
 
     const calculatedItemsUsed = Number(inventorySummary?.items_used || 0);
-    const calculatedLowStockCount = lowStockItems.length;
+    const attentionItems = lowStockItems;
+    const calculatedLowStockCount = attentionItems.filter(
+      (item) => item.attention_reason === "low_stock",
+    ).length;
+    const calculatedExpiredCount = attentionItems.filter(
+      (item) => item.attention_reason !== "low_stock",
+    ).length;
 
     // Structure response for all frontend variations
     const responseData = {
@@ -66,12 +72,15 @@ const [
         // 3. NEED TO REORDER - All Naming Variations
         low_stock_count: calculatedLowStockCount,
         lowStockCount: calculatedLowStockCount,
-        reorder_count: calculatedLowStockCount,
-        reorderCount: calculatedLowStockCount,
-        need_to_reorder: calculatedLowStockCount,
-        needToReorder: calculatedLowStockCount,
+        expired_count: calculatedExpiredCount,
+        expiredCount: calculatedExpiredCount,
+        reorder_count: attentionItems.length,
+        reorderCount: attentionItems.length,
+        need_to_reorder: attentionItems.length,
+        needToReorder: attentionItems.length,
 
-        low_stock_list: lowStockItems,
+        low_stock_list: attentionItems,
+        attention_items: attentionItems,
         expired_items: expiredItems,
         expiredItems: expiredItems,
         inventory_usage: inventoryUsage,
@@ -100,18 +109,21 @@ const [
           consumptionRate: Number(inventorySummary?.consumption_rate || 0),
 
           // --- FIXED KEYS FOR THE REORDER CARD ---
-          reorder_items: calculatedLowStockCount, // Maps to summary?.reorder_items
-          reorderItems: calculatedLowStockCount,   // Maps to summary?.reorderItems
-          
+          reorder_items: attentionItems.length,
+          reorderItems: attentionItems.length,
+          expired_count: calculatedExpiredCount,
+          expiredCount: calculatedExpiredCount,
+
           low_stock_count: calculatedLowStockCount,
           lowStockCount: calculatedLowStockCount,
-          reorder_count: calculatedLowStockCount,
-          reorderCount: calculatedLowStockCount,
-          need_to_reorder: calculatedLowStockCount,
-          needToReorder: calculatedLowStockCount,
-          
-          low_stock_list: lowStockItems,
-          lowStockList: lowStockItems,
+          reorder_count: attentionItems.length,
+          reorderCount: attentionItems.length,
+          need_to_reorder: attentionItems.length,
+          needToReorder: attentionItems.length,
+
+          low_stock_list: attentionItems,
+          lowStockList: attentionItems,
+          attention_items: attentionItems,
         },
 
         // Monthly mode displays daily revenue for the current month.

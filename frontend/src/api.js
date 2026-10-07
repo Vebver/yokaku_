@@ -8,8 +8,8 @@
 // ============================================================================
 import axios from "axios";
 
-// 1. Smart Detection (Declared only ONCE)
-const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+// Vite's build mode determines whether to use the development backend.
+const isDevelopment = import.meta.env.DEV;
 
 // Deployed backend. Vite inlines import.meta.env at build time, so these are
 // replaced with real values in the production bundle and fall back to the
@@ -20,10 +20,10 @@ const PROD_API = "https://yokaku-backend.onrender.com/api";
 const PROD_SOCKET = "https://yokaku-backend.onrender.com";
 
 export const API_BASE =
-  import.meta.env.VITE_API_URL || (isLocal ? DEV_API : PROD_API);
+  import.meta.env.VITE_API_URL || (isDevelopment ? DEV_API : PROD_API);
 
 export const SOCKET_URL =
-  import.meta.env.VITE_SOCKET_URL || (isLocal ? DEV_SOCKET : PROD_SOCKET);
+  import.meta.env.VITE_SOCKET_URL || (isDevelopment ? DEV_SOCKET : PROD_SOCKET);
 
 // Root of the backend (no trailing slash, no /api). Use this for uploaded
 // files and socket connections, which are not served under /api.

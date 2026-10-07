@@ -77,7 +77,40 @@ const TableStatus = {
                       rt.check_in_time DESC,
                       r.reservation_date ASC, r.reservation_time ASC LIMIT 1) AS is_kiosk_active,
 
-          (SELECT TIME_FORMAT(r.end_time, '%H:%i:%s') FROM reservations r
+          /* Exact allergy input from the current occupant's reservation, so the
+               floor can show what the customer actually wrote instead of a generic
+               "has allergy" flag. */
+            (SELECT r.allergy FROM reservations r
+             JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
+             WHERE rt.table_id = t.table_id
+             AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
+             ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed'),
+                      COALESCE(r.is_kiosk_active, 0) DESC,
+                      (r.reservation_type = 'event') DESC,
+                      rt.check_in_time DESC,
+                      r.reservation_date ASC, r.reservation_time ASC LIMIT 1) AS allergy,
+
+            (SELECT r.package_name FROM reservations r
+             JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
+             WHERE rt.table_id = t.table_id
+             AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
+             ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed'),
+                      COALESCE(r.is_kiosk_active, 0) DESC,
+                      (r.reservation_type = 'event') DESC,
+                      rt.check_in_time DESC,
+                      r.reservation_date ASC, r.reservation_time ASC LIMIT 1) AS package_name,
+
+            (SELECT TIME_FORMAT(r.reservation_time, '%H:%i') FROM reservations r
+             JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
+             WHERE rt.table_id = t.table_id
+             AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
+             ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed'),
+                      COALESCE(r.is_kiosk_active, 0) DESC,
+                      (r.reservation_type = 'event') DESC,
+                      rt.check_in_time DESC,
+                      r.reservation_date ASC, r.reservation_time ASC LIMIT 1) AS reservation_time,
+
+            (SELECT TIME_FORMAT(r.end_time, '%H:%i:%s') FROM reservations r
            JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
            WHERE rt.table_id = t.table_id
            AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
@@ -102,10 +135,35 @@ const TableStatus = {
     const [rows] = await db.query(query);
     return rows;
   },
+getIncomingReservations: async () => {
+  const [rows] = await db.query(`
+    SELECT
+      r.reservation_id,
+      CONCAT_WS(' ', r.first_name, r.last_name) AS customer_name,
+      r.num_guests,
+      DATE_FORMAT(r.reservation_date, '%Y-%m-%d') AS reservation_date,
+      TIME_FORMAT(r.reservation_time, '%h:%i %p') AS reservation_time,
+             TIME_FORMAT(r.end_time, '%h:%i %p') AS end_time,
+             r.reservation_type,
+             r.package_name,
+             r.status,
+             -- Exact allergy text the customer entered, surfaced on the customer side.
+             r.allergy AS allergy,
+             r.allergy AS notes
+    FROM reservations r
+    WHERE r.status IN ('Pending', 'Confirmed', 'Seated')
+      AND (r.reservation_date > CURDATE()
+        OR (r.reservation_date = CURDATE() AND r.reservation_time >= CURTIME()))
+    ORDER BY r.reservation_date ASC, r.reservation_time ASC
+    LIMIT 100
+  `);
+  return rows;
+},
+
 getTodaySchedule: async () => {
-    const today = new Date().toLocaleDateString("en-CA", {
-      timeZone: "Asia/Manila",
-    });
+  const today = new Date().toLocaleDateString("en-CA", {
+    timeZone: "Asia/Manila",
+  });
     const nowTime = new Date().toLocaleTimeString("en-US", {
       hour12: false,
       timeZone: "Asia/Manila"
