@@ -488,6 +488,9 @@
    22px heights, so they stay tappable and never overflow on small screens. */
 .table-card-actions {
     width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.25rem;
 }
 
 /* The primary action on a card owns the full card width and a comfortable tap
@@ -507,7 +510,8 @@
    the enlarged treatment, but they share the row instead of being forced to
    full width, which would push them onto two very tall lines. */
 .table-card-actions .table-card-primary-action {
-    flex: 1 1 0;
+    width: 100%;
+    white-space: normal;
     min-width: 0;
 }
 

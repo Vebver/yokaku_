@@ -754,9 +754,9 @@ const TableStatus = ({ compact = false }) => {
                       // Free table: only the two real actions. The former
                       // disabled "Vacant" placeholder was removed because it was
                       // dead UI that squeezed the buttons on narrow cards.
-                      <div className="d-flex flex-wrap gap-1 table-card-actions">
+                      <div className="table-card-actions">
                         <button
-                          className="btn btn-sm btn-dark py-0 fw-bold flex-grow-1 flex-sm-grow-0 table-card-action table-card-primary-action"
+                          className="btn btn-sm btn-dark py-0 fw-bold table-card-action table-card-primary-action"
                           onClick={(e) => {
                             e.stopPropagation();
                             linkTable(t);
@@ -766,7 +766,7 @@ const TableStatus = ({ compact = false }) => {
                           <Link size={11} className="me-1" /> Link
                         </button>
                         <button
-                          className="btn btn-sm btn-danger py-0 fw-bold flex-grow-1 flex-sm-grow-0 table-card-action table-card-primary-action"
+                          className="btn btn-sm btn-danger py-0 fw-bold table-card-action table-card-primary-action"
                           onClick={() => makeOccupied(t)}
                           title="Mark this table as occupied"
                         >
