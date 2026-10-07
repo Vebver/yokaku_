@@ -49,4 +49,15 @@ const kioskControl = (req, res, next) => {
   });
 };
 
-module.exports = { protect, adminOnly, kioskControl };
+// 4. INVENTORY ACCESS: only Admin and Kitchen (cook) staff may manage inventory.
+const inventoryAccess = (req, res, next) => {
+  const allowedRoles = ["admin", "cook"];
+
+  if (req.user && allowedRoles.includes(req.user.role)) {
+    next();
+  } else {
+    res.status(403).json({ error: "Access denied. Kitchen staff only." });
+  }
+};
+
+module.exports = { protect, adminOnly, kioskControl, inventoryAccess };
