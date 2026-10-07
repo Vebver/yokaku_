@@ -42,15 +42,6 @@ function AboutSection({ onLoginClick }) {
           </div>
 
           <div className="about-text">
-            <div className="about-icon">
-              <svg
-                width="40"
-                height="40"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              ></svg>
-            </div>
             <h3>Hangout Restobar</h3>
             <p className="main-para">
               Hangout Restobar was created to give people a place where they can
