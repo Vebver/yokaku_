@@ -15,7 +15,10 @@ const LOCKOUT_TIME = 15 * 60 * 1000;
 const generateOTP = () =>
   Math.floor(100000 + Math.random() * 900000).toString();
 
-const attemptKey = (email) => String(email || "").trim().toLowerCase();
+const attemptKey = (email) =>
+  String(email || "")
+    .trim()
+    .toLowerCase();
 
 // Returns the number of failed attempts currently recorded for an email
 const getFailedAttempts = (email) => {
@@ -203,7 +206,9 @@ const authController = {
         const failedAttempts = trackFailedAttempt(email);
 
         if (failedAttempts >= MAX_LOGIN_ATTEMPTS) {
-          console.log(`🔒 Account locked for ${email} after ${failedAttempts} failed attempts`);
+          console.log(
+            `🔒 Account locked for ${email} after ${failedAttempts} failed attempts`,
+          );
           return res.status(403).json({
             error: `Your account is locked after ${MAX_LOGIN_ATTEMPTS} failed login attempts. Please try again in 15 minutes.`,
             locked: true,
@@ -313,8 +318,8 @@ const authController = {
         reset_password_expires: null,
       });
 
-      // A successful password reset also clears any lockout from failed attempts
-      clearFailedAttempts(email);
+      // ✅ FIX: Use user.email instead of undefined `email`
+      clearFailedAttempts(user.email);
 
       res.json({ message: "Password updated successfully" });
     } catch (error) {
