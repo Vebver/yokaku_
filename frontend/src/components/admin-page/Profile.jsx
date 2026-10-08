@@ -134,38 +134,30 @@ function Profile() {
       className="container-fluid px-2 py-5"
       style={{ backgroundColor: "#f8f9fa", minHeight: "100vh" }}
     >
-      {/* PAGE HEADER - Title on the Left */}
-      <div className="profile-header d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-4">
-        <div>
-          <h1 className="fw-bold mb-0 text-dark profile-title" style={{ fontSize: "2.5rem" }}>
-            Profile & Settings
-          </h1>
-          <p className="text-muted small">
-            Manage your account information and security preferences
-          </p>
-        </div>
-<button
-          onClick={() => window.location.reload()}
-          className="btn btn-dark px-4 fw-bold shadow-sm profile-refresh-btn"
-          style={{ borderRadius: "8px" }}
-        >
-          Refresh Data
-        </button>
+      {/* PAGE HEADER */}
+      <div className="profile-header mb-4">
+        <h1 className="fw-bold mb-0 text-dark profile-title" style={{ fontSize: "2.5rem" }}>
+          Profile & Settings
+        </h1>
+        <p className="text-muted small mb-0">
+          Manage your account information and security preferences
+        </p>
       </div>
 
       <div className="row g-3">
         {/* LEFT COLUMN: Profile Summary Card */}
         <div className="col-lg-4">
-          <div className="card border-0 shadow-sm text-center p-4 h-100">
-            <div className="mb-3 mt-3">
+          <div className="card border-0 shadow-sm text-center p-4 h-100 profile-summary-card">
+            <div className="mb-3 mt-3 d-flex justify-content-center">
               <img
                 src={`https://ui-avatars.com/api/?name=${profile.firstName}+${profile.lastName}&background=10b981&color=fff&size=128`}
                 alt="Avatar"
-                className="rounded-circle shadow-sm border border-4 border-white"
+                className="rounded-circle shadow-sm border border-4 border-white profile-avatar"
                 width="100"
+                height="100"
               />
             </div>
-            <h3 className="fw-bold mb-1">
+            <h3 className="fw-bold mb-1 profile-name">
               {profile.firstName} {profile.lastName}
             </h3>
             <p

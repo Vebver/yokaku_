@@ -137,6 +137,22 @@
     justify-content: center;
 }
 
+/* Logout now renders as the final entry of the sidebar nav so it is visible
+   as soon as the burger menu opens. It keeps the danger colour of the old
+   dedicated button while matching the row rhythm of the other menu items. */
+.sidebar-logout-item {
+    color: #ef4444 !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+    margin-top: 6px;
+    padding-top: 18px !important;
+}
+
+.sidebar-logout-item:hover,
+.sidebar-logout-item:focus-visible {
+    background: rgba(239, 68, 68, 0.12) !important;
+    color: #ef4444 !important;
+}
+
 
 /* MAIN CONTENT VIEWPORT */
 
@@ -221,18 +237,18 @@
     font-size: 0.75rem;
 }
 /* 1. Kill the movement on ALL cards in the dashboard */
-.card, 
-.stat-card, 
-.finance-mini-card, 
+.card,
+.stat-card,
+.finance-mini-card,
 .table-card {
     transition: none !important; /* Removes the smooth sliding animation */
     transform: none !important;  /* Removes the actual movement */
 }
 
 /* 2. Specifically target the hover state to ensure it stays still */
-.card:hover, 
-.stat-card:hover, 
-.finance-mini-card:hover, 
+.card:hover,
+.stat-card:hover,
+.finance-mini-card:hover,
 .table-card:hover {
     transform: none !important;   /* Prevents the card from moving up/down */
     top: 0 !important;            /* Prevents any 'top' based movement */
@@ -240,7 +256,7 @@
 }
 
 /* 3. If your Floor Status tables have a specific zoom/pop effect */
-.table-item:hover, 
+.table-item:hover,
 .table-card-wrapper:hover {
     transform: none !important;
     scale: 1 !important;
@@ -255,6 +271,13 @@
     .sb-open .app-sidebar {
         left: 0;
         width: 260px;
+    }
+    /* On phones the sidebar is its own scroll container. Without this, tapping
+       a low item (e.g. Logout) scrolled the document behind the menu, which
+       read as the app jumping back to the dashboard. */
+    .sidebar-nav-list {
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
     }
     .app-main-viewport {
         margin-left: 0 !important;
@@ -490,13 +513,16 @@
 }
 
 /* Table Status card actions.
-   The buttons wrap and grow to fill the card instead of relying on fixed
-   22px heights, so they stay tappable and never overflow on small screens. */
+   The buttons stack in a single column and grow to fill the card instead of
+   relying on fixed 22px heights, so they stay tappable and never overflow on
+   small screens. Mark as Occupied and Link were previously two narrow
+   side-by-side slivers on mobile; stacked full-width rows are far easier to
+   tap. */
 .table-card-actions {
     width: 100%;
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.25rem;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.35rem;
 }
 
 /* The primary action on a card owns the full card width and a comfortable tap
@@ -512,9 +538,8 @@
     gap: 0.25rem;
 }
 
-/* Two primary actions side by side (Link + Mark as Occupied). Each still gets
-   the enlarged treatment, but they share the row instead of being forced to
-   full width, which would push them onto two very tall lines. */
+/* Link + Mark as Occupied now sit one above the other. Each keeps the
+   enlarged treatment and owns the full card width for a comfortable tap. */
 .table-card-actions .table-card-primary-action {
     width: 100%;
     white-space: normal;
@@ -675,5 +700,59 @@
 @media (min-width: 768px) and (max-width: 1199.98px) {
     .admin-toolbar-button {
         flex: 1 1 100%;
+    }
+}
+/* --- Online Booking drawer: customer identity block ---
+   The guest's name, phone and email are the primary information in a booking,
+   so on mobile they are rendered larger and with more breathing room than the
+   surrounding detail rows. Applies on desktop too, where it simply reads as a
+   clear header. */
+.booking-customer-name {
+    font-size: 1.35rem;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
+
+.booking-customer-contact {
+    font-size: 0.95rem;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 767.98px) {
+    .booking-customer-block {
+        padding: 1.25rem !important;
+    }
+
+    .booking-customer-name {
+        font-size: 1.5rem;
+        margin-bottom: 0.5rem !important;
+    }
+
+    .booking-customer-contact {
+        font-size: 1.05rem;
+    }
+}
+
+/* --- Centered page titles on mobile ---
+   On phones the section headings sit centred above their content so the
+   layout feels balanced regardless of the screen width. Each selector uses
+   padding-inline so the text stays optically centred even when the container
+   carries a left gutter on wide or narrow viewports. */
+@media (max-width: 767.98px) {
+    .admin-page-header h2,
+    .profile-header h1 {
+        text-align: center;
+        width: 100%;
+    }
+
+    .admin-page-header p,
+    .profile-header p {
+        text-align: center;
+    }
+
+    .table-status-page-title,
+    .table-status-page-subtitle {
+        text-align: center;
     }
 }

@@ -610,24 +610,24 @@ function Inventory() {
                     {item.location || "---"}
                   </td>
                   <td className="text-end pe-4" data-label="Action">
-                    <div className="d-inline-flex">
+                    <div className="d-inline-flex align-items-center gap-1">
                       <button
-                        className="btn btn-sm btn-outline-primary border-0 me-1"
+                        className="btn btn-sm btn-outline-primary border-0 d-inline-flex align-items-center gap-1"
                         data-bs-toggle="offcanvas"
                         data-bs-target="#addInvDrawer"
                         onClick={() => openEditMode(item)}
                         title={`Edit ${item.name}`}
                         aria-label={`Edit ${item.name}`}
                       >
-                        <Edit2 size={16} />
+                        <Edit2 size={16} /> Edit
                       </button>
                       <button
-                        className="btn btn-sm btn-outline-danger border-0"
+                        className="btn btn-sm btn-outline-danger border-0 d-inline-flex align-items-center gap-1"
                         onClick={() => deleteItem(item.id)}
                         title={`Delete ${item.name}`}
                         aria-label={`Delete ${item.name}`}
                       >
-                        <Trash2 size={16} />
+                        <Trash2 size={16} /> Delete
                       </button>
                     </div>
                   </td>
@@ -887,11 +887,11 @@ function Inventory() {
                           </span>
                           <button
                             type="button"
-                            className="btn btn-sm btn-link text-danger p-0 border-0"
+                            className="btn btn-sm btn-link text-danger p-0 border-0 d-inline-flex align-items-center gap-1"
                             onClick={() => removeRecipeLink(l.item_id)}
                             title="Remove this link"
                           >
-                            <Trash2 size={13} />
+                            <Trash2 size={13} /> Remove
                           </button>
                         </span>
                       </div>

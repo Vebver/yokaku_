@@ -392,10 +392,15 @@ const TableStatus = ({ compact = false }) => {
       {!compact && (
         <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-2 gap-2">
           <div>
-            <h1 className="fw-bold mb-0" style={{ fontSize: "2rem" }}>
+            <h1
+              className="fw-bold mb-0 table-status-page-title"
+              style={{ fontSize: "2rem" }}
+            >
               Table Management
             </h1>
-            <p className="text-muted small mb-0">Check Floor occupancy</p>
+            <p className="text-muted small mb-0 table-status-page-subtitle">
+              Check Floor occupancy
+            </p>
           </div>
           <div className="d-flex align-items-center gap-2 border-start ps-3 ms-1">
             <div className="d-flex align-items-center gap-1">
@@ -755,6 +760,8 @@ const TableStatus = ({ compact = false }) => {
                       // disabled "Vacant" placeholder was removed because it was
                       // dead UI that squeezed the buttons on narrow cards.
                       <div className="table-card-actions">
+                        {/* Stacked on top of each other (see .table-card-actions)
+                            so both stay easy to tap on small screens. */}
                         <button
                           className="btn btn-sm btn-dark py-0 fw-bold table-card-action table-card-primary-action"
                           onClick={(e) => {
@@ -763,7 +770,7 @@ const TableStatus = ({ compact = false }) => {
                           }}
                           title="Add this table to an existing party's reservation"
                         >
-                          <Link size={11} className="me-1" /> Link
+                          <Link size={11} className="me-1" /> Link Table
                         </button>
                         <button
                           className="btn btn-sm btn-danger py-0 fw-bold table-card-action table-card-primary-action"

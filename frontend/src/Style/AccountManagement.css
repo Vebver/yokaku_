@@ -18,6 +18,37 @@
    labelled from its data-label attribute.
    -------------------------------------------------------------------------- */
 @media (max-width: 768px) {
+  /* Center the section title and its subtitle so the page reads as a
+     balanced block on phones, and give the toolbar/content a consistent
+     gutter so nothing hugs the screen edge. */
+  .account-mgmt-container .admin-page-header {
+    text-align: center;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .account-mgmt-container .admin-page-header h2,
+  .account-mgmt-container .admin-page-header p {
+    text-align: center;
+    width: 100%;
+  }
+
+  .account-mgmt-container .admin-toolbar {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+
+  .account-mgmt-container .admin-search,
+  .account-mgmt-container .admin-toolbar .form-select {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .account-mgmt-container .card {
+    margin-left: 0.75rem !important;
+    margin-right: 0.75rem !important;
+  }
+
   .account-mgmt-container .table-responsive {
     overflow: visible;
   }
@@ -54,7 +85,7 @@
     justify-content: space-between;
     gap: 12px;
     border: none;
-    padding: 8px 0;
+    padding: 10px 0;
     text-align: right !important;
   }
 
@@ -69,10 +100,11 @@
     flex-shrink: 0;
   }
 
-  /* The name is the row title, so give it its own full-width line. */
+  /* The name is the row title: its own full-width, centred line above the
+     rest of the card so each stacked user card reads as a balanced block. */
   .account-mgmt-container .table td[data-label="Full Name"] {
     display: block;
-    text-align: left !important;
+    text-align: center !important;
     border-bottom: 1px dashed #e2e8f0;
     margin-bottom: 6px;
     padding-bottom: 10px;

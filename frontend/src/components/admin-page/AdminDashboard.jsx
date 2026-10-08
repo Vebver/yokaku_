@@ -713,14 +713,21 @@ function AdminDashboard() {
               <span className="nav-text-label">{item.label}</span>
             </button>
           ))}
-        </nav>
 
-        <div className="sidebar-footer-action">
-          <button className="logout-button" onClick={handleLogout}>
-            <LogOut size={18} />
-            <span className="nav-text-label ms-2">Logout</span>
+          {/* Logout belongs with the other menu entries so it is reachable
+              the moment the burger menu opens — it used to sit in a footer
+              below the scrollable list, which required scrolling the menu all
+              the way down to tap it. */}
+          <button
+            onClick={handleLogout}
+            className="nav-link w-100 text-start border-0 rounded-3 py-4 px-3 d-flex align-items-center mb-2 transition-all text-danger bg-transparent sidebar-logout-item"
+          >
+            <span className="nav-icon-wrapper">
+              <LogOut size={18} />
+            </span>
+            <span className="nav-text-label">Logout</span>
           </button>
-        </div>
+        </nav>
       </aside>
 
       {/* Backdrop for Mobile */}

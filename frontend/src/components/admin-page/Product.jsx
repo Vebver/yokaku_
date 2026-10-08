@@ -545,18 +545,18 @@ function Product() {
                   <td className="text-end pe-4">
                     <div className="d-flex justify-content-end gap-2">
                       <button
-                        className="btn btn-sm btn-outline-primary shadow-sm"
+                        className="btn btn-sm btn-outline-primary shadow-sm d-inline-flex align-items-center gap-1"
                         onClick={() => openEditDrawer(item)}
                         data-bs-toggle="offcanvas"
                         data-bs-target="#addMenuDrawer"
                       >
-                        <Edit3 size={16} />
+                        <Edit3 size={16} /> Edit
                       </button>
                       <button
-                        className="btn btn-sm btn-outline-danger shadow-sm"
+                        className="btn btn-sm btn-outline-danger shadow-sm d-inline-flex align-items-center gap-1"
                         onClick={() => deleteMenuItem(item.item_id)}
                       >
-                        <Trash2 size={16} />
+                        <Trash2 size={16} /> Delete
                       </button>
                     </div>
                   </td>

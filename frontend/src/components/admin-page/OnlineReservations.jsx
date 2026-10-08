@@ -323,7 +323,7 @@ const OnlineReservations = () => {
   return (
     <div className="container-fluid py-4 bg-light min-vh-100">
       {/* HEADER */}
-      <div className="row align-items-center mb-4 px-2">
+      <div className="admin-page-header row align-items-center mb-4 px-2">
         <div className="col-12">
           <h2 className="fw-bold mb-1">Online Reservations</h2>
           <p className="text-muted small mb-0">
@@ -635,30 +635,30 @@ const OnlineReservations = () => {
         <div className="offcanvas-body bg-white p-0">
           {selectedRes && (
             <div className="d-flex flex-column h-100">
-              {/* 1. HEADER */}
-              <div className="p-3 border-bottom bg-light-subtle">
+              {/* 1. HEADER — the customer's name, number and email are the main
+                  information in the booking, so they get the largest type and
+                  roomiest spacing in the drawer. */}
+              <div className="p-3 border-bottom bg-light-subtle booking-customer-block">
                 <div className="d-flex align-items-center gap-3 mb-2">
-                  <div className="overflow-hidden">
-                    <div className="fw-bold text-dark lh-1 mb-1">
-                      Name: {selectedRes.first_name} {selectedRes.last_name}
+                  <div className="overflow-hidden min-w-0">
+                    <div className="fw-bold text-dark booking-customer-name mb-1">
+                      {selectedRes.first_name} {selectedRes.last_name}
                     </div>
-                    <div className="x-small text-muted text-truncate mb-1">
-                      Email: {selectedRes.email}
-                    </div>
-                    <div className="d-flex align-items-center gap-1">
-                      Number:<a
-                        href={`tel:${selectedRes.phone_number || selectedRes.phone}`}
-                        className="x-small fw-bold text-decoration-none text-primary"
-                      >
-                        {selectedRes.phone_number ||
-                          selectedRes.phone ||
-                          "No Phone Provided"}
-                      </a>
+                    <a
+                      href={`tel:${selectedRes.phone_number || selectedRes.phone}`}
+                      className="booking-customer-contact fw-bold text-decoration-none text-primary d-block mb-1"
+                    >
+                      {selectedRes.phone_number ||
+                        selectedRes.phone ||
+                        "No Phone Provided"}
+                    </a>
+                    <div className="booking-customer-contact text-muted text-break">
+                      {selectedRes.email || "No Email Provided"}
                     </div>
                   </div>
                 </div>
 
-                <div className="row g-0 mt-3 pt-2 border-top border-light text-center">
+                <div className="row g-0 mt-3 pt-3 border-top border-light text-center">
                   <div className="col-6 border-end">
                     <div className="x-small text-muted text-uppercase">
                       Occasion
@@ -667,7 +667,7 @@ const OnlineReservations = () => {
                       {selectedRes.occasion || "N/A"}
                     </div>
                   </div>
-                  <div className="col-6 border-end">
+                  <div className="col-6">
                     <div className="x-small text-muted text-uppercase">
                       Guests
                     </div>
@@ -826,36 +826,18 @@ const OnlineReservations = () => {
 
               {/* 3. TIMELINE & ALLERGIES */}
               <div className="p-3 border-bottom">
-                <div className="d-flex justify-content-between align-items-center mb-2">
+                <div className="d-flex justify-content-between align-items-center">
                   <div className="d-flex align-items-center gap-2">
                     <Clock size={14} className="text-muted" />
                     <span className="x-small fw-bold text-muted text-uppercase">
                       Time
                     </span>
                   </div>
-                  <div className="small fw-bold">
-                    <span className="text-muted">
-                      {selectedRes.reservation_time
-                        ? formatTime(selectedRes.reservation_time)
-                        : "--:--"}
-                    </span>
-                    <ChevronRight size={14} className="mx-1 text-muted" />
-                    <span className="text-dark">
-                      {selectedRes.end_time
-                        ? formatTime(selectedRes.end_time)
-                        : "Active"}
-                    </span>
+                  <div className="small fw-bold text-dark">
+                    {selectedRes.reservation_time
+                      ? formatTime(selectedRes.reservation_time)
+                      : "--:--"}
                   </div>
-                </div>
-                <div className="x-small text-muted">
-                  {selectedRes.reservation_time
-                    ? formatTime(selectedRes.reservation_time)
-                    : "--:--"}{" "}
-                  -{" "}
-                  {selectedRes.end_time
-                    ? formatTime(selectedRes.end_time)
-                    : "--:--"}{" "}
-                  : {selectedRes.status || "--"}
                 </div>
 
                 {customerAllergies && (

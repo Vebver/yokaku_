@@ -3,27 +3,39 @@
    Extracted from the inline <style> block in Profile.jsx.
    ========================================================================== */
 
-.profile-refresh-btn,
 .profile-submit-btn,
 .profile-password-btn {
   width: auto;
 }
 
-/* On phones the action buttons go full width so they stay easy to tap. */
+/* Profile summary card: keep the avatar a true circle and the guest name
+   centred, regardless of how long the name is or the screen width. */
+.profile-summary-card .profile-avatar {
+  display: block;
+  width: 100px;
+  height: 100px;
+  min-width: 100px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.profile-summary-card .profile-name {
+  text-align: center;
+  width: 100%;
+  overflow-wrap: anywhere;
+}
+
+/* On phones the action buttons go full width so they stay easy to tap, and the
+   header is centred so the page reads as a balanced block. */
 @media (max-width: 767.98px) {
   .profile-title {
     font-size: 1.75rem !important;
   }
 
   .profile-header {
-    gap: 0.75rem !important;
+    text-align: center;
   }
 
-  .profile-header > div {
-    width: 100%;
-  }
-
-  .profile-refresh-btn,
   .profile-submit-btn,
   .profile-password-btn {
     width: 100%;

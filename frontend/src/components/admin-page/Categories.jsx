@@ -144,8 +144,8 @@ function Categories() {
                   <td className="ps-4 py-3 fw-bold">{cat.category_name}</td>
                   <td className="text-muted small">{cat.description || "No description"}</td>
                   <td className="text-end pe-4">
-                    <button className="btn btn-sm btn-outline-danger border-0" onClick={() => deleteCategory(cat.id)}>
-                      <Trash2 size={18} />
+                    <button className="btn btn-sm btn-outline-danger border-0 d-inline-flex align-items-center gap-1" onClick={() => deleteCategory(cat.id)}>
+                      <Trash2 size={18} /> Delete
                     </button>
                   </td>
                 </tr>
@@ -163,8 +163,8 @@ function Categories() {
                     <div className="fw-bold">{cat.category_name}</div>
                     <div className="text-muted small">{cat.description}</div>
                   </div>
-                  <button className="btn text-danger p-0" onClick={() => deleteCategory(cat.id)}>
-                    <Trash2 size={18} />
+                  <button className="btn text-danger p-0 d-inline-flex align-items-center gap-1" onClick={() => deleteCategory(cat.id)}>
+                    <Trash2 size={18} /> Delete
                   </button>
                </div>
             </div>

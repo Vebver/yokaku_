@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   Armchair,
-  ChevronRight,
   Clock,
   ReceiptText,
   Plus,
@@ -684,23 +683,29 @@ const WalkInReservations = () => {
               className="card border-0 shadow-sm rounded-4 mb-3 overflow-hidden"
             >
               <div className="card-body p-3">
-                <div className="d-flex justify-content-between align-items-start mb-2">
-                  <div>
-                    <div className="fw-bold text-dark lh-sm">
-                      {item.first_name} {item.last_name || ""}
-                    </div>
-                    <code className="text-muted" style={{ fontSize: "0.6rem" }}>
-                      {item.reservation_id}
-                    </code>
-                  </div>
-                  <span
-                    className={`badge rounded-pill px-3 py-1 small flex-shrink-0 ${getReservationStatusMeta(item.status, { walkIn: true }).className}`}
+                {/* Name sits above, status below it. The name is the primary
+                    label so it gets the stronger type; the status reads as
+                    supporting information underneath. */}
+                <div className="mb-2">
+                  <div
+                    className="fw-bold text-dark walkin-name"
+                    style={{ fontSize: "1.1rem" }}
                   >
-                    {
-                      getReservationStatusMeta(item.status, { walkIn: true })
-                        .label
-                    }
-                  </span>
+                    {item.first_name} {item.last_name || ""}
+                  </div>
+                  <code className="text-muted" style={{ fontSize: "0.6rem" }}>
+                    {item.reservation_id}
+                  </code>
+                  <div className="mt-2">
+                    <span
+                      className={`badge rounded-pill px-3 py-1 small ${getReservationStatusMeta(item.status, { walkIn: true }).className}`}
+                    >
+                      {
+                        getReservationStatusMeta(item.status, { walkIn: true })
+                          .label
+                      }
+                    </span>
+                  </div>
                 </div>
 
                 <div className="d-flex flex-wrap gap-2 small text-muted mb-3">
@@ -1266,18 +1271,13 @@ const WalkInReservations = () => {
                       Timeline
                     </span>
                   </div>
-                  <div className="small fw-bold d-flex align-items-center">
-                    <span className="text-muted">
-                      {selectedRes.reservation_time
-                        ? formatTime(selectedRes.reservation_time)
-                        : "--:--"}
-                    </span>
-                    <ChevronRight size={14} className="mx-1 text-muted" />
-                    <span className="text-dark">
-                      {selectedRes.end_time
-                        ? formatTime(selectedRes.end_time)
-                        : walkInTimelineLabel}
-                    </span>
+                  {/* Only the primary start time is kept — the secondary
+                      end-time/label beside it was extra noise that cluttered
+                      the drawer on mobile. */}
+                  <div className="small fw-bold text-dark">
+                    {selectedRes.reservation_time
+                      ? formatTime(selectedRes.reservation_time)
+                      : "--:--"}
                   </div>
                 </div>
               </div>
