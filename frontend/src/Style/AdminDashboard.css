@@ -81,6 +81,7 @@
 
 .sidebar-nav-list {
     flex-grow: 1;
+    min-height: 0;
     padding: 5px 16px;
     overflow-y: auto;
 }
@@ -121,7 +122,9 @@
 }
 
 .sidebar-footer-action {
-    padding: 15px 16px;
+    /* Pinned below the scrollable nav list: never shrinks, always on screen. */
+    flex-shrink: 0;
+    padding: 12px 16px;
     border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
@@ -137,14 +140,8 @@
     justify-content: center;
 }
 
-/* Logout now renders as the final entry of the sidebar nav so it is visible
-   as soon as the burger menu opens. It keeps the danger colour of the old
-   dedicated button while matching the row rhythm of the other menu items. */
 .sidebar-logout-item {
     color: #ef4444 !important;
-    border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
-    margin-top: 6px;
-    padding-top: 18px !important;
 }
 
 .sidebar-logout-item:hover,
@@ -236,7 +233,6 @@
 .smaller {
     font-size: 0.75rem;
 }
-/* 1. Kill the movement on ALL cards in the dashboard */
 .card,
 .stat-card,
 .finance-mini-card,

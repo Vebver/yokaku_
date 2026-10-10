@@ -163,6 +163,13 @@ body {
   height: auto !important;
   display: flex !important;
   flex-direction: column !important;
+  /* Cap the height to the space below the fixed navbar and allow scrolling,
+     otherwise the last item (Logout) is pushed off-screen on short/mobile
+     viewports with no way to reach it. The dropdown sits ~83px from the top
+     (navbar height + its 60px offset), so leave a little margin below. */
+  max-height: calc(100vh - 90px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Ensure the text inside items is always visible */
