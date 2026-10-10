@@ -465,6 +465,7 @@ async function dropLegacyLockColumns() {
   if (manualColumn.length > 0) {
     await db.execute("ALTER TABLE tables DROP COLUMN manual_status");
   }
+
 }
 
 // ──────────────────────────────────────────────

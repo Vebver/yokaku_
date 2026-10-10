@@ -450,17 +450,11 @@ const MyReservation = () => {
     ) {
       const actualCount =
         reservation.guests ||
-        reservation.pax ||
         reservation.guest_count ||
         reservation.num_guests_actual;
 
       if (actualCount && !isNaN(parseInt(actualCount))) {
         const count = parseInt(actualCount);
-        return `${count} ${count === 1 ? "Guest" : "Guests"}`;
-      }
-
-      if (reservation.pax && !isNaN(parseInt(reservation.pax))) {
-        const count = parseInt(reservation.pax);
         return `${count} ${count === 1 ? "Guest" : "Guests"}`;
       }
 

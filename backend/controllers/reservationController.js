@@ -235,7 +235,6 @@ const reservationController = {
       // ===== FIX: Properly get guest count =====
       let guestCount =
         parseInt(body.guests) ||
-        parseInt(body.pax) ||
         parseInt(body.num_guests) ||
         parseInt(body.guestCount) ||
         1;
@@ -247,13 +246,6 @@ const reservationController = {
       body.guests = guestCount;
       body.num_guests = guestCount;
 
-      console.log("📊 Guest count from request:", {
-        guests: body.guests,
-        pax: body.pax,
-        num_guests: body.num_guests,
-        guestCount: body.guestCount,
-        finalGuestCount: guestCount,
-      });
 
       // ===== FIX: Safely get reservation type (handle array case) =====
       let reservationType = "per_table";
