@@ -129,7 +129,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     occasion: "Casual Dining",
     customOccasion: "",
     allergyCount: "",
-    pax: "",
   });
 
   const [user, setUser] = useState({
@@ -227,7 +226,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     endTime: (value) => value && value !== "",
     muni: (value) => value && value !== "",
     brgy: (value) => value && value !== "",
-    pax: (value) => value && parseInt(value) >= 1 && parseInt(value) <= 38,
+    num_guests: (value) => value && parseInt(value) >= 1 && parseInt(value) <= 38,
   };
 
   // Check if field has error (for red outline)
@@ -653,9 +652,11 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           );
         } else {
           // Select Table step for per_table
-          const isPaxValid =
-            form.pax && parseInt(form.pax) >= 1 && parseInt(form.pax) <= 38;
-          return selectedId !== null && isPaxValid;
+          const isGuestCountValid =
+            form.num_guests &&
+            parseInt(form.num_guests) >= 1 &&
+            parseInt(form.num_guests) <= 38;
+          return selectedId !== null && isGuestCountValid;
         }
       case 3:
         if (isEventFlow) {
@@ -762,7 +763,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         if (isValid) markStepCompleted(2);
       } else {
         // Select Table validation for per_table (unchanged)
-        if (selectedId && form.pax && parseInt(form.pax) > 0)
+        if (selectedId && form.num_guests && parseInt(form.num_guests) > 0)
           markStepCompleted(2);
       }
     }
@@ -798,7 +799,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     selectedItems,
     agreeToTerms,
     blockedDates,
-    form.pax,
+    form.num_guests,
     form.muni,
     form.brgy,
     user,
@@ -1126,7 +1127,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       ...form,
       reservationType: reservationType,
       userId: localStorage.getItem("userId"),
-      guestCount: parseInt(form.pax) || totalSeats,
+      guestCount: parseInt(form.num_guests) || totalSeats,
       tableLabel: primaryTable?.label,
       linkedTables: linkedIds.map(
         (id) => tables.find((t) => t.id === id)?.label,
@@ -1464,13 +1465,13 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         }
         setForm((prev) => ({ ...prev, allergyCount: String(numValue) }));
       }
-    } else if (name === "pax") {
+    } else if (name === "num_guests") {
       if (value === "") {
-        setForm((prev) => ({ ...prev, pax: "" }));
+        setForm((prev) => ({ ...prev, num_guests: "" }));
       } else {
         const numValue = parseInt(value);
         if (!isNaN(numValue) && numValue >= 1 && numValue <= 38) {
-          setForm((prev) => ({ ...prev, pax: value }));
+          setForm((prev) => ({ ...prev, num_guests: value }));
         }
       }
     } else if (name in user) {
@@ -1518,7 +1519,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     } else {
       setSelectedId(selectedId === table.id ? null : table.id);
       setLinkedIds([]);
-      setForm((prev) => ({ ...prev, pax: "" }));
+      setForm((prev) => ({ ...prev, num_guests: "" }));
     }
   };
 
@@ -1546,9 +1547,9 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       if (reservationType === "event") {
         guestCount = 35; // Fixed capacity for events
       } else {
-        const paxValue = parseInt(form.pax);
-        if (paxValue > 0) {
-          guestCount = paxValue;
+        const submittedGuestCount = parseInt(form.num_guests);
+        if (submittedGuestCount > 0) {
+          guestCount = submittedGuestCount;
         } else {
           const selectedTableSeats = primaryTable?.seats || 0;
           const linkedTableSeats = linkedIds.reduce((sum, id) => {
@@ -1565,7 +1566,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       }
 
       console.log("📊 Guest count:", guestCount);
-      console.log("📊 form.pax:", form.pax);
+      console.log("📊 form.num_guests:", form.num_guests);
       console.log("📊 totalSeats:", totalSeats);
       console.log("📊 Reservation type:", reservationType);
 
@@ -1578,7 +1579,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
         reservation_type: String(reservationType).toLowerCase(), // This ensures backend receives it as string
         userId: userId,
         guests: guestCount,
-        pax: guestCount,
+        num_guests: guestCount,
         allergyCount: form.allergyCount || 0,
         packageName: productDisplayName,
         totalAmount: orderSummary.totalOrderPrice,
@@ -2016,7 +2017,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                               ...prev,
                               startTime: "",
                               endTime: "",
-                              pax: "",
+                              num_guests: "",
                             }));
                             setSelectedReservationDate(day.date);
                             await fetchReservationsForDate(day.date);
@@ -2434,7 +2435,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                           Out of{" "}
                           {reservationType === "event"
                             ? "35"
-                            : parseInt(form.pax) || totalSeats || 0}{" "}
+                            : parseInt(form.num_guests) || totalSeats || 0}{" "}
                           total guest(s)
                         </span>
                       </div>
@@ -2466,7 +2467,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
               <div className="pax-field-container">
                 <div className="input-group pax-input-group">
                   <label>
-                    <Users size={12} /> NUMBER OF GUESTS (PAX)
+                    <Users size={12} /> NUMBER OF GUESTS
                     {!selectedId && (
                       <span className="pax-field-hint">
                         {" "}
@@ -2479,30 +2480,32 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                       type="button"
                       className="pax-btn pax-btn-decrease"
                       onClick={() => {
-                        const currentPax = parseInt(form.pax) || 0;
-                        if (currentPax > 1)
+                        const currentGuestCount = parseInt(form.num_guests) || 0;
+                        if (currentGuestCount > 1)
                           setForm((prev) => ({
                             ...prev,
-                            pax: String(currentPax - 1),
+                            num_guests: String(currentGuestCount - 1),
                           }));
                       }}
                       disabled={
-                        !selectedId || !form.pax || parseInt(form.pax) <= 1
+                        !selectedId ||
+                        !form.num_guests ||
+                        parseInt(form.num_guests) <= 1
                       }
                     >
                       -
                     </button>
                     <input
                       type="number"
-                      name="pax"
+                      name="num_guests"
                       className="pax-input"
                       min="1"
                       max="38"
-                      value={form.pax}
+                      value={form.num_guests}
                       onChange={(e) => {
                         const value = e.target.value;
                         if (value === "")
-                          setForm((prev) => ({ ...prev, pax: "" }));
+                          setForm((prev) => ({ ...prev, num_guests: "" }));
                         else {
                           const numValue = parseInt(value);
                           if (
@@ -2510,7 +2513,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                             numValue >= 1 &&
                             numValue <= 38
                           )
-                            setForm((prev) => ({ ...prev, pax: value }));
+                            setForm((prev) => ({ ...prev, num_guests: value }));
                         }
                       }}
                       onKeyDown={(e) => {
@@ -2534,15 +2537,17 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                       type="button"
                       className="pax-btn pax-btn-increase"
                       onClick={() => {
-                        const currentPax = parseInt(form.pax) || 0;
-                        if (currentPax < 38)
+                        const currentGuestCount = parseInt(form.num_guests) || 0;
+                        if (currentGuestCount < 38)
                           setForm((prev) => ({
                             ...prev,
-                            pax: String(currentPax + 1),
+                            num_guests: String(currentGuestCount + 1),
                           }));
                       }}
                       disabled={
-                        !selectedId || !form.pax || parseInt(form.pax) >= 38
+                        !selectedId ||
+                        !form.num_guests ||
+                        parseInt(form.num_guests) >= 38
                       }
                     >
                       +
@@ -3127,14 +3132,14 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     <input
                       type="text"
                       value={
-                        form.pax && parseInt(form.pax) > 0
-                          ? `${form.pax} guest(s)`
+                        form.num_guests && parseInt(form.num_guests) > 0
+                          ? `${form.num_guests} guest(s)`
                           : "Not specified yet"
                       }
                       readOnly
-                      className={`guests-auto-input ${!form.pax || parseInt(form.pax) <= 0 ? "empty-value" : ""}`}
+                      className={`guests-auto-input ${!form.num_guests || parseInt(form.num_guests) <= 0 ? "empty-value" : ""}`}
                     />
-                    {!form.pax || parseInt(form.pax) <= 0 ? (
+                    {!form.num_guests || parseInt(form.num_guests) <= 0 ? (
                       <div className="guests-hint-warning">
                         <AlertCircle size={14} />
                         <span>
@@ -3145,7 +3150,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                       <div className="guests-hint-success">
                         <CheckCircle size={14} />
                         <span>
-                          Auto-populated from Pax field in previous step
+                          Auto-populated from guest count in previous step
                         </span>
                       </div>
                     )}
@@ -3222,7 +3227,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                           max={40}
                           value={form.allergyCount}
                           onChange={handleInputChange}
-                          placeholder={`Enter number (1-${Math.min(parseInt(form.pax) || totalSeats || 10, 40)})`}
+                          placeholder={`Enter number (1-${Math.min(parseInt(form.num_guests) || totalSeats || 10, 40)})`}
                           maxLength={2}
                           inputMode="numeric"
                           pattern="[0-9]*"
@@ -3254,7 +3259,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                           }}
                         />
                         <span className="allergy-count-hint">
-                          Out of {parseInt(form.pax) || totalSeats || 0} total
+                          Out of {parseInt(form.num_guests) || totalSeats || 0} total
                           guest(s)
                         </span>
                       </div>

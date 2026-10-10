@@ -505,7 +505,7 @@ const Reservation = {
         data.date,
         data.startTime,
         data.endTime,
-        data.pax || data.guests || data.num_guests || 1,
+        data.guests || data.num_guests || 1,
         data.packageName,
         finalStatus,
         data.receiptPath,
