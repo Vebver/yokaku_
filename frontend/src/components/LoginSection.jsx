@@ -20,6 +20,23 @@ function LoginSection({ onClose }) {
   const [error, setError] = useState("");
   // Account lockout UI disabled.
 
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
+    const originalPaddingRight = document.body.style.paddingRight;
+    const scrollbarWidth =
+      window.innerWidth - document.documentElement.clientWidth;
+
+    document.body.style.overflow = "hidden";
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      document.body.style.paddingRight = originalPaddingRight;
+    };
+  }, []);
+
   // Password validation states
   const [passwordCriteria, setPasswordCriteria] = useState({
     minLength: false,
@@ -104,7 +121,7 @@ function LoginSection({ onClose }) {
     setError("");
     try {
       const res = await api.post("/auth/login", { email, password });
-      
+
       // ===== CRITICAL: Clear ALL old session data before setting new =====
       localStorage.removeItem("token");
       localStorage.removeItem("userId");
@@ -122,7 +139,7 @@ function LoginSection({ onClose }) {
       localStorage.setItem("firstName", res.data.user.firstName);
       localStorage.setItem("lastName", res.data.user.lastName);
       localStorage.setItem("role", res.data.user.role);
-      
+
       // Force a full page reload to break any stale in-memory state
       if (res.data.user.role === "admin") {
         window.location.href = "/admin/dashboard";
