@@ -4,7 +4,7 @@
   top: 0;
   left: 0;
   width: 100vw;
-  height: 100vh;
+  height: 100%;
   background: rgba(0, 0, 0, 0.5);
   display: flex;
   justify-content: center;
@@ -12,6 +12,9 @@
   z-index: 10001;
   backdrop-filter: blur(4px);
   animation: fadeIn 0.3s ease-out;
+  overflow-y: auto; /* <--- FIXED: Enables scrolling */
+  padding: 20px 0; /* <--- FIXED: Adds breathing room top/bottom */
+  box-sizing: border-box;
 }
 
 .modal-content {
@@ -26,7 +29,8 @@
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
   border: 1px solid #eee;
   transition: all 0.3s ease-in-out;
-  overflow: hidden;
+  overflow: visible;
+  margin: auto;
 }
 
 /* --- TYPOGRAPHY & HEADERS --- */
@@ -509,9 +513,20 @@
 
 /* --- RESPONSIVE --- */
 @media (max-width: 480px) {
+  /* Allow the overlay to scroll on mobile */
+  .modal-overlay {
+    align-items: flex-start; /* Stop forcing vertical centering */
+    overflow-y: auto; /* Enable scrolling */
+    padding: 20px 10px; /* Space top/bottom so edges aren't cut */
+    box-sizing: border-box;
+    -webkit-overflow-scrolling: touch; /* Smooth scroll on iOS */
+  }
+
   .modal-content {
     padding: 30px 20px;
     width: 90%;
+    margin: auto; /* Centers when it fits, scrolls when it doesn't */
+    max-height: none; /* Let it grow naturally */
   }
 
   .otp-input {
