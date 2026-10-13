@@ -136,9 +136,6 @@ function Profile() {
     >
       {/* PAGE HEADER */}
       <div className="profile-header mb-4">
-        <h1 className="fw-bold mb-0 text-dark profile-title" style={{ fontSize: "2.5rem" }}>
-          Profile & Settings
-        </h1>
         <p className="text-muted small mb-0">
           Manage your account information and security preferences
         </p>
@@ -153,8 +150,6 @@ function Profile() {
                 src={`https://ui-avatars.com/api/?name=${profile.firstName}+${profile.lastName}&background=10b981&color=fff&size=128`}
                 alt="Avatar"
                 className="rounded-circle shadow-sm border border-4 border-white profile-avatar"
-                width="100"
-                height="100"
               />
             </div>
             <h3 className="fw-bold mb-1 profile-name">
@@ -162,9 +157,9 @@ function Profile() {
             </h3>
             <p
               className="text-muted small mb-3 text-uppercase fw-bold"
-              style={{ letterSpacing: "1px" }}
+              style={{ letterSpacing: "1px", overflowWrap: "anywhere" }}
             >
-              {profile.role || "User"}
+              {profile.email || "No email on file"}
             </p>
 
             {profile.customerId && (
@@ -177,24 +172,37 @@ function Profile() {
 
             <hr className="my-4 text-muted opacity-25" />
 
-            <div className="text-start px-2">
-              <h6
-                className="fw-bold small text-uppercase text-muted mb-3"
-                style={{ letterSpacing: "0.5px" }}
-              >
-                Account Details
-              </h6>
-              <div className="d-flex justify-content-between align-items-center mb-3">
-                <span className="small text-muted">Current Role</span>
-                <span className="text-dark small fw-bold">{profile.role}</span>
-              </div>
-              <div className="d-flex justify-content-between align-items-center mb-3">
-                <span className="small text-muted">Account Status</span>
-                <span className="badge bg-success-subtle text-success small">
-                  Active
-                </span>
-              </div>
+          <div className="text-start px-2">
+            <h6
+              className="fw-bold small text-uppercase text-muted mb-3"
+              style={{ letterSpacing: "0.5px" }}
+            >
+              Account Details
+            </h6>
+            <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+              <span className="small text-muted">Current Role</span>
+              <span className="text-dark small fw-bold" style={{ overflowWrap: "anywhere" }}>{profile.role}</span>
             </div>
+            <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+              <span className="small text-muted">Management Permissions</span>
+              <span
+                className={`badge small ${
+                  profile.role?.toLowerCase() === "admin"
+                    ? "bg-primary"
+                    : "bg-secondary"
+                }`}>
+                {profile.role?.toLowerCase() === "admin"
+                  ? "Full System Access"
+                  : "Limited Access"}
+              </span>
+            </div>
+            <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+              <span className="small text-muted">Account Status</span>
+              <span className="badge bg-success-subtle text-success small">
+                Active
+              </span>
+            </div>
+          </div>
           </div>
         </div>
 

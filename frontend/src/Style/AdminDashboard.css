@@ -23,6 +23,7 @@
     width: var(--sidebar-width);
     background-color: var(--sidebar-bg);
     height: 100vh;
+    height: 100dvh;
     position: fixed;
     left: 0;
     top: 0;
@@ -142,6 +143,7 @@
 
 .sidebar-logout-item {
     color: #ef4444 !important;
+    background: rgba(239, 68, 68, 0.1) !important;
 }
 
 .sidebar-logout-item:hover,
@@ -274,6 +276,23 @@
     .sidebar-nav-list {
         overscroll-behavior: contain;
         -webkit-overflow-scrolling: touch;
+    }
+    /* The drawer must fit the dynamic viewport (browser chrome / bottom
+       gestures shrink the real viewport) and keep the Logout footer visible
+       above the safe area instead of clipped by it. */
+    .app-sidebar {
+        height: 100dvh;
+    }
+    .sidebar-footer-action {
+        padding-bottom: max(12px, env(safe-area-inset-bottom));
+    }
+    /* py-4 on each nav button makes 13 items ~850px tall — taller than any
+       phone viewport, which pushed Logout off-screen. Compact the rows on
+       mobile so the whole list scrolls comfortably inside the drawer. */
+    .app-sidebar .nav-link.py-4 {
+        padding-top: 0.65rem !important;
+        padding-bottom: 0.65rem !important;
+        min-height: 44px;
     }
     .app-main-viewport {
         margin-left: 0 !important;
@@ -591,20 +610,6 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
-}
-
-.sidebar-user-name {
-    color: #d1d5db;
-    font-size: 0.72rem;
-    line-height: 1.2;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.sb-closed .sidebar-user-name {
-    opacity: 0;
-    pointer-events: none;
 }
 
 /* Shared admin page primitives keep toolbars, tables and pagination consistent. */

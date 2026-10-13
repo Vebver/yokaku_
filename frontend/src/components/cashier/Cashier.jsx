@@ -5,7 +5,6 @@ import {
   Receipt,
   BarChart3,
   LogOut,
-  UserCircle,
   Store,
   Menu,
   X
@@ -21,24 +20,13 @@ const OnlineReservations = lazy(() =>
 const WalkInReservations = lazy(() => import("../admin-page/WalkInReservations"));
 const Billing = lazy(() => import("../admin-page/Billing"));
 const Reports = lazy(() => import("../admin-page/Reports"));
-const KioskControl = lazy(() => import("../shared/KioskControl"));
 import "../../Style/Cashier.css"
 
 const CashierDashboard = () => {
   const [activeTab, setActiveTab] = useState("tables");
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 992);
-  const [user, setUser] = useState({ name: "User", role: "Cashier" });
 
   useEffect(() => {
-    const firstName = localStorage.getItem("firstName") || "";
-    const lastName = localStorage.getItem("lastName") || "";
-    const storedRole = localStorage.getItem("role") || "Cashier";
-
-    setUser({
-      name: (firstName + " " + lastName).trim() || "Staff Member",
-      role: storedRole
-    });
-
     const handleResize = () => {
       if (window.innerWidth <= 992) setSidebarOpen(false);
       else setSidebarOpen(true);
@@ -56,7 +44,6 @@ const CashierDashboard = () => {
     { id: "tables", label: "Table Status", icon: LayoutDashboard },
     { id: "online", label: "Online Bookings", icon: CalendarCheck },
     { id: "walkins", label: "Walk-ins / Kiosk", icon: Store },
-    { id: "kiosk-control", label: "Kiosk Control", icon: Store },
     { id: "billing", label: "Payments", icon: Receipt },
     { id: "reports", label: "Reports", icon: BarChart3 },
   ];
@@ -68,7 +55,6 @@ const CashierDashboard = () => {
       tables: <TableStatus />,
       online: <OnlineReservations />,
       walkins: <WalkInReservations />,
-      "kiosk-control": <KioskControl />,
       billing: <Billing />,
       reports: <Reports />,
     };
@@ -95,8 +81,7 @@ const CashierDashboard = () => {
       {/* KIOSK SIDEBAR */}
       <aside className={`kiosk-sidebar ${sidebarOpen ? "open" : "closed"}`}>
         <div className="kiosk-logo">
-          <h2 className="fw-bold mb-0 text-warning">H</h2>
-          <span className="small text-white-50">v1.0</span>
+          <h2 className="fw-bold mb-0 text-warning kiosk-brand-title">HANGOUT</h2>
         </div>
 
         <nav className="kiosk-nav">
@@ -131,20 +116,13 @@ const CashierDashboard = () => {
                <Menu size={24} />
              </button>
              <div>
-                <h3 className="fw-bold mb-0 text-dark">
+                <h3 className="fw-bold mb-0 text-dark flex-grow-1 min-w-0">
                     {navItems.find(i => i.id === activeTab)?.label}
                 </h3>
                 <p className="text-muted small mb-0">{new Date().toLocaleDateString()}</p>
              </div>
           </div>
 
-          <div className="kiosk-user-profile">
-            <div className="text-end d-none d-sm-block">
-              <div className="fw-bold text-dark">{user.name}</div>
-              <div className="badge bg-primary">{user.role}</div>
-            </div>
-            <UserCircle size={40} className="text-dark opacity-75" />
-          </div>
         </header>
 
         <div className="kiosk-content">

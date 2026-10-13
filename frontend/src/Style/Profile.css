@@ -28,10 +28,6 @@
 /* On phones the action buttons go full width so they stay easy to tap, and the
    header is centred so the page reads as a balanced block. */
 @media (max-width: 767.98px) {
-  .profile-title {
-    font-size: 1.75rem !important;
-  }
-
   .profile-header {
     text-align: center;
   }
@@ -39,5 +35,23 @@
   .profile-submit-btn,
   .profile-password-btn {
     width: 100%;
+  }
+
+  /* The avatar keeps a comfortable mobile size and stays dead-centre inside
+     its card. */
+  .profile-summary-card .profile-avatar {
+    width: 84px;
+    height: 84px;
+    min-width: 84px;
+  }
+
+  .profile-summary-card .profile-avatar-wrap {
+    justify-content: center;
+  }
+
+  /* The summary card should not stretch into a tall half-empty column under
+     the form column on phones. */
+  .profile-summary-card.h-100 {
+    height: auto !important;
   }
 }
