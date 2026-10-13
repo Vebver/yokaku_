@@ -18,13 +18,19 @@
    labelled from its data-label attribute.
    -------------------------------------------------------------------------- */
 @media (max-width: 768px) {
+  /* The container fills the screen width with no stray fixed margins, and the
+     content inside shares one consistent gutter. */
+  .account-mgmt-container {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+
   /* Center the section title and its subtitle so the page reads as a
-     balanced block on phones, and give the toolbar/content a consistent
-     gutter so nothing hugs the screen edge. */
+     balanced block on phones. */
   .account-mgmt-container .admin-page-header {
     text-align: center;
-    padding-left: 0.75rem;
-    padding-right: 0.75rem;
+    padding-left: 0;
+    padding-right: 0;
   }
 
   .account-mgmt-container .admin-page-header h2,
@@ -34,8 +40,8 @@
   }
 
   .account-mgmt-container .admin-toolbar {
-    padding-left: 0.75rem !important;
-    padding-right: 0.75rem !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
   }
 
   .account-mgmt-container .admin-search,
@@ -45,8 +51,8 @@
   }
 
   .account-mgmt-container .card {
-    margin-left: 0.75rem !important;
-    margin-right: 0.75rem !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
   }
 
   .account-mgmt-container .table-responsive {
@@ -122,11 +128,16 @@
     justify-content: flex-end;
   }
 
-  .account-mgmt-container
-    .table
-    td[data-label="Manage Permissions"]
-    .form-select {
+  .account-mgmt-container .table td[data-label="Manage Permissions"] .form-select {
     width: 100% !important;
-    max-width: 140px;
+    max-width: 100%;
+  }
+
+  /* The status alert and pagination span the content area, not a clipped
+     sliver left over from the desktop margins. */
+  .account-mgmt-container .alert,
+  .account-mgmt-container .admin-pagination {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
   }
 }

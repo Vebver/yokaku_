@@ -15,7 +15,6 @@ import {
 } from "chart.js";
 import { Line } from "react-chartjs-2";
 import {
-  Info,
   TrendingUp,
   ShoppingBag,
   CreditCard,
@@ -126,7 +125,6 @@ function AdminDashboard() {
     `${localStorage.getItem("firstName") || ""} ${localStorage.getItem("lastName") || ""}`.trim(),
   );
   const [loading, setLoading] = useState(true);
-  const [todaySchedule, setTodaySchedule] = useState([]);
 
   // Integrated Notification & Modal States
   const [notifications, setNotifications] = useState([]);
@@ -353,10 +351,7 @@ function AdminDashboard() {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const [statsRes, scheduleRes] = await Promise.all([
-        api.get(`/admin/stats`),
-        api.get(`/admin/today-schedule`),
-      ]);
+      const statsRes = await api.get(`/admin/stats`);
 
       const data = statsRes.data;
 
@@ -373,7 +368,6 @@ function AdminDashboard() {
         trendLabels: data.trendLabels || [],
       });
 
-      setTodaySchedule(scheduleRes.data);
     } catch (error) {
       console.error("Fetch error", error);
     } finally {
@@ -479,83 +473,11 @@ function AdminDashboard() {
     return `${hour12}:${minutes} ${ampm}`;
   };
 
-  const formatTime12Hour = (timeStr) => {
-    if (!timeStr) return "--:--";
-
-    const timePart = timeStr.includes("T") ? timeStr.split("T")[1] : timeStr;
-    const [hoursStr, minutesStr] = timePart.split(":");
-
-    let hour = parseInt(hoursStr, 10);
-    const minutes = minutesStr ? minutesStr.substring(0, 2) : "00";
-
-    const ampm = hour >= 12 ? "PM" : "AM";
-    const displayHour = hour % 12 || 12;
-    return `${displayHour}:${minutes} ${ampm}`;
-  };
-
   const DashboardOverview = () => (
     <div className="dashboard-content">
       <h1 className="fw-bold mb-3">Welcome back, Admin</h1>
 
-      {/* TODAY'S TIMELINE PANEL */}
 
-      <div className="mb-4 bg-white p-3 rounded-4 shadow-sm border-start border-4 border-warning">
-        <div className="d-flex align-items-center mb-2">
-          <Info size={16} className="text-warning me-2" />
-          <span className="fw-bold small">Today's Timeline</span>
-        </div>
-        <div className="d-flex gap-2 overflow-auto no-scrollbar pb-1">
-          {todaySchedule.length > 0 ? (
-            todaySchedule.map((res, i) => (
-              <div
-                key={i}
-                className="timeline-badge bg-light px-3 py-1.5 rounded-pill border small fw-semibold d-flex align-items-center gap-1"
-                style={{ whiteSpace: "nowrap" }}
-              >
-                <span className="text-primary">
-                  {formatTime12Hour(res.reservation_time)}
-                </span>
-                <span className="text-muted opacity-50">|</span>
-                <span>
-                  {res.first_name} {res.last_name || ""}
-                </span>
-                <span className="text-muted opacity-50">|</span>
-
-                {/* BOOKING TYPE */}
-                <span
-                  className="badge bg-secondary-subtle text-secondary border text-uppercase"
-                  style={{ fontSize: "0.62rem", padding: "3px 6px" }}
-                >
-                  {res.reservation_type === "event"
-                    ? "🎉 Event Space"
-                    : "🍽️ Table Dining"}
-                </span>
-
-                {/* RESERVATION STATUS BADGE */}
-               <span
-                  className={`badge text-uppercase border ${
-                    res.status?.toLowerCase() === "seated"
-                      ? "bg-danger-subtle text-danger border-danger-subtle"
-                      : "bg-warning-subtle text-warning-emphasis border-warning-subtle"
-                  }`}
-                  style={{ fontSize: "0.62rem", padding: "3px 6px" }}
-                >
-                  {res.status || "CONFIRMED"}
-                </span>
-
-                {/* TABLE NUMBER*/}
-                <span className="badge bg-dark" style={{ fontSize: "0.62rem", padding: "3px 6px" }}>
-                  {res.reservation_type === "event" ? "All Tables occupied" : (res.table_names ? `Table: ${res.table_names}` : "No Table")}
-                </span>
-              </div>
-            ))
-          ) : (
-            <span className="text-muted small p-1">No arrivals for today.</span>
-          )}
-        </div>
-      </div>
-
-      {/* STATS CARDS */}
       <h2 className="fw-bold mb-3">Report Overview</h2>
       <div className="row g-3 mb-4">
         <StatCard
@@ -689,7 +611,6 @@ function AdminDashboard() {
           <div className="brand-logo">H</div>
           <div className="sidebar-brand-copy">
             <span className="brand-name fw-bold">HANGOUT</span>
-            {adminName && <span className="sidebar-user-name">{adminName}</span>}
           </div>
         </div>
 

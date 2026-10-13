@@ -99,15 +99,15 @@ const AccountManagement = () => {
   );
 
   return (
-    <div className="account-mgmt-container container-fluid py-3 py-md-4 text-dark bg-light" style={{ minHeight: '100vh' }}>
+    <div className="account-mgmt-container container-fluid py-3 py-md-4 text-dark bg-light" style={{ minHeight: '100dvh', maxWidth: '1600px', marginInline: 'auto' }}>
 
       {/* RESPONSIVE HEADER */}
-      <div className="admin-page-header px-2 mb-3">
+      <div className="admin-page-header mb-3">
         <h2 className="fw-bold mb-1">Account Management</h2>
         <p className="text-muted small mb-0">Control system access and user permissions</p>
       </div>
 
-      <div className="admin-toolbar row g-2 align-items-center mb-4 px-2">
+      <div className="admin-toolbar row g-2 align-items-center mb-4">
         <div className="col-12 col-lg-8">
           <div className="d-flex flex-wrap gap-2">
             <div className="admin-search d-flex align-items-center bg-white rounded-3 border shadow-sm px-3 flex-grow-1">
@@ -148,15 +148,15 @@ const AccountManagement = () => {
       </div>
 
       {status.msg && (
-        <div className={`alert alert-${status.type} border-0 shadow-sm rounded-3 mx-2 mb-4`} role="alert">
+        <div className={`alert alert-${status.type} border-0 shadow-sm rounded-3 mb-4`} role="alert">
           {status.msg}
         </div>
       )}
 
       {/* TABLE SECTION */}
-      <div className="card border-0 shadow-sm rounded-4 overflow-hidden mx-2">
+      <div className="card border-0 shadow-sm rounded-4 overflow-hidden">
         <div className="table-responsive">
-          <table className="table table-hover align-middle mb-0" style={{ minWidth: '980px' }}>
+          <table className="table table-hover align-middle mb-0" style={{ minWidth: 'min(980px, 100%)' }}>
             <thead className="bg-light border-bottom">
               <tr className="text-muted small text-uppercase" style={{ fontSize: "0.7rem", letterSpacing: '0.8px' }}>
                 <th className="ps-4 py-3">Profile</th>
