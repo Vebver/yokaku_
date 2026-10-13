@@ -138,6 +138,140 @@ const inventoryController = {
       });
     }
   },
+  // ==================== DYNAMIC UNITS & STORAGE LOCATION OPTIONS ====================
+  getUnits: async (req, res) => {
+    try {
+      res.json(await Inventory.getUnits());
+    } catch (error) {
+      console.error("Error in getUnits:", error.message);
+      res.status(500).json({ error: "Failed to fetch units." });
+    }
+  },
+
+  addUnit: async (req, res) => {
+    try {
+      const { name, group } = req.body;
+      if (!name || !String(name).trim()) {
+        return res.status(400).json({ error: "Unit name is required." });
+      }
+      const unit = await Inventory.addUnit(name, group);
+      res.status(201).json({ message: `Unit "${unit}" added.`, unit });
+    } catch (error) {
+      console.error("Error in addUnit:", error.message);
+      res.status(500).json({ error: "Failed to add unit." });
+    }
+  },
+
+  deleteUnit: async (req, res) => {
+    try {
+      const removed = await Inventory.deleteUnit(req.params.name);
+      if (!removed) {
+        return res.status(404).json({ error: "Unit not found." });
+      }
+      res.json({ message: "Unit removed." });
+    } catch (error) {
+      console.error("Error in deleteUnit:", error.message);
+      res.status(500).json({ error: "Failed to remove unit." });
+    }
+  },
+
+  getStorageLocations: async (req, res) => {
+    try {
+      res.json(await Inventory.getStorageLocations());
+    } catch (error) {
+      console.error("Error in getStorageLocations:", error.message);
+      res.status(500).json({ error: "Failed to fetch storage locations." });
+    }
+  },
+
+  addStorageLocation: async (req, res) => {
+    try {
+      const { name } = req.body;
+      if (!name || !String(name).trim()) {
+        return res.status(400).json({ error: "Storage location name is required." });
+      }
+      const location = await Inventory.addStorageLocation(name);
+      res.status(201).json({ message: `Storage location "${location}" added.`, location });
+    } catch (error) {
+      console.error("Error in addStorageLocation:", error.message);
+      res.status(500).json({ error: "Failed to add storage location." });
+    }
+  },
+
+  deleteStorageLocation: async (req, res) => {
+    try {
+      const removed = await Inventory.deleteStorageLocation(req.params.name);
+      if (!removed) {
+        return res.status(404).json({ error: "Storage location not found." });
+      }
+      res.json({ message: "Storage location removed." });
+    } catch (error) {
+      console.error("Error in deleteStorageLocation:", error.message);
+      res.status(500).json({ error: "Failed to remove storage location." });
+    }
+  },
+
+  // ==================== DISH LINKS (managed from the Link Dishes modal) ====================
+  getDishLinks: async (req, res) => {
+    try {
+      const links = await Inventory.getDishLinks(req.params.id);
+      res.json(links);
+    } catch (error) {
+      console.error("Error in getDishLinks:", error.message);
+      res.status(500).json({ error: "Failed to fetch dish links." });
+    }
+  },
+
+  addDishLink: async (req, res) => {
+    try {
+      const { item_id, quantity_required } = req.body;
+      const result = await Inventory.addDishLink(
+        req.params.id,
+        item_id,
+        quantity_required,
+      );
+      await logActivity(
+        req.user?.userId || null,
+        "LINK_DISH_TO_INVENTORY",
+        req.params.id,
+        { item_id, quantity_required },
+        req,
+      );
+      res.status(201).json({
+        message: result.updated
+          ? "Dish link updated with the new quantity."
+          : "Dish linked successfully.",
+        ...result,
+      });
+    } catch (error) {
+      console.error("Error in addDishLink:", error.message);
+      res.status(400).json({ error: error.message || "Failed to link dish." });
+    }
+  },
+
+  removeDishLink: async (req, res) => {
+    try {
+      const removed = await Inventory.removeDishLink(
+        req.params.id,
+        req.params.itemId,
+      );
+      if (!removed) {
+        return res.status(404).json({ error: "Dish link not found." });
+      }
+      await logActivity(
+        req.user?.userId || null,
+        "UNLINK_DISH_FROM_INVENTORY",
+        req.params.id,
+        { item_id: req.params.itemId },
+        req,
+      );
+      res.json({ message: "Dish unlinked successfully." });
+    } catch (error) {
+      console.error("Error in removeDishLink:", error.message);
+      res.status(500).json({ error: "Failed to unlink dish." });
+    }
+  },
+
   updateRecipeIngredient: async (req, res) => {
     try {
       const { recipeId } = req.params;

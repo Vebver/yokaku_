@@ -475,27 +475,34 @@ function AdminDashboard() {
 
   const DashboardOverview = () => (
     <div className="dashboard-content">
+      {/* Welcome message stays left-aligned; only the Report Overview section
+          below is centred. */}
       <h1 className="fw-bold mb-3">Welcome back, Admin</h1>
 
-
-      <h2 className="fw-bold mb-3">Report Overview</h2>
-      <div className="row g-3 mb-4">
-        <StatCard
-          title="Total Bookings"
-          value={stats.totalBookings}
-          color="primary"
-        />
-        <StatCard
-          title="Tables Occupied"
-          value={stats.activeTables}
-          color="success"
-        />
-        <StatCard
-          title="Kitchen Queue"
-          value={stats.kitchenQueue}
-          color="info"
-        />
-      </div>
+      {/* REPORT OVERVIEW — centred block. The header and the stat rows are
+          constrained to a readable width and centred horizontally, and the
+          section carries its own vertical rhythm via the CSS class below so
+          it stays balanced on desktop, tablet and mobile. */}
+      <section className="report-overview-section">
+        <h2 className="fw-bold mb-3 text-center">Report Overview</h2>
+        <div className="row g-3 mb-4 justify-content-center">
+          <StatCard
+            title="Total Bookings"
+            value={stats.totalBookings}
+            color="primary"
+          />
+          <StatCard
+            title="Tables Occupied"
+            value={stats.activeTables}
+            color="success"
+          />
+          <StatCard
+            title="Kitchen Queue"
+            value={stats.kitchenQueue}
+            color="info"
+          />
+        </div>
+      </section>
 
       {/* FINANCIAL SECTION & CHART */}
       <div className="row g-3 mb-4">
@@ -608,6 +615,17 @@ function AdminDashboard() {
       {/* Sidebar */}
       <aside className="app-sidebar shadow">
         <div className="sidebar-header-branding">
+          {/* Drawer-internal toggle sits to the LEFT of the Hangout logo, first
+              in the header row. ChevronLeft collapses the drawer; Menu expands
+              it again. */}
+          <button
+            className="toggle-sidebar-btn sidebar-toggle-in-drawer"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            aria-label={sidebarOpen ? "Collapse navigation drawer" : "Expand navigation drawer"}
+            aria-expanded={sidebarOpen}
+          >
+            {sidebarOpen ? <ChevronLeft size={20} /> : <Menu size={20} />}
+          </button>
           <div className="brand-logo">H</div>
           <div className="sidebar-brand-copy">
             <span className="brand-name fw-bold">HANGOUT</span>
@@ -659,12 +677,20 @@ function AdminDashboard() {
       {/* Main Content Area */}
       <div className="app-main-viewport">
         <header className="app-top-nav bg-white shadow-sm px-4">
-          <button
-            className="toggle-sidebar-btn"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-          >
-            {sidebarOpen ? <ChevronLeft size={20} /> : <Menu size={20} />}
-          </button>
+          {/* The sidebar toggle lives INSIDE the sidebar drawer's header, next
+              to the brand, instead of floating at the dashboard's top-left.
+              ChevronLeft = the drawer is open, clicking closes it; Menu = the
+              drawer is closed, clicking opens it. */}
+          <div className="d-lg-none d-flex align-items-center">
+            <button
+              className="toggle-sidebar-btn"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              aria-label={sidebarOpen ? "Close navigation drawer" : "Open navigation drawer"}
+              aria-expanded={sidebarOpen}
+            >
+              {sidebarOpen ? <ChevronLeft size={20} /> : <Menu size={20} />}
+            </button>
+          </div>
 
           <div className="ms-auto d-flex align-items-center gap-3">
             {/* MANUAL REFRESH BUTTON */}

@@ -25,12 +25,10 @@ function CustomerNavbar() {
       setSocket(newSocket);
 
       newSocket.on("connect", () => {
-        console.log("Socket connected for notifications");
         newSocket.emit("join_user", userId);
       });
 
       newSocket.on("new_notification", () => {
-        console.log("New notification received");
         setUnreadCount((prev) => prev + 1); // Increment count when new notification arrives
       });
 

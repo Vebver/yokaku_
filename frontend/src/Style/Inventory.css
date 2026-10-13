@@ -186,3 +186,31 @@
     text-align: right;
   }
 }
+
+/* --- Link Dishes modal --- */
+.dish-link-modal {
+  max-width: 560px;
+}
+
+.dish-link-choice:hover {
+  background-color: #f1f3f5;
+}
+
+.dish-link-choice + .dish-link-choice {
+  border-top: 1px solid #e9ecef;
+}
+
+.dish-link-list {
+  background: #fff;
+}
+
+@media (max-width: 575.98px) {
+  .dish-link-modal {
+    max-width: 100%;
+  }
+
+  .dish-link-body {
+    max-height: 60vh !important;
+  }
+}
+

@@ -41,11 +41,9 @@ const DeletedNotifications = ({ onClose, onRestore }) => {
         return;
       }
 
-      console.log("Fetching deleted notifications...");
       const res = await axios.get(`${API_BASE}/notifications/deleted`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      console.log("Deleted notifications response:", res.data);
 
       // Safely get the array from response
       const notificationsArray = getNotificationsArray(res.data);
@@ -126,9 +124,6 @@ const DeletedNotifications = ({ onClose, onRestore }) => {
 
     try {
       const token = localStorage.getItem("token");
-      console.log(
-        `🔍 Attempting to permanently delete notification: ${notificationToDeletePermanently}`,
-      );
 
       await axios.delete(
         `${API_BASE}/notifications/${notificationToDeletePermanently}/permanent`,
@@ -136,8 +131,6 @@ const DeletedNotifications = ({ onClose, onRestore }) => {
           headers: { Authorization: `Bearer ${token}` },
         },
       );
-
-      console.log("✅ Delete successful");
 
       // Refresh the deleted notifications list
       await fetchDeletedNotifications();
@@ -157,7 +150,6 @@ const DeletedNotifications = ({ onClose, onRestore }) => {
 
   const openPermanentDeleteConfirm = (id, e) => {
     e.stopPropagation();
-    console.log("🔍 Opening delete confirmation for notification:", id);
     setNotificationToDeletePermanently(id);
     setShowConfirmPermanentDelete(true);
   };

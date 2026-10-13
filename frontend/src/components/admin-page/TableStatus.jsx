@@ -10,7 +10,6 @@ import {
   Square,
   Monitor,
   Link,
-  AlertTriangle,
 } from "lucide-react";
 import { useToast } from "../ToastContext";
 import { useConfirmation } from "../ConfirmationContext";
@@ -209,15 +208,27 @@ const TableStatus = ({ compact = false }) => {
 
   // Open the kiosk for the session sitting on this table. A kiosk belongs to
   // the reservation, not the table, so linked tables arm together.
+  // The kiosk TYPE is derived from the reservation's actual type instead of
+  // being hardcoded: an event reservation arms the event kiosk, anything else
+  // (per-table or walk-in) arms the single-customer kiosk. This is what used
+  // to fail with "This reservation is an event. Choose the matching kiosk
+  // type" — the button always sent "single" regardless of the booking.
   const openKioskForSession = async (reservationId) => {
     if (!canControlKiosk) {
       showToast("Only admins or cashiers can open a kiosk.");
       return;
     }
+    const linked = data.tables.find(
+      (t) => String(t.reservation_id) === String(reservationId),
+    );
+    const isEvent =
+      String(linked?.reservation_type || "").toLowerCase() === "event";
+    const kioskType = isEvent ? "event" : "single";
+
     if (
       !(await confirm({
         title: "Open kiosk session",
-        message: `Open the kiosk for reservation ${reservationId}? The guest's screen will go straight to the menu.`,
+        message: `Open the ${isEvent ? "event" : "standard"} kiosk for reservation ${reservationId}? The guest's screen will go straight to the menu.`,
         confirmLabel: "Open kiosk",
         variant: "primary",
       }))
@@ -228,7 +239,7 @@ const TableStatus = ({ compact = false }) => {
       setUi((p) => ({ ...p, updating: true }));
       await api.post("/admin/set-kiosk-reservation", {
         reservationId,
-        kioskType: "single",
+        kioskType,
       });
       showToast("Kiosk opened for this session.", "success");
       fetchData();
@@ -240,8 +251,11 @@ const TableStatus = ({ compact = false }) => {
   };
 
   // Manually flag the physical table as taken (a walk-in seated by hand)
-  // without needing a linked reservation.
+  // without needing a linked reservation. Loading state prevents duplicate
+  // clicks; the card then re-renders from the refreshed server data, so the
+  // occupied state is persisted in the database — never just a label swap.
   const makeOccupied = async (t) => {
+    if (ui.updating) return; // guard against duplicate submits
     if (
       !(await confirm({
         title: "Mark table occupied",
@@ -254,11 +268,15 @@ const TableStatus = ({ compact = false }) => {
     }
     try {
       setUi((p) => ({ ...p, updating: true }));
-      await api.put(`/admin/table-status/${t.table_id}`, {
+      const res = await api.put(`/admin/table-status/${t.table_id}`, {
         status: "occupied",
       });
-      showToast(`Table ${t.table_number} marked as occupied.`, "success");
-      fetchData();
+      showToast(
+        res.data?.message ||
+          `Table ${t.table_number} marked as occupied.`,
+        "success",
+      );
+      await fetchData();
     } catch (err) {
       showToast(err.response?.data?.error || "Failed to update the table.");
     } finally {
@@ -277,6 +295,20 @@ const TableStatus = ({ compact = false }) => {
     };
     const s = status?.toLowerCase() || "available";
     return { color: cfg[s] || cfg.available, label: s.toUpperCase() };
+  };
+
+  // Occupant label rules:
+  //  - a WALK-* reservation id is a walk-in session → "Walk-in"
+  //  - an event reservation shows the event/package name (not a generic
+  //    "Reserved") and falls back to the guest name
+  //  - everything else shows the guest's name
+  const getOccupantLabel = (t) => {
+    const resId = String(t.reservation_id || "").toUpperCase();
+    if (resId.startsWith("WALK")) return "Walk-in";
+    if (String(t.reservation_type || "").toLowerCase() === "event") {
+      return t.package_name || t.first_name || t.customer_name || "Event";
+    }
+    return t.first_name || t.customer_name || "Reserved";
   };
 
   // Stop the kiosk session. When a tableId is supplied only THAT table is
@@ -614,10 +646,14 @@ const TableStatus = ({ compact = false }) => {
               let activeStatus = t.bridge_status?.toLowerCase() || "available";
               // A table physically marked occupied but with no live binding still
               // counts as taken, otherwise it renders as an empty green card.
-              if (
-                activeStatus === "available" &&
-                (t.table_status || "").toLowerCase() === "occupied"
-              ) {
+              // IMPORTANT: the "future confirmed reservation" downgrade below
+              // only applies while the physical table is genuinely free. When
+              // staff marked the table occupied by hand (or a walk-in is on it)
+              // the occupied state must win — otherwise the Mark as Occupied
+              // update was immediately overwritten and the card read Vacant.
+              const physicallyOccupied =
+                (t.table_status || "").toLowerCase() === "occupied";
+              if (activeStatus === "available" && physicallyOccupied) {
                 activeStatus = "occupied";
               }
               const resDate = getTableReservationDateString(
@@ -625,7 +661,11 @@ const TableStatus = ({ compact = false }) => {
               );
 
               // Force status to "available" if reservation is for a future date
-              if (activeStatus === "confirmed" && resDate !== todayStr) {
+              if (
+                activeStatus === "confirmed" &&
+                resDate !== todayStr &&
+                !physicallyOccupied
+              ) {
                 activeStatus = "available";
               }
 
@@ -637,14 +677,16 @@ const TableStatus = ({ compact = false }) => {
               const isKioskActive =
                 String(t.is_kiosk_active) === "1" || t.is_kiosk_active === 1;
 
-              // Exact customer-provided allergy text for the current occupant.
-              // Empty / "None" is normalised to "" so the card shows nothing.
-              const occupantAllergy = (() => {
-                const raw = t.allergy ?? t.allergies ?? t.allergy_note ?? "";
-                const value = String(raw).trim();
-                if (!value || value.toLowerCase() === "none") return "";
-                return value;
-              })();
+              // Kiosk menu mode for this session. Read from the live query so
+              // the select reflects what is persisted, with any local pending
+              // choice winning until the refetch lands.
+              const currentKioskMode =
+                kioskModeChoice[t.reservation_id] || t.kiosk_mode || "default";
+
+              // Customer allergy text is intentionally NOT shown here: the
+              // table card is for identifying the table's state. Allergies live
+              // in the reservation details (Online Reservations drawer) and the
+              // incoming-reservations table above.
 
               return (
                 <div key={t.table_id} className="col">
@@ -723,32 +765,9 @@ const TableStatus = ({ compact = false }) => {
                             className="text-dark fw-bold text-truncate"
                             style={{ fontSize: "0.65rem" }}
                           >
-                            {isAvailable
-                              ? "Vacant"
-                              : t.first_name || t.customer_name}
+                            {isAvailable ? "Vacant" : getOccupantLabel(t)}
                           </span>
                         </div>
-
-                        {/* ALLERGY — shows the exact text the customer entered on the
-                        reservation, not a generic "has allergy" flag. Blank or
-                        "None" renders nothing so nothing misleading is implied. */}
-                        {!isAvailable && occupantAllergy && (
-                          <div
-                            className="rounded-2 border border-danger-subtle bg-danger-subtle text-danger px-1 py-1 mb-2 d-flex align-items-start gap-1"
-                            title={`Customer allergy: ${occupantAllergy}`}
-                          >
-                            <AlertTriangle
-                              size={10}
-                              className="flex-shrink-0 mt-1"
-                            />
-                            <span
-                              className="fw-bold"
-                              style={{ fontSize: "0.55rem", lineHeight: "1.3" }}
-                            >
-                              {occupantAllergy}
-                            </span>
-                          </div>
-                        )}
                       </div>
 
                       {/* Actions stack vertically so Activate/Stop Kiosk always
@@ -762,11 +781,7 @@ const TableStatus = ({ compact = false }) => {
                             <select
                               className="form-select form-select-sm py-0 mb-1 fw-bold table-card-action"
                               style={{ fontSize: "0.7rem" }}
-                              value={
-                                kioskModeChoice[t.reservation_id] ||
-                                t.kiosk_mode ||
-                                "default"
-                              }
+                              value={currentKioskMode}
                               onChange={(e) =>
                                 setKioskMode(t.reservation_id, e.target.value)
                               }
@@ -880,9 +895,10 @@ const TableStatus = ({ compact = false }) => {
                             <button
                               className="btn btn-sm btn-danger py-0 fw-bold table-card-action table-card-primary-action"
                               onClick={() => makeOccupied(t)}
+                              disabled={ui.updating}
                               title="Mark this table as occupied"
                             >
-                              Mark as Occupied
+                              {ui.updating ? "Saving..." : "Mark as Occupied"}
                             </button>
                           </div>
                         )}

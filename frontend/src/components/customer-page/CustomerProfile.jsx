@@ -59,10 +59,7 @@ const CustomerProfile = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      // 2. Check what the server sent back
-      console.log("Server returned fresh data:", response.data);
-
-      // 3. Update state with the server's response
+      // 2. Update state with the server's response
       // This MUST contain firstName, lastName, etc.
       setUserData(response.data);
 

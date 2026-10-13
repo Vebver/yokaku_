@@ -32,6 +32,7 @@ import axios from "axios";
 import alertMusicFile from "../../assets/alert-sound.mp3";
 import { useToast } from "../ToastContext";
 import { API_BASE, SERVER_URL as BASE_URL } from "../../api";
+import io from "socket.io-client";
 
 const HIDDEN_CATEGORIES = [
   "Chicken Wings",
@@ -853,6 +854,22 @@ const KioskReservationMenu = () => {
       setIsTimerRunning(true);
     }
   }, [kioskMenuMode, TIMER_KEY]);
+
+  // Instant mode switch: the admin's Full Menu / Unlimited Wings change used to
+  // only land after the next 3-second poll. Listening for the dedicated socket
+  // event makes the menu flip immediately.
+  useEffect(() => {
+    const socket = io(BASE_URL, { transports: ["websocket", "polling"] });
+    socket.on("kiosk_mode_changed", (payload) => {
+      if (
+        payload?.reservationId &&
+        String(payload.reservationId) === String(reservationId)
+      ) {
+        setKioskMenuMode(payload.kiosk_mode || "default");
+      }
+    });
+    return () => socket.disconnect();
+  }, [reservationId]);
 
   // ==================== LOADING RENDER ====================
   if (loading || kioskMode === "loading") {

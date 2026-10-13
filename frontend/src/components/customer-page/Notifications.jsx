@@ -35,12 +35,10 @@ const Notifications = () => {
       setSocket(newSocket);
 
       newSocket.on("connect", () => {
-        console.log("Socket connected");
         newSocket.emit("join_user", userId);
       });
 
       newSocket.on("new_notification", (notification) => {
-        console.log("New notification:", notification);
         setNotifications((prev) => [notification, ...prev]);
         setUnreadCount((prev) => prev + 1);
       });
@@ -148,11 +146,26 @@ const Notifications = () => {
   };
 
   const handleViewReservation = async (reservationId) => {
+    // The notification click handler must pass the actual reservation ID.
+    // If the identifier is missing or is a placeholder such as "Payment",
+    // do not hit the endpoint — show a meaningful message instead of a raw
+    // JSON error.
+    if (
+      !reservationId ||
+      String(reservationId).trim() === "" ||
+      /^(payment|proof|null|undefined)$/i.test(String(reservationId).trim())
+    ) {
+      showToast(
+        "This notification does not reference a valid reservation. It may belong to an older record.",
+      );
+      return;
+    }
+
     setModalLoading(true);
     try {
       const token = localStorage.getItem("token");
       const response = await axios.get(
-        `${API_BASE}/reservations/details/${reservationId}`, // <-- Point to the new details route
+        `${API_BASE}/reservations/details/${reservationId}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         },
@@ -160,8 +173,13 @@ const Notifications = () => {
       setSelectedReservation(response.data.reservation);
       setShowReservationModal(true);
     } catch (err) {
-      console.error("Error fetching reservation details:", err);
-      showToast("Failed to load reservation details. Please try again.");
+      // A deleted / inaccessible reservation is expected sometimes (e.g. the
+      // 12-hour auto-cancel job removed it). Show a clear message instead of
+      // surfacing the raw API error JSON to the customer.
+      console.error("Error fetching reservation details:", err.message);
+      showToast(
+        "This reservation is no longer available. It may have been cancelled or removed.",
+      );
     } finally {
       setModalLoading(false);
     }
@@ -195,8 +213,8 @@ const Notifications = () => {
 
       fetchNotifications();
       closeModal();
-    } catch (error) {
-      console.error("Error re-uploading proof:", error);
+    } catch (err) {
+      console.error("Error re-uploading proof:", err.message);
       showToast("Failed to submit receipt. Please try again.");
     } finally {
       setUploading(false);
@@ -245,18 +263,25 @@ const Notifications = () => {
   };
 
   const getReservationId = (notification) => {
+    // 1. Preferred: the structured reservation_id column. New rejection
+    //    notifications carry the real ID here.
     if (notification.reservation_id && notification.reservation_id !== "null") {
       return notification.reservation_id;
     }
 
-    let match = notification.message?.match(/Reservation ID: ([A-Z0-9-]+)/i);
-    if (match) return match[1];
+    // 2. Fallback: parse the ID out of the message. Only accept values that
+    //    look like reservation IDs (RES-XXXXXX / WALK-XXXXXX). The previous
+    //    broad match on the title grabbed the word "Payment" out of
+    //    "Payment Proof Rejected" and produced a bogus "Reservation ID:
+    //    Payment" badge plus a failed lookup.
+    let match = notification.message?.match(/Reservation ID:\s*([A-Z0-9-]+)/i);
+    if (match) return match[1].toUpperCase();
 
-    match = notification.title?.match(/([A-Z0-9-]+)/i);
-    if (match) return match[1];
+    match = notification.message?.match(/\b(RES|WALK)-[A-Z0-9]+\b/i);
+    if (match) return match[0].toUpperCase();
 
-    match = notification.message?.match(/([A-Z0-9]{8,})/i);
-    if (match) return match[1];
+    match = notification.title?.match(/\b(RES|WALK)-[A-Z0-9]+\b/i);
+    if (match) return match[0].toUpperCase();
 
     return null;
   };

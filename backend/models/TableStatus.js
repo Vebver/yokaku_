@@ -90,6 +90,19 @@ const TableStatus = {
                       rt.check_in_time DESC,
                       r.reservation_date ASC, r.reservation_time ASC LIMIT 1) AS allergy,
 
+          /* Which kiosk menu mode this session runs ('default' | 'unlimited_wings').
+               Without this the admin's Full Menu / Unlimited Wings selector always
+               rendered the default option, even after the mode was saved. */
+            (SELECT r.kiosk_mode FROM reservations r
+             JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
+             WHERE rt.table_id = t.table_id
+             AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
+               ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed'),
+                        COALESCE(r.is_kiosk_active, 0) DESC,
+                         (r.reservation_type = 'event') DESC,
+                         rt.check_in_time DESC,
+                         r.reservation_date ASC, r.reservation_time ASC LIMIT 1) AS kiosk_mode,
+
             (SELECT r.package_name FROM reservations r
              JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
              WHERE rt.table_id = t.table_id

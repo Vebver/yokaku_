@@ -90,17 +90,12 @@ const notificationController = {
       const { id } = req.params;
       const userId = req.user.userId;
 
-      console.log(
-        `🔍 Permanently deleting notification ${id} for user ${userId}`,
-      );
-
       const result = await Notification.delete(id, userId);
 
       if (result === 0) {
         return res.status(404).json({ error: "Notification not found" });
       }
 
-      console.log(`✅ Notification ${id} permanently deleted`);
       res.json({ message: "Notification permanently deleted" });
     } catch (error) {
       console.error("Error permanently deleting notification:", error);

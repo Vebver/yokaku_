@@ -67,24 +67,116 @@ function Inventory() {
 
   // Dish links defined while adding a new raw material, so the recipe is
   // captured once at the moment the item is stocked instead of being chased
-  // later in Recipe Manager.
+  // later in Recipe Manager. In edit mode the same links are loaded from the
+  // database and saved straight through the dish-link API.
   const [recipeLinks, setRecipeLinks] = useState([]);
-  const [linkItemId, setLinkItemId] = useState("");
-  const [linkQty, setLinkQty] = useState("");
   const [menuItems, setMenuItems] = useState([]);
+
+  // ==================== LINK DISHES MODAL ====================
+  const [showDishModal, setShowDishModal] = useState(false);
+  const [dishModalLoading, setDishModalLoading] = useState(false);
+  const [dishModalSaving, setDishModalSaving] = useState(false);
+  const [dishModalLinks, setDishModalLinks] = useState([]);
+  const [dishLinkId, setDishLinkId] = useState("");
+  const [dishLinkQty, setDishLinkQty] = useState("");
+  const [dishSearch, setDishSearch] = useState("");
+
+  // ==================== DYNAMIC UNITS & STORAGE LOCATIONS ====================
+  const [unitOptions, setUnitOptions] = useState([]);
+  const [storageOptions, setStorageOptions] = useState([]);
+  const [showNewUnit, setShowNewUnit] = useState(false);
+  const [showNewStorage, setShowNewStorage] = useState(false);
+  const [newUnitName, setNewUnitName] = useState("");
+  const [newUnitGroup, setNewUnitGroup] = useState("Count");
+  const [newStorageName, setNewStorageName] = useState("");
+  const [savingOption, setSavingOption] = useState(false);
 
   const closeBtnRef = useRef(null);
 
   useEffect(() => {
     fetchInventory();
     fetchMenuItems();
+    fetchUnitOptions();
+    fetchStorageOptions();
   }, []);
 
   // Reload on the shared admin refresh button in the top bar.
   useSectionRefresh(() => {
     fetchInventory();
     fetchMenuItems();
+    fetchUnitOptions();
+    fetchStorageOptions();
   });
+
+  const fetchUnitOptions = async () => {
+    try {
+      const res = await api.get(`/inventory/units`);
+      setUnitOptions(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.error("Error fetching unit options:", err);
+    }
+  };
+
+  const fetchStorageOptions = async () => {
+    try {
+      const res = await api.get(`/inventory/storage-locations`);
+      setStorageOptions(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.error("Error fetching storage options:", err);
+    }
+  };
+
+  // Inline "add a unit" form inside the drawer. On success the new option is
+  // stored in the database (so it survives reloads) and auto-selected.
+  const addUnitOption = async () => {
+    const name = newUnitName.trim();
+    if (!name) {
+      showToast("Enter a unit name first.");
+      return;
+    }
+    if (unitOptions.some((u) => String(u.value).toLowerCase() === name.toLowerCase())) {
+      showToast(`Unit "${name}" already exists.`);
+      return;
+    }
+    setSavingOption(true);
+    try {
+      await api.post(`/inventory/units`, { name, group: newUnitGroup });
+      await fetchUnitOptions();
+      setNewItem((prev) => ({ ...prev, unit: name }));
+      setNewUnitName("");
+      setShowNewUnit(false);
+      showToast(`Unit "${name}" added.`, "success");
+    } catch (err) {
+      showToast(err.response?.data?.error || "Failed to add unit.");
+    } finally {
+      setSavingOption(false);
+    }
+  };
+
+  const addStorageOption = async () => {
+    const name = newStorageName.trim();
+    if (!name) {
+      showToast("Enter a storage location name first.");
+      return;
+    }
+    if (storageOptions.some((s) => String(s.value).toLowerCase() === name.toLowerCase())) {
+      showToast(`Storage location "${name}" already exists.`);
+      return;
+    }
+    setSavingOption(true);
+    try {
+      await api.post(`/inventory/storage-locations`, { name });
+      await fetchStorageOptions();
+      setNewItem((prev) => ({ ...prev, storage_location: name }));
+      setNewStorageName("");
+      setShowNewStorage(false);
+      showToast(`Storage location "${name}" added.`, "success");
+    } catch (err) {
+      showToast(err.response?.data?.error || "Failed to add storage location.");
+    } finally {
+      setSavingOption(false);
+    }
+  };
 
   const fetchMenuItems = async () => {
     try {
@@ -129,17 +221,15 @@ function Inventory() {
     setIsEditMode(false);
     setEditItemId(null);
     setRecipeLinks([]);
-    setLinkItemId("");
-    setLinkQty("");
     setNewItem({
       item_name: "",
       category: "Produce",
       quantity: "",
-      unit: "kg",
+      unit: unitOptions[0]?.value || "kg",
       unit_price: "",
       reorder_level: "",
       expiry_date: "",
-      storage_location: "Dry Pantry",
+      storage_location: storageOptions[0]?.value || "Dry Pantry",
     });
   };
 
@@ -160,32 +250,121 @@ function Inventory() {
       unit_price: item.price,
       reorder_level: item.reorder,
       expiry_date: formattedExpiry,
-      storage_location: item.location || "Dry Pantry",
+      storage_location: item.location || storageOptions[0]?.value || "Dry Pantry",
     });
   };
 
-  const addRecipeLink = () => {
-    const qty = parseFloat(linkQty);
-    if (!linkItemId || isNaN(qty) || qty <= 0) {
+  // ==================== LINK DISHES MODAL ====================
+  // Staged dish links: for a new item these are sent with the create call;
+  // for an existing item they are saved one by one through the dish-link API.
+  const openDishModal = async () => {
+    setShowDishModal(true);
+    setDishSearch("");
+    setDishLinkId("");
+    setDishLinkQty("");
+    if (isEditMode && editItemId) {
+      setDishModalLoading(true);
+      try {
+        const res = await api.get(`/inventory/${editItemId}/dish-links`);
+        setDishModalLinks(Array.isArray(res.data) ? res.data : []);
+      } catch (err) {
+        showToast("Could not load the current dish links.");
+        setDishModalLinks([]);
+      } finally {
+        setDishModalLoading(false);
+      }
+    } else {
+      setDishModalLinks([...recipeLinks]);
+    }
+  };
+
+  const addDishModalLink = async () => {
+    const qty = parseFloat(dishLinkQty);
+    if (!dishLinkId || isNaN(qty) || qty <= 0) {
       showToast("Pick a dish and enter how much is used per serving.");
       return;
     }
-    const chosen = menuItems.find((m) => String(m.item_id) === String(linkItemId));
-    if (recipeLinks.some((l) => String(l.item_id) === String(linkItemId))) {
-      showToast("That dish is already linked. Adjust the quantity below.");
+    if (dishModalLinks.some((l) => String(l.item_id) === String(dishLinkId))) {
+      showToast("That dish is already linked. Remove it first to change the quantity.");
       return;
     }
-    setRecipeLinks((prev) => [
-      ...prev,
-      { item_id: parseInt(linkItemId, 10), quantity_required: qty, name: chosen?.menu_name || "" },
-    ]);
-    setLinkItemId("");
-    setLinkQty("");
+    const chosen = menuItems.find((m) => String(m.item_id) === String(dishLinkId));
+    const link = {
+      item_id: parseInt(dishLinkId, 10),
+      quantity_required: qty,
+      name: chosen?.menu_name || "",
+    };
+
+    // For an existing item the link is saved to the database straight away,
+    // so "Done" is purely a close action and nothing is lost if the admin
+    // dismisses the modal without saving the item itself.
+    if (isEditMode && editItemId) {
+      try {
+        await api.post(`/inventory/${editItemId}/dish-links`, {
+          item_id: link.item_id,
+          quantity_required: link.quantity_required,
+        });
+      } catch (err) {
+        showToast(err.response?.data?.error || "Failed to link dish.");
+        return;
+      }
+    }
+
+    setDishModalLinks((prev) => [...prev, link]);
+    setDishLinkId("");
+    setDishLinkQty("");
   };
 
-  const removeRecipeLink = (itemId) => {
-    setRecipeLinks((prev) => prev.filter((l) => l.item_id !== itemId));
+  const removeDishModalLink = async (itemId) => {
+    if (isEditMode && editItemId) {
+      try {
+        await api.delete(`/inventory/${editItemId}/dish-links/${itemId}`);
+        showToast("Dish unlinked.", "success");
+      } catch (err) {
+        showToast("Failed to unlink dish.");
+        return;
+      }
+    }
+    setDishModalLinks((prev) => prev.filter((l) => l.item_id !== itemId));
   };
+
+  const saveDishModal = async () => {
+    if (isEditMode && editItemId) {
+      // Links already persisted through the API as they were added/removed.
+      setRecipeLinks([]);
+    } else {
+      setRecipeLinks(dishModalLinks);
+    }
+    setShowDishModal(false);
+    fetchInventory();
+    showToast(
+      dishModalLinks.length > 0
+        ? `Dish links saved (${dishModalLinks.length}).`
+        : "No dishes linked.",
+      "success",
+    );
+  };
+
+  // Number of dishes already linked to the item being edited (from the loaded
+  // inventory row), used by the compact "USED IN DISHES" block in the drawer.
+  const itemDishCount = useMemo(() => {
+    if (!isEditMode || !editItemId) return 0;
+    const row = inventory.find((i) => String(i.id) === String(editItemId));
+    return row?.dishes?.length || 0;
+  }, [isEditMode, editItemId, inventory]);
+
+  const filteredDishChoices = useMemo(() => {
+    const term = dishSearch.trim().toLowerCase();
+    return menuItems
+      .filter((m) => !dishModalLinks.some((l) => String(l.item_id) === String(m.item_id)))
+      .filter((m) => !term || String(m.menu_name || "").toLowerCase().includes(term))
+      .slice()
+      .sort((a, b) =>
+        String(a.menu_name || "").localeCompare(String(b.menu_name || ""), undefined, {
+          sensitivity: "base",
+        }),
+      );
+  }, [menuItems, dishModalLinks, dishSearch]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -728,10 +907,49 @@ function Inventory() {
                   className="form-select"
                   onChange={handleInputChange}
                 >
-                  <option value="Dry Pantry">Dry Pantry</option>
-                  <option value="Fridge">Fridge</option>
-                  <option value="Freezer">Freezer</option>
+                  {storageOptions.map((s) => (
+                    <option key={s.value} value={s.value}>
+                      {s.label}
+                    </option>
+                  ))}
+                  {/* Keep any previously-saved value visible even if it is no
+                      longer in the options list. */}
+                  {newItem.storage_location &&
+                    !storageOptions.some((s) => s.value === newItem.storage_location) && (
+                      <option value={newItem.storage_location}>
+                        {newItem.storage_location}
+                      </option>
+                    )}
                 </select>
+                <button
+                  type="button"
+                  className="btn btn-link btn-sm p-0 mt-1 text-decoration-none small fw-semibold"
+                  onClick={() => setShowNewStorage((v) => !v)}
+                >
+                  <Plus size={13} className="me-1" />
+                  {showNewStorage ? "Cancel" : "Add storage location"}
+                </button>
+                {showNewStorage && (
+                  <div className="d-flex gap-1 mt-1">
+                    <input
+                      type="text"
+                      className="form-control form-control-sm"
+                      placeholder="e.g. Walk-in Chiller"
+                      value={newStorageName}
+                      onChange={(e) => setNewStorageName(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addStorageOption())}
+                      maxLength={100}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-primary fw-bold"
+                      onClick={addStorageOption}
+                      disabled={savingOption}
+                    >
+                      {savingOption ? "..." : "Add"}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
             <div className="row g-2">
@@ -782,42 +1000,66 @@ function Inventory() {
                   className="form-select"
                   onChange={handleInputChange}
                 >
-                  {/*
-                    Value is the short code stored in the database; the label is
-                    plain English so staff who are not developers know what to
-                    pick. "kilogram (kg)" is understandable, "kg" alone is not.
-                  */}
-                  <optgroup label="Weight">
-                    <option value="kg">Kilogram (kg)</option>
-                    <option value="g">Gram (g)</option>
-                    <option value="lb">Pound (lb)</option>
-                    <option value="oz">Ounce (oz)</option>
-                  </optgroup>
-                  <optgroup label="Volume">
-                    <option value="L">Liter (L)</option>
-                    <option value="mL">Milliliter (mL)</option>
-                    <option value="cup">Cup</option>
-                    <option value="tbsp">Tablespoon (tbsp)</option>
-                    <option value="tsp">Teaspoon (tsp)</option>
-                    <option value="gal">Gallon (gal)</option>
-                  </optgroup>
-                  <optgroup label="Count">
-                    <option value="pcs">Pieces (pcs)</option>
-                    <option value="sachet">Sachet / Pack</option>
-                    <option value="can">Can</option>
-                    <option value="bottle">Bottle</option>
-                    <option value="box">Box</option>
-                    <option value="tray">Tray</option>
-                    <option value="dozen">Dozen</option>
-                    <option value="bunch">Bunch</option>
-                    <option value="head">Head</option>
-                    <option value="slice">Slice</option>
-                    <option value="stick">Stick</option>
-                    <option value="roll">Roll</option>
-                    <option value="bag">Bag</option>
-                    <option value="set">Set</option>
-                  </optgroup>
+                  {Array.from(new Set(unitOptions.map((u) => u.grp || "Other"))).map(
+                    (group) => (
+                      <optgroup key={group} label={group}>
+                        {unitOptions
+                          .filter((u) => (u.grp || "Other") === group)
+                          .map((u) => (
+                            <option key={u.value} value={u.value}>
+                              {u.label}
+                            </option>
+                          ))}
+                      </optgroup>
+                    ),
+                  )}
+                  {/* Keep a previously-saved unit visible even if it is no
+                      longer in the options list. */}
+                  {newItem.unit &&
+                    !unitOptions.some((u) => u.value === newItem.unit) && (
+                      <option value={newItem.unit}>{newItem.unit}</option>
+                    )}
                 </select>
+                <button
+                  type="button"
+                  className="btn btn-link btn-sm p-0 mt-1 text-decoration-none small fw-semibold"
+                  onClick={() => setShowNewUnit((v) => !v)}
+                >
+                  <Plus size={13} className="me-1" />
+                  {showNewUnit ? "Cancel" : "Add unit"}
+                </button>
+                {showNewUnit && (
+                  <div className="d-grid gap-1 mt-1">
+                    <input
+                      type="text"
+                      className="form-control form-control-sm"
+                      placeholder="e.g. Sack"
+                      value={newUnitName}
+                      onChange={(e) => setNewUnitName(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addUnitOption())}
+                      maxLength={50}
+                    />
+                    <select
+                      className="form-select form-select-sm"
+                      value={newUnitGroup}
+                      onChange={(e) => setNewUnitGroup(e.target.value)}
+                      aria-label="Unit group"
+                    >
+                      <option value="Weight">Weight</option>
+                      <option value="Volume">Volume</option>
+                      <option value="Count">Count</option>
+                      <option value="Other">Other</option>
+                    </select>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-primary fw-bold"
+                      onClick={addUnitOption}
+                      disabled={savingOption}
+                    >
+                      {savingOption ? "..." : "Add"}
+                    </button>
+                  </div>
+                )}
               </div>
               <div className="col-4">
                 <label className="x-small fw-bold text-muted">COST (â‚±)</label>
@@ -859,98 +1101,27 @@ function Inventory() {
                 />
               </div>
             </div>
-            {/* DISH RECIPE LINKS â€” capture the recipe as the item is stocked */}
-            {!isEditMode && (
-              <div className="border rounded-3 p-3 mt-3 bg-light">
-                <label className="x-small fw-bold text-muted d-block mb-1">
-                  USED IN THESE DISHES (OPTIONAL)
-                </label>
-                <p className="text-muted" style={{ fontSize: "0.72rem" }}>
-                  Link this raw material to dishes now so you never have to
-                  set the recipe up later.
-                </p>
-
-                {recipeLinks.length > 0 && (
-                  <div className="mb-2">
-                    {recipeLinks.map((l) => (
-                      <div
-                        key={l.item_id}
-                        className="d-flex justify-content-between align-items-center bg-white border rounded-2 px-2 py-1 mb-1"
-                      >
-                        <span className="small fw-semibold text-dark">
-                          {l.name}
-                        </span>
-                        <span className="d-flex align-items-center gap-2">
-                          <span className="small text-muted">
-                            {l.quantity_required} {newItem.unit || "unit"} /
-                            serving
-                          </span>
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-link text-danger p-0 border-0 d-inline-flex align-items-center gap-1"
-                            onClick={() => removeRecipeLink(l.item_id)}
-                            title="Remove this link"
-                          >
-                            <Trash2 size={13} /> Remove
-                          </button>
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <div className="row g-2">
-                  <div className="col-12 col-sm-7">
-                    <select
-                      className="form-select form-select-sm"
-                      value={linkItemId}
-                      onChange={(e) => setLinkItemId(e.target.value)}
-                    >
-                      <option value="">-Select Dish-</option>
-                      {menuItems
-                        .filter(
-                          (m) =>
-                            !recipeLinks.some((l) => l.item_id === m.item_id),
-                        )
-                        .slice()
-                        .sort((a, b) =>
-                          String(a.menu_name || "").localeCompare(
-                            String(b.menu_name || ""),
-                            undefined,
-                            { sensitivity: "base" },
-                          ),
-                        )
-                        .map((m) => (
-                          <option key={m.item_id} value={m.item_id}>
-                            {m.menu_name}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-                  <div className="col-8 col-sm-3">
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      className="form-control form-control-sm"
-                      placeholder="Qty / serving"
-                      value={linkQty}
-                      onChange={(e) => setLinkQty(e.target.value)}
-                    />
-                  </div>
-                  <div className="col-4 col-sm-2 d-grid">
-                    <button
-                      type="button"
-                      className="btn btn-outline-primary btn-sm fw-bold"
-                      onClick={addRecipeLink}
-                      title="Add this dish link"
-                    >
-                      <Plus size={14} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* DISH LINKS — moved to a dedicated modal so the drawer stays
+                compact. Links are staged (new item) or saved via the API
+                (existing item) inside the modal. */}
+            <div className="border rounded-3 p-3 mt-3 bg-light">
+              <label className="x-small fw-bold text-muted d-block mb-1">
+                USED IN DISHES
+              </label>
+              <p className="text-muted mb-2" style={{ fontSize: "0.72rem" }}>
+                {recipeLinks.length > 0 || (isEditMode && itemDishCount > 0)
+                  ? `${recipeLinks.length || itemDishCount} dish(es) linked.`
+                  : "Not linked to any dish yet."}
+              </p>
+              <button
+                type="button"
+                className="btn btn-outline-primary btn-sm w-100 fw-bold"
+                onClick={openDishModal}
+              >
+                <Plus size={14} className="me-1" />
+                Link Dishes
+              </button>
+            </div>
 
             <div className="mt-2">
               <button
@@ -970,6 +1141,168 @@ function Inventory() {
           </form>
         </div>
       </div>
+      {/* ==================== LINK DISHES MODAL ====================
+          Dedicated modal for dish linking so the inventory drawer stays
+          compact. Scrollable list, search, mobile-friendly sizing. */}
+      {showDishModal && (
+        <div
+          className="admin-confirm-backdrop"
+          style={{ zIndex: 4000 }}
+          onClick={() => setShowDishModal(false)}
+        >
+          <div
+            className="admin-confirm-dialog dish-link-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="admin-confirm-content">
+              <div className="admin-confirm-header">
+                <div className="d-flex align-items-center gap-2 min-w-0">
+                  <Box size={20} className="text-primary flex-shrink-0" />
+                  <h5 className="modal-title admin-confirm-title">
+                    {isEditMode ? "Linked Dishes" : "Link Dishes (new item)"}
+                  </h5>
+                </div>
+                <button
+                  type="button"
+                  className="btn-close flex-shrink-0 ms-auto"
+                  onClick={() => setShowDishModal(false)}
+                  aria-label="Close dish linking"
+                ></button>
+              </div>
+              <div
+                className="admin-confirm-body dish-link-body text-start"
+                style={{ maxHeight: "55vh", overflowY: "auto" }}
+              >
+                {dishModalLoading ? (
+                  <div className="text-center py-4">
+                    <div className="spinner-border text-primary spinner-border-sm mb-2"></div>
+                    <p className="text-muted small mb-0">Loading dish links...</p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Currently linked dishes */}
+                    <label className="x-small fw-bold text-muted d-block mb-1">
+                      LINKED DISHES
+                    </label>
+                    {dishModalLinks.length === 0 ? (
+                      <p className="text-muted small mb-3">
+                        No dishes linked yet. Add one below.
+                      </p>
+                    ) : (
+                      <div className="mb-3">
+                        {dishModalLinks.map((l) => (
+                          <div
+                            key={l.item_id}
+                            className="d-flex justify-content-between align-items-center bg-light border rounded-2 px-2 py-1 mb-1"
+                          >
+                            <span className="small fw-semibold text-dark text-truncate">
+                              {l.name}
+                              <small className="text-muted ms-2 fw-normal">
+                                {l.quantity_required} {newItem.unit || "unit"} / serving
+                              </small>
+                            </span>
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-link text-danger p-0 border-0 flex-shrink-0 ms-2"
+                              onClick={() => removeDishModalLink(l.item_id)}
+                              title={`Unlink ${l.name}`}
+                            >
+                              <Trash2 size={13} /> Unlink
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Add a new link */}
+                    <label className="x-small fw-bold text-muted d-block mb-1">
+                      ADD A DISH
+                    </label>
+                    <input
+                      type="text"
+                      className="form-control form-control-sm mb-2"
+                      placeholder="Search dishes..."
+                      value={dishSearch}
+                      onChange={(e) => setDishSearch(e.target.value)}
+                    />
+                    {filteredDishChoices.length === 0 ? (
+                      <p className="text-muted small mb-2">
+                        {dishSearch
+                          ? "No dishes match your search."
+                          : "All dishes are already linked."}
+                      </p>
+                    ) : (
+                      <div
+                        className="border rounded-2 mb-2 dish-link-list"
+                        style={{ maxHeight: "180px", overflowY: "auto" }}
+                      >
+                        {filteredDishChoices.map((m) => (
+                          <button
+                            key={m.item_id}
+                            type="button"
+                            className="d-flex w-100 align-items-center justify-content-between border-0 bg-white text-start px-2 py-2 dish-link-choice"
+                            onClick={() => setDishLinkId(String(m.item_id))}
+                          >
+                            <span className="small text-dark text-truncate">
+                              {m.menu_name}
+                            </span>
+                            {String(dishLinkId) === String(m.item_id) && (
+                              <span className="badge bg-primary flex-shrink-0 ms-2">
+                                Selected
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <div className="row g-2 align-items-end">
+                      <div className="col-7">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          className="form-control form-control-sm"
+                          placeholder="Qty / serving"
+                          value={dishLinkQty}
+                          onChange={(e) => setDishLinkQty(e.target.value)}
+                          disabled={!dishLinkId}
+                        />
+                      </div>
+                      <div className="col-5 d-grid">
+                        <button
+                          type="button"
+                          className="btn btn-outline-primary btn-sm fw-bold"
+                          onClick={addDishModalLink}
+                          disabled={!dishLinkId}
+                        >
+                          <Plus size={14} className="me-1" /> Add Link
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+              <div className="admin-confirm-footer">
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary admin-confirm-btn"
+                  onClick={() => setShowDishModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary admin-confirm-btn"
+                  onClick={saveDishModal}
+                  disabled={dishModalSaving}
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

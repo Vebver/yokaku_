@@ -1109,9 +1109,19 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     return `${selectedItems[0].name} + ${selectedItems.length - 1} more`;
   }, [selectedItems, reservationType]);
 
+  // The dropdown's free-text option is "Specify all Allergy" — when it is
+  // chosen, the value the customer typed into the text input IS the allergy.
+  // Previously only the literal option value was submitted, so a specific
+  // entry like "peanut" never reached the database and the admin saw the
+  // generic label instead of the actual allergy.
   const getFinalAllergy = useMemo(() => {
-    if (form.allergy === "Other" && form.customAllergy)
-      return `Other: ${form.customAllergy}`;
+    const usesCustomText =
+      form.allergy === "Other" || form.allergy === "Specify all Allergy";
+    if (usesCustomText) {
+      const typed = String(form.customAllergy || "").trim();
+      if (typed) return typed;
+      return "None"; // Nothing typed — treat as no allergy rather than a label.
+    }
     return form.allergy || "None";
   }, [form.allergy, form.customAllergy]);
 
@@ -1532,10 +1542,22 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       const payload = new FormData();
       const userId = localStorage.getItem("userId");
 
-      const finalAllergy =
-        form.allergy === "Other" && form.customAllergy
-          ? `Other: ${form.customAllergy}`
-          : form.allergy || "None";
+      // Same mapping as getFinalAllergy above: when the customer chose the
+      // free-text option, the typed value is the allergy that must be saved.
+      const usesCustomAllergyText =
+        form.allergy === "Other" || form.allergy === "Specify all Allergy";
+      const typedAllergy = String(form.customAllergy || "").trim();
+      if (usesCustomAllergyText && !typedAllergy) {
+        showToast(
+          "Please type the specific allergy (e.g. Peanut) or select None.",
+        );
+        setIsProcessing(false);
+        setUi((p) => ({ ...p, loading: false }));
+        return;
+      }
+      const finalAllergy = usesCustomAllergyText
+        ? typedAllergy || "None"
+        : form.allergy || "None";
       const finalOccasion =
         form.occasion === "Other" && form.customOccasion
           ? `Other: ${form.customOccasion}`

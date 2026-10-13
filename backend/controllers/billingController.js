@@ -290,19 +290,22 @@ exports.rejectPaymentByReservation = async (req, res) => {
         const userId = reservationRows[0].user_id;
         
         // 1. Strictly for Customer (isAdminAlert: false)
+        // reservationId MUST be the real reservation ID. It was previously null,
+        // which forced the frontend to guess the ID from the message text and
+        // made the notification open the wrong (or no) reservation.
         await Notification.create(db, {
           userId: userId,
-          reservationId: null, 
+          reservationId: resId,
           title: "Payment Proof Rejected",
           message: `Your proof of payment was rejected for reservation ${resId}. Reason: ${finalReason}. Please upload a valid proof within 12 hours.`,
           type: "warning",
-          isAdminAlert: false, 
+          isAdminAlert: false,
         });
 
         // 2. Strictly for Admin (isAdminAlert: true)
         await Notification.create(db, {
           userId: null,
-          reservationId: null, 
+          reservationId: resId, 
           title: "Payment Proof Rejected",
           message: `Payment for reservation ${resId} was rejected. Reason: ${finalReason}`,
           type: "warning",

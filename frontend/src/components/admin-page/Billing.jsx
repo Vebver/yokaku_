@@ -124,7 +124,7 @@ const Billing = () => {
   };
 
   const calculateItemsSum = () => {
-    return orderItems.reduce(
+    return orderLineItems.reduce(
       (sum, item) => sum + item.quantity * getItemPrice(item),
       0,
     );
@@ -163,6 +163,19 @@ const Billing = () => {
   };
 
   const orderLineItems = orderItems.filter((item) => !isPaymentRow(item));
+
+  // Kiosk-order spend only. The injected "Reservation Fee" (downpayment) row is
+  // a payment record, not an order line, so it must never inflate the spend
+  // progress toward the event package limit.
+  const calculateKioskSpend = () => {
+    return orderLineItems.reduce(
+      (sum, item) => sum + item.quantity * getItemPrice(item),
+      0,
+    );
+  };
+
+  // calculateItemsSum() and calculateKioskSpend() read orderLineItems, so both
+  // are declared after the filter above.
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -757,7 +770,8 @@ const Billing = () => {
 
               {/* ==================== INTEGRATED DYNAMIC EVENT SPEND TRACKER ==================== */}
               {(() => {
-                const totalBill = calculateItemsSum();
+                // Kiosk orders only — the reservation downpayment is excluded.
+                const totalBill = calculateKioskSpend();
 
                 const rawPackageName =
                   selectedPayment?.package_name ||

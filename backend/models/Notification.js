@@ -157,7 +157,6 @@ const Notification = {
       ORDER BY created_at DESC
     `;
     const [rows] = await db.execute(sql, [userId]);
-    console.log(`Found ${rows.length} notifications for user ${userId}`);
     return rows;
   },
 
