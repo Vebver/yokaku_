@@ -135,8 +135,8 @@ const TableStatus = {
     const [rows] = await db.query(query);
     return rows;
   },
-getIncomingReservations: async () => {
-  const [rows] = await db.query(`
+  getIncomingReservations: async () => {
+    const [rows] = await db.query(`
     SELECT
       r.reservation_id,
       CONCAT_WS(' ', r.first_name, r.last_name) AS customer_name,
@@ -157,16 +157,16 @@ getIncomingReservations: async () => {
     ORDER BY r.reservation_date ASC, r.reservation_time ASC
     LIMIT 100
   `);
-  return rows;
-},
+    return rows;
+  },
 
-getTodaySchedule: async () => {
-  const today = new Date().toLocaleDateString("en-CA", {
-    timeZone: "Asia/Manila",
-  });
+  getTodaySchedule: async () => {
+    const today = new Date().toLocaleDateString("en-CA", {
+      timeZone: "Asia/Manila",
+    });
     const nowTime = new Date().toLocaleTimeString("en-US", {
       hour12: false,
-      timeZone: "Asia/Manila"
+      timeZone: "Asia/Manila",
     });
 
     const conn = await db.getConnection();
@@ -180,10 +180,10 @@ getTodaySchedule: async () => {
         WHERE (r.reservation_date < ?) OR (r.reservation_date = ? AND r.end_time < ?)
         AND r.status IN ('Seated', 'Confirmed', 'Pending')
         `,
-        [today, today, nowTime]
+        [today, today, nowTime],
       );
 
-const query = `
+      const query = `
         SELECT
           r.reservation_id,
           r.first_name,
@@ -374,7 +374,7 @@ const query = `
         [tableId],
       );
 
-return { success: true };
+      return { success: true };
     } catch (err) {
       throw err;
     }
@@ -441,7 +441,12 @@ return { success: true };
       );
 
       if (bound.length === 0) {
-        return { success: false, reason: "not_bound", reservationId, tableId: scopedTable };
+        return {
+          success: false,
+          reason: "not_bound",
+          reservationId,
+          tableId: scopedTable,
+        };
       }
 
       await db.query(
@@ -487,6 +492,17 @@ return { success: true };
     }
   },
 
+  // ─── NEW ───
+  // Persist which menu mode a kiosk session uses ('default' | 'unlimited_wings').
+  // Returns the affected row count so the controller can 404 a missing reservation.
+  setKioskMode: async (reservationId, kioskMode) => {
+    const [result] = await db.execute(
+      `UPDATE reservations SET kiosk_mode = ? WHERE reservation_id = ?`,
+      [kioskMode, reservationId],
+    );
+    return result.affectedRows || 0;
+  },
+
   // Every live booking (walk-in, reservation, or event) regardless of the date
   // it was made for. Staff use this to look up the ID they need to arm a
   // kiosk, so it must not be limited to today's schedule.
@@ -518,7 +534,9 @@ return { success: true };
 
       return rows.map((r) => ({
         ...r,
-        is_walkin: String(r.reservation_id || "").toUpperCase().startsWith("WALK-"),
+        is_walkin: String(r.reservation_id || "")
+          .toUpperCase()
+          .startsWith("WALK-"),
         is_event: String(r.reservation_type || "").toLowerCase() === "event",
       }));
     } catch (err) {
@@ -555,7 +573,9 @@ return { success: true };
 
       return rows.map((r) => ({
         ...r,
-        is_walkin: String(r.reservation_id || "").toUpperCase().startsWith("WALK-"),
+        is_walkin: String(r.reservation_id || "")
+          .toUpperCase()
+          .startsWith("WALK-"),
         is_event: String(r.reservation_type || "").toLowerCase() === "event",
         has_orders: !!r.last_order_at,
       }));
@@ -589,7 +609,9 @@ return { success: true };
 
       return rows.map((r) => ({
         ...r,
-        is_walkin: String(r.reservation_id || "").toUpperCase().startsWith("WALK-"),
+        is_walkin: String(r.reservation_id || "")
+          .toUpperCase()
+          .startsWith("WALK-"),
         is_event: String(r.reservation_type || "").toLowerCase() === "event",
       }));
     } catch (err) {
@@ -602,12 +624,20 @@ return { success: true };
     try {
       const normalizedTableNumber = String(tableNumber || "").trim();
       if (!normalizedTableNumber) {
-        throw Object.assign(new Error("Table number is required."), { statusCode: 400 });
+        throw Object.assign(new Error("Table number is required."), {
+          statusCode: 400,
+        });
       }
 
       const parsedCapacity = Number(capacity);
-      if (!Number.isInteger(parsedCapacity) || parsedCapacity < 1 || parsedCapacity > 7) {
-        throw Object.assign(new Error("Capacity must be between 1 and 7."), { statusCode: 400 });
+      if (
+        !Number.isInteger(parsedCapacity) ||
+        parsedCapacity < 1 ||
+        parsedCapacity > 7
+      ) {
+        throw Object.assign(new Error("Capacity must be between 1 and 7."), {
+          statusCode: 400,
+        });
       }
 
       const [existingTables] = await db.execute(
@@ -615,7 +645,10 @@ return { success: true };
         [normalizedTableNumber],
       );
       if (existingTables.length > 0) {
-        throw Object.assign(new Error("A table with this number already exists."), { statusCode: 409 });
+        throw Object.assign(
+          new Error("A table with this number already exists."),
+          { statusCode: 409 },
+        );
       }
 
       const query = `
@@ -685,12 +718,20 @@ return { success: true };
         [tableId],
       );
       if (activeReservations.length > 0) {
-        throw Object.assign(new Error("Cannot delete a table assigned to an active reservation or event."), { statusCode: 409 });
+        throw Object.assign(
+          new Error(
+            "Cannot delete a table assigned to an active reservation or event.",
+          ),
+          { statusCode: 409 },
+        );
       }
 
       const query = `DELETE FROM tables WHERE table_id = ?`;
       const [result] = await db.execute(query, [tableId]);
-      return { success: result.affectedRows > 0, affectedRows: result.affectedRows };
+      return {
+        success: result.affectedRows > 0,
+        affectedRows: result.affectedRows,
+      };
     } catch (err) {
       throw err;
     }

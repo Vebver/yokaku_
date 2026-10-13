@@ -65,6 +65,9 @@ const TableStatus = ({ compact = false }) => {
   const [selectedTable, setSelectedTable] = useState(null);
   // Live reservations offered in the "link this table" picker.
   const [linkCandidates, setLinkCandidates] = useState([]);
+
+  const [kioskModeChoice, setKioskModeChoice] = useState({});
+
   // Tick every second to refresh the event countdown timers
   const [now, setNow] = useState(Date.now());
 
@@ -211,12 +214,14 @@ const TableStatus = ({ compact = false }) => {
       showToast("Only admins or cashiers can open a kiosk.");
       return;
     }
-    if (!(await confirm({
-      title: "Open kiosk session",
-      message: `Open the kiosk for reservation ${reservationId}? The guest's screen will go straight to the menu.`,
-      confirmLabel: "Open kiosk",
-      variant: "primary",
-    }))) {
+    if (
+      !(await confirm({
+        title: "Open kiosk session",
+        message: `Open the kiosk for reservation ${reservationId}? The guest's screen will go straight to the menu.`,
+        confirmLabel: "Open kiosk",
+        variant: "primary",
+      }))
+    ) {
       return;
     }
     try {
@@ -237,12 +242,14 @@ const TableStatus = ({ compact = false }) => {
   // Manually flag the physical table as taken (a walk-in seated by hand)
   // without needing a linked reservation.
   const makeOccupied = async (t) => {
-    if (!(await confirm({
-      title: "Mark table occupied",
-      message: `Mark Table ${t.table_number} as occupied?`,
-      confirmLabel: "Mark occupied",
-      variant: "primary",
-    }))) {
+    if (
+      !(await confirm({
+        title: "Mark table occupied",
+        message: `Mark Table ${t.table_number} as occupied?`,
+        confirmLabel: "Mark occupied",
+        variant: "primary",
+      }))
+    ) {
       return;
     }
     try {
@@ -284,13 +291,15 @@ const TableStatus = ({ compact = false }) => {
       showToast("No reservation linked to this kiosk.");
       return;
     }
-    if (!(await confirm({
-      title: "Stop kiosk session",
-      message: `Interrupt this kiosk? The customer session will be returned to the kiosk home screen. Use this if the kiosk is stuck or showing an error.${
-        tableId ? " Only this table will be released." : ""
-      }`,
-      confirmLabel: "Stop kiosk",
-    }))) {
+    if (
+      !(await confirm({
+        title: "Stop kiosk session",
+        message: `Interrupt this kiosk? The customer session will be returned to the kiosk home screen. Use this if the kiosk is stuck or showing an error.${
+          tableId ? " Only this table will be released." : ""
+        }`,
+        confirmLabel: "Stop kiosk",
+      }))
+    ) {
       return;
     }
     try {
@@ -315,6 +324,35 @@ const TableStatus = ({ compact = false }) => {
 
   const todayStr = getTodayDateString();
 
+  // Set the menu mode for a session's kiosk.
+  // 'default' = full event menu, 'unlimited_wings' = wings-only + 90 min timer.
+  const setKioskMode = async (reservationId, mode) => {
+    if (!canControlKiosk) {
+      showToast("Only admins or cashiers can change the kiosk mode.");
+      return;
+    }
+    try {
+      setUi((p) => ({ ...p, updating: true }));
+      await api.put(`/admin/kiosk-mode/${reservationId}`, {
+        kiosk_mode: mode,
+      });
+      setKioskModeChoice((p) => ({ ...p, [reservationId]: mode }));
+      showToast(
+        mode === "unlimited_wings"
+          ? "Switched to Unlimited Wings (90 min)."
+          : "Switched back to the full menu.",
+        "success",
+      );
+      fetchData();
+    } catch (err) {
+      showToast(
+        err.response?.data?.error || "Failed to change the kiosk mode.",
+      );
+    } finally {
+      setUi((p) => ({ ...p, updating: false }));
+    }
+  };
+
   // Stats calculation matches visual grid (ignoring future reservations)
   const stats = data.tables.reduce(
     (acc, t) => {
@@ -323,7 +361,10 @@ const TableStatus = ({ compact = false }) => {
         t.reservation_date || t.date || t.resDate,
       );
 
-      if (s === "available" && (t.table_status || "").toLowerCase() === "occupied") {
+      if (
+        s === "available" &&
+        (t.table_status || "").toLowerCase() === "occupied"
+      ) {
         s = "occupied";
       }
 
@@ -342,7 +383,9 @@ const TableStatus = ({ compact = false }) => {
   const sessions = useMemo(() => {
     const groups = new Map();
     data.tables.forEach((t) => {
-      const key = t.reservation_id ? String(t.reservation_id).trim() : "__free__";
+      const key = t.reservation_id
+        ? String(t.reservation_id).trim()
+        : "__free__";
       if (!groups.has(key)) {
         groups.set(key, {
           key,
@@ -480,52 +523,78 @@ const TableStatus = ({ compact = false }) => {
             <div className="d-flex justify-content-between align-items-center mb-2">
               <div>
                 <h2 className="h6 fw-bold mb-1">Incoming Reservations</h2>
-                <p className="text-muted small mb-0">Upcoming bookings, sorted by date and time</p>
+                <p className="text-muted small mb-0">
+                  Upcoming bookings, sorted by date and time
+                </p>
               </div>
             </div>
             <div className="table-responsive">
-                            <table className="table table-sm table-hover align-middle mb-0">
-                              <thead className="text-muted small">
-                                <tr><th>Customer</th><th>Guests</th><th>Date</th><th>Time</th><th>Status</th><th>Allergy</th></tr>
-                              </thead>
-                              <tbody>
-                                {data.reservations.length === 0 ? (
-                                  <tr><td colSpan="6" className="text-center text-muted py-3">No upcoming reservations.</td></tr>
-                                ) : data.reservations.map((reservation) => (
-                                  <tr key={reservation.reservation_id}>
-                                    <td className="fw-semibold">{reservation.customer_name || "Guest"}</td>
-                                    <td>{reservation.num_guests || "—"}</td>
-                                    <td>{reservation.reservation_date || "—"}</td>
-                                    <td className="fw-semibold text-nowrap">
-                                      {/* Both the real start and end times, e.g.
+              <table className="table table-sm table-hover align-middle mb-0">
+                <thead className="text-muted small">
+                  <tr>
+                    <th>Customer</th>
+                    <th>Guests</th>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <th>Status</th>
+                    <th>Allergy</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.reservations.length === 0 ? (
+                    <tr>
+                      <td colSpan="6" className="text-center text-muted py-3">
+                        No upcoming reservations.
+                      </td>
+                    </tr>
+                  ) : (
+                    data.reservations.map((reservation) => (
+                      <tr key={reservation.reservation_id}>
+                        <td className="fw-semibold">
+                          {reservation.customer_name || "Guest"}
+                        </td>
+                        <td>{reservation.num_guests || "—"}</td>
+                        <td>{reservation.reservation_date || "—"}</td>
+                        <td className="fw-semibold text-nowrap">
+                          {/* Both the real start and end times, e.g.
                                           "6:00 PM – 8:00 PM". The duration is never
                                           computed from a hardcoded value. */}
-                                      {formatTimeDisplay(reservation.reservation_time)}
-                                      {reservation.end_time
-                                        ? ` – ${formatTimeDisplay(reservation.end_time)}`
-                                        : ""}
-                                    </td>
-                                    <td><span className="badge rounded-pill bg-warning-subtle text-warning-emphasis">{reservation.status}</span></td>
-                                    {/* Exact customer-entered allergy text; empty means the
+                          {formatTimeDisplay(reservation.reservation_time)}
+                          {reservation.end_time
+                            ? ` – ${formatTimeDisplay(reservation.end_time)}`
+                            : ""}
+                        </td>
+                        <td>
+                          <span className="badge rounded-pill bg-warning-subtle text-warning-emphasis">
+                            {reservation.status}
+                          </span>
+                        </td>
+                        {/* Exact customer-entered allergy text; empty means the
                                         customer gave none, so we say so rather than implying
                                         an allergy exists. */}
-                                    <td className="text-truncate" style={{ maxWidth: "200px" }}>
-                                      {reservation.allergy ? (
-                                        <span
-                                          className="badge bg-danger-subtle text-danger border border-danger-subtle fw-semibold"
-                                          title={reservation.allergy}
-                                        >
-                                          {reservation.allergy}
-                                        </span>
-                                      ) : (
-                                        <span className="text-muted small">None provided</span>
-                                      )}
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
+                        <td
+                          className="text-truncate"
+                          style={{ maxWidth: "200px" }}
+                        >
+                          {reservation.allergy ? (
+                            <span
+                              className="badge bg-danger-subtle text-danger border border-danger-subtle fw-semibold"
+                              title={reservation.allergy}
+                            >
+                              {reservation.allergy}
+                            </span>
+                          ) : (
+                            <span className="text-muted small">
+                              None provided
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
       )}
@@ -543,249 +612,285 @@ const TableStatus = ({ compact = false }) => {
           <div className="row g-2 row-cols-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-8">
             {s.tables.map((t) => {
               let activeStatus = t.bridge_status?.toLowerCase() || "available";
-          // A table physically marked occupied but with no live binding still
-          // counts as taken, otherwise it renders as an empty green card.
-          if (activeStatus === "available" && (t.table_status || "").toLowerCase() === "occupied") {
-            activeStatus = "occupied";
-          }
-          const resDate = getTableReservationDateString(
-            t.reservation_date || t.date || t.resDate,
-          );
+              // A table physically marked occupied but with no live binding still
+              // counts as taken, otherwise it renders as an empty green card.
+              if (
+                activeStatus === "available" &&
+                (t.table_status || "").toLowerCase() === "occupied"
+              ) {
+                activeStatus = "occupied";
+              }
+              const resDate = getTableReservationDateString(
+                t.reservation_date || t.date || t.resDate,
+              );
 
-          // Force status to "available" if reservation is for a future date
-          if (activeStatus === "confirmed" && resDate !== todayStr) {
-            activeStatus = "available";
-          }
+              // Force status to "available" if reservation is for a future date
+              if (activeStatus === "confirmed" && resDate !== todayStr) {
+                activeStatus = "available";
+              }
 
-          const cfg = getStatusCfg(activeStatus);
-          const isAvailable = activeStatus === "available";
+              const cfg = getStatusCfg(activeStatus);
+              const isAvailable = activeStatus === "available";
 
-          // The card shows kiosk state as a marker only; the switch itself is on
-          // the session header.
-          const isKioskActive =
-            String(t.is_kiosk_active) === "1" || t.is_kiosk_active === 1;
+              // The card shows kiosk state as a marker only; the switch itself is on
+              // the session header.
+              const isKioskActive =
+                String(t.is_kiosk_active) === "1" || t.is_kiosk_active === 1;
 
-          // Exact customer-provided allergy text for the current occupant.
-          // Empty / "None" is normalised to "" so the card shows nothing.
-          const occupantAllergy = (() => {
-            const raw = t.allergy ?? t.allergies ?? t.allergy_note ?? "";
-            const value = String(raw).trim();
-            if (!value || value.toLowerCase() === "none") return "";
-            return value;
-          })();
+              // Exact customer-provided allergy text for the current occupant.
+              // Empty / "None" is normalised to "" so the card shows nothing.
+              const occupantAllergy = (() => {
+                const raw = t.allergy ?? t.allergies ?? t.allergy_note ?? "";
+                const value = String(raw).trim();
+                if (!value || value.toLowerCase() === "none") return "";
+                return value;
+              })();
 
-          return (
-            <div key={t.table_id} className="col">
-              <div className="card border-0 shadow-sm h-100" style={{ minHeight: "220px" }}>
-                <div
-                  style={{ height: "5px", backgroundColor: cfg.color }}
-                ></div>
-                <div className="card-body p-2 d-flex flex-column justify-content-between">
-                  <div>
-                    <div className="d-flex justify-content-between align-items-start mb-0">
-                      <h6
-                        className="fw-bold mb-0 text-truncate"
-                        style={{ fontSize: "1.1rem" }}
-                      >
-                        Table {t.table_number}
-                      </h6>
-                      <span
-                        className="badge rounded-pill"
-                        style={{
-                          backgroundColor: `${cfg.color}15`,
-                          color: cfg.color,
-                          fontSize: "0.5rem",
-                        }}
-                      >
-                        {cfg.label}
-                      </span>
-                      {isKioskActive && (
-                        <Monitor
-                          size={11}
-                          className="ms-1 flex-shrink-0"
-                          style={{ color: "#dc2626" }}
-                          title="Kiosk is live on this table"
-                        />
-                      )}
-                       {ui.deleteMode && (
-                        <button
-                          className="btn btn-sm btn-link text-danger p-0 ms-2 border-0"
-                          style={{ lineHeight: 1 }}
-                          onClick={async (e) => {
-                            e.stopPropagation(); // Prevents triggering openBill or actions below
-                            if (!(await confirm({
-                              title: "Delete table",
-                              message: `Permanently delete Table ${t.table_number}?`,
-                              confirmLabel: "Delete table",
-                            }))) return;
-                            handleAction("delete", `/admin/tables/${t.table_id}`);
-                          }}
+              return (
+                <div key={t.table_id} className="col">
+                  <div
+                    className="card border-0 shadow-sm h-100"
+                    style={{ minHeight: "220px" }}
+                  >
+                    <div
+                      style={{ height: "5px", backgroundColor: cfg.color }}
+                    ></div>
+                    <div className="card-body p-2 d-flex flex-column justify-content-between">
+                      <div>
+                        <div className="d-flex justify-content-between align-items-start mb-0">
+                          <h6
+                            className="fw-bold mb-0 text-truncate"
+                            style={{ fontSize: "1.1rem" }}
+                          >
+                            Table {t.table_number}
+                          </h6>
+                          <span
+                            className="badge rounded-pill"
+                            style={{
+                              backgroundColor: `${cfg.color}15`,
+                              color: cfg.color,
+                              fontSize: "0.5rem",
+                            }}
+                          >
+                            {cfg.label}
+                          </span>
+                          {isKioskActive && (
+                            <Monitor
+                              size={11}
+                              className="ms-1 flex-shrink-0"
+                              style={{ color: "#dc2626" }}
+                              title="Kiosk is live on this table"
+                            />
+                          )}
+                          {ui.deleteMode && (
+                            <button
+                              className="btn btn-sm btn-link text-danger p-0 ms-2 border-0"
+                              style={{ lineHeight: 1 }}
+                              onClick={async (e) => {
+                                e.stopPropagation(); // Prevents triggering openBill or actions below
+                                if (
+                                  !(await confirm({
+                                    title: "Delete table",
+                                    message: `Permanently delete Table ${t.table_number}?`,
+                                    confirmLabel: "Delete table",
+                                  }))
+                                )
+                                  return;
+                                handleAction(
+                                  "delete",
+                                  `/admin/tables/${t.table_id}`,
+                                );
+                              }}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                        </div>
+
+                        <div
+                          className="text-muted mb-1"
+                          style={{ fontSize: "0.85rem" }}
                         >
-                          <Trash2 size={13} />
-                        </button>
-                      )}
-                    </div>
+                          <Users size={9} /> {t.capacity} Pax
+                        </div>
 
-                    <div
-                      className="text-muted mb-1"
-                        style={{ fontSize: "0.85rem" }}
-                    >
-                      <Users size={9} /> {t.capacity} Pax
-                    </div>
+                        {/* OCCUPANT */}
+                        <div
+                          className="bg-light rounded-2 p-1 mb-2 border text-center d-flex align-items-center justify-content-center overflow-hidden"
+                          style={{ minHeight: "40px" }}
+                        >
+                          <span
+                            className="text-dark fw-bold text-truncate"
+                            style={{ fontSize: "0.65rem" }}
+                          >
+                            {isAvailable
+                              ? "Vacant"
+                              : t.first_name || t.customer_name}
+                          </span>
+                        </div>
 
-                    {/* OCCUPANT */}
-                    <div
-                      className="bg-light rounded-2 p-1 mb-2 border text-center d-flex align-items-center justify-content-center overflow-hidden"
-                      style={{ minHeight: "40px" }}
-                    >
-                      <span
-                        className="text-dark fw-bold text-truncate"
-                        style={{ fontSize: "0.65rem" }}
-                      >
-                        {isAvailable
-                          ? "Vacant"
-                          : t.first_name || t.customer_name}
-                      </span>
-                    </div>
-
-                    {/* ALLERGY — shows the exact text the customer entered on the
+                        {/* ALLERGY — shows the exact text the customer entered on the
                         reservation, not a generic "has allergy" flag. Blank or
                         "None" renders nothing so nothing misleading is implied. */}
-                    {!isAvailable && occupantAllergy && (
-                      <div
-                        className="rounded-2 border border-danger-subtle bg-danger-subtle text-danger px-1 py-1 mb-2 d-flex align-items-start gap-1"
-                        title={`Customer allergy: ${occupantAllergy}`}
-                      >
-                        <AlertTriangle
-                          size={10}
-                          className="flex-shrink-0 mt-1"
-                        />
-                        <span
-                          className="fw-bold"
-                          style={{ fontSize: "0.55rem", lineHeight: "1.3" }}
-                        >
-                          {occupantAllergy}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Actions stack vertically so Activate/Stop Kiosk always
-                      sits directly above the table's own action. */}
-                  <div className="mt-auto d-flex flex-column gap-1">
-                    {/* Kiosk switch for this card's session. Stop is scoped to
-                        this table so closing one seat of a party leaves the rest
-                        of the session armed. */}
-                    {canControlKiosk && t.reservation_id && (
-                      isKioskActive ? (
-                        <button
-                          className="btn btn-sm btn-danger w-100 py-0 fw-bold table-card-action"
-                          onClick={(e) =>
-                            stopKiosk(t.reservation_id, t.table_id, e)
-                          }
-                          title="Stop the kiosk on this table only"
-                        >
-                          <Square size={10} className="me-1" /> Stop Kiosk
-                        </button>
-                      ) : (
-                        <button
-                          className="btn btn-sm btn-dark w-100 py-0 fw-bold table-card-action"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openKioskForSession(t.reservation_id);
-                          }}
-                          title="Activate the kiosk for this reservation"
-                        >
-                          <Monitor size={10} className="me-1" /> Activate Kiosk
-                        </button>
-                      )
-                    )}
-                    {isKioskActive && !canControlKiosk && (
-                      <div
-                        className="text-muted text-center fw-bold py-1 border border-dashed rounded"
-                        style={{ fontSize: "0.6rem" }}
-                        title="Only admins and cashiers can stop the kiosk"
-                      >
-                        Kiosk Active
-                      </div>
-                    )}
-
-                    {activeStatus === "occupied" ? (
-                      // A table with no live reservation binding: staff marked it
-                      // taken by hand, so offer the kiosk shortcut only when a
-                      // reservation is actually linked.
-                      <div className="d-flex gap-1">
-                        {canControlKiosk && (
-                          <button
-                            className="btn btn-sm btn-outline-secondary py-0 fw-bold flex-grow-1 table-card-action table-card-primary-action"
-                            onClick={() =>
-                              handleAction(
-                                "put",
-                                `/admin/table-status/${t.table_id}`,
-                                { status: "available" },
-                              )
-                            }
-                            title="Release this table"
+                        {!isAvailable && occupantAllergy && (
+                          <div
+                            className="rounded-2 border border-danger-subtle bg-danger-subtle text-danger px-1 py-1 mb-2 d-flex align-items-start gap-1"
+                            title={`Customer allergy: ${occupantAllergy}`}
                           >
-                            Free Table
-                          </button>
+                            <AlertTriangle
+                              size={10}
+                              className="flex-shrink-0 mt-1"
+                            />
+                            <span
+                              className="fw-bold"
+                              style={{ fontSize: "0.55rem", lineHeight: "1.3" }}
+                            >
+                              {occupantAllergy}
+                            </span>
+                          </div>
                         )}
                       </div>
-                    ) : activeStatus === "seated" ? (
-                      <div className="d-flex flex-wrap gap-1 table-card-actions">
-                        <button
-                          className="btn btn-sm btn-primary w-100 py-0 fw-bold table-card-action table-card-primary-action"
-                          onClick={() => openBill(t)}
-                        >
-                          View Orders
-                        </button>
-                      </div>
-                    ) : activeStatus === "confirmed" ? (
-                      <div className="d-flex flex-wrap gap-1 table-card-actions">
-                        <button
-                          className="btn btn-sm btn-warning w-100 py-0 fw-bold text-white table-card-action table-card-primary-action"
-                          onClick={() =>
-                            handleAction(
-                              "put",
-                              `/reservations/${t.reservation_id}/status`,
-                              { status: "Seated" },
-                            )
-                          }
-                        >
-                          Seat Guest
-                        </button>
-                      </div>
-                    ) : (
-                      // Free table: only the two real actions. The former
-                      // disabled "Vacant" placeholder was removed because it was
-                      // dead UI that squeezed the buttons on narrow cards.
-                      <div className="table-card-actions">
-                        {/* Stacked on top of each other (see .table-card-actions)
+
+                      {/* Actions stack vertically so Activate/Stop Kiosk always
+                      sits directly above the table's own action. */}
+                      <div className="mt-auto d-flex flex-column gap-1">
+                        {/* Kiosk switch for this card's session. Stop is scoped to
+                        this table so closing one seat of a party leaves the rest
+                        of the session armed. */}
+                        {canControlKiosk && t.reservation_id && (
+                          <>
+                            <select
+                              className="form-select form-select-sm py-0 mb-1 fw-bold table-card-action"
+                              style={{ fontSize: "0.7rem" }}
+                              value={
+                                kioskModeChoice[t.reservation_id] ||
+                                t.kiosk_mode ||
+                                "default"
+                              }
+                              onChange={(e) =>
+                                setKioskMode(t.reservation_id, e.target.value)
+                              }
+                              disabled={ui.updating}
+                              title="Choose which menu this kiosk shows"
+                            >
+                              <option value="default">Full Menu</option>
+                              <option value="unlimited_wings">
+                                Unlimited Wings (90 min)
+                              </option>
+                            </select>
+
+                            {isKioskActive ? (
+                              <button
+                                className="btn btn-sm btn-danger w-100 py-0 fw-bold table-card-action"
+                                onClick={(e) =>
+                                  stopKiosk(t.reservation_id, t.table_id, e)
+                                }
+                                title="Stop the kiosk on this table only"
+                              >
+                                <Square size={10} className="me-1" /> Stop Kiosk
+                              </button>
+                            ) : (
+                              <button
+                                className="btn btn-sm btn-dark w-100 py-0 fw-bold table-card-action"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openKioskForSession(t.reservation_id);
+                                }}
+                                title="Activate the kiosk for this reservation"
+                              >
+                                <Monitor size={10} className="me-1" /> Activate
+                                Kiosk
+                              </button>
+                            )}
+                          </>
+                        )}
+
+                        {isKioskActive && !canControlKiosk && (
+                          <div
+                            className="text-muted text-center fw-bold py-1 border border-dashed rounded"
+                            style={{ fontSize: "0.6rem" }}
+                            title="Only admins and cashiers can stop the kiosk"
+                          >
+                            Kiosk Active
+                          </div>
+                        )}
+
+                        {activeStatus === "occupied" ? (
+                          // A table with no live reservation binding: staff marked it
+                          // taken by hand, so offer the kiosk shortcut only when a
+                          // reservation is actually linked.
+                          <div className="d-flex gap-1">
+                            {canControlKiosk && (
+                              <button
+                                className="btn btn-sm btn-outline-secondary py-0 fw-bold flex-grow-1 table-card-action table-card-primary-action"
+                                onClick={() =>
+                                  handleAction(
+                                    "put",
+                                    `/admin/table-status/${t.table_id}`,
+                                    { status: "available" },
+                                  )
+                                }
+                                title="Release this table"
+                              >
+                                Free Table
+                              </button>
+                            )}
+                          </div>
+                        ) : activeStatus === "seated" ? (
+                          <div className="d-flex flex-wrap gap-1 table-card-actions">
+                            <button
+                              className="btn btn-sm btn-primary w-100 py-0 fw-bold table-card-action table-card-primary-action"
+                              onClick={() => openBill(t)}
+                            >
+                              View Orders
+                            </button>
+                          </div>
+                        ) : activeStatus === "confirmed" ? (
+                          <div className="d-flex flex-wrap gap-1 table-card-actions">
+                            <button
+                              className="btn btn-sm btn-warning w-100 py-0 fw-bold text-white table-card-action table-card-primary-action"
+                              onClick={() =>
+                                handleAction(
+                                  "put",
+                                  `/reservations/${t.reservation_id}/status`,
+                                  { status: "Seated" },
+                                )
+                              }
+                            >
+                              Seat Guest
+                            </button>
+                          </div>
+                        ) : (
+                          // Free table: only the two real actions. The former
+                          // disabled "Vacant" placeholder was removed because it was
+                          // dead UI that squeezed the buttons on narrow cards.
+                          <div className="table-card-actions">
+                            {/* Stacked on top of each other (see .table-card-actions)
                             so both stay easy to tap on small screens. */}
-                        <button
-                          className="btn btn-sm btn-dark py-0 fw-bold table-card-action table-card-primary-action"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            linkTable(t);
-                          }}
-                          title="Add this table to an existing party's reservation"
-                        >
-                          <Link size={11} className="me-1" /> Link Table
-                        </button>
-                        <button
-                          className="btn btn-sm btn-danger py-0 fw-bold table-card-action table-card-primary-action"
-                          onClick={() => makeOccupied(t)}
-                          title="Mark this table as occupied"
-                        >
-                          Mark as Occupied
-                        </button>
+                            <button
+                              className="btn btn-sm btn-dark py-0 fw-bold table-card-action table-card-primary-action"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                linkTable(t);
+                              }}
+                              title="Add this table to an existing party's reservation"
+                            >
+                              <Link size={11} className="me-1" /> Link Table
+                            </button>
+                            <button
+                              className="btn btn-sm btn-danger py-0 fw-bold table-card-action table-card-primary-action"
+                              onClick={() => makeOccupied(t)}
+                              title="Mark this table as occupied"
+                            >
+                              Mark as Occupied
+                            </button>
+                          </div>
+                        )}
                       </div>
-                    )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          );
+              );
             })}
           </div>
         </div>
@@ -796,10 +901,7 @@ const TableStatus = ({ compact = false }) => {
 
       {/* MODALS */}
       {ui.modal && (
-        <div
-          className="admin-confirm-backdrop"
-          style={{ zIndex: 2000 }}
-        >
+        <div className="admin-confirm-backdrop" style={{ zIndex: 2000 }}>
           <div className="admin-confirm-dialog">
             <div className="admin-confirm-content">
               <div className="admin-confirm-header">
@@ -808,8 +910,8 @@ const TableStatus = ({ compact = false }) => {
                     {ui.modal === "add"
                       ? "New Table"
                       : ui.modal === "link"
-                      ? `Link Table ${ui.linkTable?.table_number} to a Party`
-                      : `Table ${bill.label} - Read-Only Bill Preview`}
+                        ? `Link Table ${ui.linkTable?.table_number} to a Party`
+                        : `Table ${bill.label} - Read-Only Bill Preview`}
                   </h5>
                 </div>
                 <X
@@ -824,7 +926,11 @@ const TableStatus = ({ compact = false }) => {
                       e.preventDefault();
 
                       const parsedCapacity = Number(form.capacity);
-                      if (!Number.isInteger(parsedCapacity) || parsedCapacity < 1 || parsedCapacity > 7) {
+                      if (
+                        !Number.isInteger(parsedCapacity) ||
+                        parsedCapacity < 1 ||
+                        parsedCapacity > 7
+                      ) {
                         showToast("Capacity must be between 1 and 7.", "error");
                         return;
                       }
@@ -904,16 +1010,25 @@ const TableStatus = ({ compact = false }) => {
                           <Users size={16} className="flex-shrink-0" />
                           <span className="flex-grow-1">
                             <span className="d-block fw-bold small">
-                              {c.first_name || "Guest"}{" "}
-                              {c.last_name || ""}
+                              {c.first_name || "Guest"} {c.last_name || ""}
                             </span>
-                            <span className="d-block text-muted" style={{ fontSize: "0.65rem" }}>
+                            <span
+                              className="d-block text-muted"
+                              style={{ fontSize: "0.65rem" }}
+                            >
                               {c.reservation_id}
-                              {c.table_names ? ` • Tables ${c.table_names}` : ""}
-                              {c.reservation_date ? ` • ${c.reservation_date}` : ""}
+                              {c.table_names
+                                ? ` • Tables ${c.table_names}`
+                                : ""}
+                              {c.reservation_date
+                                ? ` • ${c.reservation_date}`
+                                : ""}
                             </span>
                           </span>
-                          <Link size={14} className="text-muted flex-shrink-0" />
+                          <Link
+                            size={14}
+                            className="text-muted flex-shrink-0"
+                          />
                         </button>
                       ))}
                     </div>
@@ -993,7 +1108,6 @@ const TableStatus = ({ compact = false }) => {
           </div>
         </div>
       )}
-
     </div>
   );
 };

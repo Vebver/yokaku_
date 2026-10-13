@@ -85,6 +85,7 @@ const KioskReservationMenu = () => {
   const [menuData, setMenuData] = useState({});
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("");
+  const [kioskMenuMode, setKioskMenuMode] = useState("default");
   const [cart, setCart] = useState([]);
   const [billItems, setBillItems] = useState([]);
   const [localBillHistory, setLocalBillHistory] = useState([]);
@@ -193,6 +194,7 @@ const KioskReservationMenu = () => {
 
         if (res.data && res.data.success) {
           const { mode, reservation } = res.data;
+          setKioskMenuMode(reservation?.kiosk_mode || "default");
 
           if (mode === "event_waiting") {
             if (activeResId) {
@@ -286,16 +288,16 @@ const KioskReservationMenu = () => {
     return databaseTotal + pendingTotal;
   };
 
- const calculateTotalDue = () => {
-  const totalSession = calculateSessionTotal();
-  // Get what the user already paid from storage
-  const alreadyPaid = parseFloat(storage.getItem(TOTAL_PAID_KEY) || 0);
-  
-  const remaining = totalSession - alreadyPaid;
-  
-  // Use a small 0.01 check to avoid floating point math errors (e.g., 0.00000001)
-  return remaining > 0.01 ? remaining.toFixed(2) : "0.00";
-};
+  const calculateTotalDue = () => {
+    const totalSession = calculateSessionTotal();
+    // Get what the user already paid from storage
+    const alreadyPaid = parseFloat(storage.getItem(TOTAL_PAID_KEY) || 0);
+
+    const remaining = totalSession - alreadyPaid;
+
+    // Use a small 0.01 check to avoid floating point math errors (e.g., 0.00000001)
+    return remaining > 0.01 ? remaining.toFixed(2) : "0.00";
+  };
 
   const fetchCurrentBill = async () => {
     try {
@@ -649,7 +651,6 @@ const KioskReservationMenu = () => {
   };
 
   const handleEndSession = async () => {
-
     await playAlert();
 
     setIsLoading(true);
@@ -698,18 +699,18 @@ const KioskReservationMenu = () => {
   };
 
   const handleHeaderPayClick = async () => {
-  setIsLoading(true); // Show loader while fetching latest
-  try {
-    await fetchCurrentBill();
-    const due = parseFloat(calculateTotalDue());
-    
-    setIsFinalCheckout(true);
-    setIsPaid(due <= 0); // This is key!
-    setShowBillInfo(true);
-  } finally {
-    setIsLoading(false);
-  }
-};
+    setIsLoading(true); // Show loader while fetching latest
+    try {
+      await fetchCurrentBill();
+      const due = parseFloat(calculateTotalDue());
+
+      setIsFinalCheckout(true);
+      setIsPaid(due <= 0); // This is key!
+      setShowBillInfo(true);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!activeResId) return;
@@ -819,6 +820,39 @@ const KioskReservationMenu = () => {
       setIsModalOpen(true);
     }
   };
+
+  useEffect(() => {
+    if (isTimerRunning) {
+      timerRef.current = setInterval(() => {
+        const savedEndTime = storage.getItem(TIMER_KEY);
+        if (!savedEndTime) return;
+        const remaining = Math.floor(
+          (parseInt(savedEndTime) - Date.now()) / 1000,
+        );
+        if (remaining <= 0) {
+          clearInterval(timerRef.current);
+          handleEndSession();
+        } else {
+          setTimeLeft(remaining);
+        }
+      }, 1000);
+    }
+    return () => clearInterval(timerRef.current);
+  }, [isTimerRunning]);
+
+  // React to the kiosk mode set by the admin from Table Status.
+  // 'unlimited_wings' → force the Unlimited category and start the 90-min timer.
+  useEffect(() => {
+    if (kioskMenuMode !== "unlimited_wings") return;
+    setActiveCategory("Unlimited");
+
+    if (!storage.getItem(TIMER_KEY)) {
+      const endTime = Date.now() + 1.5 * 60 * 60 * 1000; // 90 min
+      storage.setItem(TIMER_KEY, endTime.toString());
+      setTimeLeft(5400);
+      setIsTimerRunning(true);
+    }
+  }, [kioskMenuMode, TIMER_KEY]);
 
   // ==================== LOADING RENDER ====================
   if (loading || kioskMode === "loading") {
@@ -975,6 +1009,11 @@ const KioskReservationMenu = () => {
               {Object.keys(menuData)
                 .filter((cat) => !HIDDEN_CATEGORIES.includes(cat))
                 .filter((cat) => !(cat === "Unlimited" && hasOrderedUnlimited))
+                .filter((cat) =>
+                  kioskMenuMode === "unlimited_wings"
+                    ? cat === "Unlimited"
+                    : true,
+                )
                 .map((cat) => (
                   <button
                     key={cat}
@@ -1204,7 +1243,8 @@ const KioskReservationMenu = () => {
                           await fetchCurrentBill();
 
                           showToast(
-                            "Payment recorded! You can now finish your session.","success"
+                            "Payment recorded! You can now finish your session.",
+                            "success",
                           );
                         } catch (err) {
                           console.error(err);

@@ -187,13 +187,63 @@ const adminController = {
       res.status(500).json({ error: error.message });
     }
   },
+  setKioskMode: async (req, res) => {
+    const { reservationId } = req.params;
+    const { kiosk_mode } = req.body;
+
+    if (!["default", "unlimited_wings"].includes(kiosk_mode)) {
+      return res.status(400).json({ error: "Invalid kiosk mode." });
+    }
+
+    try {
+      const affected = await TableStatus.setKioskMode(
+        reservationId,
+        kiosk_mode,
+      );
+      if (affected === 0) {
+        return res.status(404).json({ error: "Reservation not found." });
+      }
+
+      await logActivity(
+        req.user?.userId || null,
+        "SET_KIOSK_MODE",
+        reservationId,
+        { kiosk_mode },
+        req,
+      );
+
+      const io = req.app.get("io");
+      if (io) {
+        io.emit("table_updated");
+        // Dedicated event so kiosks switch instantly without waiting for the 3s poll
+        io.emit("kiosk_mode_changed", {
+          reservationId,
+          kiosk_mode,
+          changedBy: req.user?.role || null,
+          at: new Date().toISOString(),
+        });
+      }
+
+      res.json({ success: true, kiosk_mode });
+    } catch (error) {
+      console.error("Set Kiosk Mode Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+
   addTable: async (req, res) => {
     try {
       const { table_number, capacity } = req.body;
       const parsedCapacity = Number(capacity);
 
-      if (!Number.isInteger(parsedCapacity) || parsedCapacity < 1 || parsedCapacity > 35) {
-        return res.status(400).json({ error: "Capacity must be between 1 and 35." });
+      if (
+        !Number.isInteger(parsedCapacity) ||
+        parsedCapacity < 1 ||
+        parsedCapacity > 35
+      ) {
+        return res
+          .status(400)
+          .json({ error: "Capacity must be between 1 and 35." });
       }
 
       await TableStatus.createNewTable(table_number, parsedCapacity);
@@ -245,7 +295,7 @@ const adminController = {
         "CREATE_WALKIN_SESSION",
         tableId,
         { customer_name: customerName },
-        req
+        req,
       );
 
       res.json({ success: true, message: "Walk-in session created", result });
@@ -292,7 +342,7 @@ const adminController = {
         "CREATE_WALKIN_SESSION",
         tableId,
         { customer_name: customerName },
-        req
+        req,
       );
 
       res.json({ message: "Checked out successfully", result });
