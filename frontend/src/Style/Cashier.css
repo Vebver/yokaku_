@@ -21,6 +21,7 @@
 /* Container Setup */
 .kiosk-wrapper {
     display: flex;
+    height: 100vh;
     min-height: 100vh;
     min-height: 100dvh;
     background-color: #f4f7f6;
@@ -37,9 +38,13 @@
     z-index: 1000;
     flex-shrink: 0;
     height: 100vh;
-    height: 100dvh;
+    min-height: 100vh;
+    max-height: 100vh;
     position: sticky;
     top: 0;
+    left: 0;
+    bottom: 0;
+    overscroll-behavior: contain;
 }
 
 .kiosk-logo {
@@ -170,6 +175,10 @@
         position: fixed;
         left: 0;
         top: 0;
+        width: min(82vw, 220px);
+        height: 100vh;
+        min-height: 100vh;
+        max-height: 100vh;
         transform: translateX(-100%);
         transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         box-shadow: 0 0 30px rgba(0, 0, 0, 0.35);
@@ -201,6 +210,32 @@
 
     .kiosk-content .btn {
         max-width: 100%;
+    }
+}
+
+@media (min-width: 768px) and (max-width: 991.98px) {
+    .kiosk-sidebar {
+        width: 180px;
+    }
+
+    .kiosk-nav-btn {
+        width: 136px;
+        height: 92px;
+    }
+
+    .kiosk-brand-title {
+        font-size: 1.1rem;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .kiosk-sidebar {
+        width: min(78vw, 240px);
+    }
+
+    .kiosk-nav-btn {
+        width: 88px;
+        height: 76px;
     }
 }
 
@@ -269,7 +304,8 @@
     top: 0;
     left: 0;
     height: 100vh;
-    transform: translateX(-120px);
+    width: min(82vw, 220px);
+    transform: translateX(-100%);
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
@@ -278,7 +314,7 @@
   }
 
   .kiosk-sidebar.closed {
-    transform: translateX(-120px);
+    transform: translateX(-100%);
   }
 
   .kiosk-main {
