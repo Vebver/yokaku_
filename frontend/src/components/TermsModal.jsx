@@ -7,8 +7,13 @@ const TermsModal = ({ isOpen, onAccept, onClose }) => {
   if (!isOpen) return null;
 
   const handleAccept = () => {
-    setAgreed(true);
+    if (!agreed) return;
     if (onAccept) onAccept();
+  };
+
+  const handleClose = () => {
+    setAgreed(false); // reset so next open starts unchecked
+    if (onClose) onClose();
   };
 
   return (
@@ -30,7 +35,7 @@ const TermsModal = ({ isOpen, onAccept, onClose }) => {
         }}
       >
         <button
-          onClick={onClose}
+          onClick={handleClose}
           style={{
             position: "absolute",
             top: "20px",
@@ -55,6 +60,7 @@ const TermsModal = ({ isOpen, onAccept, onClose }) => {
           </h2>
         </div>
 
+        {/* SCROLLABLE TERMS TEXT */}
         <div
           style={{
             flex: 1,
@@ -66,9 +72,10 @@ const TermsModal = ({ isOpen, onAccept, onClose }) => {
             lineHeight: "1.6",
             color: "#555",
             border: "1px solid #eee",
-            marginBottom: "20px",
+            marginBottom: "15px",
           }}
         >
+          {/* ... your existing terms list, unchanged ... */}
           <p>
             <strong>1. Cancellation Policy:</strong> Customers can cancel their
             reservations, but please note that the Hangout Policy has{" "}
@@ -163,6 +170,76 @@ const TermsModal = ({ isOpen, onAccept, onClose }) => {
               </ul>
             </li>
           </ul>
+        </div>
+
+        {/* CHECKBOX */}
+        <label
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: "10px",
+            marginBottom: "15px",
+            cursor: "pointer",
+            fontSize: "0.9rem",
+            color: "#333",
+            userSelect: "none",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={agreed}
+            onChange={(e) => setAgreed(e.target.checked)}
+            style={{
+              marginTop: "3px",
+              width: "18px",
+              height: "18px",
+              cursor: "pointer",
+              accentColor: "#ffcc00",
+              flexShrink: 0,
+            }}
+          />
+          <span>
+            I have read and agree to the Terms and Conditions, including the No
+            Refund Policy and Unlimited Promo rules.
+          </span>
+        </label>
+
+        {/* BUTTONS */}
+        <div style={{ display: "flex", gap: "10px" }}>
+          <button
+            onClick={handleClose}
+            style={{
+              flex: 1,
+              padding: "12px",
+              borderRadius: "10px",
+              border: "1.5px solid #ddd",
+              background: "#fff",
+              color: "#666",
+              fontWeight: "700",
+              cursor: "pointer",
+              fontSize: "1rem",
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleAccept}
+            disabled={!agreed}
+            style={{
+              flex: 2,
+              padding: "12px",
+              borderRadius: "10px",
+              border: "none",
+              background: agreed ? "#ffcc00" : "#e0e0e0",
+              color: agreed ? "#000" : "#999",
+              fontWeight: "800",
+              cursor: agreed ? "pointer" : "not-allowed",
+              fontSize: "1rem",
+              transition: "background 0.2s",
+            }}
+          >
+            I Agree & Continue
+          </button>
         </div>
       </div>
     </div>

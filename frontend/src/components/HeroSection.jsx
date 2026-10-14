@@ -3,12 +3,13 @@ import axios from "axios";
 import ExistingModal from "./ExistingModal";
 import "../Style/HeroSection.css";
 import { API_BASE } from "../api";
-
+import TermsModal from "./TermsModal";
 
 function HeroSection({ onLoginClick, onReserveClick, isLoggedIn }) {
   const [showExistingModal, setShowExistingModal] = useState(false);
   const [existingReservation, setExistingReservation] = useState(null);
   const [checking, setChecking] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
 
   // Check for existing active reservation
   const checkExistingReservation = async () => {
@@ -55,10 +56,9 @@ function HeroSection({ onLoginClick, onReserveClick, isLoggedIn }) {
       onLoginClick();
       return;
     }
-
     const hasActive = await checkExistingReservation();
     if (!hasActive) {
-      onReserveClick();
+      setShowTerms(true);
     }
   };
 
@@ -101,6 +101,15 @@ function HeroSection({ onLoginClick, onReserveClick, isLoggedIn }) {
         isOpen={showExistingModal}
         onClose={handleCloseModal}
         reservationDetails={existingReservation}
+      />
+
+      <TermsModal
+        isOpen={showTerms}
+        onClose={() => setShowTerms(false)}
+        onAccept={() => {
+          setShowTerms(false);
+          onReserveClick(); // ← only now open TableReservation
+        }}
       />
     </>
   );
