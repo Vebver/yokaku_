@@ -100,6 +100,8 @@ exports.createWalkinPayment = async (req, res) => {
         is_read: 0,
         created_at: new Date().toISOString(),
       });
+      io.emit("dashboard_updated");
+      io.emit("payment_updated");
     }
 
     console.log("[Billing Controller] Payment process completed for ID:", paymentId);
@@ -140,6 +142,8 @@ exports.updatePaymentStatus = async (req, res) => {
           is_read: 0,
           created_at: new Date().toISOString(),
         });
+        io.emit("dashboard_updated");
+        io.emit("payment_status_updated");
       }
 
       res.json({ message: "Payment status updated successfully" });
@@ -175,6 +179,8 @@ exports.settleFullBill = async (req, res) => {
           is_read: 0,
           created_at: new Date().toISOString(),
         });
+        io.emit("dashboard_updated");
+        io.emit("payment_updated");
       }
 
       res.json({

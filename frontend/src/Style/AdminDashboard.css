@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Dancing+Script:wght@700&display=swap');
+
 :root {
     --sidebar-width: 260px;
     --sidebar-collapsed: 85px;
@@ -48,11 +50,54 @@
     width: var(--sidebar-collapsed);
 }
 
-.sidebar-header-branding {
-    padding: 20px 24px;
+.sidebar-header-wrap {
+    position: relative;
+    width: 100%;
+    padding: 18px 22px 14px;
+    min-height: 74px;
     display: flex;
     align-items: center;
-    gap: 15px;
+    justify-content: center;
+    box-sizing: border-box;
+}
+
+.sidebar-header-branding {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 52px;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+.sidebar-brand-copy {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    line-height: 1.1;
+}
+
+.brand-mark {
+    display: none;
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+    border-radius: 10px;
+    background: #ffcc00;
+    color: #111827;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+    font-size: 1.05rem;
+    line-height: 1;
+    box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.08);
+    margin: 0 auto;
+    padding: 0;
 }
 
 /* On phones the drawer header is tighter so the chevron + logo + name all fit
@@ -70,38 +115,42 @@
     }
 }
 
-.brand-logo {
-    min-width: 38px;
-    height: 38px;
-    background: #ffcc00;
-    color: rgb(0, 0, 0);
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 800;
-    font-size: 1.2rem;
-}
 
 .brand-name {
     color: white;
-    font-size: 1.25rem;
+    font-size: 1.1rem;
+    line-height: 1.1;
+    letter-spacing: 0.08em;
     white-space: nowrap;
     transition: opacity 0.2s;
+    font-family: 'Montserrat', 'Segoe UI', sans-serif;
+    text-transform: uppercase;
+}
+
+.brand-sub {
+    color: #ffcc00;
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    line-height: 1.2;
+    margin-top: 2px;
+    font-family: 'Dancing Script', 'Segoe Script', cursive;
 }
 
 .sb-closed .sidebar-header-branding {
-    padding: 16px 12px;
-    gap: 3px;
+    padding: 0;
+    gap: 0;
     justify-content: center;
+    width: 100%;
+    min-height: 32px;
 }
 
 .sb-closed .sidebar-brand-copy {
     display: none;
 }
 
-.sb-closed .brand-logo {
-    display: none;
+.sb-closed .brand-mark {
+    display: flex;
 }
 
 .sidebar-nav-list {
@@ -121,19 +170,33 @@
     background: transparent;
     color: var(--nav-text);
     border-radius: 12px;
-    transition: all 0.2s;
+    transition: all 0.2s ease;
     white-space: nowrap;
 }
 
 .nav-item-link:hover,
+.nav-item-link:focus-visible,
 .nav-item-link.active {
     background: rgba(255, 255, 255, 0.08);
     color: white;
+    transform: translateX(2px);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
 .nav-item-link.active {
     background: var(--primary-blue);
     box-shadow: 0 4px 12px rgba(13, 110, 253, 0.2);
+}
+
+.nav-link {
+    transition: all 0.2s ease;
+}
+
+.nav-link:hover,
+.nav-link:focus-visible {
+    background: rgba(255, 255, 255, 0.08) !important;
+    transform: translateX(2px);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
 .nav-text-label {
@@ -147,7 +210,6 @@
 }
 
 .sidebar-footer-action {
-    /* Pinned below the scrollable nav list: never shrinks, always on screen. */
     flex-shrink: 0;
     padding: 12px 16px;
     border-top: 1px solid rgba(255, 255, 255, 0.05);
@@ -168,12 +230,15 @@
 .sidebar-logout-item {
     color: #ef4444 !important;
     background: rgba(239, 68, 68, 0.1) !important;
+    transition: all 0.2s ease;
 }
 
 .sidebar-logout-item:hover,
 .sidebar-logout-item:focus-visible {
     background: rgba(239, 68, 68, 0.12) !important;
     color: #ef4444 !important;
+    transform: translateX(2px);
+    box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.15);
 }
 
 
@@ -212,7 +277,11 @@
 
 /* Right-side drawer toggle with a fixed footprint beside the branding. */
 .sidebar-chevron-indicator {
-    background: rgba(255, 255, 255, 0.1);
+    position: absolute;
+    right: -18px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(17, 24, 39, 0.9);
     color: #e5e7eb;
     width: 34px;
     height: 34px;
@@ -220,13 +289,17 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    margin-left: auto;
+    margin-left: 0;
     flex-shrink: 0;
+    z-index: 1200;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
 }
 
 .sidebar-chevron-indicator:hover,
 .sidebar-chevron-indicator:focus-visible {
-    background: rgba(255, 255, 255, 0.18);
+    background: rgba(0, 0, 0, 0.815);
     color: #ffffff;
 }
 
@@ -236,6 +309,8 @@
     height: 32px;
     min-width: 32px;
     margin-left: 0;
+    right: -16px;
+    top: 56px;
 }
 
 /* --- Report Overview (admin dashboard) ---
@@ -255,10 +330,80 @@
     width: 100%;
 }
 
+.dashboard-financial-row {
+    align-items: stretch;
+}
+
+.finance-stat-column,
+.revenue-column {
+    display: flex;
+}
+
+.finance-stat-column > .row,
+.revenue-column > .revenue-analytics-card {
+    width: 100%;
+    height: 100%;
+}
+
+.finance-mini-card {
+    min-height: 150px;
+    height: 100%;
+}
+
+.revenue-analytics-card {
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+    min-height: 220px;
+    display: flex;
+    flex-direction: column;
+}
+
+.revenue-analytics-header {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.revenue-analytics-header .badge {
+    min-width: 160px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.revenue-chart-wrap {
+    position: relative;
+    width: 100%;
+    height: 220px;
+    min-height: 220px;
+    flex: 1;
+}
+
+.finance-mini-card-title,
+.stat-card-title,
+.finance-mini-card h5,
+.revenue-analytics-header .badge {
+    font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 991.98px) {
+    .revenue-analytics-card {
+        padding: 1rem !important;
+    }
+
+    .revenue-chart-wrap {
+        height: 200px;
+        min-height: 200px;
+    }
+}
+
 @media (max-width: 767.98px) {
     .report-overview-section {
         padding-top: 0;
         padding-bottom: 0.25rem;
+    }
+
+    .revenue-analytics-header {
+        align-items: flex-start;
     }
 }
 

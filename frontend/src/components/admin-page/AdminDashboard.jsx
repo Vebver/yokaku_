@@ -210,6 +210,18 @@ function AdminDashboard() {
         fetchDashboardData();
       });
 
+      socket.on("dashboard_updated", () => {
+        fetchDashboardData();
+      });
+
+      socket.on("payment_updated", () => {
+        fetchDashboardData();
+      });
+
+      socket.on("payment_status_updated", () => {
+        fetchDashboardData();
+      });
+
       return () => {
         socket.disconnect();
       };
@@ -476,8 +488,9 @@ function AdminDashboard() {
 
   const DashboardOverview = () => (
     <div className="dashboard-content">
-      {/* Welcome message and report overview share the same left alignment. */}
-      <h1 className="fw-bold mb-3">Welcome back, Admin</h1>
+      <h1 className="fw-bold mb-3">
+        Welcome back, {adminName || "Admin"}
+      </h1>
 
       {/* REPORT OVERVIEW */}
       <section className="report-overview-section">
@@ -502,9 +515,9 @@ function AdminDashboard() {
       </section>
 
       {/* FINANCIAL SECTION & CHART */}
-      <div className="row g-3 mb-4">
-        <div className="col-lg-5">
-          <div className="row g-3">
+      <div className="row g-3 mb-4 dashboard-financial-row">
+        <div className="col-lg-5 finance-stat-column">
+          <div className="row g-3 w-100 h-100">
             <MiniFinanceCard
               title="Weekly Revenue"
               value={stats.weeklyRevenue}
@@ -526,15 +539,15 @@ function AdminDashboard() {
         </div>
 
         {/* REVENUE ANALYTICS CHART */}
-        <div className="col-lg-7">
-          <div className="bg-white p-4 rounded-4 shadow-sm border h-100">
-            <div className="d-flex justify-content-between align-items-center mb-4">
+        <div className="col-lg-7 revenue-column">
+          <div className="revenue-analytics-card bg-white p-4 rounded-4 shadow-sm border h-100">
+            <div className="d-flex justify-content-between align-items-center mb-4 revenue-analytics-header">
               <h6 className="fw-bold mb-0">Revenue Analytics</h6>
               <span className="badge bg-primary-subtle text-primary rounded-pill px-3 py-2">
                 Total: {formatCurrency(stats.weeklyRevenue)}
               </span>
             </div>
-            <div style={{ height: "220px" }}>
+            <div className="revenue-chart-wrap">
               <Line
                 data={chartData}
                 options={{
@@ -545,6 +558,9 @@ function AdminDashboard() {
                     y: {
                       beginAtZero: true,
                       ticks: { callback: (v) => "₱" + v.toLocaleString() },
+                    },
+                    x: {
+                      ticks: { maxRotation: 0, minRotation: 0 },
                     },
                   },
                 }}
@@ -611,11 +627,7 @@ function AdminDashboard() {
     >
       {/* Sidebar */}
       <aside className="app-sidebar shadow">
-        <div className="sidebar-header-branding">
-          <div className="brand-logo">H</div>
-          <div className="sidebar-brand-copy">
-            <span className="brand-name fw-bold">HANGOUT</span>
-          </div>
+        <div className="sidebar-header-wrap">
           <button
             type="button"
             className="toggle-sidebar-btn sidebar-chevron-indicator"
@@ -625,6 +637,14 @@ function AdminDashboard() {
           >
             {sidebarOpen ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
           </button>
+
+          <div className="sidebar-header-branding">
+            <div className="brand-mark" aria-label="Hangout brand mark">H</div>
+            <div className="sidebar-brand-copy">
+              <div className="brand-name fw-bold">HANGOUT</div>
+              <div className="brand-sub">Resto Bar</div>
+            </div>
+          </div>
         </div>
 
         <nav className="sidebar-nav-list custom-scrollbar">
