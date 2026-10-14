@@ -1,15 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import io from "socket.io-client";
 import api, { SOCKET_URL } from "../../api";
-import {
-  Plus,
-  Armchair,
-  Trash2,
-  Users,
-  X,
-  Square,
-  Link,
-} from "lucide-react";
+import { Plus, Armchair, Trash2, Users, X, Square, Link } from "lucide-react";
 import { useToast } from "../ToastContext";
 import { useConfirmation } from "../ConfirmationContext";
 import { useSectionRefresh } from "../shared/sectionRefresh";
@@ -421,9 +413,13 @@ const TableStatus = ({ compact = false }) => {
       });
       setKioskModeChoice((p) => ({ ...p, [tableId]: mode }));
       showToast(
-        mode === "unlimited_wings"
-          ? "This table is now on Unlimited Wings (90 min)."
-          : "This table is back on the full menu.",
+        mode === "unlimited_wings_a"
+          ? "This table is now on Unlimited Wings A (90 min)."
+          : mode === "unlimited_wings_b"
+            ? "This table is now on Unlimited Wings B (90 min)."
+            : mode === "unlimited_wings_c"
+              ? "This table is now on Unlimited Wings C (90 min)."
+              : "This table is back on the full menu.",
         "success",
       );
       fetchData();
@@ -702,9 +698,6 @@ const TableStatus = ({ compact = false }) => {
               // Kiosk menu mode for this session. Read from the live query so
               // the select reflects what is persisted, with any local pending
               // choice winning until the refetch lands.
-              const currentKioskMode =
-                kioskModeChoice[t.reservation_id] || t.kiosk_mode || "default";
-
               return (
                 <div key={t.table_id} className="col">
                   <div
@@ -802,8 +795,14 @@ const TableStatus = ({ compact = false }) => {
                               title="Choose which menu this kiosk shows"
                             >
                               <option value="default">Full Menu</option>
-                              <option value="unlimited_wings">
-                                Unlimited Wings (90 min)
+                              <option value="unlimited_wings_a">
+                                Unlimited Wings A (₱239)
+                              </option>
+                              <option value="unlimited_wings_b">
+                                Unlimited Wings B (₱289)
+                              </option>
+                              <option value="unlimited_wings_c">
+                                Unlimited Wings C (₱399)
                               </option>
                             </select>
 

@@ -86,6 +86,13 @@ const KioskMenu = () => {
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("");
   const [kioskMenuMode, setKioskMenuMode] = useState("default");
+
+  // Helper: are we in either Unlimited mode?
+  const isUnlimitedMode =
+    kioskMenuMode === "unlimited_wings_a" ||
+    kioskMenuMode === "unlimited_wings_b" ||
+    kioskMenuMode === "unlimited_wings_c";
+
   const [cart, setCart] = useState([]);
   const [billItems, setBillItems] = useState([]);
   const [localBillHistory, setLocalBillHistory] = useState([]);
@@ -375,7 +382,7 @@ const KioskMenu = () => {
 
   useEffect(() => {
     // Reset the flag when we're not in Unlimited mode
-    if (kioskMenuMode !== "unlimited_wings") {
+    if (!isUnlimitedMode) {
       wasWingsTimerRunning.current = false;
       return;
     }
@@ -413,7 +420,7 @@ const KioskMenu = () => {
         }
       })();
     }
-  }, [isTimerRunning, timeLeft, kioskMenuMode, setupTable, TIMER_KEY]);
+  }, [isTimerRunning, timeLeft, isUnlimitedMode, setupTable, TIMER_KEY]);
 
   const fetchCurrentBill = async () => {
     const resId = storage.getItem(SAVED_RES_ID);
@@ -487,7 +494,9 @@ const KioskMenu = () => {
       }
 
       if (isPayNow) {
-        // --- SYNCHRONOUS CALCULATION (Prevents React State Lag) ---        const currentHistory = billItems.length > 0 ? billItems : localBillHistory;
+        // --- SYNCHRONOUS CALCULATION (Prevents React State Lag) ---
+        const currentHistory =
+          billItems.length > 0 ? billItems : localBillHistory;
         const combinedSessionItems = [...currentHistory, ...itemsToSubmit];
 
         const computedSessionTotal = combinedSessionItems.reduce(
@@ -675,8 +684,10 @@ const KioskMenu = () => {
       socket.disconnect();
     };
   }, []);
+
   // Read the admin-selected kiosk mode for THIS table and react to changes.
-  // `unlimited_wings` → collapse the sidebar to Unlimited + start the 90-min timer.
+  // `unlimited_wings_a` / `unlimited_wings_b` → collapse the sidebar to
+  // Unlimited + start the 90-min timer.
   useEffect(() => {
     const fetchMode = async () => {
       if (!setupTable) return;
@@ -688,7 +699,6 @@ const KioskMenu = () => {
           setKioskMenuMode(res.data.kioskMode || "default");
         }
       } catch (err) {
-        // Non-fatal: the poll will retry every 3s
         console.warn("Kiosk mode poll failed:", err?.message);
       }
     };
@@ -722,20 +732,56 @@ const KioskMenu = () => {
     };
   }, [setupTable]);
 
-  // When the mode flips to Unlimited Wings, force the Unlimited category
+  // When the mode flips to either Unlimited mode, force the Unlimited category
   // and start the 90-minute timer (if not already running).
   useEffect(() => {
-    if (kioskMenuMode !== "unlimited_wings") return;
+    if (!isUnlimitedMode) return;
 
     setActiveCategory("Unlimited");
 
     if (!sessionStorage.getItem(TIMER_KEY)) {
-      const endTime = Date.now() + DURATION; // 90 min (DURATION is defined above)
+      const endTime = Date.now() + DURATION;
       sessionStorage.setItem(TIMER_KEY, endTime.toString());
       setTimeLeft(DURATION / 1000);
       setIsTimerRunning(true);
     }
-  }, [kioskMenuMode]);
+  }, [isUnlimitedMode, kioskMenuMode]);
+
+  // While in Unlimited mode, block the browser's own back button / swipe-back
+  // so the customer can't escape the locked kiosk session.
+  useEffect(() => {
+    if (!isUnlimitedMode) return;
+
+    window.history.pushState(null, "", window.location.href);
+
+    const blockBack = () => {
+      window.history.pushState(null, "", window.location.href);
+      showToast(
+        "Please finish your Unlimited session or ask staff for help.",
+        "info",
+      );
+    };
+
+    window.addEventListener("popstate", blockBack);
+    return () => {
+      window.removeEventListener("popstate", blockBack);
+    };
+  }, [isUnlimitedMode]);
+
+  // While in Unlimited mode, also block refresh / close / URL-bar navigation
+  // so the customer can't reload to escape the lock.
+  useEffect(() => {
+    if (!isUnlimitedMode) return;
+
+    const blockUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = "";
+      return "";
+    };
+
+    window.addEventListener("beforeunload", blockUnload);
+    return () => window.removeEventListener("beforeunload", blockUnload);
+  }, [isUnlimitedMode]);
 
   useEffect(() => {
     fetchMenu();
@@ -856,6 +902,19 @@ const KioskMenu = () => {
     }
   }, [cart, billItems, localTotalPaid]);
 
+  // Guarded back-to-selection handler. In Unlimited mode the customer
+  // is not allowed to leave — only the admin can flip the mode.
+  const handleBackToSelection = () => {
+    if (isUnlimitedMode) {
+      showToast(
+        "You cannot exit during an Unlimited session. Please call staff.",
+        "info",
+      );
+      return;
+    }
+    navigate("/kiosk-selection");
+  };
+
   const displayTable =
     storage.getItem(SAVED_TABLE_ID) ||
     setupTable ||
@@ -934,11 +993,7 @@ const KioskMenu = () => {
               {Object.keys(menuData)
                 .filter((cat) => !HIDDEN_CATEGORIES.includes(cat))
                 .filter((cat) => !(cat === "Unlimited" && hasOrderedUnlimited))
-                .filter((cat) =>
-                  kioskMenuMode === "unlimited_wings"
-                    ? cat === "Unlimited"
-                    : true,
-                )
+                .filter((cat) => (isUnlimitedMode ? cat === "Unlimited" : true))
                 .map((cat) => (
                   <button
                     key={cat}
@@ -957,7 +1012,28 @@ const KioskMenu = () => {
 
         <main className="res-content-area">
           <div className="res-grid-container">
-            {(menuData[activeCategory] || []).map((item) => (
+            {(() => {
+              const items = menuData[activeCategory] || [];
+              if (!isUnlimitedMode) return items;
+
+              // Show only the matching Unlimited set:
+              //   A → "UNLIMITED SET A"
+              //   B → "UNLIMITED SET B"
+              //   C → "UNLIMITED SET C"
+              const wantedName =
+                kioskMenuMode === "unlimited_wings_a"
+                  ? "unlimited set a"
+                  : kioskMenuMode === "unlimited_wings_b"
+                    ? "unlimited set b"
+                    : "unlimited set c";
+
+              return items.filter((i) => {
+                const name = String(i.name || "")
+                  .trim()
+                  .toLowerCase();
+                return name === wantedName;
+              });
+            })().map((item) => (
               <div
                 key={item.id}
                 className={`res-food-card ${item.isStockAvailable === false ? "res-food-card-unavailable" : ""}`}
@@ -1012,10 +1088,10 @@ const KioskMenu = () => {
       </div>
 
       <footer className="res-bottom-bar">
-        {!storage.getItem(SAVED_RES_ID) && (
+        {!storage.getItem(SAVED_RES_ID) && !isUnlimitedMode && (
           <button
             className="res-btn-cancel"
-            onClick={() => navigate("/kiosk-selection")}
+            onClick={handleBackToSelection}
             style={{
               marginRight: "auto",
               background: "#444",

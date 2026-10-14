@@ -106,6 +106,12 @@ const KioskReservationMenu = () => {
   const [isPaymentProcessing, setIsPaymentProcessing] = useState(false);
   const [reservationDetails, setReservationDetails] = useState(null);
 
+  // Helper: are we in either of the two Unlimited modes?
+  const isUnlimitedMode =
+    kioskMenuMode === "unlimited_wings_a" ||
+    kioskMenuMode === "unlimited_wings_b" ||
+    kioskMenuMode === "unlimited_wings_c";
+
   const hasOrderedUnlimited = [...billItems, ...cart].some((item) =>
     (item.name || item.menu_name || item.item_name || "")
       .toLowerCase()
@@ -149,6 +155,14 @@ const KioskReservationMenu = () => {
   };
 
   const handleExitKiosk = () => {
+    if (isUnlimitedMode) {
+      showToast(
+        "You cannot exit during an Unlimited session. Please call staff.",
+        "info",
+      );
+      return;
+    }
+
     sessionStorage.removeItem("resId");
     sessionStorage.removeItem("tableId");
 
@@ -252,7 +266,7 @@ const KioskReservationMenu = () => {
         nameStr.includes("reservation fee") ||
         nameStr.includes("downpayment")
       ) {
-        return sum; // ← Skip downpayment items
+        return sum;
       }
 
       return sum + p * q;
@@ -280,7 +294,7 @@ const KioskReservationMenu = () => {
           nameStr.includes("reservation fee") ||
           nameStr.includes("downpayment")
         ) {
-          return sum; // ← Skip downpayment items
+          return sum;
         }
 
         return sum + p * q;
@@ -291,12 +305,8 @@ const KioskReservationMenu = () => {
 
   const calculateTotalDue = () => {
     const totalSession = calculateSessionTotal();
-    // Get what the user already paid from storage
     const alreadyPaid = parseFloat(storage.getItem(TOTAL_PAID_KEY) || 0);
-
     const remaining = totalSession - alreadyPaid;
-
-    // Use a small 0.01 check to avoid floating point math errors (e.g., 0.00000001)
     return remaining > 0.01 ? remaining.toFixed(2) : "0.00";
   };
 
@@ -503,7 +513,6 @@ const KioskReservationMenu = () => {
             })),
           );
 
-          // === AUTO TRIGGER TIMER FOR PRE-BOOKED UNLIMITED RESERVATIONS ===
           const hasUnlimitedPreBooked = resItemsRes.some((item) =>
             (item.item_name || item.menu_name || "")
               .toLowerCase()
@@ -511,7 +520,7 @@ const KioskReservationMenu = () => {
           );
           const currentTimerKey = `kiosk_res_timer_${activeResId}`;
           if (hasUnlimitedPreBooked && !storage.getItem(currentTimerKey)) {
-            const endTime = Date.now() + 1.5 * 60 * 60 * 1000; // 90 minutes
+            const endTime = Date.now() + 1.5 * 60 * 60 * 1000;
             storage.setItem(currentTimerKey, endTime.toString());
             setTimeLeft(5400);
             setIsTimerRunning(true);
@@ -652,29 +661,23 @@ const KioskReservationMenu = () => {
   };
 
   // Called when the 1h30m Unlimited Wings timer reaches 0.
-  // Reverts this kiosk to the Full Menu and tells the backend so the DB
-  // matches (otherwise the next poll would flip us right back).
   const handleWingsTimerExpired = async () => {
-    // Guard: bail if we're not in unlimited mode anymore
-    if (kioskMenuMode !== "unlimited_wings") return;
+    // Guard: bail if we're not in either Unlimited mode
+    if (!isUnlimitedMode) return;
     await playAlert();
 
-    // 1. Stop the local timer and clear its state
     storage.removeItem(TIMER_KEY);
     setIsTimerRunning(false);
-    setTimeLeft(5400); // 90 min again for next time
+    setTimeLeft(5400);
 
-    // 2. Revert this kiosk's menu to the full set
     setKioskMenuMode("default");
     setActiveCategory((prev) => (prev === "Unlimited" ? "" : prev));
 
-    // 3. Show the guest a short message so they know why the menu changed
     showToast(
       "Unlimited Wings time is up. You can keep ordering from the full menu.",
       "info",
     );
 
-    // 4. Tell the backend so the persisted mode matches (best effort)
     try {
       const tableId = getCurrentTableId();
       if (tableId != null) {
@@ -686,8 +689,6 @@ const KioskReservationMenu = () => {
       }
     } catch (err) {
       console.warn("Could not persist kiosk mode reset:", err?.message);
-      // Non-blocking: the poll fallback will keep the mode consistent on the
-      // next cycle if the backend was briefly unreachable.
     }
   };
 
@@ -740,13 +741,13 @@ const KioskReservationMenu = () => {
   };
 
   const handleHeaderPayClick = async () => {
-    setIsLoading(true); // Show loader while fetching latest
+    setIsLoading(true);
     try {
       await fetchCurrentBill();
       const due = parseFloat(calculateTotalDue());
 
       setIsFinalCheckout(true);
-      setIsPaid(due <= 0); // This is key!
+      setIsPaid(due <= 0);
       setShowBillInfo(true);
     } finally {
       setIsLoading(false);
@@ -766,25 +767,6 @@ const KioskReservationMenu = () => {
       }
     }
   }, [activeResId]);
-
-  useEffect(() => {
-    if (isTimerRunning) {
-      timerRef.current = setInterval(() => {
-        const savedEndTime = storage.getItem(TIMER_KEY);
-        if (!savedEndTime) return;
-        const remaining = Math.floor(
-          (parseInt(savedEndTime) - Date.now()) / 1000,
-        );
-        if (remaining <= 0) {
-          clearInterval(timerRef.current);
-          handleWingsTimerExpired();
-        } else {
-          setTimeLeft(remaining);
-        }
-      }, 1000);
-    }
-    return () => clearInterval(timerRef.current);
-  }, [isTimerRunning]);
 
   const confirmFlavors = async () => {
     if (selectedFlavors.length === 0) {
@@ -862,46 +844,62 @@ const KioskReservationMenu = () => {
     }
   };
 
-  useEffect(() => {
-    if (isTimerRunning) {
-      timerRef.current = setInterval(() => {
-        const savedEndTime = storage.getItem(TIMER_KEY);
-        if (!savedEndTime) return;
-        const remaining = Math.floor(
-          (parseInt(savedEndTime) - Date.now()) / 1000,
-        );
-        if (remaining <= 0) {
-          clearInterval(timerRef.current);
-          handleWingsTimerExpired();
-        } else {
-          setTimeLeft(remaining);
-        }
-      }, 1000);
-    }
-    return () => clearInterval(timerRef.current);
-  }, [isTimerRunning]);
-
   // React to the kiosk mode set by the admin from Table Status.
-  // 'unlimited_wings' → force the Unlimited category and start the 90-min timer.
+  // `unlimited_wings_a` / `unlimited_wings_b` → force the Unlimited category
+  // and start the 90-minute timer.
   useEffect(() => {
-    if (kioskMenuMode !== "unlimited_wings") return;
+    if (!isUnlimitedMode) return;
     setActiveCategory("Unlimited");
 
     if (!storage.getItem(TIMER_KEY)) {
-      const endTime = Date.now() + 1.5 * 60 * 60 * 1000; // 90 min
+      const endTime = Date.now() + 1.5 * 60 * 60 * 1000;
       storage.setItem(TIMER_KEY, endTime.toString());
       setTimeLeft(5400);
       setIsTimerRunning(true);
     }
-  }, [kioskMenuMode, TIMER_KEY]);
+  }, [isUnlimitedMode, kioskMenuMode, TIMER_KEY]);
 
-  // Instant mode switch: the admin's Full Menu / Unlimited Wings change used to
-  // only land after the next 3-second poll. Listening for the dedicated socket
-  // event makes the menu flip immediately.
+  // While in Unlimited mode, block the browser's own back button / swipe-back
+  // so the customer can't escape the locked kiosk session.
+  useEffect(() => {
+    if (!isUnlimitedMode) return;
+
+    window.history.pushState(null, "", window.location.href);
+
+    const blockBack = () => {
+      window.history.pushState(null, "", window.location.href);
+      showToast(
+        "Please finish your Unlimited session or ask staff for help.",
+        "info",
+      );
+    };
+
+    window.addEventListener("popstate", blockBack);
+    return () => {
+      window.removeEventListener("popstate", blockBack);
+    };
+  }, [isUnlimitedMode]);
+
+  // While in Unlimited mode, also block refresh / close / URL-bar navigation
+  // so the customer can't reload to escape the lock.
+  useEffect(() => {
+    if (!isUnlimitedMode) return;
+
+    const blockUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = "";
+      return "";
+    };
+
+    window.addEventListener("beforeunload", blockUnload);
+    return () => window.removeEventListener("beforeunload", blockUnload);
+  }, [isUnlimitedMode]);
+
+  // Instant mode switch via socket
+
   useEffect(() => {
     const socket = io(BASE_URL, { transports: ["websocket", "polling"] });
     socket.on("kiosk_mode_changed", (payload) => {
-      // Backend now emits the physical tableId (per-table mode)
       if (
         payload?.tableId != null &&
         String(payload.tableId) === String(setupTable)
@@ -1067,11 +1065,7 @@ const KioskReservationMenu = () => {
               {Object.keys(menuData)
                 .filter((cat) => !HIDDEN_CATEGORIES.includes(cat))
                 .filter((cat) => !(cat === "Unlimited" && hasOrderedUnlimited))
-                .filter((cat) =>
-                  kioskMenuMode === "unlimited_wings"
-                    ? cat === "Unlimited"
-                    : true,
-                )
+                .filter((cat) => (isUnlimitedMode ? cat === "Unlimited" : true))
                 .map((cat) => (
                   <button
                     key={cat}
@@ -1090,7 +1084,28 @@ const KioskReservationMenu = () => {
 
         <main className="res-content-area">
           <div className="res-grid-container">
-            {(menuData[activeCategory] || []).map((item) => (
+            {(() => {
+              const items = menuData[activeCategory] || [];
+              if (!isUnlimitedMode) return items;
+
+              // Show only the matching Unlimited set:
+              //   A → "UNLIMITED"
+              //   B → "UNLIMITED B"
+              // Exact match avoids "UNLIMITED B" also matching "UNLIMITED".
+              const wantedName =
+                kioskMenuMode === "unlimited_wings_a"
+                  ? "unlimited set a"
+                  : kioskMenuMode === "unlimited_wings_b"
+                    ? "unlimited set b"
+                    : "unlimited set c";
+
+              return items.filter((i) => {
+                const name = String(i.name || "")
+                  .trim()
+                  .toLowerCase();
+                return name === wantedName;
+              });
+            })().map((item) => (
               <div
                 key={item.id}
                 className="res-food-card"
@@ -1124,7 +1139,7 @@ const KioskReservationMenu = () => {
       </div>
 
       <footer className="res-bottom-bar">
-        {billItems.length === 0 && (
+        {billItems.length === 0 && !isUnlimitedMode && (
           <button
             className="res-btn-cancel"
             style={{ marginRight: "auto", background: "#444" }}
@@ -1279,7 +1294,6 @@ const KioskReservationMenu = () => {
                         const totalBill = calculateSessionTotal();
                         setIsLoading(true);
                         try {
-                          // 1. Tell backend payment is made
                           await axios.post(
                             `${API_BASE}/billing/walkin`,
                             {
@@ -1291,13 +1305,9 @@ const KioskReservationMenu = () => {
                             getAuthHeader(),
                           );
 
-                          // 2. Update LocalStorage immediately so UI reflects 0 due
                           storage.setItem(TOTAL_PAID_KEY, totalBill.toString());
-
-                          // 3. Update the state so the "PAY" button turns into "FINISH"
                           setIsPaid(true);
 
-                          // 4. Refresh items from server
                           await fetchCurrentBill();
 
                           showToast(

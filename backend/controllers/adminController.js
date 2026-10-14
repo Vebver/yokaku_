@@ -191,7 +191,14 @@ const adminController = {
     const { tableId } = req.params;
     const { kiosk_mode } = req.body;
 
-    if (!["default", "unlimited_wings"].includes(kiosk_mode)) {
+    const VALID_KIOSK_MODES = [
+      "default",
+      "unlimited_wings_a",
+      "unlimited_wings_b",
+      "unlimited_wings_c",
+    ];
+
+    if (!VALID_KIOSK_MODES.includes(kiosk_mode)) {
       return res.status(400).json({ error: "Invalid kiosk mode." });
     }
 
