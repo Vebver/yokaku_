@@ -8,12 +8,12 @@
   background: rgba(0, 0, 0, 0.5);
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start;
   z-index: 10001;
   backdrop-filter: blur(4px);
   animation: fadeIn 0.3s ease-out;
   overflow-y: auto; /* <--- FIXED: Enables scrolling */
-  padding: 20px 0; /* <--- FIXED: Adds breathing room top/bottom */
+  padding: 20px; /* <--- FIXED: Adds breathing room top/bottom */
   box-sizing: border-box;
 }
 
@@ -30,7 +30,9 @@
   border: 1px solid #eee;
   transition: all 0.3s ease-in-out;
   overflow: visible;
+  overflow: hidden auto;
   margin: auto;
+  max-height: calc(100vh - 40px);
 }
 
 /* --- TYPOGRAPHY & HEADERS --- */
@@ -524,9 +526,9 @@
 
   .modal-content {
     padding: 30px 20px;
-    width: 90%;
-    margin: auto; /* Centers when it fits, scrolls when it doesn't */
-    max-height: none; /* Let it grow naturally */
+    width: 100%;
+    margin: 0 auto; /* Centers when it fits, scrolls when it doesn't */
+    max-height: calc(100vh - 30px);
   }
 
   .otp-input {
