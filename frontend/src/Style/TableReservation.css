@@ -2778,3 +2778,160 @@ select:disabled {
     max-width: 320px;
   }
 }
+
+/* ===== Event Package — Food Preference + Meal Distribution ===== */
+.meal-preference-card {
+  margin-top: 20px;
+  padding: 20px;
+  background: #fff;
+  border: 2px solid #f0e6d8;
+  border-radius: 16px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.meal-preference-head h4 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #333;
+  margin: 0 0 6px 0;
+  line-height: 1.35;
+}
+
+.meal-preference-sub {
+  font-size: 0.8rem;
+  color: #777;
+  margin-bottom: 14px;
+}
+
+.meal-pref-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.meal-pref-btn {
+  flex: 1;
+  min-width: 120px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 2px solid #e0e0e0;
+  background: #fff;
+  color: #555;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.meal-pref-btn:hover {
+  border-color: #f38d31;
+  color: #f38d31;
+}
+
+.meal-pref-btn.active {
+  border-color: #f38d31;
+  background: #fff8f0;
+  color: #f38d31;
+}
+
+.meal-distribution {
+  border: 1px solid #eee;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.meal-dist-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid #f2f2f2;
+  font-size: 0.88rem;
+  color: #444;
+}
+
+.meal-dist-row:last-child {
+  border-bottom: none;
+}
+
+.meal-dist-head {
+  background: #fafafa;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #999;
+}
+
+.meal-dist-input {
+  max-width: 110px;
+  text-align: center;
+  font-weight: 600;
+}
+
+.meal-dist-total {
+  background: #fafafa;
+  font-weight: 700;
+  color: #333;
+}
+
+.meal-dist-total-value {
+  font-weight: 800;
+}
+
+.meal-dist-total-value.ok {
+  color: #2e7d32;
+}
+
+.meal-dist-total-value.over {
+  color: #d32f2f;
+}
+
+.meal-dist-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.meal-dist-status.ok {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.meal-dist-status.over {
+  background: #fdecea;
+  color: #d32f2f;
+}
+
+.meal-pref-note {
+  margin-top: 12px;
+  font-size: 0.78rem;
+  color: #777;
+  font-style: italic;
+}
+
+@media (max-width: 600px) {
+  .meal-preference-card {
+    padding: 14px;
+  }
+
+  .meal-pref-btn {
+    min-width: 100%;
+  }
+
+  .meal-dist-row {
+    padding: 9px 11px;
+    font-size: 0.82rem;
+  }
+
+  .meal-dist-input {
+    max-width: 84px;
+  }
+}

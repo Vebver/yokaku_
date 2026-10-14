@@ -119,10 +119,10 @@ const maintenanceController = {
     try {
       const { startDate, endDate } = req.query; 
 
-      // Fetch financial summary stats and the daily trend data concurrently
-      const [stats, dailyTrend] = await Promise.all([
+      // Fetch financial summary stats and monthly revenue totals concurrently
+      const [stats, monthlyTrend] = await Promise.all([
         FinancialReport.getPdfStats(startDate, endDate),
-        FinancialReport.getPdfDailyTrend(startDate, endDate),
+        FinancialReport.getPdfMonthlyTrend(startDate, endDate),
       ]);
 
       const doc = buildFinancialPdf({
@@ -130,7 +130,7 @@ const maintenanceController = {
         payload: {
           summary: stats || {},
           trends: {
-            daily: dailyTrend || [], // Pass the retrieved daily trend list to the PDF builder
+            monthly: monthlyTrend || [],
           },
         },
         startDate: startDate,

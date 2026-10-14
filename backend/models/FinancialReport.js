@@ -233,17 +233,19 @@ const FinancialReport = {
         SELECT ko.created_at as d, (ko.quantity * m.price) as amount
         FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
         WHERE ko.reservation_id IS NULL
-      ) as all_tx WHERE d BETWEEN ? AND ?`,
+      ) as all_tx WHERE DATE(d) BETWEEN ? AND ?`,
       [start, end],
     );
     return rows[0];
   },
 
-  // Daily Trend (Days) for PDF Export
-  getPdfDailyTrend: async (start, end) => {
+  // Monthly revenue totals for the PDF export.
+  getPdfMonthlyTrend: async (start, end) => {
     const [rows] = await db.execute(
       `
-      SELECT DATE_FORMAT(d, '%b %Y') as label, SUM(amount) as value
+      SELECT DATE_FORMAT(MIN(d), '%Y-%m') as month_key,
+             DATE_FORMAT(MIN(d), '%M %Y') as label,
+             SUM(amount) as value
       FROM (
         SELECT paid_at as d, amount FROM payments WHERE payment_status = 'verified'
         UNION ALL
@@ -251,9 +253,9 @@ const FinancialReport = {
         FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
         WHERE ko.reservation_id IS NULL
       ) as combined
-      WHERE d BETWEEN ? AND ?
-      GROUP BY DATE_FORMAT(d, '%b %Y')
-      ORDER BY MIN(d) ASC`,
+      WHERE DATE(d) BETWEEN ? AND ?
+      GROUP BY YEAR(d), MONTH(d)
+      ORDER BY YEAR(d), MONTH(d)`,
       [start, end],
     );
     return rows;
