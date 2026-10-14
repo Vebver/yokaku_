@@ -16,7 +16,7 @@ function formatDateLong(dateStr) {
 
 function buildFinancialPdf({ title, payload, startDate, endDate }) {
   // Reduced margins to prevent unwanted page breaks
-  const doc = new PDFDocument({ margin: 30, size: "A4", layout: "landscape" });
+  const doc = new PDFDocument({ margin: 30, size: "A4", layout: "portrait" });
   
   const today = new Date().toLocaleDateString("en-PH", {
     year: "numeric", month: "long", day: "numeric",
@@ -126,7 +126,7 @@ function buildFinancialPdf({ title, payload, startDate, endDate }) {
 
       // Automatically add a new page if the table overflows the bottom margin
       if (localY > doc.page.height - 45) {
-        doc.addPage({ margin: 30, size: "A4", layout: "landscape" });
+        doc.addPage({ margin: 30, size: "A4", layout: "portrait" });
         localY = 40; // Reset top Y spacing on the new page
         drawHeader(localY);
         localY += headerHeight;
@@ -140,7 +140,7 @@ function buildFinancialPdf({ title, payload, startDate, endDate }) {
 
     // Handle potential overflow page shift for the total row
     if (localY > doc.page.height - 45) {
-      doc.addPage({ margin: 30, size: "A4", layout: "landscape" });
+      doc.addPage({ margin: 30, size: "A4", layout: "portrait" });
       localY = 40;
     }
 
