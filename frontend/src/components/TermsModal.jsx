@@ -138,30 +138,30 @@ const TermsModal = ({ isOpen, onAccept, onClose }) => {
             </span>
           </p>
           <p>
-            <strong>2. Late Arrival:</strong> Tables will be held for a maximum
+            <strong>4. Late Arrival:</strong> Tables will be held for a maximum
             of 1 hour past the reserved time. After 1 hour, the reservation may
             be cancelled.
           </p>
           <p>
-            <strong>3. Payment Rules:</strong> For packages, a down payment may
+            <strong>5. Payment Rules:</strong> For packages, a down payment may
             be required to confirm the slot. All remaining balances must be
             settled after the event.
           </p>
           <p>
-            <strong>4. Guest Count:</strong> The final number of guests must not
+            <strong>6. Guest Count:</strong> The final number of guests must not
             exceed the maximum capacity specified in your selected package.
           </p>
           <p>
-            <strong>5. Conduct:</strong> Hangout Resto Bar reserves the right to
+            <strong>7. Conduct:</strong> Hangout Resto Bar reserves the right to
             refuse service to anyone violating establishment policies.
           </p>
           <p>
-            <strong>6. No Refund Policy:</strong> Down payments are
+            <strong>8. No Refund Policy:</strong> Down payments are
             non-refundable for cancellations made less than 3 days before
             reservation time.
           </p>
           <p>
-            <strong>7. Unlimited Policy:</strong>
+            <strong>9. Unlimited Policy:</strong>
           </p>
           <ul
             style={{
