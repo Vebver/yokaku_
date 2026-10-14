@@ -6,6 +6,18 @@
    each cell labelled from its data-label attribute.
    ========================================================================== */
 
+.audit-logs-container {
+  min-height: 100%;
+}
+
+.audit-logs-container .audit-log-details {
+  max-width: 360px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.5;
+}
+
 @media (max-width: 768px) {
   .audit-logs-container .table-responsive {
     overflow: visible;

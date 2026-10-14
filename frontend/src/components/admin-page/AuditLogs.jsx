@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import api from "../../api";
-import {Clock, User, Info, ChevronLeft, ChevronRight } from "lucide-react";
+import { Info, ChevronLeft, ChevronRight } from "lucide-react";
 import "../../Style/AuditLogs.css";
 
 const AuditLogs = () => {
@@ -35,10 +35,11 @@ const AuditLogs = () => {
   return (
     <div className="audit-logs-container container-fluid py-4 bg-light">
       <div className="mb-4">
-        <h2 className="fw-bold mb-1 text-dark d-flex align-items-center">
-          <div className="me-2 text-primary" size={24} /> System Audit Trail
+        <h2 className="fw-bold mb-1 text-dark d-flex align-items-center gap-2">
+          <Info size={22} className="text-primary" />
+          <span>System Audit Trail</span>
         </h2>
-        <p className="text-muted small">Accountability log tracking all critical administrative updates and actions.</p>
+        <p className="text-muted small mb-0">Accountability log tracking all critical administrative updates and actions.</p>
       </div>
 
       <div className="card border-0 shadow-sm rounded-4 overflow-hidden">
@@ -82,7 +83,9 @@ const AuditLogs = () => {
                         "N/A"
                       )}
                     </td>
-                    <td className="small text-muted" data-label="Details">{log.details || "N/A"}</td>
+                    <td className="small text-muted audit-log-details" data-label="Details">
+                      {log.details || "N/A"}
+                    </td>
                   </tr>
                 ))
               ) : (

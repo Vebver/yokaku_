@@ -136,6 +136,7 @@ function Profile() {
     >
       {/* PAGE HEADER */}
       <div className="profile-header mb-4">
+        <h1 className="fw-bold mb-1 profile-page-title">Admin Profile</h1>
         <p className="text-muted small mb-0">
           Manage your account information and security preferences
         </p>

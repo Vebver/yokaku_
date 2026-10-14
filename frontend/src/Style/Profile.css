@@ -3,6 +3,19 @@
    Extracted from the inline <style> block in Profile.jsx.
    ========================================================================== */
 
+.profile-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.profile-page-title {
+  margin: 0;
+  font-size: clamp(1.7rem, 2vw, 2.2rem);
+  line-height: 1.2;
+  color: #111827;
+}
+
 .profile-submit-btn,
 .profile-password-btn {
   width: auto;
