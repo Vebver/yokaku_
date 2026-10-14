@@ -231,7 +231,68 @@ const ReservationSummary = ({
         </section>
       )}
 
-      {/* Payment Breakdown Section - Only show if showOrderDetails is true (EVENT) */}
+      {/* Meal Distribution Section — only for EVENT packages so the customer
+          confirms exactly how the included meals are split before paying. */}
+      {showOrderDetails &&
+        isEvent &&
+        reservationData.packageName &&
+        reservationData.mealDistribution && (
+          <section className="summary-section">
+            <div className="section-title-wrapper">
+              <Layers size={16} color="#f38d31" />
+              <h3>Meal Distribution</h3>
+            </div>
+            <div className="detail-grid full-info">
+              <div className="detail-item">
+                <label>Event Package</label>
+                <span className="highlight-text">
+                  {reservationData.packageName}
+                </span>
+              </div>
+              <div className="detail-item">
+                <label>Package Limit</label>
+                <span>{reservationData.packageMealLimit} meals</span>
+              </div>
+              <div className="detail-item">
+                <label>Dine-In</label>
+                <span>{reservationData.mealDistribution.dineIn}</span>
+              </div>
+              <div className="detail-item">
+                <label>Take-Out</label>
+                <span>{reservationData.mealDistribution.takeOut}</span>
+              </div>
+              <div className="detail-item">
+                <label>Total</label>
+                <span
+                  className={`highlight-text ${reservationData.mealDistribution.over ? "text-danger" : ""}`}
+                >
+                  {reservationData.mealDistribution.total} /{" "}
+                  {reservationData.packageMealLimit}
+                </span>
+              </div>
+            </div>
+            <div
+              className={`meal-dist-status ${reservationData.mealDistribution.over ? "over" : "ok"}`}
+              style={{ marginTop: "12px" }}
+            >
+              {reservationData.mealDistribution.over ? (
+                <>
+                  <AlertCircle size={14} />
+                  <span>
+                    Package limit exceeded — {" "}
+                    {reservationData.mealDistribution.overBy} meal(s) over. Please
+                    reduce your allocation.
+                  </span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 size={14} />
+                  <span>Package limit satisfied ✓</span>
+                </>
+              )}
+            </div>
+          </section>
+        )}
       {showOrderDetails && (
         <section className="summary-section payment-box">
           <div className="section-header">

@@ -385,13 +385,20 @@ function Inventory() {
     );
   };
 
-  // Number of dishes already linked to the item being edited (from the loaded
-  // inventory row), used by the compact "USED IN DISHES" block in the drawer.
-  const itemDishCount = useMemo(() => {
-    if (!isEditMode || !editItemId) return 0;
-    const row = inventory.find((i) => String(i.id) === String(editItemId));
-    return row?.dishes?.length || 0;
-  }, [isEditMode, editItemId, inventory]);
+  // Names of the dishes this material is used in. For a new item these come
+  // from the staged recipeLinks; for an existing item they come from the
+  // loaded inventory row. Shown as name badges in the drawer so the admin
+  // sees WHICH dishes the material belongs to, not just how many.
+  const usedDishNames = useMemo(() => {
+    if (recipeLinks.length > 0) {
+      return recipeLinks.map((l) => l.name).filter(Boolean);
+    }
+    if (isEditMode && editItemId) {
+      const row = inventory.find((i) => String(i.id) === String(editItemId));
+      return (row?.dishes || []).map((d) => d.name).filter(Boolean);
+    }
+    return [];
+  }, [recipeLinks, isEditMode, editItemId, inventory]);
 
   const filteredDishChoices = useMemo(() => {
     const term = dishSearch.trim().toLowerCase();
@@ -1143,16 +1150,29 @@ function Inventory() {
             </div>
             {/* DISH LINKS — moved to a dedicated modal so the drawer stays
                 compact. Links are staged (new item) or saved via the API
-                (existing item) inside the modal. */}
+                (existing item) inside the modal. The drawer shows the actual
+                dish names (not just a count) so the admin can see at a glance
+                what the material is used in. */}
             <div className="border rounded-3 p-3 mt-3 bg-light">
               <label className="x-small fw-bold text-muted d-block mb-1">
                 USED IN DISHES
               </label>
-              <p className="text-muted mb-2" style={{ fontSize: "0.72rem" }}>
-                {recipeLinks.length > 0 || (isEditMode && itemDishCount > 0)
-                  ? `${recipeLinks.length || itemDishCount} dish(es) linked.`
-                  : "Not linked to any dish yet."}
-              </p>
+              {usedDishNames.length > 0 ? (
+                <div className="d-flex flex-wrap gap-1 mb-2">
+                  {usedDishNames.map((name, idx) => (
+                    <span
+                      key={`${name}-${idx}`}
+                      className="badge bg-white text-dark border fw-normal"
+                    >
+                      {name}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-muted mb-2" style={{ fontSize: "0.72rem" }}>
+                  Not linked to any dish yet.
+                </p>
+              )}
               <button
                 type="button"
                 className="btn btn-outline-primary btn-sm w-100 fw-bold"

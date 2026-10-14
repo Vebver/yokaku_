@@ -430,6 +430,11 @@ function Product() {
                       <div className="text-muted small mb-1">
                         {item.category_name}
                       </div>
+                      {item.description && (
+                        <p className="text-muted small mb-2 text-break">
+                          {item.description}
+                        </p>
+                      )}
                       <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
                         <span className="fw-bold text-success">
                           ₱{Number(item.price).toFixed(2)}
@@ -510,6 +515,11 @@ function Product() {
                         <div className="fw-bold text-dark lh-1 mb-1">
                           {item.menu_name}
                         </div>
+                        {item.description && (
+                          <div className="text-muted small text-break">
+                            {item.description}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </td>
@@ -634,6 +644,17 @@ function Product() {
                 value={newItem.name}
                 onChange={handleInputChange}
                 required={!isEditing}
+              />
+            </div>
+            <div className="mb-3">
+              <label className="form-label small fw-bold">Description</label>
+              <textarea
+                name="description"
+                className="form-control"
+                rows={3}
+                value={newItem.description || ""}
+                onChange={handleInputChange}
+                placeholder="Describe the dish, ingredients, or serving details"
               />
             </div>
             <div className="row g-2 mb-3">
