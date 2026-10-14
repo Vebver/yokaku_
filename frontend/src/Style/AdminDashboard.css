@@ -55,15 +55,15 @@
     gap: 15px;
 }
 
-/* On phones the drawer header is tighter so the toggle + logo + name all fit
+/* On phones the drawer header is tighter so the chevron + logo + name all fit
    on one line without wrapping or overlapping. */
-@media (max-width: 992px) {
+@media (max-width: 991.98px) {
     .sidebar-header-branding {
         padding: 14px 14px;
         gap: 10px;
     }
 
-    .sidebar-toggle-in-drawer {
+    .sidebar-chevron-indicator {
         width: 32px;
         height: 32px;
         min-width: 32px;
@@ -90,9 +90,18 @@
     transition: opacity 0.2s;
 }
 
-.sb-closed .brand-name {
-    opacity: 0;
-    pointer-events: none;
+.sb-closed .sidebar-header-branding {
+    padding: 16px 12px;
+    gap: 3px;
+    justify-content: center;
+}
+
+.sb-closed .sidebar-brand-copy {
+    display: none;
+}
+
+.sb-closed .brand-logo {
+    display: none;
 }
 
 .sidebar-nav-list {
@@ -201,11 +210,8 @@
     color: #4b5563;
 }
 
-/* Toggle rendered inside the sidebar drawer header, immediately to the LEFT of
-   the Hangout logo. On the dark sidebar it needs its own readable surface, and
-   it keeps a fixed square footprint so it lines up with the brand logo and
-   never overlaps the name, regardless of icon size. */
-.sidebar-toggle-in-drawer {
+/* Right-side drawer toggle with a fixed footprint beside the branding. */
+.sidebar-chevron-indicator {
     background: rgba(255, 255, 255, 0.1);
     color: #e5e7eb;
     width: 34px;
@@ -214,35 +220,35 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    margin-left: auto;
     flex-shrink: 0;
 }
 
-.sidebar-toggle-in-drawer:hover,
-.sidebar-toggle-in-drawer:focus-visible {
+.sidebar-chevron-indicator:hover,
+.sidebar-chevron-indicator:focus-visible {
     background: rgba(255, 255, 255, 0.18);
     color: #ffffff;
 }
 
-/* In the collapsed sidebar the icon-only toggle keeps its place in the header
-   row (left edge) instead of drifting; the branding gap already absorbs the
-   layout so the logo stays where users expect it. */
-.sb-closed .sidebar-toggle-in-drawer {
-    margin-right: 4px;
+/* Keep the indicator visible in the narrow rail. */
+.sb-closed .sidebar-chevron-indicator {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    margin-left: 0;
 }
 
 /* --- Report Overview (admin dashboard) ---
-   The whole block is centred horizontally inside the content area and given a
-   consistent vertical rhythm. The inner rows are constrained to a readable
-   width and centred, so the cards form an even grid at every breakpoint. */
+    Keep the section left-aligned with a consistent vertical rhythm. */
 .report-overview-section {
     max-width: 1200px;
-    margin-left: auto;
-    margin-right: auto;
+    margin-left: 0;
+    margin-right: 0;
     padding-top: 0.5rem;
     padding-bottom: 0.5rem;
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: flex-start;
 }
 
 .report-overview-section > .row {
@@ -332,7 +338,7 @@
 
 /* Mobile View */
 
-@media (max-width: 992px) {
+@media (max-width: 991.98px) {
     .app-sidebar {
         left: -100%;
     }

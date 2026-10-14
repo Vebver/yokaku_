@@ -964,7 +964,7 @@ const TableStatus = ({ compact = false }) => {
                   >
                     <div className="mb-3">
                       <label className="form-label small fw-bold">
-                        Table Label (Number)
+                        Table Number
                       </label>
                       <input
                         type="text"

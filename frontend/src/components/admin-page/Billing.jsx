@@ -10,6 +10,7 @@ import {
   XCircle,
   CornerDownRight,
   Eye,
+  Printer,
   Search,
 } from "lucide-react";
 import { useToast } from "../ToastContext";
@@ -17,6 +18,7 @@ import { useConfirmation } from "../ConfirmationContext";
 import { useSectionRefresh } from "../shared/sectionRefresh";
 import AdminPagination from "../shared/AdminPagination";
 import { compareByPaymentRecency } from "../shared/sortUtils";
+import { handlePrintReceipt } from "./receiptPrinter";
 
 const Billing = () => {
   const [payments, setPayments] = useState([]);
@@ -766,6 +768,23 @@ const Billing = () => {
                 >
                   ID: {selectedPayment.reservation_id}
                 </span>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1"
+                  onClick={() =>
+                    handlePrintReceipt({
+                      selectedPayment,
+                      orderLineItems,
+                      getItemPrice,
+                      calculateItemsSum,
+                      showToast,
+                    })
+                  }
+                  disabled={loadingItems}
+                >
+                  <Printer size={14} />
+                  Print Receipt
+                </button>
               </div>
 
               {/* ==================== INTEGRATED DYNAMIC EVENT SPEND TRACKER ==================== */}
@@ -960,6 +979,7 @@ const Billing = () => {
                   })}
                 </div>
               )}
+
             </div>
 
             {/* 2. RECEIPT & METADATA SECTION (Dark Background Area)

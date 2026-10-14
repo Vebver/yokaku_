@@ -21,6 +21,7 @@ import {
   Menu,
   LogOut,
   ChevronLeft,
+  ChevronRight,
   PhilippinePeso,
   Bell,
   RefreshCw,
@@ -120,7 +121,7 @@ const StatCard = ({ title, value, color }) => (
 function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeSection, setActiveSection] = useState("dashboard");
-  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 992);
+  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 992);
   const [adminName, setAdminName] = useState(
     `${localStorage.getItem("firstName") || ""} ${localStorage.getItem("lastName") || ""}`.trim(),
   );
@@ -233,7 +234,7 @@ function AdminDashboard() {
 
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth <= 992) setSidebarOpen(false);
+      if (window.innerWidth < 992) setSidebarOpen(false);
       else setSidebarOpen(true);
     };
     window.addEventListener("resize", handleResize);
@@ -475,17 +476,13 @@ function AdminDashboard() {
 
   const DashboardOverview = () => (
     <div className="dashboard-content">
-      {/* Welcome message stays left-aligned; only the Report Overview section
-          below is centred. */}
+      {/* Welcome message and report overview share the same left alignment. */}
       <h1 className="fw-bold mb-3">Welcome back, Admin</h1>
 
-      {/* REPORT OVERVIEW — centred block. The header and the stat rows are
-          constrained to a readable width and centred horizontally, and the
-          section carries its own vertical rhythm via the CSS class below so
-          it stays balanced on desktop, tablet and mobile. */}
+      {/* REPORT OVERVIEW */}
       <section className="report-overview-section">
-        <h2 className="fw-bold mb-3 text-center">Report Overview</h2>
-        <div className="row g-3 mb-4 justify-content-center">
+        <h2 className="fw-bold mb-3">Report Overview</h2>
+        <div className="row g-3 mb-4">
           <StatCard
             title="Total Bookings"
             value={stats.totalBookings}
@@ -615,21 +612,19 @@ function AdminDashboard() {
       {/* Sidebar */}
       <aside className="app-sidebar shadow">
         <div className="sidebar-header-branding">
-          {/* Drawer-internal toggle sits to the LEFT of the Hangout logo, first
-              in the header row. ChevronLeft collapses the drawer; Menu expands
-              it again. */}
-          <button
-            className="toggle-sidebar-btn sidebar-toggle-in-drawer"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            aria-label={sidebarOpen ? "Collapse navigation drawer" : "Expand navigation drawer"}
-            aria-expanded={sidebarOpen}
-          >
-            {sidebarOpen ? <ChevronLeft size={20} /> : <Menu size={20} />}
-          </button>
           <div className="brand-logo">H</div>
           <div className="sidebar-brand-copy">
             <span className="brand-name fw-bold">HANGOUT</span>
           </div>
+          <button
+            type="button"
+            className="toggle-sidebar-btn sidebar-chevron-indicator"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            aria-label={sidebarOpen ? "Collapse navigation drawer" : "Expand navigation drawer"}
+            aria-expanded={sidebarOpen}
+          >
+            {sidebarOpen ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
+          </button>
         </div>
 
         <nav className="sidebar-nav-list custom-scrollbar">
@@ -638,7 +633,7 @@ function AdminDashboard() {
               key={item.id}
               onClick={() => {
                 setActiveSection(item.id);
-                if (window.innerWidth <= 992) setSidebarOpen(false);
+                if (window.innerWidth < 992) setSidebarOpen(false);
               }}
               className={`nav-link w-100 text-start border-0 rounded-3 py-4 px-3 d-flex align-items-center mb-2 transition-all ${
                 activeSection === item.id
@@ -667,7 +662,7 @@ function AdminDashboard() {
       </aside>
 
       {/* Backdrop for Mobile */}
-      {sidebarOpen && window.innerWidth <= 992 && (
+      {sidebarOpen && window.innerWidth < 992 && (
         <div
           className="sidebar-overlay"
           onClick={() => setSidebarOpen(false)}
@@ -677,10 +672,7 @@ function AdminDashboard() {
       {/* Main Content Area */}
       <div className="app-main-viewport">
         <header className="app-top-nav bg-white shadow-sm px-4">
-          {/* The sidebar toggle lives INSIDE the sidebar drawer's header, next
-              to the brand, instead of floating at the dashboard's top-left.
-              ChevronLeft = the drawer is open, clicking closes it; Menu = the
-              drawer is closed, clicking opens it. */}
+          {/* Mobile control for opening and closing the off-canvas drawer. */}
           <div className="d-lg-none d-flex align-items-center">
             <button
               className="toggle-sidebar-btn"
