@@ -132,7 +132,7 @@ const AccountManagement = () => {
               <option value="all">All roles</option>
               <option value="admin">Admin</option>
               <option value="cashier">Cashier</option>
-              <option value="staff">Staff</option>
+              <option value="cook">Cook</option>
               <option value="customer">Customer</option>
             </select>
             {hasActiveFilters && (

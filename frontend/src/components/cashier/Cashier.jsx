@@ -81,7 +81,10 @@ const CashierDashboard = () => {
       {/* KIOSK SIDEBAR */}
       <aside className={`kiosk-sidebar ${sidebarOpen ? "open" : "closed"}`}>
         <div className="kiosk-logo">
-          <h2 className="fw-bold mb-0 text-warning kiosk-brand-title">HANGOUT</h2>
+          <div className="kiosk-brand-copy">
+            <h2 className="fw-bold mb-0 kiosk-brand-title">HANGOUT</h2>
+            <div className="kiosk-brand-sub">Resto Bar</div>
+          </div>
         </div>
 
         <nav className="kiosk-nav">

@@ -99,6 +99,14 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   const [downpaymentPercentage, setDownpaymentPercentage] = useState(20);
   const [selectedPackage, setSelectedPackage] = useState(null);
 
+  // ===== Event package meal distribution =====
+  // The package's included meal count is the single source of truth. Dine-In
+  // and Take-Out allocations are tracked separately but must always sum to no
+  // more than the package limit. foodPreference drives which controls show.
+  const [foodPreference, setFoodPreference] = useState("dinein");
+  const [dineInCount, setDineInCount] = useState("");
+  const [takeOutCount, setTakeOutCount] = useState("");
+
   const [currentMinutes, setCurrentMinutes] = useState(() => {
     const now = new Date();
     return now.getHours() * 60 + now.getMinutes();
@@ -675,6 +683,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
             hasItems,
             termsAgreed,
             meetsDownpaymentRequirement,
+            mealDistributionValid,
             durationHours: orderSummary.durationHours,
             downpayment: orderSummary.downpayment,
             required: orderSummary.requiredMinimumDownpayment,
@@ -686,7 +695,12 @@ export default function ReservationSteps({ onClose, onSuccess }) {
             })),
           });
 
-          return hasItems && termsAgreed && meetsDownpaymentRequirement;
+          return (
+            hasItems &&
+            termsAgreed &&
+            meetsDownpaymentRequirement &&
+            mealDistributionValid
+          );
         } else {
           // Your Details step for per_table
           const isStartTimeValid = form.startTime && form.startTime !== "";
@@ -1096,6 +1110,53 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     downpaymentPercentage,
   ]);
 
+  // ===== Event package meal distribution =====
+  // Each package advertises a number of included meals. That number is the
+  // hard cap for (Dine-In + Take-Out) allocations.
+  const PACKAGE_MEAL_LIMITS = {
+    standard: 20,
+    premium: 20,
+  };
+  const packageMealLimit = selectedPackage
+    ? PACKAGE_MEAL_LIMITS[selectedPackage] || 0
+    : 0;
+
+  const mealDistribution = useMemo(() => {
+    const dineIn = parseInt(dineInCount, 10) || 0;
+    const takeOut = parseInt(takeOutCount, 10) || 0;
+    // "All Dine-In" / "All Take-Out" lock the allocation to the full limit.
+    let d = dineIn;
+    let t = takeOut;
+    if (foodPreference === "dinein") {
+      d = packageMealLimit;
+      t = 0;
+    } else if (foodPreference === "takeout") {
+      d = 0;
+      t = packageMealLimit;
+    }
+    const total = d + t;
+    const remaining = packageMealLimit - total;
+    const over = total > packageMealLimit;
+    const complete = packageMealLimit > 0 && total === packageMealLimit;
+    return {
+      dineIn: d,
+      takeOut: t,
+      total,
+      remaining,
+      over,
+      overBy: over ? total - packageMealLimit : 0,
+      complete,
+      limit: packageMealLimit,
+    };
+  }, [dineInCount, takeOutCount, foodPreference, packageMealLimit]);
+
+  const mealDistributionValid = useMemo(() => {
+    if (!selectedPackage) return true; // no package yet — nothing to enforce
+    if (foodPreference === "dinein" || foodPreference === "takeout") return true;
+    // Mixed: the total must land exactly on the package limit.
+    return mealDistribution.total === packageMealLimit;
+  }, [selectedPackage, foodPreference, mealDistribution, packageMealLimit]);
+
   const tableIdsArray = useMemo(
     () => [selectedId, ...linkedIds].filter((id) => id !== null),
     [selectedId, linkedIds],
@@ -1160,6 +1221,16 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       allergy: getFinalAllergy,
       allergyCount: form.allergyCount || "0",
       occasion: getFinalOccasion,
+      // Event package meal allocation, shown in the summary so the customer
+      // can confirm exactly how the package is split before paying.
+      foodPreference: foodPreference,
+      packageName: selectedPackage
+        ? selectedPackage === "standard"
+          ? "Standard Package"
+          : "Premium Package"
+        : "",
+      packageMealLimit: packageMealLimit,
+      mealDistribution: mealDistribution,
     }),
     [
       user,
@@ -1174,6 +1245,10 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       addressData,
       getFinalAllergy,
       getFinalOccasion,
+      foodPreference,
+      packageMealLimit,
+      mealDistribution,
+      selectedPackage,
     ],
   );
 
@@ -2816,6 +2891,146 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   </div>
                 ))}
               </div>
+
+              {/* ===== EVENT FOOD PREFERENCE + MEAL DISTRIBUTION =====
+                  Lives inside the Event Package section (not the general
+                  reservation type). The package's included meal count is the
+                  source of truth: Dine-In + Take-Out must never exceed it. */}
+              {selectedPackage && (
+                <div className="meal-preference-card">
+                  <div className="meal-preference-head">
+                    <h4 className="mb-0">How would you like your package meals served?</h4>
+                    <p className="meal-preference-sub mb-0">
+                      Package includes <strong>{packageMealLimit} meals</strong>
+                      {" "}— the total allocated (Dine-In + Take-Out) cannot exceed this.
+                    </p>
+                  </div>
+
+                  <div className="meal-pref-options">
+                    {[
+                      { id: "dinein", label: "All Dine-In" },
+                      { id: "takeout", label: "All Take-Out" },
+                      { id: "mixed", label: "Mixed" },
+                    ].map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        className={`meal-pref-btn ${foodPreference === opt.id ? "active" : ""}`}
+                        onClick={() => {
+                          setFoodPreference(opt.id);
+                          // Switching away from Mixed clears the manual split so
+                          // a stale Take-Out count never lingers on the booking.
+                          if (opt.id !== "mixed") {
+                            setDineInCount("");
+                            setTakeOutCount("");
+                          }
+                        }}
+                        aria-pressed={foodPreference === opt.id}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {foodPreference === "mixed" && (
+                    <div className="meal-distribution">
+                      <div className="meal-dist-row meal-dist-head">
+                        <span>Option</span>
+                        <span>Quantity</span>
+                      </div>
+                      <div className="meal-dist-row">
+                        <span>Dine-In</span>
+                        <input
+                          type="number"
+                          min="0"
+                          max={packageMealLimit}
+                          className="form-control form-control-sm meal-dist-input"
+                          value={dineInCount}
+                          placeholder="0"
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            if (raw === "") {
+                              setDineInCount("");
+                              return;
+                            }
+                            const v = Math.max(0, parseInt(raw, 10) || 0);
+                            setDineInCount(v);
+                          }}
+                        />
+                      </div>
+                      <div className="meal-dist-row">
+                        <span>Take-Out</span>
+                        <input
+                          type="number"
+                          min="0"
+                          max={packageMealLimit}
+                          className="form-control form-control-sm meal-dist-input"
+                          value={takeOutCount}
+                          placeholder="0"
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            if (raw === "") {
+                              setTakeOutCount("");
+                              return;
+                            }
+                            const v = Math.max(0, parseInt(raw, 10) || 0);
+                            setTakeOutCount(v);
+                          }}
+                        />
+                      </div>
+                      <div className="meal-dist-row meal-dist-total">
+                        <span>Total</span>
+                        <span
+                          className={`meal-dist-total-value ${mealDistribution.over ? "over" : mealDistribution.complete ? "ok" : ""}`}
+                        >
+                          {mealDistribution.total} / {packageMealLimit}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div
+                    className={`meal-dist-status ${mealDistribution.over ? "over" : "ok"}`}
+                  >
+                    {mealDistribution.over ? (
+                      <>
+                        <AlertCircle size={14} />
+                        <span>
+                          {mealDistribution.total} / {packageMealLimit} meals
+                          allocated — {mealDistribution.overBy} over the package
+                          limit
+                        </span>
+                      </>
+                    ) : foodPreference === "mixed" ? (
+                      <>
+                        <CheckCircle size={14} />
+                        <span>
+                          {mealDistribution.total} / {packageMealLimit} meals
+                          allocated
+                          {mealDistribution.remaining > 0
+                            ? ` — ${mealDistribution.remaining} still to assign`
+                            : " ✓"}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle size={14} />
+                        <span>
+                          {packageMealLimit} / {packageMealLimit} meals allocated
+                          ✓
+                        </span>
+                      </>
+                    )}
+                  </div>
+
+                  {foodPreference === "takeout" && (
+                    <p className="meal-pref-note mb-0">
+                      Your package items will be prepared for take-out. Our staff
+                      will confirm the packed items with you.
+                    </p>
+                  )}
+                </div>
+              )}
 
               {selectedPackage && (
                 <div className="package-summary">

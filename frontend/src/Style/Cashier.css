@@ -57,14 +57,38 @@
     padding: 10px 4px;
 }
 
-/* Full HANGOUT wordmark: scales down fluidly so it never clips or forces
-   horizontal overflow on the 120px sidebar, even at 320px-wide phones. */
+/* Brand block mirrors the admin sidebar wordmark: HANGOUT in white with a
+   gold "Resto Bar" script subtitle beneath it. Scales down fluidly so it never
+   clips or forces horizontal overflow on the 120px sidebar. */
+.kiosk-brand-copy {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    min-width: 0;
+    line-height: 1.1;
+}
+
 .kiosk-brand-title {
-    font-size: clamp(0.85rem, 3.2vw, 1.35rem);
-    letter-spacing: 0.5px;
+    font-size: clamp(0.85rem, 3.2vw, 1.1rem);
+    letter-spacing: 0.08em;
     white-space: nowrap;
-    line-height: 1;
+    line-height: 1.1;
     margin: 0;
+    color: white;
+    font-family: 'Montserrat', 'Segoe UI', sans-serif;
+    text-transform: uppercase;
+}
+
+.kiosk-brand-sub {
+    color: #ffcc00;
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    line-height: 1.2;
+    margin-top: 2px;
+    font-family: 'Dancing Script', 'Segoe Script', cursive;
 }
 
 /* Nav Section */
