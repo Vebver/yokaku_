@@ -95,7 +95,7 @@ class User {
   static async create(email, password, firstName, lastName) {
     const hashedPassword = await bcrypt.hash(password, 12);
     const [result] = await pool.execute(
-      'INSERT INTO users (first_name, last_name, email, password_hash, role, cancellation_count) VALUES (?, ?, ?, ?, "customer", 0)',
+      "INSERT INTO users (first_name, last_name, email, password_hash, role, cancellation_count) VALUES (?, ?, ?, ?, 'customer', 0)",
       [firstName, lastName, email, hashedPassword],
     );
     return result.insertId;
