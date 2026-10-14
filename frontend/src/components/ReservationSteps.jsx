@@ -56,7 +56,6 @@ import {
 import { useSocket, useAddressData } from "./TableReservationHooks";
 import { API_BASE } from "../api";
 
-
 // Dynamic steps based on reservation type
 const getSteps = (reservationType) => {
   const baseSteps = ["Reservation Type", "Choose Date"];
@@ -234,7 +233,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     endTime: (value) => value && value !== "",
     muni: (value) => value && value !== "",
     brgy: (value) => value && value !== "",
-    num_guests: (value) => value && parseInt(value) >= 1 && parseInt(value) <= 38,
+    num_guests: (value) =>
+      value && parseInt(value) >= 1 && parseInt(value) <= 38,
   };
 
   // Check if field has error (for red outline)
@@ -1152,7 +1152,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
 
   const mealDistributionValid = useMemo(() => {
     if (!selectedPackage) return true; // no package yet — nothing to enforce
-    if (foodPreference === "dinein" || foodPreference === "takeout") return true;
+    if (foodPreference === "dinein" || foodPreference === "takeout")
+      return true;
     // Mixed: the total must land exactly on the package limit.
     return mealDistribution.total === packageMealLimit;
   }, [selectedPackage, foodPreference, mealDistribution, packageMealLimit]);
@@ -2577,7 +2578,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                       type="button"
                       className="pax-btn pax-btn-decrease"
                       onClick={() => {
-                        const currentGuestCount = parseInt(form.num_guests) || 0;
+                        const currentGuestCount =
+                          parseInt(form.num_guests) || 0;
                         if (currentGuestCount > 1)
                           setForm((prev) => ({
                             ...prev,
@@ -2634,7 +2636,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                       type="button"
                       className="pax-btn pax-btn-increase"
                       onClick={() => {
-                        const currentGuestCount = parseInt(form.num_guests) || 0;
+                        const currentGuestCount =
+                          parseInt(form.num_guests) || 0;
                         if (currentGuestCount < 38)
                           setForm((prev) => ({
                             ...prev,
@@ -2899,10 +2902,13 @@ export default function ReservationSteps({ onClose, onSuccess }) {
               {selectedPackage && (
                 <div className="meal-preference-card">
                   <div className="meal-preference-head">
-                    <h4 className="mb-0">How would you like your package meals served?</h4>
+                    <h4 className="mb-0">
+                      How would you like your package meals served?
+                    </h4>
                     <p className="meal-preference-sub mb-0">
-                      Package includes <strong>{packageMealLimit} meals</strong>
-                      {" "}— the total allocated (Dine-In + Take-Out) cannot exceed this.
+                      Package includes <strong>{packageMealLimit} meals</strong>{" "}
+                      — the total allocated (Dine-In + Take-Out) cannot exceed
+                      this.
                     </p>
                   </div>
 
@@ -3016,8 +3022,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                       <>
                         <CheckCircle size={14} />
                         <span>
-                          {packageMealLimit} / {packageMealLimit} meals allocated
-                          ✓
+                          {packageMealLimit} / {packageMealLimit} meals
+                          allocated ✓
                         </span>
                       </>
                     )}
@@ -3025,8 +3031,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
 
                   {foodPreference === "takeout" && (
                     <p className="meal-pref-note mb-0">
-                      Your package items will be prepared for take-out. Our staff
-                      will confirm the packed items with you.
+                      Your package items will be prepared for take-out. Our
+                      staff will confirm the packed items with you.
                     </p>
                   )}
                 </div>
@@ -3496,8 +3502,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                           }}
                         />
                         <span className="allergy-count-hint">
-                          Out of {parseInt(form.num_guests) || totalSeats || 0} total
-                          guest(s)
+                          Out of {parseInt(form.num_guests) || totalSeats || 0}{" "}
+                          total guest(s)
                         </span>
                       </div>
                     </div>
