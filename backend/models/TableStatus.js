@@ -76,6 +76,13 @@ const TableStatus = {
                        (r.reservation_type = 'event') DESC,
                       rt.check_in_time DESC,
                       r.reservation_date ASC, r.reservation_time ASC LIMIT 1) AS is_kiosk_active,
+          
+          /* Per-table kiosk mode — 'default' | 'unlimited_wings' */
+            (SELECT rt.kiosk_mode FROM reservation_tables rt
+            WHERE rt.table_id = t.table_id
+            AND LOWER(rt.status) IN ('seated', 'confirmed')
+            ORDER BY rt.check_in_time DESC
+            LIMIT 1) AS kiosk_mode,
 
           /* Exact allergy input from the current occupant's reservation, so the
                floor can show what the customer actually wrote instead of a generic
@@ -89,19 +96,6 @@ const TableStatus = {
                       (r.reservation_type = 'event') DESC,
                       rt.check_in_time DESC,
                       r.reservation_date ASC, r.reservation_time ASC LIMIT 1) AS allergy,
-
-          /* Which kiosk menu mode this session runs ('default' | 'unlimited_wings').
-               Without this the admin's Full Menu / Unlimited Wings selector always
-               rendered the default option, even after the mode was saved. */
-            (SELECT r.kiosk_mode FROM reservations r
-             JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
-             WHERE rt.table_id = t.table_id
-             AND rt.status IN ('confirmed', 'seated', 'Confirmed', 'Seated')
-               ORDER BY FIELD(LOWER(rt.status), 'seated', 'confirmed'),
-                        COALESCE(r.is_kiosk_active, 0) DESC,
-                         (r.reservation_type = 'event') DESC,
-                         rt.check_in_time DESC,
-                         r.reservation_date ASC, r.reservation_time ASC LIMIT 1) AS kiosk_mode,
 
             (SELECT r.package_name FROM reservations r
              JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
@@ -505,13 +499,15 @@ const TableStatus = {
     }
   },
 
-  // ─── NEW ───
-  // Persist which menu mode a kiosk session uses ('default' | 'unlimited_wings').
-  // Returns the affected row count so the controller can 404 a missing reservation.
-  setKioskMode: async (reservationId, kioskMode) => {
+  // Set which menu mode a specific table's kiosk shows.
+  // 'default' | 'unlimited_wings'. Returns affected row count.
+  setKioskMode: async (tableId, kioskMode) => {
     const [result] = await db.execute(
-      `UPDATE reservations SET kiosk_mode = ? WHERE reservation_id = ?`,
-      [kioskMode, reservationId],
+      `UPDATE reservation_tables
+     SET kiosk_mode = ?
+     WHERE table_id = ?
+       AND LOWER(status) IN ('seated', 'confirmed')`,
+      [kioskMode, tableId],
     );
     return result.affectedRows || 0;
   },

@@ -265,6 +265,22 @@ const Reservation = {
     const today = new Date().toLocaleDateString("en-CA", {
       timeZone: "Asia/Manila",
     });
+
+    // Read the per-table kiosk mode for the kiosk that's polling.
+    // Returns "default" when there is no live session on that table.
+    const getTableKioskMode = async (tableId) => {
+      if (!Number.isInteger(tableId)) return "default";
+      const [rows] = await db.execute(
+        `SELECT kiosk_mode FROM reservation_tables
+         WHERE table_id = ?
+           AND LOWER(status) IN ('seated', 'confirmed')
+         ORDER BY check_in_time DESC
+         LIMIT 1`,
+        [tableId],
+      );
+      return rows[0]?.kiosk_mode || "default";
+    };
+
     const now = new Date().toLocaleTimeString("en-US", {
       hour12: false,
       timeZone: "Asia/Manila",
@@ -288,9 +304,16 @@ const Reservation = {
           LIMIT 1
         `;
     if (hasTable) {
-      const [tableSingles] = await db.execute(tableScopedSingleSql, tableParams);
+      const [tableSingles] = await db.execute(
+        tableScopedSingleSql,
+        tableParams,
+      );
       if (tableSingles.length > 0) {
-        return { mode: "single_active", reservation: tableSingles[0] };
+        return {
+          mode: "single_active",
+          reservation: tableSingles[0],
+          kioskMode: await getTableKioskMode(parsedTableId),
+        };
       }
     }
 
@@ -307,7 +330,11 @@ const Reservation = {
         `;
     const [activeEvents] = await db.execute(activeEventSql, tableParams);
     if (activeEvents.length > 0) {
-      return { mode: "event_active", reservation: activeEvents[0] };
+      return {
+        mode: "event_active",
+        reservation: activeEvents[0],
+        kioskMode: await getTableKioskMode(parsedTableId),
+      };
     }
 
     // 3. Check if there is an event reservation scheduled for right now.
@@ -322,14 +349,27 @@ const Reservation = {
             ${tableFilter}
           LIMIT 1
         `;
-    const [events] = await db.execute(eventSql, [today, now, now, ...tableParams]);
+    const [events] = await db.execute(eventSql, [
+      today,
+      now,
+      now,
+      ...tableParams,
+    ]);
 
     if (events.length > 0) {
       const event = events[0];
       if (event.is_kiosk_active === 1) {
-        return { mode: "event_active", reservation: event };
+        return {
+          mode: "event_active",
+          reservation: event,
+          kioskMode: await getTableKioskMode(parsedTableId),
+        };
       } else {
-        return { mode: "event_waiting", reservation: event };
+        return {
+          mode: "event_waiting",
+          reservation: event,
+          kioskMode: await getTableKioskMode(parsedTableId),
+        };
       }
     }
     // 4. Fallback: any single-customer session not scoped to a table.
@@ -344,10 +384,17 @@ const Reservation = {
         `;
     const [actives] = await db.execute(activeSql, tableParams);
     if (actives.length > 0) {
-      return { mode: "single_active", reservation: actives[0] };
+      return {
+        mode: "single_active",
+        reservation: actives[0],
+        kioskMode: await getTableKioskMode(parsedTableId),
+      };
     }
 
-    return { mode: "table_default" };
+    return {
+      mode: "table_default",
+      kioskMode: await getTableKioskMode(parsedTableId),
+    };
   },
 
   // models/Reservation.js
@@ -577,12 +624,15 @@ const Reservation = {
       // 3. Insert payment record. Keep package pricing authoritative even if
       // the client omits a total for a Standard or Premium package.
       const payStatus = data.isWalkin ? "verified" : "pending";
-      const packageBasePrice =
-        String(data.packageName || "").toLowerCase().includes("premium")
-          ? 12500
-          : String(data.packageName || "").toLowerCase().includes("standard")
-            ? 10000
-            : 0;
+      const packageBasePrice = String(data.packageName || "")
+        .toLowerCase()
+        .includes("premium")
+        ? 12500
+        : String(data.packageName || "")
+              .toLowerCase()
+              .includes("standard")
+          ? 10000
+          : 0;
       const submittedTotal = Number(data.totalAmount || data.amount || 0);
       const totalBill = Math.max(submittedTotal, packageBasePrice);
       const paidAmount = Math.min(

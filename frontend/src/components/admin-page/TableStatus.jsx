@@ -272,8 +272,7 @@ const TableStatus = ({ compact = false }) => {
         status: "occupied",
       });
       showToast(
-        res.data?.message ||
-          `Table ${t.table_number} marked as occupied.`,
+        res.data?.message || `Table ${t.table_number} marked as occupied.`,
         "success",
       );
       await fetchData();
@@ -358,21 +357,21 @@ const TableStatus = ({ compact = false }) => {
 
   // Set the menu mode for a session's kiosk.
   // 'default' = full event menu, 'unlimited_wings' = wings-only + 90 min timer.
-  const setKioskMode = async (reservationId, mode) => {
+  const setKioskMode = async (tableId, mode) => {
     if (!canControlKiosk) {
       showToast("Only admins or cashiers can change the kiosk mode.");
       return;
     }
     try {
       setUi((p) => ({ ...p, updating: true }));
-      await api.put(`/admin/kiosk-mode/${reservationId}`, {
+      await api.put(`/admin/kiosk-mode/${tableId}`, {
         kiosk_mode: mode,
       });
-      setKioskModeChoice((p) => ({ ...p, [reservationId]: mode }));
+      setKioskModeChoice((p) => ({ ...p, [tableId]: mode }));
       showToast(
         mode === "unlimited_wings"
-          ? "Switched to Unlimited Wings (90 min)."
-          : "Switched back to the full menu.",
+          ? "This table is now on Unlimited Wings (90 min)."
+          : "This table is back on the full menu.",
         "success",
       );
       fetchData();
@@ -781,9 +780,13 @@ const TableStatus = ({ compact = false }) => {
                             <select
                               className="form-select form-select-sm py-0 mb-1 fw-bold table-card-action"
                               style={{ fontSize: "0.7rem" }}
-                              value={currentKioskMode}
+                              value={
+                                kioskModeChoice[t.table_id] ||
+                                t.kiosk_mode ||
+                                "default"
+                              }
                               onChange={(e) =>
-                                setKioskMode(t.reservation_id, e.target.value)
+                                setKioskMode(t.table_id, e.target.value)
                               }
                               disabled={ui.updating}
                               title="Choose which menu this kiosk shows"

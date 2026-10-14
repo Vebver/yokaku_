@@ -194,8 +194,8 @@ const KioskReservationMenu = () => {
         });
 
         if (res.data && res.data.success) {
-          const { mode, reservation } = res.data;
-          setKioskMenuMode(reservation?.kiosk_mode || "default");
+          const { mode, reservation, kioskMode: tableMode } = res.data;
+          setKioskMenuMode(tableMode || reservation?.kiosk_mode || "default");
 
           if (mode === "event_waiting") {
             if (activeResId) {
@@ -651,6 +651,46 @@ const KioskReservationMenu = () => {
     }
   };
 
+  // Called when the 1h30m Unlimited Wings timer reaches 0.
+  // Reverts this kiosk to the Full Menu and tells the backend so the DB
+  // matches (otherwise the next poll would flip us right back).
+  const handleWingsTimerExpired = async () => {
+    // Guard: bail if we're not in unlimited mode anymore
+    if (kioskMenuMode !== "unlimited_wings") return;
+    await playAlert();
+
+    // 1. Stop the local timer and clear its state
+    storage.removeItem(TIMER_KEY);
+    setIsTimerRunning(false);
+    setTimeLeft(5400); // 90 min again for next time
+
+    // 2. Revert this kiosk's menu to the full set
+    setKioskMenuMode("default");
+    setActiveCategory((prev) => (prev === "Unlimited" ? "" : prev));
+
+    // 3. Show the guest a short message so they know why the menu changed
+    showToast(
+      "Unlimited Wings time is up. You can keep ordering from the full menu.",
+      "info",
+    );
+
+    // 4. Tell the backend so the persisted mode matches (best effort)
+    try {
+      const tableId = getCurrentTableId();
+      if (tableId != null) {
+        await axios.post(
+          `${API_BASE}/admin/kiosk-mode-expired/${tableId}`,
+          {},
+          getAuthHeader(),
+        );
+      }
+    } catch (err) {
+      console.warn("Could not persist kiosk mode reset:", err?.message);
+      // Non-blocking: the poll fallback will keep the mode consistent on the
+      // next cycle if the backend was briefly unreachable.
+    }
+  };
+
   const handleEndSession = async () => {
     await playAlert();
 
@@ -737,7 +777,7 @@ const KioskReservationMenu = () => {
         );
         if (remaining <= 0) {
           clearInterval(timerRef.current);
-          handleEndSession();
+          handleWingsTimerExpired();
         } else {
           setTimeLeft(remaining);
         }
@@ -832,7 +872,7 @@ const KioskReservationMenu = () => {
         );
         if (remaining <= 0) {
           clearInterval(timerRef.current);
-          handleEndSession();
+          handleWingsTimerExpired();
         } else {
           setTimeLeft(remaining);
         }
@@ -861,15 +901,16 @@ const KioskReservationMenu = () => {
   useEffect(() => {
     const socket = io(BASE_URL, { transports: ["websocket", "polling"] });
     socket.on("kiosk_mode_changed", (payload) => {
+      // Backend now emits the physical tableId (per-table mode)
       if (
-        payload?.reservationId &&
-        String(payload.reservationId) === String(reservationId)
+        payload?.tableId != null &&
+        String(payload.tableId) === String(setupTable)
       ) {
         setKioskMenuMode(payload.kiosk_mode || "default");
       }
     });
     return () => socket.disconnect();
-  }, [reservationId]);
+  }, [setupTable]);
 
   // ==================== LOADING RENDER ====================
   if (loading || kioskMode === "loading") {

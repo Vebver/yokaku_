@@ -98,11 +98,16 @@ router.post(
 );
 // Set which menu mode the kiosk runs: 'default' or 'unlimited_wings'
 router.put(
-  "/kiosk-mode/:reservationId",
+  "/kiosk-mode/:tableId",
   protect,
   kioskControl,
   adminController.setKioskMode,
 );
+
+// Kiosk calls this when its 90-min Unlimited Wings timer expires, so the
+// mode resets to 'default' server-side and survives a page reload.
+router.post("/kiosk-mode-expired/:tableId", adminController.expireKioskMode);
+
 router.post("/reset", protect, adminOnly, maintenanceController.reset);
 router.get("/export-csv", protect, adminOnly, maintenanceController.exportData);
 router.get(

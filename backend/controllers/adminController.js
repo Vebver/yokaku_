@@ -188,7 +188,7 @@ const adminController = {
     }
   },
   setKioskMode: async (req, res) => {
-    const { reservationId } = req.params;
+    const { tableId } = req.params;
     const { kiosk_mode } = req.body;
 
     if (!["default", "unlimited_wings"].includes(kiosk_mode)) {
@@ -196,18 +196,18 @@ const adminController = {
     }
 
     try {
-      const affected = await TableStatus.setKioskMode(
-        reservationId,
-        kiosk_mode,
-      );
+      const affected = await TableStatus.setKioskMode(tableId, kiosk_mode);
       if (affected === 0) {
-        return res.status(404).json({ error: "Reservation not found." });
+        return res.status(404).json({
+          error:
+            "No live session on this table. Seat the guest first, then set the mode.",
+        });
       }
 
       await logActivity(
         req.user?.userId || null,
         "SET_KIOSK_MODE",
-        reservationId,
+        tableId,
         { kiosk_mode },
         req,
       );
@@ -215,9 +215,8 @@ const adminController = {
       const io = req.app.get("io");
       if (io) {
         io.emit("table_updated");
-        // Dedicated event so kiosks switch instantly without waiting for the 3s poll
         io.emit("kiosk_mode_changed", {
-          reservationId,
+          tableId: Number(tableId),
           kiosk_mode,
           changedBy: req.user?.role || null,
           at: new Date().toISOString(),
@@ -227,6 +226,35 @@ const adminController = {
       res.json({ success: true, kiosk_mode });
     } catch (error) {
       console.error("Set Kiosk Mode Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+
+  // Called by the kiosk itself when its Unlimited Wings timer runs out.
+  // Resets the table's mode to 'default' and broadcasts the change.
+  expireKioskMode: async (req, res) => {
+    const { tableId } = req.params;
+
+    try {
+      const affected = await TableStatus.setKioskMode(tableId, "default");
+
+      // A missing live session isn't an error here — the kiosk may be calling
+      // just as the reservation closes. Return success either way so the
+      // client doesn't retry.
+      const io = req.app.get("io");
+      if (io && affected > 0) {
+        io.emit("table_updated");
+        io.emit("kiosk_mode_changed", {
+          tableId: Number(tableId),
+          kiosk_mode: "default",
+          changedBy: "timer",
+          at: new Date().toISOString(),
+        });
+      }
+
+      res.json({ success: true, affected });
+    } catch (error) {
+      console.error("Expire Kiosk Mode Error:", error);
       res.status(500).json({ error: error.message });
     }
   },
