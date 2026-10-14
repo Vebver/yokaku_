@@ -50,7 +50,8 @@ const FinancialOverview = ({ data }) => {
 
   const getActiveTrend = () => {
     if (period === "yearly") return reportData.monthlyTrend || [];
-    return reportData.dailyTrend || [];
+    if (period === "weekly") return reportData.weeklyTrend || [];
+    return reportData.recentMonthsTrend || reportData.monthlyTrend || [];
   };
 
   const activeTrend = getActiveTrend();
@@ -58,13 +59,28 @@ const FinancialOverview = ({ data }) => {
   const totalYearly = Number(
     summary.yearly_revenue || summary.monthly_revenue || 0,
   );
-  const totalMonthly = Number(summary.monthly_revenue || 0);
-  const averageOrder = Number(summary.aov || 0);
-  const totalOrders = Number(summary.total_orders || 0);
+  const selectedPeriodRevenue = activeTrend.reduce(
+    (total, item) => total + Number(item.value ?? item.revenue ?? 0),
+    0,
+  );
+  const selectedPeriodOrders = activeTrend.reduce(
+    (total, item) => total + Number(item.orders ?? item.order_count ?? 0),
+    0,
+  );
+  const totalOrders =
+    period === "yearly"
+      ? Number(summary.total_orders || 0)
+      : selectedPeriodOrders;
+  const averageOrder =
+    period === "yearly"
+      ? Number(summary.aov || 0)
+      : selectedPeriodOrders > 0
+        ? selectedPeriodRevenue / selectedPeriodOrders
+        : 0;
 
   const getProfitLabel = () => {
     if (period === "yearly") return totalYearly;
-    return totalMonthly;
+    return selectedPeriodRevenue;
   };
 
   const formatCurrency = (val) =>
@@ -144,7 +160,8 @@ const FinancialOverview = ({ data }) => {
 
   const getPeriodLabel = () => {
     if (period === "yearly") return "Monthly Revenue by Year";
-    return "Daily Revenue This Month";
+    if (period === "weekly") return "Daily Revenue This Week";
+    return "Monthly Revenue (Last 3 Months)";
   };
 
   return (
@@ -173,7 +190,7 @@ const FinancialOverview = ({ data }) => {
       <div className="row g-3 g-md-4 mb-3 mb-md-4">
         <div className="col-6 col-lg-3">
           <StatCard
-            label={`${period === "yearly" ? "Year-to-Date" : "Monthly"} Revenue`}
+            label={`${period === "yearly" ? "Year-to-Date" : period === "weekly" ? "This Week" : "Last 3 Months"} Revenue`}
             value={getProfitLabel()}
             color="warning"
           />
@@ -245,8 +262,7 @@ const FinancialOverview = ({ data }) => {
             data={{
               labels: activeTrend.map(
                 (t) => t.label || t.month || t.date || t.year,
-              ),
-              datasets: [
+              ),              datasets: [
                 {
                   label: "Revenue",
                   data: activeTrend.map((t) =>
@@ -283,10 +299,10 @@ const FinancialOverview = ({ data }) => {
 
       {/* Data Tables Section */}
       <div className="row g-4">
-        {/* Daily Trend Table */}
-        {period === "monthly" &&
-          reportData.dailyTrend &&
-          reportData.dailyTrend.length > 0 && (
+        {/* Weekly Trend Table */}
+        {period === "weekly" &&
+          reportData.weeklyTrend &&
+          reportData.weeklyTrend.length > 0 && (
             <div className="col-12">
               <div className="card border-0 shadow-sm rounded-4">
                 <div className="card-header bg-white border-0 pt-3 pt-md-4 px-3 px-md-4">
@@ -305,10 +321,50 @@ const FinancialOverview = ({ data }) => {
                         </tr>
                       </thead>
                       <tbody>
-                        {reportData.dailyTrend.map((item, idx) => (
+                        {reportData.weeklyTrend.map((item, idx) => (
                           <tr key={idx}>
                             <td className="text-muted fo-cell-label" data-label="Period">
-                              {item.label || item.date}
+                              {item.date || item.label}
+                            </td>
+                            <td className="text-end text-success fw-semibold">
+                              {formatCurrency(item.revenue)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+        {/* Monthly Trend Table */}
+        {period === "monthly" &&
+          reportData.recentMonthsTrend &&
+          reportData.recentMonthsTrend.length > 0 && (
+            <div className="col-12">
+              <div className="card border-0 shadow-sm rounded-4">
+                <div className="card-header bg-white border-0 pt-3 pt-md-4 px-3 px-md-4">
+                  <div className="d-flex align-items-center gap-2">
+                    <BarChart3 size={18} className="text-warning flex-shrink-0" />
+                    <h6 className="fw-bold mb-0 fs-6">Monthly Revenue Breakdown</h6>
+                  </div>
+                </div>
+                <div className="card-body p-3 p-md-4 pt-0">
+                  <div className="table-responsive">
+                    <table className="table table-hover align-middle fo-table">
+                      <thead className="table-light">
+                        <tr>
+                          <th className="fw-semibold">Month</th>
+                          <th className="fw-semibold text-end">Revenue</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reportData.recentMonthsTrend.map((item, idx) => (
+                          <tr key={idx}>
+                            <td className="text-muted fo-cell-label" data-label="Period">
+                              {item.month || item.label}
                             </td>
                             <td className="text-end text-success fw-semibold">
                               {formatCurrency(item.revenue)}

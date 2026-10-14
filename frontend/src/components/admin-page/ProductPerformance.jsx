@@ -11,6 +11,7 @@ import {
   DollarSign,
   BarChart3,
 } from "lucide-react";
+import AdminPagination from "../shared/AdminPagination";
 import "../../Style/ProductPerformance.css";
 
 const ProductPerformance = ({ data }) => {
@@ -140,24 +141,6 @@ const ProductPerformance = ({ data }) => {
                   <Award size={18} className="text-warning flex-shrink-0" />
                   <h6 className="fw-bold mb-0 fs-6">Top Selling Items</h6>
                 </div>
-                <div className="d-flex gap-1">
-                  <button
-                    className="btn btn-light btn-sm rounded-circle p-1 border shadow-none"
-                    style={{ width: "30px", height: "30px" }}
-                    disabled={topPage === 1}
-                    onClick={() => setTopPage((p) => p - 1)}
-                  >
-                    <ChevronLeft size={20} />
-                  </button>
-                  <button
-                    className="btn btn-light btn-sm rounded-circle p-1 border shadow-none"
-                    style={{ width: "30px", height: "30px" }}
-                    disabled={topPage >= totalTopPages}
-                    onClick={() => setTopPage((p) => p + 1)}
-                  >
-                    <ChevronRight size={20} />
-                  </button>
-                </div>
               </div>
             </div>
             <div className="card-body p-0">
@@ -236,33 +219,15 @@ const ProductPerformance = ({ data }) => {
               </div>
             </div>
             {totalTopPages > 1 && (
-              <div className="card-footer bg-white border-0 pt-2 pb-3 px-3 px-md-4">
-                <div className="d-flex justify-content-between align-items-center">
-                  <small className="text-muted">
-                    Showing {topIndexOfFirstItem + 1} -{" "}
-                    {Math.min(topIndexOfLastItem, topProducts.length)} of{" "}
-                    {topProducts.length} items
-                  </small>
-                  <div className="d-flex gap-1">
-                    {[...Array(Math.min(totalTopPages, 3))].map((_, idx) => (
-                      <button
-                        key={idx}
-                        className={`btn btn-sm rounded-circle p-0 ${topPage === idx + 1 ? "btn-warning text-white" : "btn-light"}`}
-                        style={{
-                          width: "28px",
-                          height: "28px",
-                          fontSize: "12px",
-                        }}
-                        onClick={() => setTopPage(idx + 1)}
-                      >
-                        {idx + 1}
-                      </button>
-                    ))}
-                    {totalTopPages > 3 && (
-                      <span className="mx-1 text-muted">...</span>
-                    )}
-                  </div>
-                </div>
+              <div className="card-footer bg-white border-0 pt-0 pb-2 px-3 px-md-4">
+                <AdminPagination
+                  currentPage={topPage}
+                  totalPages={totalTopPages}
+                  totalItems={topProducts.length}
+                  itemsPerPage={topItemsPerPage}
+                  label="items"
+                  onPageChange={setTopPage}
+                />
               </div>
             )}
           </div>

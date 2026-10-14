@@ -98,10 +98,13 @@ const FinancialReport = {
     return rows;
   },
 
-  getWeeklyProfitTrend: async (todayStr, days = 13) => {
+  getWeeklyProfitTrend: async (startDate, endDate) => {
     const [rows] = await db.execute(
       `
-      SELECT DATE_FORMAT(MIN(d), '%b %e') as label, SUM(amount) as value
+      SELECT DATE_FORMAT(MIN(d), '%Y-%m-%d') as date_key,
+             DATE_FORMAT(MIN(d), '%b %e') as label,
+             SUM(amount) as value,
+             COUNT(*) as orders
       FROM (
         SELECT paid_at as d, amount FROM payments WHERE payment_status = 'verified'
         UNION ALL
@@ -109,10 +112,35 @@ const FinancialReport = {
         FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
         WHERE ko.reservation_id IS NULL
       ) as combined
-      WHERE d >= DATE_SUB(?, INTERVAL ${days - 1} DAY)
-      GROUP BY DATE(d) ORDER BY DATE(d) ASC LIMIT ${days}
+      WHERE DATE(d) BETWEEN ? AND ?
+      GROUP BY DATE(d) ORDER BY DATE(d) ASC
     `,
-      [todayStr],
+      [startDate, endDate],
+    );
+    return rows;
+  },
+
+  // Revenue and order count per calendar month for the last N months.
+  getRecentMonthsTrend: async (todayStr, months = 3) => {
+    const [rows] = await db.execute(
+      `
+      SELECT DATE_FORMAT(MIN(d), '%Y-%m') as month_key,
+             DATE_FORMAT(MIN(d), '%b %Y') as label,
+             SUM(amount) as value,
+             COUNT(*) as orders
+      FROM (
+        SELECT paid_at as d, amount FROM payments WHERE payment_status = 'verified'
+        UNION ALL
+        SELECT ko.created_at as d, (ko.quantity * m.price) as amount
+        FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
+        WHERE ko.reservation_id IS NULL
+      ) as combined
+      WHERE d >= DATE_SUB(DATE_FORMAT(?, '%Y-%m-01'), INTERVAL ${months - 1} MONTH)
+        AND DATE(d) <= ?
+      GROUP BY YEAR(d), MONTH(d)
+      ORDER BY YEAR(d) ASC, MONTH(d) ASC
+      `,
+      [todayStr, todayStr],
     );
     return rows;
   },

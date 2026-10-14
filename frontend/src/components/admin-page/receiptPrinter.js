@@ -102,6 +102,7 @@ export const handlePrintReceipt = ({
           </section>
           <table>
             <thead><tr><th>Order</th><th class="number">Qty</th><th class="number">Amount</th></tr></thead>
+            <tbody>${itemsMarkup}</tbody>
           </table>
           <div class="total"><span>Total</span><span>₱${formatCurrency(total)}</span></div>
           <footer>Thank you for dining with us.</footer>

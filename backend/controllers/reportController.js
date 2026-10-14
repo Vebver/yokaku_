@@ -2,11 +2,38 @@ const ReportModel = require("../models/BestSellerProduct");
 const InventoryModel = require("../models/Inventory");
 const FinancialReport = require("../models/FinancialReport");
 
+const getWeekStartDate = (dateString) => {
+  const date = new Date(`${dateString}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7));
+  return date.toISOString().slice(0, 10);
+};
+
+const getRecentMonthPeriods = (dateString, count) => {
+  const current = new Date(`${dateString}T00:00:00.000Z`);
+  current.setUTCDate(1);
+  current.setUTCMonth(current.getUTCMonth() - count + 1);
+
+  return Array.from({ length: count }, () => {
+    const period = {
+      key: current.toISOString().slice(0, 7),
+      label: current.toLocaleDateString("en-US", {
+        month: "short",
+        year: "numeric",
+        timeZone: "UTC",
+      }),
+    };
+    current.setUTCMonth(current.getUTCMonth() + 1);
+    return period;
+  });
+};
+
 const getFinancialAnalytics = async (req, res) => {
   try {
     const todayStr = new Date().toLocaleDateString("en-CA", {
       timeZone: "Asia/Manila",
     });
+    const weekStartStr = getWeekStartDate(todayStr);
+    const recentMonthPeriods = getRecentMonthPeriods(todayStr, 3);
 
 const [
       topSellers,
@@ -16,6 +43,8 @@ const [
       financialStats,
       dailyTrend,
       monthlyTrend,
+      weeklyTrend,
+      recentMonthsTrend,
       performanceSummary,
       inventorySummary,
       expiredItems,
@@ -27,6 +56,8 @@ const [
       FinancialReport.getFinancialStats(todayStr),
       FinancialReport.getDailyProfitTrend(todayStr),
       FinancialReport.getMonthlyProfitTrend(todayStr),
+      FinancialReport.getWeeklyProfitTrend(weekStartStr, todayStr),
+      FinancialReport.getRecentMonthsTrend(todayStr, 3),
       ReportModel.GetPerformanceSummary(),
       InventoryModel.GetInventorySummary(),
       InventoryModel.GetExpiredItems(),
@@ -40,6 +71,40 @@ const [
     const calculatedExpiredCount = attentionItems.filter(
       (item) => item.attention_reason !== "low_stock",
     ).length;
+
+    const weeklyRowsByDate = new Map(
+      (weeklyTrend || []).map((item) => [item.date_key, item]),
+    );
+    const weeklyTrendData = [];
+    const currentWeekDate = new Date(`${weekStartStr}T00:00:00.000Z`);
+    const todayDate = new Date(`${todayStr}T00:00:00.000Z`);
+    while (currentWeekDate <= todayDate) {
+      const dateKey = currentWeekDate.toISOString().slice(0, 10);
+      const row = weeklyRowsByDate.get(dateKey);
+      weeklyTrendData.push({
+        date: currentWeekDate.toLocaleDateString("en-US", {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+          timeZone: "UTC",
+        }),
+        revenue: Number(row?.value || 0),
+        orders: Number(row?.orders || 0),
+      });
+      currentWeekDate.setUTCDate(currentWeekDate.getUTCDate() + 1);
+    }
+
+    const recentMonthsByKey = new Map(
+      (recentMonthsTrend || []).map((item) => [item.month_key, item]),
+    );
+    const recentMonthsTrendData = recentMonthPeriods.map((period) => {
+      const row = recentMonthsByKey.get(period.key);
+      return {
+        month: row?.label || period.label,
+        revenue: Number(row?.value || 0),
+        orders: Number(row?.orders || 0),
+      };
+    });
 
     // Structure response for all frontend variations
     const responseData = {
@@ -132,11 +197,17 @@ const [
           revenue: Number(item.value || 0),
         })),
 
+        // Weekly mode displays this week's revenue from Monday through today.
+        weeklyTrend: weeklyTrendData,
+
         // Yearly mode displays one revenue total for each month of the current year.
         monthlyTrend: (monthlyTrend || []).map((item) => ({
           month: item.label,
           revenue: Number(item.value || 0),
         })),
+
+        // Recent months mode always shows the current and previous two months.
+        recentMonthsTrend: recentMonthsTrendData,
       },
     };
 
