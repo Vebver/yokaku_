@@ -738,10 +738,22 @@ const WalkInReservations = () => {
 
       {/* --- ADD RESERVATION SIDEBAR --- */}
       <div
-        className="offcanvas offcanvas-end border-0 shadow-lg"
+        className="offcanvas border-0 shadow-lg reservation-modal-panel"
         tabIndex="-1"
         id="addReservationDrawer"
-        style={{ width: "min(100%, 450px)" }}
+        style={{
+          width: "min(100%, 980px)",
+          maxWidth: "calc(100vw - 32px)",
+          height: "min(86vh, 820px)",
+          maxHeight: "86vh",
+          top: "50%",
+          left: "50%",
+          right: "auto",
+          bottom: "auto",
+          transform: "translate(-50%, -50%)",
+          borderRadius: "18px",
+          overflow: "hidden",
+        }}
       >
         <div className="offcanvas-header border-bottom bg-dark text-white">
           <div>

@@ -329,17 +329,57 @@ function Inventory() {
   };
 
   const saveDishModal = async () => {
+    const pendingDishId = dishLinkId ? String(dishLinkId) : "";
+    const pendingQty = Number(dishLinkQty);
+    let nextDishLinks = [...dishModalLinks];
+
+    if (pendingDishId && !nextDishLinks.some((l) => String(l.item_id) === pendingDishId)) {
+      if (!Number.isFinite(pendingQty) || pendingQty <= 0) {
+        showToast("Enter the quantity used per serving before finishing.");
+        return;
+      }
+
+      const chosen = menuItems.find((m) => String(m.item_id) === pendingDishId);
+      if (!chosen) {
+        showToast("That dish is no longer available. Please choose another one.");
+        return;
+      }
+
+      const pendingLink = {
+        item_id: parseInt(pendingDishId, 10),
+        quantity_required: pendingQty,
+        name: chosen.menu_name || "",
+      };
+
+      if (isEditMode && editItemId) {
+        try {
+          await api.post(`/inventory/${editItemId}/dish-links`, {
+            item_id: pendingLink.item_id,
+            quantity_required: pendingLink.quantity_required,
+          });
+        } catch (err) {
+          showToast(err.response?.data?.error || "Failed to link dish.");
+          return;
+        }
+      }
+
+      nextDishLinks = [...nextDishLinks, pendingLink];
+      setDishModalLinks(nextDishLinks);
+      setDishLinkId("");
+      setDishLinkQty("");
+    }
+
     if (isEditMode && editItemId) {
       // Links already persisted through the API as they were added/removed.
       setRecipeLinks([]);
     } else {
-      setRecipeLinks(dishModalLinks);
+      setRecipeLinks(nextDishLinks);
     }
     setShowDishModal(false);
     fetchInventory();
     showToast(
-      dishModalLinks.length > 0
-        ? `Dish links saved (${dishModalLinks.length}).`
+      nextDishLinks.length > 0
+        ? `Dish links saved (${nextDishLinks.length}).`
         : "No dishes linked.",
       "success",
     );
