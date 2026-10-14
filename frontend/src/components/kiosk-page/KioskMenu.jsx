@@ -85,6 +85,7 @@ const KioskMenu = () => {
   const [menuData, setMenuData] = useState({});
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("");
+  const [kioskMenuMode, setKioskMenuMode] = useState("default");
   const [cart, setCart] = useState([]);
   const [billItems, setBillItems] = useState([]);
   const [localBillHistory, setLocalBillHistory] = useState([]);
@@ -257,7 +258,6 @@ const KioskMenu = () => {
   }, [activeCategory, hasOrderedUnlimited, menuData]);
 
   const handleEndSession = async () => {
-
     await playAlert();
 
     const activeTable = storage.getItem(SAVED_TABLE_ID);
@@ -369,6 +369,52 @@ const KioskMenu = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // When the walk-in Unlimited Wings timer hits 0, revert to Full Menu
+  // and tell the backend so the DB matches (survives page reload).
+  const wasWingsTimerRunning = useRef(false);
+
+  useEffect(() => {
+    // Reset the flag when we're not in Unlimited mode
+    if (kioskMenuMode !== "unlimited_wings") {
+      wasWingsTimerRunning.current = false;
+      return;
+    }
+
+    // Remember the timer actually ran
+    if (isTimerRunning) {
+      wasWingsTimerRunning.current = true;
+      return;
+    }
+
+    // Timer was running and just hit 0 — do the revert
+    if (wasWingsTimerRunning.current && timeLeft <= 0) {
+      wasWingsTimerRunning.current = false;
+
+      sessionStorage.removeItem(TIMER_KEY);
+      setKioskMenuMode("default");
+      setActiveCategory((prev) => (prev === "Unlimited" ? "" : prev));
+      showToast(
+        "Unlimited Wings time is up. You can keep ordering from the full menu.",
+        "info",
+      );
+
+      // Best-effort: persist the reset so a page reload stays on Full Menu
+      (async () => {
+        try {
+          if (setupTable != null) {
+            await axios.post(
+              `${API_BASE}/admin/kiosk-mode-expired/${setupTable}`,
+              {},
+              getAuthHeader(),
+            );
+          }
+        } catch (err) {
+          console.warn("Could not persist kiosk mode reset:", err?.message);
+        }
+      })();
+    }
+  }, [isTimerRunning, timeLeft, kioskMenuMode, setupTable, TIMER_KEY]);
+
   const fetchCurrentBill = async () => {
     const resId = storage.getItem(SAVED_RES_ID);
 
@@ -444,22 +490,26 @@ const KioskMenu = () => {
         // --- SYNCHRONOUS CALCULATION (Prevents React State Lag) ---        const currentHistory = billItems.length > 0 ? billItems : localBillHistory;
         const combinedSessionItems = [...currentHistory, ...itemsToSubmit];
 
-        const computedSessionTotal = combinedSessionItems.reduce((sum, item) => {
-          const q = parseInt(item.quantity || item.qty || 1);
-          let p = parseFloat(item.price);
-          if (isNaN(p)) p = parseFloat(item.unit_price);
-          if (isNaN(p) && item.item_price) p = parseFloat(item.item_price) / q;
-          if (isNaN(p)) p = 0;
+        const computedSessionTotal = combinedSessionItems.reduce(
+          (sum, item) => {
+            const q = parseInt(item.quantity || item.qty || 1);
+            let p = parseFloat(item.price);
+            if (isNaN(p)) p = parseFloat(item.unit_price);
+            if (isNaN(p) && item.item_price)
+              p = parseFloat(item.item_price) / q;
+            if (isNaN(p)) p = 0;
 
-          const isRefill =
-            item.is_refill === 1 ||
-            item.is_refill === true ||
-            (item.customizations &&
-              item.customizations.toString().includes("[REFILL]"));
-          if (isRefill) p = 0;
+            const isRefill =
+              item.is_refill === 1 ||
+              item.is_refill === true ||
+              (item.customizations &&
+                item.customizations.toString().includes("[REFILL]"));
+            if (isRefill) p = 0;
 
-          return sum + p * q;
-        }, 0);
+            return sum + p * q;
+          },
+          0,
+        );
 
         // Submit the cumulative total paid to sync precisely with the backend overwrite behavior
         await syncWithDashboard(
@@ -519,12 +569,11 @@ const KioskMenu = () => {
         let img = item.local_path || item.image_url;
         if (img && !img.startsWith("http")) {
           const cleanPath = img.startsWith("/") ? img.substring(1) : img;
-          const cleanBase = BASE_URL.endsWith("/")
-            ? BASE_URL
-            : `${BASE_URL}/`;
+          const cleanBase = BASE_URL.endsWith("/") ? BASE_URL : `${BASE_URL}/`;
           img = `${cleanBase}${cleanPath}`;
         }
-        const stockBlocked = item.is_stock_available === 0 || item.is_stock_available === false;
+        const stockBlocked =
+          item.is_stock_available === 0 || item.is_stock_available === false;
         acc[cat].push({
           id: item.item_id,
           name: item.menu_name || item.name,
@@ -613,7 +662,10 @@ const KioskMenu = () => {
       setCart([]);
       setBillItems([]);
       setLocalBillHistory([]);
-      showToast("This kiosk session was stopped by staff. Please start over.", "error");
+      showToast(
+        "This kiosk session was stopped by staff. Please start over.",
+        "error",
+      );
       window.location.href = "/kiosk-selection";
     };
 
@@ -623,6 +675,67 @@ const KioskMenu = () => {
       socket.disconnect();
     };
   }, []);
+  // Read the admin-selected kiosk mode for THIS table and react to changes.
+  // `unlimited_wings` → collapse the sidebar to Unlimited + start the 90-min timer.
+  useEffect(() => {
+    const fetchMode = async () => {
+      if (!setupTable) return;
+      try {
+        const res = await axios.get(`${API_BASE}/reservations/active-kiosk`, {
+          params: { tableId: setupTable },
+        });
+        if (res.data?.success) {
+          setKioskMenuMode(res.data.kioskMode || "default");
+        }
+      } catch (err) {
+        // Non-fatal: the poll will retry every 3s
+        console.warn("Kiosk mode poll failed:", err?.message);
+      }
+    };
+
+    fetchMode();
+    const pollInterval = setInterval(fetchMode, 3000);
+
+    // Instant flip when the admin changes the mode
+    let socket;
+    try {
+      socket = ioClient(BASE_URL, { transports: ["websocket", "polling"] });
+    } catch (err) {
+      console.warn("Kiosk mode socket unavailable:", err);
+      return () => clearInterval(pollInterval);
+    }
+
+    const handleMode = (payload) => {
+      if (
+        payload?.tableId != null &&
+        String(payload.tableId) === String(setupTable)
+      ) {
+        setKioskMenuMode(payload.kiosk_mode || "default");
+      }
+    };
+    socket.on("kiosk_mode_changed", handleMode);
+
+    return () => {
+      clearInterval(pollInterval);
+      socket.off("kiosk_mode_changed", handleMode);
+      socket.disconnect();
+    };
+  }, [setupTable]);
+
+  // When the mode flips to Unlimited Wings, force the Unlimited category
+  // and start the 90-minute timer (if not already running).
+  useEffect(() => {
+    if (kioskMenuMode !== "unlimited_wings") return;
+
+    setActiveCategory("Unlimited");
+
+    if (!sessionStorage.getItem(TIMER_KEY)) {
+      const endTime = Date.now() + DURATION; // 90 min (DURATION is defined above)
+      sessionStorage.setItem(TIMER_KEY, endTime.toString());
+      setTimeLeft(DURATION / 1000);
+      setIsTimerRunning(true);
+    }
+  }, [kioskMenuMode]);
 
   useEffect(() => {
     fetchMenu();
@@ -821,6 +934,11 @@ const KioskMenu = () => {
               {Object.keys(menuData)
                 .filter((cat) => !HIDDEN_CATEGORIES.includes(cat))
                 .filter((cat) => !(cat === "Unlimited" && hasOrderedUnlimited))
+                .filter((cat) =>
+                  kioskMenuMode === "unlimited_wings"
+                    ? cat === "Unlimited"
+                    : true,
+                )
                 .map((cat) => (
                   <button
                     key={cat}
@@ -845,7 +963,11 @@ const KioskMenu = () => {
                 className={`res-food-card ${item.isStockAvailable === false ? "res-food-card-unavailable" : ""}`}
                 style={
                   item.isStockAvailable === false
-                    ? { opacity: 0.45, filter: "grayscale(0.7)", cursor: "not-allowed" }
+                    ? {
+                        opacity: 0.45,
+                        filter: "grayscale(0.7)",
+                        cursor: "not-allowed",
+                      }
                     : undefined
                 }
                 onClick={() => handleItemClick(item)}
@@ -861,7 +983,13 @@ const KioskMenu = () => {
                 <div className="res-card-info">
                   <h4 className="res-food-label">{item.name}</h4>
                   {item.isStockAvailable === false ? (
-                    <p style={{ color: "#ff5c5c", fontWeight: "bold", margin: 0 }}>
+                    <p
+                      style={{
+                        color: "#ff5c5c",
+                        fontWeight: "bold",
+                        margin: 0,
+                      }}
+                    >
                       NOT AVAILABLE
                     </p>
                   ) : (
@@ -1373,8 +1501,8 @@ const KioskMenu = () => {
                 {!isFinalCheckout
                   ? "BACK"
                   : parseFloat(calculateTotalDue(isFinalCheckout)) > 0
-                  ? "PAY LATER"
-                  : "Close"}
+                    ? "PAY LATER"
+                    : "Close"}
               </button>
             </div>
           </div>
