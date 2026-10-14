@@ -1,8 +1,42 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ShieldCheck, X } from "lucide-react";
 
 const TermsModal = ({ isOpen, onAccept, onClose }) => {
   const [agreed, setAgreed] = useState(false);
+
+  // Lock body scroll while the modal is open, restore on close.
+  // Also resets the checkbox so it starts unchecked next time.
+  useEffect(() => {
+    if (!isOpen) return;
+
+    // Remember original values so we can restore them exactly
+    const originalBodyOverflow = document.body.style.overflow;
+    const originalBodyPaddingRight = document.body.style.paddingRight;
+    const originalHtmlOverflow = document.documentElement.style.overflow;
+
+    // Compensate for scrollbar disappearing, so the layout doesn't shift
+    const scrollBarWidth =
+      window.innerWidth - document.documentElement.clientWidth;
+
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    if (scrollBarWidth > 0) {
+      document.body.style.paddingRight = `${scrollBarWidth}px`;
+    }
+
+    return () => {
+      // Restore whatever was there before
+      document.body.style.overflow = originalBodyOverflow;
+      document.body.style.paddingRight = originalBodyPaddingRight;
+      document.documentElement.style.overflow = originalHtmlOverflow;
+    };
+  }, [isOpen]);
+
+  // Reset the checkbox each time the modal opens, so a previously
+  // accepted checkbox doesn't leak into the next session.
+  useEffect(() => {
+    if (isOpen) setAgreed(false);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -12,7 +46,6 @@ const TermsModal = ({ isOpen, onAccept, onClose }) => {
   };
 
   const handleClose = () => {
-    setAgreed(false); // reset so next open starts unchecked
     if (onClose) onClose();
   };
 
@@ -20,6 +53,9 @@ const TermsModal = ({ isOpen, onAccept, onClose }) => {
     <div
       className="res-modal-overlay"
       style={{ display: "flex", zIndex: 99999 }}
+      // Prevent wheel/touch from bubbling to the page beneath.
+      onWheel={(e) => e.stopPropagation()}
+      onTouchMove={(e) => e.stopPropagation()}
     >
       <div
         className="res-modal-content fade-in"
