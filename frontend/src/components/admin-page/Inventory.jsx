@@ -653,14 +653,14 @@ function Inventory() {
             <tbody>
               {currentItems.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="text-center py-5">
-                    <Package size={40} className="text-muted opacity-25 mb-2" />
+                  <td colSpan={9} className="text-center py-5 inv-empty-cell">
+                    <Package size={40} className="text-muted opacity-25 mb-2 mx-auto" />
                     <p className="fw-bold text-dark mb-1">
                       {inventory.length === 0
                         ? "No inventory yet"
                         : "No items match your filters"}
                     </p>
-                    <p className="text-muted small mb-3">
+                    <p className="text-muted small mb-3 inv-empty-text">
                       {inventory.length === 0
                         ? "Receive your first stock to start tracking ingredients."
                         : "Try a different search term or clear the filters."}

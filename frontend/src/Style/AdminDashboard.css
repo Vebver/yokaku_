@@ -733,6 +733,26 @@
     padding-right: clamp(0.75rem, 2vw, 1.5rem) !important;
 }
 
+/* The admin main viewport used to hard-code px-4 (1.5rem each side). On a
+   320px handset that gutter, plus each module's own px-2, consumed ~48px of
+   the screen and squeezed the content into a narrow column. Reclaim it on
+   small screens only; tablet/desktop keep the original spacing. */
+@media (max-width: 991.98px) {
+    .app-content-area {
+        padding-left: 0.75rem !important;
+        padding-right: 0.75rem !important;
+        padding-top: 0.5rem !important;
+        padding-bottom: 1rem !important;
+    }
+}
+
+@media (max-width: 430px) {
+    .app-content-area {
+        padding-left: 0.625rem !important;
+        padding-right: 0.625rem !important;
+    }
+}
+
 .admin-app-container .table-responsive {
     max-width: 100%;
 }
@@ -831,5 +851,151 @@
     .table-status-page-title,
     .table-status-page-subtitle {
         text-align: center;
+    }
+}
+
+/* --------------------------------------------------------------------------
+   Shared mobile gutters for every admin module.
+
+   The modules each wrap their header, toolbar, table and mobile card list in
+   a Bootstrap .px-2 / .mx-2. Nested under the main viewport's own padding this
+   doubled the gutter and left a narrow content column on a phone. On small
+   screens the module-level gutter is dropped so the app-content-area padding
+   is the only one, and the cards/rows use the reclaimed width.
+   -------------------------------------------------------------------------- */
+@media (max-width: 767.98px) {
+    /* Zero the module-level gutter so the app-content-area padding above is the
+       single source of truth for the mobile page gutter. */
+    .admin-app-container .app-content-area > .container-fluid,
+    .admin-app-container .app-content-area .reports-container,
+    .admin-app-container .app-content-area .inventory-container,
+    .admin-app-container .app-content-area .account-mgmt-container {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+
+    .admin-app-container .app-content-area .admin-page-header,
+    .admin-app-container .app-content-area .admin-toolbar,
+    .admin-app-container .app-content-area .px-2 {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+
+    /* Table Status wraps everything in container-fluid px-3 px-md-2. Its own
+       px-3 gutter would stack on top of the page gutter, so it is dropped on
+       phones — the page gutter above is the single source of truth. */
+    .admin-app-container .app-content-area > .container-fluid.px-3 {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+
+    .admin-app-container .app-content-area .mx-2 {
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+    }
+
+    /* Fixed-width tables must never force the page to scroll sideways; on
+       mobile the table is turned into stacked cards by each module's own CSS,
+       so the min-width is released here as a safety net. */
+    .admin-app-container .app-content-area .table-responsive {
+        overflow-x: hidden;
+    }
+}
+
+/* ==========================================================================
+   Admin mobile card lists (Online Bookings / Walk-ins / Payments)
+
+   These three modules render the same structure on phones: a wrapper with a
+   .px-2 gutter, then a stack of .card rows whose body is p-3. Nested under the
+   main viewport gutter that pushed the cards to a narrow column. The rules
+   below give the cards back the reclaimed width and keep the internal spacing
+   readable but compact.
+   ========================================================================== */
+@media (max-width: 767.98px) {
+    /* The card list itself carries the page gutter, so drop its own so the
+       cards run edge to edge within the app-content-area padding. */
+    .admin-app-container .app-content-area .d-md-none.px-2 {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+
+    /* Compact the card body while keeping enough room to tap. */
+    .admin-app-container .app-content-area .d-md-none > .card .card-body {
+        padding: 0.85rem;
+    }
+
+    /* Long guest names must wrap instead of shoving the status badge off the
+       card. min-width:0 lets the flex child actually shrink. */
+    .admin-app-container .app-content-area .d-md-none > .card .card-body > .d-flex > div {
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
+
+    .admin-app-container .app-content-area .d-md-none > .card .card-body .fw-bold {
+        overflow-wrap: anywhere;
+    }
+
+    /* The paid/due block is a fixed 180px on desktop. On a phone the card is
+       barely wider than that, so let it fill the card instead of nearly
+       overflowing it. */
+    .admin-app-container .app-content-area .d-md-none > .card .card-body div[style*="min-width"] {
+        min-width: 0 !important;
+        width: 100%;
+    }
+}
+
+@media (max-width: 430px) {
+    .admin-app-container .app-content-area .d-md-none > .card .card-body {
+        padding: 0.7rem;
+    }
+}
+
+/* ==========================================================================
+   Admin modules with large fixed internal card padding.
+
+   Profile and Maintenance render their content inside p-4 (and in places p-5)
+   cards. On a 320px phone that padding eats most of the card, leaving a thin
+   strip of text. The card padding is compacted on phones only; the desktop
+   treatment is unchanged.
+   ========================================================================== */
+@media (max-width: 767.98px) {
+    .admin-app-container .app-content-area .card.p-4,
+    .admin-app-container .app-content-area .card.p-5 {
+        padding: 1rem !important;
+    }
+
+    /* Nested bordered panels inside those cards are compacted too, so the
+       content and the container do not stack two large gutters. */
+    .admin-app-container .app-content-area .card.p-4 > .p-4,
+    .admin-app-container .app-content-area .card.p-4 .rounded.border.p-4 {
+        padding: 0.9rem !important;
+    }
+}
+
+@media (max-width: 430px) {
+    .admin-app-container .app-content-area .card.p-4,
+    .admin-app-container .app-content-area .card.p-5 {
+        padding: 0.85rem !important;
+    }
+}
+
+/* ==========================================================================
+   Vertical rhythm on phones.
+
+   A few modules open with py-5 / large mb-* on their container, which on a
+   short phone viewport pushes the first real content below the fold. Compact
+   the page-level vertical spacing on mobile only; the desktop rhythm is
+   untouched. Horizontal gutters are handled above.
+   ========================================================================== */
+@media (max-width: 767.98px) {
+    .admin-app-container .app-content-area > .container-fluid {
+        padding-top: 0.75rem !important;
+        padding-bottom: 0.75rem !important;
+    }
+
+    /* Keep section-to-section spacing even but tighter. */
+    .admin-app-container .app-content-area .admin-page-header,
+    .admin-app-container .app-content-area .admin-toolbar {
+        margin-bottom: 0.75rem !important;
     }
 }

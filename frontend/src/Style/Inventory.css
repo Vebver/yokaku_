@@ -177,6 +177,31 @@
     width: 100%;
     text-align: right;
   }
+
+  /* The empty-state row spans all columns. The generic mobile rule above
+     turns every <td> into a space-between flex row, which squeezed the
+     "No items match your filters" message into a narrow column and forced
+     individual words onto their own lines. Give it back the full width and
+     centre its contents as a balanced block. */
+  .inventory-container .table td.inv-empty-cell {
+    display: block;
+    width: 100%;
+    text-align: center !important;
+    padding: 2rem 1rem !important;
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+
+  .inventory-container .table td.inv-empty-cell::before {
+    display: none;
+  }
+
+  /* The "Clear filters" button stays fully visible and comfortably tappable. */
+  .inventory-container .table td.inv-empty-cell .btn {
+    min-height: 44px;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
 }
 
 /* --- Link Dishes modal --- */
@@ -203,6 +228,35 @@
 
   .dish-link-body {
     max-height: 60vh !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Inventory empty state.
+
+   On the narrowest handsets the message and the Clear filters button stack
+   vertically so neither gets squeezed, and the supporting text keeps enough
+   width to wrap on word boundaries rather than breaking mid-word.
+   -------------------------------------------------------------------------- */
+.inventory-container .inv-empty-text {
+  max-width: 32rem;
+  margin-left: auto;
+  margin-right: auto;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.inventory-container .inv-empty-cell .btn {
+  max-width: 100%;
+}
+
+@media (max-width: 575.98px) {
+  .inventory-container .inv-empty-cell {
+    padding: 1.75rem 0.75rem !important;
+  }
+
+  .inventory-container .inv-empty-cell .btn {
+    width: 100%;
   }
 }
 

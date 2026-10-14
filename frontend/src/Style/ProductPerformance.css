@@ -120,14 +120,28 @@
     padding: 0.75rem !important;
   }
 
+  /* Hide the coloured diagonal wedge on metric cards on phones — same
+     treatment as the Financials tab, so all report cards read consistently.
+     The value and label are unaffected. */
+  .product-performance-container .pp-stat-decoration {
+    display: none !important;
+  }
+
+  .product-performance-container .pp-kpi-card .card-body {
+    padding: 0.75rem !important;
+  }
+
   .pp-kpi-value {
-    font-size: 1.5rem;
+    font-size: 1.25rem;
+    line-height: 1.2;
     overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   .pp-kpi-label {
     font-size: 0.65rem;
     letter-spacing: 0.3px;
+    overflow-wrap: anywhere;
   }
 
   /* Rank circle stays on the title row instead of being orphaned. */

@@ -135,9 +135,9 @@ const FinancialOverview = ({ data }) => {
     isCurrency = true,
     subtitle = null,
   }) => (
-    <div className="card border-0 shadow-sm rounded-4 h-100 bg-white position-relative overflow-hidden">
+    <div className="card border-0 shadow-sm rounded-4 h-100 bg-white position-relative overflow-hidden fo-kpi-card">
       <div
-        className={`position-absolute top-0 end-0 w-25 h-100 opacity-10 bg-${color}`}
+        className={`position-absolute top-0 end-0 w-25 h-100 opacity-10 bg-${color} fo-stat-decoration`}
         style={{ clipPath: "polygon(100% 0, 0 0, 100% 100%)" }}
       ></div>
       <div className="card-body p-3 p-sm-4 p-lg-5">
@@ -211,7 +211,7 @@ const FinancialOverview = ({ data }) => {
           />
         </div>
         <div className="col-6 col-lg-3">
-          <div className="card border-0 shadow-sm rounded-4 h-100 bg-gradient-warning text-white">
+          <div className="card border-0 shadow-sm rounded-4 h-100 bg-gradient-warning text-white fo-kpi-card">
             <div className="card-body p-3 p-sm-4 p-lg-5">
               <h3 className="fw-bold mb-1 fo-kpi-value text-break">
                 {formatCurrency(totalYearly)}

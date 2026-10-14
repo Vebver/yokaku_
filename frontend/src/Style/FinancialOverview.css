@@ -67,23 +67,44 @@
     height: 260px;
   }
 
+  /* Remove the coloured diagonal wedge on the right of each metric card.
+     On a phone the card is too narrow for the decoration to read as anything
+     but noise, and it competes with the value/label for space. The element is
+     hidden only — the metric values and labels are untouched. */
+  .financial-overview .fo-stat-decoration {
+    display: none !important;
+  }
+
+  /* The KPI cards sit two-up on phones. Trim the body padding so the number
+     and its label have the most possible width, and let long financial values
+     wrap naturally instead of being clipped. */
+  .financial-overview .fo-kpi-card .card-body {
+    padding: 0.75rem !important;
+  }
+
   .fo-kpi-value {
     font-size: 1.15rem;
+    line-height: 1.2;
     overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   .fo-kpi-label {
     font-size: 0.65rem;
     letter-spacing: 0.3px;
+    overflow-wrap: anywhere;
   }
 
+  /* Weekly / Monthly / Yearly controls: keep them on one row, evenly sized,
+     without the buttons getting cramped. */
   .fo-period-tabs {
     gap: 0.35rem !important;
   }
 
   .fo-period-tabs .btn {
     font-size: 0.72rem;
-    padding: 0.35rem 0.5rem;
+    padding: 0.35rem 0.4rem;
+    white-space: nowrap;
   }
 
   /* Collapse the 2-column tables into stacked label/value cards so nothing is
