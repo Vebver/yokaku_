@@ -31,14 +31,17 @@ const FinancialReport = {
   // Used in Reports Dashboard
   getMonthlyTrend: async () => {
     const [rows] = await db.execute(`
-      SELECT DATE_FORMAT(MIN(d), '%b %Y') as label, SUM(amount) as value
+      SELECT DATE_FORMAT(d, '%b %Y') as label, SUM(amount) as value
       FROM (
         SELECT paid_at as d, amount FROM payments WHERE payment_status = 'verified'
         UNION ALL
         SELECT ko.created_at as d, (ko.quantity * m.price) as amount
         FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
         WHERE ko.reservation_id IS NULL
-      ) as combined GROUP BY DATE_FORMAT(MIN(d), '%b %Y') ORDER BY MIN(d) ASC LIMIT 6`);
+      ) as combined
+      GROUP BY DATE_FORMAT(d, '%b %Y')
+      ORDER BY MIN(d) ASC
+      LIMIT 6`);
     return rows;
   },
 
@@ -240,20 +243,23 @@ const FinancialReport = {
   getPdfDailyTrend: async (start, end) => {
     const [rows] = await db.execute(
       `
-      SELECT DATE_FORMAT(MIN(d), '%b %Y') as label, SUM(amount) as value
+      SELECT DATE_FORMAT(d, '%b %Y') as label, SUM(amount) as value
       FROM (
         SELECT paid_at as d, amount FROM payments WHERE payment_status = 'verified'
         UNION ALL
         SELECT ko.created_at as d, (ko.quantity * m.price) as amount
         FROM kiosk_orders ko JOIN menu_items m ON ko.item_id = m.item_id
         WHERE ko.reservation_id IS NULL
-      ) as combined WHERE d BETWEEN ? AND ? GROUP BY label ORDER BY MIN(d) ASC`,
+      ) as combined
+      WHERE d BETWEEN ? AND ?
+      GROUP BY DATE_FORMAT(d, '%b %Y')
+      ORDER BY MIN(d) ASC`,
       [start, end],
     );
     return rows;
   },
 
-   getPdfWeeklyTrend: async (start, end) => {
+  getPdfWeeklyTrend: async (start, end) => {
     const query = `
       SELECT
         CONCAT(DATE_FORMAT(MIN(d), '%b %d'), ' - ', DATE_FORMAT(MAX(d), '%b %d')) as label,
