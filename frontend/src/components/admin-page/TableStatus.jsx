@@ -8,7 +8,6 @@ import {
   Users,
   X,
   Square,
-  Monitor,
   Link,
 } from "lucide-react";
 import { useToast } from "../ToastContext";
@@ -297,17 +296,16 @@ const TableStatus = ({ compact = false }) => {
   };
 
   // Occupant label rules:
-  //  - a WALK-* reservation id is a walk-in session → "Walk-in"
-  //  - an event reservation shows the event/package name (not a generic
-  //    "Reserved") and falls back to the guest name
-  //  - everything else shows the guest's name
+
   const getOccupantLabel = (t) => {
     const resId = String(t.reservation_id || "").toUpperCase();
     if (resId.startsWith("WALK")) return "Walk-in";
+    const guestName = t.first_name || t.customer_name || "";
+    if (guestName) return guestName;
     if (String(t.reservation_type || "").toLowerCase() === "event") {
-      return t.package_name || t.first_name || t.customer_name || "Event";
+      return t.package_name || "Event";
     }
-    return t.first_name || t.customer_name || "Reserved";
+    return "Reserved";
   };
 
   // Stop the kiosk session. When a tableId is supplied only THAT table is
@@ -348,6 +346,60 @@ const TableStatus = ({ compact = false }) => {
       fetchData();
     } catch (err) {
       showToast(err.response?.data?.error || "Failed to stop kiosk.");
+    } finally {
+      setUi((p) => ({ ...p, updating: false }));
+    }
+  };
+
+  const stopAllKiosks = async () => {
+    if (!canControlKiosk) {
+      showToast("Only admins or cashiers can stop kiosks.");
+      return;
+    }
+
+    const activeReservations = [
+      ...new Set(
+        data.tables
+          .filter(
+            (t) =>
+              String(t.is_kiosk_active) === "1" ||
+              t.is_kiosk_active === 1 ||
+              t.is_kiosk_active === true,
+          )
+          .map((t) => t.reservation_id)
+          .filter(Boolean),
+      ),
+    ];
+
+    if (!activeReservations.length) {
+      showToast("No active kiosks to stop.");
+      return;
+    }
+
+    if (
+      !(await confirm({
+        title: "Stop all kiosks",
+        message: `Stop all active kiosk sessions (${activeReservations.length}) and return them to the home screen?`,
+        confirmLabel: "Stop all kiosks",
+      }))
+    ) {
+      return;
+    }
+
+    try {
+      setUi((p) => ({ ...p, updating: true }));
+      await Promise.all(
+        activeReservations.map((reservationId) =>
+          api.post("/admin/stop-kiosk", {
+            reservationId,
+            tableId: null,
+          }),
+        ),
+      );
+      showToast("All active kiosks were stopped.", "success");
+      fetchData();
+    } catch (err) {
+      showToast(err.response?.data?.error || "Failed to stop all kiosks.");
     } finally {
       setUi((p) => ({ ...p, updating: false }));
     }
@@ -476,74 +528,82 @@ const TableStatus = ({ compact = false }) => {
               Check Floor occupancy
             </p>
           </div>
-          <div className="d-flex align-items-center gap-2 border-start ps-3 ms-1">
-            <div className="d-flex align-items-center gap-1">
-              <span
-                className="rounded-circle"
-                style={{
-                  width: "8px",
-                  height: "8px",
-                  backgroundColor: "#10b981",
-                }}
-              ></span>
-              <span
-                className="text-muted fw-medium"
-                style={{ fontSize: "0.95rem" }}
-              >
-                {stats.available} Available
-              </span>
+          <div className="d-flex flex-wrap align-items-center justify-content-between justify-content-md-end gap-2 w-100 w-md-auto">
+            <div className="d-flex flex-wrap align-items-center gap-2 border-start ps-3 ms-1">
+              <div className="d-flex align-items-center gap-1">
+                <span
+                  className="rounded-circle"
+                  style={{
+                    width: "8px",
+                    height: "8px",
+                    backgroundColor: "#10b981",
+                  }}
+                ></span>
+                <span
+                  className="text-muted fw-medium"
+                  style={{ fontSize: "0.95rem" }}
+                >
+                  {stats.available} Available
+                </span>
+              </div>
+              <div className="d-flex align-items-center gap-1 ms-0 ms-md-2">
+                <span
+                  className="rounded-circle"
+                  style={{
+                    width: "8px",
+                    height: "8px",
+                    backgroundColor: "#ef4444",
+                  }}
+                ></span>
+                <span
+                  className="text-muted fw-medium"
+                  style={{ fontSize: "0.95rem" }}
+                >
+                  {stats.seated} Seated
+                </span>
+              </div>
+              <div className="d-flex align-items-center gap-1 ms-0 ms-md-2">
+                <span
+                  className="rounded-circle"
+                  style={{
+                    width: "8px",
+                    height: "8px",
+                    backgroundColor: "#f59e0b",
+                  }}
+                ></span>
+                <span
+                  className="text-muted fw-medium"
+                  style={{ fontSize: "0.95rem" }}
+                >
+                  {stats.confirmed} Confirmed
+                </span>
+              </div>
             </div>
-            <div className="d-flex align-items-center gap-1 ms-2">
-              <span
-                className="rounded-circle"
-                style={{
-                  width: "8px",
-                  height: "8px",
-                  backgroundColor: "#ef4444",
-                }}
-              ></span>
-              <span
-                className="text-muted fw-medium"
-                style={{ fontSize: "0.95rem" }}
+            <div className="d-flex flex-wrap align-items-center gap-1">
+              <button
+                className={`btn btn-sm ${ui.deleteMode ? "btn-danger" : "btn-outline-danger"} fw-bold`}
+                onClick={() =>
+                  setUi((p) => ({ ...p, deleteMode: !p.deleteMode }))
+                }
               >
-                {stats.seated} Seated
-              </span>
-            </div>
-            <div className="d-flex align-items-center gap-1 ms-2">
-              <span
-                className="rounded-circle"
-                style={{
-                  width: "8px",
-                  height: "8px",
-                  backgroundColor: "#f59e0b",
-                }}
-              ></span>
-              <span
-                className="text-muted fw-medium"
-                style={{ fontSize: "0.95rem" }}
+                <Trash2 size={16} /> {ui.deleteMode ? "Exit" : "Remove"}
+              </button>
+              {canControlKiosk && (
+                <button
+                  className="btn btn-sm btn-outline-dark fw-bold"
+                  onClick={stopAllKiosks}
+                  disabled={ui.updating}
+                >
+                  <Square size={16} /> Stop All Kiosks
+                </button>
+              )}
+              <button
+                className="btn btn-sm btn-dark fw-bold"
+                onClick={() => setUi((p) => ({ ...p, modal: "add" }))}
               >
-                {stats.confirmed} Confirmed
-              </span>
+                <Plus size={16} /> Add Table
+              </button>
             </div>
-          </div>
-          <div className="d-flex gap-1">
-            <button
-              className={`btn btn-sm ${ui.deleteMode ? "btn-danger" : "btn-outline-danger"} fw-bold`}
-              onClick={() =>
-                setUi((p) => ({ ...p, deleteMode: !p.deleteMode }))
-              }
-            >
-              <Trash2 size={16} />{" "}
-              <span className="d-none d-sm-inline">
-                {ui.deleteMode ? "Exit" : "Remove"}
-              </span>
-            </button>
-            <button
-              className="btn btn-sm btn-dark fw-bold"
-              onClick={() => setUi((p) => ({ ...p, modal: "add" }))}
-            >
-              <Plus size={16} /> Add Table
-            </button>
           </div>
         </div>
       )}
@@ -568,7 +628,6 @@ const TableStatus = ({ compact = false }) => {
                     <th>Date</th>
                     <th>Time</th>
                     <th>Status</th>
-                    <th>Allergy</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -600,26 +659,6 @@ const TableStatus = ({ compact = false }) => {
                             {reservation.status}
                           </span>
                         </td>
-                        {/* Exact customer-entered allergy text; empty means the
-                                        customer gave none, so we say so rather than implying
-                                        an allergy exists. */}
-                        <td
-                          className="text-truncate"
-                          style={{ maxWidth: "200px" }}
-                        >
-                          {reservation.allergy ? (
-                            <span
-                              className="badge bg-danger-subtle text-danger border border-danger-subtle fw-semibold"
-                              title={reservation.allergy}
-                            >
-                              {reservation.allergy}
-                            </span>
-                          ) : (
-                            <span className="text-muted small">
-                              None provided
-                            </span>
-                          )}
-                        </td>
                       </tr>
                     ))
                   )}
@@ -629,27 +668,11 @@ const TableStatus = ({ compact = false }) => {
           </div>
         </section>
       )}
-
-      {/* Floor. Tables that share a reservation are grouped so a party that
-          spans several tables stays visually together, but each card keeps its
-          own controls: the kiosk, orders, and linking all live on the card. */}
-      {/* The former per-session group banner ("RESERVATION / Guest / ID /
-          N tables") sat directly above the cards and repeated information each
-          card already shows, which read as a second, duplicate header. Every
-          card carries its own occupant name and times, so the banner was
-          removed rather than restyled. */}
       {sessions.map((s) => (
         <div key={s.key} className="mb-3">
           <div className="row g-2 row-cols-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-8">
             {s.tables.map((t) => {
               let activeStatus = t.bridge_status?.toLowerCase() || "available";
-              // A table physically marked occupied but with no live binding still
-              // counts as taken, otherwise it renders as an empty green card.
-              // IMPORTANT: the "future confirmed reservation" downgrade below
-              // only applies while the physical table is genuinely free. When
-              // staff marked the table occupied by hand (or a walk-in is on it)
-              // the occupied state must win — otherwise the Mark as Occupied
-              // update was immediately overwritten and the card read Vacant.
               const physicallyOccupied =
                 (t.table_status || "").toLowerCase() === "occupied";
               if (activeStatus === "available" && physicallyOccupied) {
@@ -682,11 +705,6 @@ const TableStatus = ({ compact = false }) => {
               const currentKioskMode =
                 kioskModeChoice[t.reservation_id] || t.kiosk_mode || "default";
 
-              // Customer allergy text is intentionally NOT shown here: the
-              // table card is for identifying the table's state. Allergies live
-              // in the reservation details (Online Reservations drawer) and the
-              // incoming-reservations table above.
-
               return (
                 <div key={t.table_id} className="col">
                   <div
@@ -715,14 +733,6 @@ const TableStatus = ({ compact = false }) => {
                           >
                             {cfg.label}
                           </span>
-                          {isKioskActive && (
-                            <Monitor
-                              size={11}
-                              className="ms-1 flex-shrink-0"
-                              style={{ color: "#dc2626" }}
-                              title="Kiosk is live on this table"
-                            />
-                          )}
                           {ui.deleteMode && (
                             <button
                               className="btn btn-sm btn-link text-danger p-0 ms-2 border-0"
@@ -816,8 +826,7 @@ const TableStatus = ({ compact = false }) => {
                                 }}
                                 title="Activate the kiosk for this reservation"
                               >
-                                <Monitor size={10} className="me-1" /> Activate
-                                Kiosk
+                                Activate Kiosk
                               </button>
                             )}
                           </>
@@ -834,9 +843,6 @@ const TableStatus = ({ compact = false }) => {
                         )}
 
                         {activeStatus === "occupied" ? (
-                          // A table with no live reservation binding: staff marked it
-                          // taken by hand, so offer the kiosk shortcut only when a
-                          // reservation is actually linked.
                           <div className="d-flex gap-1">
                             {canControlKiosk && (
                               <button

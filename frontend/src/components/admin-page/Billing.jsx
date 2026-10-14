@@ -29,8 +29,6 @@ const Billing = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const closeBtnRef = useRef(null);
-  const [isEditingAmount, setIsEditingAmount] = useState(false);
-  const [tempAmount, setTempAmount] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   // Filter controls.
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("all");
@@ -192,8 +190,6 @@ const Billing = () => {
     setOrderItems([]);
     setLoadingItems(true);
     setShowRejectForm(false);
-    setIsEditingAmount(false);
-    setTempAmount("");
     setRejectReason("The receipt image is unclear or details do not match.");
 
     try {
@@ -1004,106 +1000,13 @@ const Billing = () => {
                       <span className="text-white-50 small">
                         Paid Amount
                       </span>
-                      {isEditingAmount ? (
-                        <div className="d-flex align-items-center gap-2 animate-fade-in">
-                          <div
-                            className="d-flex align-items-center gap-1 bg-dark px-2 rounded border border-secondary"
-                            style={{ height: "30px" }}
-                          >
-                            <span
-                              className="small fw-bold"
-                              style={{ color: "#e0842d" }}
-                            >
-                              ₱
-                            </span>
-                            <input
-                              type="number"
-                              className="bg-transparent border-0 fw-semibold text-end text-warning"
-                              style={{
-                                width: "55px",
-                                fontSize: "0.85rem",
-                                outline: "none",
-                                boxShadow: "none",
-                              }}
-                              value={tempAmount}
-                              onChange={(e) => setTempAmount(e.target.value)}
-                            />
-                          </div>
-                          <button
-                            className="btn btn-sm btn-success px-2 py-1 fw-bold text-uppercase"
-                            style={{ fontSize: "0.7rem", height: "30px" }}
-                            onClick={async () => {
-                              const newAmount = parseFloat(tempAmount);
-                              if (isNaN(newAmount) || newAmount < 0) {
-                                return showToast(
-                                  "Please enter a valid numeric amount.",
-                                );
-                              }
-
-                              try {
-                                await api.put(
-                                  `/billing/update-amount/${selectedPayment.reservation_id}`,
-                                  { amount: newAmount },
-                                );
-
-                                setSelectedPayment((prev) => ({
-                                  ...prev,
-                                  amount: newAmount,
-                                }));
-
-                                setIsEditingAmount(false);
-
-                                const backdrops = document.querySelectorAll(
-                                  ".offcanvas-backdrop",
-                                );
-                                backdrops.forEach((el) => el.remove());
-                                document.body.style.overflow = "";
-                                document.body.style.paddingRight = "";
-
-                                await fetchPayments();
-                              } catch (err) {
-                                console.error(
-                                  "Error updating payment amount:",
-                                  err,
-                                );
-                                showToast("Failed to update downpayment amount.");
-                              }
-                            }}
-                          >
-                            Save
-                          </button>
-                          <button
-                            className="btn btn-sm btn-outline-secondary text-white-50 px-2 py-1"
-                            style={{ fontSize: "0.7rem", height: "30px" }}
-                            onClick={() => setIsEditingAmount(false)}
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="d-flex align-items-center gap-2">
-                          <span className="fw-semibold text-success">
-                            ₱
-                            {Number(selectedPayment?.amount || 0).toLocaleString(
-                              undefined,
-                              { minimumFractionDigits: 2 },
-                            )}
-                          </span>
-                          <button
-                            className="btn btn-link p-0 text-white-50 text-decoration-none small hover-white"
-                            style={{
-                              fontSize: "0.75rem",
-                              borderBottom: "1px dashed rgba(255,255,255,0.25)",
-                            }}
-                            onClick={() => {
-                              setTempAmount(selectedPayment?.amount || 0);
-                              setIsEditingAmount(true);
-                            }}
-                          >
-                            Edit
-                          </button>
-                        </div>
-                      )}
+                      <span className="fw-semibold text-success">
+                        ₱
+                        {Number(selectedPayment?.amount || 0).toLocaleString(
+                          undefined,
+                          { minimumFractionDigits: 2 },
+                        )}
+                      </span>
                     </div>
 
                     <div className="d-flex justify-content-between align-items-center mb-1">

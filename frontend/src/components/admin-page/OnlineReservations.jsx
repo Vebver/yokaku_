@@ -4,7 +4,6 @@ import {
   Armchair,
   ChevronLeft,
   ChevronRight,
-  Clock,
   ReceiptText,
   Info,
   AlertTriangle,
@@ -214,61 +213,38 @@ const OnlineReservations = () => {
       maximumFractionDigits: 2,
     });
 
-  // Paid / Due block. The two amounts sit side by side so the row stays
-  // scannable, and the cell is tinted by whether the deposit covers the
-  // balance (fully paid, partially paid, or nothing received yet).
+  // Start / End block. Show the times that were entered for the booking rather
+  // than payment amounts in the bookings list.
   const PaymentCell = ({ item }) => {
-    const paid = Number(item.amount || 0);
-    const due = Number(item.balance_due || 0);
-    const isVerified = item.payment_status?.toLowerCase() === "verified";
-    const isRejected = item.payment_status?.toLowerCase() === "rejected";
-    const isSettled = due <= 0 && paid > 0;
-
-    const tone = isSettled
-      ? { bg: "bg-success-subtle", text: "text-success", border: "border-success-subtle" }
-      : paid > 0
-        ? { bg: "bg-warning-subtle", text: "text-warning", border: "border-warning-subtle" }
-        : { bg: "bg-danger-subtle", text: "text-danger", border: "border-danger-subtle" };
-
-    const stateLabel = isSettled
-      ? "Settled"
-      : isRejected
-        ? "Rejected"
-        : isVerified
-          ? "Verified"
-          : "Pending";
+    const startTime = item.reservation_time ? formatTime(item.reservation_time) : "--:--";
+    const endTime = item.end_time ? formatTime(item.end_time) : "--:--";
 
     return (
       <div
-        className={`border rounded-3 overflow-hidden ${tone.bg} ${tone.border}`}
+        className="border rounded-3 overflow-hidden bg-light border-secondary-subtle"
         style={{ minWidth: "180px" }}
       >
         <div
-          className={`px-2 py-1 text-uppercase fw-bold ${tone.text} border-bottom ${tone.border}`}
+          className="px-2 py-1 text-uppercase fw-bold text-muted border-bottom border-secondary-subtle"
           style={{ fontSize: "0.6rem", letterSpacing: "0.6px" }}
         >
-          {stateLabel}
+          Start / End
         </div>
         <div className="d-flex">
           <div className="flex-fill px-2 py-1 border-end border-light">
             <div className="text-uppercase text-muted fw-bold" style={{ fontSize: "0.55rem" }}>
-              Paid
+              Start
             </div>
-            <div className="fw-bold text-success" style={{ fontSize: "0.8rem" }}>
-              {"\u20B1"}
-              {pesos(paid)}
+            <div className="fw-bold text-dark" style={{ fontSize: "0.8rem" }}>
+              {startTime}
             </div>
           </div>
           <div className="flex-fill px-2 py-1">
             <div className="text-uppercase text-muted fw-bold" style={{ fontSize: "0.55rem" }}>
-              Due
+              End
             </div>
-            <div
-              className={`fw-bold ${due > 0 ? "text-danger" : "text-muted"}`}
-              style={{ fontSize: "0.8rem" }}
-            >
-              {"\u20B1"}
-              {pesos(due)}
+            <div className="fw-bold text-dark" style={{ fontSize: "0.8rem" }}>
+              {endTime}
             </div>
           </div>
         </div>
@@ -443,7 +419,7 @@ const OnlineReservations = () => {
                 <th className="ps-4 py-3">Guest & ID</th>
                 <th>Table</th>
                 <th>Schedule</th>
-                <th>Paid / Due</th>
+                <th>Start / End</th>
                 <th className="text-center">Status</th>
                 <th className="text-end pe-4">Actions</th>
               </tr>
@@ -547,7 +523,6 @@ const OnlineReservations = () => {
                         : "T-?"}
                   </span>
                   <span className="d-flex align-items-center gap-1">
-                    <Clock size={13} />
                     {new Date(item.reservation_date).toLocaleDateString()}
                   </span>
                 </div>
@@ -826,20 +801,6 @@ const OnlineReservations = () => {
 
               {/* 3. TIMELINE & ALLERGIES */}
               <div className="p-3 border-bottom">
-                <div className="d-flex justify-content-between align-items-center">
-                  <div className="d-flex align-items-center gap-2">
-                    <Clock size={14} className="text-muted" />
-                    <span className="x-small fw-bold text-muted text-uppercase">
-                      Time
-                    </span>
-                  </div>
-                  <div className="small fw-bold text-dark">
-                    {selectedRes.reservation_time
-                      ? formatTime(selectedRes.reservation_time)
-                      : "--:--"}
-                  </div>
-                </div>
-
                 {customerAllergies && (
                   <div className="p-2 bg-warning-subtle rounded border border-warning-subtle d-flex gap-2 mt-2">
                     <Info
@@ -875,7 +836,7 @@ const OnlineReservations = () => {
                   <div className="d-flex justify-content-between align-items-center mb-2">
                     <span className="small text-muted">Package</span>
                     <span className="text-end">
-                      <PackageMeta reservation={selectedRes} />
+                      <PackageMeta reservation={selectedRes} showPrice={false} />
                     </span>
                   </div>
                   <div className="d-flex justify-content-between align-items-center mb-2">
