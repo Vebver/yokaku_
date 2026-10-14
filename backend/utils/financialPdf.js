@@ -64,43 +64,39 @@ function buildFinancialPdf({ title, payload, startDate, endDate }) {
   const tableStartX = (doc.page.width - colWidth) / 2;
   const tableStartY = 160; 
 
-  doc.fillColor("#1e293b").font("Helvetica-Bold").fontSize(14).text("Daily Activity Trends", tableStartX, doc.y);
+  doc.fillColor("#1e293b").font("Helvetica-Bold").fontSize(14).text("Monthly Revenue", tableStartX, doc.y);
 
-  // ============ GENERATE RANGE INCLUDING ZEROES ============
-  let dailyTrend = payload?.trends?.daily || [];
+  // ============ GENERATE MONTHLY RANGE INCLUDING ZEROES ============
+  let monthlyTrend = payload?.trends?.monthly || [];
 
   if (startDate && endDate) {
-    // Parse using string tokens to avoid local server timezone conversions
-    const [startY, startM, startD] = startDate.split("-").map(Number);
-    const [endY, endM, endD] = endDate.split("-").map(Number);
-    
-    const start = new Date(startY, startM - 1, startD);
-    const end = new Date(endY, endM - 1, endD);
-    
-    const rowMap = {};
-    dailyTrend.forEach(row => {
-      rowMap[row.label] = Number(row.value || row.revenue || 0);
-    });
-    
+    const [startYear, startMonth] = startDate.split("-").map(Number);
+    const [endYear, endMonth] = endDate.split("-").map(Number);
+    const rowMap = new Map(
+      monthlyTrend.map((row) => [
+        row.month_key,
+        Number(row.value || row.revenue || 0),
+      ]),
+    );
     const filledTrends = [];
-    const current = new Date(start);
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    
-    while (current <= end) {
-      const m = months[current.getMonth()];
-      const d = String(current.getDate()).padStart(2, '0');
-      const y = current.getFullYear();
-      const label = `${m} ${d}, ${y}`; // Formatted matching: "Jul 01, 2026"
-      
-      filledTrends.push({
-        label: label,
-        value: rowMap[label] || 0
+    let year = startYear;
+    let month = startMonth;
+
+    while (year < endYear || (year === endYear && month <= endMonth)) {
+      const monthKey = `${year}-${String(month).padStart(2, "0")}`;
+      const label = new Date(year, month - 1, 1).toLocaleDateString("en-US", {
+        month: "long",
+        year: "numeric",
       });
-      
-      current.setDate(current.getDate() + 1);
+      filledTrends.push({ label, value: rowMap.get(monthKey) || 0 });
+      month += 1;
+      if (month > 12) {
+        month = 1;
+        year += 1;
+      }
     }
-    
-    dailyTrend = filledTrends;
+
+    monthlyTrend = filledTrends;
   }
 
   function renderTrendTable(tableTitle, trends, x, startY, width) {
@@ -116,7 +112,7 @@ function buildFinancialPdf({ title, payload, startDate, endDate }) {
     const drawHeader = (yCoord) => {
       doc.rect(x, yCoord, width, headerHeight).fillColor("#f8fafc").fill();
       doc.rect(x, yCoord, width, headerHeight).strokeColor("#cbd5e1").lineWidth(0.5).stroke();
-      doc.fillColor("#475569").font("Helvetica-Bold").fontSize(7).text("DATE", x + 8, yCoord + 5);
+      doc.fillColor("#475569").font("Helvetica-Bold").fontSize(7).text("MONTH", x + 8, yCoord + 5);
       doc.text("REVENUE", x + width / 2, yCoord + 5, { width: width / 2 - 8, align: "right" });
     };
 
@@ -155,8 +151,8 @@ function buildFinancialPdf({ title, payload, startDate, endDate }) {
     doc.text(formatCurrencyPHP(total), x + width / 2, localY + 3.5, { width: width / 2 - 8, align: "right" });
   }
 
-  // Draw the single Daily Trend table centered on the page
-  renderTrendTable("Daily Performance", dailyTrend, tableStartX, tableStartY, colWidth);
+  // Draw the monthly revenue table centered on the page
+  renderTrendTable("Monthly Performance", monthlyTrend, tableStartX, tableStartY, colWidth);
 
   // ============ FOOTER SECTION ============
   const footerY = doc.page.height - 25; 
