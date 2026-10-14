@@ -113,7 +113,23 @@ const TermsModal = ({ isOpen, onAccept, onClose }) => {
         >
           {/* ... your existing terms list, unchanged ... */}
           <p>
-            <strong>1. Cancellation Policy:</strong> Customers can cancel their
+            <strong>1.No Smoking:</strong>No Smoking:{" "}
+            <span style={{ color: "red" }}>
+              Smoking cigarettes, cigars, or other tobacco products
+            </span>{" "}
+            is prohibited inside the restaurant.
+          </p>
+
+          <p>
+            <strong>2.No Vaping:</strong>No Smoking: The use of{" "}
+            <span style={{ color: "red" }}>
+              e-cigarettes, vape pens, and other electronic smoking devices
+            </span>{" "}
+            is not allowed inside the premises.
+          </p>
+
+          <p>
+            <strong>3. Cancellation Policy:</strong> Customers can cancel their
             reservations, but please note that the Hangout Policy has{" "}
             <span style={{ color: "red" }}>
               NO REFUND, if you want a REFUND kindly click in "File a Refund"
