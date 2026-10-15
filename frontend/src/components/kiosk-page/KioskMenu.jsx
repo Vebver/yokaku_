@@ -85,7 +85,7 @@ const KioskMenu = () => {
   const [menuData, setMenuData] = useState({});
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("");
-  //Walk in mode selection const [kioskMenuMode, setKioskMenuMode] = useState("default");
+  const [kioskMenuMode, setKioskMenuMode] = useState("default");
 
   // Helper: are we in either Unlimited mode?
   const isUnlimitedMode =
@@ -378,7 +378,7 @@ const KioskMenu = () => {
 
   // When the walk-in Unlimited Wings timer hits 0, revert to Full Menu
   // and tell the backend so the DB matches (survives page reload).
-  /*const wasWingsTimerRunning = useRef(false);
+  const wasWingsTimerRunning = useRef(false);
 
   useEffect(() => {
     // Reset the flag when we're not in Unlimited mode
@@ -420,7 +420,7 @@ const KioskMenu = () => {
         }
       })();
     }
-  }, [isTimerRunning, timeLeft, isUnlimitedMode, setupTable, TIMER_KEY]);*/
+  }, [isTimerRunning, timeLeft, isUnlimitedMode, setupTable, TIMER_KEY]);
 
   const fetchCurrentBill = async () => {
     const resId = storage.getItem(SAVED_RES_ID);
@@ -689,7 +689,7 @@ const KioskMenu = () => {
   // `unlimited_wings_a` / `unlimited_wings_b` → collapse the sidebar to
   // Unlimited + start the 90-min timer.
 
-  /*useEffect(() => {
+  useEffect(() => {
     const fetchMode = async () => {
       if (!setupTable) return;
       try {
@@ -731,11 +731,11 @@ const KioskMenu = () => {
       socket.off("kiosk_mode_changed", handleMode);
       socket.disconnect();
     };
-  }, [setupTable]);*/
+  }, [setupTable]);
 
   // When the mode flips to either Unlimited mode, force the Unlimited category
   // and start the 90-minute timer (if not already running).
-  /*useEffect(() => {
+  useEffect(() => {
     if (!isUnlimitedMode) return;
 
     setActiveCategory("Unlimited");
@@ -746,7 +746,7 @@ const KioskMenu = () => {
       setTimeLeft(DURATION / 1000);
       setIsTimerRunning(true);
     }
-  }, [isUnlimitedMode, kioskMenuMode]);*/
+  }, [isUnlimitedMode, kioskMenuMode]);
 
   // While in Unlimited mode, block the browser's own back button / swipe-back
   // so the customer can't escape the locked kiosk session.
@@ -994,6 +994,11 @@ const KioskMenu = () => {
               {Object.keys(menuData)
                 .filter((cat) => !HIDDEN_CATEGORIES.includes(cat))
                 .filter((cat) => !(cat === "Unlimited" && hasOrderedUnlimited))
+                .filter((cat) =>
+                  kioskMenuMode === "unlimited_wings"
+                    ? cat === "Unlimited"
+                    : true,
+                )
                 .map((cat) => (
                   <button
                     key={cat}
