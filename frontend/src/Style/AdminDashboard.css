@@ -1,467 +1,455 @@
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Dancing+Script:wght@700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Dancing+Script:wght@700&display=swap");
 
 :root {
-    --sidebar-width: 260px;
-    --sidebar-collapsed: 85px;
-    --primary-blue: #0d6efd;
-    --sidebar-bg: #111827;
-    --body-bg: #f4f7fe;
-    --nav-text: #9ca3af;
+  --sidebar-width: 260px;
+  --sidebar-collapsed: 85px;
+  --primary-blue: #0d6efd;
+  --sidebar-bg: #111827;
+  --body-bg: #f4f7fe;
+  --nav-text: #9ca3af;
 }
-
 
 /* Base Layout */
 
 .admin-app-container {
-    display: flex;
-    min-height: 100vh;
-    background-color: var(--body-bg);
+  display: flex;
+  min-height: 100vh;
+  background-color: var(--body-bg);
 }
-
 
 /* SIDEBAR STYLES */
 
 .app-sidebar {
-    width: var(--sidebar-width);
-    background-color: var(--sidebar-bg);
-    height: 100vh;
-    height: 100dvh;
-    position: fixed;
-    left: 0;
-    top: 0;
-    z-index: 1050;
-    display: flex;
-    flex-direction: column;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  width: var(--sidebar-width);
+  background-color: var(--sidebar-bg);
+  height: 100vh;
+  height: 100dvh;
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 1050;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 /* Removes the glowing yellow shadow from the stat icons */
 .icon-circle {
-    box-shadow: none !important;
-    filter: none !important;
-    border: none !important;
+  box-shadow: none !important;
+  filter: none !important;
+  border: none !important;
 }
 
 /* Ensure the card itself doesn't have a yellow glow */
 .stat-card {
-    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075) !important; /* Standard light shadow */
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075) !important; /* Standard light shadow */
 }
 
 .sb-closed .app-sidebar {
-    width: var(--sidebar-collapsed);
+  width: var(--sidebar-collapsed);
 }
 
 .sidebar-header-wrap {
-    position: relative;
-    width: 100%;
-    padding: 18px 22px 14px;
-    min-height: 74px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-sizing: border-box;
+  position: relative;
+  width: 100%;
+  padding: 18px 22px 14px;
+  min-height: 74px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
 }
 
 .sidebar-header-branding {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    min-height: 52px;
-    text-align: center;
-    box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 52px;
+  text-align: center;
+  box-sizing: border-box;
 }
 
 .sidebar-brand-copy {
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-width: 0;
-    line-height: 1.1;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  line-height: 1.1;
 }
 
 .brand-mark {
-    display: none;
-    width: 32px;
-    height: 32px;
-    min-width: 32px;
-    min-height: 32px;
-    border-radius: 10px;
-    background: #ffcc00;
-    color: #111827;
-    align-items: center;
-    justify-content: center;
-    font-weight: 900;
-    font-size: 1.05rem;
-    line-height: 1;
-    box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.08);
-    margin: 0 auto;
-    padding: 0;
+  display: none;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  border-radius: 10px;
+  background: #ffcc00;
+  color: #111827;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 1.05rem;
+  line-height: 1;
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.08);
+  margin: 0 auto;
+  padding: 0;
 }
 
 /* On phones the drawer header is tighter so the chevron + logo + name all fit
    on one line without wrapping or overlapping. */
 @media (max-width: 991.98px) {
-    .sidebar-header-branding {
-        padding: 14px 14px;
-        gap: 10px;
-    }
+  .sidebar-header-branding {
+    padding: 14px 14px;
+    gap: 10px;
+  }
 
-    .sidebar-chevron-indicator {
-        width: 32px;
-        height: 32px;
-        min-width: 32px;
-    }
+  .sidebar-chevron-indicator {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+  }
 }
 
-
 .brand-name {
-    color: white;
-    font-size: 1.1rem;
-    line-height: 1.1;
-    letter-spacing: 0.08em;
-    white-space: nowrap;
-    transition: opacity 0.2s;
-    font-family: 'Montserrat', 'Segoe UI', sans-serif;
-    text-transform: uppercase;
+  color: white;
+  font-size: 1.1rem;
+  line-height: 1.1;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  transition: opacity 0.2s;
+  font-family: "Montserrat", "Segoe UI", sans-serif;
+  text-transform: uppercase;
 }
 
 .brand-sub {
-    color: #ffcc00;
-    font-size: 0.7rem;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    line-height: 1.2;
-    margin-top: 2px;
-    font-family: 'Dancing Script', 'Segoe Script', cursive;
+  color: #ffcc00;
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  line-height: 1.2;
+  margin-top: 2px;
+  font-family: "Dancing Script", "Segoe Script", cursive;
 }
 
 .sb-closed .sidebar-header-branding {
-    padding: 0;
-    gap: 0;
-    justify-content: center;
-    width: 100%;
-    min-height: 32px;
+  padding: 0;
+  gap: 0;
+  justify-content: center;
+  width: 100%;
+  min-height: 32px;
 }
 
 .sb-closed .sidebar-brand-copy {
-    display: none;
+  display: none;
 }
 
 .sb-closed .brand-mark {
-    display: flex;
-}
-
-.sidebar-nav-list {
-    flex-grow: 1;
-    min-height: 0;
-    padding: 5px 16px;
-    overflow-y: auto;
+  display: flex;
 }
 
 .nav-item-link {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    padding: 10px 14px;
-    margin-bottom: 4px;
-    border: none;
-    background: transparent;
-    color: var(--nav-text);
-    border-radius: 12px;
-    transition: all 0.2s ease;
-    white-space: nowrap;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  padding: 10px 14px;
+  margin-bottom: 4px;
+  border: none;
+  background: transparent;
+  color: var(--nav-text);
+  border-radius: 12px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .nav-item-link:hover,
 .nav-item-link:focus-visible,
 .nav-item-link.active {
-    background: rgba(255, 255, 255, 0.08);
-    color: white;
-    transform: translateX(2px);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+  transform: translateX(2px);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
 .nav-item-link.active {
-    background: var(--primary-blue);
-    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.2);
+  background: var(--primary-blue);
+  box-shadow: 0 4px 12px rgba(13, 110, 253, 0.2);
 }
 
 .nav-link {
-    transition: all 0.2s ease;
+  transition: all 0.2s ease;
 }
 
 .nav-link:hover,
 .nav-link:focus-visible {
-    background: rgba(255, 255, 255, 0.08) !important;
-    transform: translateX(2px);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.08) !important;
+  transform: translateX(2px);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
 .nav-text-label {
-    font-size: 0.85rem;
-    margin-left: 12px;
-    font-weight: 500;
+  font-size: 0.85rem;
+  margin-left: 12px;
+  font-weight: 500;
 }
 
 .sb-closed .nav-text-label {
-    opacity: 0;
+  opacity: 0;
 }
 
 .sidebar-footer-action {
-    flex-shrink: 0;
-    padding: 12px 16px;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
+  flex-shrink: 0;
+  padding: 12px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .logout-button {
-    width: 100%;
-    background: rgba(239, 68, 68, 0.1);
-    color: #ef4444;
-    border: none;
-    padding: 10px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  width: 100%;
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: none;
+  padding: 10px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .sidebar-logout-item {
-    color: #ef4444 !important;
-    background: rgba(239, 68, 68, 0.1) !important;
-    transition: all 0.2s ease;
+  color: #ef4444 !important;
+  background: rgba(239, 68, 68, 0.1) !important;
+  transition: all 0.2s ease;
 }
 
 .sidebar-logout-item:hover,
 .sidebar-logout-item:focus-visible {
-    background: rgba(239, 68, 68, 0.12) !important;
-    color: #ef4444 !important;
-    transform: translateX(2px);
-    box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.15);
+  background: rgba(239, 68, 68, 0.12) !important;
+  color: #ef4444 !important;
+  transform: translateX(2px);
+  box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.15);
 }
-
 
 /* MAIN CONTENT VIEWPORT */
 
 .app-main-viewport {
-    flex-grow: 1;
-    margin-left: var(--sidebar-width);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    width: calc(100% - var(--sidebar-width));
-    min-width: 0;
+  flex-grow: 1;
+  margin-left: var(--sidebar-width);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  width: calc(100% - var(--sidebar-width));
+  min-width: 0;
 }
 
 .sb-closed .app-main-viewport {
-    margin-left: var(--sidebar-collapsed);
-    width: calc(100% - var(--sidebar-collapsed));
+  margin-left: var(--sidebar-collapsed);
+  width: calc(100% - var(--sidebar-collapsed));
 }
 
 .app-top-nav {
-    height: 60px;
-    display: flex;
-    align-items: center;
-    position: sticky;
-    top: 0;
-    z-index: 1000;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  height: 60px;
+  display: flex;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .toggle-sidebar-btn {
-    border: none;
-    background: #f3f4f6;
-    padding: 6px;
-    border-radius: 8px;
-    color: #4b5563;
+  border: none;
+  background: #f3f4f6;
+  padding: 6px;
+  border-radius: 8px;
+  color: #4b5563;
 }
 
 /* Right-side drawer toggle with a fixed footprint beside the branding. */
 .sidebar-chevron-indicator {
-    position: absolute;
-    right: -18px;
-    top: 50%;
-    transform: translateY(-50%);
-    background: rgba(17, 24, 39, 0.9);
-    color: #e5e7eb;
-    width: 34px;
-    height: 34px;
-    min-width: 34px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    margin-left: 0;
-    flex-shrink: 0;
-    z-index: 1200;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 10px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+  position: absolute;
+  right: -18px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(17, 24, 39, 0.9);
+  color: #e5e7eb;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 0;
+  flex-shrink: 0;
+  z-index: 1200;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
 }
 
 .sidebar-chevron-indicator:hover,
 .sidebar-chevron-indicator:focus-visible {
-    background: rgba(0, 0, 0, 0.815);
-    color: #ffffff;
+  background: rgba(0, 0, 0, 0.815);
+  color: #ffffff;
 }
 
 /* Keep the indicator visible in the narrow rail. */
 .sb-closed .sidebar-chevron-indicator {
-    width: 32px;
-    height: 32px;
-    min-width: 32px;
-    margin-left: 0;
-    right: -16px;
-    top: 56px;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  margin-left: 0;
+  right: -16px;
+  top: 56px;
 }
 
 /* --- Report Overview (admin dashboard) ---
     Keep the section left-aligned with a consistent vertical rhythm. */
 .report-overview-section {
-    max-width: 1200px;
-    margin-left: 0;
-    margin-right: 0;
-    padding-top: 0.5rem;
-    padding-bottom: 0.5rem;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
+  max-width: 1200px;
+  margin-left: 0;
+  margin-right: 0;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 .report-overview-section > .row {
-    width: 100%;
+  width: 100%;
 }
 
 .dashboard-financial-row {
-    align-items: stretch;
+  align-items: stretch;
 }
 
 .finance-stat-column,
 .revenue-column {
-    display: flex;
+  display: flex;
 }
 
 .finance-stat-column > .row,
 .revenue-column > .revenue-analytics-card {
-    width: 100%;
-    height: 100%;
+  width: 100%;
+  height: 100%;
 }
 
 .finance-mini-card {
-    min-height: 150px;
-    height: 100%;
+  min-height: 150px;
+  height: 100%;
 }
 
 .revenue-analytics-card {
-    width: 100%;
-    max-width: 100%;
-    overflow: hidden;
-    min-height: 220px;
-    display: flex;
-    flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
 }
 
 .revenue-analytics-header {
-    flex-wrap: wrap;
-    gap: 0.5rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .revenue-analytics-header .badge {
-    min-width: 160px;
-    text-align: center;
-    font-variant-numeric: tabular-nums;
+  min-width: 160px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .revenue-chart-wrap {
-    position: relative;
-    width: 100%;
-    height: 220px;
-    min-height: 220px;
-    flex: 1;
+  position: relative;
+  width: 100%;
+  height: 220px;
+  min-height: 220px;
+  flex: 1;
 }
 
 .finance-mini-card-title,
 .stat-card-title,
 .finance-mini-card h5,
 .revenue-analytics-header .badge {
-    font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums;
 }
 
 @media (max-width: 991.98px) {
-    .revenue-analytics-card {
-        padding: 1rem !important;
-    }
+  .revenue-analytics-card {
+    padding: 1rem !important;
+  }
 
-    .revenue-chart-wrap {
-        height: 200px;
-        min-height: 200px;
-    }
+  .revenue-chart-wrap {
+    height: 200px;
+    min-height: 200px;
+  }
 }
 
 @media (max-width: 767.98px) {
-    .report-overview-section {
-        padding-top: 0;
-        padding-bottom: 0.25rem;
-    }
+  .report-overview-section {
+    padding-top: 0;
+    padding-bottom: 0.25rem;
+  }
 
-    .revenue-analytics-header {
-        align-items: flex-start;
-    }
+  .revenue-analytics-header {
+    align-items: flex-start;
+  }
 }
-
 
 /* CARDS & SPACING */
 
 .card .stat-card {
-    border-radius: 15px;
-    border: 1px solid rgba(0, 0, 0, 0.05) !important;
+  border-radius: 15px;
+  border: 1px solid rgba(0, 0, 0, 0.05) !important;
 }
 
 .icon-circle {
-    width: 48px;
-    height: 48px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    flex-shrink: 0;
-    font-size: 1.25rem;
-    /* Removed all shadow properties */
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  flex-shrink: 0;
+  font-size: 1.25rem;
+  /* Removed all shadow properties */
 }
 
 .timeline-badge {
-    background: white;
-    padding: 6px 14px;
-    border-radius: 10px;
-    border: 1px solid #e2e8f0;
-    white-space: nowrap;
-    font-size: 0.85rem;
-    margin-bottom: 0;
+  background: white;
+  padding: 6px 14px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  white-space: nowrap;
+  font-size: 0.85rem;
+  margin-bottom: 0;
 }
 
 .avatar-circle {
-    width: 35px;
-    height: 35px;
-    background: #374151;
-    color: white;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
+  width: 35px;
+  height: 35px;
+  background: #374151;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
 }
 
 .small-text {
-    font-size: 0.65rem;
+  font-size: 0.65rem;
 }
 
 .smaller {
-    font-size: 0.75rem;
+  font-size: 0.75rem;
 }
 .card,
 .stat-card,
 .finance-mini-card,
 .table-card {
-    transition: none !important; /* Removes the smooth sliding animation */
-    transform: none !important;  /* Removes the actual movement */
+  transition: none !important; /* Removes the smooth sliding animation */
+  transform: none !important; /* Removes the actual movement */
 }
 
 /* 2. Specifically target the hover state to ensure it stays still */
@@ -469,87 +457,87 @@
 .stat-card:hover,
 .finance-mini-card:hover,
 .table-card:hover {
-    transform: none !important;   /* Prevents the card from moving up/down */
-    top: 0 !important;            /* Prevents any 'top' based movement */
-    box-shadow: none !important;  /* Optional: removes the shadow glow if you want it totally flat */
+  transform: none !important; /* Prevents the card from moving up/down */
+  top: 0 !important; /* Prevents any 'top' based movement */
+  box-shadow: none !important; /* Optional: removes the shadow glow if you want it totally flat */
 }
 
 /* 3. If your Floor Status tables have a specific zoom/pop effect */
 .table-item:hover,
 .table-card-wrapper:hover {
-    transform: none !important;
-    scale: 1 !important;
+  transform: none !important;
+  scale: 1 !important;
 }
 
 /* Mobile View */
 
 @media (max-width: 991.98px) {
-    .app-sidebar {
-        left: -100%;
-    }
-    .sb-open .app-sidebar {
-        left: 0;
-        width: 260px;
-    }
-    /* On phones the sidebar is its own scroll container. Without this, tapping
+  .app-sidebar {
+    left: -100%;
+  }
+  .sb-open .app-sidebar {
+    left: 0;
+    width: 260px;
+  }
+  /* On phones the sidebar is its own scroll container. Without this, tapping
        a low item (e.g. Logout) scrolled the document behind the menu, which
        read as the app jumping back to the dashboard. */
-    .sidebar-nav-list {
-        overscroll-behavior: contain;
-        -webkit-overflow-scrolling: touch;
-    }
-    /* The drawer must fit the dynamic viewport (browser chrome / bottom
+  .sidebar-nav-list {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* The drawer must fit the dynamic viewport (browser chrome / bottom
        gestures shrink the real viewport) and keep the Logout footer visible
        above the safe area instead of clipped by it. */
-    .app-sidebar {
-        height: 100dvh;
-    }
-    .sidebar-footer-action {
-        padding-bottom: max(12px, env(safe-area-inset-bottom));
-    }
-    /* py-4 on each nav button makes 13 items ~850px tall — taller than any
+  .app-sidebar {
+    height: 100dvh;
+  }
+  .sidebar-footer-action {
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+  /* py-4 on each nav button makes 13 items ~850px tall — taller than any
        phone viewport, which pushed Logout off-screen. Compact the rows on
        mobile so the whole list scrolls comfortably inside the drawer. */
-    .app-sidebar .nav-link.py-4 {
-        padding-top: 0.65rem !important;
-        padding-bottom: 0.65rem !important;
-        min-height: 44px;
-    }
-    .app-main-viewport {
-        margin-left: 0 !important;
-        width: 100% !important;
-    }
-    .sidebar-overlay {
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.3);
-        z-index: 1040;
-    }
+  .app-sidebar .nav-link.py-4 {
+    padding-top: 0.65rem !important;
+    padding-bottom: 0.65rem !important;
+    min-height: 44px;
+  }
+  .app-main-viewport {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+  .sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.3);
+    z-index: 1040;
+  }
 }
 
 .fade-in {
-    animation: fadeIn 0.3s ease;
+  animation: fadeIn 0.3s ease;
 }
 
 @keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(5px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .custom-scrollbar::-webkit-scrollbar {
-    width: 4px;
-    height: 4px;
+  width: 4px;
+  height: 4px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.1);
-    border-radius: 10px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
 }
 
 /* Mini stat tiles + report stat cards.
@@ -557,25 +545,25 @@
    the layout survives 133% browser zoom (where rem-based spacing grows) and
    narrow mobile viewports. */
 .finance-mini-card-inner {
-    width: 100%;
-    min-width: 0;
+  width: 100%;
+  min-width: 0;
 }
 
 .finance-mini-card-title,
 .stat-card-title {
-    margin: 0;
-    width: 100%;
-    max-width: 100%;
-    text-align: center;
-    font-size: clamp(0.6rem, 0.6rem + 0.25vw, 0.72rem);
-    letter-spacing: 0.8px;
-    overflow-wrap: anywhere;
+  margin: 0;
+  width: 100%;
+  max-width: 100%;
+  text-align: center;
+  font-size: clamp(0.6rem, 0.6rem + 0.25vw, 0.72rem);
+  letter-spacing: 0.8px;
+  overflow-wrap: anywhere;
 }
 
 .stat-card-body {
-    flex: 1 1 auto;
-    min-width: 0;
-    text-align: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: center;
 }
 
 /* --- Shared responsive filter bar ---
@@ -584,43 +572,43 @@
    stacked) and shrink-to-content once there is room, so the bar never
    overflows horizontally. */
 .admin-filter-bar {
-    width: 100%;
-    min-width: 0;
+  width: 100%;
+  min-width: 0;
 }
 
 .admin-filter-select {
-    width: auto;
-    max-width: 100%;
-    min-height: 38px;
-    flex: 1 1 150px;
+  width: auto;
+  max-width: 100%;
+  min-height: 38px;
+  flex: 1 1 150px;
 }
 
 .admin-clear-filter {
-    white-space: nowrap;
-    min-height: 38px;
-    display: inline-flex;
-    align-items: center;
+  white-space: nowrap;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
 }
 
 @media (max-width: 767.98px) {
-    .admin-filter-select,
-    .admin-clear-filter {
-        flex: 1 1 100%;
-        width: 100%;
-        justify-content: center;
-    }
+  .admin-filter-select,
+  .admin-clear-filter {
+    flex: 1 1 100%;
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 @media (min-width: 768px) and (max-width: 1199.98px) {
-    .admin-filter-select {
-        flex: 1 1 140px;
-    }
+  .admin-filter-select {
+    flex: 1 1 140px;
+  }
 }
 
 @media (min-width: 992px) {
-    .admin-search {
-        min-width: 0;
-    }
+  .admin-search {
+    min-width: 0;
+  }
 }
 
 /* --- Drawer layout helpers ---
@@ -628,124 +616,124 @@
    the child refuses to shrink below its content height and squeezes the footer
    actions at the bottom. The footer itself must never shrink. */
 .drawer-scroll-area {
-    min-height: 0;
+  min-height: 0;
 }
 
 .drawer-footer {
-    flex-shrink: 0;
-    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  flex-shrink: 0;
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
 }
 
 .drawer-footer-action {
-    min-height: 44px;
-    font-size: 0.9rem;
-    padding-left: 1rem;
-    padding-right: 1rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+  min-height: 44px;
+  font-size: 0.9rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* --- Confirmation dialog ---
    One set of rules drives every confirm() dialog in the admin app, so they are
    all centered, roomy and responsive in exactly the same way. */
 .admin-confirm-backdrop {
-    position: fixed;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: clamp(0.75rem, 4vw, 2rem);
-    background-color: rgba(0, 0, 0, 0.55);
-    overflow-y: auto;
-    z-index: 3000;
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(0.75rem, 4vw, 2rem);
+  background-color: rgba(0, 0, 0, 0.55);
+  overflow-y: auto;
+  z-index: 3000;
 }
 
 .admin-confirm-dialog {
-    width: 100%;
-    max-width: 560px;
-    margin: auto;
+  width: 100%;
+  max-width: 560px;
+  margin: auto;
 }
 
 .admin-confirm-content {
-    border: 0;
-    border-radius: 1rem;
-    /* Explicit opaque surface — without this the dialog inherits no
+  border: 0;
+  border-radius: 1rem;
+  /* Explicit opaque surface — without this the dialog inherits no
        background and the dark backdrop shows through, making it look
        transparent. */
-    background-color: #ffffff;
-    color: var(--bs-body-color, #212529);
-    box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.25);
+  background-color: #ffffff;
+  color: var(--bs-body-color, #212529);
+  box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.25);
 }
 
 .admin-confirm-header {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.75rem;
-    border: 0;
-    padding: 1.5rem 1.5rem 0.5rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  border: 0;
+  padding: 1.5rem 1.5rem 0.5rem;
 }
 
 .admin-confirm-title {
-    font-size: clamp(1.05rem, 0.98rem + 0.4vw, 1.25rem);
-    font-weight: 700;
-    margin: 0;
-    overflow-wrap: anywhere;
+  font-size: clamp(1.05rem, 0.98rem + 0.4vw, 1.25rem);
+  font-weight: 700;
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .admin-confirm-body {
-    padding: 0.75rem 1.5rem 1rem;
-    text-align: center;
+  padding: 0.75rem 1.5rem 1rem;
+  text-align: center;
 }
 
 .admin-confirm-message {
-    margin: 0;
-    font-size: clamp(0.95rem, 0.9rem + 0.25vw, 1.05rem);
-    line-height: 1.55;
-    color: #495057;
-    white-space: pre-line;
-    overflow-wrap: anywhere;
+  margin: 0;
+  font-size: clamp(0.95rem, 0.9rem + 0.25vw, 1.05rem);
+  line-height: 1.55;
+  color: #495057;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
 }
 
 .admin-confirm-footer {
-    display: flex;
-    flex-direction: column-reverse;
-    gap: 0.5rem;
-    border: 0;
-    padding: 0.5rem 1.5rem 1.5rem;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 0.5rem;
+  border: 0;
+  padding: 0.5rem 1.5rem 1.5rem;
 }
 
 .admin-confirm-btn {
-    width: 100%;
-    min-height: 48px;
-    padding: 0.65rem 1.25rem;
-    font-weight: 600;
-    font-size: 0.95rem;
-    border-radius: 0.6rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+  width: 100%;
+  min-height: 48px;
+  padding: 0.65rem 1.25rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  border-radius: 0.6rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 @media (min-width: 576px) {
-    .admin-confirm-footer {
-        flex-direction: row-reverse;
-        justify-content: center;
-    }
+  .admin-confirm-footer {
+    flex-direction: row-reverse;
+    justify-content: center;
+  }
 
-    .admin-confirm-btn {
-        width: auto;
-        min-width: 140px;
-    }
+  .admin-confirm-btn {
+    width: auto;
+    min-width: 140px;
+  }
 }
 
 @media (max-width: 575.98px) {
-    .admin-confirm-header,
-    .admin-confirm-body,
-    .admin-confirm-footer {
-        padding-left: 1rem;
-        padding-right: 1rem;
-    }
+  .admin-confirm-header,
+  .admin-confirm-body,
+  .admin-confirm-footer {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
 }
 
 /* Table Status card actions.
@@ -755,43 +743,43 @@
    side-by-side slivers on mobile; stacked full-width rows are far easier to
    tap. */
 .table-card-actions {
-    width: 100%;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0.35rem;
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.35rem;
 }
 
 /* The primary action on a card owns the full card width and a comfortable tap
    height, so it reads as the card's main control instead of a cramped sliver. */
 .table-card-primary-action {
-    width: 100%;
-    flex: 1 1 100%;
-    min-height: 34px;
-    font-size: 0.75rem;
-    padding-left: 0.5rem;
-    padding-right: 0.5rem;
-    border-radius: 0.5rem;
-    gap: 0.25rem;
+  width: 100%;
+  flex: 1 1 100%;
+  min-height: 34px;
+  font-size: 0.75rem;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+  border-radius: 0.5rem;
+  gap: 0.25rem;
 }
 
 /* Link + Mark as Occupied now sit one above the other. Each keeps the
    enlarged treatment and owns the full card width for a comfortable tap. */
 .table-card-actions .table-card-primary-action {
-    width: 100%;
-    white-space: normal;
-    min-width: 0;
+  width: 100%;
+  white-space: normal;
+  min-width: 0;
 }
 
 .table-card-action {
-    min-height: 26px;
-    font-size: 0.65rem;
-    line-height: 1.2;
-    white-space: nowrap;
-    padding-left: 0.35rem;
-    padding-right: 0.35rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+  min-height: 26px;
+  font-size: 0.65rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  padding-left: 0.35rem;
+  padding-right: 0.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* The btn-sm/py-0 combination on these buttons sets padding-top/bottom to 0,
@@ -799,83 +787,83 @@
    min-height in the eyes of the layout. Re-assert real vertical padding so the
    min-height actually produces a visible, tappable button. */
 .table-card-action.py-0 {
-    padding-top: 0.35rem;
-    padding-bottom: 0.35rem;
+  padding-top: 0.35rem;
+  padding-bottom: 0.35rem;
 }
 
 .table-card-primary-action.py-0 {
-    padding-top: 0.5rem;
-    padding-bottom: 0.5rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
 }
 
 @media (max-width: 991.98px) {
-    .table-card-action {
-        min-height: 34px;
-        font-size: 0.72rem;
-    }
+  .table-card-action {
+    min-height: 34px;
+    font-size: 0.72rem;
+  }
 
-    .table-card-primary-action {
-        min-height: 42px;
-        font-size: 0.82rem;
-    }
+  .table-card-primary-action {
+    min-height: 42px;
+    font-size: 0.82rem;
+  }
 }
 
 @media (max-width: 992px) {
-    .finance-mini-card-title,
-    .stat-card-title {
-        letter-spacing: 0.5px;
-    }
+  .finance-mini-card-title,
+  .stat-card-title {
+    letter-spacing: 0.5px;
+  }
 }
 
 .sidebar-brand-copy {
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Shared admin page primitives keep toolbars, tables and pagination consistent. */
 .admin-page-header,
 .admin-toolbar,
 .admin-pagination {
-    max-width: 1600px;
-    margin-left: auto;
-    margin-right: auto;
+  max-width: 1600px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .admin-search {
-    height: 45px;
-    min-width: 0;
+  height: 45px;
+  min-width: 0;
 }
 
 .admin-toolbar-button {
-    min-height: 45px;
-    white-space: nowrap;
+  min-height: 45px;
+  white-space: nowrap;
 }
 
 .admin-pagination .pagination {
-    flex-wrap: nowrap;
+  flex-wrap: nowrap;
 }
 
 .admin-pagination .page-link {
-    min-height: 38px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .admin-app-container,
 .app-main-viewport,
 .app-main-viewport > * {
-    min-width: 0;
+  min-width: 0;
 }
 
 .app-main-viewport {
-    overflow-x: hidden;
+  overflow-x: hidden;
 }
 
 .app-top-nav {
-    padding-left: clamp(0.75rem, 2vw, 1.5rem) !important;
-    padding-right: clamp(0.75rem, 2vw, 1.5rem) !important;
+  padding-left: clamp(0.75rem, 2vw, 1.5rem) !important;
+  padding-right: clamp(0.75rem, 2vw, 1.5rem) !important;
 }
 
 /* The admin main viewport used to hard-code px-4 (1.5rem each side). On a
@@ -883,66 +871,66 @@
    the screen and squeezed the content into a narrow column. Reclaim it on
    small screens only; tablet/desktop keep the original spacing. */
 @media (max-width: 991.98px) {
-    .app-content-area {
-        padding-left: 0.75rem !important;
-        padding-right: 0.75rem !important;
-        padding-top: 0.5rem !important;
-        padding-bottom: 1rem !important;
-    }
+  .app-content-area {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+    padding-top: 0.5rem !important;
+    padding-bottom: 1rem !important;
+  }
 }
 
 @media (max-width: 430px) {
-    .app-content-area {
-        padding-left: 0.625rem !important;
-        padding-right: 0.625rem !important;
-    }
+  .app-content-area {
+    padding-left: 0.625rem !important;
+    padding-right: 0.625rem !important;
+  }
 }
 
 .admin-app-container .table-responsive {
-    max-width: 100%;
+  max-width: 100%;
 }
 
 .admin-app-container img {
-    max-width: 100%;
+  max-width: 100%;
 }
 
 .admin-app-container .offcanvas {
-    max-width: 100vw;
+  max-width: 100vw;
 }
 
 @media (max-width: 767.98px) {
-    .admin-pagination {
-        align-items: stretch !important;
-        padding-left: 0.5rem !important;
-        padding-right: 0.5rem !important;
-    }
+  .admin-pagination {
+    align-items: stretch !important;
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+  }
 
-    .admin-pagination > nav,
-    .admin-pagination .pagination {
-        width: 100%;
-    }
+  .admin-pagination > nav,
+  .admin-pagination .pagination {
+    width: 100%;
+  }
 
-    .admin-pagination .pagination {
-        justify-content: center;
-    }
+  .admin-pagination .pagination {
+    justify-content: center;
+  }
 
-    .admin-toolbar-button {
-        width: 100%;
-    }
+  .admin-toolbar-button {
+    width: 100%;
+  }
 
-    .app-top-nav .admin-notif-dropdown {
-        position: fixed !important;
-        top: 60px;
-        left: 0.75rem !important;
-        right: 0.75rem !important;
-        width: auto !important;
-    }
+  .app-top-nav .admin-notif-dropdown {
+    position: fixed !important;
+    top: 60px;
+    left: 0.75rem !important;
+    right: 0.75rem !important;
+    width: auto !important;
+  }
 }
 
 @media (min-width: 768px) and (max-width: 1199.98px) {
-    .admin-toolbar-button {
-        flex: 1 1 100%;
-    }
+  .admin-toolbar-button {
+    flex: 1 1 100%;
+  }
 }
 /* --- Online Booking drawer: customer identity block ---
    The guest's name, phone and email are the primary information in a booking,
@@ -950,30 +938,30 @@
    surrounding detail rows. Applies on desktop too, where it simply reads as a
    clear header. */
 .booking-customer-name {
-    font-size: 1.35rem;
-    line-height: 1.2;
-    overflow-wrap: anywhere;
+  font-size: 1.35rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 
 .booking-customer-contact {
-    font-size: 0.95rem;
-    line-height: 1.4;
-    overflow-wrap: anywhere;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 767.98px) {
-    .booking-customer-block {
-        padding: 1.25rem !important;
-    }
+  .booking-customer-block {
+    padding: 1.25rem !important;
+  }
 
-    .booking-customer-name {
-        font-size: 1.5rem;
-        margin-bottom: 0.5rem !important;
-    }
+  .booking-customer-name {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem !important;
+  }
 
-    .booking-customer-contact {
-        font-size: 1.05rem;
-    }
+  .booking-customer-contact {
+    font-size: 1.05rem;
+  }
 }
 
 /* --- Centered page titles on mobile ---
@@ -982,21 +970,21 @@
    padding-inline so the text stays optically centred even when the container
    carries a left gutter on wide or narrow viewports. */
 @media (max-width: 767.98px) {
-    .admin-page-header h2,
-    .profile-header h1 {
-        text-align: center;
-        width: 100%;
-    }
+  .admin-page-header h2,
+  .profile-header h1 {
+    text-align: center;
+    width: 100%;
+  }
 
-    .admin-page-header p,
-    .profile-header p {
-        text-align: center;
-    }
+  .admin-page-header p,
+  .profile-header p {
+    text-align: center;
+  }
 
-    .table-status-page-title,
-    .table-status-page-subtitle {
-        text-align: center;
-    }
+  .table-status-page-title,
+  .table-status-page-subtitle {
+    text-align: center;
+  }
 }
 
 /* --------------------------------------------------------------------------
@@ -1009,42 +997,42 @@
    is the only one, and the cards/rows use the reclaimed width.
    -------------------------------------------------------------------------- */
 @media (max-width: 767.98px) {
-    /* Zero the module-level gutter so the app-content-area padding above is the
+  /* Zero the module-level gutter so the app-content-area padding above is the
        single source of truth for the mobile page gutter. */
-    .admin-app-container .app-content-area > .container-fluid,
-    .admin-app-container .app-content-area .reports-container,
-    .admin-app-container .app-content-area .inventory-container,
-    .admin-app-container .app-content-area .account-mgmt-container {
-        padding-left: 0 !important;
-        padding-right: 0 !important;
-    }
+  .admin-app-container .app-content-area > .container-fluid,
+  .admin-app-container .app-content-area .reports-container,
+  .admin-app-container .app-content-area .inventory-container,
+  .admin-app-container .app-content-area .account-mgmt-container {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
 
-    .admin-app-container .app-content-area .admin-page-header,
-    .admin-app-container .app-content-area .admin-toolbar,
-    .admin-app-container .app-content-area .px-2 {
-        padding-left: 0 !important;
-        padding-right: 0 !important;
-    }
+  .admin-app-container .app-content-area .admin-page-header,
+  .admin-app-container .app-content-area .admin-toolbar,
+  .admin-app-container .app-content-area .px-2 {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
 
-    /* Table Status wraps everything in container-fluid px-3 px-md-2. Its own
+  /* Table Status wraps everything in container-fluid px-3 px-md-2. Its own
        px-3 gutter would stack on top of the page gutter, so it is dropped on
        phones — the page gutter above is the single source of truth. */
-    .admin-app-container .app-content-area > .container-fluid.px-3 {
-        padding-left: 0 !important;
-        padding-right: 0 !important;
-    }
+  .admin-app-container .app-content-area > .container-fluid.px-3 {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
 
-    .admin-app-container .app-content-area .mx-2 {
-        margin-left: 0 !important;
-        margin-right: 0 !important;
-    }
+  .admin-app-container .app-content-area .mx-2 {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
 
-    /* Fixed-width tables must never force the page to scroll sideways; on
+  /* Fixed-width tables must never force the page to scroll sideways; on
        mobile the table is turned into stacked cards by each module's own CSS,
        so the min-width is released here as a safety net. */
-    .admin-app-container .app-content-area .table-responsive {
-        overflow-x: hidden;
-    }
+  .admin-app-container .app-content-area .table-responsive {
+    overflow-x: hidden;
+  }
 }
 
 /* ==========================================================================
@@ -1057,42 +1045,58 @@
    readable but compact.
    ========================================================================== */
 @media (max-width: 767.98px) {
-    /* The card list itself carries the page gutter, so drop its own so the
+  /* The card list itself carries the page gutter, so drop its own so the
        cards run edge to edge within the app-content-area padding. */
-    .admin-app-container .app-content-area .d-md-none.px-2 {
-        padding-left: 0 !important;
-        padding-right: 0 !important;
-    }
+  .admin-app-container .app-content-area .d-md-none.px-2 {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
 
-    /* Compact the card body while keeping enough room to tap. */
-    .admin-app-container .app-content-area .d-md-none > .card .card-body {
-        padding: 0.85rem;
-    }
+  /* Compact the card body while keeping enough room to tap. */
+  .admin-app-container .app-content-area .d-md-none > .card .card-body {
+    padding: 0.85rem;
+  }
 
-    /* Long guest names must wrap instead of shoving the status badge off the
+  /* Long guest names must wrap instead of shoving the status badge off the
        card. min-width:0 lets the flex child actually shrink. */
-    .admin-app-container .app-content-area .d-md-none > .card .card-body > .d-flex > div {
-        min-width: 0;
-        overflow-wrap: anywhere;
-    }
+  .admin-app-container
+    .app-content-area
+    .d-md-none
+    > .card
+    .card-body
+    > .d-flex
+    > div {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
 
-    .admin-app-container .app-content-area .d-md-none > .card .card-body .fw-bold {
-        overflow-wrap: anywhere;
-    }
+  .admin-app-container
+    .app-content-area
+    .d-md-none
+    > .card
+    .card-body
+    .fw-bold {
+    overflow-wrap: anywhere;
+  }
 
-    /* The paid/due block is a fixed 180px on desktop. On a phone the card is
+  /* The paid/due block is a fixed 180px on desktop. On a phone the card is
        barely wider than that, so let it fill the card instead of nearly
        overflowing it. */
-    .admin-app-container .app-content-area .d-md-none > .card .card-body div[style*="min-width"] {
-        min-width: 0 !important;
-        width: 100%;
-    }
+  .admin-app-container
+    .app-content-area
+    .d-md-none
+    > .card
+    .card-body
+    div[style*="min-width"] {
+    min-width: 0 !important;
+    width: 100%;
+  }
 }
 
 @media (max-width: 430px) {
-    .admin-app-container .app-content-area .d-md-none > .card .card-body {
-        padding: 0.7rem;
-    }
+  .admin-app-container .app-content-area .d-md-none > .card .card-body {
+    padding: 0.7rem;
+  }
 }
 
 /* ==========================================================================
@@ -1104,24 +1108,24 @@
    treatment is unchanged.
    ========================================================================== */
 @media (max-width: 767.98px) {
-    .admin-app-container .app-content-area .card.p-4,
-    .admin-app-container .app-content-area .card.p-5 {
-        padding: 1rem !important;
-    }
+  .admin-app-container .app-content-area .card.p-4,
+  .admin-app-container .app-content-area .card.p-5 {
+    padding: 1rem !important;
+  }
 
-    /* Nested bordered panels inside those cards are compacted too, so the
+  /* Nested bordered panels inside those cards are compacted too, so the
        content and the container do not stack two large gutters. */
-    .admin-app-container .app-content-area .card.p-4 > .p-4,
-    .admin-app-container .app-content-area .card.p-4 .rounded.border.p-4 {
-        padding: 0.9rem !important;
-    }
+  .admin-app-container .app-content-area .card.p-4 > .p-4,
+  .admin-app-container .app-content-area .card.p-4 .rounded.border.p-4 {
+    padding: 0.9rem !important;
+  }
 }
 
 @media (max-width: 430px) {
-    .admin-app-container .app-content-area .card.p-4,
-    .admin-app-container .app-content-area .card.p-5 {
-        padding: 0.85rem !important;
-    }
+  .admin-app-container .app-content-area .card.p-4,
+  .admin-app-container .app-content-area .card.p-5 {
+    padding: 0.85rem !important;
+  }
 }
 
 /* ==========================================================================
@@ -1133,14 +1137,32 @@
    untouched. Horizontal gutters are handled above.
    ========================================================================== */
 @media (max-width: 767.98px) {
-    .admin-app-container .app-content-area > .container-fluid {
-        padding-top: 0.75rem !important;
-        padding-bottom: 0.75rem !important;
-    }
+  .admin-app-container .app-content-area > .container-fluid {
+    padding-top: 0.75rem !important;
+    padding-bottom: 0.75rem !important;
+  }
 
-    /* Keep section-to-section spacing even but tighter. */
-    .admin-app-container .app-content-area .admin-page-header,
-    .admin-app-container .app-content-area .admin-toolbar {
-        margin-bottom: 0.75rem !important;
-    }
+  /* Keep section-to-section spacing even but tighter. */
+  .admin-app-container .app-content-area .admin-page-header,
+  .admin-app-container .app-content-area .admin-toolbar {
+    margin-bottom: 0.75rem !important;
+  }
+}
+
+/* Sidebar scrolling fix - desktop and mobile */
+.sidebar-nav-list {
+  flex-grow: 1;
+  min-height: 0;
+  min-width: 0;
+  padding: 5px 16px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-x: none;
+}
+
+/* Prevent actual JSX navigation buttons from overflowing */
+.sidebar-nav-list .nav-link {
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
