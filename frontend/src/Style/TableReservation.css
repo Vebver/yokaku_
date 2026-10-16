@@ -2489,6 +2489,79 @@ select:disabled {
 .calendar-day.past .calendar-day-number {
   color: #ccc;
 }
+/* ============================================ */
+/* NEW CALENDAR + DETAILS LAYOUT                */
+/* ============================================ */
+
+/* The main wrapper for the calendar and details */
+.calendar-details-wrapper {
+  display: flex;
+  width: 100%;
+  gap: 30px; /* Space between calendar and details */
+  align-items: flex-start; /* Align to top */
+  justify-content: center; /* Center the content horizontally */
+}
+
+/* When NO date is selected, center the calendar */
+.calendar-details-wrapper.no-selection {
+  justify-content: center;
+}
+
+.calendar-details-wrapper.no-selection .calendar-column {
+  max-width: 500px; /* Keep calendar same width as before */
+  width: 100%;
+}
+
+/* When a date IS selected, use two columns */
+.calendar-details-wrapper.has-selection .calendar-column {
+  flex: 1 1 500px; /* Allow calendar to grow but keep a base width */
+  max-width: 550px;
+  width: 100%;
+}
+
+.calendar-details-wrapper.has-selection .reservation-details-column {
+  flex: 1 1 400px; /* Allow details to grow */
+  max-width: 450px;
+  width: 100%;
+}
+
+/* Container for the reservation details */
+.reservation-details-column {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Adjust the existing reservation-details-container to fit the column */
+.reservation-details-column .reservation-details-container {
+  margin-top: 0; /* Remove top margin since it's now in a column */
+  padding-top: 0;
+  border-top: none; /* Remove top border */
+  background: white; /* Ensure background is consistent */
+  border-radius: 20px; /* Match calendar container */
+  padding: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  border: 1px solid #f0f0f0;
+  height: fit-content; /* Prevent stretching */
+}
+
+/* Responsive: Stack on smaller screens */
+@media (max-width: 1100px) {
+  .calendar-details-wrapper.has-selection {
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .calendar-details-wrapper.has-selection .calendar-column,
+  .calendar-details-wrapper.has-selection .reservation-details-column {
+    max-width: 100%; /* Full width on mobile */
+    width: 100%;
+  }
+
+  .reservation-details-column .reservation-details-container {
+    margin-top: 20px; /* Add back some margin when stacked */
+  }
+}
 
 @media (max-width: 768px) {
   .event-package-cards {
