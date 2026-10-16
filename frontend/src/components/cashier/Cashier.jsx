@@ -21,8 +21,10 @@ const WalkInReservations = lazy(() => import("../admin-page/WalkInReservations")
 const Billing = lazy(() => import("../admin-page/Billing"));
 const Reports = lazy(() => import("../admin-page/Reports"));
 import "../../Style/Cashier.css"
+import { useConfirmation } from "../ConfirmationContext";
 
 const CashierDashboard = () => {
+  const { confirm } = useConfirmation();
   const [activeTab, setActiveTab] = useState("tables");
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 992);
 
@@ -35,7 +37,14 @@ const CashierDashboard = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const approved = await confirm({
+      title: "Logout",
+      message: "Are you sure you want to logout?",
+      confirmLabel: "Logout",
+      cancelLabel: "Cancel",
+    });
+    if (!approved) return;
     localStorage.clear();
     window.location.href = "/";
   };

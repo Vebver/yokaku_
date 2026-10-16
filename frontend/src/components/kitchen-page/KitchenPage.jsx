@@ -10,6 +10,7 @@ import {
 import { io } from "socket.io-client";
 import { useLocation, useNavigate } from "react-router-dom"; // Added useNavigate
 import { useToast } from "../ToastContext";
+import { useConfirmation } from "../ConfirmationContext";
 import api, { API_BASE, SOCKET_URL } from "../../api";
 import "../../Style/KitchenPage.css";
 import "../../Style/KitchenNavbar.css";
@@ -197,6 +198,7 @@ const KitchenPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const { confirm } = useConfirmation();
 
   // Get User Info from LocalStorage
   const userRole = localStorage.getItem("role");
@@ -204,7 +206,14 @@ const KitchenPage = () => {
   const lastName = localStorage.getItem("lastName") || "";
 
   // Logout Logic
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const approved = await confirm({
+      title: "Logout",
+      message: "Are you sure you want to logout?",
+      confirmLabel: "Logout",
+      cancelLabel: "Cancel",
+    });
+    if (!approved) return;
     localStorage.clear();
     navigate("/");
     window.location.reload();

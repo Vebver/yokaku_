@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, Suspense, lazy } from "react";
 import api, { SOCKET_URL } from "../../api";
 import { requestSectionRefresh } from "../shared/sectionRefresh";
+import { useConfirmation } from "../ConfirmationContext";
 import io from "socket.io-client";
 import {
   Chart as ChartJS,
@@ -43,6 +44,7 @@ const Maintenance = lazy(() => import("./Maintenance"));
 const OnlineReservations = lazy(() => import("./OnlineReservations"));
 const WalkInReservations = lazy(() => import("./WalkInReservations"));
 const AuditLogs = lazy(() => import("./AuditLogs"));
+const Announcements = lazy(() => import("./Announcements"));
 
 import "../../Style/AdminDashboard.css";
 import "../../Style/AdminNotifications.css";
@@ -78,6 +80,7 @@ const Icons = {
   Maintenance: () => <i className="bi bi-tools"></i>,
   Reservations: () => <i className="bi bi-calendar-check"></i>,
   Audit: () => <i className="bi bi-shield-lock"></i>,
+  Announcements: () => <i className="bi bi-megaphone"></i>,
 };
 
 const navItems = [
@@ -92,6 +95,7 @@ const navItems = [
   { id: "billing", label: "Payments", icon: Icons.Billing },
   { id: "report", label: "Reports", icon: Icons.Sales },
   { id: "products", label: "Menu Items", icon: Icons.Products },
+  { id: "announcements", label: "Announcements", icon: Icons.Announcements },
   { id: "categories", label: "Categories", icon: Icons.Categories },
   { id: "inventory", label: "Inventory", icon: Icons.Inventory },
   { id: "account", label: "Account Manage", icon: Icons.Account },
@@ -119,6 +123,7 @@ const StatCard = ({ title, value, color }) => (
 );
 
 function AdminDashboard() {
+  const { confirm } = useConfirmation();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeSection, setActiveSection] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 992);
@@ -589,6 +594,7 @@ function AdminDashboard() {
       billing: <Billing />,
       inventory: <Inventory />,
       products: <Product />,
+      announcements: <Announcements />,
       categories: <Categories />,
       report: (
         <Reports
@@ -616,7 +622,14 @@ function AdminDashboard() {
     return sections[activeSection] || <DashboardOverview />;
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const approved = await confirm({
+      title: "Logout",
+      message: "Are you sure you want to logout?",
+      confirmLabel: "Logout",
+      cancelLabel: "Cancel",
+    });
+    if (!approved) return;
     localStorage.clear();
     window.location.href = "/";
   };

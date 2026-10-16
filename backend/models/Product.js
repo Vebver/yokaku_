@@ -1,5 +1,26 @@
 const db = require("../config/db");
 
+let submissionTablePromise;
+
+const ensureSubmissionTable = async () => {
+  if (!submissionTablePromise) {
+    submissionTablePromise = db.query(`
+      CREATE TABLE IF NOT EXISTS menu_item_creation_requests (
+        submission_key VARCHAR(128) NOT NULL,
+        payload_hash CHAR(64) NOT NULL,
+        item_id INT DEFAULT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (submission_key),
+        KEY idx_menu_creation_requests_created (created_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `).catch((error) => {
+      submissionTablePromise = null;
+      throw error;
+    });
+  }
+  await submissionTablePromise;
+};
+
 const Product = {
   create: async (data) => {
     const sql = `
@@ -19,6 +40,60 @@ const Product = {
     ];
     const [result] = await db.execute(sql, values);
     return { item_id: result.insertId, ...data };
+  },
+
+  createWithIdempotency: async (data, submissionKey, payloadHash) => {
+    await ensureSubmissionTable();
+    const connection = await db.getConnection();
+    try {
+      await connection.beginTransaction();
+      await connection.execute(
+        `INSERT IGNORE INTO menu_item_creation_requests (submission_key, payload_hash)
+         VALUES (?, ?)`,
+        [submissionKey, payloadHash],
+      );
+      const [requests] = await connection.execute(
+        `SELECT payload_hash, item_id FROM menu_item_creation_requests
+         WHERE submission_key = ? FOR UPDATE`,
+        [submissionKey],
+      );
+      const request = requests[0];
+      if (!request || request.payload_hash !== payloadHash) {
+        await connection.rollback();
+        return { conflict: true };
+      }
+      if (request.item_id) {
+        await connection.commit();
+        return { item_id: Number(request.item_id), duplicate: true };
+      }
+
+      const [result] = await connection.execute(
+        `INSERT INTO menu_items
+          (category_id, menu_name, description, price, image_url, is_available, is_featured, local_path)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          data.category_id,
+          data.menu_name,
+          data.description,
+          data.price,
+          data.image_url,
+          data.is_available,
+          data.is_featured,
+          data.local_path,
+        ],
+      );
+      await connection.execute(
+        `UPDATE menu_item_creation_requests SET item_id = ? WHERE submission_key = ?`,
+        [result.insertId, submissionKey],
+      );
+      await connection.commit();
+      return { item_id: result.insertId, duplicate: false };
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
   },
 
   delete: async (id) => {

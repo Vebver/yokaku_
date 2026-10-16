@@ -1,4 +1,6 @@
 const Product = require("../models/Product");
+const crypto = require("crypto");
+const fs = require("fs/promises");
 const Notification = require("../models/Notification");
 // Commented out unused model during peak-pricing disablement
 // const PriceMaintenance = require("../models/PriceMaintenance");
@@ -106,6 +108,27 @@ const productController = {
     try {
       const { menu_name, description, price, category_id, is_available, is_featured } = req.body;
       if (!req.file) return res.status(400).json({ error: "No image file provided." });
+      const submissionKey = req.get("Idempotency-Key");
+      if (submissionKey && submissionKey.length > 128) {
+        return res.status(400).json({ error: "Invalid submission key." });
+      }
+      const imageHash = crypto
+        .createHash("sha256")
+        .update(await fs.readFile(req.file.path))
+        .digest("hex");
+      const payloadHash = crypto
+        .createHash("sha256")
+        .update(JSON.stringify([
+          req.user?.userId || null,
+          menu_name,
+          description,
+          price,
+          category_id,
+          is_available,
+          is_featured,
+          imageHash,
+        ]))
+        .digest("hex");
       const local_disk_path = `/uploads/${req.file.filename}`;
       let cloudinary_url = null;
       try {
@@ -113,12 +136,22 @@ const productController = {
         cloudinary_url = cloudResult.secure_url;
       } catch (cloudErr) { console.error("Cloudinary Error:", cloudErr.message); }
 
-      const newId = await Product.create({
+      const productData = {
         menu_name, description, price: parseFloat(price) || 0,
         category_id: parseInt(category_id), image_url: local_disk_path, 
         local_path: cloudinary_url, is_available: parseInt(is_available) || 1,
         is_featured: parseInt(is_featured) || 0,
-      });
+      };
+      const creation = submissionKey
+        ? await Product.createWithIdempotency(productData, submissionKey, payloadHash)
+        : { ...(await Product.create(productData)), duplicate: false };
+      if (creation.conflict) {
+        return res.status(409).json({ error: "This submission key was already used for different menu data." });
+      }
+      if (creation.duplicate) {
+        return res.status(200).json({ success: true, id: creation.item_id, duplicate: true });
+      }
+      const newId = creation.item_id;
 
       await logActivity(
         req.user?.userId || null,

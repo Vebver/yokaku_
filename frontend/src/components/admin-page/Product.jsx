@@ -27,6 +27,9 @@ function Product() {
   const { showToast } = useToast();
   const { confirm } = useConfirmation();
   const [imageError, setImageError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submissionLock = useRef(false);
+  const submissionKey = useRef(null);
 
   const [newItem, setNewItem] = useState({
     name: "",
@@ -181,6 +184,7 @@ function Product() {
 
   const handleAddOrUpdateMenuItem = async (e) => {
     e.preventDefault();
+    if (submissionLock.current) return;
     if (newItem.image && newItem.image.size > 10 * 1024 * 1024) {
       setImageError("File is too large. Please upload an image smaller than 10 MB.");
       return;
@@ -190,49 +194,49 @@ function Product() {
       return;
     }
     setImageError("");
-
-    // No need for manual config — the axios interceptor in api.js
-    // automatically attaches the Authorization header to every request.
-
-    const formData = new FormData();
     const finalName =
       isEditing && !String(newItem.name || "").trim()
         ? editOriginalName
         : newItem.name;
-
-    // ===== FIX: Explicitly append only what we need =====
-    formData.append("menu_name", finalName || "");
-    formData.append("description", newItem.description || "");
-    formData.append("price", newItem.price || 0);
-    formData.append("category_id", newItem.category_id || "");
-    formData.append("is_available", newItem.is_available ?? 1);
-    formData.append("is_featured", newItem.is_featured ?? 0);
-
-    // ===== FIX: Check if image exists before appending =====
-    if (newItem.image) {
-      formData.append("image", newItem.image);
-    } else if (isEditing && (newItem.local_path || newItem.image_url)) {
-      // When editing, if no new image is selected, we still need to send something
-      // or just skip the image field
-      console.log("📝 No new image selected, keeping existing image");
+    const signature = JSON.stringify([
+      finalName || "",
+      newItem.description || "",
+      newItem.price || 0,
+      newItem.category_id || "",
+      newItem.is_available ?? 1,
+      newItem.is_featured ?? 0,
+      newItem.image
+        ? [newItem.image.name, newItem.image.size, newItem.image.lastModified]
+        : null,
+    ]);
+    if (!isEditing && submissionKey.current?.signature !== signature) {
+      submissionKey.current = {
+        signature,
+        key: window.crypto.randomUUID(),
+      };
     }
 
-    // Debug: Log FormData contents
-    console.log("📤 FormData being sent:");
-    for (let pair of formData.entries()) {
-      console.log(
-        pair[0],
-        pair[1] instanceof File ? `File: ${pair[1].name}` : pair[1],
-      );
-    }
-
+    submissionLock.current = true;
+    setIsSubmitting(true);
     try {
+      const formData = new FormData();
+      formData.append("menu_name", finalName || "");
+      formData.append("description", newItem.description || "");
+      formData.append("price", newItem.price || 0);
+      formData.append("category_id", newItem.category_id || "");
+      formData.append("is_available", newItem.is_available ?? 1);
+      formData.append("is_featured", newItem.is_featured ?? 0);
+      if (newItem.image) formData.append("image", newItem.image);
+
       if (isEditing) {
         await api.put(`/products/${editId}`, formData);
         showToast("Dish updated successfully!", "success");
       } else {
-        await api.post(`/products`, formData);
+        await api.post(`/products`, formData, {
+          headers: { "Idempotency-Key": submissionKey.current.key },
+        });
         showToast("New dish added successfully!", "success");
+        submissionKey.current = null;
       }
 
       fetchData();
@@ -241,6 +245,9 @@ function Product() {
     } catch (err) {
       console.error("❌ Error saving item:", err);
       showToast(err.response?.data?.error || "Error saving item.");
+    } finally {
+      submissionLock.current = false;
+      setIsSubmitting(false);
     }
   };
 
@@ -761,8 +768,11 @@ function Product() {
             <button
               type="submit"
               className="btn btn-primary w-100 py-2 fw-bold shadow-sm"
+              disabled={isSubmitting}
             >
-              {isEditing ? "Update Dish" : "Add to Menu"}
+              {isSubmitting ? (
+                <><span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />{isEditing ? "Updating..." : "Adding..."}</>
+              ) : isEditing ? "Update Dish" : "Add Menu"}
             </button>
           </form>
         </div>
