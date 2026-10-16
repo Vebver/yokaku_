@@ -936,3 +936,45 @@ body {
     padding: 10px 12px;
   }
 }
+
+.event-takeout-kitchen-section {
+  margin-top: 22px;
+}
+
+.event-takeout-kitchen-section > h2 {
+  margin: 0 0 10px;
+  color: #252525;
+  font-size: 0.9rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+}
+
+.event-takeout-ticket-status {
+  max-width: 58%;
+  color: #985113;
+  font-size: 0.65rem;
+  font-weight: 850;
+  text-align: right;
+}
+
+.event-takeout-ticket-status.preparing {
+  color: #1d4f91;
+}
+
+.event-takeout-ticket-status.ready {
+  color: #187342;
+}
+
+.event-takeout-ticket-package {
+  margin-bottom: 8px;
+  color: #68727e;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.event-takeout-awaiting-pickup {
+  color: #187342;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-align: center;
+}

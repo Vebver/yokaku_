@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const reservationController = require("../controllers/reservationController");
+const eventTakeoutController = require("../controllers/eventTakeoutController");
 const upload = require("../middleware/upload");
 const uploadReceiptToCloudinary = require("../middleware/receiptUploadCloudinary");
 
@@ -57,6 +58,18 @@ router.delete(
 
 // 1. Static and Specific routes first
 router.get("/active-kiosk", reservationController.getActiveKiosk);
+router.get(
+  "/:id/event-takeout",
+  protect,
+  adminOnly,
+  eventTakeoutController.getSummary,
+);
+router.post(
+  "/:id/event-takeout",
+  protect,
+  adminOnly,
+  eventTakeoutController.createRequest,
+);
 // Side-effect-free preview for the kiosk confirmation screen. Declared before
 // "/:id" so "preview" is never swallowed as a reservation id.
 router.get("/:id/preview", reservationController.previewReservationId);

@@ -1,0 +1,345 @@
+.event-takeout-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2200;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(10, 12, 15, 0.72);
+}
+
+.event-takeout-dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(980px, 100%);
+  max-height: min(92dvh, 900px);
+  overflow: hidden;
+  border: 1px solid #e3e6ea;
+  border-radius: 12px;
+  background: #fff;
+  color: #17191c;
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.3);
+}
+
+.event-takeout-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid #eceff2;
+}
+
+.event-takeout-header h2 {
+  margin: 3px 0 2px;
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.event-takeout-header p {
+  margin: 0;
+  color: #67717d;
+  font-size: 0.85rem;
+}
+
+.event-takeout-eyebrow {
+  color: #9b5a16;
+  font-size: 0.67rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.event-takeout-close {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  place-items: center;
+  border: 1px solid #e1e5e9;
+  border-radius: 8px;
+  background: #fff;
+  color: #4c5661;
+  cursor: pointer;
+}
+
+.event-takeout-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  padding: 14px 22px;
+  border-bottom: 1px solid #eceff2;
+  background: #fafbfc;
+}
+
+.event-takeout-summary > div {
+  display: flex;
+  min-height: 54px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  padding: 7px 10px;
+  border: 1px solid #e8ebee;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.event-takeout-summary span {
+  color: #68727e;
+  font-size: 0.68rem;
+  font-weight: 650;
+}
+
+.event-takeout-summary strong {
+  font-size: 1.05rem;
+  line-height: 1.1;
+}
+
+.event-takeout-summary .event-takeout-remaining {
+  border-color: #f2bd6d;
+  background: #fff8ed;
+}
+
+.event-takeout-remaining strong {
+  color: #a65500;
+}
+
+.event-takeout-complete {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 22px;
+  background: #eaf7ef;
+  color: #187342;
+  font-size: 0.84rem;
+  font-weight: 750;
+}
+
+.event-takeout-content {
+  display: grid;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
+  gap: 18px;
+  padding: 16px 22px;
+  overflow: hidden;
+}
+
+.event-takeout-menu-section,
+.event-takeout-requests {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.event-takeout-section-heading,
+.event-takeout-request-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.event-takeout-section-heading h3,
+.event-takeout-requests h3 {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.event-takeout-section-heading p {
+  margin: 3px 0 0;
+  color: #707a84;
+  font-size: 0.74rem;
+}
+
+.event-takeout-section-heading > span {
+  flex: 0 0 auto;
+  color: #985113;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.event-takeout-menu-list,
+.event-takeout-request-list {
+  min-height: 0;
+  margin-top: 10px;
+  overflow: auto;
+  border: 1px solid #e7eaed;
+  border-radius: 8px;
+}
+
+.event-takeout-menu-row {
+  display: flex;
+  min-height: 54px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 10px;
+  border-bottom: 1px solid #eff1f3;
+  cursor: pointer;
+}
+
+.event-takeout-menu-row:last-child {
+  border-bottom: 0;
+}
+
+.event-takeout-menu-row > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.event-takeout-menu-row strong {
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
+}
+
+.event-takeout-menu-row small {
+  color: #79838d;
+  font-size: 0.68rem;
+}
+
+.event-takeout-menu-row input {
+  width: 76px;
+  min-height: 36px;
+  flex: 0 0 76px;
+  padding: 4px 7px;
+  border: 1px solid #ccd2d8;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.event-takeout-request {
+  padding: 10px;
+  border-bottom: 1px solid #eff1f3;
+}
+
+.event-takeout-request:last-child {
+  border-bottom: 0;
+}
+
+.event-takeout-request-head {
+  align-items: flex-start;
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+
+.event-takeout-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  color: #7a4a0a;
+  font-size: 0.66rem;
+  font-weight: 750;
+}
+
+.event-takeout-status.status-preparing {
+  color: #16528b;
+}
+
+.event-takeout-status.status-ready {
+  color: #187342;
+}
+
+.event-takeout-status.status-completed {
+  color: #505a64;
+}
+
+.event-takeout-request ul {
+  margin: 7px 0 0;
+  padding-left: 18px;
+  color: #4d5660;
+  font-size: 0.73rem;
+}
+
+.event-takeout-complete-button {
+  margin-top: 8px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: #f38d31;
+  color: #1b1b1b;
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.event-takeout-complete-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.event-takeout-empty,
+.event-takeout-loading {
+  padding: 16px 10px;
+  color: #707a84;
+  font-size: 0.8rem;
+}
+
+.event-takeout-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+}
+
+.event-takeout-error {
+  margin: 12px 22px 0;
+  padding: 9px 12px;
+  border: 1px solid #f2b8b5;
+  border-radius: 7px;
+  background: #fff1f0;
+  color: #a72820;
+  font-size: 0.8rem;
+}
+
+.event-takeout-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 22px;
+  border-top: 1px solid #eceff2;
+  background: #fff;
+}
+
+@media (max-width: 700px) {
+  .event-takeout-backdrop {
+    align-items: end;
+    padding: 0;
+  }
+
+  .event-takeout-dialog {
+    width: 100%;
+    max-height: 94dvh;
+    border-radius: 14px 14px 0 0;
+  }
+
+  .event-takeout-header {
+    padding: 14px 16px 12px;
+  }
+
+  .event-takeout-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 10px 16px;
+  }
+
+  .event-takeout-content {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 12px 16px;
+    overflow-y: auto;
+  }
+
+  .event-takeout-menu-list,
+  .event-takeout-request-list {
+    max-height: 230px;
+    flex: 0 0 auto;
+  }
+
+  .event-takeout-footer {
+    padding: 10px 16px max(10px, env(safe-area-inset-bottom));
+  }
+}

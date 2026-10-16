@@ -5,6 +5,7 @@ import { Plus, Armchair, Trash2, Users, X, Square, Link } from "lucide-react";
 import { useToast } from "../ToastContext";
 import { useConfirmation } from "../ConfirmationContext";
 import { useSectionRefresh } from "../shared/sectionRefresh";
+import EventTakeoutModal from "./EventTakeoutModal";
 
 // Helpers to extract and compare dates (YYYY-MM-DD format)
 const getTodayDateString = () => {
@@ -55,6 +56,7 @@ const TableStatus = ({ compact = false }) => {
   const [selectedTable, setSelectedTable] = useState(null);
   // Live reservations offered in the "link this table" picker.
   const [linkCandidates, setLinkCandidates] = useState([]);
+  const [takeoutReservationId, setTakeoutReservationId] = useState(null);
 
   const [kioskModeChoice, setKioskModeChoice] = useState({});
 
@@ -665,6 +667,14 @@ const TableStatus = ({ compact = false }) => {
               // the session header.
               const isKioskActive =
                 String(t.is_kiosk_active) === "1" || t.is_kiosk_active === 1;
+              const isEventReservation =
+                String(t.reservation_type || "").toLowerCase() === "event";
+              const primaryEventTable = data.tables.find(
+                (table) =>
+                  String(table.reservation_id) === String(t.reservation_id),
+              );
+              const isPrimaryEventTable =
+                primaryEventTable?.table_id === t.table_id;
 
               // Kiosk menu mode for this session. Read from the live query so
               // the select reflects what is persisted, with any local pending
@@ -838,6 +848,18 @@ const TableStatus = ({ compact = false }) => {
                             >
                               View Orders
                             </button>
+                            {canControlKiosk &&
+                              isEventReservation &&
+                              isPrimaryEventTable && (
+                                <button
+                                  className="btn btn-sm btn-warning w-100 py-0 fw-bold table-card-action table-card-primary-action"
+                                  onClick={() =>
+                                    setTakeoutReservationId(t.reservation_id)
+                                  }
+                                >
+                                  Manage Takeout
+                                </button>
+                              )}
                           </div>
                         ) : activeStatus === "confirmed" ? (
                           <div className="d-flex flex-wrap gap-1 table-card-actions">
@@ -1102,6 +1124,12 @@ const TableStatus = ({ compact = false }) => {
             </div>
           </div>
         </div>
+      )}
+      {takeoutReservationId && (
+        <EventTakeoutModal
+          reservationId={takeoutReservationId}
+          onClose={() => setTakeoutReservationId(null)}
+        />
       )}
     </div>
   );
