@@ -185,6 +185,10 @@ function Product() {
   const handleAddOrUpdateMenuItem = async (e) => {
     e.preventDefault();
     if (submissionLock.current) return;
+    if (!isEditing && !newItem.image) {
+      setImageError("Please select an image before adding this menu item.");
+      return;
+    }
     if (newItem.image && newItem.image.size > 10 * 1024 * 1024) {
       setImageError("File is too large. Please upload an image smaller than 10 MB.");
       return;

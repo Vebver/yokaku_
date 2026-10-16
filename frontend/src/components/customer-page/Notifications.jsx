@@ -14,6 +14,21 @@ const announcementTypeLabels = {
   update: "Hangout update",
 };
 
+const getNotificationId = (notification) =>
+  notification.notification_id ?? notification.id;
+
+const uniqueNotifications = (items) => {
+  const seenIds = new Set();
+  return items.filter((notification) => {
+    const id = getNotificationId(notification);
+    if (id == null) return true;
+    const key = String(id);
+    if (seenIds.has(key)) return false;
+    seenIds.add(key);
+    return true;
+  });
+};
+
 const getAnnouncementDetails = (notification, publishedAnnouncements = []) => {
   if (notification.announcement) return notification.announcement;
   try {
@@ -49,7 +64,6 @@ const Notifications = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [socket, setSocket] = useState(null);
   const [selectedReservation, setSelectedReservation] = useState(null);
   const [showReservationModal, setShowReservationModal] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
@@ -60,23 +74,28 @@ const Notifications = () => {
   // States for re-uploading proof within the notification details modal
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
+  const seenNotificationIds = useRef(new Set());
 
   useEffect(() => {
     const token = localStorage.getItem("token");
     const userId = localStorage.getItem("userId");
+    let newSocket = null;
 
     if (token && userId) {
-      const newSocket = io(SOCKET_URL, {
+      newSocket = io(SOCKET_URL, {
         transports: ["websocket", "polling"],
       });
-      setSocket(newSocket);
 
       newSocket.on("connect", () => {
         newSocket.emit("join_user", userId);
       });
 
       newSocket.on("new_notification", (notification) => {
-        setNotifications((prev) => [notification, ...prev]);
+        const id = getNotificationId(notification);
+        const key = id == null ? null : String(id);
+        if (key && seenNotificationIds.current.has(key)) return;
+        if (key) seenNotificationIds.current.add(key);
+        setNotifications((prev) => uniqueNotifications([notification, ...prev]));
         setUnreadCount((prev) => prev + 1);
       });
 
@@ -89,7 +108,7 @@ const Notifications = () => {
     fetchUnreadCount();
 
     return () => {
-      if (socket) socket.close();
+      newSocket?.disconnect();
     };
   }, []);
 
@@ -105,11 +124,18 @@ const Notifications = () => {
       const publishedAnnouncements = Array.isArray(announcementsRes.data)
         ? announcementsRes.data
         : [];
-      setNotifications(
+      const fetchedNotifications = uniqueNotifications(
         res.data.map((notification) => {
           const announcement = getAnnouncementDetails(notification, publishedAnnouncements);
           return announcement ? { ...notification, announcement } : notification;
         }),
+      );
+      fetchedNotifications.forEach((notification) => {
+        const id = getNotificationId(notification);
+        if (id != null) seenNotificationIds.current.add(String(id));
+      });
+      setNotifications((prev) =>
+        uniqueNotifications([...fetchedNotifications, ...prev]),
       );
     } catch (err) {
       console.error("Error fetching notifications", err);

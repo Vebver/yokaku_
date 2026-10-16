@@ -456,40 +456,12 @@ const TableStatus = ({ compact = false }) => {
     { available: 0, seated: 0, confirmed: 0, occupied: 0 },
   );
 
-  // Group tables by reservation so a party spanning several tables stays
-  // visually together. The grouping is presentational only: every control
-  // lives on the individual table card.
-  const sessions = useMemo(() => {
-    const groups = new Map();
-    data.tables.forEach((t) => {
-      const key = t.reservation_id
-        ? String(t.reservation_id).trim()
-        : "__free__";
-      if (!groups.has(key)) {
-        groups.set(key, {
-          key,
-          reservationId: t.reservation_id || null,
-          firstName: t.first_name || t.customer_name || null,
-          endTime: t.end_time || null,
-          isKioskActive: false,
-          tables: [],
-        });
-      }
-      const g = groups.get(key);
-      g.tables.push(t);
-      if (String(t.is_kiosk_active) === "1" || t.is_kiosk_active === 1) {
-        g.isKioskActive = true;
-      }
-    });
-
-    // Sessions with a kiosk or a real reservation first, unassigned last.
-    return [...groups.values()].sort((a, b) => {
-      if (a.reservationId && !b.reservationId) return -1;
-      if (!a.reservationId && b.reservationId) return 1;
-      if (a.isKioskActive !== b.isKioskActive) return a.isKioskActive ? -1 : 1;
-      return 0;
-    });
-  }, [data.tables]);
+  // Keep every table in one stable grid so incoming reservations do not move
+  // their cards into separate rows. The API returns tables ordered by number.
+  const sessions = useMemo(
+    () => [{ key: "table-grid", tables: data.tables }],
+    [data.tables],
+  );
 
   // The items endpoint UNIONs the down payment in as a synthetic "Reservation
   // Fee" line. That is payment information, not food, so it is excluded from

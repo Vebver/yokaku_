@@ -710,7 +710,11 @@ const Reservation = {
           data.userId,
           customId,
           "Reservation Confirmed",
-          `Your reservation for ${data.date} at ${data.startTime} has been successfully placed. Downpayment: ₱${(data.downpayment || 0).toFixed(2)}`,
+          `Your reservation for ${data.date} at ${data.startTime} has been successfully placed.${
+            finalReservationType === "event"
+              ? ` Downpayment: ₱${Number(data.downpayment || 0).toFixed(2)}`
+              : ""
+          }`,
         ]);
       }
 
