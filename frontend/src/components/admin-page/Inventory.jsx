@@ -7,6 +7,7 @@ import {
   RefreshCw,
   ChevronLeft,
   ChevronRight,
+  ArrowLeft,
   AlertTriangle,
   Plus,
   Box,
@@ -17,8 +18,24 @@ import { useToast } from "../ToastContext";
 import { useSectionRefresh } from "../shared/sectionRefresh";
 import { useConfirmation } from "../ConfirmationContext";
 import "../../Style/Inventory.css";
+import "../../Style/KitchenNavbar.css";
 
-function Inventory() {
+const KitchenInventoryHeader = ({ onBack }) => (
+  <nav className="kitchen-navbar kitchen-inventory-navbar">
+    <div className="nav-left">
+        <div>
+          <h1 className="brand-name">HANGOUT KITCHEN</h1>
+        </div>
+    </div>
+    <div className="nav-right">
+      <button className="kitchen-nav-back" onClick={onBack}>
+        <ArrowLeft size={18} /> BACK TO KITCHEN
+      </button>
+    </div>
+  </nav>
+);
+
+function Inventory({ isKitchenStaff = false, onBack }) {
   const { showToast } = useToast();
   const { confirm } = useConfirmation();
   const [inventory, setInventory] = useState([]);
@@ -546,18 +563,25 @@ function Inventory() {
     }
   }, [currentPage, totalPages]);
 
+  const staffHeader = isKitchenStaff ? <KitchenInventoryHeader onBack={onBack} /> : null;
+
   if (loading)
     return (
-      <div className="p-5 text-center">
-        <RefreshCw className="animate-spin text-primary mx-auto" />
-      </div>
+      <>
+        {staffHeader}
+        <div className="p-5 text-center">
+          <RefreshCw className="animate-spin text-primary mx-auto" />
+        </div>
+      </>
     );
 
   return (
-    <div
-      className="inventory-container container-fluid py-3 py-md-4 text-dark bg-light"
-      style={{ minHeight: "100vh" }}
-    >
+    <>
+      {staffHeader}
+      <div
+        className="inventory-container container-fluid py-3 py-md-4 text-dark bg-light"
+        style={{ minHeight: isKitchenStaff ? "calc(100dvh - 64px)" : "100vh" }}
+      >
       {/* HEADER */}
       <div className="row g-3 align-items-center mb-3 px-2">
         <div className="col-12">
@@ -1364,7 +1388,8 @@ function Inventory() {
         </div>
       )}
 
-    </div>
+      </div>
+    </>
   );
 }
 

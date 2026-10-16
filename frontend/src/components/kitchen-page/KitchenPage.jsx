@@ -284,25 +284,6 @@ const KitchenPage = () => {
             className="logo-section"
             style={{ display: "flex", alignItems: "center", gap: "15px" }}
           >
-            {/* STYLIZED "H" LOGO BOX */}
-            <div
-              style={{
-                width: "42px",
-                height: "42px",
-                backgroundColor: "#ffcc00", // Brand orange
-                color: "white",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: "10px",
-                fontSize: "1.8rem",
-                fontWeight: "900",
-                fontFamily: "'Inter', sans-serif",
-                boxShadow: "0 2px 10px rgba(243, 141, 49, 0.3)",
-              }}
-            >
-              H
-            </div>
 
             <div>
               <h1
@@ -316,18 +297,6 @@ const KitchenPage = () => {
               >
                 HANGOUT KITCHEN
               </h1>
-              <div
-                className="live-status"
-                style={{
-                  fontSize: "0.65rem",
-                  color: "#4ade80",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "5px",
-                }}
-              >
-                <span className="dot"></span> LIVE MONITORING
-              </div>
             </div>
           </div>
         </div>
