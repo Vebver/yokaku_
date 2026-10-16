@@ -2547,35 +2547,41 @@ select:disabled {
   flex-direction: column;
 }
 
-/* Adjust the existing reservation-details-container to fit the column */
 .reservation-details-column .reservation-details-container {
-  margin-top: 0; /* Remove top margin since it's now in a column */
-  padding-top: 0;
-  border-top: none; /* Remove top border */
-  background: white; /* Ensure background is consistent */
-  border-radius: 20px; /* Match calendar container */
-  padding: 20px;
+  margin-top: 0;
+  padding: 24px; /* Increased padding slightly for better breathing room */
+  border-top: none;
+  background: white;
+  border-radius: 20px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
   border: 1px solid #f0f0f0;
-  height: fit-content; /* Prevent stretching */
+  height: fit-content;
+  width: 100%; /* Ensure it fills the column */
 }
 
-/* Responsive: Stack on smaller screens */
 @media (max-width: 1100px) {
+  /* Reset container max-width */
+  .reservation-flow-container:has(.calendar-details-wrapper.has-selection) {
+    max-width: 800px; /* Go back to standard width when stacked */
+  }
+
   .calendar-details-wrapper.has-selection {
     flex-direction: column;
     align-items: center;
-    gap: 20px;
+    gap: 24px;
   }
 
+  /* Reset flex constraints for stacked view */
   .calendar-details-wrapper.has-selection .calendar-column,
   .calendar-details-wrapper.has-selection .reservation-details-column {
-    max-width: 100%; /* Full width on mobile */
+    flex: none;
     width: 100%;
+    max-width: 460px; /* Keep them the same max width when stacked */
+    min-width: auto;
   }
 
   .reservation-details-column .reservation-details-container {
-    margin-top: 20px; /* Add back some margin when stacked */
+    margin-top: 0;
   }
 }
 
