@@ -1,6 +1,7 @@
 const db = require("../config/db");
 const Order = require("../models/Order");
 const Notification = require("../models/Notification");
+const { validateUnlimitedPackageOrder } = require("../utils/unlimitedPackageRules");
 
 const orderController = {
   // --- 1. Update Status ---
@@ -34,6 +35,12 @@ const orderController = {
 
     try {
       await conn.beginTransaction();
+
+      const { mode: kioskMode } = await validateUnlimitedPackageOrder(conn, {
+        reservationId: reservation_id,
+        tableId: table_id,
+        items,
+      });
 
       const hasRefill = items.some((item) => item.is_refill === true);
 
@@ -84,6 +91,12 @@ const orderController = {
           
           if (table_id && table_id !== "takeout" && table_id !== "null") {
             await Order.linkTableToSession(conn, reservation_id, table_id);
+            if (kioskMode !== "default") {
+              await conn.execute(
+                "UPDATE reservation_tables SET kiosk_mode = ? WHERE reservation_id = ? AND table_id = ?",
+                [kioskMode, reservation_id, table_id],
+              );
+            }
           }
         } else {
           // Reject regular reservations that do not exist

@@ -121,7 +121,7 @@ const KioskSelection = () => {
         <div className="greeting-container">
           <h2 className="greeting-text">{getGreeting()}</h2>
           <p className="sub-greeting">
-            What would you like to do today? {setupTable && <span style={{ color: "#ffcc00" }}>(Table {setupTable})</span>}
+            What would you like to do today? {setupTable && <span style={{ color: "#ffcc00" }}></span>}
           </p>
         </div>
 

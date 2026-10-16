@@ -2,13 +2,29 @@ import React from 'react';
 import { Trash2, ShoppingCart, ReceiptText } from 'lucide-react';
 import '../../Style/OrderSummary.css';
 
-const OrderSummary = ({ cart, onRemoveItem }) => {
+const OrderSummary = ({ cart, onRemoveItem, packageLabel }) => {
   return (
     <aside className="order-summary-panel">
       <div className="summary-header">
         <ReceiptText size={20} color="#ffcc00" />
         <h3>ORDER SUMMARY</h3>
       </div>
+      {packageLabel && (
+        <div
+          className="summary-package-label"
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: "8px",
+            padding: "10px 16px",
+            color: "#fff",
+            borderBottom: "1px solid #444",
+          }}
+        >
+          <span>Selected package</span>
+          <strong>{packageLabel}</strong>
+        </div>
+      )}
 
       <div className="summary-content">
         {cart.length === 0 ? (

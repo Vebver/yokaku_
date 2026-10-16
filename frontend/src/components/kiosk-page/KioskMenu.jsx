@@ -5,7 +5,6 @@ import {
   Drumstick,
   CupSoda,
   Star,
-  ShoppingBag,
   Flame,
   Wallet,
   Infinity as InfinityIcon,
@@ -15,10 +14,8 @@ import {
   Utensils,
   Soup,
   Salad,
-  Clock,
   Receipt,
   CreditCard,
-  Banknote,
   RefreshCw,
   ArrowLeft,
   AlertCircle,
@@ -32,6 +29,18 @@ import { io as ioClient } from "socket.io-client";
 import alertMusicFile from "../../assets/alert-sound.mp3";
 import { useToast } from "../ToastContext";
 import { API_BASE, SERVER_URL as BASE_URL } from "../../api";
+import {
+  getPackageCategories,
+  getPackageItems,
+  getPackageMenuData,
+  getPackageChickenCount,
+  getPackageQuantityLimit,
+  getUnlimitedPackage,
+  inferUnlimitedPackageMode,
+  isJuiceItem,
+  sanitizePackageCart,
+  validatePackageCart,
+} from "./unlimitedPackageRules";
 
 const HIDDEN_CATEGORIES = [
   "Chicken Wings",
@@ -74,6 +83,7 @@ const KioskMenu = () => {
 
   const [timeLeft, setTimeLeft] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [isPackageTimerExpired, setIsPackageTimerExpired] = useState(false);
 
   // Extract physical table configuration from URL
   const queryParams = useMemo(
@@ -85,13 +95,7 @@ const KioskMenu = () => {
   const [menuData, setMenuData] = useState({});
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("");
-  const [kioskMenuMode, setKioskMenuMode] = useState("default");
-
-  // Helper: are we in either Unlimited mode?
-  const isUnlimitedMode =
-    kioskMenuMode === "unlimited_wings_a" ||
-    kioskMenuMode === "unlimited_wings_b" ||
-    kioskMenuMode === "unlimited_wings_c";
+  const [tableKioskMenuMode, setTableKioskMenuMode] = useState("default");
 
   const [cart, setCart] = useState([]);
   const [billItems, setBillItems] = useState([]);
@@ -107,6 +111,15 @@ const KioskMenu = () => {
   const hasOrderedUnlimited = [...billItems, ...cart].some((item) =>
     (item.name || item.item_name || "").toLowerCase().includes("unlimited"),
   );
+  const orderedPackageMode = [...billItems, ...localBillHistory, ...cart]
+    .map(inferUnlimitedPackageMode)
+    .find(Boolean);
+  const kioskMenuMode = getUnlimitedPackage(tableKioskMenuMode)
+    ? tableKioskMenuMode
+    : isPackageTimerExpired
+      ? tableKioskMenuMode
+      : orderedPackageMode || tableKioskMenuMode;
+  const isUnlimitedMode = Boolean(getUnlimitedPackage(kioskMenuMode));
 
   const [showTypeModal, setShowTypeModal] = useState(false);
   const [showTablePicker, setShowTablePicker] = useState(false);
@@ -120,6 +133,8 @@ const KioskMenu = () => {
 
   const [isFinalCheckout, setIsFinalCheckout] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
+  const flavorPackageMode =
+    inferUnlimitedPackageMode(selectedItem) || kioskMenuMode;
   const [selectedFlavors, setSelectedFlavors] = useState([]);
   const [selectedDrink, setSelectedDrink] = useState("");
   const [availableTables, setAvailableTables] = useState([]);
@@ -398,7 +413,8 @@ const KioskMenu = () => {
       wasWingsTimerRunning.current = false;
 
       sessionStorage.removeItem(TIMER_KEY);
-      setKioskMenuMode("default");
+      setTableKioskMenuMode("default");
+      setIsPackageTimerExpired(true);
       setActiveCategory((prev) => (prev === "Unlimited" ? "" : prev));
       showToast(
         "Unlimited Wings time is up. You can keep ordering from the full menu.",
@@ -446,6 +462,15 @@ const KioskMenu = () => {
     if (isLoading) return;
     const itemsToSubmit = [...cart];
     if (itemsToSubmit.length === 0) return;
+    const existingOrderItems = billItems.length > 0 ? billItems : localBillHistory;
+    const packageError = validatePackageCart(
+      [...existingOrderItems, ...itemsToSubmit],
+      kioskMenuMode,
+    );
+    if (packageError) {
+      showToast(packageError, "error");
+      return;
+    }
 
     setIsLoading(true);
     const { tableId, mode } = pendingOrderDetails;
@@ -556,6 +581,17 @@ const KioskMenu = () => {
   };
 
   const handleHeaderPayClick = async () => {
+    const packageError = validatePackageCart(
+      [
+        ...(billItems.length > 0 ? billItems : localBillHistory),
+        ...cart,
+      ],
+      kioskMenuMode,
+    );
+    if (packageError) {
+      showToast(packageError, "error");
+      return;
+    }
     setIsPaymentProcessing(false);
     await fetchCurrentBill();
     setIsFinalCheckout(true);
@@ -697,7 +733,7 @@ const KioskMenu = () => {
           params: { tableId: setupTable },
         });
         if (res.data?.success) {
-          setKioskMenuMode(res.data.kioskMode || "default");
+          setTableKioskMenuMode(res.data.kioskMode || "default");
         }
       } catch (err) {
         console.warn("Kiosk mode poll failed:", err?.message);
@@ -721,7 +757,7 @@ const KioskMenu = () => {
         payload?.tableId != null &&
         String(payload.tableId) === String(setupTable)
       ) {
-        setKioskMenuMode(payload.kiosk_mode || "default");
+        setTableKioskMenuMode(payload.kiosk_mode || "default");
       }
     };
     socket.on("kiosk_mode_changed", handleMode);
@@ -738,7 +774,12 @@ const KioskMenu = () => {
   useEffect(() => {
     if (!isUnlimitedMode) return;
 
-    setActiveCategory("Unlimited");
+    const packageCategories = getPackageCategories(menuData, kioskMenuMode);
+    setActiveCategory(
+      packageCategories.find((category) => category !== "Unlimited") ||
+        packageCategories[0] ||
+        "",
+    );
 
     if (!sessionStorage.getItem(TIMER_KEY)) {
       const endTime = Date.now() + DURATION;
@@ -746,7 +787,16 @@ const KioskMenu = () => {
       setTimeLeft(DURATION / 1000);
       setIsTimerRunning(true);
     }
-  }, [isUnlimitedMode, kioskMenuMode]);
+  }, [isUnlimitedMode, kioskMenuMode, menuData]);
+
+  useEffect(() => {
+    if (!isUnlimitedMode) return;
+    setCart((current) => sanitizePackageCart(current, kioskMenuMode));
+    const allowedCategories = getPackageCategories(menuData, kioskMenuMode);
+    if (activeCategory && !allowedCategories.includes(activeCategory)) {
+      setActiveCategory(allowedCategories[0] || "");
+    }
+  }, [activeCategory, isUnlimitedMode, kioskMenuMode, menuData]);
 
   // While in Unlimited mode, block the browser's own back button / swipe-back
   // so the customer can't escape the locked kiosk session.
@@ -803,9 +853,21 @@ const KioskMenu = () => {
       showToast(`${item.name} is currently not available.`);
       return;
     }
+    const packageItems = [
+      ...(billItems.length > 0 ? billItems : localBillHistory),
+      ...cart,
+    ];
+    if (
+      isUnlimitedMode &&
+      getPackageQuantityLimit(packageItems, item, kioskMenuMode) < 1
+    ) {
+      showToast("You have reached this package's selection limit.", "error");
+      return;
+    }
     const itemName = (item?.name || "").toLowerCase();
+    if (inferUnlimitedPackageMode(item)) setIsPackageTimerExpired(false);
 
-    if (activeCategory === "Chicken") {
+    if (activeCategory === "Chicken" && !isUnlimitedMode) {
       setSelectedItem({ ...item, price: 0 });
       setSelectedFlavors([]);
       setSelectedDrink("");
@@ -817,18 +879,33 @@ const KioskMenu = () => {
       setSelectedDrink("");
       setShowFlavorModal(true);
     } else {
-      setSelectedItem({ ...item, category: "Regular" });
+      setSelectedItem({ ...item, category: item.category || "Regular" });
       setIsModalOpen(true);
     }
   };
 
   const confirmFlavors = async () => {
+    const flavorLimit =
+      flavorPackageMode === "unlimited_wings_a"
+        ? Math.max(
+            0,
+            6 -
+              getPackageChickenCount(
+                [...(billItems.length > 0 ? billItems : localBillHistory), ...cart],
+                flavorPackageMode,
+              ),
+          )
+        : Infinity;
     if (selectedFlavors.length === 0) {
       setCooldownMessage("Please select at least one flavor.");
       return;
     }
-    if (selectedFlavors.length > 4) {
-      setCooldownMessage("You can select a maximum of 4 flavors.");
+    if (selectedFlavors.length > flavorLimit) {
+      setCooldownMessage(`You can select a maximum of ${flavorLimit} flavors.`);
+      return;
+    }
+    if (getUnlimitedPackage(flavorPackageMode) && !isRefillMode && !selectedDrink) {
+      setCooldownMessage("Please select one included drink.");
       return;
     }
 
@@ -885,6 +962,20 @@ const KioskMenu = () => {
         setIsLoading(false);
       }
     } else {
+      const packageError = getUnlimitedPackage(flavorPackageMode)
+        ? validatePackageCart(
+            [
+              ...(billItems.length > 0 ? billItems : localBillHistory),
+              ...cart,
+              newItem,
+            ],
+            flavorPackageMode,
+          )
+        : null;
+      if (packageError) {
+        setCooldownMessage(packageError);
+        return;
+      }
       setCart([...cart, newItem]);
       setShowFlavorModal(false);
     }
@@ -927,10 +1018,9 @@ const KioskMenu = () => {
     <div className="res-kiosk-container">
       <div className="kiosk-timer-wrapper">
         <div className="header-left-group">
-          <div className="header-id-section">
-            <ShoppingBag size={20} color="#ffcc00" />
+          <div className="header-id-section"> 
             <div className="id-details">
-              <span className="id-label">ORDER MODE</span>
+              <span className="id-label">TABLE NUMBER:</span>
               <span className="id-value">
                 {displayTable === "takeout"
                   ? "TAKE-OUT"
@@ -944,7 +1034,7 @@ const KioskMenu = () => {
           {isTimerRunning && (
             <>
               <div className="unlimited-timer-pill">
-                <span className="timer-tag">Unlimited Time</span>
+                <span className="timer-tag">Time:</span>
                 <span
                   className={`timer-digits ${timeLeft < 600 ? "urgent" : ""}`}
                 >
@@ -992,12 +1082,11 @@ const KioskMenu = () => {
           <div className="res-category-list">
             <div className="res-cat-scroll-wrapper">
               {Object.keys(menuData)
-                .filter((cat) => !HIDDEN_CATEGORIES.includes(cat))
-                .filter((cat) => !(cat === "Unlimited" && hasOrderedUnlimited))
                 .filter((cat) =>
-                  kioskMenuMode === "unlimited_wings"
-                    ? cat === "Unlimited"
-                    : true,
+                  isUnlimitedMode
+                    ? getPackageCategories(menuData, kioskMenuMode).includes(cat)
+                    : !HIDDEN_CATEGORIES.includes(cat) &&
+                      !(cat === "Unlimited" && hasOrderedUnlimited),
                 )
                 .map((cat) => (
                   <button
@@ -1016,28 +1105,28 @@ const KioskMenu = () => {
         </aside>
 
         <main className="res-content-area">
+          {isUnlimitedMode && (
+            <div
+              className="unlimited-package-summary"
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "8px 16px",
+                padding: "12px 16px",
+                marginBottom: "12px",
+                borderBottom: "1px solid rgba(255, 204, 0, 0.35)",
+                color: "#fff",
+              }}
+            >
+              <strong>{getUnlimitedPackage(kioskMenuMode)?.label}</strong>
+              <span>{getUnlimitedPackage(kioskMenuMode)?.included}</span>
+            </div>
+          )}
           <div className="res-grid-container">
             {(() => {
               const items = menuData[activeCategory] || [];
               if (!isUnlimitedMode) return items;
-
-              // Show only the matching Unlimited set:
-              //   A → "UNLIMITED SET A"
-              //   B → "UNLIMITED SET B"
-              //   C → "UNLIMITED SET C"
-              const wantedName =
-                kioskMenuMode === "unlimited_wings_a"
-                  ? "unlimited set a"
-                  : kioskMenuMode === "unlimited_wings_b"
-                    ? "unlimited set b"
-                    : "unlimited set c";
-
-              return items.filter((i) => {
-                const name = String(i.name || "")
-                  .trim()
-                  .toLowerCase();
-                return name === wantedName;
-              });
+              return getPackageItems(items, activeCategory, kioskMenuMode);
             })().map((item) => (
               <div
                 key={item.id}
@@ -1088,6 +1177,7 @@ const KioskMenu = () => {
 
         <OrderSummary
           cart={cart}
+          packageLabel={getUnlimitedPackage(kioskMenuMode)?.label}
           onRemoveItem={(id) => setCart(cart.filter((i) => i.id !== id))}
         />
       </div>
@@ -1595,14 +1685,32 @@ const KioskMenu = () => {
         <div className="res-modal-overlay" style={{ zIndex: 9000 }}>
           <div className="res-modal-card flavor-modal-wide">
             <h2 className="modal-title-yellow">Customize Your Order</h2>
+            {getUnlimitedPackage(flavorPackageMode) && (
+              <p className="section-label">
+                {getUnlimitedPackage(flavorPackageMode).label}: {getUnlimitedPackage(flavorPackageMode).included}
+              </p>
+            )}
             <div className="customization-scroll-area">
               <section className="modal-section">
-                <h3 className="section-label">Select Flavors (Up to 4)</h3>
+                <h3 className="section-label">
+                  {flavorPackageMode === "unlimited_wings_a"
+                    ? "Select Chicken Flavors (Up to 6)"
+                    : getUnlimitedPackage(flavorPackageMode)
+                      ? "Select Wing Flavors"
+                      : "Select Flavors"}
+                </h3>
                 <div className="flavor-grid">
                   {(selectedItem?.name.toLowerCase().includes("ramen")
                     ? dynamicRamenFlavors
                     : dynamicFlavors
-                  ).map((f) => (
+                  )
+                    .filter(
+                      (flavor) =>
+                        !getUnlimitedPackage(flavorPackageMode) ||
+                        flavorPackageMode === "unlimited_wings_a" ||
+                        /wing/i.test(flavor),
+                    )
+                    .map((f) => (
                     <button
                       key={f}
                       onClick={() =>
@@ -1610,9 +1718,25 @@ const KioskMenu = () => {
                           if (prev.includes(f)) {
                             return prev.filter((x) => x !== f);
                           }
-                          if (prev.length >= 4) {
+                          const flavorLimit =
+                            flavorPackageMode === "unlimited_wings_a"
+                              ? Math.max(
+                                  0,
+                                  6 -
+                                    getPackageChickenCount(
+                                      [
+                                        ...(billItems.length > 0
+                                          ? billItems
+                                          : localBillHistory),
+                                        ...cart,
+                                      ],
+                                      flavorPackageMode,
+                                    ),
+                                )
+                              : Infinity;
+                          if (prev.length >= flavorLimit) {
                             setCooldownMessage(
-                              "You can select a maximum of 4 flavors.",
+                              `You can select a maximum of ${flavorLimit} flavors.`,
                             );
                             return prev;
                           }
@@ -1630,7 +1754,13 @@ const KioskMenu = () => {
               <section className="modal-section">
                 <h3 className="section-label">Select Drink (Choose One)</h3>
                 <div className="drink-grid">
-                  {dynamicDrinks.map((d) => (
+                  {dynamicDrinks
+                    .filter((drink) =>
+                      flavorPackageMode === "unlimited_wings_a" ||
+                      !getUnlimitedPackage(flavorPackageMode) ||
+                      isJuiceItem({ name: drink, category: "Drinks" }),
+                    )
+                    .map((d) => (
                     <button
                       key={d}
                       onClick={() => setSelectedDrink(d)}
@@ -1638,7 +1768,7 @@ const KioskMenu = () => {
                     >
                       {d}
                     </button>
-                  ))}
+                    ))}
                 </div>
               </section>
             </div>
@@ -1717,18 +1847,71 @@ const KioskMenu = () => {
                 i.customizations === newItem.customizations,
             );
 
+            let nextCart;
             if (existingIdx > -1) {
               const updated = [...prevCart];
               updated[existingIdx].quantity += newItem.quantity || 1;
-              return updated;
+              nextCart = updated;
+            } else {
+              nextCart = [
+                ...prevCart,
+                {
+                  ...newItem,
+                  category: newItem.category || selectedItem?.category,
+                  quantity: newItem.quantity || 1,
+                },
+              ];
             }
-            return [
-              ...prevCart,
-              { ...newItem, quantity: newItem.quantity || 1 },
-            ];
+            if (!isUnlimitedMode) return nextCart;
+            const packageError = validatePackageCart(nextCart, kioskMenuMode);
+            if (packageError) {
+              showToast(packageError, "error");
+              return prevCart;
+            }
+            const validated = sanitizePackageCart(nextCart, kioskMenuMode);
+            if (
+              validated.length !== nextCart.length ||
+              validated.some((item, index) => item.quantity !== nextCart[index]?.quantity)
+            ) {
+              showToast("That item exceeds the selected package limits.", "error");
+            }
+            return validated;
           });
         }}
-        allProducts={menuData}
+        allProducts={
+          isUnlimitedMode
+            ? getPackageMenuData(menuData, kioskMenuMode)
+            : menuData
+        }
+        flavorLimit={
+          isUnlimitedMode
+            ? kioskMenuMode === "unlimited_wings_a"
+              ? Math.max(
+                  0,
+                  6 -
+                    getPackageChickenCount(
+                      [
+                        ...(billItems.length > 0 ? billItems : localBillHistory),
+                        ...cart,
+                      ],
+                      kioskMenuMode,
+                    ),
+                )
+              : Infinity
+            : 4
+        }
+        quantityLimit={
+          isUnlimitedMode
+            ? getPackageQuantityLimit(
+                [
+                  ...(billItems.length > 0 ? billItems : localBillHistory),
+                  ...cart,
+                ],
+                selectedItem,
+                kioskMenuMode,
+              )
+            : 20
+        }
       />
     </div>
   );

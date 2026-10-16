@@ -742,21 +742,26 @@ const Reservation = {
   getItemsByReservationId: async (id) => {
     const sql = `
       SELECT 
+        mi.item_id AS item_id,
         mi.menu_name AS item_name, 
         mi.menu_name AS menu_name,
+        c.category_name AS category_name,
         ko.quantity, 
         mi.price, 
         ko.customizations ,
         'order' AS line_type
       FROM kiosk_orders ko
       LEFT JOIN menu_items mi ON ko.item_id = mi.item_id
+      LEFT JOIN categories c ON c.category_id = mi.category_id
       WHERE ko.reservation_id = ?
 
       UNION ALL
 
       SELECT
+        NULL AS item_id,
         package_name AS item_name,
         package_name AS package_name,
+        NULL AS category_name,
         1 AS quantity,
         downpayment_amount AS price,
         'Reservation Fee' AS customizations,
