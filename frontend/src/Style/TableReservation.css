@@ -2574,6 +2574,48 @@ select:disabled {
 }
 
 /* ============================================ */
+/* PACKAGE CARDS WRAPPER & VIEW MENU BUTTON     */
+/* ============================================ */
+
+/* Wrapper to keep cards and button aligned */
+.package-cards-wrapper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+/* View Menu Button */
+.btn-view-menu {
+  width: 100%; /* Spans the full width of the wrapper (which matches the cards) */
+  margin-top: 24px; /* 20-24px vertical spacing as requested */
+  padding: 14px 20px;
+  background: white;
+  color: var(--accent-orange);
+  border: 2px solid var(--accent-orange);
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-view-menu:hover {
+  background: var(--accent-orange);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(243, 141, 49, 0.3);
+}
+
+.btn-view-menu:active {
+  transform: translateY(0);
+}
+
+/* ============================================ */
 /* RESPONSIVE STACKING                          */
 /* ============================================ */
 

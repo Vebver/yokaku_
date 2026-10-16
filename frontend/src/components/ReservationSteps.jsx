@@ -55,6 +55,7 @@ import {
 } from "./TableReservationSpinners";
 import { useSocket, useAddressData } from "./TableReservationHooks";
 import { API_BASE } from "../api";
+import { useNavigate } from "react-router-dom";
 
 // Dynamic steps based on reservation type
 const getSteps = (reservationType) => {
@@ -71,6 +72,7 @@ const getSteps = (reservationType) => {
 export default function ReservationSteps({ onClose, onSuccess }) {
   // ============ STATE ============
   const { showToast } = useToast();
+  const navigate = useNavigate();
   const [tables, setTables] = useState(TABLES_DATA);
   const [reservationType, setReservationType] = useState(null);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
@@ -2885,45 +2887,57 @@ export default function ReservationSteps({ onClose, onSuccess }) {
 
           return (
             <div className="step-content step-package">
-              {/* Package Selection Cards */}
-              <div className="event-package-cards">
-                {packageOptions.map((pkg) => (
-                  <div
-                    key={pkg.id}
-                    className={`package-card ${selectedPackage === pkg.id ? "selected" : ""}`}
-                    onClick={() => {
-                      const newSelectedPackage =
-                        selectedPackage === pkg.id ? null : pkg.id;
-                      setSelectedPackage(newSelectedPackage);
-                      if (newSelectedPackage) {
-                        const packageItem = {
-                          name: pkg.name,
-                          price: pkg.price,
-                          quantity: 1,
-                          id: pkg.menuItemId,
-                        };
-                        setSelectedItems([packageItem]);
-                      } else {
-                        setSelectedItems([]);
-                      }
-                    }}
-                  >
-                    <div className="package-card-header">
-                      <h3>{pkg.name}</h3>
-                    </div>
-                    <div className="package-card-price">
-                      <span className="price">
-                        ₱{pkg.price.toLocaleString()}
-                      </span>
-                      <span className="price-type">Consume</span>
-                    </div>
-                    {selectedPackage === pkg.id && (
-                      <div className="package-card-check">
-                        <CheckCircle size={24} />
+              {/* NEW: Wrapper to align the button with the outer edges of the cards */}
+              <div className="package-cards-wrapper">
+                {/* Package Selection Cards */}
+                <div className="event-package-cards">
+                  {packageOptions.map((pkg) => (
+                    <div
+                      key={pkg.id}
+                      className={`package-card ${selectedPackage === pkg.id ? "selected" : ""}`}
+                      onClick={() => {
+                        const newSelectedPackage =
+                          selectedPackage === pkg.id ? null : pkg.id;
+                        setSelectedPackage(newSelectedPackage);
+                        if (newSelectedPackage) {
+                          const packageItem = {
+                            name: pkg.name,
+                            price: pkg.price,
+                            quantity: 1,
+                            id: pkg.menuItemId,
+                          };
+                          setSelectedItems([packageItem]);
+                        } else {
+                          setSelectedItems([]);
+                        }
+                      }}
+                    >
+                      <div className="package-card-header">
+                        <h3>{pkg.name}</h3>
                       </div>
-                    )}
-                  </div>
-                ))}
+                      <div className="package-card-price">
+                        <span className="price">
+                          ₱{pkg.price.toLocaleString()}
+                        </span>
+                        <span className="price-type">Consume</span>
+                      </div>
+                      {selectedPackage === pkg.id && (
+                        <div className="package-card-check">
+                          <CheckCircle size={24} />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* NEW: View Menu Button */}
+                <button
+                  type="button"
+                  className="btn-view-menu"
+                  onClick={() => navigate("/menu")}
+                >
+                  View Menu
+                </button>
               </div>
 
               {/* ===== EVENT FOOD PREFERENCE + MEAL DISTRIBUTION =====
