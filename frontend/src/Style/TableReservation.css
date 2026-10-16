@@ -2588,7 +2588,7 @@ select:disabled {
 /* View Menu Button */
 .btn-view-menu {
   width: 100%; /* Spans the full width of the wrapper (which matches the cards) */
-  margin-top: 24px; /* 20-24px vertical spacing as requested */
+  margin-top: 20px; /* 20-24px vertical spacing as requested */
   padding: 14px 20px;
   background: white;
   color: var(--accent-orange);

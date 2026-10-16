@@ -57,6 +57,8 @@ import { useSocket, useAddressData } from "./TableReservationHooks";
 import { API_BASE } from "../api";
 import { useNavigate } from "react-router-dom";
 
+const RESERVATION_DRAFT_KEY = "reservationDraft";
+
 // Dynamic steps based on reservation type
 const getSteps = (reservationType) => {
   const baseSteps = ["Reservation Type", "Choose Date"];
@@ -73,40 +75,81 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   // ============ STATE ============
   const { showToast } = useToast();
   const navigate = useNavigate();
+  // ============ PERSISTENCE HELPERS ============
+  // Load saved draft from sessionStorage ONCE at mount time
+  const getSavedDraft = () => {
+    try {
+      const saved = sessionStorage.getItem(RESERVATION_DRAFT_KEY);
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  };
+  const savedDraft = getSavedDraft();
   const [tables, setTables] = useState(TABLES_DATA);
-  const [reservationType, setReservationType] = useState(null);
-  const [agreeToTerms, setAgreeToTerms] = useState(false);
-  const [selectedId, setSelectedId] = useState(null);
-  const [linkedIds, setLinkedIds] = useState([]);
-  const [selectedItems, setSelectedItems] = useState([]);
+
+  const [reservationType, setReservationType] = useState(
+    savedDraft?.reservationType || null,
+  );
+
+  const [agreeToTerms, setAgreeToTerms] = useState(
+    savedDraft?.agreeToTerms || false,
+  );
+
+  const [selectedId, setSelectedId] = useState(savedDraft?.selectedId || null);
+  const [linkedIds, setLinkedIds] = useState(savedDraft?.linkedIds || []);
+
+  const [selectedItems, setSelectedItems] = useState(
+    savedDraft?.selectedItems || [],
+  );
+
   const [isLinkMode, setIsLinkMode] = useState(false);
   const [showOngoingWarning, setShowOngoingWarning] = useState(null);
-  const [paymentMethod, setPaymentMethod] = useState(null);
+
+  const [paymentMethod, setPaymentMethod] = useState(
+    savedDraft?.paymentMethod || null,
+  );
   const [blockedDates, setBlockedDates] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDateLoading, setIsDateLoading] = useState(false);
   const [isFormLoading, setIsFormLoading] = useState(true);
   const [tableSchedules, setTableSchedules] = useState({});
   const [data, setData] = useState({ occupied: {}, schedule: [] });
-  const [calendarMonth, setCalendarMonth] = useState(new Date());
+
+  const [calendarMonth, setCalendarMonth] = useState(
+    savedDraft?.calendarMonth ? new Date(savedDraft.calendarMonth) : new Date(),
+  );
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [showYearPicker, setShowYearPicker] = useState(false);
-  const [selectedReservationDate, setSelectedReservationDate] = useState(null);
+
+  const [selectedReservationDate, setSelectedReservationDate] = useState(
+    savedDraft?.selectedReservationDate || null,
+  );
+
   const [reservationsForDate, setReservationsForDate] = useState([]);
   const [isLoadingReservations, setIsLoadingReservations] = useState(false);
   const [dateReservationCounts, setDateReservationCounts] = useState({});
   const [allReservationsByDate, setAllReservationsByDate] = useState({});
   const [receiptFile, setReceiptFile] = useState(null);
-  const [downpaymentPercentage, setDownpaymentPercentage] = useState(20);
-  const [selectedPackage, setSelectedPackage] = useState(null);
+  const [downpaymentPercentage, setDownpaymentPercentage] = useState(
+    savedDraft?.downpaymentPercentage || 20,
+  );
+  const [selectedPackage, setSelectedPackage] = useState(
+    savedDraft?.selectedPackage || null,
+  );
 
   // ===== Event package meal distribution =====
   // The package's included meal count is the single source of truth. Dine-In
   // and Take-Out allocations are tracked separately but must always sum to no
   // more than the package limit. foodPreference drives which controls show.
-  const [foodPreference, setFoodPreference] = useState("dinein");
-  const [dineInCount, setDineInCount] = useState("");
-  const [takeOutCount, setTakeOutCount] = useState("");
+  // Meal distribution
+  const [foodPreference, setFoodPreference] = useState(
+    savedDraft?.foodPreference || "dinein",
+  );
+  const [dineInCount, setDineInCount] = useState(savedDraft?.dineInCount || "");
+  const [takeOutCount, setTakeOutCount] = useState(
+    savedDraft?.takeOutCount || "",
+  );
 
   const [currentMinutes, setCurrentMinutes] = useState(() => {
     const now = new Date();
@@ -127,25 +170,31 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     return () => clearInterval(interval);
   }, []);
 
-  const [form, setForm] = useState({
-    date: "",
-    startTime: "",
-    endTime: "",
-    muni: "",
-    brgy: "",
-    allergy: "None",
-    customAllergy: "",
-    occasion: "Casual Dining",
-    customOccasion: "",
-    allergyCount: "",
-  });
+  // Form data
+  const [form, setForm] = useState(
+    savedDraft?.form || {
+      date: "",
+      startTime: "",
+      endTime: "",
+      muni: "",
+      brgy: "",
+      allergy: "None",
+      customAllergy: "",
+      occasion: "Casual Dining",
+      customOccasion: "",
+      allergyCount: "",
+    },
+  );
 
-  const [user, setUser] = useState({
-    firstName: localStorage.getItem("firstName") || "",
-    lastName: localStorage.getItem("lastName") || "",
-    email: localStorage.getItem("email") || "",
-    phone: "09",
-  });
+  // User data (merge with localStorage defaults if no draft)
+  const [user, setUser] = useState(
+    savedDraft?.user || {
+      firstName: localStorage.getItem("firstName") || "",
+      lastName: localStorage.getItem("lastName") || "",
+      email: localStorage.getItem("email") || "",
+      phone: "09",
+    },
+  );
 
   const [ui, setUi] = useState({
     loading: false,
@@ -161,9 +210,62 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   const isEmailValid = /^\S+@\S+\.\S+$/.test(user.email);
   const isPhoneValid = user.phone.length === 11 && user.phone.startsWith("09");
 
-  const [currentStep, setCurrentStep] = useState(0);
-  const [completedSteps, setCompletedSteps] = useState([]);
+  // Current step and completed steps
+  const [currentStep, setCurrentStep] = useState(savedDraft?.currentStep || 0);
+  const [completedSteps, setCompletedSteps] = useState(
+    savedDraft?.completedSteps || [],
+  );
 
+  // ============ SAVE STATE TO SESSION STORAGE ============
+  // Persist the reservation draft whenever any relevant state changes.
+  useEffect(() => {
+    // Don't save if we haven't started anything yet
+    if (!reservationType && currentStep === 0) return;
+
+    const draft = {
+      reservationType,
+      agreeToTerms,
+      selectedId,
+      linkedIds,
+      selectedItems,
+      paymentMethod,
+      calendarMonth: calendarMonth.toISOString(),
+      selectedReservationDate,
+      downpaymentPercentage,
+      selectedPackage,
+      foodPreference,
+      dineInCount,
+      takeOutCount,
+      form,
+      user,
+      currentStep,
+      completedSteps,
+    };
+
+    try {
+      sessionStorage.setItem(RESERVATION_DRAFT_KEY, JSON.stringify(draft));
+    } catch (e) {
+      console.error("Failed to save reservation draft:", e);
+    }
+  }, [
+    reservationType,
+    agreeToTerms,
+    selectedId,
+    linkedIds,
+    selectedItems,
+    paymentMethod,
+    calendarMonth,
+    selectedReservationDate,
+    downpaymentPercentage,
+    selectedPackage,
+    foodPreference,
+    dineInCount,
+    takeOutCount,
+    form,
+    user,
+    currentStep,
+    completedSteps,
+  ]);
   const socket = useSocket();
   const { addressData, fetchBarangays } = useAddressData();
   const todayStr = new Date().toLocaleDateString("en-CA");
@@ -1590,7 +1692,10 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     }
   }, [form.startTime, reservationType]);
 
-  const handleBackButton = () => onClose();
+  const handleBackButton = () => {
+    sessionStorage.removeItem(RESERVATION_DRAFT_KEY); // ✅ Clear draft on cancel
+    onClose();
+  };
 
   const onTableClick = (table) => {
     if (table.status === "maintenance") {
@@ -1738,6 +1843,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       const month = calendarMonth.getMonth();
       await fetchAllReservationsForMonth(year, month);
       onSuccess(res.data.id);
+      sessionStorage.removeItem(RESERVATION_DRAFT_KEY); // ✅ Clear draft on success
     } catch (e) {
       console.error("Booking Error:", e.response?.data || e.message);
       showToast(e.response?.data?.message || "Table Selection Error.");
