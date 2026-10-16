@@ -1453,6 +1453,7 @@ select:disabled {
   margin-bottom: 16px;
   padding-bottom: 12px;
   border-bottom: 2px solid #ffcc00;
+  flex-shrink: 0;
 }
 
 .reservation-details-header h4 {
@@ -1463,8 +1464,8 @@ select:disabled {
 }
 
 .reservation-details-list {
-  max-height: 400px;
-  overflow-y: auto;
+  flex: 1; /* NEW: Takes up all remaining space below the header */
+  overflow-y: auto; /* NEW: Only this list scrolls */
   padding-right: 8px;
   display: flex;
   flex-direction: column;
@@ -1479,7 +1480,7 @@ select:disabled {
   border-radius: 10px;
 }
 .reservation-details-list::-webkit-scrollbar-thumb {
-  background: #ffcc00;
+  background: #ccc;
   border-radius: 10px;
 }
 .reservation-details-list::-webkit-scrollbar-thumb:hover {
@@ -2552,7 +2553,6 @@ select:disabled {
   flex-direction: column;
 }
 
-/* Ensure the details container inside its column takes full width */
 .reservation-details-column .reservation-details-container {
   width: 100%;
   margin-top: 0;
@@ -2562,7 +2562,13 @@ select:disabled {
   border-radius: 20px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
   border: 1px solid #f0f0f0;
-  height: fit-content;
+
+  /* NEW: Fixed height and Flexbox for scrolling */
+  display: flex;
+  flex-direction: column;
+  height: 640px; /* Fixed height to match the calendar */
+  max-height: 640px; /* Prevents it from growing taller */
+  overflow: hidden; /* Hides overflow on the outer container */
 }
 
 /* ============================================ */
