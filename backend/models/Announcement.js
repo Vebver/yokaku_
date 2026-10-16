@@ -27,6 +27,15 @@ const ensureTable = async () => {
 };
 
 const Announcement = {
+  getById: async (id) => {
+    await ensureTable();
+    const [rows] = await db.execute(
+      "SELECT * FROM announcements WHERE announcement_id = ?",
+      [id],
+    );
+    return rows[0] || null;
+  },
+
   getAll: async (publishedOnly = false) => {
     await ensureTable();
     const sql = `SELECT * FROM announcements${publishedOnly ? " WHERE is_published = 1" : ""} ORDER BY created_at DESC, announcement_id DESC`;

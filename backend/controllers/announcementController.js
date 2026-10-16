@@ -1,5 +1,6 @@
 const cloudinary = require("cloudinary").v2;
 const Announcement = require("../models/Announcement");
+const Notification = require("../models/Notification");
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_NAME,
@@ -47,6 +48,18 @@ const validateContent = (req, res) => {
   };
 };
 
+const notifyCustomers = async ({ title, description }) => {
+  try {
+    await Notification.createForCustomers(null, {
+      title: `New announcement: ${title}`,
+      message: description,
+      type: "announcement",
+    });
+  } catch (error) {
+    console.error("Announcement customer notification error:", error);
+  }
+};
+
 const announcementController = {
   getPublished: async (_req, res) => {
     try {
@@ -72,6 +85,7 @@ const announcementController = {
       if (!content) return;
       const images = await getImagePaths(req.file);
       const id = await Announcement.create({ ...content, ...images });
+      if (content.is_published) await notifyCustomers(content);
       res.status(201).json({ success: true, id });
     } catch (error) {
       console.error("Create announcement error:", error);
@@ -83,6 +97,8 @@ const announcementController = {
     try {
       const content = validateContent(req, res);
       if (!content) return;
+      const existing = await Announcement.getById(req.params.id);
+      if (!existing) return res.status(404).json({ error: "Announcement not found." });
       const images = await getImagePaths(req.file);
       const updated = await Announcement.update(req.params.id, {
         ...content,
@@ -90,6 +106,9 @@ const announcementController = {
         remove_image: req.body.remove_image === "true",
       });
       if (!updated) return res.status(404).json({ error: "Announcement not found." });
+      if (content.is_published && !Number(existing.is_published)) {
+        await notifyCustomers(content);
+      }
       res.json({ success: true });
     } catch (error) {
       console.error("Update announcement error:", error);
