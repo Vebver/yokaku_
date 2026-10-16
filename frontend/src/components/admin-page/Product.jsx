@@ -106,7 +106,7 @@ function Product() {
     [menuItems],
   );
 
-  // Alphabetical by dish name so items are easy to find in the list.
+  // Keep the newest menu items first after filtering.
   const filteredItems = menuItems
     .filter((item) => {
       if (
@@ -128,11 +128,7 @@ function Product() {
       }
       return true;
     })
-    .sort((a, b) =>
-      String(a.menu_name || "").localeCompare(String(b.menu_name || ""), undefined, {
-        sensitivity: "base",
-      }),
-    );
+    .sort((a, b) => Number(b.item_id) - Number(a.item_id));
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
