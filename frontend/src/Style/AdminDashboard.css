@@ -782,6 +782,12 @@
   justify-content: center;
 }
 
+.table-status-page-title {
+  font-size: 2rem;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
 /* The btn-sm/py-0 combination on these buttons sets padding-top/bottom to 0,
    which collapses a Bootstrap .btn to its line-height and overrides
    min-height in the eyes of the layout. Re-assert real vertical padding so the
@@ -984,6 +990,10 @@
   .table-status-page-title,
   .table-status-page-subtitle {
     text-align: center;
+  }
+
+  .table-status-page-title {
+    font-size: 1.35rem;
   }
 }
 

@@ -488,7 +488,6 @@ const TableStatus = ({ compact = false }) => {
           <div>
             <h1
               className="fw-bold mb-0 table-status-page-title"
-              style={{ fontSize: "2rem" }}
             >
               Table Management
             </h1>

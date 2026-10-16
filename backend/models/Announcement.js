@@ -1,50 +1,36 @@
 const db = require("../config/db");
-
-let schemaPromise;
-
-const ensureTable = async () => {
-  if (!schemaPromise) {
-    schemaPromise = db.query(`
-      CREATE TABLE IF NOT EXISTS announcements (
-        announcement_id INT NOT NULL AUTO_INCREMENT,
-        title VARCHAR(180) NOT NULL,
-        description TEXT NOT NULL,
-        announcement_type VARCHAR(30) NOT NULL DEFAULT 'update',
-        image_url VARCHAR(2048) DEFAULT NULL,
-        local_path VARCHAR(2048) DEFAULT NULL,
-        is_published TINYINT(1) NOT NULL DEFAULT 0,
-        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        PRIMARY KEY (announcement_id),
-        KEY idx_announcements_published (is_published, created_at)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    `).catch((error) => {
-      schemaPromise = null;
-      throw error;
-    });
-  }
-  await schemaPromise;
-};
+const ANNOUNCEMENT_COLUMNS = `
+  announcement_id,
+  title,
+  description,
+  announcement_type,
+  image_url,
+  local_path,
+  is_published,
+  created_at,
+  updated_at
+`;
 
 const Announcement = {
   getById: async (id) => {
-    await ensureTable();
     const [rows] = await db.execute(
-      "SELECT * FROM announcements WHERE announcement_id = ?",
+      `SELECT ${ANNOUNCEMENT_COLUMNS}
+       FROM announcements
+       WHERE announcement_id = ?`,
       [id],
     );
     return rows[0] || null;
   },
 
   getAll: async (publishedOnly = false) => {
-    await ensureTable();
-    const sql = `SELECT * FROM announcements${publishedOnly ? " WHERE is_published = 1" : ""} ORDER BY created_at DESC, announcement_id DESC`;
-    const [rows] = await db.query(sql);
+    const sql = `SELECT ${ANNOUNCEMENT_COLUMNS}
+      FROM announcements${publishedOnly ? " WHERE is_published = ?" : ""}
+      ORDER BY created_at DESC, announcement_id DESC`;
+    const [rows] = await db.execute(sql, publishedOnly ? [1] : []);
     return rows;
   },
 
   create: async (data) => {
-    await ensureTable();
     const [result] = await db.execute(
       `INSERT INTO announcements
         (title, description, announcement_type, image_url, local_path, is_published)
@@ -62,7 +48,6 @@ const Announcement = {
   },
 
   update: async (id, data) => {
-    await ensureTable();
     let sql = `UPDATE announcements
       SET title = ?, description = ?, announcement_type = ?, is_published = ?`;
     const values = [
@@ -84,7 +69,6 @@ const Announcement = {
   },
 
   delete: async (id) => {
-    await ensureTable();
     const [result] = await db.execute(
       "DELETE FROM announcements WHERE announcement_id = ?",
       [id],
