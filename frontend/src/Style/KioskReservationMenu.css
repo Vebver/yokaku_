@@ -910,6 +910,25 @@
 
 /* Mobile Responsiveness */
 @media (max-width: 600px) {
+  .kiosk-timer-wrapper {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px;
+  }
+  .header-left-group {
+    flex: 1 1 auto;
+  }
+  .header-center-group {
+    flex: 1 1 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .billing-btn-header {
+    padding: 10px 14px !important;
+    font-size: 12px;
+  }
   .res-card-info {
     padding: 1rem;
   }

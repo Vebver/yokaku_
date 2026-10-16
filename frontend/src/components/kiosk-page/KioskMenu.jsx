@@ -148,6 +148,7 @@ const KioskMenu = () => {
   const [dynamicRamenFlavors, setDynamicRamenFlavors] = useState([]);
   const [dynamicDrinks, setDynamicDrinks] = useState([]);
   const [isRefillMode, setIsRefillMode] = useState(false);
+  const [refillCooldownSeconds, setRefillCooldownSeconds] = useState(0);
   const [cooldownMessage, setCooldownMessage] = useState(null);
 
   const currentTableId = localStorage.getItem("tableId") || "takeout";
@@ -184,6 +185,21 @@ const KioskMenu = () => {
     const m = Math.floor((seconds % 3600) / 60);
     const s = seconds % 60;
     return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  };
+
+  const getRefillCooldownSeconds = () => {
+    const lastRefill = Number(storage.getItem(LAST_REFILL_KEY));
+    if (!Number.isFinite(lastRefill) || lastRefill <= 0) return 0;
+    return Math.max(
+      0,
+      Math.ceil((10 * 60 * 1000 - (Date.now() - lastRefill)) / 1000),
+    );
+  };
+
+  const formatCooldownTime = (seconds) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes.toString().padStart(2, "0")}:${remainingSeconds.toString().padStart(2, "0")}`;
   };
 
   const playAlert = async () => {
@@ -321,50 +337,6 @@ const KioskMenu = () => {
     window.location.href = "/kiosk-selection";
   };
 
-  const findUnlimitedItem = () => {
-    for (const cat of Object.keys(menuData)) {
-      const found = menuData[cat].find((item) =>
-        (item.name || "").toLowerCase().includes("unlimited"),
-      );
-      if (found) return found;
-    }
-    return null;
-  };
-
-  const handleRefillClick = () => {
-    const lastRefill = storage.getItem(LAST_REFILL_KEY);
-    if (lastRefill) {
-      const timeElapsed = Date.now() - parseInt(lastRefill, 10);
-      const cooldownPeriod = 10 * 60 * 1000;
-
-      if (timeElapsed < cooldownPeriod) {
-        const remainingSeconds = Math.ceil(
-          (cooldownPeriod - timeElapsed) / 1000,
-        );
-
-        const m = Math.floor(remainingSeconds / 60);
-        const s = remainingSeconds % 60;
-
-        setCooldownMessage(
-          `Refill is on cooldown. Please wait ${m}m ${s}s before requesting another.`,
-        );
-        return;
-      }
-    }
-
-    const unlimitedItem = findUnlimitedItem();
-    if (!unlimitedItem) {
-      showToast("No active Unlimited package found in the system registry.");
-      return;
-    }
-
-    setSelectedItem(unlimitedItem);
-    setSelectedFlavors([]);
-    setSelectedDrink("");
-    setIsRefillMode(true);
-    setShowFlavorModal(true);
-  };
-
   useEffect(() => {
     const syncTimer = () => {
       const savedEnd = sessionStorage.getItem(TIMER_KEY);
@@ -389,6 +361,16 @@ const KioskMenu = () => {
 
     syncTimer();
     const interval = setInterval(syncTimer, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const syncRefillCooldown = () => {
+      setRefillCooldownSeconds(getRefillCooldownSeconds());
+    };
+
+    syncRefillCooldown();
+    const interval = setInterval(syncRefillCooldown, 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -464,6 +446,21 @@ const KioskMenu = () => {
     const itemsToSubmit = [...cart];
     if (itemsToSubmit.length === 0) return;
     const existingOrderItems = billItems.length > 0 ? billItems : localBillHistory;
+    const hasRefillOrder = itemsToSubmit.some(
+      (item) =>
+        item.is_refill === true ||
+        (item.customizations || "").toString().includes("[REFILL]"),
+    );
+    const cooldownRemaining = hasRefillOrder
+      ? getRefillCooldownSeconds()
+      : 0;
+    if (cooldownRemaining > 0) {
+      setRefillCooldownSeconds(cooldownRemaining);
+      setCooldownMessage(
+        `Refill is on cooldown. Please wait ${formatCooldownTime(cooldownRemaining)} before requesting another.`,
+      );
+      return;
+    }
     const packageError = validatePackageCart(
       [...existingOrderItems, ...itemsToSubmit],
       kioskMenuMode,
@@ -505,6 +502,11 @@ const KioskMenu = () => {
         },
         getAuthHeader(),
       );
+
+      if (hasRefillOrder) {
+        storage.setItem(LAST_REFILL_KEY, Date.now().toString());
+        setRefillCooldownSeconds(10 * 60);
+      }
 
       // Queue state updates for the background UI
       setLocalBillHistory((prev) => [...prev, ...itemsToSubmit]);
@@ -575,7 +577,21 @@ const KioskMenu = () => {
       setIsFinalCheckout(false);
     } catch (error) {
       console.error(error);
-      showToast("Order failed.");
+      if (error.response?.data?.error === "Cooldown active") {
+        const message = error.response.data.message || "Please wait before requesting another refill.";
+        const remainingMinutes = Number(message.match(/(\d+) more minutes?/i)?.[1]);
+        if (remainingMinutes > 0) {
+          const remainingSeconds = remainingMinutes * 60;
+          storage.setItem(
+            LAST_REFILL_KEY,
+            String(Date.now() - (10 * 60 * 1000 - remainingSeconds * 1000)),
+          );
+          setRefillCooldownSeconds(remainingSeconds);
+        }
+        setCooldownMessage(message);
+      } else {
+        showToast("Order failed.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -599,6 +615,21 @@ const KioskMenu = () => {
     const due = parseFloat(calculateTotalDue(true));
     setIsPaid(due <= 0);
     setShowBillInfo(true);
+  };
+
+  const handlePlaceOrderClick = async () => {
+    const hasRefillOrder = cart.some(
+      (item) =>
+        item.is_refill === true ||
+        (item.customizations || "").toString().includes("[REFILL]"),
+    );
+
+    if (isUnlimitedMode && hasRefillOrder) {
+      await confirmPaymentChoice("Pay Later");
+      return;
+    }
+
+    setShowAllergyModal(true);
   };
 
   const fetchMenu = async () => {
@@ -863,6 +894,38 @@ const KioskMenu = () => {
       showToast("You have reached this package's selection limit.", "error");
       return;
     }
+    const itemCategory = (item.category || activeCategory || "").toLowerCase();
+    if (
+      isUnlimitedMode &&
+      /chicken|wing/.test(`${itemCategory} ${item.name || ""}`)
+    ) {
+      const cooldownRemaining = getRefillCooldownSeconds();
+      if (cooldownRemaining > 0) {
+        setRefillCooldownSeconds(cooldownRemaining);
+        setCooldownMessage(
+          `Refill is on cooldown. Please wait ${formatCooldownTime(cooldownRemaining)} before requesting another.`,
+        );
+        return;
+      }
+
+      const refillItem = {
+        ...item,
+        price: 0,
+        quantity: 1,
+        customizations: `[REFILL] Flavors: ${item.name}`,
+        is_refill: true,
+      };
+      const packageError = validatePackageCart(
+        [...packageItems, refillItem],
+        kioskMenuMode,
+      );
+      if (packageError) {
+        showToast(packageError, "error");
+        return;
+      }
+      setCart((current) => [...current, refillItem]);
+      return;
+    }
     const itemName = (item?.name || "").toLowerCase();
     if (inferUnlimitedPackageMode(item)) setIsPackageTimerExpired(false);
 
@@ -1031,21 +1094,31 @@ const KioskMenu = () => {
 
         <div className="header-center-group">
           {isTimerRunning && (
-            <>
-              <div className="unlimited-timer-pill">
-                <span className="timer-tag">Time:</span>
-                <span
-                  className={`timer-digits ${timeLeft < 600 ? "urgent" : ""}`}
-                >
-                  {formatTime(timeLeft)}
-                </span>
-              </div>
-
-              <button className="refill-action-btn" onClick={handleRefillClick}>
-                <RefreshCw size={20} />
-                Refill
-              </button>
-            </>
+            <div className="unlimited-timer-pill">
+              <span className="timer-tag">Time:</span>
+              <span
+                className={`timer-digits ${timeLeft < 600 ? "urgent" : ""}`}
+              >
+                {formatTime(timeLeft)}
+              </span>
+            </div>
+          )}
+          {isUnlimitedMode && refillCooldownSeconds > 0 && (
+            <span
+              role="status"
+              style={{ color: "#fff", fontSize: "12px", whiteSpace: "nowrap" }}
+            >
+              Refill in {formatCooldownTime(refillCooldownSeconds)}
+            </span>
+          )}
+          {isUnlimitedMode && (
+            <button
+              className="billing-btn-header"
+              onClick={handleHeaderPayClick}
+              disabled={isLoading}
+            >
+              <CreditCard size={18} /> CHECKOUT
+            </button>
           )}
         </div>
 
@@ -1170,33 +1243,33 @@ const KioskMenu = () => {
           </button>
         )}
         <div className="res-action-btns">
-          <button
-            className="billing-btn-footer"
-            onClick={() =>
-              storage.getItem(SAVED_RES_ID)
-                ? handleHeaderPayClick()
-                : setShowAllergyModal(true)
-            }
-            disabled={
-              isLoading || (!storage.getItem(SAVED_RES_ID) && cart.length === 0)
-            }
-          >
-            <CreditCard size={18} />
-            {storage.getItem(SAVED_RES_ID)
-              ? parseFloat(calculateTotalDue(true)) <= 0
-                ? "VIEW RECEIPT"
-                : "PAY BILL"
-              : "CHECKOUT"}
-          </button>
+          {!isUnlimitedMode && (
+            <button
+              className="billing-btn-footer"
+              onClick={() =>
+                storage.getItem(SAVED_RES_ID)
+                  ? handleHeaderPayClick()
+                  : setShowAllergyModal(true)
+              }
+              disabled={
+                isLoading || (!storage.getItem(SAVED_RES_ID) && cart.length === 0)
+              }
+            >
+              <CreditCard size={18} />
+              {storage.getItem(SAVED_RES_ID)
+                ? parseFloat(calculateTotalDue(true)) <= 0
+                  ? "VIEW RECEIPT"
+                  : "PAY BILL"
+                : "CHECKOUT"}
+            </button>
+          )}
           <button className="res-btn-cancel" onClick={() => setCart([])}>
             Clear Tray
           </button>
           <button
             className="res-btn-view"
-            disabled={cart.length === 0}
-            onClick={() => {
-              setShowAllergyModal(true);
-            }}
+            disabled={isLoading || cart.length === 0}
+            onClick={handlePlaceOrderClick}
           >
             Place Order ({cart.length})
           </button>

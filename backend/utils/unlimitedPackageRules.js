@@ -219,7 +219,8 @@ const validateUnlimitedPackageOrder = async (
     if (
       String(menuItem.category_name || "").toLowerCase().includes("unlimited") &&
       !drink &&
-      !orderItem.is_refill
+      !orderItem.is_refill &&
+      !orderItem.is_package_included
     ) {
       throw new Error("Select one included drink for the Unlimited Menu package.");
     }

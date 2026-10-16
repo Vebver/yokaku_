@@ -42,13 +42,16 @@ const orderController = {
         items,
       });
 
-      const hasRefill = items.some((item) => item.is_refill === true);
+      const hasRefill = items.some(
+        (item) => item.is_refill === true && item.is_package_included !== true,
+      );
 
       if (hasRefill) {
         // Query the database for the last refill for this specific reservation
         const [lastRefill] = await conn.execute(
           `SELECT created_at FROM kiosk_orders 
          WHERE reservation_id = ? AND is_refill = 1
+           AND COALESCE(customizations, '') NOT LIKE '%PACKAGE INCLUDED%'
          ORDER BY created_at DESC LIMIT 1`,
           [reservation_id],
         );
@@ -161,7 +164,7 @@ const orderController = {
           item.item_id || item.id,
           item.quantity,
           item.customizations,
-          item.is_refill ? 1 : 0,
+          item.is_refill || item.is_package_included ? 1 : 0,
           req.body.allergy_note,
         );
 

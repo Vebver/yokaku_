@@ -379,7 +379,7 @@ const KioskReservationMenu = () => {
     return null;
   };
 
-  const handleRefillClick = () => {
+  const handleOrderClick = async () => {
     const lastRefill = storage.getItem(LAST_REFILL_KEY);
     if (lastRefill) {
       const timeElapsed = Date.now() - parseInt(lastRefill, 10);
@@ -403,11 +403,36 @@ const KioskReservationMenu = () => {
       return;
     }
 
-    setSelectedItem(unlimitedItem);
-    setSelectedFlavors([]);
-    setSelectedDrink("");
-    setIsRefillMode(true);
-    setShowFlavorModal(true);
+    setIsLoading(true);
+    try {
+      await axios.post(
+        `${API_BASE}/orders/place`,
+        {
+          reservation_id: reservationId,
+          table_id: getCurrentTableId(),
+          items: [
+            {
+              item_id: unlimitedItem.id,
+              quantity: 1,
+              customizations: "[REFILL]",
+              is_refill: true,
+            },
+          ],
+        },
+        getAuthHeader(),
+      );
+      storage.setItem(LAST_REFILL_KEY, Date.now().toString());
+      await fetchCurrentBill();
+      showToast("Your order has been placed.", "success");
+    } catch (e) {
+      if (e.response?.data?.error === "Cooldown active") {
+        setCooldownMessage(e.response.data.message);
+      } else {
+        showToast("Order failed.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -646,8 +671,8 @@ const KioskReservationMenu = () => {
     const pendingItems = cart.filter((i) => !i.is_placed);
 
     const hasUnlimitedPackage = [...billItems, ...cart].some((item) =>
-      (item.menu_name || "").toLowerCase().includes("unlimited"),
-    );
+      Boolean(inferUnlimitedPackageMode(item)),
+    ) || isUnlimitedMode;
 
     try {
       const tableId = getCurrentTableId();
@@ -661,6 +686,7 @@ const KioskReservationMenu = () => {
               item_id: i.id,
               quantity: i.quantity,
               customizations: i.customizations,
+              is_package_included: i.is_package_included,
             })),
           },
           getAuthHeader(),
@@ -911,7 +937,8 @@ const KioskReservationMenu = () => {
   };
 
   const handleItemClick = (item) => {
-    if (inferUnlimitedPackageMode(item)) setIsPackageTimerExpired(false);
+    const itemPackageMode = inferUnlimitedPackageMode(item);
+    if (itemPackageMode) setIsPackageTimerExpired(false);
     if (
       isUnlimitedMode &&
       getPackageQuantityLimit(packageOrderItems, item, kioskMenuMode) < 1
@@ -920,6 +947,35 @@ const KioskReservationMenu = () => {
       return;
     }
     const itemName = (item.menu_name || item.name || "").toLowerCase();
+    if (isUnlimitedMode || itemPackageMode) {
+      const packageMode = itemPackageMode || kioskMenuMode;
+      if (
+        getPackageQuantityLimit(packageOrderItems, item, packageMode) < 1
+      ) {
+        showToast("You have reached this package's selection limit.", "error");
+        return;
+      }
+
+      const packageItem = {
+        ...item,
+        price: 0,
+        quantity: 1,
+        customizations: "[PACKAGE INCLUDED]",
+        is_refill: false,
+        is_package_included: true,
+      };
+      const packageError = validatePackageCart(
+        [...packageOrderItems, packageItem],
+        packageMode,
+      );
+      if (packageError) {
+        showToast(packageError, "error");
+        return;
+      }
+      setCart((current) => [...current, packageItem]);
+      return;
+    }
+
     if (itemName.includes("unlimited") || itemName.includes("ramen")) {
       setSelectedItem(item);
       setSelectedFlavors([]);
@@ -933,8 +989,7 @@ const KioskReservationMenu = () => {
   };
 
   // React to the kiosk mode set by the admin from Table Status.
-  // `unlimited_wings_a` / `unlimited_wings_b` → force the Unlimited category
-  // and start the 90-minute timer.
+  // `unlimited_wings_a` / `unlimited_wings_b` → force the Unlimited category.
   useEffect(() => {
     if (!isUnlimitedMode) return;
     const packageCategories = getPackageCategories(menuData, kioskMenuMode);
@@ -944,12 +999,6 @@ const KioskReservationMenu = () => {
         "",
     );
 
-    if (!storage.getItem(TIMER_KEY)) {
-      const endTime = Date.now() + 1.5 * 60 * 60 * 1000;
-      storage.setItem(TIMER_KEY, endTime.toString());
-      setTimeLeft(5400);
-      setIsTimerRunning(true);
-    }
   }, [isUnlimitedMode, kioskMenuMode, menuData, TIMER_KEY]);
 
   useEffect(() => {
@@ -1068,7 +1117,7 @@ const KioskReservationMenu = () => {
           </div>
         </div>
 
-        {/* CENTER: TIMER & REFILL */}
+        {/* CENTER: TIMER & ORDER */}
         <div
           className="header-center-group"
           style={{ display: "flex", alignItems: "center", gap: "15px" }}
@@ -1108,7 +1157,7 @@ const KioskReservationMenu = () => {
                 </span>
               </div>
               <button
-                onClick={handleRefillClick}
+                onClick={handleOrderClick}
                 className="refill-action-btn"
                 style={{
                   background: "#ffcc00",
@@ -1122,7 +1171,7 @@ const KioskReservationMenu = () => {
                   cursor: "pointer",
                 }}
               >
-                <RefreshCw size={18} /> REFILL
+                <ShoppingBag size={18} /> ORDER
               </button>
             </>
           )}
@@ -1231,7 +1280,9 @@ const KioskReservationMenu = () => {
                     {item.name || item.menu_name}
                   </h4>
                   <p style={{ color: "#ffcc00", fontWeight: "bold" }}>
-                    ₱{parseFloat(item.price).toFixed(2)}
+                    {isUnlimitedMode || inferUnlimitedPackageMode(item)
+                      ? "₱0.00"
+                      : `₱${parseFloat(item.price).toFixed(2)}`}
                   </p>
                 </div>
               </div>
