@@ -101,6 +101,11 @@
   border-radius: 24px;
   padding: 20px 30px;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  transition: max-width 0.3s ease;
+}
+/* When a date is selected, expand the container to fit the new layout */
+.reservation-flow-container:has(.calendar-details-wrapper.has-selection) {
+  max-width: 950px; /* Expanded width to accommodate both columns */
 }
 
 /* ============================================ */
@@ -2493,13 +2498,13 @@ select:disabled {
 /* NEW CALENDAR + DETAILS LAYOUT                */
 /* ============================================ */
 
-/* The main wrapper for the calendar and details */
 .calendar-details-wrapper {
   display: flex;
   width: 100%;
-  gap: 30px; /* Space between calendar and details */
-  align-items: flex-start; /* Align to top */
-  justify-content: center; /* Center the content horizontally */
+  gap: 30px; /* Increased gap for better spacing */
+  align-items: flex-start;
+  justify-content: center;
+  transition: all 0.3s ease;
 }
 
 /* When NO date is selected, center the calendar */
@@ -2508,20 +2513,31 @@ select:disabled {
 }
 
 .calendar-details-wrapper.no-selection .calendar-column {
-  max-width: 500px; /* Keep calendar same width as before */
   width: 100%;
+  max-width: 460px; /* Restored original calendar width */
 }
 
 /* When a date IS selected, use two columns */
-.calendar-details-wrapper.has-selection .calendar-column {
-  flex: 1 1 500px; /* Allow calendar to grow but keep a base width */
-  max-width: 550px;
-  width: 100%;
+.calendar-details-wrapper.has-selection {
+  justify-content: space-between; /* Push columns to edges if extra space */
 }
 
+/* Enforce minimum width for the calendar so it doesn't shrink */
+.calendar-details-wrapper.has-selection .calendar-column {
+  flex: 0 0 460px; /* Do not grow, do not shrink, stay at 460px */
+  width: 460px;
+  max-width: 460px;
+}
+
+/* Enforce minimum width for the details panel */
 .calendar-details-wrapper.has-selection .reservation-details-column {
-  flex: 1 1 400px; /* Allow details to grow */
-  max-width: 450px;
+  flex: 1 1 350px; /* Allow it to grow to fill remaining space, but base at 350px */
+  min-width: 350px;
+  max-width: 450px; /* Cap it so it doesn't get too wide on huge screens */
+}
+
+/* Ensure the calendar container inside the column takes full width */
+.calendar-column .calendar-container {
   width: 100%;
 }
 
