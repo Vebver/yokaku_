@@ -12,7 +12,7 @@ import {
 import { useToast } from "../ToastContext";
 import { useSectionRefresh } from "../shared/sectionRefresh";
 import { getReservationStatusMeta } from "../shared/reservationStatus";
-import { compareByBookingRecency } from "../shared/sortUtils";
+import { byNewestFirst } from "../shared/sortUtils";
 import PackageMeta from "../shared/PackageMeta";
 
 const OnlineReservations = () => {
@@ -45,10 +45,13 @@ const OnlineReservations = () => {
       const filtered = response.data.filter(
         (item) => !item.reservation_id?.includes("WALK"),
       );
-      // Newest reservation first. The reservation date + time is the primary
-      // key (never the guest name); created_at is only a tie-breaker for rows
-      // that share the exact same slot, and the id digits as a last resort.
-      filtered.sort(compareByBookingRecency);
+      // Keep the most recently submitted reservation/customer at the top.
+      filtered.sort(
+        byNewestFirst((item) => {
+          const createdAt = new Date(item?.created_at || "").getTime();
+          return Number.isNaN(createdAt) ? null : createdAt;
+        }),
+      );
       setInquiries(filtered);
     } catch (err) {
       console.error(err);
