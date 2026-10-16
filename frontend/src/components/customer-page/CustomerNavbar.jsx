@@ -4,6 +4,7 @@ import axios from "axios";
 import io from "socket.io-client";
 import "../../Style/Navbar.css";
 import { API_BASE, SOCKET_URL } from "../../api";
+import { useToast } from "../ToastContext";
 
 
 function CustomerNavbar() {
@@ -12,6 +13,7 @@ function CustomerNavbar() {
   const [socket, setSocket] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const { showToast } = useToast();
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -28,8 +30,15 @@ function CustomerNavbar() {
         newSocket.emit("join_user", userId);
       });
 
-      newSocket.on("new_notification", () => {
+      newSocket.on("new_notification", (notification) => {
         setUnreadCount((prev) => prev + 1); // Increment count when new notification arrives
+
+        if (
+          notification.type === "announcement" ||
+          notification.title?.startsWith("New announcement:")
+        ) {
+          showToast(`${notification.title}: ${notification.message}`, "success");
+        }
       });
 
       newSocket.on("unread_count_updated", (data) => {

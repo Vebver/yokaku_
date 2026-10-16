@@ -48,12 +48,24 @@ const validateContent = (req, res) => {
   };
 };
 
-const notifyCustomers = async ({ title, description }) => {
+const notifyCustomers = async ({
+  title,
+  description,
+  announcement_type,
+  image_url,
+  local_path,
+}) => {
   try {
     await Notification.createForCustomers(null, {
-      title: `New announcement: ${title}`,
-      message: description,
+      title: "New announcement",
+      message: `${title}\n\n${description}`,
       type: "announcement",
+      announcement: {
+        title,
+        description,
+        announcement_type,
+        image_url: local_path || image_url || null,
+      },
     });
   } catch (error) {
     console.error("Announcement customer notification error:", error);
@@ -85,7 +97,7 @@ const announcementController = {
       if (!content) return;
       const images = await getImagePaths(req.file);
       const id = await Announcement.create({ ...content, ...images });
-      if (content.is_published) await notifyCustomers(content);
+      if (content.is_published) await notifyCustomers({ ...content, ...images });
       res.status(201).json({ success: true, id });
     } catch (error) {
       console.error("Create announcement error:", error);
@@ -100,6 +112,11 @@ const announcementController = {
       const existing = await Announcement.getById(req.params.id);
       if (!existing) return res.status(404).json({ error: "Announcement not found." });
       const images = await getImagePaths(req.file);
+      const notificationImages = req.body.remove_image === "true"
+        ? { image_url: null, local_path: null }
+        : images.image_url
+          ? images
+          : { image_url: existing.image_url, local_path: existing.local_path };
       const updated = await Announcement.update(req.params.id, {
         ...content,
         ...images,
@@ -107,7 +124,7 @@ const announcementController = {
       });
       if (!updated) return res.status(404).json({ error: "Announcement not found." });
       if (content.is_published && !Number(existing.is_published)) {
-        await notifyCustomers(content);
+        await notifyCustomers({ ...content, ...notificationImages });
       }
       res.json({ success: true });
     } catch (error) {

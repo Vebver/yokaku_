@@ -32,6 +32,9 @@ const Notification = {
     `;
 
     const dbType = "info"; 
+    const storedMessage = data.announcement
+      ? JSON.stringify({ kind: "announcement", ...data.announcement })
+      : data.message;
 
     // FIX: If this is strictly an admin alert, ignore any customer userId passed in data.userId
     let targetUserId = data.isAdminAlert === true ? null : data.userId;
@@ -62,7 +65,7 @@ const Notification = {
       targetUserId,
       data.reservationId || null,
       data.title,
-      data.message,
+      storedMessage,
       dbType,
     ];
 
@@ -79,6 +82,7 @@ const Notification = {
         title: data.title,
         message: data.message,
         type: data.type || "reservation",
+        announcement: data.announcement,
         is_read: 0,
         created_at: new Date().toISOString(),
       };

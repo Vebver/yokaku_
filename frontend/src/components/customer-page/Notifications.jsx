@@ -5,7 +5,44 @@ import { Trash2, Archive } from "lucide-react";
 import DeletedNotifications from "./DeletedNotifications";
 import "../../Style/Notifications.css";
 import { useToast } from "../ToastContext";
-import { API_BASE, SOCKET_URL } from "../../api";
+import { API_BASE, SOCKET_URL, resolveAssetUrl } from "../../api";
+
+const announcementTypeLabels = {
+  promo: "Promotion",
+  menu: "New menu",
+  event: "Event",
+  update: "Hangout update",
+};
+
+const getAnnouncementDetails = (notification, publishedAnnouncements = []) => {
+  if (notification.announcement) return notification.announcement;
+  try {
+    const payload = JSON.parse(notification.message);
+    if (payload?.kind === "announcement") return payload;
+  } catch {
+    // Older announcement notifications stored plain text instead of metadata.
+  }
+
+  if (!/^new announcement\b/i.test(notification.title || "")) return null;
+  const legacyTitle = notification.title
+    .replace(/^new announcement\s*:?\s*/i, "")
+    .trim()
+    .toLowerCase();
+  const legacyMessage = String(notification.message || "").trim().toLowerCase();
+  const match = publishedAnnouncements.find((announcement) =>
+    (legacyTitle && announcement.title?.trim().toLowerCase() === legacyTitle) ||
+    (legacyMessage && announcement.description?.trim().toLowerCase() === legacyMessage),
+  );
+
+  return match
+    ? {
+        title: match.title,
+        description: match.description,
+        announcement_type: match.announcement_type,
+        image_url: match.local_path || match.image_url || null,
+      }
+    : null;
+};
 
 const Notifications = () => {
   const { showToast } = useToast();
@@ -59,10 +96,21 @@ const Notifications = () => {
   const fetchNotifications = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.get(`${API_BASE}/notifications`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setNotifications(res.data);
+      const [res, announcementsRes] = await Promise.all([
+        axios.get(`${API_BASE}/notifications`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        axios.get(`${API_BASE}/announcements`).catch(() => ({ data: [] })),
+      ]);
+      const publishedAnnouncements = Array.isArray(announcementsRes.data)
+        ? announcementsRes.data
+        : [];
+      setNotifications(
+        res.data.map((notification) => {
+          const announcement = getAnnouncementDetails(notification, publishedAnnouncements);
+          return announcement ? { ...notification, announcement } : notification;
+        }),
+      );
     } catch (err) {
       console.error("Error fetching notifications", err);
     } finally {
@@ -329,6 +377,7 @@ const Notifications = () => {
             ) : notifications.length > 0 ? (
               notifications.map((notif) => {
                 const reservationId = getReservationId(notif);
+                const announcement = getAnnouncementDetails(notif);
                 return (
                   <div
                     key={notif.notification_id}
@@ -336,18 +385,37 @@ const Notifications = () => {
                   >
                     <div className="notification-card-content">
                       <div className="notification-icon">
-                        <span className="notification-emoji">🔔</span>
+                        <span className="notification-emoji">{announcement ? "📣" : "🔔"}</span>
                       </div>
                       <div className="notification-content">
                         <div className="notification-top">
                           <span className="notification-title">
-                            {notif.title}
+                            {announcement?.title || notif.title}
                           </span>
+                          {announcement && (
+                            <span className="notification-category">
+                              {announcementTypeLabels[announcement.announcement_type] || "Announcement"}
+                            </span>
+                          )}
                           <span className="notification-time">
                             {formatTimeAgo(notif.created_at)}
                           </span>
                         </div>
-                        <p className="notification-message">{notif.message}</p>
+                        {announcement ? (
+                          <>
+                            {announcement.image_url && (
+                              <img
+                                className="notification-announcement-image"
+                                src={resolveAssetUrl(announcement.image_url)}
+                                alt={announcement.title}
+                                loading="lazy"
+                              />
+                            )}
+                            <p className="notification-message">{announcement.description}</p>
+                          </>
+                        ) : (
+                          <p className="notification-message">{notif.message}</p>
+                        )}
 
                         {reservationId && (
                           <div className="notif-res-id-badge">
