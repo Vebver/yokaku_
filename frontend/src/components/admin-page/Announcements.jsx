@@ -36,9 +36,20 @@ function Announcements() {
     try {
       setLoading(true);
       const response = await api.get("/announcements/admin");
-      setAnnouncements(response.data);
+      setAnnouncements(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
-      showToast(error.response?.data?.error || "Could not load announcements.");
+      const status = error.response?.status;
+      const message =
+        error.response?.data?.error ||
+        (status === 401
+          ? "Your session expired. Please log in again."
+          : status === 403
+            ? "You do not have permission to view announcements."
+            : !error.response
+              ? "Cannot reach the server. Please check your connection."
+              : "Could not load announcements.");
+      console.error("Failed to load announcements:", status || error.message, error);
+      showToast(message);
     } finally {
       setLoading(false);
     }

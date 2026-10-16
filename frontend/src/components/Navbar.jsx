@@ -71,7 +71,7 @@ function Navbar({ onLoginClick, isLoggedIn, onLogout, onProfile }) {
               {/* Dynamic Auth Links inside Burger */}
               {!isLoggedIn ? (
                 <div className="dropdown-item login-highlight" onClick={() => handleAction(onLoginClick)}>
-                  Login
+                  LOGIN
                 </div>
               ) : (
                 <>

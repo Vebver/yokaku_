@@ -4,8 +4,11 @@ function Footer() {
   return (
     <footer>
       <div className="footer-logo">
-        <span className="logo-circle">H</span>
-        <span className="logo-name">HANGOUT</span>
+        <div className="brand-mark" aria-label="Hangout brand mark">H</div>
+        <div className="footer-brand-copy">
+          <span className="logo-name">HANGOUT</span>
+          <span className="logo-sub">Resto Bar</span>
+        </div>
       </div>
       <div className="footer-columns" id="contact-section">
         <div>

@@ -42,7 +42,10 @@ function AboutSection({ onLoginClick }) {
           </div>
 
           <div className="about-text">
-            <h3>Hangout Restobar</h3>
+            <h3 className="about-brand">
+              <span className="logo-name">Hangout</span>
+              <span className="logo-sub">Resto Bar</span>
+            </h3>
             <p className="main-para">
               Hangout Restobar was created to give people a place where they can
               relax, enjoy good food, and spend quality time with friends and
