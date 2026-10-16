@@ -2566,8 +2566,8 @@ select:disabled {
   /* NEW: Fixed height and Flexbox for scrolling */
   display: flex;
   flex-direction: column;
-  height: 620px; /* Fixed height to match the calendar */
-  max-height: 620px; /* Prevents it from growing taller */
+  height: 610px; /* Fixed height to match the calendar */
+  max-height: 610px; /* Prevents it from growing taller */
   overflow: hidden; /* Hides overflow on the outer container */
 }
 
