@@ -138,11 +138,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     savedDraft?.selectedPackage || null,
   );
 
-  // ===== Event package meal distribution =====
-  // The package's included meal count is the single source of truth. Dine-In
-  // and Take-Out allocations are tracked separately but must always sum to no
-  // more than the package limit. foodPreference drives which controls show.
-  // Meal distribution
   const [currentMinutes, setCurrentMinutes] = useState(() => {
     const now = new Date();
     return now.getHours() * 60 + now.getMinutes();
@@ -225,9 +220,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       selectedReservationDate,
       downpaymentPercentage,
       selectedPackage,
-      foodPreference,
-      dineInCount,
-      takeOutCount,
       form,
       user,
       currentStep,
@@ -250,9 +242,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     selectedReservationDate,
     downpaymentPercentage,
     selectedPackage,
-    foodPreference,
-    dineInCount,
-    takeOutCount,
     form,
     user,
     currentStep,
@@ -1203,50 +1192,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   // ===== Event package meal distribution =====
   // Each package advertises a number of included meals. That number is the
   // hard cap for (Dine-In + Take-Out) allocations.
-  const PACKAGE_MEAL_LIMITS = {
-    standard: 20,
-    premium: 20,
-  };
-  const packageMealLimit = selectedPackage
-    ? PACKAGE_MEAL_LIMITS[selectedPackage] || 0
-    : 0;
-
-  const mealDistribution = useMemo(() => {
-    const dineIn = parseInt(dineInCount, 10) || 0;
-    const takeOut = parseInt(takeOutCount, 10) || 0;
-    // "All Dine-In" / "All Take-Out" lock the allocation to the full limit.
-    let d = dineIn;
-    let t = takeOut;
-    if (foodPreference === "dinein") {
-      d = packageMealLimit;
-      t = 0;
-    } else if (foodPreference === "takeout") {
-      d = 0;
-      t = packageMealLimit;
-    }
-    const total = d + t;
-    const remaining = packageMealLimit - total;
-    const over = total > packageMealLimit;
-    const complete = packageMealLimit > 0 && total === packageMealLimit;
-    return {
-      dineIn: d,
-      takeOut: t,
-      total,
-      remaining,
-      over,
-      overBy: over ? total - packageMealLimit : 0,
-      complete,
-      limit: packageMealLimit,
-    };
-  }, [dineInCount, takeOutCount, foodPreference, packageMealLimit]);
-
-  const mealDistributionValid = useMemo(() => {
-    if (!selectedPackage) return true; // no package yet — nothing to enforce
-    if (foodPreference === "dinein" || foodPreference === "takeout")
-      return true;
-    // Mixed: the total must land exactly on the package limit.
-    return mealDistribution.total === packageMealLimit;
-  }, [selectedPackage, foodPreference, mealDistribution, packageMealLimit]);
 
   const tableIdsArray = useMemo(
     () => [selectedId, ...linkedIds].filter((id) => id !== null),
@@ -1326,9 +1271,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       addressData,
       getFinalAllergy,
       getFinalOccasion,
-      foodPreference,
-      packageMealLimit,
-      mealDistribution,
       selectedPackage,
     ],
   );
