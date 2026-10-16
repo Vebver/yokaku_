@@ -35,6 +35,7 @@ import { API_BASE, SERVER_URL as BASE_URL } from "../../api";
 import io from "socket.io-client";
 import {
   getPackageCategories,
+  getDrinkOptions,
   getPackageItems,
   getPackageMenuData,
   getPackageChickenCount,
@@ -461,9 +462,7 @@ const KioskReservationMenu = () => {
         (grouped["Ramen"] || []).map((i) => i.menu_name || i.name),
       );
       setDynamicDrinks(
-        [...(grouped["Beverages"] || []), ...(grouped["Drinks"] || [])].map(
-          (i) => i.menu_name || i.name,
-        ),
+        getDrinkOptions(grouped).map((item) => item.menu_name || item.name),
       );
 
       const cats = Object.keys(grouped).filter(
@@ -617,9 +616,7 @@ const KioskReservationMenu = () => {
           (grouped["Ramen"] || []).map((i) => i.menu_name || i.name),
         );
         setDynamicDrinks(
-          [...(grouped["Beverages"] || []), ...(grouped["Drinks"] || [])].map(
-            (i) => i.menu_name || i.name,
-          ),
+          getDrinkOptions(grouped).map((item) => item.menu_name || item.name),
         );
 
         const cats = Object.keys(grouped).filter(
@@ -1686,7 +1683,10 @@ const KioskReservationMenu = () => {
             let nextCart;
             if (existingIdx > -1) {
               const updated = [...prevCart];
-              updated[existingIdx].quantity += newItem.quantity || 1;
+              updated[existingIdx] = {
+                ...updated[existingIdx],
+                quantity: updated[existingIdx].quantity + (newItem.quantity || 1),
+              };
               nextCart = updated;
             } else {
               nextCart = [

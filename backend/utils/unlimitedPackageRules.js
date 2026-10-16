@@ -8,7 +8,7 @@ const isChickenCategory = (category) =>
   /chicken|wing/i.test(String(category || ""));
 
 const isDrinkCategory = (category) =>
-  /drink|beverage/i.test(String(category || ""));
+  /drink|beverage|juice/i.test(String(category || ""));
 
 const isWingItem = (item) =>
   /chicken wings/i.test(String(item.category_name || "")) ||
@@ -238,9 +238,6 @@ const validateUnlimitedPackageOrder = async (
     [reservationId],
   );
   for (const row of existingRows) {
-    if (!isIncluded(row, mode)) {
-      throw new Error("The existing order contains an item outside the selected Unlimited Menu package.");
-    }
     const flavors = getSelectedFlavors(row.customizations);
     if (flavors.some((flavor) => !allowedFlavors.has(String(flavor).toLowerCase()))) {
       throw new Error("The existing order contains a flavor outside the selected package.");

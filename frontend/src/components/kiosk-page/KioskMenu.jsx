@@ -31,6 +31,7 @@ import { useToast } from "../ToastContext";
 import { API_BASE, SERVER_URL as BASE_URL } from "../../api";
 import {
   getPackageCategories,
+  getDrinkOptions,
   getPackageItems,
   getPackageMenuData,
   getPackageChickenCount,
@@ -70,7 +71,7 @@ const categoryIcons = {
 const KioskMenu = () => {
   const { showToast } = useToast();
   const navigate = useNavigate();
-  const audioRef = useRef(new Audio(alertMusicFile));
+  const audioRef = useMemo(() => new Audio(alertMusicFile), []);
   const storage = window.sessionStorage;
 
   const TIMER_KEY = "kiosk_walkin_timer_end";
@@ -187,9 +188,9 @@ const KioskMenu = () => {
 
   const playAlert = async () => {
     try {
-      if (!audioRef.current) return;
-      audioRef.current.currentTime = 0;
-      await audioRef.current.play();
+      if (!audioRef) return;
+      audioRef.currentTime = 0;
+      await audioRef.play();
     } catch (e) {
       console.log("Audio blocked:", e);
     }
@@ -636,11 +637,7 @@ const KioskMenu = () => {
       setMenuData(grouped);
       setDynamicFlavors((grouped["Chicken"] || []).map((i) => i.name));
       setDynamicRamenFlavors((grouped["Ramen"] || []).map((i) => i.name));
-      setDynamicDrinks(
-        [...(grouped["Beverages"] || []), ...(grouped["Drinks"] || [])].map(
-          (i) => i.name,
-        ),
-      );
+      setDynamicDrinks(getDrinkOptions(grouped).map((item) => item.name));
       const firstVisibleCat = Object.keys(grouped).find(
         (cat) => !HIDDEN_CATEGORIES.includes(cat),
       );
@@ -673,22 +670,22 @@ const KioskMenu = () => {
 
     const handleStopped = (payload) => {
       const activeResId = storage.getItem(SAVED_RES_ID);
-      const activeTable = storage.getItem(SAVED_TABLE_ID);
+      const activeTable =
+        storage.getItem(SAVED_TABLE_ID) ||
+        setupTable ||
+        window.localStorage.getItem(FIXED_KIOSK_KEY);
       const stoppedId = payload?.reservationId;
       const stoppedTable = payload?.tableId;
 
-      // Only act on THIS kiosk's own session...
-      if (stoppedId && activeResId && stoppedId !== activeResId) return;
-      // ...and when a stop was scoped to a single table, only if that table is
-      // the one this kiosk is serving. An event stop on another table must not
-      // interrupt this guest.
+      if (!stoppedId && !stoppedTable) return;
+      if (
+        stoppedId &&
+        (!activeResId || String(stoppedId) !== String(activeResId))
+      ) return;
       if (
         stoppedTable &&
-        activeTable &&
-        String(stoppedTable) !== String(activeTable)
-      ) {
-        return;
-      }
+        (!activeTable || String(stoppedTable) !== String(activeTable))
+      ) return;
 
       playAlert();
       [
@@ -775,10 +772,12 @@ const KioskMenu = () => {
     if (!isUnlimitedMode) return;
 
     const packageCategories = getPackageCategories(menuData, kioskMenuMode);
-    setActiveCategory(
+    const fallbackCategory =
       packageCategories.find((category) => category !== "Unlimited") ||
-        packageCategories[0] ||
-        "",
+      packageCategories[0] ||
+      "";
+    setActiveCategory((current) =>
+      packageCategories.includes(current) ? current : fallbackCategory,
     );
 
     if (!sessionStorage.getItem(TIMER_KEY)) {
@@ -1050,27 +1049,6 @@ const KioskMenu = () => {
           )}
         </div>
 
-        <div className="header-right-group">
-          {storage.getItem(SAVED_RES_ID) && (
-            <button
-              className="billing-btn-header"
-              onClick={handleHeaderPayClick}
-              style={{
-                background:
-                  parseFloat(calculateTotalDue(true)) <= 0
-                    ? "#28a745"
-                    : "#ffcc00",
-                color:
-                  parseFloat(calculateTotalDue(true)) <= 0 ? "#fff" : "#000",
-              }}
-            >
-              <CreditCard size={18} className="me-2" />
-              {parseFloat(calculateTotalDue(true)) <= 0
-                ? "VIEW RECEIPT"
-                : "PAY BILL"}
-            </button>
-          )}
-        </div>
       </div>
 
       <div className="res-main-layout">
@@ -1152,7 +1130,7 @@ const KioskMenu = () => {
                 </div>
                 <div className="res-card-info">
                   <h4 className="res-food-label">{item.name}</h4>
-                  {item.isStockAvailable === false ? (
+                  {item.isStockAvailable === false && (
                     <p
                       style={{
                         color: "#ff5c5c",
@@ -1161,12 +1139,6 @@ const KioskMenu = () => {
                       }}
                     >
                       NOT AVAILABLE
-                    </p>
-                  ) : (
-                    <p style={{ color: "#ffcc00", fontWeight: "bold" }}>
-                      {activeCategory === "Chicken"
-                        ? "₱0.00 (REFILL)"
-                        : `₱${parseFloat(item.price).toFixed(2)}`}
                     </p>
                   )}
                 </div>
@@ -1198,6 +1170,24 @@ const KioskMenu = () => {
           </button>
         )}
         <div className="res-action-btns">
+          <button
+            className="billing-btn-footer"
+            onClick={() =>
+              storage.getItem(SAVED_RES_ID)
+                ? handleHeaderPayClick()
+                : setShowAllergyModal(true)
+            }
+            disabled={
+              isLoading || (!storage.getItem(SAVED_RES_ID) && cart.length === 0)
+            }
+          >
+            <CreditCard size={18} />
+            {storage.getItem(SAVED_RES_ID)
+              ? parseFloat(calculateTotalDue(true)) <= 0
+                ? "VIEW RECEIPT"
+                : "PAY BILL"
+              : "CHECKOUT"}
+          </button>
           <button className="res-btn-cancel" onClick={() => setCart([])}>
             Clear Tray
           </button>
@@ -1755,19 +1745,20 @@ const KioskMenu = () => {
                 <h3 className="section-label">Select Drink (Choose One)</h3>
                 <div className="drink-grid">
                   {dynamicDrinks
-                    .filter((drink) =>
-                      flavorPackageMode === "unlimited_wings_a" ||
-                      !getUnlimitedPackage(flavorPackageMode) ||
-                      isJuiceItem({ name: drink, category: "Drinks" }),
+                    .filter(
+                      (drink) =>
+                        flavorPackageMode === "unlimited_wings_a" ||
+                        !getUnlimitedPackage(flavorPackageMode) ||
+                        isJuiceItem({ name: drink, category: "Drinks" }),
                     )
-                    .map((d) => (
-                    <button
-                      key={d}
-                      onClick={() => setSelectedDrink(d)}
-                      className={`flavor-btn ${selectedDrink === d ? "active-drink" : ""}`}
-                    >
-                      {d}
-                    </button>
+                    .map((drink) => (
+                      <button
+                        key={drink}
+                        onClick={() => setSelectedDrink(drink)}
+                        className={`flavor-btn ${selectedDrink === drink ? "active-drink" : ""}`}
+                      >
+                        {drink}
+                      </button>
                     ))}
                 </div>
               </section>
@@ -1850,7 +1841,10 @@ const KioskMenu = () => {
             let nextCart;
             if (existingIdx > -1) {
               const updated = [...prevCart];
-              updated[existingIdx].quantity += newItem.quantity || 1;
+              updated[existingIdx] = {
+                ...updated[existingIdx],
+                quantity: updated[existingIdx].quantity + (newItem.quantity || 1),
+              };
               nextCart = updated;
             } else {
               nextCart = [
@@ -1863,7 +1857,13 @@ const KioskMenu = () => {
               ];
             }
             if (!isUnlimitedMode) return nextCart;
-            const packageError = validatePackageCart(nextCart, kioskMenuMode);
+            const packageError = validatePackageCart(
+              [
+                ...(billItems.length > 0 ? billItems : localBillHistory),
+                ...nextCart,
+              ],
+              kioskMenuMode,
+            );
             if (packageError) {
               showToast(packageError, "error");
               return prevCart;

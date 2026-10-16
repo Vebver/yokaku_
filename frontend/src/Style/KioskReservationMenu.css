@@ -656,6 +656,26 @@
   cursor: not-allowed;
 }
 
+.billing-btn-footer {
+  min-height: 48px;
+  padding: 0.8rem 1.2rem;
+  border: 0;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #000;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.billing-btn-footer:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
 /* --- MODERN CUSTOM MODAL --- */
 .res-modal-overlay {
   position: fixed !important;
@@ -898,6 +918,145 @@
   }
   .view-details-link {
     font-size: 0.7rem;
+  }
+}
+
+@media (min-width: 601px) and (max-width: 1024px) {
+  .res-kiosk-container {
+    height: 100dvh;
+    min-height: 0;
+  }
+
+  .kiosk-timer-wrapper {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    min-height: 72px;
+    padding: 8px 12px;
+  }
+
+  .header-center-group {
+    gap: 8px;
+  }
+
+  .unlimited-timer-pill {
+    gap: 6px;
+    padding: 4px 10px;
+  }
+
+  .timer-digits {
+    font-size: 17px;
+  }
+
+  .refill-action-btn {
+    padding: 8px 10px;
+    font-size: 14px;
+  }
+
+  .res-main-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 240px;
+    grid-template-rows: auto minmax(0, 1fr);
+    min-height: 0;
+    padding: 12px;
+    gap: 12px;
+    overflow: hidden;
+  }
+
+  .res-sidebar {
+    grid-column: 1 / -1;
+    width: 100%;
+    height: auto;
+    padding: 0;
+  }
+
+  .res-main-layout > .res-sidebar {
+    box-sizing: border-box;
+    min-width: 0;
+    padding: 0;
+  }
+
+  .res-category-list {
+    width: 100%;
+  }
+
+  .res-cat-scroll-wrapper {
+    flex-direction: row !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    height: auto;
+    padding: 4px 2px 8px;
+    gap: 8px;
+  }
+
+  .res-cat-btn {
+    width: auto;
+    min-width: 132px;
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  .res-cat-icon-placeholder {
+    width: 30px;
+    height: 30px;
+  }
+
+  .res-content-area {
+    grid-column: 1;
+    grid-row: 2;
+    min-width: 0;
+    min-height: 0;
+    padding: 12px;
+  }
+
+  .order-summary-panel {
+    grid-column: 2;
+    grid-row: 2;
+    min-width: 0;
+    height: 100%;
+    border-radius: 12px;
+  }
+
+  .res-main-layout > .order-summary-panel {
+    width: 240px;
+  }
+
+  .res-grid-container {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+  }
+
+  .res-card-image-container {
+    height: 130px;
+  }
+
+  .res-card-info {
+    min-height: 62px;
+    padding: 10px;
+  }
+
+  .res-food-label {
+    font-size: 0.95rem;
+  }
+
+  .res-bottom-bar {
+    height: auto;
+    min-height: 72px;
+    padding: 10px 14px;
+    gap: 8px;
+    border-radius: 12px 12px 0 0;
+  }
+
+  .res-action-btns {
+    flex: 0 1 auto;
+    gap: 8px;
+  }
+
+  .res-btn-cancel,
+  .res-btn-view,
+  .billing-btn-footer {
+    min-height: 48px;
+    padding: 8px 12px;
+    font-size: 0.9rem;
   }
 }
 

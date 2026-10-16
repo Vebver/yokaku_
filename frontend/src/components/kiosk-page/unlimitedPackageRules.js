@@ -159,7 +159,9 @@ export const getPackageQuantityLimit = (cart, item, mode) => {
 };
 
 const isDrinkCategory = (category) =>
-  category.includes("drink") || category.includes("beverage");
+  category.includes("drink") ||
+  category.includes("beverage") ||
+  category.includes("juice");
 
 export const isItemIncludedInPackage = (item, mode) => {
   const rules = getUnlimitedPackage(mode);
@@ -196,6 +198,11 @@ export const getPackageCategories = (menuData, mode) =>
       isItemIncludedInPackage({ ...item, category }, mode),
     ),
   );
+
+export const getDrinkOptions = (menuData) =>
+  Object.entries(menuData || {})
+    .filter(([category]) => /drink|beverage|juice/i.test(category))
+    .flatMap(([, items]) => items || []);
 
 export const getPackageMenuData = (menuData, mode) =>
   Object.fromEntries(

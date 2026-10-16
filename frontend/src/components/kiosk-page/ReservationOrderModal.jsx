@@ -48,7 +48,7 @@ const ReservationOrderModal = ({
   };
 
   const chickenOptions = getItemsByKeywords(["Chicken", "Wings"]);
-  const drinkOptions = getItemsByKeywords(["Drink", "Beverage", "Soda"]);
+  const drinkOptions = getItemsByKeywords(["Drink", "Beverage", "Soda", "Juice"]);
 
   useEffect(() => {
     if (isOpen) {
@@ -93,7 +93,7 @@ const ReservationOrderModal = ({
         if (prev.flavors.length < flavorLimit) {
           return { ...prev, flavors: [...prev.flavors, flavorName] };
         } else {
-          showToast("You can only select up to 4 flavors.");
+          showToast(`You can only select up to ${flavorLimit} flavors.`);
           return prev;
         }
       }
