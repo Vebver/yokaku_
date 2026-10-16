@@ -2387,11 +2387,13 @@ select:disabled {
 /* Event Package Cards */
 .event-package-cards {
   display: flex;
-  gap: 30px;
-  justify-content: center;
-  align-items: stretch;
+  flex-direction: row; /* Ensure they sit in a row */
+  gap: 30px; /* Keeps your existing spacing */
+  justify-content: center; /* Keeps them centered */
+  align-items: stretch; /* Keeps equal height */
   margin-bottom: 30px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap; /* CHANGED: Prevents them from wrapping to the next line */
+  width: 100%; /* Takes full width of the parent to center properly */
 }
 
 .package-card {
