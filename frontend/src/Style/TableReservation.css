@@ -93,19 +93,24 @@
   color: var(--text-dark);
 }
 
+/* ============================================ */
+/* MAIN CONTAINER EXPANSION                     */
+/* ============================================ */
+
 .reservation-flow-container {
   width: 100%;
-  max-width: 800px;
+  max-width: 800px; /* Default width for other steps */
   margin: 0 auto;
   background: white;
   border-radius: 24px;
   padding: 20px 30px;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-  transition: max-width 0.3s ease;
+  transition: max-width 0.3s ease; /* Smooth transition when expanding */
 }
-/* When a date is selected, expand the container to fit the new layout */
+
+/* Expand the container ONLY when the side-by-side layout is active */
 .reservation-flow-container:has(.calendar-details-wrapper.has-selection) {
-  max-width: 950px; /* Expanded width to accommodate both columns */
+  max-width: 950px; /* Expanded width to fit 460px + 30px gap + 400px details + padding */
 }
 
 /* ============================================ */
@@ -2501,7 +2506,7 @@ select:disabled {
 .calendar-details-wrapper {
   display: flex;
   width: 100%;
-  gap: 30px; /* Increased gap for better spacing */
+  gap: 30px; /* Space between calendar and details */
   align-items: flex-start;
   justify-content: center;
   transition: all 0.3s ease;
@@ -2514,26 +2519,26 @@ select:disabled {
 
 .calendar-details-wrapper.no-selection .calendar-column {
   width: 100%;
-  max-width: 460px; /* Restored original calendar width */
+  max-width: 460px; /* Original calendar width */
 }
 
 /* When a date IS selected, use two columns */
 .calendar-details-wrapper.has-selection {
-  justify-content: space-between; /* Push columns to edges if extra space */
+  justify-content: center; /* Center the group of two columns */
 }
 
-/* Enforce minimum width for the calendar so it doesn't shrink */
+/* Enforce exact width for the calendar so it doesn't shrink or grow */
 .calendar-details-wrapper.has-selection .calendar-column {
   flex: 0 0 460px; /* Do not grow, do not shrink, stay at 460px */
   width: 460px;
   max-width: 460px;
 }
 
-/* Enforce minimum width for the details panel */
+/* Enforce width for the details panel so it fills the rest safely */
 .calendar-details-wrapper.has-selection .reservation-details-column {
   flex: 1 1 350px; /* Allow it to grow to fill remaining space, but base at 350px */
   min-width: 350px;
-  max-width: 450px; /* Cap it so it doesn't get too wide on huge screens */
+  max-width: 420px; /* Cap it so it doesn't get too wide on huge screens */
 }
 
 /* Ensure the calendar container inside the column takes full width */
@@ -2547,22 +2552,27 @@ select:disabled {
   flex-direction: column;
 }
 
+/* Ensure the details container inside its column takes full width */
 .reservation-details-column .reservation-details-container {
+  width: 100%;
   margin-top: 0;
-  padding: 24px; /* Increased padding slightly for better breathing room */
+  padding: 24px;
   border-top: none;
   background: white;
   border-radius: 20px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
   border: 1px solid #f0f0f0;
   height: fit-content;
-  width: 100%; /* Ensure it fills the column */
 }
 
+/* ============================================ */
+/* RESPONSIVE STACKING                          */
+/* ============================================ */
+
 @media (max-width: 1100px) {
-  /* Reset container max-width */
+  /* Reset container max-width when stacked */
   .reservation-flow-container:has(.calendar-details-wrapper.has-selection) {
-    max-width: 800px; /* Go back to standard width when stacked */
+    max-width: 800px;
   }
 
   .calendar-details-wrapper.has-selection {
