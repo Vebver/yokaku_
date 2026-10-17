@@ -25,6 +25,12 @@ import {
   Table,
   Calendar as CalendarIcon,
   Gift,
+  Tv,
+  Music,
+  Wifi,
+  Wind,
+  Cake,
+  Car,
 } from "lucide-react";
 import StepProgress from "./StepProgress";
 import "../Style/TableReservation.css";
@@ -57,7 +63,8 @@ import { useSocket, useAddressData } from "./TableReservationHooks";
 import { API_BASE } from "../api";
 import { useNavigate } from "react-router-dom";
 
-const RESERVATION_DRAFT_KEY = "reservationDraft";
+const RESERVATION_DRAFT_VERSION = "v2";
+const RESERVATION_DRAFT_KEY = `reservationDraft_${RESERVATION_DRAFT_VERSION}`;
 
 // Dynamic steps based on reservation type
 const getSteps = (reservationType) => {
@@ -75,17 +82,30 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   // ============ STATE ============
   const { showToast } = useToast();
   const navigate = useNavigate();
+
   // ============ PERSISTENCE HELPERS ============
   // Load saved draft from sessionStorage ONCE at mount time
   const getSavedDraft = () => {
     try {
       const saved = sessionStorage.getItem(RESERVATION_DRAFT_KEY);
-      return saved ? JSON.parse(saved) : null;
+      if (!saved) return null;
+
+      const parsed = JSON.parse(saved);
+
+      // If the draft is older than 1 hour, clear it and start fresh.
+      const ONE_HOUR = 60 * 60 * 1000;
+      if (parsed.timestamp && Date.now() - parsed.timestamp > ONE_HOUR) {
+        sessionStorage.removeItem(RESERVATION_DRAFT_KEY);
+        return null;
+      }
+
+      return parsed;
     } catch (e) {
       return null;
     }
   };
   const savedDraft = getSavedDraft();
+
   const [tables, setTables] = useState(TABLES_DATA);
 
   const [reservationType, setReservationType] = useState(
@@ -202,6 +222,16 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   const [completedSteps, setCompletedSteps] = useState(
     savedDraft?.completedSteps || [],
   );
+
+  // ============ SESSION STORAGE CLEANUP ============
+  // If a user has an old draft from before the UI update, delete it.
+  useEffect(() => {
+    const legacyDraft = sessionStorage.getItem("reservationDraft");
+    if (legacyDraft) {
+      sessionStorage.removeItem("reservationDraft");
+      console.log("Cleared legacy reservation draft.");
+    }
+  }, []);
 
   // ============ SAVE STATE TO SESSION STORAGE ============
   // Persist the reservation draft whenever any relevant state changes.
@@ -1668,7 +1698,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       let guestCount = 0;
 
       if (reservationType === "event") {
-        guestCount = 35; // Fixed capacity for events
+        guestCount = 40; // Fixed capacity for events
       } else {
         const submittedGuestCount = parseInt(form.num_guests);
         if (submittedGuestCount > 0) {
@@ -2470,7 +2500,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   <div className="guests-auto-display">
                     <input
                       type="text"
-                      value="35 guest(s)"
+                      value="40 guest(s)"
                       readOnly
                       className="guests-auto-input"
                       style={{
@@ -2481,7 +2511,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     <div className="guests-hint-success">
                       <CheckCircle size={14} />
                       <span>
-                        Event reservation: Fixed at 35 guests (maximum capacity)
+                        Event reservation: Fixed at 40 guests (maximum capacity)
                       </span>
                     </div>
                   </div>
@@ -2589,7 +2619,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                         <span className="allergy-count-hint">
                           Out of{" "}
                           {reservationType === "event"
-                            ? "35"
+                            ? "40"
                             : parseInt(form.num_guests) || totalSeats || 0}{" "}
                           total guest(s)
                         </span>
@@ -2913,48 +2943,107 @@ export default function ReservationSteps({ onClose, onSuccess }) {
             <div className="step-content step-package">
               {/* NEW: Wrapper to align the button with the outer edges of the cards */}
               <div className="package-cards-wrapper">
-                {/* Package Selection Cards */}
-                <div className="event-package-cards">
-                  {packageOptions.map((pkg) => (
-                    <div
-                      key={pkg.id}
-                      className={`package-card ${selectedPackage === pkg.id ? "selected" : ""}`}
-                      onClick={() => {
-                        const newSelectedPackage =
-                          selectedPackage === pkg.id ? null : pkg.id;
-                        setSelectedPackage(newSelectedPackage);
-                        if (newSelectedPackage) {
-                          const packageItem = {
-                            name: pkg.name,
-                            price: pkg.price,
-                            quantity: 1,
-                            id: pkg.menuItemId,
-                          };
-                          setSelectedItems([packageItem]);
-                        } else {
-                          setSelectedItems([]);
-                        }
-                      }}
-                    >
-                      <div className="package-card-header">
-                        <h3>{pkg.name}</h3>
-                      </div>
-                      <div className="package-card-price">
-                        <span className="price">
-                          ₱{pkg.price.toLocaleString()}
-                        </span>
-                        <span className="price-type">Consume</span>
-                      </div>
-                      {selectedPackage === pkg.id && (
-                        <div className="package-card-check">
-                          <CheckCircle size={24} />
+                {/* NEW WRAPPER: Splits the left cards and right inclusions side-by-side */}
+                <div className="package-layout-split">
+                  {/* LEFT SIDE: Package Selection Cards */}
+                  <div className="event-package-cards">
+                    {packageOptions.map((pkg) => (
+                      <div
+                        key={pkg.id}
+                        className={`package-card ${selectedPackage === pkg.id ? "selected" : ""}`}
+                        onClick={() => {
+                          const newSelectedPackage =
+                            selectedPackage === pkg.id ? null : pkg.id;
+                          setSelectedPackage(newSelectedPackage);
+                          if (newSelectedPackage) {
+                            const packageItem = {
+                              name: pkg.name,
+                              price: pkg.price,
+                              quantity: 1,
+                              id: pkg.menuItemId,
+                            };
+                            setSelectedItems([packageItem]);
+                          } else {
+                            setSelectedItems([]);
+                          }
+                        }}
+                      >
+                        <div className="package-card-header">
+                          <h3>{pkg.name}</h3>
                         </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                        <div className="package-card-price">
+                          <span className="price">
+                            ₱{pkg.price.toLocaleString()}
+                          </span>
+                          <span className="price-type">Consume</span>
+                        </div>
+                        {selectedPackage === pkg.id && (
+                          <div className="package-card-check">
+                            <CheckCircle size={24} />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
 
-                {/* NEW: View Menu Button */}
+                  {/* RIGHT SIDE: Package Inclusions Section */}
+                  <div className="package-inclusions-card">
+                    <h4 className="inclusions-title">
+                      What's Included in Both Packages
+                    </h4>
+
+                    <div className="inclusions-highlight">
+                      <Clock size={20} />
+                      <span>Free Venue for 3 Hours</span>
+                    </div>
+
+                    <div className="inclusions-grid">
+                      <div className="inclusion-item">
+                        <div className="inclusion-icon-wrapper">
+                          <Tv size={16} />
+                          <Music size={16} />
+                          <Wifi size={16} />
+                          <Wind size={16} />
+                        </div>
+                        <p>
+                          TV, Sound System, Karaoke, Wi-Fi, and Air Conditioning
+                          included.
+                        </p>
+                      </div>
+
+                      <div className="inclusion-item">
+                        <div className="inclusion-icon-wrapper">
+                          <Cake size={16} />
+                        </div>
+                        <p>
+                          Perfect for Birthdays, Bridal Showers, Engagement
+                          Parties, Baptisms, Kids' Parties, Corporate Meetings,
+                          and Private Gatherings.
+                        </p>
+                      </div>
+
+                      <div className="inclusion-item">
+                        <div className="inclusion-icon-wrapper">
+                          <Users size={16} />
+                        </div>
+                        <p>
+                          Full Store Venue and Dining Area (up to 40 pax seating
+                          capacity).
+                        </p>
+                      </div>
+
+                      <div className="inclusion-item">
+                        <div className="inclusion-icon-wrapper">
+                          <Car size={16} />
+                        </div>
+                        <p>Free Parking Space (Spacious Parking Area).</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {/* END NEW WRAPPER */}
+
+                {/* View Menu Button (Stays below both sections) */}
                 <button
                   type="button"
                   className="btn-view-menu"

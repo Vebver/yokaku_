@@ -26,7 +26,6 @@ import "../../Style/MyReservation.css";
 import { useToast } from "../ToastContext";
 import { API_BASE } from "../../api";
 
-
 const MyReservation = () => {
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -438,6 +437,17 @@ const MyReservation = () => {
   };
 
   const getGuestDisplay = (reservation) => {
+    const isEvent =
+      reservation.reservation_type === "event" ||
+      reservation.reservation_type === "EVENT" ||
+      reservation.reservationType === "event" ||
+      reservation.reservationType === "EVENT";
+
+    // ✅ FIX: Force 40 guests for events
+    if (isEvent) {
+      return "40 Guests";
+    }
+
     const numGuests = reservation.num_guests;
 
     if (!numGuests && numGuests !== 0) return "Not specified";

@@ -3071,6 +3071,208 @@ select:disabled {
   color: #777;
   font-style: italic;
 }
+/* ============================================ */
+/* PACKAGE INCLUSIONS SECTION                   */
+/* ============================================ */
+
+.package-inclusions-card {
+  width: 100%;
+  margin-top: 24px;
+  margin-bottom: 4px; /* Slight adjustment to space the View Menu button below */
+  background: #fff;
+  border: 2px solid #f0e6d8;
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+}
+
+.inclusions-title {
+  text-align: center;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #333;
+  margin-bottom: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.inclusions-highlight {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: linear-gradient(135deg, #fff8f0 0%, #fff 100%);
+  border: 1px solid #fbd7b5;
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 20px;
+  color: #f38d31;
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+
+.inclusions-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.inclusion-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: #fafafa;
+  padding: 14px;
+  border-radius: 12px;
+}
+
+.inclusion-icon-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  background: #fff;
+  padding: 6px;
+  border-radius: 8px;
+  border: 1px solid #eee;
+  color: #f38d31;
+  flex-shrink: 0;
+  width: 44px; /* Fixed width for alignment, expands for multiple icons */
+  justify-content: center;
+}
+
+.inclusion-item p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #555;
+  line-height: 1.4;
+}
+
+/* ============================================ */
+/* CONTAINER EXPANSION FOR SIDE-BY-SIDE PACKAGES */
+/* ============================================ */
+
+/* Expand the main container when the new split layout is active */
+.reservation-flow-container:has(.package-layout-split) {
+  max-width: 1100px; /* Wider to accommodate cards + inclusions */
+}
+/* ============================================ */
+/* SIDE-BY-SIDE PACKAGE LAYOUT                  */
+/* ============================================ */
+
+.package-layout-split {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  gap: 24px;
+  align-items: stretch;
+  margin-bottom: 24px;
+}
+
+/* Left side: Cards */
+.package-layout-split .event-package-cards {
+  flex: 0 0 55%; /* Take up ~55% of the space */
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  margin-bottom: 0;
+  flex-wrap: nowrap;
+}
+
+/* Make sure the cards fit perfectly inside the 55% */
+.package-layout-split .package-card {
+  flex: 1;
+  min-width: 0; /* Prevents cards from overflowing the flex container */
+  padding: 20px 15px; /* Slightly reduced padding to fit better */
+}
+
+.package-layout-split .package-card-header h3 {
+  font-size: 1.2rem; /* Slightly smaller text for side-by-side */
+}
+
+.package-layout-split .package-card-price .price {
+  font-size: 1.5rem;
+}
+
+/* Right side: Inclusions */
+.package-layout-split .package-inclusions-card {
+  flex: 1 1 45%; /* Take up remaining space */
+  margin-top: 0;
+  margin-bottom: 0;
+  width: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* Adjust inclusions grid to stack vertically on narrower right column */
+.package-layout-split .inclusions-grid {
+  grid-template-columns: 1fr; /* Single column for the right side */
+  gap: 12px;
+}
+
+.package-layout-split .inclusion-item {
+  padding: 10px 12px;
+}
+
+.package-layout-split .inclusion-item p {
+  font-size: 0.8rem;
+}
+
+/* ============================================ */
+/* RESPONSIVE STACKING FOR PACKAGES             */
+/* ============================================ */
+
+@media (max-width: 1200px) {
+  /* Stack them vertically on smaller screens */
+  .package-layout-split {
+    flex-direction: column;
+  }
+
+  .package-layout-split .event-package-cards {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+
+  .package-layout-split .package-inclusions-card {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+
+  /* Bring back 2 columns for inclusions on mobile/tablet */
+  .package-layout-split .inclusions-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .reservation-flow-container:has(.package-layout-split) {
+    max-width: 950px; /* Revert to a more standard width */
+  }
+}
+
+/* Mobile stacking for the cards themselves */
+@media (max-width: 768px) {
+  .package-layout-split .event-package-cards {
+    flex-direction: column;
+  }
+
+  .package-layout-split .inclusions-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Responsive: Stack inclusions grid on smaller screens */
+@media (max-width: 768px) {
+  .inclusions-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .inclusions-highlight {
+    font-size: 1.1rem;
+  }
+
+  .package-inclusions-card {
+    padding: 16px;
+  }
+}
 
 @media (max-width: 600px) {
   .meal-preference-card {
