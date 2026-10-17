@@ -30,6 +30,10 @@ const KioskSelection = () => {
           setKioskDetails(res.data); // Save the active state details locally
 
           if (mode === "event_active") {
+            if (sessionStorage.getItem("kiosk_exit_to_selection") === "true") {
+              setEventMode("default");
+              return;
+            }
             // Event has been activated by the admin, auto-redirect directly to menu using sessionStorage
             sessionStorage.setItem("resId", reservation.reservation_id);
             if (reservation.table_id) {
@@ -67,6 +71,7 @@ const KioskSelection = () => {
 
     if (type === 'menu') {
       // MODE: WALK-IN (sessionStorage)
+      sessionStorage.removeItem("kiosk_exit_to_selection");
       sessionStorage.removeItem("resId"); 
       sessionStorage.setItem("kiosk_mode", "walkin");
       navigate(`/kiosk-selection/kiosk-menu${searchString}`); 
@@ -75,7 +80,11 @@ const KioskSelection = () => {
       sessionStorage.setItem("kiosk_mode", "reservation");
 
       // BYPASS CHECK: If admin has already assigned a Table Reservation on the dashboard
-      if (kioskDetails && kioskDetails.mode === "single_active") {
+      if (
+        sessionStorage.getItem("kiosk_exit_to_selection") !== "true" &&
+        kioskDetails &&
+        kioskDetails.mode === "single_active"
+      ) {
         const { reservation_id, table_id } = kioskDetails.reservation;
         
         // Write to sessionStorage so the menu page can read it successfully
@@ -121,7 +130,7 @@ const KioskSelection = () => {
         <div className="greeting-container">
           <h2 className="greeting-text">{getGreeting()}</h2>
           <p className="sub-greeting">
-            What would you like to do today? {setupTable && <span style={{ color: "#ffcc00" }}>(Table {setupTable})</span>}
+            What would you like to do today? {setupTable && <span style={{ color: "#ffcc00" }}></span>}
           </p>
         </div>
 

@@ -178,6 +178,7 @@ const KioskReservationMenu = () => {
       sessionStorage.removeItem(k);
     });
 
+    sessionStorage.setItem("kiosk_exit_to_selection", "true");
     const searchString = setupTable ? `?setupTable=${setupTable}` : "";
     navigate(`/kiosk-selection${searchString}`);
   };

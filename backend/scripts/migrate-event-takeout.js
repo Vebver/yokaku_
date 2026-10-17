@@ -8,13 +8,33 @@ const migrate = async () => {
       quantity INT UNSIGNED NOT NULL,
       status VARCHAR(24) NOT NULL DEFAULT 'requested',
       requested_by INT NULL,
+      request_key VARCHAR(80) NULL,
       requested_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       completed_at TIMESTAMP NULL DEFAULT NULL,
       PRIMARY KEY (takeout_id),
-      KEY idx_event_takeout_reservation_status (reservation_id, status)
+      KEY idx_event_takeout_reservation_status (reservation_id, status),
+      UNIQUE KEY uq_event_takeout_request_key (reservation_id, request_key)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
   `);
+
+  const [requestKeyColumn] = await db.query(
+    "SHOW COLUMNS FROM event_takeout_requests LIKE 'request_key'",
+  );
+  if (requestKeyColumn.length === 0) {
+    await db.query(
+      "ALTER TABLE event_takeout_requests ADD COLUMN request_key VARCHAR(80) NULL",
+    );
+  }
+
+  const [requestKeyIndex] = await db.query(
+    "SHOW INDEX FROM event_takeout_requests WHERE Key_name = 'uq_event_takeout_request_key'",
+  );
+  if (requestKeyIndex.length === 0) {
+    await db.query(
+      "ALTER TABLE event_takeout_requests ADD UNIQUE KEY uq_event_takeout_request_key (reservation_id, request_key)",
+    );
+  }
 
   await db.query(`
     CREATE TABLE IF NOT EXISTS event_takeout_items (

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import api from "../../api";
+import io from "socket.io-client";
+import api, { SOCKET_URL } from "../../api";
 import "../../Style/Billing.css";
 import {
   Loader2,
@@ -19,6 +20,7 @@ import { useSectionRefresh } from "../shared/sectionRefresh";
 import AdminPagination from "../shared/AdminPagination";
 import { compareByPaymentRecency } from "../shared/sortUtils";
 import { handlePrintReceipt } from "./receiptPrinter";
+import EventTakeoutModal from "./EventTakeoutModal";
 
 const Billing = () => {
   const [payments, setPayments] = useState([]);
@@ -38,6 +40,18 @@ const Billing = () => {
   const { confirm } = useConfirmation();
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
+  const [takeoutReservationId, setTakeoutReservationId] = useState(null);
+
+  const compareByReservationCreation = (a, b) => {
+    const aCreated = new Date(a?.created_at || 0).getTime();
+    const bCreated = new Date(b?.created_at || 0).getTime();
+    const aValid = Number.isFinite(aCreated);
+    const bValid = Number.isFinite(bCreated);
+
+    if (aValid !== bValid) return aValid ? -1 : 1;
+    if (aValid && aCreated !== bCreated) return bCreated - aCreated;
+    return compareByPaymentRecency(a, b);
+  };
 
   useEffect(() => {
     fetchPayments();
@@ -61,8 +75,8 @@ const Billing = () => {
     setLoading(true);
     try {
       const res = await api.get(`/billing`);
-      // Newest transaction first (payment date/time, never alphabetical).
-      setPayments(res.data.slice().sort(compareByPaymentRecency));
+      // Newest reservation first, with payment time as a tie-breaker.
+      setPayments(res.data.slice().sort(compareByReservationCreation));
       setCurrentPage(1);
     } catch (err) {
       console.error("Fetch error:", err);
@@ -70,6 +84,19 @@ const Billing = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const socket = io(SOCKET_URL, { transports: ["websocket", "polling"] });
+    socket.on("new_reservation", fetchPayments);
+    socket.on("payment_updated", fetchPayments);
+    socket.on("payment_status_updated", fetchPayments);
+    return () => {
+      socket.off("new_reservation", fetchPayments);
+      socket.off("payment_updated", fetchPayments);
+      socket.off("payment_status_updated", fetchPayments);
+      socket.disconnect();
+    };
+  }, []);
 
   const resetPage = () => setCurrentPage(1);
 
@@ -85,8 +112,7 @@ const Billing = () => {
     settlementFilter !== "all" ||
     orderStatusFilter !== "all";
 
-  // Newest transaction first by payment/transaction timestamp. Name sorting
-  // was removed: it made the newest payment impossible to find.
+  // Newest reservation first by creation timestamp.
   const filteredPayments = payments
     .filter((p) => {
       const fullName = `${p.first_name || ""} ${p.last_name || ""}`.toLowerCase();
@@ -112,7 +138,7 @@ const Billing = () => {
       }
       return true;
     })
-    .sort(compareByPaymentRecency);
+    .sort(compareByReservationCreation);
 
   const getItemPrice = (item) => {
     const isRefill =
@@ -976,6 +1002,29 @@ const Billing = () => {
                 </div>
               )}
 
+              {(() => {
+                const packageName = String(
+                  selectedPayment?.package_name || "",
+                ).toLowerCase();
+                const supportsTakeout =
+                  packageName.includes("standard") ||
+                  packageName.includes("premium");
+                const isSeated =
+                  String(selectedPayment?.order_status || selectedPayment?.status || "").toLowerCase() === "seated";
+
+                return supportsTakeout && isSeated ? (
+                  <button
+                    type="button"
+                    className="btn btn-outline-warning fw-bold w-100 mb-3"
+                    onClick={() =>
+                      setTakeoutReservationId(selectedPayment.reservation_id)
+                    }
+                  >
+                    View Package Balance / Process Takeout
+                  </button>
+                ) : null;
+              })()}
+
             </div>
 
             {/* 2. RECEIPT & METADATA SECTION (Dark Background Area)
@@ -1277,6 +1326,12 @@ const Billing = () => {
         )}
       </div>
     </div>
+    {takeoutReservationId && (
+      <EventTakeoutModal
+        reservationId={takeoutReservationId}
+        onClose={() => setTakeoutReservationId(null)}
+      />
+    )}
     </div>
   );
 };

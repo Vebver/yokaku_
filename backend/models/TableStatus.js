@@ -158,9 +158,10 @@ const TableStatus = {
              r.allergy AS allergy,
              r.allergy AS notes
     FROM reservations r
-    WHERE r.status IN ('Pending', 'Confirmed', 'Seated')
+    WHERE r.status IN ('Pending', 'Confirmed')
       AND (r.reservation_date > CURDATE()
-        OR (r.reservation_date = CURDATE() AND r.reservation_time >= CURTIME()))
+        OR (r.reservation_date = CURDATE() AND r.reservation_time >= CURTIME())
+        OR (r.reservation_date = CURDATE() AND r.reservation_id LIKE 'WALK-%'))
     ORDER BY r.reservation_date ASC, r.reservation_time ASC
     LIMIT 100
   `);

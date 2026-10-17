@@ -61,13 +61,11 @@ router.get("/active-kiosk", reservationController.getActiveKiosk);
 router.get(
   "/:id/event-takeout",
   protect,
-  adminOnly,
   eventTakeoutController.getSummary,
 );
 router.post(
   "/:id/event-takeout",
   protect,
-  adminOnly,
   eventTakeoutController.createRequest,
 );
 // Side-effect-free preview for the kiosk confirmation screen. Declared before

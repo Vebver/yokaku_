@@ -11,7 +11,7 @@ const emitTakeoutUpdate = (req, reservationId) => {
 const eventTakeoutController = {
   getSummary: async (req, res) => {
     try {
-      res.json(await EventTakeout.getSummary(req.params.id));
+      res.json(await EventTakeout.getSummary(req.params.id, req.user));
     } catch (error) {
       res.status(400).json({ error: error.message || "Failed to load event takeout." });
     }
@@ -23,6 +23,8 @@ const eventTakeoutController = {
         req.params.id,
         req.body?.items,
         req.user?.userId || req.user?.id,
+        req.body?.request_key,
+        req.user,
       );
       emitTakeoutUpdate(req, req.params.id);
       res.status(201).json(summary);

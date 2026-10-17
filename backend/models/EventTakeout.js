@@ -1,6 +1,11 @@
 const db = require("../config/db");
+const { calculateRemainingPackageQuantity } = require("../utils/packageBalance");
 
 const EVENT_MEAL_LIMIT = 20;
+const PACKAGE_PRICES = {
+  "standard package": 10000,
+  "premium package": 12500,
+};
 const ACTIVE_TAKEOUT_STATUSES = ["requested", "preparing", "ready"];
 const VALID_TRANSITIONS = {
   requested: "preparing",
@@ -8,18 +13,35 @@ const VALID_TRANSITIONS = {
   ready: "completed",
 };
 
-const packageMealLimit = (packageName) =>
-  /standard|premium/i.test(String(packageName || "")) ? EVENT_MEAL_LIMIT : 0;
+const packagePrice = (packageName) => {
+  const normalizedName = String(packageName || "").trim().toLowerCase();
+  if (normalizedName.includes("premium")) return PACKAGE_PRICES["premium package"];
+  if (normalizedName.includes("standard")) return PACKAGE_PRICES["standard package"];
+  return 0;
+};
 
-const getReservation = async (conn, reservationId, lock = false) => {
+const packageMealLimit = (packageName) =>
+  packagePrice(packageName) > 0 ? EVENT_MEAL_LIMIT : 0;
+
+const getReservation = async (conn, reservationId, lock = false, requester = null) => {
   const [rows] = await conn.execute(
-    `SELECT reservation_id, reservation_type, package_name, status
-     FROM reservations
-     WHERE reservation_id = ?${lock ? " FOR UPDATE" : ""}`,
+    `SELECT r.reservation_id, r.user_id, r.reservation_type, r.package_name,
+            r.status, p.amount AS amount_paid, p.payment_status
+     FROM reservations r
+     LEFT JOIN payments p ON p.reservation_id = r.reservation_id
+     WHERE r.reservation_id = ?${lock ? " FOR UPDATE" : ""}`,
     [reservationId],
   );
   const reservation = rows[0];
   if (!reservation) throw new Error("Reserved event not found.");
+  const staffRoles = ["admin", "cashier", "staff", "cook"];
+  if (
+    requester &&
+    !staffRoles.includes(String(requester.role || "").toLowerCase()) &&
+    (!requester.userId || String(reservation.user_id) !== String(requester.userId))
+  ) {
+    throw new Error("You can only access takeout for your own reservation.");
+  }
   if (
     String(reservation.reservation_type || "").toLowerCase() !== "event" ||
     packageMealLimit(reservation.package_name) === 0
@@ -32,6 +54,7 @@ const getReservation = async (conn, reservationId, lock = false) => {
   return {
     ...reservation,
     package_meal_limit: packageMealLimit(reservation.package_name),
+    package_price: packagePrice(reservation.package_name),
   };
 };
 
@@ -94,13 +117,12 @@ const getSummaryForReservation = async (conn, reservation) => {
   const takeoutReservedQuantity =
     takeoutRequestedQuantity + takeoutPreparingQuantity + takeoutReadyQuantity;
   const fulfilledQuantity = servedQuantity + takeoutGivenQuantity;
-  const remainingQuantity = Math.max(
-    0,
-    reservation.package_meal_limit -
-      fulfilledQuantity -
-      pendingQuantity -
-      takeoutReservedQuantity,
-  );
+  const remainingQuantity = calculateRemainingPackageQuantity({
+    packageLimit: reservation.package_meal_limit,
+    servedQuantity,
+    pendingDineInQuantity: pendingQuantity,
+    takeoutReservedQuantity,
+  });
 
   const takeoutsById = new Map();
   for (const row of requestRows) {
@@ -124,6 +146,9 @@ const getSummaryForReservation = async (conn, reservation) => {
     reservation_id: reservationId,
     reservation_status: reservation.status,
     package_name: reservation.package_name,
+    package_price: reservation.package_price,
+    amount_paid: Number(reservation.amount_paid) || 0,
+    payment_status: reservation.payment_status,
     package_limit: reservation.package_meal_limit,
     served_quantity: servedQuantity,
     pending_dine_in_quantity: pendingQuantity,
@@ -144,17 +169,17 @@ const getSummaryForReservation = async (conn, reservation) => {
 };
 
 const EventTakeout = {
-  getSummary: async (reservationId) => {
+  getSummary: async (reservationId, requester = null) => {
     const conn = await db.getConnection();
     try {
-      const reservation = await getReservation(conn, reservationId);
+      const reservation = await getReservation(conn, reservationId, false, requester);
       return await getSummaryForReservation(conn, reservation);
     } finally {
       conn.release();
     }
   },
 
-  createRequest: async (reservationId, requestedItems, requestedBy) => {
+  createRequest: async (reservationId, requestedItems, requestedBy, requestKey, requester = null) => {
     if (!Array.isArray(requestedItems) || requestedItems.length === 0) {
       throw new Error("Select at least one takeout item.");
     }
@@ -176,7 +201,29 @@ const EventTakeout = {
     const conn = await db.getConnection();
     try {
       await conn.beginTransaction();
-      const reservation = await getReservation(conn, reservationId, true);
+      const reservation = await getReservation(conn, reservationId, true, requester);
+      if (requestKey) {
+        const [existingRequests] = await conn.execute(
+          `SELECT takeout_id FROM event_takeout_requests
+           WHERE reservation_id = ? AND request_key = ? LIMIT 1`,
+          [reservationId, requestKey],
+        );
+        if (existingRequests.length > 0) {
+          await conn.commit();
+          return await getSummaryForReservation(conn, reservation);
+        }
+      }
+
+      if (
+        requester &&
+        !["admin", "cashier", "staff", "cook"].includes(
+          String(requester.role || "").toLowerCase(),
+        ) &&
+        String(reservation.payment_status || "").toLowerCase() !== "verified"
+      ) {
+        throw new Error("Takeout is available after the reservation payment is verified.");
+      }
+
       const summary = await getSummaryForReservation(conn, reservation);
       if (totalQuantity > summary.remaining_quantity) {
         throw new Error(
@@ -198,9 +245,9 @@ const EventTakeout = {
 
       const [result] = await conn.execute(
         `INSERT INTO event_takeout_requests
-          (reservation_id, quantity, status, requested_by)
-         VALUES (?, ?, 'requested', ?)`,
-        [reservationId, totalQuantity, requestedBy || null],
+          (reservation_id, quantity, status, requested_by, request_key)
+         VALUES (?, ?, 'requested', ?, ?)`,
+        [reservationId, totalQuantity, requestedBy || null, requestKey || null],
       );
       for (const [itemId, quantity] of quantities) {
         await conn.execute(

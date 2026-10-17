@@ -3,6 +3,8 @@
 :root {
   --sidebar-width: 260px;
   --sidebar-collapsed: 85px;
+  --reservation-modal-sidebar-width: var(--sidebar-width);
+  --reservation-modal-sidebar-offset: 130px;
   --primary-blue: #0d6efd;
   --sidebar-bg: #111827;
   --body-bg: #f4f7fe;
@@ -244,6 +246,20 @@
 .sb-closed .app-main-viewport {
   margin-left: var(--sidebar-collapsed);
   width: calc(100% - var(--sidebar-collapsed));
+}
+
+.sb-closed {
+  --reservation-modal-sidebar-width: var(--sidebar-collapsed);
+  --reservation-modal-sidebar-offset: 42.5px;
+}
+
+.admin-app-container .reservation-modal-panel {
+  width: min(
+    calc(100vw - var(--reservation-modal-sidebar-width) - 32px),
+    980px
+  ) !important;
+  max-width: calc(100vw - var(--reservation-modal-sidebar-width) - 32px) !important;
+  left: calc(50% + var(--reservation-modal-sidebar-offset)) !important;
 }
 
 .app-top-nav {
@@ -506,6 +522,11 @@
   .app-main-viewport {
     margin-left: 0 !important;
     width: 100% !important;
+  }
+  .admin-app-container .reservation-modal-panel {
+    width: min(calc(100vw - 32px), 980px) !important;
+    max-width: calc(100vw - 32px) !important;
+    left: 50% !important;
   }
   .sidebar-overlay {
     position: fixed;

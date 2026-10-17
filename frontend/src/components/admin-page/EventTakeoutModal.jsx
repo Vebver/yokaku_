@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Check, Clock3, PackageCheck, RefreshCw, X } from "lucide-react";
 import io from "socket.io-client";
 import api, { SOCKET_URL } from "../../api";
+import { useConfirmation } from "../ConfirmationContext";
 import "../../Style/EventTakeout.css";
 
 const STATUS_LABELS = {
@@ -11,12 +12,15 @@ const STATUS_LABELS = {
   completed: "Takeout Completed",
 };
 
-const EventTakeoutModal = ({ reservationId, onClose }) => {
+const EventTakeoutModal = ({ reservationId, onClose, customerMode = false }) => {
+  const { confirm } = useConfirmation();
   const [summary, setSummary] = useState(null);
   const [quantities, setQuantities] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [requestKey, setRequestKey] = useState("");
+  const submitLockRef = useRef(false);
 
   const loadSummary = async () => {
     setLoading(true);
@@ -67,6 +71,7 @@ const EventTakeoutModal = ({ reservationId, onClose }) => {
   };
 
   const submitRequest = async () => {
+    if (submitLockRef.current) return;
     const items = Object.entries(quantities)
       .map(([itemId, quantity]) => ({
         item_id: Number(itemId),
@@ -74,16 +79,32 @@ const EventTakeoutModal = ({ reservationId, onClose }) => {
       }))
       .filter((item) => item.quantity > 0);
     if (items.length === 0) return;
+    submitLockRef.current = true;
 
-    setSaving(true);
-    setError("");
     try {
+      if (!(await confirm({
+        title: "Confirm takeout request",
+        message: `You have ${selectedTotal} remaining item${selectedTotal === 1 ? "" : "s"} from your reserved package. Request them for takeout?`,
+        confirmLabel: "Confirm Takeout",
+        variant: "primary",
+      }))) {
+        return;
+      }
+
+      setSaving(true);
+      setError("");
+      const stableRequestKey =
+        requestKey ||
+        (globalThis.crypto?.randomUUID?.() ||
+          `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+      setRequestKey(stableRequestKey);
       const response = await api.post(
         `/reservations/${reservationId}/event-takeout`,
-        { items },
+        { items, request_key: stableRequestKey },
       );
       setSummary(response.data);
       setQuantities({});
+      setRequestKey("");
     } catch (requestError) {
       setError(
         requestError.response?.data?.error || "Could not request takeout.",
@@ -91,6 +112,7 @@ const EventTakeoutModal = ({ reservationId, onClose }) => {
       await loadSummary();
     } finally {
       setSaving(false);
+      submitLockRef.current = false;
     }
   };
 
@@ -126,8 +148,8 @@ const EventTakeoutModal = ({ reservationId, onClose }) => {
       >
         <header className="event-takeout-header">
           <div>
-            <span className="event-takeout-eyebrow">RESERVED EVENT · {reservationId}</span>
-            <h2 id="event-takeout-title">Manage Takeout</h2>
+            <span className="event-takeout-eyebrow">{customerMode ? "YOUR RESERVED PACKAGE" : "RESERVED EVENT"} · {reservationId}</span>
+            <h2 id="event-takeout-title">{customerMode ? "Request Takeout" : "Manage Takeout"}</h2>
             {summary && <p>{summary.package_name}</p>}
           </div>
           <button
@@ -149,8 +171,10 @@ const EventTakeoutModal = ({ reservationId, onClose }) => {
         ) : summary ? (
           <>
             <div className="event-takeout-summary">
+              <div><span>Package price</span><strong>₱{Number(summary.package_price || 0).toLocaleString()}</strong></div>
+              <div><span>Paid</span><strong>₱{Number(summary.amount_paid || 0).toLocaleString()}</strong></div>
               <div><span>Package limit</span><strong>{summary.package_limit}</strong></div>
-              <div><span>Served</span><strong>{summary.served_quantity}</strong></div>
+              <div><span>Consumed</span><strong>{summary.served_quantity}</strong></div>
               <div><span>Dine-in in progress</span><strong>{summary.pending_dine_in_quantity}</strong></div>
               <div><span>Takeout requested</span><strong>{summary.takeout_requested_quantity}</strong></div>
               <div><span>Takeout preparing</span><strong>{summary.takeout_preparing_quantity}</strong></div>
@@ -167,13 +191,19 @@ const EventTakeoutModal = ({ reservationId, onClose }) => {
                 <PackageCheck size={18} /> Package fully used
               </div>
             )}
+            {customerMode &&
+              String(summary.payment_status || "").toLowerCase() !== "verified" && (
+                <div className="event-takeout-error" role="status">
+                  Takeout is available after the reservation payment is verified.
+                </div>
+              )}
 
             <div className="event-takeout-content">
               <section className="event-takeout-menu-section">
                 <div className="event-takeout-section-heading">
                   <div>
                     <h3>Select menu items</h3>
-                    <p>Choose up to {summary.remaining_quantity} remaining meal(s).</p>
+                        <p>Choose up to {summary.remaining_quantity} remaining item(s).</p>
                   </div>
                   <span>{selectedTotal} selected</span>
                 </div>
@@ -229,7 +259,7 @@ const EventTakeoutModal = ({ reservationId, onClose }) => {
                             </li>
                           ))}
                         </ul>
-                        {takeout.status === "ready" && (
+                        {!customerMode && takeout.status === "ready" && (
                           <button
                             type="button"
                             className="event-takeout-complete-button"
@@ -254,7 +284,7 @@ const EventTakeoutModal = ({ reservationId, onClose }) => {
                 type="button"
                 className="btn btn-warning fw-bold"
                 onClick={submitRequest}
-                disabled={saving || selectedTotal < 1 || selectedTotal > summary.remaining_quantity}
+                disabled={saving || selectedTotal < 1 || selectedTotal > summary.remaining_quantity || (customerMode && String(summary.payment_status || "").toLowerCase() !== "verified")}
               >
                 {saving ? "Saving..." : `Request Takeout (${selectedTotal})`}
               </button>

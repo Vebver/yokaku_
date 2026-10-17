@@ -11,6 +11,7 @@ const Billing = {
           r.first_name,
           r.last_name,
           r.status as order_status,
+          r.created_at,
           r.reservation_date,
           p.payment_id,
           p.amount,              -- Amount currently paid / deposit
@@ -42,7 +43,7 @@ const Billing = {
         LEFT JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
         LEFT JOIN tables t ON rt.table_id = t.table_id
         GROUP BY r.reservation_id, p.payment_id
-        ORDER BY r.reservation_id DESC
+        ORDER BY r.created_at DESC
       `;
       const [rows] = await db.execute(sql);
       return rows;
