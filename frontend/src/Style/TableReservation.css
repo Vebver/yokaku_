@@ -93,14 +93,24 @@
   color: var(--text-dark);
 }
 
+/* ============================================ */
+/* MAIN CONTAINER EXPANSION                     */
+/* ============================================ */
+
 .reservation-flow-container {
   width: 100%;
-  max-width: 800px;
+  max-width: 800px; /* Default width for other steps */
   margin: 0 auto;
   background: white;
   border-radius: 24px;
   padding: 20px 30px;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  transition: max-width 0.3s ease; /* Smooth transition when expanding */
+}
+
+/* Expand the container ONLY when the side-by-side layout is active */
+.reservation-flow-container:has(.calendar-details-wrapper.has-selection) {
+  max-width: 950px; /* Expanded width to fit 460px + 30px gap + 400px details + padding */
 }
 
 /* ============================================ */
@@ -1443,6 +1453,7 @@ select:disabled {
   margin-bottom: 16px;
   padding-bottom: 12px;
   border-bottom: 2px solid #ffcc00;
+  flex-shrink: 0;
 }
 
 .reservation-details-header h4 {
@@ -1453,8 +1464,8 @@ select:disabled {
 }
 
 .reservation-details-list {
-  max-height: 400px;
-  overflow-y: auto;
+  flex: 1; /* NEW: Takes up all remaining space below the header */
+  overflow-y: auto; /* NEW: Only this list scrolls */
   padding-right: 8px;
   display: flex;
   flex-direction: column;
@@ -1469,7 +1480,7 @@ select:disabled {
   border-radius: 10px;
 }
 .reservation-details-list::-webkit-scrollbar-thumb {
-  background: #ffcc00;
+  background: #ccc;
   border-radius: 10px;
 }
 .reservation-details-list::-webkit-scrollbar-thumb:hover {
@@ -2376,11 +2387,13 @@ select:disabled {
 /* Event Package Cards */
 .event-package-cards {
   display: flex;
-  gap: 30px;
-  justify-content: center;
-  align-items: stretch;
+  flex-direction: row; /* Ensure they sit in a row */
+  gap: 30px; /* Keeps your existing spacing */
+  justify-content: center; /* Keeps them centered */
+  align-items: stretch; /* Keeps equal height */
   margin-bottom: 30px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap; /* CHANGED: Prevents them from wrapping to the next line */
+  width: 100%; /* Takes full width of the parent to center properly */
 }
 
 .package-card {
@@ -2488,6 +2501,148 @@ select:disabled {
 
 .calendar-day.past .calendar-day-number {
   color: #ccc;
+}
+/* ============================================ */
+/* NEW CALENDAR + DETAILS LAYOUT                */
+/* ============================================ */
+
+.calendar-details-wrapper {
+  display: flex;
+  width: 100%;
+  gap: 30px; /* Space between calendar and details */
+  align-items: flex-start;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+/* When NO date is selected, center the calendar */
+.calendar-details-wrapper.no-selection {
+  justify-content: center;
+}
+
+.calendar-details-wrapper.no-selection .calendar-column {
+  width: 100%;
+  max-width: 460px; /* Original calendar width */
+}
+
+/* When a date IS selected, use two columns */
+.calendar-details-wrapper.has-selection {
+  justify-content: center; /* Center the group of two columns */
+}
+
+/* Enforce exact width for the calendar so it doesn't shrink or grow */
+.calendar-details-wrapper.has-selection .calendar-column {
+  flex: 0 0 460px; /* Do not grow, do not shrink, stay at 460px */
+  width: 460px;
+  max-width: 460px;
+}
+
+/* Enforce width for the details panel so it fills the rest safely */
+.calendar-details-wrapper.has-selection .reservation-details-column {
+  flex: 1 1 350px; /* Allow it to grow to fill remaining space, but base at 350px */
+  min-width: 350px;
+  max-width: 420px; /* Cap it so it doesn't get too wide on huge screens */
+}
+
+/* Ensure the calendar container inside the column takes full width */
+.calendar-column .calendar-container {
+  width: 100%;
+}
+
+/* Container for the reservation details */
+.reservation-details-column {
+  display: flex;
+  flex-direction: column;
+}
+
+.reservation-details-column .reservation-details-container {
+  width: 100%;
+  margin-top: 0;
+  padding: 24px;
+  border-top: none;
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  border: 1px solid #f0f0f0;
+
+  /* NEW: Fixed height and Flexbox for scrolling */
+  display: flex;
+  flex-direction: column;
+  height: 615px; /* Fixed height to match the calendar */
+  max-height: 615px; /* Prevents it from growing taller */
+  overflow: hidden; /* Hides overflow on the outer container */
+}
+
+/* ============================================ */
+/* PACKAGE CARDS WRAPPER & VIEW MENU BUTTON     */
+/* ============================================ */
+
+/* Wrapper to keep cards and button aligned */
+.package-cards-wrapper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+/* View Menu Button */
+.btn-view-menu {
+  width: 100%; /* Spans the full width of the wrapper (which matches the cards) */
+  margin-top: 15px; /* 20-24px vertical spacing as requested */
+  padding: 14px 20px;
+  background: white;
+  color: var(--accent-orange);
+  border: 2px solid var(--accent-orange);
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-view-menu:hover {
+  background: var(--accent-orange);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(243, 141, 49, 0.3);
+}
+
+.btn-view-menu:active {
+  transform: translateY(0);
+}
+
+/* ============================================ */
+/* RESPONSIVE STACKING                          */
+/* ============================================ */
+
+@media (max-width: 1100px) {
+  /* Reset container max-width when stacked */
+  .reservation-flow-container:has(.calendar-details-wrapper.has-selection) {
+    max-width: 800px;
+  }
+
+  .calendar-details-wrapper.has-selection {
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+  }
+
+  /* Reset flex constraints for stacked view */
+  .calendar-details-wrapper.has-selection .calendar-column,
+  .calendar-details-wrapper.has-selection .reservation-details-column {
+    flex: none;
+    width: 100%;
+    max-width: 460px; /* Keep them the same max width when stacked */
+    min-width: auto;
+  }
+
+  .reservation-details-column .reservation-details-container {
+    margin-top: 0;
+  }
 }
 
 @media (max-width: 768px) {
