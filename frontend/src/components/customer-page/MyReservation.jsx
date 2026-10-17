@@ -440,9 +440,9 @@ const MyReservation = () => {
       reservation.reservationType === "event" ||
       reservation.reservationType === "EVENT";
 
-    // ✅ FIX: Force 35 guests for events
+    // ✅ FIX: Force 40 guests for events
     if (isEvent) {
-      return "35 Guests";
+      return "40 Guests";
     }
 
     const numGuests = reservation.num_guests;

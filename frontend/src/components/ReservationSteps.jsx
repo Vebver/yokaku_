@@ -25,6 +25,13 @@ import {
   Table,
   Calendar as CalendarIcon,
   Gift,
+  Tv,
+  Music,
+  Wifi,
+  Wind,
+  Cake,
+  Users,
+  Car,
 } from "lucide-react";
 import StepProgress from "./StepProgress";
 import "../Style/TableReservation.css";
@@ -1668,7 +1675,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       let guestCount = 0;
 
       if (reservationType === "event") {
-        guestCount = 35; // Fixed capacity for events
+        guestCount = 40; // Fixed capacity for events
       } else {
         const submittedGuestCount = parseInt(form.num_guests);
         if (submittedGuestCount > 0) {
@@ -2470,7 +2477,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   <div className="guests-auto-display">
                     <input
                       type="text"
-                      value="35 guest(s)"
+                      value="40 guest(s)"
                       readOnly
                       className="guests-auto-input"
                       style={{
@@ -2481,7 +2488,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     <div className="guests-hint-success">
                       <CheckCircle size={14} />
                       <span>
-                        Event reservation: Fixed at 35 guests (maximum capacity)
+                        Event reservation: Fixed at 40 guests (maximum capacity)
                       </span>
                     </div>
                   </div>
@@ -2589,7 +2596,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                         <span className="allergy-count-hint">
                           Out of{" "}
                           {reservationType === "event"
-                            ? "35"
+                            ? "40"
                             : parseInt(form.num_guests) || totalSeats || 0}{" "}
                           total guest(s)
                         </span>
@@ -2953,6 +2960,61 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     </div>
                   ))}
                 </div>
+                {/* ===== NEW: PACKAGE INCLUSIONS SECTION ===== */}
+                <div className="package-inclusions-card">
+                  <h4 className="inclusions-title">
+                    What's Included in Both Packages
+                  </h4>
+
+                  <div className="inclusions-highlight">
+                    <Clock size={20} />
+                    <span>Free Venue for 3 Hours</span>
+                  </div>
+
+                  <div className="inclusions-grid">
+                    <div className="inclusion-item">
+                      <div className="inclusion-icon-wrapper">
+                        <Tv size={16} />
+                        <Music size={16} />
+                        <Wifi size={16} />
+                        <Wind size={16} />
+                      </div>
+                      <p>
+                        TV, Sound System, Karaoke, Wi-Fi, and Air Conditioning
+                        included.
+                      </p>
+                    </div>
+
+                    <div className="inclusion-item">
+                      <div className="inclusion-icon-wrapper">
+                        <Cake size={16} />
+                      </div>
+                      <p>
+                        Perfect for Birthdays, Bridal Showers, Engagement
+                        Parties, Baptisms, Kids' Parties, Corporate Meetings,
+                        and Private Gatherings.
+                      </p>
+                    </div>
+
+                    <div className="inclusion-item">
+                      <div className="inclusion-icon-wrapper">
+                        <Users size={16} />
+                      </div>
+                      <p>
+                        Full Store Venue and Dining Area (up to 40 pax seating
+                        capacity).
+                      </p>
+                    </div>
+
+                    <div className="inclusion-item">
+                      <div className="inclusion-icon-wrapper">
+                        <Car size={16} />
+                      </div>
+                      <p>Free Parking Space (Spacious Parking Area).</p>
+                    </div>
+                  </div>
+                </div>
+                {/* ===== END PACKAGE INCLUSIONS SECTION ===== */}
 
                 {/* NEW: View Menu Button */}
                 <button
