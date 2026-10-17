@@ -1,8 +1,26 @@
 import React, { useState, useEffect } from "react";
 import { ShieldCheck, X } from "lucide-react";
+import api from "../api";
 
 const TermsModal = ({ isOpen, onAccept, onClose }) => {
   const [agreed, setAgreed] = useState(false);
+  // Custom terms saved by the Admin (Maintenance > Footer Management).
+  // Empty/null means the default built-in terms below are used.
+  const [customTerms, setCustomTerms] = useState(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    api
+      .get("/settings")
+      .then((res) => {
+        if (!cancelled) setCustomTerms((res.data.footer_terms || "").trim() || null);
+      })
+      .catch(() => {}); // Fall back to built-in terms silently.
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
 
   // Lock body scroll while the modal is open, restore on close.
   // Also resets the checkbox so it starts unchecked next time.
@@ -111,9 +129,27 @@ const TermsModal = ({ isOpen, onAccept, onClose }) => {
             marginBottom: "15px",
           }}
         >
-          {/* ... your existing terms list, unchanged ... */}
+          {customTerms ? (
+            customTerms.split("\n").map((line, i) => {
+              const trimmed = line.trim();
+              if (!trimmed) return null;
+              const match = trimmed.match(/^(\d+\.)\s*(.+)$/);
+              return (
+                <p key={i}>
+                  {match ? (
+                    <>
+                      <strong>{match[1]} {match[2]}</strong>
+                    </>
+                  ) : (
+                    trimmed
+                  )}
+                </p>
+              );
+            })
+          ) : (
+          <>
           <p>
-            <strong>1.No Smoking:</strong>No Smoking:{" "}
+            <strong>1.No Smoking:</strong>{" "}
             <span style={{ color: "red" }}>
               Smoking cigarettes, cigars, or other tobacco products
             </span>{" "}
@@ -121,7 +157,7 @@ const TermsModal = ({ isOpen, onAccept, onClose }) => {
           </p>
 
           <p>
-            <strong>2.No Vaping:</strong>No Smoking: The use of{" "}
+            <strong>2.No Vaping:</strong> The use of{" "}
             <span style={{ color: "red" }}>
               e-cigarettes, vape pens, and other electronic smoking devices
             </span>{" "}
@@ -222,6 +258,8 @@ const TermsModal = ({ isOpen, onAccept, onClose }) => {
               </ul>
             </li>
           </ul>
+          </>
+          )}
         </div>
 
         {/* CHECKBOX */}
