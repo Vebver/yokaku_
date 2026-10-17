@@ -30,7 +30,6 @@ import {
   Wifi,
   Wind,
   Cake,
-  Users,
   Car,
 } from "lucide-react";
 import StepProgress from "./StepProgress";
@@ -82,9 +81,10 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   // ============ STATE ============
   const { showToast } = useToast();
   const navigate = useNavigate();
+
   // ============ PERSISTENCE HELPERS ============
   // Load saved draft from sessionStorage ONCE at mount time
-  const getSavedDraft = () => {
+  /*const getSavedDraft = () => {
     try {
       const saved = sessionStorage.getItem(RESERVATION_DRAFT_KEY);
       return saved ? JSON.parse(saved) : null;
@@ -92,7 +92,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       return null;
     }
   };
-  const savedDraft = getSavedDraft();
+  const savedDraft = getSavedDraft();*/
+
   const [tables, setTables] = useState(TABLES_DATA);
 
   const [reservationType, setReservationType] = useState(
