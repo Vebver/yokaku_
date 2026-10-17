@@ -2390,8 +2390,8 @@ select:disabled {
   flex-direction: row; /* Ensure they sit in a row */
   gap: 30px; /* Keeps your existing spacing */
   justify-content: center; /* Keeps them centered */
-  align-items: stretch; /* Keeps equal height */
-  margin-bottom: 30px;
+  align-items: flex-start; /* Keeps equal height */
+  margin-bottom: 15px;
   flex-wrap: nowrap; /* CHANGED: Prevents them from wrapping to the next line */
   width: 100%; /* Takes full width of the parent to center properly */
 }
@@ -3077,8 +3077,8 @@ select:disabled {
 
 .package-inclusions-card {
   width: 100%;
-  margin-top: 24px;
-  margin-bottom: 4px; /* Slight adjustment to space the View Menu button below */
+  margin-top: 20px;
+  margin-bottom: 4px;
   background: #fff;
   border: 2px solid #f0e6d8;
   border-radius: 20px;
@@ -3136,7 +3136,7 @@ select:disabled {
   border: 1px solid #eee;
   color: #f38d31;
   flex-shrink: 0;
-  width: 44px; /* Fixed width for alignment, expands for multiple icons */
+  width: 44px;
   justify-content: center;
 }
 
@@ -3145,118 +3145,6 @@ select:disabled {
   font-size: 0.85rem;
   color: #555;
   line-height: 1.4;
-}
-
-/* ============================================ */
-/* CONTAINER EXPANSION FOR SIDE-BY-SIDE PACKAGES */
-/* ============================================ */
-
-/* Expand the main container when the new split layout is active */
-.reservation-flow-container:has(.package-layout-split) {
-  max-width: 1100px; /* Wider to accommodate cards + inclusions */
-}
-/* ============================================ */
-/* SIDE-BY-SIDE PACKAGE LAYOUT                  */
-/* ============================================ */
-
-.package-layout-split {
-  display: flex;
-  flex-direction: row;
-  width: 100%;
-  gap: 24px;
-  align-items: stretch;
-  margin-bottom: 24px;
-}
-
-/* Left side: Cards */
-.package-layout-split .event-package-cards {
-  flex: 0 0 55%; /* Take up ~55% of the space */
-  display: flex;
-  flex-direction: row;
-  gap: 16px;
-  margin-bottom: 0;
-  flex-wrap: nowrap;
-}
-
-/* Make sure the cards fit perfectly inside the 55% */
-.package-layout-split .package-card {
-  flex: 1;
-  min-width: 0; /* Prevents cards from overflowing the flex container */
-  padding: 20px 15px; /* Slightly reduced padding to fit better */
-}
-
-.package-layout-split .package-card-header h3 {
-  font-size: 1.2rem; /* Slightly smaller text for side-by-side */
-}
-
-.package-layout-split .package-card-price .price {
-  font-size: 1.5rem;
-}
-
-/* Right side: Inclusions */
-.package-layout-split .package-inclusions-card {
-  flex: 1 1 45%; /* Take up remaining space */
-  margin-top: 0;
-  margin-bottom: 0;
-  width: auto;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-/* Adjust inclusions grid to stack vertically on narrower right column */
-.package-layout-split .inclusions-grid {
-  grid-template-columns: 1fr; /* Single column for the right side */
-  gap: 12px;
-}
-
-.package-layout-split .inclusion-item {
-  padding: 10px 12px;
-}
-
-.package-layout-split .inclusion-item p {
-  font-size: 0.8rem;
-}
-
-/* ============================================ */
-/* RESPONSIVE STACKING FOR PACKAGES             */
-/* ============================================ */
-
-@media (max-width: 1200px) {
-  /* Stack them vertically on smaller screens */
-  .package-layout-split {
-    flex-direction: column;
-  }
-
-  .package-layout-split .event-package-cards {
-    flex: 1 1 auto;
-    width: 100%;
-  }
-
-  .package-layout-split .package-inclusions-card {
-    flex: 1 1 auto;
-    width: 100%;
-  }
-
-  /* Bring back 2 columns for inclusions on mobile/tablet */
-  .package-layout-split .inclusions-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .reservation-flow-container:has(.package-layout-split) {
-    max-width: 950px; /* Revert to a more standard width */
-  }
-}
-
-/* Mobile stacking for the cards themselves */
-@media (max-width: 768px) {
-  .package-layout-split .event-package-cards {
-    flex-direction: column;
-  }
-
-  .package-layout-split .inclusions-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* Responsive: Stack inclusions grid on smaller screens */
