@@ -2391,7 +2391,7 @@ select:disabled {
   gap: 30px; /* Keeps your existing spacing */
   justify-content: center; /* Keeps them centered */
   align-items: flex-start; /* Keeps equal height */
-  margin-bottom: 20px;
+  margin-bottom: 15px;
   flex-wrap: nowrap; /* CHANGED: Prevents them from wrapping to the next line */
   width: 100%; /* Takes full width of the parent to center properly */
 }
