@@ -909,12 +909,20 @@
 
 /* 1. Tablet & Small Laptops (Up to 1200px) */
 @media (max-width: 1200px) {
-  /* Switch the main layout to column so the sidebar becomes horizontal */
+  /* IMPORTANT: Allow the main container to scroll freely */
+  .res-kiosk-container {
+    height: auto;
+    min-height: 100vh;
+    overflow-y: auto;
+  }
+
+  /* Switch the main layout to column */
   .res-main-layout {
     flex-direction: column;
     padding: 1rem;
     gap: 1rem;
-    overflow-y: auto; /* Allow the whole page to scroll */
+    overflow: visible; /* Remove internal scroll so cards aren't cut off */
+    height: auto;
   }
 
   /* Make the sidebar full width and horizontal */
@@ -924,10 +932,11 @@
     flex-direction: row;
     padding: 0;
     overflow: visible;
+    margin-bottom: 10px;
   }
 
   .res-brand {
-    display: none; /* Hide brand to save space on tablet */
+    display: none;
   }
 
   .res-category-list {
@@ -951,10 +960,17 @@
 
   .res-cat-btn {
     flex: 0 0 auto;
-    width: 160px; /* Fixed width for category buttons */
+    width: 160px;
     white-space: nowrap;
     padding: 0.8rem;
     font-size: 0.85rem;
+  }
+
+  /* Content area needs to shrink to fit its contents */
+  .res-content-area {
+    overflow: visible;
+    height: auto;
+    padding: 1rem;
   }
 
   /* Product Grid: 3-4 columns */
@@ -962,11 +978,12 @@
     grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   }
 
-  /* Order Summary: Move it below the product grid */
+  /* Order Summary: Move it below and remove fixed height */
   .order-summary-panel {
     width: 100%;
     height: auto;
-    max-height: 400px;
+    max-height: none; /* CRITICAL: Remove max-height so it doesn't force a huge gap */
+    min-height: 200px;
     margin-top: 1rem;
     border-radius: var(--radius-lg);
   }
@@ -978,6 +995,7 @@
     flex-direction: column;
     gap: 1rem;
     border-radius: 1.5rem 1.5rem 0 0;
+    position: relative; /* Ensure it doesn't overlap */
   }
 
   .res-action-btns {
@@ -995,7 +1013,7 @@
 
 /* 2. Mobile (Up to 768px) */
 @media (max-width: 768px) {
-  /* Header Grid: Stack the header items vertically */
+  /* Header Stack */
   .kiosk-timer-wrapper {
     display: flex;
     flex-direction: column;
@@ -1051,30 +1069,12 @@
   .res-card-info p {
     font-size: 0.9rem;
   }
-
-  /* Order Summary Panel Mobile */
-  .order-summary-panel {
-    max-height: 300px;
-  }
-
-  /* Bottom Bar Mobile */
-  .res-bottom-bar {
-    padding: 0.8rem;
-    gap: 0.8rem;
-  }
-
-  .res-btn-cancel,
-  .res-btn-view {
-    padding: 0.8rem;
-    font-size: 0.9rem;
-    border-radius: 1rem;
-  }
 }
 
 /* 3. Very Small Mobile (Up to 480px) */
 @media (max-width: 480px) {
   .res-grid-container {
-    grid-template-columns: 1fr; /* 1 column for very narrow screens */
+    grid-template-columns: 1fr;
   }
 
   .res-cat-btn {
