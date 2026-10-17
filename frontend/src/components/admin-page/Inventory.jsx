@@ -432,6 +432,22 @@ function Inventory({ isKitchenStaff = false, onBack }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Block saving when any required input is incomplete so an empty or
+    // half-filled form can never reach the API.
+    const missing = [];
+    if (!String(newItem.item_name || "").trim()) missing.push("item name");
+    if (!String(newItem.category || "").trim()) missing.push("category");
+    if (!String(newItem.storage_location || "").trim()) missing.push("storage location");
+    if (newItem.quantity === "" || Number(newItem.quantity) < 1 || Number.isNaN(Number(newItem.quantity))) missing.push("quantity");
+    if (!String(newItem.unit || "").trim()) missing.push("unit");
+    if (newItem.unit_price === "" || Number.isNaN(Number(newItem.unit_price)) || Number(newItem.unit_price) < 0) missing.push("cost");
+    if (newItem.reorder_level === "" || Number.isNaN(Number(newItem.reorder_level)) || Number(newItem.reorder_level) < 0) missing.push("reorder level");
+    if (missing.length > 0) {
+      showToast(`Please complete: ${missing.join(", ")}.`);
+      return;
+    }
+
     try {
       if (isEditMode) {
         await api.put(`/inventory/${editItemId}`, newItem);
@@ -505,8 +521,9 @@ function Inventory({ isKitchenStaff = false, onBack }) {
     ok: { label: "Healthy", badge: "bg-success", text: "text-success" },
   };
 
-  // Urgency first (things to reorder float to the top), then A-Z within a
-  // group so the list stays predictable.
+  // Urgency first (things to reorder float to the top); within a group the
+  // newest received stock stays first (the API already returns id-desc),
+  // instead of sorting alphabetically.
   const URGENCY_RANK = { out: 0, expired: 1, low: 2, ok: 3 };
 
   const filtered = inventory
@@ -534,9 +551,8 @@ function Inventory({ isKitchenStaff = false, onBack }) {
     .sort((a, b) => {
       const rank = URGENCY_RANK[statusOf(a)] - URGENCY_RANK[statusOf(b)];
       if (rank !== 0) return rank;
-      return String(a.name || "").localeCompare(String(b.name || ""), undefined, {
-        sensitivity: "base",
-      });
+      // Newest received stock first (highest id = most recently received).
+      return Number(b.id) - Number(a.id);
     });
 
   // Counts across the whole inventory, so the tiles stay stable while filters
@@ -1030,37 +1046,13 @@ function Inventory({ isKitchenStaff = false, onBack }) {
                   type="number"
                   name="quantity"
                   value={newItem.quantity}
-                  className="form-control"
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value);
-                    // Only allow numbers 1 and above
-                    if (e.target.value === "") {
-                      setNewItem({ ...newItem, quantity: "" });
-                    } else if (val >= 1) {
-                      setNewItem({ ...newItem, quantity: val });
-                    }
-                  }}
+                  className="form-control no-spinner"
+                  onChange={handleInputChange}
                   required
                   min="1"
                   step="1"
-                  onKeyDown={(e) => {
-                    // Prevent minus sign, 'e', 'E' (exponent), and '.' (decimal)
-                    if (
-                      e.key === "-" ||
-                      e.key === "e" ||
-                      e.key === "E" ||
-                      e.key === "."
-                    ) {
-                      e.preventDefault();
-                    }
-                  }}
-                  onBlur={(e) => {
-                    // If empty or 0, set to 1
-                    const val = parseInt(e.target.value);
-                    if (!e.target.value || val < 1) {
-                      setNewItem({ ...newItem, quantity: 1 });
-                    }
-                  }}
+                  inputMode="numeric"
+                  placeholder="How many?"
                 />
               </div>
               <div className="col-4">

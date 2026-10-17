@@ -1348,26 +1348,6 @@ const WalkInReservations = () => {
                   )}
               </div>
 
-              {/* TIMELINE */}
-              <div className="p-3 border-bottom bg-white">
-                <div className="d-flex justify-content-between align-items-center">
-                  <div className="d-flex align-items-center gap-2">
-                    <Clock size={14} className="text-muted" />
-                    <span className="x-small fw-bold text-muted text-uppercase">
-                      Timeline
-                    </span>
-                  </div>
-                  {/* Only the primary start time is kept — the secondary
-                      end-time/label beside it was extra noise that cluttered
-                      the drawer on mobile. */}
-                  <div className="small fw-bold text-dark">
-                    {selectedRes.reservation_time
-                      ? formatTime(selectedRes.reservation_time)
-                      : "--:--"}
-                  </div>
-                </div>
-              </div>
-
               <div className="p-3 flex-grow-1 overflow-auto bg-light-subtle">
                 <span className="x-small fw-bold text-muted text-uppercase d-block mb-2">
                   Reservation Schedule
@@ -1379,9 +1359,6 @@ const WalkInReservations = () => {
                   {selectedRes.reservation_time
                     ? ` · ${formatTime(selectedRes.reservation_time)}`
                     : ""}
-                </div>
-                <div className="small text-muted mt-2">
-                  Existing package and order details are available in Payments.
                 </div>
               </div>
 
