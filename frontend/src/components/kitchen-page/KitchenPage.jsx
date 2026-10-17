@@ -240,6 +240,9 @@ const EventTakeoutCard = ({ takeout, onAdvance }) => {
       </div>
       <div className="card-body">
         <div className="event-takeout-ticket-package">
+          Customer: {takeout.customer_name || "Guest"}
+        </div>
+        <div className="event-takeout-ticket-package">
           {takeout.package_name || "Reserved event package"}
         </div>
         <div className="item-list">
@@ -249,8 +252,14 @@ const EventTakeoutCard = ({ takeout, onAdvance }) => {
                 <span className="item-qty">{item.quantity}x</span>
                 <span className="item-name">{item.name}</span>
               </div>
+              <small className="text-muted">
+                ₱{Number(item.unit_price || 0).toFixed(2)} × {item.quantity} = ₱{Number(item.line_value || 0).toFixed(2)}
+              </small>
             </div>
           ))}
+        </div>
+        <div className="event-takeout-ticket-package">
+          Takeout value: ₱{Number(takeout.takeout_value || 0).toFixed(2)}
         </div>
       </div>
       <div className="card-footer">

@@ -42,6 +42,7 @@ const migrate = async () => {
       takeout_id BIGINT UNSIGNED NOT NULL,
       menu_item_id INT NOT NULL,
       quantity INT UNSIGNED NOT NULL,
+        unit_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
       PRIMARY KEY (takeout_item_id),
       KEY idx_event_takeout_items_request (takeout_id),
       KEY idx_event_takeout_items_menu_item (menu_item_id),
@@ -50,6 +51,15 @@ const migrate = async () => {
         ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
   `);
+
+  const [unitPriceColumn] = await db.query(
+    "SHOW COLUMNS FROM event_takeout_items LIKE 'unit_price'",
+  );
+  if (unitPriceColumn.length === 0) {
+    await db.query(
+      "ALTER TABLE event_takeout_items ADD COLUMN unit_price DECIMAL(10,2) NOT NULL DEFAULT 0.00",
+    );
+  }
 
   console.log("Event takeout tables are ready.");
 };

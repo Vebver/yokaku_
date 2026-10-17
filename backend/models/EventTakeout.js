@@ -1,5 +1,6 @@
 const db = require("../config/db");
 const { calculateRemainingPackageQuantity } = require("../utils/packageBalance");
+const { calculateTakeoutValue } = require("../utils/takeoutPricing");
 
 const EVENT_MEAL_LIMIT = 20;
 const PACKAGE_PRICES = {
@@ -25,8 +26,9 @@ const packageMealLimit = (packageName) =>
 
 const getReservation = async (conn, reservationId, lock = false, requester = null) => {
   const [rows] = await conn.execute(
-    `SELECT r.reservation_id, r.user_id, r.reservation_type, r.package_name,
-            r.status, p.amount AS amount_paid, p.payment_status
+        `SELECT r.reservation_id, r.user_id, r.first_name, r.last_name,
+          r.reservation_type, r.package_name, r.status,
+          p.payment_id, p.amount AS amount_paid, p.payment_status
      FROM reservations r
      LEFT JOIN payments p ON p.reservation_id = r.reservation_id
      WHERE r.reservation_id = ?${lock ? " FOR UPDATE" : ""}`,
@@ -87,7 +89,8 @@ const getSummaryForReservation = async (conn, reservation) => {
       conn.execute(
         `SELECT r.takeout_id, r.status, r.quantity, r.requested_at,
                 i.menu_item_id, i.quantity AS item_quantity,
-                COALESCE(mi.menu_name, CONCAT('Menu item ', i.menu_item_id)) AS item_name
+                COALESCE(mi.menu_name, CONCAT('Menu item ', i.menu_item_id)) AS item_name,
+                COALESCE(NULLIF(i.unit_price, 0), mi.price, 0) AS unit_price
          FROM event_takeout_requests r
          JOIN event_takeout_items i ON i.takeout_id = r.takeout_id
          LEFT JOIN menu_items mi ON mi.item_id = i.menu_item_id
@@ -96,11 +99,11 @@ const getSummaryForReservation = async (conn, reservation) => {
         [reservationId],
       ),
       conn.execute(
-        `SELECT mi.item_id, mi.menu_name, c.category_name
+        `SELECT mi.item_id, mi.menu_name, c.category_name, mi.price
          FROM menu_items mi
          LEFT JOIN categories c ON c.category_id = mi.category_id
          WHERE COALESCE(mi.is_available, 1) = 1
-           AND LOWER(TRIM(mi.menu_name)) NOT IN ('standard package', 'premium package')
+           AND LOWER(TRIM(mi.menu_name)) NOT LIKE '%package%'
          ORDER BY c.category_name, mi.menu_name`,
       ),
     ]);
@@ -132,6 +135,7 @@ const getSummaryForReservation = async (conn, reservation) => {
         status: row.status,
         quantity: Number(row.quantity) || 0,
         requested_at: row.requested_at,
+        takeout_value: 0,
         items: [],
       });
     }
@@ -139,16 +143,34 @@ const getSummaryForReservation = async (conn, reservation) => {
       item_id: row.menu_item_id,
       name: row.item_name,
       quantity: Number(row.item_quantity) || 0,
+      unit_price: Number(row.unit_price) || 0,
+      line_value: calculateTakeoutValue([
+        { unit_price: row.unit_price, quantity: row.item_quantity },
+      ]),
     });
   }
+  for (const takeout of takeoutsById.values()) {
+    takeout.takeout_value = calculateTakeoutValue(takeout.items);
+  }
+  const takeoutValue = calculateTakeoutValue(
+    [...takeoutsById.values()].flatMap((takeout) => takeout.items),
+  );
 
   return {
     reservation_id: reservationId,
+    payment_id: reservation.payment_id,
+    customer_name: [reservation.first_name, reservation.last_name]
+      .filter(Boolean)
+      .join(" "),
     reservation_status: reservation.status,
     package_name: reservation.package_name,
     package_price: reservation.package_price,
     amount_paid: Number(reservation.amount_paid) || 0,
     payment_status: reservation.payment_status,
+    package_paid:
+      String(reservation.payment_status || "").toLowerCase() === "verified" &&
+      Number(reservation.amount_paid || 0) >= reservation.package_price,
+    additional_payment: 0,
     package_limit: reservation.package_meal_limit,
     served_quantity: servedQuantity,
     pending_dine_in_quantity: pendingQuantity,
@@ -163,7 +185,10 @@ const getSummaryForReservation = async (conn, reservation) => {
       item_id: item.item_id,
       name: item.menu_name,
       category: item.category_name || "Uncategorised",
+      unit_price: Number(item.price) || 0,
+      available_quantity: remainingQuantity,
     })),
+    takeout_value: takeoutValue,
     takeouts: [...takeoutsById.values()],
   };
 };
@@ -215,13 +240,10 @@ const EventTakeout = {
       }
 
       if (
-        requester &&
-        !["admin", "cashier", "staff", "cook"].includes(
-          String(requester.role || "").toLowerCase(),
-        ) &&
-        String(reservation.payment_status || "").toLowerCase() !== "verified"
+        String(reservation.payment_status || "").toLowerCase() !== "verified" ||
+        Number(reservation.amount_paid || 0) < reservation.package_price
       ) {
-        throw new Error("Takeout is available after the reservation payment is verified.");
+        throw new Error("Takeout is available after the package is paid in full and verified.");
       }
 
       const summary = await getSummaryForReservation(conn, reservation);
@@ -234,14 +256,18 @@ const EventTakeout = {
       const ids = [...quantities.keys()];
       const placeholders = ids.map(() => "?").join(",");
       const [availableItems] = await conn.execute(
-        `SELECT item_id FROM menu_items
+          `SELECT item_id, price FROM menu_items
          WHERE item_id IN (${placeholders})
-           AND COALESCE(is_available, 1) = 1`,
+            AND COALESCE(is_available, 1) = 1
+            AND LOWER(TRIM(menu_name)) NOT LIKE '%package%'`,
         ids,
       );
       if (availableItems.length !== ids.length) {
         throw new Error("One or more selected menu items are unavailable.");
       }
+      const pricesByItem = new Map(
+        availableItems.map((item) => [Number(item.item_id), Number(item.price) || 0]),
+      );
 
       const [result] = await conn.execute(
         `INSERT INTO event_takeout_requests
@@ -251,9 +277,10 @@ const EventTakeout = {
       );
       for (const [itemId, quantity] of quantities) {
         await conn.execute(
-          `INSERT INTO event_takeout_items (takeout_id, menu_item_id, quantity)
-           VALUES (?, ?, ?)`,
-          [result.insertId, itemId, quantity],
+          `INSERT INTO event_takeout_items
+            (takeout_id, menu_item_id, quantity, unit_price)
+           VALUES (?, ?, ?, ?)`,
+          [result.insertId, itemId, quantity, pricesByItem.get(itemId)],
         );
       }
       await conn.commit();
@@ -311,9 +338,10 @@ const EventTakeout = {
       const [requests] = await conn.execute(
         `SELECT r.takeout_id, r.reservation_id, r.quantity, r.status,
                 r.requested_at, r.updated_at, r.completed_at,
-                rs.package_name, rs.first_name, rs.last_name
+          rs.package_name, rs.first_name, rs.last_name, p.payment_id
          FROM event_takeout_requests r
          JOIN reservations rs ON rs.reservation_id = r.reservation_id
+         LEFT JOIN payments p ON p.reservation_id = rs.reservation_id
          WHERE r.status IN ('requested', 'preparing', 'ready')
          ORDER BY r.requested_at ASC, r.takeout_id ASC`,
       );
@@ -322,6 +350,7 @@ const EventTakeout = {
       const placeholders = ids.map(() => "?").join(",");
       const [items] = await conn.execute(
         `SELECT i.takeout_id, i.menu_item_id, i.quantity,
+          COALESCE(NULLIF(i.unit_price, 0), mi.price, 0) AS unit_price,
                 COALESCE(mi.menu_name, CONCAT('Menu item ', i.menu_item_id)) AS name
          FROM event_takeout_items i
          LEFT JOIN menu_items mi ON mi.item_id = i.menu_item_id
@@ -336,12 +365,21 @@ const EventTakeout = {
           item_id: item.menu_item_id,
           name: item.name,
           quantity: Number(item.quantity) || 0,
+          unit_price: Number(item.unit_price) || 0,
+          line_value: calculateTakeoutValue([item]),
         });
       }
-      return requests.map((request) => ({
-        ...request,
-        items: itemsByRequest.get(request.takeout_id) || [],
-      }));
+      return requests.map((request) => {
+        const items = itemsByRequest.get(request.takeout_id) || [];
+        return {
+          ...request,
+          customer_name: [request.first_name, request.last_name]
+            .filter(Boolean)
+            .join(" "),
+          takeout_value: calculateTakeoutValue(items),
+          items,
+        };
+      });
     } finally {
       conn.release();
     }

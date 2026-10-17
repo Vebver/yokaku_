@@ -967,7 +967,8 @@ const MyReservation = () => {
                       packagePrice > 0 &&
                       selectedReservation.status?.toLowerCase() === "seated" &&
                       selectedReservation.payment_status?.toLowerCase() ===
-                        "verified";
+                        "verified" &&
+                      Number(selectedReservation.amount || 0) >= packagePrice;
 
                     return canRequestTakeout ? (
                       <button
