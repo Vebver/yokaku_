@@ -3634,6 +3634,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           setUi((p) => ({ ...p, terms: false }));
           goToNextStep();
         }}
+        viewOnly={true}
       />
     </div>
   );
