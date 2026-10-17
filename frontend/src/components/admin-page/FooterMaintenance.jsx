@@ -108,13 +108,10 @@ const FooterMaintenance = () => {
   return (
     <div className="card shadow-sm border-0 p-4">
       <div className="d-flex align-items-center mb-1 flex-wrap gap-2">
-        <h5 className="mb-0 text-dark fw-bold">Footer Management</h5>
+        <h3 className="mb-0 text-dark fw-bold">Footer Management</h3>
       </div>
       <p className="text-muted small mb-4">
-        Edit the public footer sections. Type each item on its own line in{" "}
-        <strong>name: value</strong> format (e.g.,{" "}
-        <em>Facebook: Hangout Resto Marilao Bulacan</em>). Changes are saved to
-        the database and appear on the customer site immediately after saving.
+        Edit the public footer sections. Enter each item on its own line using <strong>Name: Value</strong> format.
       </p>
 
       <form onSubmit={handleSave}>
@@ -144,7 +141,7 @@ const FooterMaintenance = () => {
             className="btn btn-primary px-5 py-3 fw-bold shadow-sm rounded-pill"
             disabled={saving}
           >
-            {saving ? "Updating..." : "Update Footer Content"}
+            {saving ? "Updating..." : "Update Content"}
           </button>
         </div>
       </form>
