@@ -88,18 +88,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   const getSavedDraft = () => {
     try {
       const saved = sessionStorage.getItem(RESERVATION_DRAFT_KEY);
-      if (!saved) return null;
-
-      const parsed = JSON.parse(saved);
-
-      // If the draft is older than 1 hour, clear it and start fresh.
-      const ONE_HOUR = 60 * 60 * 1000;
-      if (parsed.timestamp && Date.now() - parsed.timestamp > ONE_HOUR) {
-        sessionStorage.removeItem(RESERVATION_DRAFT_KEY);
-        return null;
-      }
-
-      return parsed;
+      return saved ? JSON.parse(saved) : null;
     } catch (e) {
       return null;
     }
@@ -2943,107 +2932,104 @@ export default function ReservationSteps({ onClose, onSuccess }) {
             <div className="step-content step-package">
               {/* NEW: Wrapper to align the button with the outer edges of the cards */}
               <div className="package-cards-wrapper">
-                {/* NEW WRAPPER: Splits the left cards and right inclusions side-by-side */}
-                <div className="package-layout-split">
-                  {/* LEFT SIDE: Package Selection Cards */}
-                  <div className="event-package-cards">
-                    {packageOptions.map((pkg) => (
-                      <div
-                        key={pkg.id}
-                        className={`package-card ${selectedPackage === pkg.id ? "selected" : ""}`}
-                        onClick={() => {
-                          const newSelectedPackage =
-                            selectedPackage === pkg.id ? null : pkg.id;
-                          setSelectedPackage(newSelectedPackage);
-                          if (newSelectedPackage) {
-                            const packageItem = {
-                              name: pkg.name,
-                              price: pkg.price,
-                              quantity: 1,
-                              id: pkg.menuItemId,
-                            };
-                            setSelectedItems([packageItem]);
-                          } else {
-                            setSelectedItems([]);
-                          }
-                        }}
-                      >
-                        <div className="package-card-header">
-                          <h3>{pkg.name}</h3>
-                        </div>
-                        <div className="package-card-price">
-                          <span className="price">
-                            ₱{pkg.price.toLocaleString()}
-                          </span>
-                          <span className="price-type">Consume</span>
-                        </div>
-                        {selectedPackage === pkg.id && (
-                          <div className="package-card-check">
-                            <CheckCircle size={24} />
-                          </div>
-                        )}
+                {/* Package Selection Cards */}
+                <div className="event-package-cards">
+                  {packageOptions.map((pkg) => (
+                    <div
+                      key={pkg.id}
+                      className={`package-card ${selectedPackage === pkg.id ? "selected" : ""}`}
+                      onClick={() => {
+                        const newSelectedPackage =
+                          selectedPackage === pkg.id ? null : pkg.id;
+                        setSelectedPackage(newSelectedPackage);
+                        if (newSelectedPackage) {
+                          const packageItem = {
+                            name: pkg.name,
+                            price: pkg.price,
+                            quantity: 1,
+                            id: pkg.menuItemId,
+                          };
+                          setSelectedItems([packageItem]);
+                        } else {
+                          setSelectedItems([]);
+                        }
+                      }}
+                    >
+                      <div className="package-card-header">
+                        <h3>{pkg.name}</h3>
                       </div>
-                    ))}
+                      <div className="package-card-price">
+                        <span className="price">
+                          ₱{pkg.price.toLocaleString()}
+                        </span>
+                        <span className="price-type">Consume</span>
+                      </div>
+                      {selectedPackage === pkg.id && (
+                        <div className="package-card-check">
+                          <CheckCircle size={24} />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* ===== PACKAGE INCLUSIONS SECTION ===== */}
+                <div className="package-inclusions-card">
+                  <h4 className="inclusions-title">
+                    What's Included in Both Packages
+                  </h4>
+
+                  <div className="inclusions-highlight">
+                    <Clock size={20} />
+                    <span>Free Venue for 3 Hours</span>
                   </div>
 
-                  {/* RIGHT SIDE: Package Inclusions Section */}
-                  <div className="package-inclusions-card">
-                    <h4 className="inclusions-title">
-                      What's Included in Both Packages
-                    </h4>
-
-                    <div className="inclusions-highlight">
-                      <Clock size={20} />
-                      <span>Free Venue for 3 Hours</span>
+                  <div className="inclusions-grid">
+                    <div className="inclusion-item">
+                      <div className="inclusion-icon-wrapper">
+                        <Tv size={16} />
+                        <Music size={16} />
+                        <Wifi size={16} />
+                        <Wind size={16} />
+                      </div>
+                      <p>
+                        TV, Sound System, Karaoke, Wi-Fi, and Air Conditioning
+                        included.
+                      </p>
                     </div>
 
-                    <div className="inclusions-grid">
-                      <div className="inclusion-item">
-                        <div className="inclusion-icon-wrapper">
-                          <Tv size={16} />
-                          <Music size={16} />
-                          <Wifi size={16} />
-                          <Wind size={16} />
-                        </div>
-                        <p>
-                          TV, Sound System, Karaoke, Wi-Fi, and Air Conditioning
-                          included.
-                        </p>
+                    <div className="inclusion-item">
+                      <div className="inclusion-icon-wrapper">
+                        <Cake size={16} />
                       </div>
+                      <p>
+                        Perfect for Birthdays, Bridal Showers, Engagement
+                        Parties, Baptisms, Kids' Parties, Corporate Meetings,
+                        and Private Gatherings.
+                      </p>
+                    </div>
 
-                      <div className="inclusion-item">
-                        <div className="inclusion-icon-wrapper">
-                          <Cake size={16} />
-                        </div>
-                        <p>
-                          Perfect for Birthdays, Bridal Showers, Engagement
-                          Parties, Baptisms, Kids' Parties, Corporate Meetings,
-                          and Private Gatherings.
-                        </p>
+                    <div className="inclusion-item">
+                      <div className="inclusion-icon-wrapper">
+                        <Users size={16} />
                       </div>
+                      <p>
+                        Full Store Venue and Dining Area (up to 40 pax seating
+                        capacity).
+                      </p>
+                    </div>
 
-                      <div className="inclusion-item">
-                        <div className="inclusion-icon-wrapper">
-                          <Users size={16} />
-                        </div>
-                        <p>
-                          Full Store Venue and Dining Area (up to 40 pax seating
-                          capacity).
-                        </p>
+                    <div className="inclusion-item">
+                      <div className="inclusion-icon-wrapper">
+                        <Car size={16} />
                       </div>
-
-                      <div className="inclusion-item">
-                        <div className="inclusion-icon-wrapper">
-                          <Car size={16} />
-                        </div>
-                        <p>Free Parking Space (Spacious Parking Area).</p>
-                      </div>
+                      <p>Free Parking Space (Spacious Parking Area).</p>
                     </div>
                   </div>
                 </div>
-                {/* END NEW WRAPPER */}
+                {/* ===== END PACKAGE INCLUSIONS SECTION ===== */}
 
-                {/* View Menu Button (Stays below both sections) */}
+                {/* View Menu Button */}
                 <button
                   type="button"
                   className="btn-view-menu"
