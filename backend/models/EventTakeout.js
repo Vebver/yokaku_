@@ -90,7 +90,7 @@ const getSummaryForReservation = async (conn, reservation) => {
         `SELECT r.takeout_id, r.status, r.quantity, r.requested_at,
                 i.menu_item_id, i.quantity AS item_quantity,
                 COALESCE(mi.menu_name, CONCAT('Menu item ', i.menu_item_id)) AS item_name,
-                COALESCE(NULLIF(i.unit_price, 0), mi.price, 0) AS unit_price
+                i.unit_price AS unit_price
          FROM event_takeout_requests r
          JOIN event_takeout_items i ON i.takeout_id = r.takeout_id
          LEFT JOIN menu_items mi ON mi.item_id = i.menu_item_id
@@ -350,7 +350,7 @@ const EventTakeout = {
       const placeholders = ids.map(() => "?").join(",");
       const [items] = await conn.execute(
         `SELECT i.takeout_id, i.menu_item_id, i.quantity,
-          COALESCE(NULLIF(i.unit_price, 0), mi.price, 0) AS unit_price,
+                i.unit_price AS unit_price,
                 COALESCE(mi.menu_name, CONCAT('Menu item ', i.menu_item_id)) AS name
          FROM event_takeout_items i
          LEFT JOIN menu_items mi ON mi.item_id = i.menu_item_id

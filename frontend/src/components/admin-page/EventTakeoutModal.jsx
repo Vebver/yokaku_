@@ -19,7 +19,6 @@ const EventTakeoutModal = ({ reservationId, onClose, customerMode = false }) => 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [requestKey, setRequestKey] = useState("");
   const submitLockRef = useRef(false);
   const [searchInput, setSearchInput] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
@@ -102,13 +101,17 @@ const EventTakeoutModal = ({ reservationId, onClose, customerMode = false }) => 
 
       setSaving(true);
       setError("");
-      const requestKeyStorageKey = `event_takeout_request_key_${reservationId}`;
+      const selectionFingerprint = items
+        .slice()
+        .sort((a, b) => a.item_id - b.item_id)
+        .map((item) => `${item.item_id}:${item.quantity}`)
+        .join("|");
+      const requestKeyStorageKey =
+        `event_takeout_request_key_${reservationId}_${selectionFingerprint}`;
       const stableRequestKey =
-        requestKey ||
         sessionStorage.getItem(requestKeyStorageKey) ||
         (globalThis.crypto?.randomUUID?.() ||
           `${Date.now()}-${Math.random().toString(36).slice(2)}`);
-      setRequestKey(stableRequestKey);
       sessionStorage.setItem(requestKeyStorageKey, stableRequestKey);
       const response = await api.post(
         `/reservations/${reservationId}/event-takeout`,
@@ -116,7 +119,6 @@ const EventTakeoutModal = ({ reservationId, onClose, customerMode = false }) => 
       );
       setSummary(response.data);
       setQuantities({});
-      setRequestKey("");
       sessionStorage.removeItem(requestKeyStorageKey);
     } catch (requestError) {
       setError(

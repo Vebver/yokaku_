@@ -61,6 +61,13 @@ const migrate = async () => {
     );
   }
 
+  await db.query(`
+    UPDATE event_takeout_items takeout_item
+    JOIN menu_items menu_item ON menu_item.item_id = takeout_item.menu_item_id
+    SET takeout_item.unit_price = menu_item.price
+    WHERE takeout_item.unit_price = 0 AND menu_item.price > 0
+  `);
+
   console.log("Event takeout tables are ready.");
 };
 
