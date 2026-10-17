@@ -63,7 +63,8 @@ import { useSocket, useAddressData } from "./TableReservationHooks";
 import { API_BASE } from "../api";
 import { useNavigate } from "react-router-dom";
 
-const RESERVATION_DRAFT_KEY = "reservationDraft";
+const RESERVATION_DRAFT_VERSION = "v2";
+const RESERVATION_DRAFT_KEY = `reservationDraft_${RESERVATION_DRAFT_VERSION}`;
 
 // Dynamic steps based on reservation type
 const getSteps = (reservationType) => {
@@ -84,15 +85,26 @@ export default function ReservationSteps({ onClose, onSuccess }) {
 
   // ============ PERSISTENCE HELPERS ============
   // Load saved draft from sessionStorage ONCE at mount time
-  /*const getSavedDraft = () => {
+  const getSavedDraft = () => {
     try {
       const saved = sessionStorage.getItem(RESERVATION_DRAFT_KEY);
-      return saved ? JSON.parse(saved) : null;
+      if (!saved) return null;
+
+      const parsed = JSON.parse(saved);
+
+      // If the draft is older than 1 hour, clear it and start fresh.
+      const ONE_HOUR = 60 * 60 * 1000;
+      if (parsed.timestamp && Date.now() - parsed.timestamp > ONE_HOUR) {
+        sessionStorage.removeItem(RESERVATION_DRAFT_KEY);
+        return null;
+      }
+
+      return parsed;
     } catch (e) {
       return null;
     }
   };
-  const savedDraft = getSavedDraft();*/
+  const savedDraft = getSavedDraft();
 
   const [tables, setTables] = useState(TABLES_DATA);
 
@@ -210,6 +222,16 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   const [completedSteps, setCompletedSteps] = useState(
     savedDraft?.completedSteps || [],
   );
+
+  // ============ SESSION STORAGE CLEANUP ============
+  // If a user has an old draft from before the UI update, delete it.
+  useEffect(() => {
+    const legacyDraft = sessionStorage.getItem("reservationDraft");
+    if (legacyDraft) {
+      sessionStorage.removeItem("reservationDraft");
+      console.log("Cleared legacy reservation draft.");
+    }
+  }, []);
 
   // ============ SAVE STATE TO SESSION STORAGE ============
   // Persist the reservation draft whenever any relevant state changes.
