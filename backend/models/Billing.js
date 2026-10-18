@@ -10,9 +10,14 @@ const Billing = {
           r.reservation_id,
           r.first_name,
           r.last_name,
+          r.user_id,
+          r.reservation_type,
+          r.package_name,
           r.status as order_status,
+          r.created_at,
           r.reservation_date,
           p.payment_id,
+          p.paid_at,
           p.amount,              -- Amount currently paid / deposit
           p.total_bill,          -- The ACTUAL calculated bill (Added)
           GREATEST(COALESCE(p.total_bill, 0) - COALESCE(p.amount, 0), 0) AS balance_due,
@@ -42,7 +47,7 @@ const Billing = {
         LEFT JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
         LEFT JOIN tables t ON rt.table_id = t.table_id
         GROUP BY r.reservation_id, p.payment_id
-        ORDER BY r.reservation_id DESC
+        ORDER BY r.created_at DESC
       `;
       const [rows] = await db.execute(sql);
       return rows;

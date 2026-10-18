@@ -7,6 +7,7 @@ import {
   RefreshCw,
   ChevronLeft,
   ChevronRight,
+  ArrowLeft,
   AlertTriangle,
   Plus,
   Box,
@@ -17,8 +18,24 @@ import { useToast } from "../ToastContext";
 import { useSectionRefresh } from "../shared/sectionRefresh";
 import { useConfirmation } from "../ConfirmationContext";
 import "../../Style/Inventory.css";
+import "../../Style/KitchenNavbar.css";
 
-function Inventory() {
+const KitchenInventoryHeader = ({ onBack }) => (
+  <nav className="kitchen-navbar kitchen-inventory-navbar">
+    <div className="nav-left">
+        <div>
+          <h1 className="brand-name">HANGOUT KITCHEN</h1>
+        </div>
+    </div>
+    <div className="nav-right">
+      <button className="kitchen-nav-back" onClick={onBack}>
+        <ArrowLeft size={18} /> BACK TO KITCHEN
+      </button>
+    </div>
+  </nav>
+);
+
+function Inventory({ isKitchenStaff = false, onBack }) {
   const { showToast } = useToast();
   const { confirm } = useConfirmation();
   const [inventory, setInventory] = useState([]);
@@ -415,6 +432,22 @@ function Inventory() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Block saving when any required input is incomplete so an empty or
+    // half-filled form can never reach the API.
+    const missing = [];
+    if (!String(newItem.item_name || "").trim()) missing.push("item name");
+    if (!String(newItem.category || "").trim()) missing.push("category");
+    if (!String(newItem.storage_location || "").trim()) missing.push("storage location");
+    if (newItem.quantity === "" || Number(newItem.quantity) < 1 || Number.isNaN(Number(newItem.quantity))) missing.push("quantity");
+    if (!String(newItem.unit || "").trim()) missing.push("unit");
+    if (newItem.unit_price === "" || Number.isNaN(Number(newItem.unit_price)) || Number(newItem.unit_price) < 0) missing.push("cost");
+    if (newItem.reorder_level === "" || Number.isNaN(Number(newItem.reorder_level)) || Number(newItem.reorder_level) < 0) missing.push("reorder level");
+    if (missing.length > 0) {
+      showToast(`Please complete: ${missing.join(", ")}.`);
+      return;
+    }
+
     try {
       if (isEditMode) {
         await api.put(`/inventory/${editItemId}`, newItem);
@@ -488,8 +521,9 @@ function Inventory() {
     ok: { label: "Healthy", badge: "bg-success", text: "text-success" },
   };
 
-  // Urgency first (things to reorder float to the top), then A-Z within a
-  // group so the list stays predictable.
+  // Urgency first (things to reorder float to the top); within a group the
+  // newest received stock stays first (the API already returns id-desc),
+  // instead of sorting alphabetically.
   const URGENCY_RANK = { out: 0, expired: 1, low: 2, ok: 3 };
 
   const filtered = inventory
@@ -517,9 +551,8 @@ function Inventory() {
     .sort((a, b) => {
       const rank = URGENCY_RANK[statusOf(a)] - URGENCY_RANK[statusOf(b)];
       if (rank !== 0) return rank;
-      return String(a.name || "").localeCompare(String(b.name || ""), undefined, {
-        sensitivity: "base",
-      });
+      // Newest received stock first (highest id = most recently received).
+      return Number(b.id) - Number(a.id);
     });
 
   // Counts across the whole inventory, so the tiles stay stable while filters
@@ -546,18 +579,25 @@ function Inventory() {
     }
   }, [currentPage, totalPages]);
 
+  const staffHeader = isKitchenStaff ? <KitchenInventoryHeader onBack={onBack} /> : null;
+
   if (loading)
     return (
-      <div className="p-5 text-center">
-        <RefreshCw className="animate-spin text-primary mx-auto" />
-      </div>
+      <>
+        {staffHeader}
+        <div className="p-5 text-center">
+          <RefreshCw className="animate-spin text-primary mx-auto" />
+        </div>
+      </>
     );
 
   return (
-    <div
-      className="inventory-container container-fluid py-3 py-md-4 text-dark bg-light"
-      style={{ minHeight: "100vh" }}
-    >
+    <>
+      {staffHeader}
+      <div
+        className="inventory-container container-fluid py-3 py-md-4 text-dark bg-light"
+        style={{ minHeight: isKitchenStaff ? "calc(100dvh - 64px)" : "100vh" }}
+      >
       {/* HEADER */}
       <div className="row g-3 align-items-center mb-3 px-2">
         <div className="col-12">
@@ -1006,37 +1046,13 @@ function Inventory() {
                   type="number"
                   name="quantity"
                   value={newItem.quantity}
-                  className="form-control"
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value);
-                    // Only allow numbers 1 and above
-                    if (e.target.value === "") {
-                      setNewItem({ ...newItem, quantity: "" });
-                    } else if (val >= 1) {
-                      setNewItem({ ...newItem, quantity: val });
-                    }
-                  }}
+                  className="form-control no-spinner"
+                  onChange={handleInputChange}
                   required
                   min="1"
                   step="1"
-                  onKeyDown={(e) => {
-                    // Prevent minus sign, 'e', 'E' (exponent), and '.' (decimal)
-                    if (
-                      e.key === "-" ||
-                      e.key === "e" ||
-                      e.key === "E" ||
-                      e.key === "."
-                    ) {
-                      e.preventDefault();
-                    }
-                  }}
-                  onBlur={(e) => {
-                    // If empty or 0, set to 1
-                    const val = parseInt(e.target.value);
-                    if (!e.target.value || val < 1) {
-                      setNewItem({ ...newItem, quantity: 1 });
-                    }
-                  }}
+                  inputMode="numeric"
+                  placeholder="How many?"
                 />
               </div>
               <div className="col-4">
@@ -1364,7 +1380,8 @@ function Inventory() {
         </div>
       )}
 
-    </div>
+      </div>
+    </>
   );
 }
 

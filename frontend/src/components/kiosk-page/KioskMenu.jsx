@@ -346,6 +346,7 @@ const KioskMenu = () => {
     setBillItems([]);
     setLocalBillHistory([]);
 
+    sessionStorage.setItem("kiosk_exit_to_selection", "true");
     window.location.href = "/kiosk-selection";
   };
 
@@ -1100,6 +1101,7 @@ const KioskMenu = () => {
       );
       return;
     }
+    sessionStorage.setItem("kiosk_exit_to_selection", "true");
     navigate("/kiosk-selection");
   };
 

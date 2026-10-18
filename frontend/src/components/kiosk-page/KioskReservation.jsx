@@ -71,7 +71,10 @@ const KioskReservation = () => {
             setEventMode("event_waiting");
           }
           // Opened event and single-customer sessions both enter the menu directly.
-          else if (mode === "event_active" || mode === "single_active") {
+          else if (
+            (mode === "event_active" || mode === "single_active") &&
+            sessionStorage.getItem("kiosk_exit_to_selection") !== "true"
+          ) {
             sessionStorage.setItem("resId", reservation.reservation_id);
             if (reservation.table_id) {
               sessionStorage.setItem(
@@ -150,6 +153,7 @@ const KioskReservation = () => {
       const data = await response.json();
 
       if (response.ok && data?.success) {
+        sessionStorage.removeItem("kiosk_exit_to_selection");
         sessionStorage.setItem("resId", pending.id);
         sessionStorage.setItem("kiosk_mode", "reservation");
         if (pending.tables.length > 0) {

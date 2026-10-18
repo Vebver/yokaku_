@@ -131,12 +131,6 @@ body {
   transition:
     transform 0.2s,
     box-shadow 0.2s;
-  animation: slideIn 0.4s ease-out;
-}
-
-.order-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-hover);
 }
 
 /* Card Header */
@@ -294,8 +288,6 @@ body {
     var(--primary) 0%,
     var(--primary-hover) 100%
   );
-  color: white;
-  box-shadow: 0 4px 12px rgba(243, 141, 49, 0.3);
 }
 
 .btn-start:hover {
@@ -558,11 +550,6 @@ body {
   background: linear-gradient(135deg, #f38d31 0%, #e67e22 100%);
   color: white;
   box-shadow: 0 4px 12px rgba(243, 141, 49, 0.3);
-}
-
-.btn-action.start:hover {
-  background: linear-gradient(135deg, #e67e22 0%, #d35400 100%);
-  box-shadow: 0 6px 16px rgba(243, 141, 49, 0.4);
 }
 
 /* Mark as Ready Button */
@@ -870,4 +857,124 @@ body {
   .order-card:hover {
     transform: none;
   }
+}
+
+.kitchen-wrapper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bg-main);
+}
+
+.kitchen-wrapper > main.container {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: none;
+  min-height: 0;
+  margin: 0;
+  padding: 14px 18px !important;
+  overflow-y: auto;
+}
+
+.kitchen-wrapper .order-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  align-items: stretch;
+  gap: 14px;
+  margin-top: 0;
+}
+
+.kitchen-wrapper .order-card {
+  min-width: 0;
+  min-height: 210px;
+  height: 100%;
+}
+
+.kitchen-wrapper .card-header,
+.kitchen-wrapper .card-footer {
+  padding: 10px 16px;
+}
+
+.kitchen-wrapper .card-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 12px 16px;
+}
+
+.kitchen-wrapper .item-main-row {
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.kitchen-wrapper .item-name,
+.kitchen-wrapper .custom-tag {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+@media (max-width: 640px) {
+  .kitchen-wrapper > main.container {
+    padding: 10px 12px !important;
+  }
+
+  .kitchen-wrapper .order-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .kitchen-wrapper .order-card {
+    min-height: 0;
+  }
+
+  .kitchen-wrapper .card-header,
+  .kitchen-wrapper .card-body,
+  .kitchen-wrapper .card-footer {
+    padding: 10px 12px;
+  }
+}
+
+.event-takeout-kitchen-section {
+  margin-top: 22px;
+}
+
+.event-takeout-kitchen-section > h2 {
+  margin: 0 0 10px;
+  color: #252525;
+  font-size: 0.9rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+}
+
+.event-takeout-ticket-status {
+  max-width: 58%;
+  color: #985113;
+  font-size: 0.65rem;
+  font-weight: 850;
+  text-align: right;
+}
+
+.event-takeout-ticket-status.preparing {
+  color: #1d4f91;
+}
+
+.event-takeout-ticket-status.ready {
+  color: #187342;
+}
+
+.event-takeout-ticket-package {
+  margin-bottom: 8px;
+  color: #68727e;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.event-takeout-awaiting-pickup {
+  color: #187342;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-align: center;
 }

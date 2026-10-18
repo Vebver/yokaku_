@@ -18,12 +18,13 @@ import {
   Filter,
   ChevronDown,
   ChevronUp,
+  PackageCheck,
 } from "lucide-react";
 import TermsModal from "../TermsModal";
+import EventTakeoutModal from "../admin-page/EventTakeoutModal";
 import "../../Style/MyReservation.css";
 import { useToast } from "../ToastContext";
 import { API_BASE } from "../../api";
-
 
 const MyReservation = () => {
   const { showToast } = useToast();
@@ -46,6 +47,7 @@ const MyReservation = () => {
   const [activeTab, setActiveTab] = useState("active");
   const [historyFilter, setHistoryFilter] = useState("all");
   const [showAllHistory, setShowAllHistory] = useState(false);
+  const [takeoutReservationId, setTakeoutReservationId] = useState(null);
 
   // New states for re-uploading payment proof
   const [uploading, setUploading] = useState(false);
@@ -435,6 +437,17 @@ const MyReservation = () => {
   };
 
   const getGuestDisplay = (reservation) => {
+    const isEvent =
+      reservation.reservation_type === "event" ||
+      reservation.reservation_type === "EVENT" ||
+      reservation.reservationType === "event" ||
+      reservation.reservationType === "EVENT";
+
+    // ✅ FIX: Force 40 guests for events
+    if (isEvent) {
+      return "40 Guests";
+    }
+
     const numGuests = reservation.num_guests;
 
     if (!numGuests && numGuests !== 0) return "Not specified";
@@ -941,6 +954,37 @@ const MyReservation = () => {
                     </div>
                   )}
 
+                  {(() => {
+                    const packageName = String(
+                      selectedReservation.package_name || "",
+                    ).toLowerCase();
+                    const packagePrice = packageName.includes("premium")
+                      ? 12500
+                      : packageName.includes("standard")
+                        ? 10000
+                        : 0;
+                    const canRequestTakeout =
+                      packagePrice > 0 &&
+                      selectedReservation.status?.toLowerCase() === "seated" &&
+                      selectedReservation.payment_status?.toLowerCase() ===
+                        "verified" &&
+                      Number(selectedReservation.amount || 0) >= packagePrice;
+
+                    return canRequestTakeout ? (
+                      <button
+                        type="button"
+                        className="btn btn-warning fw-bold w-100 mt-3 d-flex align-items-center justify-content-center gap-2"
+                        onClick={() =>
+                          setTakeoutReservationId(
+                            selectedReservation.reservation_id,
+                          )
+                        }
+                      >
+                        <PackageCheck size={16} /> Request Takeout
+                      </button>
+                    ) : null;
+                  })()}
+
                   {selectedReservation.payment_status?.toLowerCase() ===
                     "rejected" && (
                     <div
@@ -1011,6 +1055,14 @@ const MyReservation = () => {
               </div>
             </div>
           </div>
+        )}
+
+        {takeoutReservationId && (
+          <EventTakeoutModal
+            reservationId={takeoutReservationId}
+            customerMode
+            onClose={() => setTakeoutReservationId(null)}
+          />
         )}
 
         {/* Cancel Reason Modal */}

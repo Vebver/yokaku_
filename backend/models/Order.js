@@ -64,7 +64,7 @@ const Order = {
   updateInventory: async (conn, inventoryId, amountUsed) => {
     const query = `
       UPDATE inventory 
-      SET quantity = quantity - ?, 
+      SET quantity = GREATEST(quantity - ?, 0), 
           last_updated = NOW(),
           status = CASE 
             WHEN (quantity - ?) <= reorder_level AND (quantity - ?) > 0 THEN 'low stock' 

@@ -1,8 +1,26 @@
 import React, { useState, useEffect } from "react";
 import { ShieldCheck, X } from "lucide-react";
+import api from "../api";
 
-const TermsModal = ({ isOpen, onAccept, onClose }) => {
+const TermsModal = ({ isOpen, onAccept, onClose, viewOnly = false }) => {
   const [agreed, setAgreed] = useState(false);
+  // Custom terms saved by the Admin (Maintenance > Footer Management).
+  // Empty/null means the default built-in terms below are used.
+  const [customTerms, setCustomTerms] = useState(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    api
+      .get("/settings")
+      .then((res) => {
+        if (!cancelled) setCustomTerms((res.data.footer_terms || "").trim() || null);
+      })
+      .catch(() => {}); // Fall back to built-in terms silently.
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
 
   // Lock body scroll while the modal is open, restore on close.
   // Also resets the checkbox so it starts unchecked next time.
@@ -108,12 +126,30 @@ const TermsModal = ({ isOpen, onAccept, onClose }) => {
             lineHeight: "1.6",
             color: "#555",
             border: "1px solid #eee",
-            marginBottom: "15px",
+            marginBottom: viewOnly ? "0" : "15px", // Adjust margin when viewOnly is true
           }}
         >
-          {/* ... your existing terms list, unchanged ... */}
+          {customTerms ? (
+            customTerms.split("\n").map((line, i) => {
+              const trimmed = line.trim();
+              if (!trimmed) return null;
+              const match = trimmed.match(/^(\d+\.)\s*(.+)$/);
+              return (
+                <p key={i}>
+                  {match ? (
+                    <>
+                      <strong>{match[1]} {match[2]}</strong>
+                    </>
+                  ) : (
+                    trimmed
+                  )}
+                </p>
+              );
+            })
+          ) : (
+          <>
           <p>
-            <strong>1.No Smoking:</strong>No Smoking:{" "}
+            <strong>1.No Smoking:</strong>{" "}
             <span style={{ color: "red" }}>
               Smoking cigarettes, cigars, or other tobacco products
             </span>{" "}
@@ -121,7 +157,7 @@ const TermsModal = ({ isOpen, onAccept, onClose }) => {
           </p>
 
           <p>
-            <strong>2.No Vaping:</strong>No Smoking: The use of{" "}
+            <strong>2.No Vaping:</strong> The use of{" "}
             <span style={{ color: "red" }}>
               e-cigarettes, vape pens, and other electronic smoking devices
             </span>{" "}
@@ -222,77 +258,86 @@ const TermsModal = ({ isOpen, onAccept, onClose }) => {
               </ul>
             </li>
           </ul>
+          </>
+          )}
         </div>
 
-        {/* CHECKBOX */}
-        <label
-          style={{
-            display: "flex",
-            alignItems: "flex-start",
-            gap: "10px",
-            marginBottom: "15px",
-            cursor: "pointer",
-            fontSize: "0.9rem",
-            color: "#333",
-            userSelect: "none",
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={agreed}
-            onChange={(e) => setAgreed(e.target.checked)}
-            style={{
-              marginTop: "3px",
-              width: "18px",
-              height: "18px",
-              cursor: "pointer",
-              accentColor: "#ffcc00",
-              flexShrink: 0,
-            }}
-          />
-          <span>
-            I have read and agree to the Terms and Conditions, including the No
-            Refund Policy and Unlimited Promo rules.
-          </span>
-        </label>
+        {/* ============================================ */}
+        {/* CONDITIONAL FOOTER: ONLY SHOW IF NOT VIEWONLY */}
+        {/* ============================================ */}
+        {!viewOnly && (
+          <>
+            {/* CHECKBOX */}
+            <label
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "10px",
+                marginBottom: "15px",
+                cursor: "pointer",
+                fontSize: "0.9rem",
+                color: "#333",
+                userSelect: "none",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={agreed}
+                onChange={(e) => setAgreed(e.target.checked)}
+                style={{
+                  marginTop: "3px",
+                  width: "18px",
+                  height: "18px",
+                  cursor: "pointer",
+                  accentColor: "#ffcc00",
+                  flexShrink: 0,
+                }}
+              />
+              <span>
+                I have read and agree to the Terms and Conditions, including the
+                No Refund Policy and Unlimited Promo rules.
+              </span>
+            </label>
 
-        {/* BUTTONS */}
-        <div style={{ display: "flex", gap: "10px" }}>
-          <button
-            onClick={handleClose}
-            style={{
-              flex: 1,
-              padding: "12px",
-              borderRadius: "10px",
-              border: "1.5px solid #ddd",
-              background: "#fff",
-              color: "#666",
-              fontWeight: "700",
-              cursor: "pointer",
-              fontSize: "1rem",
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleAccept}
-            disabled={!agreed}
-            style={{
-              flex: 2,
-              padding: "12px",
-              borderRadius: "10px",
-              border: "none",
-              background: agreed ? "#ffcc00" : "#e0e0e0",
-              color: agreed ? "#000" : "#999",
-              fontWeight: "800",
-              cursor: agreed ? "pointer" : "not-allowed",
-              fontSize: "1rem",
-              transition: "background 0.2s",
-            }}
-          >
-            I Agree & Continue
-          </button>
-        </div>
+            {/* BUTTONS */}
+            <div style={{ display: "flex", gap: "10px" }}>
+              <button
+                onClick={handleClose}
+                style={{
+                  flex: 1,
+                  padding: "12px",
+                  borderRadius: "10px",
+                  border: "1.5px solid #ddd",
+                  background: "#fff",
+                  color: "#666",
+                  fontWeight: "700",
+                  cursor: "pointer",
+                  fontSize: "1rem",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAccept}
+                disabled={!agreed}
+                style={{
+                  flex: 2,
+                  padding: "12px",
+                  borderRadius: "10px",
+                  border: "none",
+                  background: agreed ? "#ffcc00" : "#e0e0e0",
+                  color: agreed ? "#000" : "#999",
+                  fontWeight: "800",
+                  cursor: agreed ? "pointer" : "not-allowed",
+                  fontSize: "1rem",
+                  transition: "background 0.2s",
+                }}
+              >
+                I Agree & Continue
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

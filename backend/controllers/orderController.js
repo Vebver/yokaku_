@@ -76,7 +76,7 @@ const orderController = {
 
       // 1. Check if reservation exists
       const [existing] = await conn.execute(
-        "SELECT reservation_id FROM reservations WHERE reservation_id = ?",
+        "SELECT reservation_id FROM reservations WHERE reservation_id = ? FOR UPDATE",
         [reservation_id]
       );
 

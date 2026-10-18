@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import api from "../../api";
+import io from "socket.io-client";
+import api, { SOCKET_URL } from "../../api";
 import "../../Style/Billing.css";
 import {
   Loader2,
@@ -19,6 +20,7 @@ import { useSectionRefresh } from "../shared/sectionRefresh";
 import AdminPagination from "../shared/AdminPagination";
 import { compareByPaymentRecency } from "../shared/sortUtils";
 import { handlePrintReceipt } from "./receiptPrinter";
+import EventTakeoutModal from "./EventTakeoutModal";
 
 const Billing = () => {
   const [payments, setPayments] = useState([]);
@@ -38,6 +40,19 @@ const Billing = () => {
   const { confirm } = useConfirmation();
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
+  const [takeoutReservationId, setTakeoutReservationId] = useState(null);
+  const [takeoutSummary, setTakeoutSummary] = useState(null);
+
+  const compareByReservationCreation = (a, b) => {
+    const aCreated = new Date(a?.created_at || 0).getTime();
+    const bCreated = new Date(b?.created_at || 0).getTime();
+    const aValid = Number.isFinite(aCreated);
+    const bValid = Number.isFinite(bCreated);
+
+    if (aValid !== bValid) return aValid ? -1 : 1;
+    if (aValid && aCreated !== bCreated) return bCreated - aCreated;
+    return compareByPaymentRecency(a, b);
+  };
 
   useEffect(() => {
     fetchPayments();
@@ -61,8 +76,8 @@ const Billing = () => {
     setLoading(true);
     try {
       const res = await api.get(`/billing`);
-      // Newest transaction first (payment date/time, never alphabetical).
-      setPayments(res.data.slice().sort(compareByPaymentRecency));
+      // Newest reservation first, with payment time as a tie-breaker.
+      setPayments(res.data.slice().sort(compareByReservationCreation));
       setCurrentPage(1);
     } catch (err) {
       console.error("Fetch error:", err);
@@ -70,6 +85,19 @@ const Billing = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const socket = io(SOCKET_URL, { transports: ["websocket", "polling"] });
+    socket.on("new_reservation", fetchPayments);
+    socket.on("payment_updated", fetchPayments);
+    socket.on("payment_status_updated", fetchPayments);
+    return () => {
+      socket.off("new_reservation", fetchPayments);
+      socket.off("payment_updated", fetchPayments);
+      socket.off("payment_status_updated", fetchPayments);
+      socket.disconnect();
+    };
+  }, []);
 
   const resetPage = () => setCurrentPage(1);
 
@@ -85,8 +113,7 @@ const Billing = () => {
     settlementFilter !== "all" ||
     orderStatusFilter !== "all";
 
-  // Newest transaction first by payment/transaction timestamp. Name sorting
-  // was removed: it made the newest payment impossible to find.
+  // Newest reservation first by creation timestamp.
   const filteredPayments = payments
     .filter((p) => {
       const fullName = `${p.first_name || ""} ${p.last_name || ""}`.toLowerCase();
@@ -112,7 +139,7 @@ const Billing = () => {
       }
       return true;
     })
-    .sort(compareByPaymentRecency);
+    .sort(compareByReservationCreation);
 
   const getItemPrice = (item) => {
     const isRefill =
@@ -187,27 +214,20 @@ const Billing = () => {
 
   const handleReviewClick = async (p) => {
     setSelectedPayment(p);
+    setTakeoutSummary(null);
     setOrderItems([]);
     setLoadingItems(true);
     setShowRejectForm(false);
     setRejectReason("The receipt image is unclear or details do not match.");
 
     try {
-      const [itemsRes, reservationRes] = await Promise.all([
+      const [itemsRes, takeoutRes] = await Promise.all([
         api.get(`/reservations/${p.reservation_id}/items`),
-        api.get(`/reservations/${p.reservation_id}`).catch(() => null)
+        api.get(`/reservations/${p.reservation_id}/event-takeout`).catch(() => null),
       ]);
 
       setOrderItems(itemsRes.data);
-
-      if (reservationRes && reservationRes.data) {
-        const details = reservationRes.data.data || reservationRes.data.reservation || reservationRes.data;
-
-        setSelectedPayment((prev) => ({
-          ...prev,
-          ...details
-        }));
-      }
+      setTakeoutSummary(takeoutRes?.data || null);
     } catch (err) {
       console.error("Review loading error:", err);
     } finally {
@@ -976,6 +996,76 @@ const Billing = () => {
                 </div>
               )}
 
+              {takeoutSummary?.takeouts?.length > 0 && (
+                <section className="mt-3 p-3 bg-white border rounded-3">
+                  <div className="d-flex justify-content-between align-items-center mb-2">
+                    <strong className="small text-uppercase">Event Takeout</strong>
+                    <span className="badge bg-light text-dark border">
+                      {String(takeoutSummary.payment_status || "unpaid").toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="small text-muted mb-2">
+                    Package paid: ₱{Number(takeoutSummary.amount_paid || selectedPayment?.amount || 0).toFixed(2)}
+                  </div>
+                  {takeoutSummary.takeouts.map((takeout) => (
+                    <div className="py-2 border-top" key={takeout.takeout_id}>
+                      <div className="d-flex justify-content-between small fw-semibold mb-1">
+                        <span>Request #{takeout.takeout_id}</span>
+                        <span className="text-uppercase">{takeout.status}</span>
+                      </div>
+                      {takeout.items.map((item) => (
+                        <div
+                          className="d-flex justify-content-between gap-2 small text-muted"
+                          key={`${takeout.takeout_id}-${item.item_id}`}
+                        >
+                          <span>{item.name} · ₱{Number(item.unit_price || 0).toFixed(2)} × {item.quantity}</span>
+                          <span className="text-nowrap">₱{Number(item.line_value || 0).toFixed(2)}</span>
+                        </div>
+                      ))}
+                      <div className="d-flex justify-content-between small fw-bold mt-1">
+                        <span>Takeout value</span>
+                        <span>₱{Number(takeout.takeout_value || 0).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="d-flex justify-content-between border-top pt-2 small fw-bold">
+                    <span>Total takeout value · additional payment</span>
+                    <span>₱{Number(takeoutSummary.takeout_value || 0).toFixed(2)} · ₱0.00</span>
+                  </div>
+                </section>
+              )}
+
+              {(() => {
+                const packageName = String(
+                  selectedPayment?.package_name || "",
+                ).toLowerCase();
+                const supportsTakeout =
+                  packageName.includes("standard") ||
+                  packageName.includes("premium");
+                const packagePrice = packageName.includes("premium")
+                  ? 12500
+                  : packageName.includes("standard")
+                    ? 10000
+                    : 0;
+                const isSeated =
+                  String(selectedPayment?.order_status || selectedPayment?.status || "").toLowerCase() === "seated";
+                const packagePaid =
+                  String(selectedPayment?.payment_status || "").toLowerCase() === "verified" &&
+                  Number(selectedPayment?.amount || 0) >= packagePrice;
+
+                return supportsTakeout && isSeated && packagePaid ? (
+                  <button
+                    type="button"
+                    className="btn btn-outline-warning fw-bold w-100 mb-3"
+                    onClick={() =>
+                      setTakeoutReservationId(selectedPayment.reservation_id)
+                    }
+                  >
+                    Manage Event Takeout
+                  </button>
+                ) : null;
+              })()}
+
             </div>
 
             {/* 2. RECEIPT & METADATA SECTION (Dark Background Area)
@@ -1277,6 +1367,24 @@ const Billing = () => {
         )}
       </div>
     </div>
+    {takeoutReservationId && (
+      <EventTakeoutModal
+        reservationId={takeoutReservationId}
+        onClose={async () => {
+          const reservationId = takeoutReservationId;
+          setTakeoutReservationId(null);
+          if (!reservationId) return;
+          try {
+            const response = await api.get(
+              `/reservations/${reservationId}/event-takeout`,
+            );
+            setTakeoutSummary(response.data);
+          } catch {
+            setTakeoutSummary(null);
+          }
+        }}
+      />
+    )}
     </div>
   );
 };

@@ -20,14 +20,18 @@
   width: 100%;
 }
 
-.header-left-group { justify-self: start; }
-.header-center-group { 
-  justify-self: center; 
-  display: flex; 
-  align-items: center; 
-  gap: 15px; 
+.header-left-group {
+  justify-self: start;
 }
-.header-right-group { justify-self: end; }
+.header-center-group {
+  justify-self: center;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+.header-right-group {
+  justify-self: end;
+}
 
 .refill-action-btn {
   background: #ffcc00;
@@ -87,7 +91,7 @@
   color: #ffffff;
   font-size: 22px;
   font-weight: bold;
-  font-family: 'Courier New', monospace;
+  font-family: "Courier New", monospace;
 }
 
 /* Urgent State (Under 10 mins) */
@@ -121,7 +125,7 @@
   color: #ffffff !important;
   font-weight: 900;
   font-size: 16px;
-} 
+}
 
 /* Animations */
 .spin-fast {
@@ -129,14 +133,24 @@
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes pulse-red {
-  0% { opacity: 1; }
-  50% { opacity: 0.6; }
-  100% { opacity: 1; }
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 1;
+  }
 }
 
 /* 1. LOCK CONTAINER TO SCREEN HEIGHT */
@@ -178,7 +192,8 @@
 }
 
 /* Grid Layouts */
-.flavor-grid, .drink-grid {
+.flavor-grid,
+.drink-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 12px;
@@ -255,7 +270,7 @@
 }
 .billing-btn-header {
   background: #28a745 !important; /* Force Green */
-  color: #ffffff !important;      /* Force White text */
+  color: #ffffff !important; /* Force White text */
   border: none !important;
   padding: 12px 20px !important;
   border-radius: 8px !important;
@@ -908,35 +923,183 @@
   background-color: #e6b800;
 }
 
-/* Mobile Responsiveness */
-@media (max-width: 600px) {
-  .kiosk-timer-wrapper {
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 8px;
-    padding: 10px;
+/* ============================================ */
+/* RESPONSIVE FIXES FOR TABLET & MOBILE         */
+/* ============================================ */
+
+/* 1. Tablet & Small Laptops (Up to 1200px) */
+@media (max-width: 1200px) {
+  /* IMPORTANT: Allow the main container to scroll freely */
+  .res-kiosk-container {
+    height: auto;
+    min-height: 100vh;
+    overflow-y: auto;
   }
-  .header-left-group {
-    flex: 1 1 auto;
+
+  /* Switch the main layout to column */
+  .res-main-layout {
+    flex-direction: column;
+    padding: 1rem;
+    gap: 1rem;
+    overflow: visible; /* Remove internal scroll so cards aren't cut off */
+    height: auto;
   }
-  .header-center-group {
-    flex: 1 1 100%;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 8px;
+
+  /* Make the sidebar full width and horizontal */
+  .res-sidebar {
+    width: 100%;
+    height: auto;
+    flex-direction: row;
+    padding: 0;
+    overflow: visible;
+    margin-bottom: 10px;
   }
-  .billing-btn-header {
-    padding: 10px 14px !important;
-    font-size: 12px;
+
+  .res-brand {
+    display: none;
   }
-  .res-card-info {
+
+  .res-category-list {
+    width: 100%;
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 10px;
+    scrollbar-width: thin;
+    scrollbar-color: #ffcc00 transparent;
+  }
+
+  .res-cat-scroll-wrapper {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    height: auto;
+    padding: 5px 0;
+    gap: 0.75rem;
+  }
+
+  .res-cat-btn {
+    flex: 0 0 auto;
+    width: 160px;
+    white-space: nowrap;
+    padding: 0.8rem;
+    font-size: 0.85rem;
+  }
+
+  /* Content area needs to shrink to fit its contents */
+  .res-content-area {
+    overflow: visible;
+    height: auto;
     padding: 1rem;
   }
-  .res-food-label {
-    font-size: 0.95rem;
+
+  /* Product Grid: 3-4 columns */
+  .res-grid-container {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   }
-  .view-details-link {
-    font-size: 0.7rem;
+
+  /* Order Summary: Move it below and remove fixed height */
+  .order-summary-panel {
+    width: 100%;
+    height: auto;
+    max-height: none; /* CRITICAL: Remove max-height so it doesn't force a huge gap */
+    min-height: 200px;
+    margin-top: 1rem;
+    border-radius: var(--radius-lg);
+  }
+
+  /* Bottom Bar Adjustments */
+  .res-bottom-bar {
+    height: auto;
+    padding: 1rem;
+    flex-direction: column;
+    gap: 1rem;
+    border-radius: 1.5rem 1.5rem 0 0;
+    position: relative; /* Ensure it doesn't overlap */
+  }
+
+  .res-action-btns {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .res-btn-cancel,
+  .res-btn-view {
+    flex: 1;
+    padding: 1rem;
+    font-size: 1rem;
+  }
+}
+
+/* 2. Mobile (Up to 768px) */
+@media (max-width: 768px) {
+  /* Header Stack */
+  .kiosk-timer-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+    align-items: stretch;
+  }
+
+  .header-left-group,
+  .header-center-group,
+  .header-right-group {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .header-id-section {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .billing-btn-header,
+  .refill-action-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Product Grid: 2 columns */
+  .res-grid-container {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .res-food-card {
+    border-radius: 1rem;
+  }
+
+  .res-card-image-container {
+    height: 120px;
+  }
+
+  .res-food-img {
+    padding: 10px;
+  }
+
+  .res-card-info {
+    padding: 0.8rem;
+  }
+
+  .res-food-label {
+    font-size: 0.85rem;
+  }
+
+  .res-card-info p {
+    font-size: 0.9rem;
+  }
+}
+
+/* 3. Very Small Mobile (Up to 480px) */
+@media (max-width: 480px) {
+  .res-grid-container {
+    grid-template-columns: 1fr;
+  }
+
+  .res-cat-btn {
+    width: 130px;
+    font-size: 0.75rem;
   }
 }
 
@@ -1087,50 +1250,5 @@
   to {
     opacity: 1;
     transform: scale(1);
-  }
-}
-
-/* --- RESPONSIVE FIXES --- */
-@media (max-width: 1024px) {
-  .res-main-layout {
-    flex-direction: column;
-    overflow-y: auto;
-  }
-  .res-sidebar {
-    width: 100%;
-    height: auto;
-    padding: 1rem;
-  }
-  .res-cat-scroll-wrapper {
-    flex-direction: row !important;
-    overflow-x: auto !important; /* Enable side-swipe */
-    overflow-y: hidden !important;
-    padding: 10px 0;
-    gap: 1rem;
-    height: auto;
-    scrollbar-width: thin; /* Firefox */
-  }
-  .res-cat-btn {
-    flex: 0 0 auto; /* MAGIC LINE: Prevents buttons from shrinking to fit screen */
-    width: 180px; /* Fixed width for buttons in horizontal mode */
-    white-space: nowrap;
-  }
-  .res-brand,
-  .res-scroll-arrow,
-  .res-assist-btn {
-    display: none;
-  }
-}
-
-@media (max-width: 600px) {
-  .res-bottom-bar {
-    height: auto;
-    padding: 1rem;
-    flex-direction: column;
-    gap: 1rem;
-  }
-  .res-action-btns {
-    width: 100%;
-    justify-content: center;
   }
 }

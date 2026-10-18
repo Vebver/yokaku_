@@ -190,9 +190,100 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
   );
 });
 
+const EventTakeoutCard = ({ takeout, onAdvance }) => {
+  const [isLoading, setIsLoading] = useState(false);
+  const statusClass =
+    takeout.status === "requested"
+      ? "pending"
+      : takeout.status === "preparing"
+        ? "preparing"
+        : "ready";
+  const nextStatus =
+    takeout.status === "requested"
+      ? "preparing"
+      : takeout.status === "preparing"
+        ? "ready"
+        : null;
+  const statusLabel =
+    takeout.status === "requested"
+      ? "TAKEOUT REQUESTED"
+      : takeout.status === "preparing"
+        ? "TAKEOUT PREPARING"
+        : "TAKEOUT READY · AWAITING PICKUP";
+
+  const advance = async () => {
+    if (!nextStatus || isLoading) return;
+    setIsLoading(true);
+    try {
+      await onAdvance(takeout.takeout_id, nextStatus);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.96 }}
+      className={`order-card status-${statusClass} event-takeout-ticket`}
+    >
+      <div className="card-header">
+        <div className="table-badge">
+          <span className="table-label">EVENT TAKEOUT</span>
+          <span className="table-id">{takeout.reservation_id}</span>
+        </div>
+        <span className={`event-takeout-ticket-status ${statusClass}`}>
+          {statusLabel}
+        </span>
+      </div>
+      <div className="card-body">
+        <div className="event-takeout-ticket-package">
+          Customer: {takeout.customer_name || "Guest"}
+        </div>
+        <div className="event-takeout-ticket-package">
+          {takeout.package_name || "Reserved event package"}
+        </div>
+        <div className="item-list">
+          {takeout.items.map((item) => (
+            <div className="ticket-item" key={`${takeout.takeout_id}-${item.item_id}`}>
+              <div className="item-main-row">
+                <span className="item-qty">{item.quantity}x</span>
+                <span className="item-name">{item.name}</span>
+              </div>
+              <small className="text-muted">
+                ₱{Number(item.unit_price || 0).toFixed(2)} × {item.quantity} = ₱{Number(item.line_value || 0).toFixed(2)}
+              </small>
+            </div>
+          ))}
+        </div>
+        <div className="event-takeout-ticket-package">
+          Takeout value: ₱{Number(takeout.takeout_value || 0).toFixed(2)}
+        </div>
+      </div>
+      <div className="card-footer">
+        {nextStatus ? (
+          <button
+            className={`btn-action ${nextStatus === "preparing" ? "start" : "ready"}`}
+            onClick={advance}
+            disabled={isLoading}
+          >
+            {isLoading ? <Loader2 size={18} className="spinner-animation" /> :
+              nextStatus === "preparing" ? "START TAKEOUT PREP" : "MARK TAKEOUT READY"}
+          </button>
+        ) : (
+          <div className="event-takeout-awaiting-pickup">Awaiting Cashier / Admin pickup confirmation</div>
+        )}
+      </div>
+    </motion.div>
+  );
+};
+
 // --- MAIN KITCHEN PAGE ---
 const KitchenPage = () => {
   const [orders, setOrders] = useState([]);
+  const [takeouts, setTakeouts] = useState([]);
   const [filter, setFilter] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
   const location = useLocation();
@@ -228,7 +319,13 @@ const KitchenPage = () => {
       setIsLoading(true);
       // The shared `api` instance already carries the /api base URL and the
       // auth header, so pass only the path.
-      const response = await api.get(`/orders/active`);
+      const [response, takeoutResponse] = await Promise.all([
+        api.get(`/orders/active`),
+        api.get(`/orders/event-takeouts/active`).catch((error) => {
+          console.error("Error loading event takeout tickets:", error);
+          return { data: [] };
+        }),
+      ]);
       if (response.data) {
         const formatted = response.data.map((order) => ({
           id: order.id,
@@ -244,6 +341,7 @@ const KitchenPage = () => {
         }));
         setOrders(formatted);
       }
+      setTakeouts(takeoutResponse.data || []);
     } catch (error) {
       console.error("Error loading orders:", error);
     } finally {
@@ -255,9 +353,11 @@ const KitchenPage = () => {
     loadActiveOrders();
     socket.on("send_order", loadActiveOrders);
     socket.on("order_status_updated", loadActiveOrders);
+    socket.on("event_takeout_updated", loadActiveOrders);
     return () => {
       socket.off("send_order");
       socket.off("order_status_updated");
+      socket.off("event_takeout_updated", loadActiveOrders);
     };
   }, []);
 
@@ -271,9 +371,32 @@ const KitchenPage = () => {
     }
   };
 
+  const updateTakeoutStatus = async (id, newStatus) => {
+    try {
+      await api.put(`/orders/event-takeouts/${id}/status`, {
+        status: newStatus,
+      });
+      await loadActiveOrders();
+    } catch (error) {
+      showToast(error.response?.data?.error || "Takeout update failed.");
+    }
+  };
+
   const filteredOrders = orders.filter(
     (o) => filter === "all" || o.status === filter,
   );
+  const filteredTakeouts = takeouts.filter((takeout) => {
+    const status = takeout.status === "requested" ? "pending" : takeout.status;
+    return filter === "all" || status === filter;
+  });
+  const getFilterCount = (status) => {
+    if (status === "all") return orders.length + takeouts.length;
+    const takeoutStatus = status === "pending" ? "requested" : status;
+    return (
+      orders.filter((order) => order.status === status).length +
+      takeouts.filter((takeout) => takeout.status === takeoutStatus).length
+    );
+  };
 
   return (
     <div className="kitchen-wrapper">
@@ -284,25 +407,6 @@ const KitchenPage = () => {
             className="logo-section"
             style={{ display: "flex", alignItems: "center", gap: "15px" }}
           >
-            {/* STYLIZED "H" LOGO BOX */}
-            <div
-              style={{
-                width: "42px",
-                height: "42px",
-                backgroundColor: "#ffcc00", // Brand orange
-                color: "white",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: "10px",
-                fontSize: "1.8rem",
-                fontWeight: "900",
-                fontFamily: "'Inter', sans-serif",
-                boxShadow: "0 2px 10px rgba(243, 141, 49, 0.3)",
-              }}
-            >
-              H
-            </div>
 
             <div>
               <h1
@@ -316,18 +420,6 @@ const KitchenPage = () => {
               >
                 HANGOUT KITCHEN
               </h1>
-              <div
-                className="live-status"
-                style={{
-                  fontSize: "0.65rem",
-                  color: "#4ade80",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "5px",
-                }}
-              >
-                <span className="dot"></span> LIVE MONITORING
-              </div>
             </div>
           </div>
         </div>
@@ -342,11 +434,7 @@ const KitchenPage = () => {
                 aria-pressed={filter === f}
               >
                 {f === "all" ? "ALL" : f.toUpperCase()}
-                <span className="count-pill">
-                  {f === "all"
-                    ? orders.length
-                    : orders.filter((o) => o.status === f).length}
-                </span>
+                <span className="count-pill">{getFilterCount(f)}</span>
               </button>
             ))}
           </div>
@@ -386,18 +474,38 @@ const KitchenPage = () => {
             <h3>LOADING TICKETS</h3>
             <p>Pulling the latest orders from the floor...</p>
           </div>
-        ) : filteredOrders.length > 0 ? (
-          <div className="order-grid">
-            <AnimatePresence mode="popLayout">
-              {filteredOrders.map((order) => (
-                <OrderCard
-                  key={order.id}
-                  order={order}
-                  onUpdateStatus={updateStatus}
-                />
-              ))}
-            </AnimatePresence>
-          </div>
+        ) : filteredOrders.length > 0 || filteredTakeouts.length > 0 ? (
+          <>
+            {filteredOrders.length > 0 && (
+              <div className="order-grid">
+                <AnimatePresence mode="popLayout">
+                  {filteredOrders.map((order) => (
+                    <OrderCard
+                      key={order.id}
+                      order={order}
+                      onUpdateStatus={updateStatus}
+                    />
+                  ))}
+                </AnimatePresence>
+              </div>
+            )}
+            {filteredTakeouts.length > 0 && (
+              <section className="event-takeout-kitchen-section">
+                <h2>EVENT TAKEOUTS</h2>
+                <div className="order-grid">
+                  <AnimatePresence mode="popLayout">
+                    {filteredTakeouts.map((takeout) => (
+                      <EventTakeoutCard
+                        key={`takeout-${takeout.takeout_id}`}
+                        takeout={takeout}
+                        onAdvance={updateTakeoutStatus}
+                      />
+                    ))}
+                  </AnimatePresence>
+                </div>
+              </section>
+            )}
+          </>
         ) : (
           <div className="empty-state">
             <CheckCircle2 size={60} color="#ccc" />

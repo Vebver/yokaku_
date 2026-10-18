@@ -134,6 +134,75 @@
   transform: scale(1.1);
 }
 
+.inventory-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1px solid #f38d31;
+  border-radius: 8px;
+  background: #f38d31;
+  color: #111;
+  font-size: 0.78rem;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.inventory-nav-btn:hover {
+  background: #ffad5c;
+  border-color: #ffad5c;
+  transform: translateY(-1px);
+}
+
+.inventory-nav-btn:active {
+  transform: translateY(0);
+}
+
+.inventory-nav-btn:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
+
+.kitchen-nav-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1px solid #f38d31;
+  border-radius: 8px;
+  background: transparent;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.kitchen-nav-back:hover {
+  background: #f38d31;
+}
+
+.kitchen-inventory-mark {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: #ffcc00;
+  color: #111;
+  font-size: 1.8rem;
+  font-weight: 900;
+}
+
 /* --------------------------------------------------------------------------
    Tablets / phones: stack the bar so the filter tabs get a full-width row.
    -------------------------------------------------------------------------- */
@@ -168,9 +237,19 @@
     border-right: none;
     padding-right: 0;
   }
+
+  .kitchen-inventory-navbar .nav-right {
+    margin-left: auto;
+  }
 }
 
 @media (max-width: 576px) {
+  .inventory-nav-btn {
+    min-height: 38px;
+    padding: 8px 10px;
+    font-size: 0.7rem;
+  }
+
   .brand-name {
     font-size: 1rem;
   }

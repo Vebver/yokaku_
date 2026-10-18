@@ -25,6 +25,12 @@ import {
   Table,
   Calendar as CalendarIcon,
   Gift,
+  Tv,
+  Music,
+  Wifi,
+  Wind,
+  Cake,
+  Car,
 } from "lucide-react";
 import StepProgress from "./StepProgress";
 import "../Style/TableReservation.css";
@@ -55,6 +61,10 @@ import {
 } from "./TableReservationSpinners";
 import { useSocket, useAddressData } from "./TableReservationHooks";
 import { API_BASE } from "../api";
+import { useNavigate } from "react-router-dom";
+
+const RESERVATION_DRAFT_VERSION = "v2";
+const RESERVATION_DRAFT_KEY = `reservationDraft_${RESERVATION_DRAFT_VERSION}`;
 
 // Dynamic steps based on reservation type
 const getSteps = (reservationType) => {
@@ -71,40 +81,71 @@ const getSteps = (reservationType) => {
 export default function ReservationSteps({ onClose, onSuccess }) {
   // ============ STATE ============
   const { showToast } = useToast();
+  const navigate = useNavigate();
+
+  // ============ PERSISTENCE HELPERS ============
+  // Load saved draft from sessionStorage ONCE at mount time
+  const getSavedDraft = () => {
+    try {
+      const saved = sessionStorage.getItem(RESERVATION_DRAFT_KEY);
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  };
+  const savedDraft = getSavedDraft();
+
   const [tables, setTables] = useState(TABLES_DATA);
-  const [reservationType, setReservationType] = useState(null);
-  const [agreeToTerms, setAgreeToTerms] = useState(false);
-  const [selectedId, setSelectedId] = useState(null);
-  const [linkedIds, setLinkedIds] = useState([]);
-  const [selectedItems, setSelectedItems] = useState([]);
+
+  const [reservationType, setReservationType] = useState(
+    savedDraft?.reservationType || null,
+  );
+
+  const [agreeToTerms, setAgreeToTerms] = useState(
+    savedDraft?.agreeToTerms || false,
+  );
+
+  const [selectedId, setSelectedId] = useState(savedDraft?.selectedId || null);
+  const [linkedIds, setLinkedIds] = useState(savedDraft?.linkedIds || []);
+
+  const [selectedItems, setSelectedItems] = useState(
+    savedDraft?.selectedItems || [],
+  );
+
   const [isLinkMode, setIsLinkMode] = useState(false);
   const [showOngoingWarning, setShowOngoingWarning] = useState(null);
-  const [paymentMethod, setPaymentMethod] = useState(null);
+
+  const [paymentMethod, setPaymentMethod] = useState(
+    savedDraft?.paymentMethod || null,
+  );
   const [blockedDates, setBlockedDates] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDateLoading, setIsDateLoading] = useState(false);
   const [isFormLoading, setIsFormLoading] = useState(true);
   const [tableSchedules, setTableSchedules] = useState({});
   const [data, setData] = useState({ occupied: {}, schedule: [] });
-  const [calendarMonth, setCalendarMonth] = useState(new Date());
+
+  const [calendarMonth, setCalendarMonth] = useState(
+    savedDraft?.calendarMonth ? new Date(savedDraft.calendarMonth) : new Date(),
+  );
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [showYearPicker, setShowYearPicker] = useState(false);
-  const [selectedReservationDate, setSelectedReservationDate] = useState(null);
+
+  const [selectedReservationDate, setSelectedReservationDate] = useState(
+    savedDraft?.selectedReservationDate || null,
+  );
+
   const [reservationsForDate, setReservationsForDate] = useState([]);
   const [isLoadingReservations, setIsLoadingReservations] = useState(false);
   const [dateReservationCounts, setDateReservationCounts] = useState({});
   const [allReservationsByDate, setAllReservationsByDate] = useState({});
   const [receiptFile, setReceiptFile] = useState(null);
-  const [downpaymentPercentage, setDownpaymentPercentage] = useState(20);
-  const [selectedPackage, setSelectedPackage] = useState(null);
-
-  // ===== Event package meal distribution =====
-  // The package's included meal count is the single source of truth. Dine-In
-  // and Take-Out allocations are tracked separately but must always sum to no
-  // more than the package limit. foodPreference drives which controls show.
-  const [foodPreference, setFoodPreference] = useState("dinein");
-  const [dineInCount, setDineInCount] = useState("");
-  const [takeOutCount, setTakeOutCount] = useState("");
+  const [downpaymentPercentage, setDownpaymentPercentage] = useState(
+    savedDraft?.downpaymentPercentage || 20,
+  );
+  const [selectedPackage, setSelectedPackage] = useState(
+    savedDraft?.selectedPackage || null,
+  );
 
   const [currentMinutes, setCurrentMinutes] = useState(() => {
     const now = new Date();
@@ -125,25 +166,31 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     return () => clearInterval(interval);
   }, []);
 
-  const [form, setForm] = useState({
-    date: "",
-    startTime: "",
-    endTime: "",
-    muni: "",
-    brgy: "",
-    allergy: "None",
-    customAllergy: "",
-    occasion: "Casual Dining",
-    customOccasion: "",
-    allergyCount: "",
-  });
+  // Form data
+  const [form, setForm] = useState(
+    savedDraft?.form || {
+      date: "",
+      startTime: "",
+      endTime: "",
+      muni: "",
+      brgy: "",
+      allergy: "None",
+      customAllergy: "",
+      occasion: "Casual Dining",
+      customOccasion: "",
+      allergyCount: "",
+    },
+  );
 
-  const [user, setUser] = useState({
-    firstName: localStorage.getItem("firstName") || "",
-    lastName: localStorage.getItem("lastName") || "",
-    email: localStorage.getItem("email") || "",
-    phone: "09",
-  });
+  // User data (merge with localStorage defaults if no draft)
+  const [user, setUser] = useState(
+    savedDraft?.user || {
+      firstName: localStorage.getItem("firstName") || "",
+      lastName: localStorage.getItem("lastName") || "",
+      email: localStorage.getItem("email") || "",
+      phone: "09",
+    },
+  );
 
   const [ui, setUi] = useState({
     loading: false,
@@ -159,9 +206,66 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   const isEmailValid = /^\S+@\S+\.\S+$/.test(user.email);
   const isPhoneValid = user.phone.length === 11 && user.phone.startsWith("09");
 
-  const [currentStep, setCurrentStep] = useState(0);
-  const [completedSteps, setCompletedSteps] = useState([]);
+  // Current step and completed steps
+  const [currentStep, setCurrentStep] = useState(savedDraft?.currentStep || 0);
+  const [completedSteps, setCompletedSteps] = useState(
+    savedDraft?.completedSteps || [],
+  );
 
+  // ============ SESSION STORAGE CLEANUP ============
+  // If a user has an old draft from before the UI update, delete it.
+  useEffect(() => {
+    const legacyDraft = sessionStorage.getItem("reservationDraft");
+    if (legacyDraft) {
+      sessionStorage.removeItem("reservationDraft");
+      console.log("Cleared legacy reservation draft.");
+    }
+  }, []);
+
+  // ============ SAVE STATE TO SESSION STORAGE ============
+  // Persist the reservation draft whenever any relevant state changes.
+  useEffect(() => {
+    // Don't save if we haven't started anything yet
+    if (!reservationType && currentStep === 0) return;
+
+    const draft = {
+      reservationType,
+      agreeToTerms,
+      selectedId,
+      linkedIds,
+      selectedItems,
+      paymentMethod,
+      calendarMonth: calendarMonth.toISOString(),
+      selectedReservationDate,
+      downpaymentPercentage,
+      selectedPackage,
+      form,
+      user,
+      currentStep,
+      completedSteps,
+    };
+
+    try {
+      sessionStorage.setItem(RESERVATION_DRAFT_KEY, JSON.stringify(draft));
+    } catch (e) {
+      console.error("Failed to save reservation draft:", e);
+    }
+  }, [
+    reservationType,
+    agreeToTerms,
+    selectedId,
+    linkedIds,
+    selectedItems,
+    paymentMethod,
+    calendarMonth,
+    selectedReservationDate,
+    downpaymentPercentage,
+    selectedPackage,
+    form,
+    user,
+    currentStep,
+    completedSteps,
+  ]);
   const socket = useSocket();
   const { addressData, fetchBarangays } = useAddressData();
   const todayStr = new Date().toLocaleDateString("en-CA");
@@ -683,7 +787,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
             hasItems,
             termsAgreed,
             meetsDownpaymentRequirement,
-            mealDistributionValid,
             durationHours: orderSummary.durationHours,
             downpayment: orderSummary.downpayment,
             required: orderSummary.requiredMinimumDownpayment,
@@ -695,12 +798,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
             })),
           });
 
-          return (
-            hasItems &&
-            termsAgreed &&
-            meetsDownpaymentRequirement &&
-            mealDistributionValid
-          );
+          return hasItems && termsAgreed && meetsDownpaymentRequirement;
         } else {
           // Your Details step for per_table
           const isStartTimeValid = form.startTime && form.startTime !== "";
@@ -1113,50 +1211,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
   // ===== Event package meal distribution =====
   // Each package advertises a number of included meals. That number is the
   // hard cap for (Dine-In + Take-Out) allocations.
-  const PACKAGE_MEAL_LIMITS = {
-    standard: 20,
-    premium: 20,
-  };
-  const packageMealLimit = selectedPackage
-    ? PACKAGE_MEAL_LIMITS[selectedPackage] || 0
-    : 0;
-
-  const mealDistribution = useMemo(() => {
-    const dineIn = parseInt(dineInCount, 10) || 0;
-    const takeOut = parseInt(takeOutCount, 10) || 0;
-    // "All Dine-In" / "All Take-Out" lock the allocation to the full limit.
-    let d = dineIn;
-    let t = takeOut;
-    if (foodPreference === "dinein") {
-      d = packageMealLimit;
-      t = 0;
-    } else if (foodPreference === "takeout") {
-      d = 0;
-      t = packageMealLimit;
-    }
-    const total = d + t;
-    const remaining = packageMealLimit - total;
-    const over = total > packageMealLimit;
-    const complete = packageMealLimit > 0 && total === packageMealLimit;
-    return {
-      dineIn: d,
-      takeOut: t,
-      total,
-      remaining,
-      over,
-      overBy: over ? total - packageMealLimit : 0,
-      complete,
-      limit: packageMealLimit,
-    };
-  }, [dineInCount, takeOutCount, foodPreference, packageMealLimit]);
-
-  const mealDistributionValid = useMemo(() => {
-    if (!selectedPackage) return true; // no package yet — nothing to enforce
-    if (foodPreference === "dinein" || foodPreference === "takeout")
-      return true;
-    // Mixed: the total must land exactly on the package limit.
-    return mealDistribution.total === packageMealLimit;
-  }, [selectedPackage, foodPreference, mealDistribution, packageMealLimit]);
 
   const tableIdsArray = useMemo(
     () => [selectedId, ...linkedIds].filter((id) => id !== null),
@@ -1222,16 +1276,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       allergy: getFinalAllergy,
       allergyCount: form.allergyCount || "0",
       occasion: getFinalOccasion,
-      // Event package meal allocation, shown in the summary so the customer
-      // can confirm exactly how the package is split before paying.
-      foodPreference: foodPreference,
-      packageName: selectedPackage
-        ? selectedPackage === "standard"
-          ? "Standard Package"
-          : "Premium Package"
-        : "",
-      packageMealLimit: packageMealLimit,
-      mealDistribution: mealDistribution,
     }),
     [
       user,
@@ -1246,9 +1290,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       addressData,
       getFinalAllergy,
       getFinalOccasion,
-      foodPreference,
-      packageMealLimit,
-      mealDistribution,
       selectedPackage,
     ],
   );
@@ -1588,7 +1629,10 @@ export default function ReservationSteps({ onClose, onSuccess }) {
     }
   }, [form.startTime, reservationType]);
 
-  const handleBackButton = () => onClose();
+  const handleBackButton = () => {
+    sessionStorage.removeItem(RESERVATION_DRAFT_KEY); // ✅ Clear draft on cancel
+    onClose();
+  };
 
   const onTableClick = (table) => {
     if (table.status === "maintenance") {
@@ -1643,7 +1687,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       let guestCount = 0;
 
       if (reservationType === "event") {
-        guestCount = 35; // Fixed capacity for events
+        guestCount = 40; // Fixed capacity for events
       } else {
         const submittedGuestCount = parseInt(form.num_guests);
         if (submittedGuestCount > 0) {
@@ -1736,6 +1780,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       const month = calendarMonth.getMonth();
       await fetchAllReservationsForMonth(year, month);
       onSuccess(res.data.id);
+      sessionStorage.removeItem(RESERVATION_DRAFT_KEY); // ✅ Clear draft on success
     } catch (e) {
       console.error("Booking Error:", e.response?.data || e.message);
       showToast(e.response?.data?.message || "Table Selection Error.");
@@ -1821,411 +1866,442 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       case 1:
         return (
           <div className="step-content step-date">
-            <div className="calendar-container">
-              <div className="calendar-header">
-                <button
-                  type="button"
-                  className="calendar-nav-btn"
-                  onClick={() => {
-                    const newDate = new Date(calendarMonth);
-                    newDate.setMonth(newDate.getMonth() - 1);
-                    setCalendarMonth(newDate);
-                  }}
-                >
-                  <ChevronLeft size={18} />
-                </button>
-                <div className="calendar-month-year-container">
-                  <div className="calendar-month-year">
+            {/* New wrapper for side-by-side layout */}
+            <div
+              className={`calendar-details-wrapper ${
+                selectedReservationDate && selectedReservationDate === form.date
+                  ? "has-selection"
+                  : "no-selection"
+              }`}
+            >
+              {/* Left Column: Calendar */}
+              <div className="calendar-column">
+                <div className="calendar-container">
+                  <div className="calendar-header">
                     <button
                       type="button"
-                      className="calendar-month-btn"
+                      className="calendar-nav-btn"
                       onClick={() => {
-                        setShowMonthPicker(!showMonthPicker);
-                        setShowYearPicker(false);
+                        const newDate = new Date(calendarMonth);
+                        newDate.setMonth(newDate.getMonth() - 1);
+                        setCalendarMonth(newDate);
                       }}
                     >
-                      {calendarMonth.toLocaleString("default", {
-                        month: "long",
-                      })}
-                      <span className="calendar-dropdown-arrow">▼</span>
+                      <ChevronLeft size={18} />
                     </button>
-                    <button
-                      type="button"
-                      className="calendar-year-btn"
-                      onClick={() => {
-                        setShowYearPicker(!showYearPicker);
-                        setShowMonthPicker(false);
-                      }}
-                    >
-                      {calendarMonth.getFullYear()}
-                      <span className="calendar-dropdown-arrow">▼</span>
-                    </button>
-                  </div>
-                  {showMonthPicker && (
-                    <div className="calendar-month-picker">
-                      {[
-                        "January",
-                        "February",
-                        "March",
-                        "April",
-                        "May",
-                        "June",
-                        "July",
-                        "August",
-                        "September",
-                        "October",
-                        "November",
-                        "December",
-                      ].map((month, index) => (
+                    <div className="calendar-month-year-container">
+                      <div className="calendar-month-year">
                         <button
-                          key={month}
                           type="button"
-                          className={`calendar-month-option ${calendarMonth.getMonth() === index ? "active" : ""}`}
+                          className="calendar-month-btn"
                           onClick={() => {
-                            const newDate = new Date(calendarMonth);
-                            newDate.setMonth(index);
-                            setCalendarMonth(newDate);
+                            setShowMonthPicker(!showMonthPicker);
+                            setShowYearPicker(false);
+                          }}
+                        >
+                          {calendarMonth.toLocaleString("default", {
+                            month: "long",
+                          })}
+                          <span className="calendar-dropdown-arrow">▼</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="calendar-year-btn"
+                          onClick={() => {
+                            setShowYearPicker(!showYearPicker);
                             setShowMonthPicker(false);
                           }}
                         >
-                          {month}
+                          {calendarMonth.getFullYear()}
+                          <span className="calendar-dropdown-arrow">▼</span>
                         </button>
-                      ))}
-                    </div>
-                  )}
-                  {showYearPicker && (
-                    <div className="calendar-year-picker">
-                      <div className="calendar-year-scroll">
-                        {(() => {
-                          const currentYear = new Date().getFullYear();
-                          const years = [];
-                          for (
-                            let i = currentYear - 5;
-                            i <= currentYear + 10;
-                            i++
-                          )
-                            years.push(i);
-                          return years.map((year) => (
+                      </div>
+                      {showMonthPicker && (
+                        <div className="calendar-month-picker">
+                          {[
+                            "January",
+                            "February",
+                            "March",
+                            "April",
+                            "May",
+                            "June",
+                            "July",
+                            "August",
+                            "September",
+                            "October",
+                            "November",
+                            "December",
+                          ].map((month, index) => (
                             <button
-                              key={year}
+                              key={month}
                               type="button"
-                              className={`calendar-year-option ${calendarMonth.getFullYear() === year ? "active" : ""}`}
+                              className={`calendar-month-option ${calendarMonth.getMonth() === index ? "active" : ""}`}
                               onClick={() => {
                                 const newDate = new Date(calendarMonth);
-                                newDate.setFullYear(year);
+                                newDate.setMonth(index);
                                 setCalendarMonth(newDate);
-                                setShowYearPicker(false);
+                                setShowMonthPicker(false);
                               }}
                             >
-                              {year}
+                              {month}
                             </button>
-                          ));
-                        })()}
-                      </div>
+                          ))}
+                        </div>
+                      )}
+                      {showYearPicker && (
+                        <div className="calendar-year-picker">
+                          <div className="calendar-year-scroll">
+                            {(() => {
+                              const currentYear = new Date().getFullYear();
+                              const years = [];
+                              for (
+                                let i = currentYear - 5;
+                                i <= currentYear + 10;
+                                i++
+                              )
+                                years.push(i);
+                              return years.map((year) => (
+                                <button
+                                  key={year}
+                                  type="button"
+                                  className={`calendar-year-option ${calendarMonth.getFullYear() === year ? "active" : ""}`}
+                                  onClick={() => {
+                                    const newDate = new Date(calendarMonth);
+                                    newDate.setFullYear(year);
+                                    setCalendarMonth(newDate);
+                                    setShowYearPicker(false);
+                                  }}
+                                >
+                                  {year}
+                                </button>
+                              ));
+                            })()}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  className="calendar-nav-btn"
-                  onClick={() => {
-                    const newDate = new Date(calendarMonth);
-                    newDate.setMonth(newDate.getMonth() + 1);
-                    setCalendarMonth(newDate);
-                  }}
-                >
-                  <ChevronRight size={18} />
-                </button>
-              </div>
-              <div className="calendar-legend">
-                <div className="calendar-legend-item">
-                  <div className="calendar-legend-dot normal"></div>
-                  <span>Available</span>
-                </div>
-                <div className="calendar-legend-item">
-                  <div className="calendar-legend-dot has-reservations"></div>
-                  <span>Has Reservation(s)</span>
-                </div>
-                <div className="calendar-legend-item">
-                  <div className="calendar-legend-dot fully-booked"></div>
-                  <span>Fully Booked</span>
-                </div>
-                <div className="calendar-legend-item">
-                  <div className="calendar-legend-dot blocked"></div>
-                  <span>Closed</span>
-                </div>
-                <div className="calendar-legend-item">
-                  <div className="calendar-legend-dot selected"></div>
-                  <span>Selected</span>
-                </div>
-              </div>
-              <div className="calendar-weekdays">
-                {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
-                  <div key={day} className="calendar-weekday">
-                    {day}
-                  </div>
-                ))}
-              </div>
-              <div className="calendar-days">
-                {(() => {
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
-                  const year = calendarMonth.getFullYear();
-                  const month = calendarMonth.getMonth();
-                  const firstDayOfMonth = new Date(year, month, 1);
-                  const startDayOfWeek = firstDayOfMonth.getDay();
-                  const daysInMonth = new Date(year, month + 1, 0).getDate();
-                  const calendarDays = [];
-                  const prevMonthDays = new Date(year, month, 0).getDate();
-
-                  const isPerTable = reservationType === "per_table";
-                  const isEventFlow = reservationType === "event";
-
-                  // Calculate min allowed date for EVENT (2 weeks from today)
-                  const minEventDate = new Date();
-                  minEventDate.setHours(0, 0, 0, 0);
-                  minEventDate.setDate(minEventDate.getDate() + 14); // 2 weeks from now
-
-                  for (let i = startDayOfWeek - 1; i >= 0; i--) {
-                    const dayNum = prevMonthDays - i;
-                    const date = new Date(year, month - 1, dayNum);
-                    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-                    const isTimeClosed = isDateClosedByTime(
-                      dateStr,
-                      currentMinutes,
-                    );
-                    const currentDate = new Date(dateStr);
-                    currentDate.setHours(0, 0, 0, 0);
-                    const isFutureDate = currentDate > today;
-                    const isEventDateValid = isEventFlow
-                      ? currentDate.getTime() >= minEventDate.getTime()
-                      : true;
-                    const isDisabledForPerTable = isPerTable && false; // ← FIX: No future date restriction
-                    const isDisabledForEvent = isEventFlow && !isEventDateValid;
-                    const isDisabled =
-                      isDisabledForPerTable || isDisabledForEvent;
-
-                    calendarDays.push({
-                      day: dayNum,
-                      date: dateStr,
-                      isCurrentMonth: false,
-                      isToday: dateStr === today.toISOString().split("T")[0],
-                      isSelected: form.date === dateStr,
-                      isBlocked: blockedDates.includes(dateStr) || isTimeClosed,
-                      isPast: date < today,
-                      isTimeClosed,
-                      isDisabled,
-                    });
-                  }
-
-                  for (let i = 1; i <= daysInMonth; i++) {
-                    const date = new Date(year, month, i);
-                    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-                    const reservationCount =
-                      getActiveReservationCountForDate(dateStr);
-                    const isFullyBooked = isDateFullyBooked(dateStr);
-                    const isTimeClosed = isDateClosedByTime(
-                      dateStr,
-                      currentMinutes,
-                    );
-                    const currentDate = new Date(dateStr);
-                    currentDate.setHours(0, 0, 0, 0);
-                    const isFutureDate = currentDate > today;
-                    const isEventDateValid = isEventFlow
-                      ? currentDate.getTime() >= minEventDate.getTime()
-                      : true;
-                    const isDisabledForPerTable = isPerTable && false; // ← FIX: No future date restriction
-                    const isDisabledForEvent = isEventFlow && !isEventDateValid;
-                    const isDisabled =
-                      isDisabledForPerTable || isDisabledForEvent;
-
-                    calendarDays.push({
-                      day: i,
-                      date: dateStr,
-                      isCurrentMonth: true,
-                      isToday: dateStr === today.toISOString().split("T")[0],
-                      isSelected: form.date === dateStr,
-                      isBlocked: blockedDates.includes(dateStr) || isTimeClosed,
-                      isPast: date < today,
-                      isTimeClosed,
-                      reservationCount,
-                      isFullyBooked,
-                      hasReservations: reservationCount > 0 && !isFullyBooked,
-                      isDisabled,
-                    });
-                  }
-
-                  const remainingCells = 42 - calendarDays.length;
-                  for (let i = 1; i <= remainingCells; i++) {
-                    const date = new Date(year, month + 1, i);
-                    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-                    const isTimeClosed = isDateClosedByTime(
-                      dateStr,
-                      currentMinutes,
-                    );
-                    const currentDate = new Date(dateStr);
-                    currentDate.setHours(0, 0, 0, 0);
-                    const isFutureDate = currentDate > today;
-                    const isEventDateValid = isEventFlow
-                      ? currentDate.getTime() >= minEventDate.getTime()
-                      : true;
-                    const isDisabledForPerTable = isPerTable && false; // ← FIX: No future date restriction
-                    const isDisabledForEvent = isEventFlow && !isEventDateValid;
-                    const isDisabled =
-                      isDisabledForPerTable || isDisabledForEvent;
-
-                    calendarDays.push({
-                      day: i,
-                      date: dateStr,
-                      isCurrentMonth: false,
-                      isToday: dateStr === today.toISOString().split("T")[0],
-                      isSelected: form.date === dateStr,
-                      isBlocked: blockedDates.includes(dateStr) || isTimeClosed,
-                      isPast: date < today,
-                      isTimeClosed,
-                      isDisabled,
-                    });
-                  }
-                  return calendarDays.map((day, idx) => (
                     <button
-                      key={idx}
                       type="button"
-                      className={`calendar-day ${day.isSelected ? "selected" : ""} ${day.isBlocked ? "blocked" : ""} ${day.isToday ? "today" : ""} ${!day.isCurrentMonth ? "other-month" : ""} ${day.isPast && !day.isSelected ? "past" : ""} ${day.isTimeClosed && !day.isSelected ? "time-closed" : ""} ${day.hasReservations && !day.isSelected && !day.isBlocked ? "has-reservations" : ""} ${day.isFullyBooked && !day.isSelected && !day.isBlocked ? "fully-booked" : ""} ${day.isDisabled && reservationType === "per_table" ? "per-table-disabled" : ""} ${day.isDisabled && reservationType === "event" ? "event-disabled" : ""}`}
-                      disabled={
-                        day.isBlocked ||
-                        (day.isPast && !day.isSelected) ||
-                        day.isTimeClosed ||
-                        day.isDisabled
-                      }
-                      onClick={async () => {
-                        if (
-                          !day.isBlocked &&
-                          !(day.isPast && !day.isSelected) &&
-                          !day.isTimeClosed &&
-                          !day.isDisabled
-                        ) {
-                          const syntheticEvent = {
-                            target: { name: "date", value: day.date },
-                          };
-                          const isBlocked = handleDateSelection(syntheticEvent);
-                          if (!isBlocked) {
-                            setSelectedId(null);
-                            setLinkedIds([]);
-                            setForm((prev) => ({
-                              ...prev,
-                              startTime: "",
-                              endTime: "",
-                              num_guests: "",
-                            }));
-                            setSelectedReservationDate(day.date);
-                            await fetchReservationsForDate(day.date);
-                          }
-                        }
+                      className="calendar-nav-btn"
+                      onClick={() => {
+                        const newDate = new Date(calendarMonth);
+                        newDate.setMonth(newDate.getMonth() + 1);
+                        setCalendarMonth(newDate);
                       }}
                     >
-                      <span className="calendar-day-number">{day.day}</span>
-                      {day.hasReservations && day.reservationCount > 0 && (
-                        <span className="calendar-reservation-badge">
-                          {day.reservationCount}{" "}
-                          {day.reservationCount === 1 ? "Res" : "Res"}
-                        </span>
-                      )}
-                      {day.isFullyBooked && (
-                        <span className="calendar-reservation-badge full">
-                          Full
-                        </span>
-                      )}
-                      {day.isBlocked && (
-                        <span className="calendar-blocked-dot"></span>
-                      )}
+                      <ChevronRight size={18} />
                     </button>
-                  ));
-                })()}
+                  </div>
+                  <div className="calendar-legend">
+                    <div className="calendar-legend-item">
+                      <div className="calendar-legend-dot normal"></div>
+                      <span>Available</span>
+                    </div>
+                    <div className="calendar-legend-item">
+                      <div className="calendar-legend-dot has-reservations"></div>
+                      <span>Has Reservation(s)</span>
+                    </div>
+                    <div className="calendar-legend-item">
+                      <div className="calendar-legend-dot fully-booked"></div>
+                      <span>Fully Booked</span>
+                    </div>
+                    <div className="calendar-legend-item">
+                      <div className="calendar-legend-dot blocked"></div>
+                      <span>Closed</span>
+                    </div>
+                    <div className="calendar-legend-item">
+                      <div className="calendar-legend-dot selected"></div>
+                      <span>Selected</span>
+                    </div>
+                  </div>
+                  <div className="calendar-weekdays">
+                    {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
+                      <div key={day} className="calendar-weekday">
+                        {day}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="calendar-days">
+                    {(() => {
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      const year = calendarMonth.getFullYear();
+                      const month = calendarMonth.getMonth();
+                      const firstDayOfMonth = new Date(year, month, 1);
+                      const startDayOfWeek = firstDayOfMonth.getDay();
+                      const daysInMonth = new Date(
+                        year,
+                        month + 1,
+                        0,
+                      ).getDate();
+                      const calendarDays = [];
+                      const prevMonthDays = new Date(year, month, 0).getDate();
+
+                      const isPerTable = reservationType === "per_table";
+                      const isEventFlow = reservationType === "event";
+
+                      // Calculate min allowed date for EVENT (2 weeks from today)
+                      const minEventDate = new Date();
+                      minEventDate.setHours(0, 0, 0, 0);
+                      minEventDate.setDate(minEventDate.getDate() + 14); // 2 weeks from now
+
+                      for (let i = startDayOfWeek - 1; i >= 0; i--) {
+                        const dayNum = prevMonthDays - i;
+                        const date = new Date(year, month - 1, dayNum);
+                        const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+                        const isTimeClosed = isDateClosedByTime(
+                          dateStr,
+                          currentMinutes,
+                        );
+                        const currentDate = new Date(dateStr);
+                        currentDate.setHours(0, 0, 0, 0);
+                        const isFutureDate = currentDate > today;
+                        const isEventDateValid = isEventFlow
+                          ? currentDate.getTime() >= minEventDate.getTime()
+                          : true;
+                        const isDisabledForPerTable = isPerTable && false; // ← FIX: No future date restriction
+                        const isDisabledForEvent =
+                          isEventFlow && !isEventDateValid;
+                        const isDisabled =
+                          isDisabledForPerTable || isDisabledForEvent;
+
+                        calendarDays.push({
+                          day: dayNum,
+                          date: dateStr,
+                          isCurrentMonth: false,
+                          isToday:
+                            dateStr === today.toISOString().split("T")[0],
+                          isSelected: form.date === dateStr,
+                          isBlocked:
+                            blockedDates.includes(dateStr) || isTimeClosed,
+                          isPast: date < today,
+                          isTimeClosed,
+                          isDisabled,
+                        });
+                      }
+
+                      for (let i = 1; i <= daysInMonth; i++) {
+                        const date = new Date(year, month, i);
+                        const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+                        const reservationCount =
+                          getActiveReservationCountForDate(dateStr);
+                        const isFullyBooked = isDateFullyBooked(dateStr);
+                        const isTimeClosed = isDateClosedByTime(
+                          dateStr,
+                          currentMinutes,
+                        );
+                        const currentDate = new Date(dateStr);
+                        currentDate.setHours(0, 0, 0, 0);
+                        const isFutureDate = currentDate > today;
+                        const isEventDateValid = isEventFlow
+                          ? currentDate.getTime() >= minEventDate.getTime()
+                          : true;
+                        const isDisabledForPerTable = isPerTable && false; // ← FIX: No future date restriction
+                        const isDisabledForEvent =
+                          isEventFlow && !isEventDateValid;
+                        const isDisabled =
+                          isDisabledForPerTable || isDisabledForEvent;
+
+                        calendarDays.push({
+                          day: i,
+                          date: dateStr,
+                          isCurrentMonth: true,
+                          isToday:
+                            dateStr === today.toISOString().split("T")[0],
+                          isSelected: form.date === dateStr,
+                          isBlocked:
+                            blockedDates.includes(dateStr) || isTimeClosed,
+                          isPast: date < today,
+                          isTimeClosed,
+                          reservationCount,
+                          isFullyBooked,
+                          hasReservations:
+                            reservationCount > 0 && !isFullyBooked,
+                          isDisabled,
+                        });
+                      }
+
+                      const remainingCells = 42 - calendarDays.length;
+                      for (let i = 1; i <= remainingCells; i++) {
+                        const date = new Date(year, month + 1, i);
+                        const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+                        const isTimeClosed = isDateClosedByTime(
+                          dateStr,
+                          currentMinutes,
+                        );
+                        const currentDate = new Date(dateStr);
+                        currentDate.setHours(0, 0, 0, 0);
+                        const isFutureDate = currentDate > today;
+                        const isEventDateValid = isEventFlow
+                          ? currentDate.getTime() >= minEventDate.getTime()
+                          : true;
+                        const isDisabledForPerTable = isPerTable && false; // ← FIX: No future date restriction
+                        const isDisabledForEvent =
+                          isEventFlow && !isEventDateValid;
+                        const isDisabled =
+                          isDisabledForPerTable || isDisabledForEvent;
+
+                        calendarDays.push({
+                          day: i,
+                          date: dateStr,
+                          isCurrentMonth: false,
+                          isToday:
+                            dateStr === today.toISOString().split("T")[0],
+                          isSelected: form.date === dateStr,
+                          isBlocked:
+                            blockedDates.includes(dateStr) || isTimeClosed,
+                          isPast: date < today,
+                          isTimeClosed,
+                          isDisabled,
+                        });
+                      }
+                      return calendarDays.map((day, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          className={`calendar-day ${day.isSelected ? "selected" : ""} ${day.isBlocked ? "blocked" : ""} ${day.isToday ? "today" : ""} ${!day.isCurrentMonth ? "other-month" : ""} ${day.isPast && !day.isSelected ? "past" : ""} ${day.isTimeClosed && !day.isSelected ? "time-closed" : ""} ${day.hasReservations && !day.isSelected && !day.isBlocked ? "has-reservations" : ""} ${day.isFullyBooked && !day.isSelected && !day.isBlocked ? "fully-booked" : ""} ${day.isDisabled && reservationType === "per_table" ? "per-table-disabled" : ""} ${day.isDisabled && reservationType === "event" ? "event-disabled" : ""}`}
+                          disabled={
+                            day.isBlocked ||
+                            (day.isPast && !day.isSelected) ||
+                            day.isTimeClosed ||
+                            day.isDisabled
+                          }
+                          onClick={async () => {
+                            if (
+                              !day.isBlocked &&
+                              !(day.isPast && !day.isSelected) &&
+                              !day.isTimeClosed &&
+                              !day.isDisabled
+                            ) {
+                              const syntheticEvent = {
+                                target: { name: "date", value: day.date },
+                              };
+                              const isBlocked =
+                                handleDateSelection(syntheticEvent);
+                              if (!isBlocked) {
+                                setSelectedId(null);
+                                setLinkedIds([]);
+                                setForm((prev) => ({
+                                  ...prev,
+                                  startTime: "",
+                                  endTime: "",
+                                  num_guests: "",
+                                }));
+                                setSelectedReservationDate(day.date);
+                                await fetchReservationsForDate(day.date);
+                              }
+                            }
+                          }}
+                        >
+                          <span className="calendar-day-number">{day.day}</span>
+                          {day.hasReservations && day.reservationCount > 0 && (
+                            <span className="calendar-reservation-badge">
+                              {day.reservationCount}{" "}
+                              {day.reservationCount === 1 ? "Res" : "Res"}
+                            </span>
+                          )}
+                          {day.isFullyBooked && (
+                            <span className="calendar-reservation-badge full">
+                              Full
+                            </span>
+                          )}
+                          {day.isBlocked && (
+                            <span className="calendar-blocked-dot"></span>
+                          )}
+                        </button>
+                      ));
+                    })()}
+                  </div>
+                  <input type="hidden" name="date" value={form.date} />
+                </div>
               </div>
-              <input type="hidden" name="date" value={form.date} />
+
+              {/* Right Column: Reservation Details */}
               {selectedReservationDate &&
                 selectedReservationDate === form.date && (
-                  <div className="reservation-details-container">
-                    <div className="reservation-details-header">
-                      <Clock size={16} />
-                      <h4>
-                        Reservations for{" "}
-                        {new Date(selectedReservationDate).toLocaleDateString(
-                          "default",
-                          { month: "long", day: "numeric", year: "numeric" },
-                        )}
-                      </h4>
+                  <div className="reservation-details-column">
+                    <div className="reservation-details-container">
+                      <div className="reservation-details-header">
+                        <Clock size={16} />
+                        <h4>
+                          Reservations for{" "}
+                          {new Date(selectedReservationDate).toLocaleDateString(
+                            "default",
+                            { month: "long", day: "numeric", year: "numeric" },
+                          )}
+                        </h4>
+                      </div>
+                      {isLoadingReservations ? (
+                        <div className="reservation-details-loading">
+                          <div className="loading-spinner-small"></div>
+                          <p>Loading reservations...</p>
+                        </div>
+                      ) : reservationsForDate.length > 0 ? (
+                        <div className="reservation-details-list">
+                          {reservationsForDate.map((res, index) => (
+                            <div
+                              key={index}
+                              className={`reservation-detail-card ${res.isEvent ? "event-card" : ""}`}
+                            >
+                              <div className="reservation-card-header">
+                                <div
+                                  className="table-badge"
+                                  style={
+                                    res.isEvent
+                                      ? {
+                                          background:
+                                            "linear-gradient(135deg, #ff6b6b, #ee5a24)",
+                                        }
+                                      : {}
+                                  }
+                                >
+                                  <Armchair size={14} />
+                                  <strong>{res.tableLabel}</strong>
+                                </div>
+                                <span
+                                  className={`status-badge ${res.status?.toLowerCase()}`}
+                                >
+                                  {res.status || "Confirmed"}
+                                </span>
+                              </div>
+                              <div className="reservation-card-time">
+                                <Clock size={14} />
+                                <span>
+                                  {res.startTimeFormatted} -{" "}
+                                  {res.endTimeFormatted}
+                                </span>
+                              </div>
+                              <div className="reservation-card-duration">
+                                <AlertCircle size={14} />
+                                <span>Duration: {res.duration}</span>
+                              </div>
+                              {res.isEvent && (
+                                <div
+                                  className="event-badge"
+                                  style={{
+                                    marginTop: "8px",
+                                    color: "#ee5a24",
+                                    fontSize: "12px",
+                                    fontWeight: "600",
+                                  }}
+                                >
+                                  ⭐ This is a private event - venue is booked
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="reservation-details-empty">
+                          <Calendar size={32} />
+                          <p>No active reservations for this date</p>
+                          <span>
+                            Click on a date with yellow highlight to view active
+                            reservations
+                          </span>
+                        </div>
+                      )}
                     </div>
-                    {isLoadingReservations ? (
-                      <div className="reservation-details-loading">
-                        <div className="loading-spinner-small"></div>
-                        <p>Loading reservations...</p>
-                      </div>
-                    ) : reservationsForDate.length > 0 ? (
-                      <div className="reservation-details-list">
-                        {reservationsForDate.map((res, index) => (
-                          <div
-                            key={index}
-                            className={`reservation-detail-card ${res.isEvent ? "event-card" : ""}`}
-                          >
-                            <div className="reservation-card-header">
-                              <div
-                                className="table-badge"
-                                style={
-                                  res.isEvent
-                                    ? {
-                                        background:
-                                          "linear-gradient(135deg, #ff6b6b, #ee5a24)",
-                                      }
-                                    : {}
-                                }
-                              >
-                                <Armchair size={14} />
-                                <strong>{res.tableLabel}</strong>
-                              </div>
-                              <span
-                                className={`status-badge ${res.status?.toLowerCase()}`}
-                              >
-                                {res.status || "Confirmed"}
-                              </span>
-                            </div>
-                            <div className="reservation-card-time">
-                              <Clock size={14} />
-                              <span>
-                                {res.startTimeFormatted} -{" "}
-                                {res.endTimeFormatted}
-                              </span>
-                            </div>
-                            <div className="reservation-card-duration">
-                              <AlertCircle size={14} />
-                              <span>Duration: {res.duration}</span>
-                            </div>
-                            {res.isEvent && (
-                              <div
-                                className="event-badge"
-                                style={{
-                                  marginTop: "8px",
-                                  color: "#ee5a24",
-                                  fontSize: "12px",
-                                  fontWeight: "600",
-                                }}
-                              >
-                                ⭐ This is a private event - venue is booked
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="reservation-details-empty">
-                        <Calendar size={32} />
-                        <p>No active reservations for this date</p>
-                        <span>
-                          Click on a date with yellow highlight to view active
-                          reservations
-                        </span>
-                      </div>
-                    )}
                   </div>
                 )}
             </div>
@@ -2413,7 +2489,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                   <div className="guests-auto-display">
                     <input
                       type="text"
-                      value="35 guest(s)"
+                      value="40 guest(s)"
                       readOnly
                       className="guests-auto-input"
                       style={{
@@ -2424,7 +2500,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                     <div className="guests-hint-success">
                       <CheckCircle size={14} />
                       <span>
-                        Event reservation: Fixed at 35 guests (maximum capacity)
+                        Event reservation: Fixed at 40 guests (maximum capacity)
                       </span>
                     </div>
                   </div>
@@ -2532,7 +2608,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                         <span className="allergy-count-hint">
                           Out of{" "}
                           {reservationType === "event"
-                            ? "35"
+                            ? "40"
                             : parseInt(form.num_guests) || totalSeats || 0}{" "}
                           total guest(s)
                         </span>
@@ -2854,189 +2930,114 @@ export default function ReservationSteps({ onClose, onSuccess }) {
 
           return (
             <div className="step-content step-package">
-              {/* Package Selection Cards */}
-              <div className="event-package-cards">
-                {packageOptions.map((pkg) => (
-                  <div
-                    key={pkg.id}
-                    className={`package-card ${selectedPackage === pkg.id ? "selected" : ""}`}
-                    onClick={() => {
-                      const newSelectedPackage =
-                        selectedPackage === pkg.id ? null : pkg.id;
-                      setSelectedPackage(newSelectedPackage);
-                      if (newSelectedPackage) {
-                        const packageItem = {
-                          name: pkg.name,
-                          price: pkg.price,
-                          quantity: 1,
-                          id: pkg.menuItemId,
-                        };
-                        setSelectedItems([packageItem]);
-                      } else {
-                        setSelectedItems([]);
-                      }
-                    }}
-                  >
-                    <div className="package-card-header">
-                      <h3>{pkg.name}</h3>
+              {/* NEW: Wrapper to align the button with the outer edges of the cards */}
+              <div className="package-cards-wrapper">
+                {/* Package Selection Cards */}
+                <div className="event-package-cards">
+                  {packageOptions.map((pkg) => (
+                    <div
+                      key={pkg.id}
+                      className={`package-card ${selectedPackage === pkg.id ? "selected" : ""}`}
+                      onClick={() => {
+                        const newSelectedPackage =
+                          selectedPackage === pkg.id ? null : pkg.id;
+                        setSelectedPackage(newSelectedPackage);
+                        if (newSelectedPackage) {
+                          const packageItem = {
+                            name: pkg.name,
+                            price: pkg.price,
+                            quantity: 1,
+                            id: pkg.menuItemId,
+                          };
+                          setSelectedItems([packageItem]);
+                        } else {
+                          setSelectedItems([]);
+                        }
+                      }}
+                    >
+                      <div className="package-card-header">
+                        <h3>{pkg.name}</h3>
+                      </div>
+                      <div className="package-card-price">
+                        <span className="price">
+                          ₱{pkg.price.toLocaleString()}
+                        </span>
+                        <span className="price-type">Consume</span>
+                      </div>
+                      {selectedPackage === pkg.id && (
+                        <div className="package-card-check">
+                          <CheckCircle size={24} />
+                        </div>
+                      )}
                     </div>
-                    <div className="package-card-price">
-                      <span className="price">
-                        ₱{pkg.price.toLocaleString()}
-                      </span>
-                      <span className="price-type">Consume</span>
-                    </div>
-                    {selectedPackage === pkg.id && (
-                      <div className="package-card-check">
-                        <CheckCircle size={24} />
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {/* ===== EVENT FOOD PREFERENCE + MEAL DISTRIBUTION =====
-                  Lives inside the Event Package section (not the general
-                  reservation type). The package's included meal count is the
-                  source of truth: Dine-In + Take-Out must never exceed it. */}
-              {selectedPackage && (
-                <div className="meal-preference-card">
-                  <div className="meal-preference-head">
-                    <h4 className="mb-0">
-                      How would you like your package meals served?
-                    </h4>
-                    <p className="meal-preference-sub mb-0">
-                      Package includes <strong>{packageMealLimit} meals</strong>{" "}
-                      — the total allocated (Dine-In + Take-Out) cannot exceed
-                      this.
-                    </p>
-                  </div>
-
-                  <div className="meal-pref-options">
-                    {[
-                      { id: "dinein", label: "All Dine-In" },
-                      { id: "takeout", label: "All Take-Out" },
-                      { id: "mixed", label: "Mixed" },
-                    ].map((opt) => (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        className={`meal-pref-btn ${foodPreference === opt.id ? "active" : ""}`}
-                        onClick={() => {
-                          setFoodPreference(opt.id);
-                          // Switching away from Mixed clears the manual split so
-                          // a stale Take-Out count never lingers on the booking.
-                          if (opt.id !== "mixed") {
-                            setDineInCount("");
-                            setTakeOutCount("");
-                          }
-                        }}
-                        aria-pressed={foodPreference === opt.id}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  {foodPreference === "mixed" && (
-                    <div className="meal-distribution">
-                      <div className="meal-dist-row meal-dist-head">
-                        <span>Option</span>
-                        <span>Quantity</span>
-                      </div>
-                      <div className="meal-dist-row">
-                        <span>Dine-In</span>
-                        <input
-                          type="number"
-                          min="0"
-                          max={packageMealLimit}
-                          className="form-control form-control-sm meal-dist-input"
-                          value={dineInCount}
-                          placeholder="0"
-                          onChange={(e) => {
-                            const raw = e.target.value;
-                            if (raw === "") {
-                              setDineInCount("");
-                              return;
-                            }
-                            const v = Math.max(0, parseInt(raw, 10) || 0);
-                            setDineInCount(v);
-                          }}
-                        />
-                      </div>
-                      <div className="meal-dist-row">
-                        <span>Take-Out</span>
-                        <input
-                          type="number"
-                          min="0"
-                          max={packageMealLimit}
-                          className="form-control form-control-sm meal-dist-input"
-                          value={takeOutCount}
-                          placeholder="0"
-                          onChange={(e) => {
-                            const raw = e.target.value;
-                            if (raw === "") {
-                              setTakeOutCount("");
-                              return;
-                            }
-                            const v = Math.max(0, parseInt(raw, 10) || 0);
-                            setTakeOutCount(v);
-                          }}
-                        />
-                      </div>
-                      <div className="meal-dist-row meal-dist-total">
-                        <span>Total</span>
-                        <span
-                          className={`meal-dist-total-value ${mealDistribution.over ? "over" : mealDistribution.complete ? "ok" : ""}`}
-                        >
-                          {mealDistribution.total} / {packageMealLimit}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  <div
-                    className={`meal-dist-status ${mealDistribution.over ? "over" : "ok"}`}
-                  >
-                    {mealDistribution.over ? (
-                      <>
-                        <AlertCircle size={14} />
-                        <span>
-                          {mealDistribution.total} / {packageMealLimit} meals
-                          allocated — {mealDistribution.overBy} over the package
-                          limit
-                        </span>
-                      </>
-                    ) : foodPreference === "mixed" ? (
-                      <>
-                        <CheckCircle size={14} />
-                        <span>
-                          {mealDistribution.total} / {packageMealLimit} meals
-                          allocated
-                          {mealDistribution.remaining > 0
-                            ? ` — ${mealDistribution.remaining} still to assign`
-                            : " ✓"}
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle size={14} />
-                        <span>
-                          {packageMealLimit} / {packageMealLimit} meals
-                          allocated ✓
-                        </span>
-                      </>
-                    )}
-                  </div>
-
-                  {foodPreference === "takeout" && (
-                    <p className="meal-pref-note mb-0">
-                      Your package items will be prepared for take-out. Our
-                      staff will confirm the packed items with you.
-                    </p>
-                  )}
+                  ))}
                 </div>
-              )}
+
+                {/* ===== PACKAGE INCLUSIONS SECTION ===== */}
+                <div className="package-inclusions-card">
+                  <h4 className="inclusions-title">
+                    What's Included in Both Packages
+                  </h4>
+
+                  <div className="inclusions-highlight">
+                    <Clock size={20} />
+                    <span>Free Venue for 3 Hours</span>
+                  </div>
+
+                  <div className="inclusions-grid">
+                    <div className="inclusion-item">
+                      <div className="inclusion-icon-wrapper">
+                        <Tv size={16} />
+                        <Music size={16} />
+                        <Wifi size={16} />
+                        <Wind size={16} />
+                      </div>
+                      <p>
+                        TV, Sound System, Karaoke, Wi-Fi, and Air Conditioning
+                        included.
+                      </p>
+                    </div>
+
+                    <div className="inclusion-item">
+                      <div className="inclusion-icon-wrapper">
+                        <Cake size={16} />
+                      </div>
+                      <p>
+                        Perfect for Birthdays, Bridal Showers, Engagement
+                        Parties, Baptisms, Kids' Parties, Corporate Meetings,
+                        and Private Gatherings.
+                      </p>
+                    </div>
+
+                    <div className="inclusion-item">
+                      <div className="inclusion-icon-wrapper">
+                        <Users size={16} />
+                      </div>
+                      <p>
+                        Full Store Venue and Dining Area (up to 40 pax seating
+                        capacity).
+                      </p>
+                    </div>
+
+                    <div className="inclusion-item">
+                      <div className="inclusion-icon-wrapper">
+                        <Car size={16} />
+                      </div>
+                      <p>Free Parking Space (Spacious Parking Area).</p>
+                    </div>
+                  </div>
+                </div>
+                {/* ===== END PACKAGE INCLUSIONS SECTION ===== */}
+
+                {/* View Menu Button */}
+                <button
+                  type="button"
+                  className="btn-view-menu"
+                  onClick={() => navigate("/menu")}
+                >
+                  View Menu
+                </button>
+              </div>
 
               {selectedPackage && (
                 <div className="package-summary">
@@ -3633,6 +3634,7 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           setUi((p) => ({ ...p, terms: false }));
           goToNextStep();
         }}
+        viewOnly={true}
       />
     </div>
   );

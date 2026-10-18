@@ -60,4 +60,18 @@ const inventoryAccess = (req, res, next) => {
   }
 };
 
-module.exports = { protect, adminOnly, kioskControl, inventoryAccess };
+const eventTakeoutAccess = (req, res, next) => {
+  const allowedRoles = ["admin", "cashier", "staff", "cook"];
+  if (req.user && allowedRoles.includes(req.user.role)) {
+    return next();
+  }
+  return res.status(403).json({ error: "Access denied." });
+};
+
+module.exports = {
+  protect,
+  adminOnly,
+  kioskControl,
+  inventoryAccess,
+  eventTakeoutAccess,
+};

@@ -125,7 +125,11 @@ const StatCard = ({ title, value, color }) => (
 function AdminDashboard() {
   const { confirm } = useConfirmation();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [activeSection, setActiveSection] = useState("dashboard");
+  const [activeSection, setActiveSection] = useState(() =>
+    new URLSearchParams(window.location.search).get("section") === "inventory"
+      ? "inventory"
+      : "dashboard",
+  );
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 992);
   const [adminName, setAdminName] = useState(
     `${localStorage.getItem("firstName") || ""} ${localStorage.getItem("lastName") || ""}`.trim(),

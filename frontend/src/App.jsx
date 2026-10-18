@@ -336,8 +336,13 @@ function AppContent() {
         <Route
           path="/kitchen-inventory"
           element={
-            isLoggedIn && (userRole === "cook" || userRole === "admin") ? (
-              <Inventory />
+            isLoggedIn && userRole === "cook" ? (
+              <Inventory
+                isKitchenStaff
+                onBack={() => navigate("/kitchen-page")}
+              />
+            ) : isLoggedIn && userRole === "admin" ? (
+              <Navigate to="/admin?section=inventory" replace />
             ) : (
               <Navigate to="/" replace />
             )
@@ -422,6 +427,7 @@ const NavbarWrapper = ({ onLoginClick, isLoggedIn, onLogout, userRole }) => {
     "/cashier-selection",
     "/kiosk-selection",
     "/kitchen-page",
+    "/kitchen-inventory",
     "/tablereservation",
     "/reset-password",
     "/menu",

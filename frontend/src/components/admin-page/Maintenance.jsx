@@ -6,6 +6,7 @@ import { Wallet, Settings, Smartphone } from "lucide-react";
   // their data fetches were running before the user had scrolled to them.
 const SystemMaintenance = lazy(() => import("./SystemMaintenance"));
 const HolidayMaintenance = lazy(() => import("./HolidayMaintenance"));
+const FooterMaintenance = lazy(() => import("./FooterMaintenance"));
 import { useToast } from "../ToastContext";
 
 const SectionLoader = () => (
@@ -149,6 +150,12 @@ const Maintenance = () => {
       <section className="mb-5 pb-5">
         <Suspense fallback={<SectionLoader />}>
           <HolidayMaintenance />
+        </Suspense>
+      </section>
+      {/* SECTION 5: Footer Management */}
+      <section className="mb-5 pb-5">
+        <Suspense fallback={<SectionLoader />}>
+          <FooterMaintenance />
         </Suspense>
       </section>
     </div>

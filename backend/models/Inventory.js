@@ -29,9 +29,9 @@ const Inventory = {
           WHERE r.inventory_id = i.inventory_id
         ), JSON_ARRAY()) AS dishes
       FROM inventory i
-      -- Alphabetical by name so staff can find an item without hunting.
-      -- Stock urgency is still surfaced by the Status column and colours.
-      ORDER BY i.item_name ASC
+      -- Newest received stock first so freshly received items are visible
+      -- immediately. Stock urgency is still surfaced by the Status column.
+      ORDER BY i.inventory_id DESC
     `;
     const [rows] = await db.query(sql);
     // mysql2 may hand these back as strings depending on driver settings.

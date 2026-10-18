@@ -46,10 +46,9 @@ const WalkInReservations = () => {
   const { showToast } = useToast();
   const [inquiries, setInquiries] = useState([]);
   const [rawTables, setRawTables] = useState([]);
+  const [tableSchedules, setTableSchedules] = useState({});
   const [loading, setLoading] = useState(true);
   const [selectedRes, setSelectedRes] = useState(null);
-  const [orderItems, setOrderItems] = useState([]);
-  const [loadingItems, setLoadingItems] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
   const closeBtnRef = useRef(null);
@@ -84,6 +83,7 @@ const WalkInReservations = () => {
     date: getLocalISODate(),
     startTime: "",
     endTime: "",
+    guests: 1,
     bookingType: "table", // 'table', 'takeout', or 'event'
     packageName: "Regular Table",
     amountPaid: 0,
@@ -175,6 +175,38 @@ const WalkInReservations = () => {
     }
   };
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchSchedules = async () => {
+      if (!newRes.date || rawTables.length === 0) {
+        setTableSchedules({});
+        return;
+      }
+
+      const entries = await Promise.all(
+        rawTables.map(async (table) => {
+          const tableId = table.table_id ?? table.id ?? table.tableId;
+          try {
+            const response = await api.get("/reservations/table-schedule", {
+              params: { tableId, date: newRes.date },
+            });
+            return [tableId, Array.isArray(response.data) ? response.data : []];
+          } catch {
+            return [tableId, []];
+          }
+        }),
+      );
+
+      if (!cancelled) setTableSchedules(Object.fromEntries(entries));
+    };
+
+    fetchSchedules();
+    return () => {
+      cancelled = true;
+    };
+  }, [rawTables, newRes.date]);
+
   // DYNAMIC COMPUTED STATUS BASED ON LIVE ASSIGNMENT & SELECTED BOOKING DATE
   const availableTables = useMemo(() => {
     const selectedDate = newRes.date; // "YYYY-MM-DD"
@@ -195,22 +227,52 @@ const WalkInReservations = () => {
       const status = (t.bridge_status || t.status || "available")
         .toString()
         .toLowerCase();
-      // Real-time occupant labels only apply if the booking is scheduled for today
-      const isOccupiedLive =
-        status === "occupied" ||
-        status === "reserved" ||
-        status === "busy" ||
-        status === "seated";
-      const isOccupied = isToday && isOccupiedLive;
+      const tableStatus = String(t.table_status || t.status || "available")
+        .toLowerCase();
+      const requestedStart = toMinutes(newRes.startTime);
+      const requestedEnd = toMinutes(newRes.endTime);
+      const reservations = tableSchedules[tableId] || [];
+      const isReservedForTime =
+        requestedStart !== null &&
+        requestedEnd !== null &&
+        reservations.some((reservation) => {
+          const reservedStart = toMinutes(reservation.startTime);
+          const reservedEnd = toMinutes(reservation.endTime);
+          return (
+            reservedStart !== null &&
+            reservedEnd !== null &&
+            requestedStart < reservedEnd &&
+            requestedEnd > reservedStart
+          );
+        });
+      const isOccupiedNow =
+        isToday &&
+        (tableStatus === "occupied" ||
+          tableStatus === "busy" ||
+          status === "seated");
+      const hasSelectedTime =
+        requestedStart !== null && requestedEnd !== null;
+      const isOccupied =
+        isOccupiedNow &&
+        (!hasSelectedTime || reservations.length === 0 || isReservedForTime);
+      const isUnavailable = isOccupied || isReservedForTime;
+      const availabilityLabel = isOccupied
+        ? "Occupied"
+        : isReservedForTime
+          ? "Reserved"
+          : "";
 
       return {
         table_id: tableId,
-        table_number: isOccupied ? `${tableNumber} (Occupied)` : tableNumber,
+        table_number: availabilityLabel
+          ? `${tableNumber} (${availabilityLabel})`
+          : tableNumber,
         capacity: capacity,
         isOccupied: isOccupied,
+        isUnavailable,
       };
     });
-  }, [rawTables, newRes.date]);
+  }, [rawTables, newRes.date, newRes.startTime, newRes.endTime, tableSchedules]);
 
   const formatTime = (timeStr) => {
     if (!timeStr) return "--:--";
@@ -304,6 +366,15 @@ const WalkInReservations = () => {
           setSubmitting(false);
           return;
         }
+        if (
+          availableTables.find(
+            (table) => String(table.table_id) === String(selectedTableId),
+          )?.isUnavailable
+        ) {
+          showToast("That table is occupied or reserved for the selected time.");
+          setSubmitting(false);
+          return;
+        }
       }
 
       // The end time drives the event countdown and when tables free up, so
@@ -372,22 +443,6 @@ const WalkInReservations = () => {
       showToast("Error creating order.");
     } finally {
       setSubmitting(false);
-    }
-  };
-
-  const fetchItems = async (resId) => {
-    setOrderItems([]);
-    setLoadingItems(true);
-    try {
-      const token = localStorage.getItem("token");
-      const res = await api.get(`/reservations/${resId}/items`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setOrderItems(res.data);
-    } catch (err) {
-      console.error("Fetch Items error:", err);
-    } finally {
-      setLoadingItems(false);
     }
   };
 
@@ -477,26 +532,6 @@ const WalkInReservations = () => {
     selectedRes?.table_number ||
     selectedRes?.table_names ||
     "";
-
-  // The Order Summary lists ONLY what the guest actually ordered on the kiosk.
-  // The API injects a synthetic "Reservation Fee" row for the down payment and
-  // may include a package line; both are reservation/payment information and
-  // are filtered out here so they never inflate the food list.
-  const kioskOrderItems = orderItems.filter((order) => {
-    const lineType = String(order?.line_type ?? "").toLowerCase();
-    if (lineType === "downpayment" || lineType === "payment") return false;
-    if (lineType === "package" || lineType === "reservation") return false;
-
-    const name = String(order?.name || order?.item_name || "")
-      .trim()
-      .toLowerCase();
-    if (!name) return false;
-    // "Reservation Fee" = the down payment; package names = the event package.
-    if (name === "reservation fee") return false;
-    if (EVENT_PACKAGE_LIMITS[name]) return false;
-    if (name.includes("package")) return false;
-    return true;
-  });
 
   if (loading)
     return (
@@ -657,10 +692,9 @@ const WalkInReservations = () => {
                       data-bs-target="#walkinDetailsDrawer"
                       onClick={() => {
                         setSelectedRes(item);
-                        fetchItems(item.reservation_id);
                       }}
                     >
-                      Review Order
+                      View Reservation
                     </button>
                   </td>
                 </tr>
@@ -725,10 +759,9 @@ const WalkInReservations = () => {
                   data-bs-target="#walkinDetailsDrawer"
                   onClick={() => {
                     setSelectedRes(item);
-                    fetchItems(item.reservation_id);
                   }}
                 >
-                  Review Order
+                  View Reservation
                 </button>
               </div>
             </div>
@@ -822,6 +855,20 @@ const WalkInReservations = () => {
                     name="phone"
                     className="form-control form-control-sm"
                     onChange={handleInputChange}
+                  />
+                </div>
+                <div className="col-6">
+                  <label className="form-label small fw-bold">Guests</label>
+                  <input
+                    type="number"
+                    name="guests"
+                    className="form-control form-control-sm"
+                    min="1"
+                    max="35"
+                    step="1"
+                    value={newRes.guests}
+                    onChange={handleInputChange}
+                    required
                   />
                 </div>
               </div>
@@ -947,9 +994,13 @@ const WalkInReservations = () => {
                     onChange={handleInputChange}
                     required={newRes.bookingType === "table"}
                   >
-                    <option value="">-- Choose Available Table --</option>
+                    <option value="">-- Choose Table for This Time --</option>
                     {availableTables.map((t) => (
-                      <option key={t.table_id} value={t.table_id}>
+                      <option
+                        key={t.table_id}
+                        value={t.table_id}
+                        disabled={t.isUnavailable}
+                      >
                         Table {t.table_number} ({t.capacity} Pax)
                       </option>
                     ))}
@@ -1207,8 +1258,15 @@ const WalkInReservations = () => {
                 </div>
               </div>
 
-              {/* The Guest Profile block (email + phone) was removed: managing a
-                  walk-in only needs the name, booking and order details below. */}
+              <div className="px-3 py-2 border-bottom bg-white">
+                <span className="x-small fw-bold text-muted text-uppercase d-block mb-2">
+                  Customer Information
+                </span>
+                <div className="small text-dark">
+                  <div>{selectedRes.phone || "No contact number"}</div>
+                  <div className="text-muted">{selectedRes.email || "No email"}</div>
+                </div>
+              </div>
 
               <div className="p-3 border-bottom bg-white">
                 <span className="x-small fw-bold text-primary text-uppercase d-block mb-2">
@@ -1230,6 +1288,22 @@ const WalkInReservations = () => {
                         : selectedRes.reservation_type === "takeout"
                           ? "Take-Out"
                           : "Per Table"}
+                    </span>
+                  </div>
+                  <div className="col-6">
+                    <small className="text-muted d-block">Guests</small>
+                    <span className="small fw-semibold">
+                      {selectedRes.num_guests || selectedRes.pax || 1} pax
+                    </span>
+                  </div>
+                  <div className="col-6">
+                    <small className="text-muted d-block">Reservation Status</small>
+                    <span className="small fw-semibold">{selectedRes.status || "Pending"}</span>
+                  </div>
+                  <div className="col-6">
+                    <small className="text-muted d-block">Payment Status</small>
+                    <span className="small fw-semibold text-uppercase">
+                      {selectedRes.payment_status || "Unpaid"}
                     </span>
                   </div>
                   <div className="col-6">
@@ -1274,83 +1348,18 @@ const WalkInReservations = () => {
                   )}
               </div>
 
-              {/* TIMELINE */}
-              <div className="p-3 border-bottom bg-white">
-                <div className="d-flex justify-content-between align-items-center">
-                  <div className="d-flex align-items-center gap-2">
-                    <Clock size={14} className="text-muted" />
-                    <span className="x-small fw-bold text-muted text-uppercase">
-                      Timeline
-                    </span>
-                  </div>
-                  {/* Only the primary start time is kept — the secondary
-                      end-time/label beside it was extra noise that cluttered
-                      the drawer on mobile. */}
-                  <div className="small fw-bold text-dark">
-                    {selectedRes.reservation_time
-                      ? formatTime(selectedRes.reservation_time)
-                      : "--:--"}
-                  </div>
-                </div>
-              </div>
-
               <div className="p-3 flex-grow-1 overflow-auto bg-light-subtle">
-                <span className="x-small fw-bold text-muted text-uppercase d-block mb-1">
-                  Order Summary
+                <span className="x-small fw-bold text-muted text-uppercase d-block mb-2">
+                  Reservation Schedule
                 </span>
-                {/* Clarifies that this list is kiosk food only, since the event
-                    package / down payment live in the blocks above. */}
-                <span className="x-small text-muted d-block mb-2">
-                  Items ordered through the kiosk
-                </span>
-                {loadingItems ? (
-                  <div className="text-center py-3">
-                    <div className="spinner-border spinner-border-sm text-primary"></div>
-                  </div>
-                ) : kioskOrderItems.length > 0 ? (
-                  <div className="item-list">
-                    {kioskOrderItems.map((order, idx) => {
-                      const isRefill =
-                        order.is_refill === 1 ||
-                        order.is_refill === true ||
-                        (order.customizations &&
-                          order.customizations.toString().includes("[REFILL]"));
-
-                      const displayedPrice = isRefill
-                        ? 0
-                        : Number(order.price) * order.quantity;
-
-                      return (
-                        <div
-                          key={idx}
-                          className="d-flex justify-content-between align-items-center py-1.5 border-bottom border-light"
-                        >
-                          <div className="small text-dark">
-                            {order.name || order.item_name}{" "}
-                            <span className="text-muted small fw-bold">
-                              x{order.quantity}
-                            </span>
-                            {isRefill && (
-                              <span
-                                className="badge bg-secondary ms-2 small"
-                                style={{ fontSize: "0.55rem" }}
-                              >
-                                REFILL
-                              </span>
-                            )}
-                          </div>
-                          <div className="small fw-bold text-dark">
-                            ₱{displayedPrice.toFixed(2)}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center py-4 text-muted small">
-                    No active food orders linked to this session.
-                  </div>
-                )}
+                <div className="small text-dark">
+                  {selectedRes.reservation_date
+                    ? new Date(selectedRes.reservation_date).toLocaleDateString()
+                    : "Date not set"}
+                  {selectedRes.reservation_time
+                    ? ` · ${formatTime(selectedRes.reservation_time)}`
+                    : ""}
+                </div>
               </div>
 
               <div className="p-3 bg-dark text-white sticky-bottom mt-auto flex-shrink-0 drawer-footer">

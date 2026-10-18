@@ -214,6 +214,7 @@ const KioskReservationMenu = () => {
       sessionStorage.removeItem(k);
     });
 
+    sessionStorage.setItem("kiosk_exit_to_selection", "true");
     const searchString = setupTable ? `?setupTable=${setupTable}` : "";
     navigate(`/kiosk-selection${searchString}`);
   };
@@ -1083,18 +1084,7 @@ const KioskReservationMenu = () => {
   return (
     <div className="res-kiosk-container">
       {/* HEADER */}
-      <div
-        className="kiosk-timer-wrapper"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr auto 1fr",
-          alignItems: "center",
-          padding: "10px 30px",
-          background: "#000",
-          minHeight: "90px",
-          borderBottom: "2px solid #222",
-        }}
-      >
+      <div className="kiosk-timer-wrapper">
         {/* LEFT: ID */}
         <div className="header-left-group">
           <div
@@ -1130,11 +1120,8 @@ const KioskReservationMenu = () => {
           </div>
         </div>
 
-        {/* CENTER: TIMER & ORDER */}
-        <div
-          className="header-center-group"
-          style={{ display: "flex", alignItems: "center", gap: "15px" }}
-        >
+        {/* CENTER: TIMER & REFILL */}
+        <div className="header-center-group">
           {isTimerRunning && (
             <>
               <div
@@ -1191,10 +1178,7 @@ const KioskReservationMenu = () => {
         </div>
 
         {/* RIGHT: VIEW RECEIPT / PAY */}
-        <div
-          className="header-right-group"
-          style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}
-        >
+        <div className="header-right-group">
           <button
             className="billing-btn-header"
             onClick={handleHeaderPayClick}

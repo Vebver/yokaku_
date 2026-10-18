@@ -1,6 +1,48 @@
+import { useEffect, useState } from "react";
+import api from "../api";
 import '../Style/Footer.css'
 
+// Footer content is managed by the Admin (Maintenance > Footer Management) and
+// stored in the database. The API falls back to sensible defaults, so the
+// footer always renders even on first load.
 function Footer() {
+  const [footer, setFooter] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get("/settings")
+      .then((res) => {
+        if (!cancelled) {
+          setFooter({
+            contact: res.data.footer_contact || "",
+            about: res.data.footer_about || "",
+          });
+        }
+      })
+      .catch((err) => console.error("Footer settings fetch error:", err));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const renderLines = (text) =>
+    (text || "")
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line, i) => {
+        // Bold the "Label:" prefix when a line uses one (e.g. "Email: ...").
+        const match = line.match(/^([^:]{1,20}):\s*(.+)$/);
+        return match ? (
+          <p key={i}>
+            <strong>{match[1]}:</strong> {match[2]}
+          </p>
+        ) : (
+          <p key={i}>{line}</p>
+        );
+      });
+
   return (
     <footer>
       <div className="footer-logo">
@@ -13,14 +55,19 @@ function Footer() {
       <div className="footer-columns" id="contact-section">
         <div>
           <h4>CONTACT US</h4>
-          <p><strong>Facebook:</strong> Hangout Resto Marilao Bulacan</p>
-          <p><strong>Email:</strong> abrevointernational@gmail.com</p>
-          <p><strong>Phone:</strong> 0905 804 5458</p>
+          {footer ? (
+            renderLines(footer.contact)
+          ) : (
+            <p className="text-secondary">Loading…</p>
+          )}
         </div>
         <div>
           <h4>ABOUT US</h4>
-          <p><strong>Location:</strong> Purok 3, Ibayo, Marilao, Bulacan, 3019 (PS Bank RCH Building near 7-Eleven)</p>
-          <p><strong>Open Daily:</strong> 10:00 AM - 11:00 PM</p>
+          {footer ? (
+            renderLines(footer.about)
+          ) : (
+            <p className="text-secondary">Loading…</p>
+          )}
         </div>
       </div>
     </footer>
