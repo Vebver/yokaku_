@@ -115,7 +115,8 @@ const Billing = () => {
   // Newest reservation first by creation timestamp.
   const filteredPayments = payments
     .filter((p) => {
-      const fullName = `${p.first_name || ""} ${p.last_name || ""}`.toLowerCase();
+      const fullName =
+        `${p.first_name || ""} ${p.last_name || ""}`.toLowerCase();
       const resId = (p.reservation_id || "").toLowerCase();
       const term = searchQuery.toLowerCase();
       return fullName.includes(term) || resId.includes(term);
@@ -221,17 +222,20 @@ const Billing = () => {
     try {
       const [itemsRes, reservationRes] = await Promise.all([
         api.get(`/reservations/${p.reservation_id}/items`),
-        api.get(`/reservations/${p.reservation_id}`).catch(() => null)
+        api.get(`/reservations/${p.reservation_id}`).catch(() => null),
       ]);
 
       setOrderItems(itemsRes.data);
 
       if (reservationRes && reservationRes.data) {
-        const details = reservationRes.data.data || reservationRes.data.reservation || reservationRes.data;
+        const details =
+          reservationRes.data.data ||
+          reservationRes.data.reservation ||
+          reservationRes.data;
 
         setSelectedPayment((prev) => ({
           ...prev,
-          ...details
+          ...details,
         }));
       }
     } catch (err) {
@@ -461,15 +465,26 @@ const Billing = () => {
                         </div>
                       </td>
                       <td>
-                        ₱{Number(p.total_bill || 0).toLocaleString(undefined, {
+                        ₱
+                        {Number(p.total_bill || 0).toLocaleString(undefined, {
                           minimumFractionDigits: 2,
                         })}
                       </td>
                       <td>
-                        <span className={Number(p.balance_due || 0) > 0 ? "text-danger fw-bold" : "text-success fw-bold"}>
-                          ₱{Number(p.balance_due || 0).toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                          })}
+                        <span
+                          className={
+                            Number(p.balance_due || 0) > 0
+                              ? "text-danger fw-bold"
+                              : "text-success fw-bold"
+                          }
+                        >
+                          ₱
+                          {Number(p.balance_due || 0).toLocaleString(
+                            undefined,
+                            {
+                              minimumFractionDigits: 2,
+                            },
+                          )}
                         </span>
                       </td>
                       <td>
@@ -492,7 +507,9 @@ const Billing = () => {
                           </span>
                         ) : (
                           <span className="badge bg-light text-muted border px-3 py-1.5 fw-semibold">
-                            {p.settlement_status === "unpaid" ? "UNPAID" : "PARTIAL BILL"}
+                            {p.settlement_status === "unpaid"
+                              ? "UNPAID"
+                              : "PARTIAL BILL"}
                           </span>
                         )}
                       </td>
@@ -544,8 +561,7 @@ const Billing = () => {
           currentPayments.map((p) => {
             const payStatus = (p.payment_status || "PENDING").toLowerCase();
             const isCompleted =
-              (p.order_status || p.status || "").toLowerCase() ===
-              "completed";
+              (p.order_status || p.status || "").toLowerCase() === "completed";
             const customerName =
               p.first_name === "Walk-in" || p.first_name === "Walk-In"
                 ? `Walk-In (Table ${p.table_number || "?"})`
@@ -589,7 +605,8 @@ const Billing = () => {
                         : "PENDING"}
                     </span>
                     <span className="d-flex align-items-center gap-1">
-                      <strong>Paid: ₱
+                      <strong>
+                        Paid: ₱
                         {p.amount
                           ? Number(p.amount).toLocaleString(undefined, {
                               minimumFractionDigits: 2,
@@ -597,8 +614,15 @@ const Billing = () => {
                           : "0.00"}
                       </strong>
                     </span>
-                    <span className={Number(p.balance_due || 0) > 0 ? "text-danger fw-bold" : "text-success fw-bold"}>
-                      Balance: ₱{Number(p.balance_due || 0).toLocaleString(undefined, {
+                    <span
+                      className={
+                        Number(p.balance_due || 0) > 0
+                          ? "text-danger fw-bold"
+                          : "text-success fw-bold"
+                      }
+                    >
+                      Balance: ₱
+                      {Number(p.balance_due || 0).toLocaleString(undefined, {
                         minimumFractionDigits: 2,
                       })}
                     </span>
@@ -611,7 +635,9 @@ const Billing = () => {
                       </span>
                     ) : (
                       <span className="badge bg-light text-muted border px-3 py-1.5 fw-semibold">
-                        {p.settlement_status === "unpaid" ? "UNPAID" : "PARTIAL BILL"}
+                        {p.settlement_status === "unpaid"
+                          ? "UNPAID"
+                          : "PARTIAL BILL"}
                       </span>
                     )}
                     <span
@@ -684,654 +710,683 @@ const Billing = () => {
         </div>
 
         <div className="offcanvas-body p-0 d-flex flex-column bg-light-subtle">
-        {selectedPayment && (
-          <>
-            {/* 1. ORDER SUMMARY SECTION (Scrollable Light Area)
+          {selectedPayment && (
+            <>
+              {/* 1. ORDER SUMMARY SECTION (Scrollable Light Area)
                  min-height:0 is required so this flex child can actually
                  shrink and scroll; without it the flex container refuses to
                  shrink below content height, which pushed the action buttons
                  in the dark footer below it off-screen/compressed. */}
-            <div className="px-3 pt-3 pb-0 flex-grow-1 overflow-auto drawer-scroll-area">
-              {/* GUEST CONTEXT HEADER */}
-              <div
-                className="bg-white border rounded-3 shadow-sm p-2 px-3 mb-3 d-flex justify-content-between align-items-center gap-2"
-              >
-                <div className="text-start">
-                  <div
-                    className="fw-bold text-dark"
-                    style={{ fontSize: "0.95rem" }}
-                  >
-                    {[
-                      selectedPayment?.first_name,
-                      selectedPayment?.last_name,
-                    ]
-                      .filter(Boolean)
-                      .join(" ")
-                      .trim() || "Walk-in Guest"}
-                  </div>
-                  <div className="text-muted" style={{ fontSize: "0.72rem" }}>
-                    {selectedPayment?.num_guests
-                      ? `${selectedPayment.num_guests} pax`
-                      : "Walk-in"}
-                    {selectedPayment?.table_number
-                      ? ` • Table ${selectedPayment.table_number}`
-                      : ""}
-                  </div>
-                </div>
-                <div className="text-end">
-                  <span
-                    className={`badge ${
-                      selectedPayment?.order_status?.toLowerCase() ===
-                      "completed"
-                        ? "text-bg-success"
-                        : "text-bg-warning"
-                    }`}
-                  >
-                    {selectedPayment?.order_status || "Pending"}
-                  </span>
-                  {balanceInfo.overpaid > 0 && (
+              <div className="px-3 pt-3 pb-0 flex-grow-1 overflow-auto drawer-scroll-area">
+                {/* GUEST CONTEXT HEADER */}
+                <div className="bg-white border rounded-3 shadow-sm p-2 px-3 mb-3 d-flex justify-content-between align-items-center gap-2">
+                  <div className="text-start">
                     <div
-                      className="text-success fw-bold mt-1"
-                      style={{ fontSize: "0.68rem" }}
+                      className="fw-bold text-dark"
+                      style={{ fontSize: "0.95rem" }}
                     >
-                      Overpaid ₱
-                      {balanceInfo.overpaid.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                      })}
+                      {[selectedPayment?.first_name, selectedPayment?.last_name]
+                        .filter(Boolean)
+                        .join(" ")
+                        .trim() || "Walk-in Guest"}
                     </div>
-                  )}
-                </div>
-              </div>
-
-              {/* ALLERGY WARNING — must be impossible to miss for the kitchen */}
-              {(() => {
-                const note = (selectedPayment?.allergy_note || "").trim();
-                if (!note || note.toLowerCase() === "none") return null;
-                return (
-                  <div
-                    className="alert alert-danger border-0 rounded-3 p-2 px-3 mb-3 d-flex align-items-start gap-2 shadow-sm"
-                    role="alert"
-                  >
-                    <AlertTriangle
-                      size={20}
-                      className="flex-shrink-0 mt-1"
-                    />
-                    <div>
-                      <div
-                        className="fw-bold text-uppercase"
-                        style={{ fontSize: "0.68rem", letterSpacing: "0.5px" }}
-                      >
-                        Allergy Alert
-                      </div>
-                      <div className="fw-bold" style={{ fontSize: "0.9rem" }}>
-                        {note}
-                      </div>
-                      <div
-                        className="text-danger-emphasis"
-                        style={{ fontSize: "0.7rem" }}
-                      >
-                        Inform the kitchen before preparing.
-                      </div>
+                    <div className="text-muted" style={{ fontSize: "0.72rem" }}>
+                      {selectedPayment?.num_guests
+                        ? `${selectedPayment.num_guests} pax`
+                        : "Walk-in"}
+                      {selectedPayment?.table_number
+                        ? ` • Table ${selectedPayment.table_number}`
+                        : ""}
                     </div>
                   </div>
-                );
-              })()}
-
-              <div className="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
-                <span
-                  className="fw-bold text-muted text-uppercase tracking-wider"
-                  style={{ fontSize: "0.7rem" }}
-                >
-                  Order Items
-                </span>
-                <span
-                  className="badge bg-secondary-subtle text-secondary font-monospace"
-                  style={{ fontSize: "0.7rem" }}
-                >
-                  ID: {selectedPayment.reservation_id}
-                </span>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1"
-                  onClick={() =>
-                    handlePrintReceipt({
-                      selectedPayment,
-                      orderLineItems,
-                      getItemPrice,
-                      calculateItemsSum,
-                      showToast,
-                    })
-                  }
-                  disabled={loadingItems}
-                >
-                  <Printer size={14} />
-                  Print Receipt
-                </button>
-              </div>
-
-              {/* ==================== INTEGRATED DYNAMIC EVENT SPEND TRACKER ==================== */}
-              {(() => {
-                // Kiosk orders only — the reservation downpayment is excluded.
-                const totalBill = calculateKioskSpend();
-
-                const rawPackageName =
-                  selectedPayment?.package_name ||
-                  selectedPayment?.packageName ||
-                  "";
-
-                const eventItem = orderLineItems.find(item => {
-                  const name = (item.name || item.item_name || "").toLowerCase();
-                  return name.includes("standard package") || name.includes("premium package") || name.includes("event");
-                });
-
-                const matchedPackageName = eventItem ? (eventItem.name || eventItem.item_name) : rawPackageName;
-                const pkgName = matchedPackageName.toLowerCase().trim();
-
-                const isEvent =
-                  selectedPayment?.reservation_type?.toLowerCase() === "event" ||
-                  selectedPayment?.reservationType?.toLowerCase() === "event" ||
-                  pkgName.includes("event") ||
-                  pkgName.includes("standard") ||
-                  pkgName.includes("premium");
-
-                if (!isEvent) return null;
-
-                const eventLimits = {
-                  "standard package": 10000,
-                  "premium package": 12500,
-                  "event_a": 10000,
-                  "event_b": 12500,
-                };
-
-                const targetLimit = eventLimits[pkgName] || 10000;
-                const percentage = Math.min(
-                  100,
-                  (totalBill / targetLimit) * 100,
-                );
-                const warningThreshold = targetLimit * 0.85;
-                const isNearing =
-                  totalBill >= warningThreshold && totalBill < targetLimit;
-                const isMet = totalBill >= targetLimit;
-
-                return (
-                  <div className="card border bg-white p-2 mb-2 rounded-3 shadow-sm text-dark animate-fade-in">
-                    <div className="d-flex justify-content-between align-items-center mb-1">
-                      <span
-                        className="small fw-bold text-muted text-uppercase tracking-wider"
-                        style={{ fontSize: "0.7rem" }}
-                      >
-                        {matchedPackageName} Spend Progress
-                      </span>
-                      <span
-                        className="small fw-bold text-primary"
-                        style={{ fontSize: "0.8rem" }}
-                      >
-                        {percentage.toFixed(0)}%
-                      </span>
-                    </div>
-
-                    <div
-                      className="progress mb-2 bg-light border-0"
-                      style={{ height: "8px", borderRadius: "50px", backgroundColor: "#e9ecef" }}
+                  <div className="text-end">
+                    <span
+                      className={`badge ${
+                        selectedPayment?.order_status?.toLowerCase() ===
+                        "completed"
+                          ? "text-bg-success"
+                          : "text-bg-warning"
+                      }`}
                     >
+                      {selectedPayment?.order_status || "Pending"}
+                    </span>
+                    {balanceInfo.overpaid > 0 && (
                       <div
-                        className={`progress-bar ${isMet ? "bg-success" : isNearing ? "bg-warning" : "bg-primary"}`}
-                        role="progressbar"
-                        style={{
-                          width: `${percentage}%`,
-                          borderRadius: "50px",
-                          transition: "width 0.4s ease",
-                        }}
-                      ></div>
-                    </div>
-
-                    <div className="d-flex justify-content-between align-items-center">
-                      <span
-                        className="text-muted"
-                        style={{ fontSize: "0.72rem" }}
+                        className="text-success fw-bold mt-1"
+                        style={{ fontSize: "0.68rem" }}
                       >
-                        Target Limit: ₱
-                        {targetLimit.toLocaleString(undefined, {
+                        Overpaid ₱
+                        {balanceInfo.overpaid.toLocaleString(undefined, {
                           minimumFractionDigits: 2,
                         })}
-                      </span>
-                      {isMet ? (
-                        <span
-                          className="badge bg-success-subtle text-success border border-success-subtle rounded-pill"
-                          style={{ fontSize: "0.65rem", padding: "3px 8px" }}
-                        >
-                          ✓ Limit Met
-                        </span>
-                      ) : isNearing ? (
-                        <span
-                          className="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill"
-                          style={{ fontSize: "0.65rem", padding: "3px 8px" }}
-                        >
-                          ⚠️ Near Limit
-                        </span>
-                      ) : (
-                        <span
-                          className="badge bg-light text-muted border rounded-pill"
-                          style={{ fontSize: "0.65rem", padding: "3px 8px" }}
-                        >
-                          Tracking
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {loadingItems ? (
-                <div className="text-center py-5">
-                  <Loader2 className="animate-spin text-primary" />
-                  <div className="text-muted small mt-2">
-                    Loading itemized summary...
+                      </div>
+                    )}
                   </div>
                 </div>
-              ) : (
-                <div className="item-list">
-                  {orderLineItems.map((item, idx) => {
-                    const isRefill =
-                      item.is_refill === 1 ||
-                      item.is_refill === true ||
-                      (item.customizations &&
-                        item.customizations.toString().includes("[REFILL]"));
-                    const currentPrice = isRefill
-                      ? 0
-                      : Number(item.price || 0);
 
-                    return (
-                      <div
-                        key={idx}
-                        className="mb-2 p-2 bg-white rounded-3 border shadow-sm d-flex align-items-center gap-2"
-                      >
-                        <span
-                          className="badge bg-dark rounded-1 flex-shrink-0"
+                {/* ALLERGY WARNING — must be impossible to miss for the kitchen */}
+                {(() => {
+                  const note = (selectedPayment?.allergy_note || "").trim();
+                  if (!note || note.toLowerCase() === "none") return null;
+                  return (
+                    <div
+                      className="alert alert-danger border-0 rounded-3 p-2 px-3 mb-3 d-flex align-items-start gap-2 shadow-sm"
+                      role="alert"
+                    >
+                      <AlertTriangle size={20} className="flex-shrink-0 mt-1" />
+                      <div>
+                        <div
+                          className="fw-bold text-uppercase"
                           style={{
-                            fontSize: "0.7rem",
-                            width: "30px",
-                            padding: "6px 0",
+                            fontSize: "0.68rem",
+                            letterSpacing: "0.5px",
                           }}
                         >
-                          x{item.quantity}
-                        </span>
-                        <div className="flex-grow-1 text-start overflow-hidden">
-                          <div
-                            className="fw-bold text-dark small text-truncate"
-                          >
-                            {item.name || item.item_name}
-                            {isRefill && (
-                              <span
-                                className="badge bg-success-subtle text-success ms-2 text-uppercase"
-                                style={{ fontSize: "0.6rem" }}
-                              >
-                                Refill
-                              </span>
-                            )}
-                          </div>
-                          {item.customizations && (
-                            <div
-                              className="text-muted"
-                              style={{
-                                fontSize: "0.7rem",
-                                lineHeight: 1.35,
-                              }}
-                            >
-                              {item.customizations}
-                            </div>
-                          )}
-                          <small className="text-muted">
-                            ₱{currentPrice.toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                            })} each
-                          </small>
+                          Allergy Alert
                         </div>
-                        <span
-                          className="fw-bold text-dark small text-end flex-shrink-0"
+                        <div className="fw-bold" style={{ fontSize: "0.9rem" }}>
+                          {note}
+                        </div>
+                        <div
+                          className="text-danger-emphasis"
+                          style={{ fontSize: "0.7rem" }}
                         >
+                          Inform the kitchen before preparing.
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <div className="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
+                  <span
+                    className="fw-bold text-muted text-uppercase tracking-wider"
+                    style={{ fontSize: "0.7rem" }}
+                  >
+                    Order Items
+                  </span>
+                  <span
+                    className="badge bg-secondary-subtle text-secondary font-monospace"
+                    style={{ fontSize: "0.7rem" }}
+                  >
+                    ID: {selectedPayment.reservation_id}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1"
+                    onClick={() =>
+                      handlePrintReceipt({
+                        selectedPayment,
+                        orderLineItems,
+                        getItemPrice,
+                        calculateItemsSum,
+                        showToast,
+                      })
+                    }
+                    disabled={loadingItems}
+                  >
+                    <Printer size={14} />
+                    Print Receipt
+                  </button>
+                </div>
+
+                {/* ==================== INTEGRATED DYNAMIC EVENT SPEND TRACKER ==================== */}
+                {(() => {
+                  // Kiosk orders only — the reservation downpayment is excluded.
+                  const totalBill = calculateKioskSpend();
+
+                  const rawPackageName =
+                    selectedPayment?.package_name ||
+                    selectedPayment?.packageName ||
+                    "";
+
+                  const eventItem = orderLineItems.find((item) => {
+                    const name = (
+                      item.name ||
+                      item.item_name ||
+                      ""
+                    ).toLowerCase();
+                    return (
+                      name.includes("standard package") ||
+                      name.includes("premium package") ||
+                      name.includes("event")
+                    );
+                  });
+
+                  const matchedPackageName = eventItem
+                    ? eventItem.name || eventItem.item_name
+                    : rawPackageName;
+                  const pkgName = matchedPackageName.toLowerCase().trim();
+
+                  const isEvent =
+                    selectedPayment?.reservation_type?.toLowerCase() ===
+                      "event" ||
+                    selectedPayment?.reservationType?.toLowerCase() ===
+                      "event" ||
+                    pkgName.includes("event") ||
+                    pkgName.includes("standard") ||
+                    pkgName.includes("premium");
+
+                  if (!isEvent) return null;
+
+                  const eventLimits = {
+                    "standard package": 10000,
+                    "premium package": 12500,
+                    event_a: 10000,
+                    event_b: 12500,
+                  };
+
+                  const targetLimit = eventLimits[pkgName] || 10000;
+                  const percentage = Math.min(
+                    100,
+                    (totalBill / targetLimit) * 100,
+                  );
+                  const warningThreshold = targetLimit * 0.85;
+                  const isNearing =
+                    totalBill >= warningThreshold && totalBill < targetLimit;
+                  const isMet = totalBill >= targetLimit;
+
+                  return (
+                    <div className="card border bg-white p-2 mb-2 rounded-3 shadow-sm text-dark animate-fade-in">
+                      <div className="d-flex justify-content-between align-items-center mb-1">
+                        <span
+                          className="small fw-bold text-muted text-uppercase tracking-wider"
+                          style={{ fontSize: "0.7rem" }}
+                        >
+                          {matchedPackageName} Spend Progress
+                        </span>
+                        <span
+                          className="small fw-bold text-primary"
+                          style={{ fontSize: "0.8rem" }}
+                        >
+                          {percentage.toFixed(0)}%
+                        </span>
+                      </div>
+
+                      <div
+                        className="progress mb-2 bg-light border-0"
+                        style={{
+                          height: "8px",
+                          borderRadius: "50px",
+                          backgroundColor: "#e9ecef",
+                        }}
+                      >
+                        <div
+                          className={`progress-bar ${isMet ? "bg-success" : isNearing ? "bg-warning" : "bg-primary"}`}
+                          role="progressbar"
+                          style={{
+                            width: `${percentage}%`,
+                            borderRadius: "50px",
+                            transition: "width 0.4s ease",
+                          }}
+                        ></div>
+                      </div>
+
+                      <div className="d-flex justify-content-between align-items-center">
+                        <span
+                          className="text-muted"
+                          style={{ fontSize: "0.72rem" }}
+                        >
+                          Target Limit: ₱
+                          {targetLimit.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                          })}
+                        </span>
+                        {isMet ? (
+                          <span
+                            className="badge bg-success-subtle text-success border border-success-subtle rounded-pill"
+                            style={{ fontSize: "0.65rem", padding: "3px 8px" }}
+                          >
+                            ✓ Limit Met
+                          </span>
+                        ) : isNearing ? (
+                          <span
+                            className="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill"
+                            style={{ fontSize: "0.65rem", padding: "3px 8px" }}
+                          >
+                            ⚠️ Near Limit
+                          </span>
+                        ) : (
+                          <span
+                            className="badge bg-light text-muted border rounded-pill"
+                            style={{ fontSize: "0.65rem", padding: "3px 8px" }}
+                          >
+                            Tracking
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {loadingItems ? (
+                  <div className="text-center py-5">
+                    <Loader2 className="animate-spin text-primary" />
+                    <div className="text-muted small mt-2">
+                      Loading itemized summary...
+                    </div>
+                  </div>
+                ) : (
+                  <div className="item-list">
+                    {orderLineItems.map((item, idx) => {
+                      const isRefill =
+                        item.is_refill === 1 ||
+                        item.is_refill === true ||
+                        (item.customizations &&
+                          item.customizations.toString().includes("[REFILL]"));
+                      const currentPrice = isRefill
+                        ? 0
+                        : Number(item.price || 0);
+
+                      return (
+                        <div
+                          key={idx}
+                          className="mb-2 p-2 bg-white rounded-3 border shadow-sm d-flex align-items-center gap-2"
+                        >
+                          <span
+                            className="badge bg-dark rounded-1 flex-shrink-0"
+                            style={{
+                              fontSize: "0.7rem",
+                              width: "30px",
+                              padding: "6px 0",
+                            }}
+                          >
+                            x{item.quantity}
+                          </span>
+                          <div className="flex-grow-1 text-start overflow-hidden">
+                            <div className="fw-bold text-dark small text-truncate">
+                              {item.name || item.item_name}
+                              {isRefill && (
+                                <span
+                                  className="badge bg-success-subtle text-success ms-2 text-uppercase"
+                                  style={{ fontSize: "0.6rem" }}
+                                >
+                                  Refill
+                                </span>
+                              )}
+                            </div>
+                            {item.customizations && (
+                              <div
+                                className="text-muted"
+                                style={{
+                                  fontSize: "0.7rem",
+                                  lineHeight: 1.35,
+                                }}
+                              >
+                                {item.customizations}
+                              </div>
+                            )}
+                            <small className="text-muted">
+                              ₱
+                              {currentPrice.toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                              })}{" "}
+                              each
+                            </small>
+                          </div>
+                          <span className="fw-bold text-dark small text-end flex-shrink-0">
+                            ₱
+                            {(item.quantity * currentPrice).toLocaleString(
+                              undefined,
+                              { minimumFractionDigits: 2 },
+                            )}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {(() => {
+                  const packageName = String(
+                    selectedPayment?.package_name || "",
+                  ).toLowerCase();
+                  const supportsTakeout =
+                    packageName.includes("standard") ||
+                    packageName.includes("premium");
+                  const isSeated =
+                    String(
+                      selectedPayment?.order_status ||
+                        selectedPayment?.status ||
+                        "",
+                    ).toLowerCase() === "seated";
+
+                  return supportsTakeout && isSeated ? (
+                    <button
+                      type="button"
+                      className="btn btn-outline-warning fw-bold w-100 mb-3"
+                      onClick={() =>
+                        setTakeoutReservationId(selectedPayment.reservation_id)
+                      }
+                    >
+                      View Package Balance / Process Takeout
+                    </button>
+                  ) : null;
+                })()}
+              </div>
+
+              {/* 2. RECEIPT & METADATA SECTION (Dark Background Area)
+                 flex-shrink:0 pins this block at its natural height instead of
+                 letting it collapse when the order list above grows long. */}
+              <div className="p-3 bg-dark text-white rounded-top-4 shadow-lg mt-0 flex-shrink-0 drawer-footer">
+                <div className="card bg-secondary bg-opacity-25 border-secondary border-opacity-25 p-2 mb-1.5">
+                  <div className="d-flex justify-content-between mb-1 text-white-50 small">
+                    <span>Total Bill</span>
+                    <span className="text-white">
+                      ₱
+                      {Number(
+                        selectedPayment?.total_bill || calculateItemsSum(),
+                      ).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                      })}
+                    </span>
+                  </div>
+
+                  {/* Show the same paid and outstanding balance breakdown for walk-ins and reservations. */}
+                  {
+                    <>
+                      <div className="d-flex justify-content-between align-items-center mb-1.5 pb-1.5 border-bottom border-secondary border-opacity-50">
+                        <span className="text-white-50 small">Paid Amount</span>
+                        <span className="fw-semibold text-success">
                           ₱
-                          {(item.quantity * currentPrice).toLocaleString(
+                          {Number(selectedPayment?.amount || 0).toLocaleString(
                             undefined,
                             { minimumFractionDigits: 2 },
                           )}
                         </span>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
 
-              {(() => {
-                const packageName = String(
-                  selectedPayment?.package_name || "",
-                ).toLowerCase();
-                const supportsTakeout =
-                  packageName.includes("standard") ||
-                  packageName.includes("premium");
-                const isSeated =
-                  String(selectedPayment?.order_status || selectedPayment?.status || "").toLowerCase() === "seated";
-
-                return supportsTakeout && isSeated ? (
-                  <button
-                    type="button"
-                    className="btn btn-outline-warning fw-bold w-100 mb-3"
-                    onClick={() =>
-                      setTakeoutReservationId(selectedPayment.reservation_id)
-                    }
-                  >
-                    View Package Balance / Process Takeout
-                  </button>
-                ) : null;
-              })()}
-
-            </div>
-
-            {/* 2. RECEIPT & METADATA SECTION (Dark Background Area)
-                 flex-shrink:0 pins this block at its natural height instead of
-                 letting it collapse when the order list above grows long. */}
-            <div className="p-3 bg-dark text-white rounded-top-4 shadow-lg mt-0 flex-shrink-0 drawer-footer">
-              <div className="card bg-secondary bg-opacity-25 border-secondary border-opacity-25 p-2 mb-1.5">
-                <div className="d-flex justify-content-between mb-1 text-white-50 small">
-                  <span>Total Bill</span>
-                  <span className="text-white">
-                    ₱
-                    {Number(selectedPayment?.total_bill || calculateItemsSum()).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                    })}
-                  </span>
+                      <div className="d-flex justify-content-between align-items-center mb-1">
+                        <span className="small fw-semibold text-white-50">
+                          Remaining Balance
+                        </span>
+                        <span
+                          className={
+                            balanceInfo.remaining > 0
+                              ? "fw-bold text-warning fs-5"
+                              : "badge bg-success-subtle text-success fw-semibold"
+                          }
+                        >
+                          {balanceInfo.remaining > 0
+                            ? `₱${balanceInfo.remaining.toLocaleString(
+                                undefined,
+                                {
+                                  minimumFractionDigits: 2,
+                                },
+                              )}`
+                            : "₱0.00 (Paid in Full)"}
+                        </span>
+                      </div>
+                    </>
+                  }
                 </div>
 
-                {/* Show the same paid and outstanding balance breakdown for walk-ins and reservations. */}
-                {(
-                  <>
-                    <div className="d-flex justify-content-between align-items-center mb-1.5 pb-1.5 border-bottom border-secondary border-opacity-50">
-                      <span className="text-white-50 small">
-                        Paid Amount
-                      </span>
-                      <span className="fw-semibold text-success">
-                        ₱
-                        {Number(selectedPayment?.amount || 0).toLocaleString(
-                          undefined,
-                          { minimumFractionDigits: 2 },
-                        )}
-                      </span>
-                    </div>
-
-                    <div className="d-flex justify-content-between align-items-center mb-1">
-                      <span className="small fw-semibold text-white-50">
-                        Remaining Balance
-                      </span>
-                      <span
-                        className={
-                          balanceInfo.remaining > 0
-                            ? "fw-bold text-warning fs-5"
-                            : "badge bg-success-subtle text-success fw-semibold"
-                        }
+                {/* ALERT BLOCK FOR REJECTED ATTEMPTS */}
+                {selectedPayment?.payment_status === "rejected" &&
+                  !showRejectForm && (
+                    <div className="alert alert-danger border-0 bg-danger bg-opacity-10 text-white p-2.5 mb-2 rounded-3">
+                      <div className="d-flex align-items-center mb-1 text-danger">
+                        <XCircle size={16} className="me-2" />
+                        <span className="fw-bold small text-uppercase tracking-wider">
+                          Proof Rejected
+                        </span>
+                      </div>
+                      <div
+                        className="text-white-50 small mb-2 text-start px-1"
+                        style={{ fontSize: "0.8rem" }}
                       >
-                        {balanceInfo.remaining > 0
-                          ? `₱${balanceInfo.remaining.toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                            })}`
-                          : "₱0.00 (Paid in Full)"}
-                      </span>
+                        <strong>Reason: </strong>{" "}
+                        {selectedPayment.rejection_reason ||
+                          "Invalid receipt upload."}
+                      </div>
+                      <div
+                        className="text-warning small d-flex align-items-center bg-warning bg-opacity-10 rounded p-1.5"
+                        style={{ fontSize: "0.72rem" }}
+                      >
+                        <Calendar size={12} className="me-1" />
+                        Customer notified. 12-hour grace period active.
+                      </div>
                     </div>
-                  </>
-                )}
-              </div>
+                  )}
 
-              {/* ALERT BLOCK FOR REJECTED ATTEMPTS */}
-              {selectedPayment?.payment_status === "rejected" &&
-                !showRejectForm && (
-                  <div className="alert alert-danger border-0 bg-danger bg-opacity-10 text-white p-2.5 mb-2 rounded-3">
-                    <div className="d-flex align-items-center mb-1 text-danger">
-                      <XCircle size={16} className="me-2" />
-                      <span className="fw-bold small text-uppercase tracking-wider">
-                        Proof Rejected
-                      </span>
-                    </div>
-                    <div
-                      className="text-white-50 small mb-2 text-start px-1"
-                      style={{ fontSize: "0.8rem" }}
-                    >
-                      <strong>Reason: </strong>{" "}
-                      {selectedPayment.rejection_reason ||
-                        "Invalid receipt upload."}
-                    </div>
-                    <div
-                      className="text-warning small d-flex align-items-center bg-warning bg-opacity-10 rounded p-1.5"
-                      style={{ fontSize: "0.72rem" }}
-                    >
-                      <Calendar size={12} className="me-1" />
-                      Customer notified. 12-hour grace period active.
-                    </div>
-                  </div>
-                )}
+                {!showRejectForm && (
+                  <div className="mt-1 mb-2">
+                    {(() => {
+                      const receiptUrl = selectedPayment?.receipt_path
+                        ? selectedPayment.receipt_path.startsWith("http")
+                          ? selectedPayment.receipt_path
+                          : selectedPayment.receipt_path.includes("restaurant_")
+                            ? `https://res.cloudinary.com/dfajhhh84/image/upload/${selectedPayment.receipt_path}`
+                            : `${api.defaults.baseURL?.replace("/api", "") || ""}/uploads/${selectedPayment.receipt_path}`
+                        : null;
 
-              {!showRejectForm && (
-                <div className="mt-1 mb-2">
-                  {(() => {
-                    const receiptUrl = selectedPayment?.receipt_path
-                      ? selectedPayment.receipt_path.startsWith("http")
-                        ? selectedPayment.receipt_path
-                        : selectedPayment.receipt_path.includes("restaurant_")
-                          ? `https://res.cloudinary.com/dfajhhh84/image/upload/${selectedPayment.receipt_path}`
-                          : `${api.defaults.baseURL?.replace("/api", "") || ""}/uploads/${selectedPayment.receipt_path}`
-                      : null;
-
-                    return (
-                      <>
-                        <div className="d-flex justify-content-between align-items-center mb-1">
-                          <span className="text-white-50 small" style={{ fontSize: "0.8rem" }}>
-                            Proof of Payment Attachment
-                          </span>
-                          {receiptUrl && (
-                            <a
-                              href={receiptUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-primary text-decoration-none small d-flex align-items-center gap-1 hover-white"
-                              style={{
-                                fontSize: "0.75rem",
-                                borderBottom:
-                                  "1px dashed rgba(13, 110, 253, 0.3)",
-                              }}
+                      return (
+                        <>
+                          <div className="d-flex justify-content-between align-items-center mb-1">
+                            <span
+                              className="text-white-50 small"
+                              style={{ fontSize: "0.8rem" }}
                             >
-                              <Eye size={12} /> View Full Size
-                            </a>
-                          )}
-                        </div>
-
-                        {selectedPayment?.receipt_path ? (
-                          <div className="position-relative">
-                            <a
-                              href={receiptUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              title="Click to view full size"
-                            >
-                              <img
-                                src={receiptUrl}
-                                alt="Payment receipt"
-                                className="w-100 rounded-3 border border-secondary shadow-sm"
+                              Proof of Payment Attachment
+                            </span>
+                            {receiptUrl && (
+                              <a
+                                href={receiptUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-primary text-decoration-none small d-flex align-items-center gap-1 hover-white"
                                 style={{
-                                  maxHeight: 140,
-                                  objectFit: "contain",
-                                  background: "#121212",
-                                  cursor: "zoom-in",
+                                  fontSize: "0.75rem",
+                                  borderBottom:
+                                    "1px dashed rgba(13, 110, 253, 0.3)",
                                 }}
-                                onError={(e) => {
-                                  console.error(
-                                    "Image failed to load:",
-                                    e.currentTarget.src,
-                                  );
-                                  e.currentTarget.src =
-                                    "https://placehold.co/400x250/222/888?text=Image+Not+Found";
-                                }}
-                              />
-                            </a>
+                              >
+                                <Eye size={12} /> View Full Size
+                              </a>
+                            )}
                           </div>
-                        ) : (
-                          <div className="py-3 text-center border border-secondary border-dashed rounded-3 text-white-50 small">
-                            No receipt uploaded (Cash / Manual Entry).
-                          </div>
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
-              )}
 
-              {/* REJECTION FORM */}
-              {showRejectForm && (
-                <div className="card bg-danger bg-opacity-10 border border-danger border-opacity-25 p-2.5 mb-2 rounded-3 animate-fade-in">
-                  <div className="text-danger fw-bold small mb-1.5 d-flex align-items-center">
-                    <CornerDownRight size={14} className="me-1" /> Specify
-                    Rejection Reason
+                          {selectedPayment?.receipt_path ? (
+                            <div className="position-relative">
+                              <a
+                                href={receiptUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                title="Click to view full size"
+                              >
+                                <img
+                                  src={receiptUrl}
+                                  alt="Payment receipt"
+                                  className="w-100 rounded-3 border border-secondary shadow-sm"
+                                  style={{
+                                    maxHeight: 140,
+                                    objectFit: "contain",
+                                    background: "#121212",
+                                    cursor: "zoom-in",
+                                  }}
+                                  onError={(e) => {
+                                    console.error(
+                                      "Image failed to load:",
+                                      e.currentTarget.src,
+                                    );
+                                    e.currentTarget.src =
+                                      "https://placehold.co/400x250/222/888?text=Image+Not+Found";
+                                  }}
+                                />
+                              </a>
+                            </div>
+                          ) : (
+                            <div className="py-3 text-center border border-secondary border-dashed rounded-3 text-white-50 small">
+                              No receipt uploaded (Cash / Manual Entry).
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
-                  <textarea
-                    className="form-control form-control-sm bg-dark text-white border-secondary mb-2 shadow-inner"
-                    rows="2"
-                    style={{ fontSize: "0.85rem", resize: "none" }}
-                    placeholder="Write feedback for the customer..."
-                    value={rejectReason}
-                    onChange={(e) => setRejectReason(e.target.value)}
-                  />
-                  <div className="d-flex gap-2">
-                    <button
-                      className="btn btn-danger btn-sm fw-bold flex-grow-1"
-                      onClick={submitRejection}
-                    >
-                      Submit Rejection
-                    </button>
-                    <button
-                      className="btn btn-outline-secondary btn-sm text-white-50"
-                      onClick={() => setShowRejectForm(false)}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
+                )}
 
-              {/* ACTION CONTROLS */}
-              <div className="d-grid gap-1.5">
-                {!showRejectForm &&
-                  selectedPayment?.payment_status !== "verified" && (
-                    <>
+                {/* REJECTION FORM */}
+                {showRejectForm && (
+                  <div className="card bg-danger bg-opacity-10 border border-danger border-opacity-25 p-2.5 mb-2 rounded-3 animate-fade-in">
+                    <div className="text-danger fw-bold small mb-1.5 d-flex align-items-center">
+                      <CornerDownRight size={14} className="me-1" /> Specify
+                      Rejection Reason
+                    </div>
+                    <textarea
+                      className="form-control form-control-sm bg-dark text-white border-secondary mb-2 shadow-inner"
+                      rows="2"
+                      style={{ fontSize: "0.85rem", resize: "none" }}
+                      placeholder="Write feedback for the customer..."
+                      value={rejectReason}
+                      onChange={(e) => setRejectReason(e.target.value)}
+                    />
+                    <div className="d-flex gap-2">
                       <button
-                        className="btn btn-success fw-bold fs-6 py-2 shadow-sm d-flex align-items-center justify-content-center"
+                        className="btn btn-danger btn-sm fw-bold flex-grow-1"
+                        onClick={submitRejection}
+                      >
+                        Submit Rejection
+                      </button>
+                      <button
+                        className="btn btn-outline-secondary btn-sm text-white-50"
+                        onClick={() => setShowRejectForm(false)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* ACTION CONTROLS */}
+                <div className="d-grid gap-1.5">
+                  {!showRejectForm &&
+                    selectedPayment?.payment_status !== "verified" && (
+                      <>
+                        <button
+                          className="btn btn-success fw-bold fs-6 py-2 shadow-sm d-flex align-items-center justify-content-center"
+                          onClick={async () => {
+                            if (
+                              !(await confirm({
+                                title: "Verify payment proof",
+                                message:
+                                  "Mark this proof of payment as verified?",
+                                confirmLabel: "Verify payment",
+                                variant: "primary",
+                              }))
+                            )
+                              return;
+                            try {
+                              await api.put(
+                                `/billing/verify/${selectedPayment.reservation_id}`,
+                                {},
+                              );
+
+                              setSelectedPayment((prev) => ({
+                                ...prev,
+                                payment_status: "verified",
+                              }));
+
+                              await fetchPayments();
+                              closeBtnRef.current?.click();
+                            } catch (err) {
+                              showToast("Failed to verify.");
+                            }
+                          }}
+                        >
+                          <CheckCircle2 size={16} className="me-2" /> Verify
+                          Payment Proof
+                        </button>
+
+                        {!isWalkIn &&
+                          selectedPayment?.payment_status !== "rejected" && (
+                            <button
+                              className="btn btn-outline-danger fw-bold py-1.5 border-secondary"
+                              onClick={() => setShowRejectForm(true)}
+                            >
+                              Reject Proof
+                            </button>
+                          )}
+                      </>
+                    )}
+
+                  {!showRejectForm &&
+                    (selectedPayment?.order_status?.toLowerCase() !==
+                      "completed" &&
+                    selectedPayment?.status?.toLowerCase() !== "completed" ? (
+                      <button
+                        className="btn btn-primary fw-bold py-2 d-flex align-items-center justify-content-center"
                         onClick={async () => {
-                          if (!(await confirm({
-                            title: "Verify payment proof",
-                            message: "Mark this proof of payment as verified?",
-                            confirmLabel: "Verify payment",
-                            variant: "primary",
-                          }))) return;
+                          if (
+                            !(await confirm({
+                              title: "Settle transaction",
+                              message:
+                                "Mark this transaction as fully paid and completed?",
+                              confirmLabel: "Settle bill",
+                              variant: "primary",
+                            }))
+                          )
+                            return;
+
                           try {
                             await api.put(
-                              `/billing/verify/${selectedPayment.reservation_id}`,
+                              `/billing/settle/${selectedPayment.reservation_id}`,
                               {},
                             );
 
                             setSelectedPayment((prev) => ({
                               ...prev,
+                              order_status: "completed",
                               payment_status: "verified",
                             }));
 
                             await fetchPayments();
-                            closeBtnRef.current?.click();
+                            showToast("Transaction Settled!", "success");
                           } catch (err) {
-                            showToast("Failed to verify.");
+                            console.error("Settle error:", err.response?.data);
+                            showToast("Failed to settle bill.");
                           }
                         }}
                       >
-                        <CheckCircle2 size={16} className="me-2" /> Verify
-                        Payment Proof
+                        <Layers size={16} className="me-2" /> Settle Bill (Fully
+                        Paid)
                       </button>
-
-                      {!isWalkIn &&
-                        selectedPayment?.payment_status !== "rejected" && (
-                          <button
-                            className="btn btn-outline-danger fw-bold py-1.5 border-secondary"
-                            onClick={() => setShowRejectForm(true)}
-                          >
-                            Reject Proof
-                          </button>
-                        )}
-                    </>
-                  )}
-
-                {!showRejectForm &&
-                  (selectedPayment?.order_status?.toLowerCase() !==
-                    "completed" &&
-                  selectedPayment?.status?.toLowerCase() !== "completed" ? (
-                    <button
-                      className="btn btn-primary fw-bold py-2 d-flex align-items-center justify-content-center"
-                      onClick={async () => {
-                        if (!(await confirm({
-                          title: "Settle transaction",
-                          message: "Mark this transaction as fully paid and completed?",
-                          confirmLabel: "Settle bill",
-                          variant: "primary",
-                        }))) return;
-
-                        try {
-                          await api.put(
-                            `/billing/settle/${selectedPayment.reservation_id}`,
-                            {},
-                          );
-
-                          setSelectedPayment((prev) => ({
-                            ...prev,
-                            order_status: "completed",
-                            payment_status: "verified",
-                          }));
-
-                          await fetchPayments();
-                          showToast("Transaction Settled!", "success");
-                        } catch (err) {
-                          console.error("Settle error:", err.response?.data);
-                          showToast("Failed to settle bill.");
-                        }
-                      }}
-                    >
-                      <Layers size={16} className="me-2" /> Settle Bill (Fully
-                      Paid)
-                    </button>
-                  ) : (
-                    <div className="alert alert-success border-0 py-2 text-center mb-0 d-flex flex-column align-items-center bg-success bg-opacity-10 text-success">
-                      <CheckCircle2 size={20} className="mb-1" />
-                      <div className="fw-bold small text-uppercase tracking-wide" style={{ fontSize: '0.75rem' }}>
-                        Transaction Settle Complete
+                    ) : (
+                      <div className="alert alert-success border-0 py-2 text-center mb-0 d-flex flex-column align-items-center bg-success bg-opacity-10 text-success">
+                        <CheckCircle2 size={20} className="mb-1" />
+                        <div
+                          className="fw-bold small text-uppercase tracking-wide"
+                          style={{ fontSize: "0.75rem" }}
+                        >
+                          Transaction Settle Complete
+                        </div>
+                        <small
+                          className="opacity-75"
+                          style={{ fontSize: "0.7rem" }}
+                        >
+                          This bill has been paid and completed.
+                        </small>
                       </div>
-                      <small
-                        className="opacity-75"
-                        style={{ fontSize: "0.7rem" }}
-                      >
-                        This bill has been paid and completed.
-                      </small>
-                    </div>
-                  ))}
+                    ))}
 
-                <button
-                  className="btn btn-outline-secondary text-white-50 border-0 mt-0.5 py-2 drawer-footer-action"
-                  data-bs-dismiss="offcanvas"
-                >
-                  Close Drawer
-                </button>
+                  <button
+                    className="btn btn-outline-secondary text-white-50 border-0 mt-0.5 py-2 drawer-footer-action"
+                    data-bs-dismiss="offcanvas"
+                  >
+                    Close Drawer
+                  </button>
+                </div>
               </div>
-            </div>
-          </>
-        )}
+            </>
+          )}
+        </div>
       </div>
-    </div>
-    {takeoutReservationId && (
-      <EventTakeoutModal
-        reservationId={takeoutReservationId}
-        onClose={() => setTakeoutReservationId(null)}
-      />
-    )}
+      {takeoutReservationId && (
+        <EventTakeoutModal
+          reservationId={takeoutReservationId}
+          onClose={() => setTakeoutReservationId(null)}
+        />
+      )}
     </div>
   );
 };

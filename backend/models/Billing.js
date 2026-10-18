@@ -13,6 +13,8 @@ const Billing = {
           r.status as order_status,
           r.created_at,
           r.reservation_date,
+          r.session_started_at,   /* <--- ADD THIS */
+          r.session_ended_at,
           p.payment_id,
           p.amount,              -- Amount currently paid / deposit
           p.total_bill,          -- The ACTUAL calculated bill (Added)
@@ -49,12 +51,17 @@ const Billing = {
       return rows;
     } catch (err) {
       console.error("CRITICAL SQL ERROR:", err.message);
-      throw err; 
+      throw err;
     }
   },
 
   // 2. Prevent duplicate updates from downgrading the total_bill
-  createWalkinPayment: async (reservationId, amount, paymentMethod, paymentStatus = "pending") => {
+  createWalkinPayment: async (
+    reservationId,
+    amount,
+    paymentMethod,
+    paymentStatus = "pending",
+  ) => {
     try {
       const sql = `
         INSERT INTO payments 
@@ -68,15 +75,15 @@ const Billing = {
           payment_method = VALUES(payment_method),
           paid_at = NOW()
       `;
-      
+
       const [result] = await db.execute(sql, [
-        reservationId, 
-        amount, 
-        amount, 
-        paymentMethod, 
-        paymentStatus
+        reservationId,
+        amount,
+        amount,
+        paymentMethod,
+        paymentStatus,
       ]);
-      
+
       return result.insertId || result.affectedRows;
     } catch (err) {
       console.error("Error in createWalkinPayment:", err.message);
@@ -86,8 +93,11 @@ const Billing = {
 
   settleReservation: async (resId) => {
     // Mark reservation as completed
-    await db.execute("UPDATE reservations SET status = 'completed' WHERE reservation_id = ?", [resId]);
-    
+    await db.execute(
+      "UPDATE reservations SET status = 'completed' WHERE reservation_id = ?",
+      [resId],
+    );
+
     // Set paid_at to NOW() if it is currently NULL, so it registers in reports (Fixed)
     await db.execute(
       `UPDATE payments 
@@ -96,8 +106,8 @@ const Billing = {
            rejection_reason = NULL, 
            rejected_at = NULL,
            paid_at = COALESCE(paid_at, NOW()) 
-       WHERE reservation_id = ?`, 
-      [resId]
+       WHERE reservation_id = ?`,
+      [resId],
     );
     return true;
   },
@@ -110,15 +120,20 @@ const Billing = {
         SET payment_status = ?,
             paid_at = CASE WHEN ? = 'verified' THEN COALESCE(paid_at, NOW()) ELSE paid_at END
         WHERE reservation_id = ?`;
-      const [result] = await db.execute(sql, [paymentStatus, paymentStatus, resId]);
+      const [result] = await db.execute(sql, [
+        paymentStatus,
+        paymentStatus,
+        resId,
+      ]);
       return result.affectedRows > 0;
-    } catch (err) { 
-      throw err; 
+    } catch (err) {
+      throw err;
     }
   },
 
   confirmReservationStatus: async (resId) => {
-    const sql = "UPDATE reservations SET status = 'Confirmed' WHERE reservation_id = ?";
+    const sql =
+      "UPDATE reservations SET status = 'Confirmed' WHERE reservation_id = ?";
     const [result] = await db.execute(sql, [resId]);
     return result.affectedRows > 0;
   },
@@ -126,19 +141,19 @@ const Billing = {
   rejectPaymentByReservation: async (resId, reason) => {
     try {
       await db.execute(
-        "UPDATE payments SET payment_status = 'rejected', rejection_reason = ?, rejected_at = NOW() WHERE reservation_id = ?", 
-        [reason || null, resId]
+        "UPDATE payments SET payment_status = 'rejected', rejection_reason = ?, rejected_at = NOW() WHERE reservation_id = ?",
+        [reason || null, resId],
       );
-      
+
       const [result] = await db.execute(
-        "UPDATE reservations SET status = 'rejected' WHERE reservation_id = ?", 
-        [resId]
+        "UPDATE reservations SET status = 'rejected' WHERE reservation_id = ?",
+        [resId],
       );
       return result.affectedRows > 0;
     } catch (err) {
       throw err;
     }
-  }
+  },
 };
 
 module.exports = Billing;
