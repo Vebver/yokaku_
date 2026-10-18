@@ -33,27 +33,6 @@ import alertMusicFile from "../../assets/alert-sound.mp3";
 import { useToast } from "../ToastContext";
 import { API_BASE, SERVER_URL as BASE_URL } from "../../api";
 import io from "socket.io-client";
-<<<<<<< Updated upstream
-=======
-import {
-  getPackageCategories,
-  getDrinkOptions,
-  getPackageInclusions,
-  getPackageItems,
-  getPackageMenuData,
-  getPackageChickenCount,
-  getPackageQuantityLimit,
-  getCategory,
-  getUnlimitedPackage,
-  inferUnlimitedPackageMode,
-  isPackageCardForMode,
-  isJuiceItem,
-  isChickenCategory,
-  hasUnlimitedFlavorSelection,
-  sanitizePackageCart,
-  validatePackageCart,
-} from "./unlimitedPackageRules";
->>>>>>> Stashed changes
 
 const HIDDEN_CATEGORIES = [
   "Chicken Wings",
@@ -231,12 +210,7 @@ const KioskReservationMenu = () => {
 
         if (res.data && res.data.success) {
           const { mode, reservation, kioskMode: tableMode } = res.data;
-<<<<<<< Updated upstream
           setKioskMenuMode(tableMode || reservation?.kiosk_mode || "default");
-=======
-          const activeTableMode = tableMode || reservation?.kiosk_mode || "default";
-          setTableKioskMenuMode(activeTableMode);
->>>>>>> Stashed changes
 
           if (mode === "event_waiting") {
             if (activeResId) {

@@ -25,9 +25,6 @@ function Footer() {
           });
         }
       })
-<<<<<<< Updated upstream
-      .catch((err) => console.error("Footer settings fetch error:", err));
-=======
       .catch((err) => {
         console.error("Footer settings fetch error:", err);
         if (!cancelled) {
@@ -37,7 +34,6 @@ function Footer() {
           });
         }
       });
->>>>>>> Stashed changes
     return () => {
       cancelled = true;
     };
