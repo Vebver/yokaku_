@@ -130,17 +130,6 @@ function FeaturedMenu({ onLoginClick }) {
     autoplaySpeed: 5000,
     pauseOnHover: true,
     cssEase: "linear",
-    // Add this function to fix the warning
-    beforeChange: (current, next) => {
-      const activeElement = document.activeElement;
-      if (activeElement) {
-        const slide = activeElement.closest(".slick-slide");
-        // If focus is inside a slide that is about to be hidden, blur it
-        if (slide && Number(slide.getAttribute("data-index")) !== next) {
-          activeElement.blur();
-        }
-      }
-    },
   };
 
   return (
