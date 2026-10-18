@@ -403,7 +403,7 @@ const Billing = () => {
                 className="text-muted small text-uppercase"
                 style={{ fontSize: "0.72rem", letterSpacing: "0.8px" }}
               >
-                <th className="ps-4 py-3">Customer Profile</th>
+                <th className="ps-4">Customer Profile</th>
                 <th>Method</th>
                 <th>Paid</th>
                 <th>Total Bill</th>
@@ -425,8 +425,8 @@ const Billing = () => {
                     "completed";
 
                   return (
-                    <tr key={p.payment_id} className="transition-all">
-                      <td className="ps-4 py-3">
+                    <tr key={p.payment_id} className="transition-all align-top">
+                      <td className="ps-4">
                         <div className="d-flex align-items-center">
                           <div>
                             <div className="fw-bold text-dark mb-0">

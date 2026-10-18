@@ -539,7 +539,7 @@ function Product() {
           >
             <thead className="table-light">
               <tr>
-                <th className="ps-4 py-3 small text-uppercase text-muted">
+                <th className="ps-4 small text-uppercase text-muted">
                   Dish
                 </th>
                 <th className="small text-uppercase text-muted">Category</th>

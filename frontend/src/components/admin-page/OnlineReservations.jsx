@@ -219,7 +219,9 @@ const OnlineReservations = () => {
   // Start / End block. Show the times that were entered for the booking rather
   // than payment amounts in the bookings list.
   const PaymentCell = ({ item }) => {
-    const startTime = item.reservation_time ? formatTime(item.reservation_time) : "--:--";
+    const startTime = item.reservation_time
+      ? formatTime(item.reservation_time)
+      : "--:--";
     const endTime = item.end_time ? formatTime(item.end_time) : "--:--";
 
     return (
@@ -235,7 +237,10 @@ const OnlineReservations = () => {
         </div>
         <div className="d-flex">
           <div className="flex-fill px-2 py-1 border-end border-light">
-            <div className="text-uppercase text-muted fw-bold" style={{ fontSize: "0.55rem" }}>
+            <div
+              className="text-uppercase text-muted fw-bold"
+              style={{ fontSize: "0.55rem" }}
+            >
               Start
             </div>
             <div className="fw-bold text-dark" style={{ fontSize: "0.8rem" }}>
@@ -243,7 +248,10 @@ const OnlineReservations = () => {
             </div>
           </div>
           <div className="flex-fill px-2 py-1">
-            <div className="text-uppercase text-muted fw-bold" style={{ fontSize: "0.55rem" }}>
+            <div
+              className="text-uppercase text-muted fw-bold"
+              style={{ fontSize: "0.55rem" }}
+            >
               End
             </div>
             <div className="fw-bold text-dark" style={{ fontSize: "0.8rem" }}>
@@ -269,7 +277,8 @@ const OnlineReservations = () => {
     Number(
       selectedRes?.total_bill ??
         selectedRes?.total_amount ??
-        (Number(selectedRes?.amount || 0) + Number(selectedRes?.balance_due || 0)),
+        Number(selectedRes?.amount || 0) +
+          Number(selectedRes?.balance_due || 0),
     ) || 0;
 
   // A reservation made for a specific table is paid at the counter, so the
@@ -419,7 +428,7 @@ const OnlineReservations = () => {
                 className="text-muted small text-uppercase"
                 style={{ fontSize: "0.7rem", letterSpacing: "0.8px" }}
               >
-                <th className="ps-4 py-3">Guest & ID</th>
+                <th className="ps-4">Guest & ID</th>
                 <th>Table</th>
                 <th>Schedule</th>
                 <th>Start / End</th>
@@ -480,7 +489,7 @@ const OnlineReservations = () => {
                 </tr>
               ))}
             </tbody>
-</table>
+          </table>
         </div>
       </div>
 
@@ -502,10 +511,7 @@ const OnlineReservations = () => {
                     <div className="fw-bold text-dark lh-sm">
                       {item.first_name} {item.last_name}
                     </div>
-                    <code
-                      className="text-muted"
-                      style={{ fontSize: "0.6rem" }}
-                    >
+                    <code className="text-muted" style={{ fontSize: "0.6rem" }}>
                       {item.reservation_id}
                     </code>
                   </div>
@@ -555,8 +561,8 @@ const OnlineReservations = () => {
       <div className="mt-4 px-3 d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
         <div className="text-muted small">
           Showing <strong>{indexOfFirstItem + 1}</strong> to{" "}
-          <strong>{Math.min(indexOfLastItem, filteredInquiries.length)}</strong> of{" "}
-          <strong>{filteredInquiries.length}</strong>
+          <strong>{Math.min(indexOfLastItem, filteredInquiries.length)}</strong>{" "}
+          of <strong>{filteredInquiries.length}</strong>
         </div>
         <nav>
           <ul className="pagination pagination-sm mb-0 shadow-sm border rounded bg-white">
@@ -839,14 +845,19 @@ const OnlineReservations = () => {
                   <div className="d-flex justify-content-between align-items-center mb-2">
                     <span className="small text-muted">Package</span>
                     <span className="text-end">
-                      <PackageMeta reservation={selectedRes} showPrice={false} />
+                      <PackageMeta
+                        reservation={selectedRes}
+                        showPrice={false}
+                      />
                     </span>
                   </div>
                   <div className="d-flex justify-content-between align-items-center mb-2">
                     <span className="small text-muted">Date</span>
                     <span className="small fw-bold text-dark text-end">
                       {selectedRes.reservation_date
-                        ? new Date(selectedRes.reservation_date).toLocaleDateString()
+                        ? new Date(
+                            selectedRes.reservation_date,
+                          ).toLocaleDateString()
                         : "---"}
                     </span>
                   </div>
@@ -880,8 +891,7 @@ const OnlineReservations = () => {
                         Booking
                       </div>
                       <h3 className="fw-bold mb-0">
-                        Table{" "}
-                        {selectedRes.assigned_tables}
+                        Table {selectedRes.assigned_tables}
                       </h3>
                     </div>
                     <span

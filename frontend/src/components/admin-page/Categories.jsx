@@ -138,7 +138,7 @@ function Categories() {
           <table className="table table-hover align-middle mb-0">
             <thead className="bg-light">
               <tr className="text-muted small text-uppercase">
-                <th className="ps-4 py-3">Category Name</th>
+                <th className="ps-4">Category Name</th>
                 <th>Description</th>
                 <th className="text-end pe-4">Actions</th>
               </tr>

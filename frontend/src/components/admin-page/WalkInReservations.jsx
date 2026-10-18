@@ -651,7 +651,7 @@ const WalkInReservations = () => {
                 className="text-muted small text-uppercase"
                 style={{ fontSize: "0.7rem", letterSpacing: "0.8px" }}
               >
-                <th className="ps-4 py-3">Guest & ID</th>
+                <th className="ps-4">Guest & ID</th>
                 <th>Table</th>
                 <th>Date</th>
                 <th className="text-center">Status</th>

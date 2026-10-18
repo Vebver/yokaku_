@@ -78,6 +78,23 @@
   background: #198754;
 }
 
+.inventory-option-toggle {
+  min-height: 36px;
+}
+
+.inventory-option-editor {
+  min-width: 0;
+  padding: 0.75rem;
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 0.5rem;
+}
+
+.inventory-option-editor .form-control,
+.inventory-option-editor .form-select {
+  min-width: 0;
+}
+
 /* --- Out-of-stock rows are tinted so they read at a glance --- */
 .table-danger-row {
   background-color: rgba(220, 53, 69, 0.06);
@@ -88,10 +105,10 @@
 }
 
 /* --------------------------------------------------------------------------
-   Phones / tablets: the 9-column table becomes stacked cards, each cell
-   labelled from its data-label attribute.
-   -------------------------------------------------------------------------- */
-@media (max-width: 768px) {
+  Narrow admin content areas: the 9-column table becomes stacked cards,
+  since the persistent sidebar leaves less width than the full viewport.
+  -------------------------------------------------------------------------- */
+@media (max-width: 1399.98px) {
   .inventory-container .table-responsive {
     overflow: visible;
   }

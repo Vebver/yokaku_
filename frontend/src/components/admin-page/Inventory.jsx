@@ -722,7 +722,6 @@ function Inventory({ isKitchenStaff = false, onBack }) {
         <div className="table-responsive">
           <table
             className="table table-hover align-middle mb-0"
-            style={{ minWidth: "1100px" }}
           >
             <thead className="bg-light border-bottom">
               <tr className="text-muted x-small text-uppercase">
@@ -1010,30 +1009,49 @@ function Inventory({ isKitchenStaff = false, onBack }) {
                 </select>
                 <button
                   type="button"
-                  className="btn btn-link btn-sm p-0 mt-1 text-decoration-none small fw-semibold"
+                  className="btn btn-outline-primary btn-sm w-100 mt-2 inventory-option-toggle"
                   onClick={() => setShowNewStorage((v) => !v)}
+                  aria-expanded={showNewStorage}
+                  aria-controls="new-storage-option"
                 >
-                  <Plus size={13} className="me-1" />
-                  {showNewStorage ? "Cancel" : "Add storage location"}
+                  <Plus size={14} className="me-1" />
+                  Add storage location
                 </button>
                 {showNewStorage && (
-                  <div className="d-flex gap-1 mt-1">
+                  <div
+                    id="new-storage-option"
+                    className="inventory-option-editor mt-2"
+                  >
+                    <div className="d-flex align-items-center justify-content-between mb-2">
+                      <span className="small fw-bold">New storage location</span>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-link text-muted p-0"
+                        aria-label="Close new storage location form"
+                        onClick={() => setShowNewStorage(false)}
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
                     <input
                       type="text"
                       className="form-control form-control-sm"
                       placeholder="e.g. Walk-in Chiller"
                       value={newStorageName}
                       onChange={(e) => setNewStorageName(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addStorageOption())}
+                      onKeyDown={(e) =>
+                        e.key === "Enter" &&
+                        (e.preventDefault(), addStorageOption())
+                      }
                       maxLength={100}
                     />
                     <button
                       type="button"
-                      className="btn btn-sm btn-primary fw-bold"
+                      className="btn btn-sm btn-primary fw-bold w-100 mt-2"
                       onClick={addStorageOption}
                       disabled={savingOption}
                     >
-                      {savingOption ? "..." : "Add"}
+                      {savingOption ? "Adding..." : "Add storage location"}
                     </button>
                   </div>
                 )}
@@ -1085,25 +1103,44 @@ function Inventory({ isKitchenStaff = false, onBack }) {
                 </select>
                 <button
                   type="button"
-                  className="btn btn-link btn-sm p-0 mt-1 text-decoration-none small fw-semibold"
+                  className="btn btn-outline-primary btn-sm w-100 mt-2 inventory-option-toggle"
                   onClick={() => setShowNewUnit((v) => !v)}
+                  aria-expanded={showNewUnit}
+                  aria-controls="new-unit-option"
                 >
-                  <Plus size={13} className="me-1" />
-                  {showNewUnit ? "Cancel" : "Add unit"}
+                  <Plus size={14} className="me-1" />
+                  Add unit
                 </button>
                 {showNewUnit && (
-                  <div className="d-grid gap-1 mt-1">
+                  <div
+                    id="new-unit-option"
+                    className="inventory-option-editor mt-2"
+                  >
+                    <div className="d-flex align-items-center justify-content-between mb-2">
+                      <span className="small fw-bold">New unit</span>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-link text-muted p-0"
+                        aria-label="Close new unit form"
+                        onClick={() => setShowNewUnit(false)}
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
                     <input
                       type="text"
                       className="form-control form-control-sm"
                       placeholder="e.g. Sack"
                       value={newUnitName}
                       onChange={(e) => setNewUnitName(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addUnitOption())}
+                      onKeyDown={(e) =>
+                        e.key === "Enter" &&
+                        (e.preventDefault(), addUnitOption())
+                      }
                       maxLength={50}
                     />
                     <select
-                      className="form-select form-select-sm"
+                      className="form-select form-select-sm mt-2"
                       value={newUnitGroup}
                       onChange={(e) => setNewUnitGroup(e.target.value)}
                       aria-label="Unit group"
@@ -1115,17 +1152,17 @@ function Inventory({ isKitchenStaff = false, onBack }) {
                     </select>
                     <button
                       type="button"
-                      className="btn btn-sm btn-primary fw-bold"
+                      className="btn btn-sm btn-primary fw-bold w-100 mt-2"
                       onClick={addUnitOption}
                       disabled={savingOption}
                     >
-                      {savingOption ? "..." : "Add"}
+                      {savingOption ? "Adding..." : "Add unit"}
                     </button>
                   </div>
                 )}
               </div>
               <div className="col-4">
-                <label className="x-small fw-bold text-muted">COST (â‚±)</label>
+                <label className="x-small fw-bold text-muted">COST (PHP)</label>
                 <input
                   type="number"
                   step="0.01"
