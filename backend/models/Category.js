@@ -15,10 +15,6 @@ const Category = {
   
   create: async (data) => {
     const sql = 'INSERT INTO categories (category_name, description) VALUES (?, ?)';
-<<<<<<< Updated upstream
-    const [result] = await db.execute(sql, [data.name, data.description]);
-    return { category_id: result.insertId, ...data };
-=======
     const values = [categoryName, description].map((value) => value ?? null);
     const [result] = await db.execute(sql, values);
     return {
@@ -26,7 +22,6 @@ const Category = {
       category_name: categoryName,
       description,
     };
->>>>>>> Stashed changes
   },
 
   delete: async (id) => {

@@ -21,13 +21,8 @@ const SystemMaintenance = () => {
   const [backups, setBackups] = useState([]);
   const [backupsLoading, setBackupsLoading] = useState(false);
   const [creatingBackup, setCreatingBackup] = useState(false);
-<<<<<<< Updated upstream
-  const [localBackupFile, setLocalBackupFile] = useState(null);
-  const [restoringLocalBackup, setRestoringLocalBackup] = useState(false);
-=======
   const [restoringLocalBackup, setRestoringLocalBackup] = useState(false);
   const localBackupInputRef = useRef(null);
->>>>>>> Stashed changes
 
   // ──────────────────────────────────────────────
   // BACKUP & RESTORE FUNCTIONS
@@ -120,28 +115,6 @@ const SystemMaintenance = () => {
     }
   };
 
-<<<<<<< Updated upstream
-  const handleRestoreLocalBackup = async () => {
-    if (!localBackupFile) return;
-    if (!(await confirm({
-      title: "Restore database backup",
-      message: `Restore ${localBackupFile.name}? This will overwrite all current data and cannot be undone.`,
-      confirmLabel: "Restore database",
-      requireText: "RESTORE",
-    }))) return;
-
-    const formData = new FormData();
-    formData.append("backup", localBackupFile);
-    setRestoringLocalBackup(true);
-    try {
-      const response = await api.post("/admin/backup/restore-local", formData);
-      showToast(response.data.message, "success");
-      setLocalBackupFile(null);
-    } catch (err) {
-      showToast(err.response?.data?.error || "Failed to restore local backup.");
-    } finally {
-      setRestoringLocalBackup(false);
-=======
   const handleRestoreLocalBackup = async (file) => {
     if (!file) return;
     const confirmed = await confirm({
@@ -177,7 +150,6 @@ const SystemMaintenance = () => {
     } finally {
       setRestoringLocalBackup(false);
       if (localBackupInputRef.current) localBackupInputRef.current.value = "";
->>>>>>> Stashed changes
     }
   };
 
