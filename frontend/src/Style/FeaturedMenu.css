@@ -133,10 +133,8 @@
 }
 
 .featured-menu .slick-track {
-  width: auto !important;
   display: flex !important;
   align-items: center !important;
-  justify-content: center !important;
   gap: 0;
 }
 
