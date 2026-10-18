@@ -122,7 +122,7 @@ function FeaturedMenu({ onLoginClick }) {
   const settings = {
     dots: true,
     arrows: slidesToShow > 1,
-    infinite: true,
+    infinite: false,
     speed: 500,
     slidesToShow: slidesToShow,
     slidesToScroll: 1,

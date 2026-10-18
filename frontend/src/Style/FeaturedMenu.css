@@ -132,18 +132,6 @@
   color: #000;
 }
 
-.featured-menu .slick-track {
-  display: flex !important;
-  align-items: center !important;
-  gap: 0;
-}
-
-/* Ensure the carousel list doesn't overflow the container */
-.featured-menu .slick-list {
-  overflow: hidden;
-  padding: 20px 0 !important; /* Prevents shadows from being cut off */
-}
-
 /* Ensure the slide takes up the exact space needed */
 .featured-menu .slick-slide {
   padding: 0 10px; /* Apply the gap here instead */
