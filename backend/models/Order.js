@@ -68,15 +68,12 @@ const Order = {
       SET quantity = GREATEST(quantity - ?, 0), 
           last_updated = NOW(),
           status = CASE 
-            WHEN (quantity - ?) <= reorder_level AND (quantity - ?) > 0 THEN 'low stock' 
-            WHEN (quantity - ?) <= 0 THEN 'out of stock' 
+            WHEN quantity <= 0 THEN 'out of stock'
+            WHEN quantity <= reorder_level THEN 'low stock'
             ELSE 'available' 
           END
       WHERE inventory_id = ?`;
     return await conn.execute(query, [
-      amountUsed,
-      amountUsed,
-      amountUsed,
       amountUsed,
       inventoryId,
     ]);
@@ -255,9 +252,10 @@ const Order = {
   getPreReservedItems: async (reservationId) => {
     try {
       const query = `
-        SELECT m.*, ko.quantity, ko.customizations, ko.is_refill
+        SELECT m.*, c.category_name, ko.quantity, ko.customizations, ko.is_refill
         FROM menu_items m
         JOIN kiosk_orders ko ON m.item_id = ko.item_id
+        LEFT JOIN categories c ON c.category_id = m.category_id
         WHERE ko.reservation_id = ?
       `;
       const [rows] = await db.execute(query, [reservationId]);

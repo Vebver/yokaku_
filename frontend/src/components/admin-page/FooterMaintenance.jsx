@@ -32,12 +32,14 @@ const FooterMaintenance = () => {
   const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [fetchError, setFetchError] = useState(false);
   const [sections, setSections] = useState(
     FOOTER_SECTIONS.reduce((acc, s) => ({ ...acc, [s.key]: "" }), {}),
   );
 
   const fetchFooter = async () => {
     try {
+      setFetchError(false);
       const res = await api.get(`/settings`);
       setSections({
         footer_contact: res.data.footer_contact || "",
@@ -46,6 +48,7 @@ const FooterMaintenance = () => {
       });
     } catch (err) {
       console.error("Footer fetch error:", err);
+      setFetchError(true);
       showToast("Failed to load footer content.");
     } finally {
       setLoading(false);
@@ -66,6 +69,10 @@ const FooterMaintenance = () => {
 
   const handleSave = async (e) => {
     e.preventDefault();
+    if (fetchError) {
+      showToast("Footer content could not be loaded. Please refresh and try again.", "warning");
+      return;
+    }
 
     // Validation: Contact and About are required (the footer always shows them).
     const contact = (sections.footer_contact || "").trim();
@@ -126,7 +133,7 @@ const FooterMaintenance = () => {
               value={sections[section.key]}
               onChange={(e) => handleChange(section.key, e.target.value)}
               placeholder={section.placeholder}
-              disabled={saving}
+              disabled={saving || fetchError}
               style={{ whiteSpace: "pre" }}
             />
             <p className="text-muted mt-1 mb-0" style={{ fontSize: "0.75rem" }}>
@@ -139,11 +146,16 @@ const FooterMaintenance = () => {
           <button
             type="submit"
             className="btn btn-primary px-5 py-3 fw-bold shadow-sm rounded-pill"
-            disabled={saving}
+            disabled={saving || fetchError}
           >
             {saving ? "Updating..." : "Update Content"}
           </button>
         </div>
+        {fetchError && (
+          <p className="text-danger small mt-3 mb-0">
+            The footer could not be loaded from the server, so saving is disabled.
+          </p>
+        )}
       </form>
     </div>
   );

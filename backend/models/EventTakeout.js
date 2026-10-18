@@ -8,8 +8,7 @@ const PACKAGE_PRICES = {
   "premium package": 12500,
 };
 const ACTIVE_TAKEOUT_STATUSES = ["requested", "preparing", "ready"];
-const PACKAGE_MENU_EXCLUSION =
-  "COALESCE(LOWER(TRIM(c.category_name)), '') NOT LIKE '%unlimited%'";
+const PACKAGE_MENU_EXCLUSION = "LOWER(TRIM(mi.menu_name)) NOT LIKE '%package%'";
 const VALID_TRANSITIONS = {
   requested: "preparing",
   preparing: "ready",

@@ -1,6 +1,6 @@
 const Billing = require("../models/Billing");
 const Reservation = require("../models/Reservation");
-const Notification = require("../models/Notification"); 
+const Notification = require("../models/Notification");
 const { logActivity } = require("../utils/logger");
 const db = require("../config/db");
 
@@ -26,8 +26,21 @@ exports.createWalkinPayment = async (req, res) => {
 
     if (!reservation_id || amount === undefined || amount === null) {
       return res.status(400).json({
-        error: "Missing required fields - reservation_id and amount are required",
+        error:
+          "Missing required fields - reservation_id and amount are required",
       });
+    }
+
+    // --- NEW: Set session_started_at if it doesn't exist ---
+    const [resCheck] = await db.execute(
+      "SELECT session_started_at FROM reservations WHERE reservation_id = ?",
+      [reservation_id],
+    );
+    if (resCheck.length > 0 && !resCheck[0].session_started_at) {
+      await db.execute(
+        "UPDATE reservations SET session_started_at = NOW() WHERE reservation_id = ?",
+        [reservation_id],
+      );
     }
 
     const numericAmount = parseFloat(amount);
@@ -35,7 +48,7 @@ exports.createWalkinPayment = async (req, res) => {
     // 1. Check if a payment record already exists for this reservation
     const [existing] = await db.execute(
       "SELECT payment_id, amount FROM payments WHERE reservation_id = ?",
-      [reservation_id]
+      [reservation_id],
     );
 
     let paymentId;
@@ -53,7 +66,12 @@ exports.createWalkinPayment = async (req, res) => {
         `UPDATE payments 
          SET amount = ?, payment_status = ?, payment_method = ?, paid_at = NOW() 
          WHERE reservation_id = ?`,
-        [numericAmount, payment_status || "verified", payment_method || "Cash", reservation_id]
+        [
+          numericAmount,
+          payment_status || "verified",
+          payment_method || "Cash",
+          reservation_id,
+        ],
       );
 
       notificationTitle = "Walk-in Payment Updated";
@@ -67,7 +85,13 @@ exports.createWalkinPayment = async (req, res) => {
         req.user?.userId || null,
         "UPDATE_WALKIN_PAYMENT",
         reservation_id,
-        { payment_id: paymentId, added_amount: addedAmount, total_amount: numericAmount, payment_method, payment_status },
+        {
+          payment_id: paymentId,
+          added_amount: addedAmount,
+          total_amount: numericAmount,
+          payment_method,
+          payment_status,
+        },
         req,
       );
     } else {
@@ -85,7 +109,12 @@ exports.createWalkinPayment = async (req, res) => {
         req.user?.userId || null,
         "CREATE_WALKIN_PAYMENT",
         reservation_id,
-        { payment_id: paymentId, amount: numericAmount, payment_method, payment_status },
+        {
+          payment_id: paymentId,
+          amount: numericAmount,
+          payment_method,
+          payment_status,
+        },
         req,
       );
     }
@@ -104,12 +133,18 @@ exports.createWalkinPayment = async (req, res) => {
       io.emit("payment_updated");
     }
 
-    console.log("[Billing Controller] Payment process completed for ID:", paymentId);
+    console.log(
+      "[Billing Controller] Payment process completed for ID:",
+      paymentId,
+    );
 
     res.status(201).json({
       success: true,
       payment_id: paymentId,
-      message: existing.length > 0 ? "Walk-in payment record updated" : "Walk-in payment record created",
+      message:
+        existing.length > 0
+          ? "Walk-in payment record updated"
+          : "Walk-in payment record created",
     });
   } catch (error) {
     console.error("[Billing Controller] Error in createWalkinPayment:", error);
@@ -161,6 +196,12 @@ exports.settleFullBill = async (req, res) => {
     const result = await Billing.settleReservation(resId);
 
     if (result) {
+      // --- NEW: Set session_ended_at when settled ---
+      await db.execute(
+        "UPDATE reservations SET session_ended_at = NOW() WHERE reservation_id = ?",
+        [resId],
+      );
+
       await logActivity(
         req.user?.userId || null,
         "SETTLE_BILL_COMPLETED",
@@ -226,11 +267,11 @@ exports.updatePaymentStatusByReservation = async (req, res) => {
 
         if (rows.length > 0) {
           const { user_id, r_date, r_time } = rows[0];
-          
+
           // 1. Strictly for Customer (isAdminAlert: false)
           await Notification.create(db, {
             userId: user_id,
-            reservationId: null, 
+            reservationId: null,
             title: "Payment Verified",
             message: `Your proof of payment for reservation ${resId} has been successfully verified! Your booking on ${r_date} at ${r_time} is officially confirmed.`,
             type: "success",
@@ -240,11 +281,11 @@ exports.updatePaymentStatusByReservation = async (req, res) => {
           // 2. Strictly for Admin (isAdminAlert: true)
           await Notification.create(db, {
             userId: null,
-            reservationId: null, 
+            reservationId: null,
             title: "Payment Verified",
             message: `Payment for reservation ${resId} has been verified and confirmed.`,
             type: "success",
-            isAdminAlert: true, 
+            isAdminAlert: true,
           });
         }
       } catch (notifErr) {
@@ -294,7 +335,7 @@ exports.rejectPaymentByReservation = async (req, res) => {
 
       if (reservationRows.length > 0) {
         const userId = reservationRows[0].user_id;
-        
+
         // 1. Strictly for Customer (isAdminAlert: false)
         // reservationId MUST be the real reservation ID. It was previously null,
         // which forced the frontend to guess the ID from the message text and
@@ -311,11 +352,11 @@ exports.rejectPaymentByReservation = async (req, res) => {
         // 2. Strictly for Admin (isAdminAlert: true)
         await Notification.create(db, {
           userId: null,
-          reservationId: resId, 
+          reservationId: resId,
           title: "Payment Proof Rejected",
           message: `Payment for reservation ${resId} was rejected. Reason: ${finalReason}`,
           type: "warning",
-          isAdminAlert: true, 
+          isAdminAlert: true,
         });
       }
 
@@ -339,22 +380,24 @@ exports.reuploadPaymentProof = async (req, res) => {
     const receiptPath = req.file ? req.file.path || req.file.filename : null;
 
     if (!receiptPath) {
-      return res.status(400).json({ error: "Please upload a valid receipt image." });
+      return res
+        .status(400)
+        .json({ error: "Please upload a valid receipt image." });
     }
 
     await db.execute(
       "UPDATE reservations SET receipt_path = ? WHERE reservation_id = ?",
-      [receiptPath, resId]
+      [receiptPath, resId],
     );
 
     await db.execute(
       "UPDATE payments SET payment_status = 'pending' WHERE reservation_id = ?",
-      [resId]
+      [resId],
     );
 
     await db.execute(
       "UPDATE reservations SET status = 'Pending' WHERE reservation_id = ?",
-      [resId]
+      [resId],
     );
 
     try {
@@ -363,14 +406,17 @@ exports.reuploadPaymentProof = async (req, res) => {
       // Strictly for Admins & Managers - set to true so it replicates
       await Notification.create(db, {
         userId: null,
-        reservationId: null, 
+        reservationId: null,
         title: "New Proof Uploaded",
         message: notifMessage,
         type: "info",
-        isAdminAlert: true, 
+        isAdminAlert: true,
       });
     } catch (adminNotifErr) {
-      console.warn("Non-blocking Admin Notification on reupload failed:", adminNotifErr.message);
+      console.warn(
+        "Non-blocking Admin Notification on reupload failed:",
+        adminNotifErr.message,
+      );
     }
 
     return res.status(200).json({
@@ -419,12 +465,10 @@ exports.updatePaymentAmount = async (req, res) => {
       });
     }
 
-    return res
-      .status(200)
-      .json({
-        success: true,
-        message: "Downpayment amount updated successfully.",
-      });
+    return res.status(200).json({
+      success: true,
+      message: "Downpayment amount updated successfully.",
+    });
   } catch (err) {
     console.error("SQL Error in updatePaymentAmount:", err.message);
     return res.status(500).json({ error: "Failed to update payment amount." });

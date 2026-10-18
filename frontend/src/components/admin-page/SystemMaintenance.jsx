@@ -110,7 +110,12 @@ const SystemMaintenance = () => {
     } catch (err) {
       console.error(err);
       showToast(
-        "Error: " + (err.response?.data?.error || "Failed to restore backup"),
+        [
+          err.response?.data?.error || "Failed to restore backup",
+          err.response?.data?.detail,
+        ]
+          .filter(Boolean)
+          .join(" "),
       );
     }
   };
@@ -488,29 +493,6 @@ const SystemMaintenance = () => {
                       Backup Database
                     </>
                   )}
-                </button>
-              </div>
-            </div>
-
-            <div className="row g-2 align-items-end mb-4">
-              <div className="col-12 col-md-8">
-                <label className="form-label small fw-bold" htmlFor="local-backup-file">Restore from device</label>
-                <input
-                  id="local-backup-file"
-                  className="form-control"
-                  type="file"
-                  accept=".sql,application/sql"
-                  onChange={(event) => setLocalBackupFile(event.target.files?.[0] || null)}
-                />
-              </div>
-              <div className="col-12 col-md-4">
-                <button
-                  className="btn btn-outline-danger w-100 fw-bold"
-                  type="button"
-                  onClick={handleRestoreLocalBackup}
-                  disabled={!localBackupFile || restoringLocalBackup}
-                >
-                  {restoringLocalBackup ? "Restoring..." : "Restore Local Backup"}
                 </button>
               </div>
             </div>

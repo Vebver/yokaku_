@@ -2,13 +2,29 @@ import React from 'react';
 import { Trash2, ShoppingCart, ReceiptText } from 'lucide-react';
 import '../../Style/OrderSummary.css';
 
-const OrderSummary = ({ cart, onRemoveItem }) => {
+const OrderSummary = ({ cart, onRemoveItem, packageLabel }) => {
   return (
     <aside className="order-summary-panel">
       <div className="summary-header">
         <ReceiptText size={20} color="#ffcc00" />
         <h3>ORDER SUMMARY</h3>
       </div>
+      {packageLabel && (
+        <div
+          className="summary-package-label"
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: "8px",
+            padding: "10px 16px",
+            color: "#fff",
+            borderBottom: "1px solid #444",
+          }}
+        >
+          <span>Selected package</span>
+          <strong>{packageLabel}</strong>
+        </div>
+      )}
 
       <div className="summary-content">
         {cart.length === 0 ? (
@@ -25,7 +41,6 @@ const OrderSummary = ({ cart, onRemoveItem }) => {
                   <span className="item-qty">{item.quantity}x</span>
                   <div className="item-name-group">
                     <span className="item-name">{item.name}</span>
-                    <span style={{ color: "#ffcc00", fontSize: "0.85rem", marginTop: "4px", fontWeight: "bold" }}>₱{(parseFloat(item.price || 0) * item.quantity).toFixed(2)}</span>
                   </div>
                 </div>
                 
@@ -48,11 +63,7 @@ const OrderSummary = ({ cart, onRemoveItem }) => {
                 <span>Total Items</span>
                 <span>{cart.reduce((acc, item) => acc + item.quantity, 0)}</span>
             </div>
-            <div className="price-row" style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderTop: "1px solid #444", marginTop: "8px", fontWeight: "bold", color: "#ffcc00", fontSize: "1.1rem" }}>
-                <span>Total Price</span>
-                <span>₱{(cart.reduce((sum, item) => sum + (parseFloat(item.price || 0) * item.quantity), 0)).toFixed(2)}</span>
-            </div>
-            <p className="tap-hint">Tap "SEND REQUEST" below to Process your Order</p>
+            <p className="tap-hint">Use the controls below to place your order or pay your bill.</p>
         </div>
       )}
     </aside>

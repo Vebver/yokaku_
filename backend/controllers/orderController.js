@@ -45,20 +45,10 @@ const orderController = {
       });
       const { mode: kioskMode } = packageValidation;
       const includedItemIds = new Set(packageValidation.packageIncludedItemIds || []);
-      const packageCardInCurrentRequest =
-        packageValidation.packageCardItemId != null &&
-        items.some(
-          (item) =>
-            Number(item.item_id || item.id) ===
-              Number(packageValidation.packageCardItemId) &&
-            !item.is_refill &&
-            !item.is_package_included,
-        );
-      let hasPaidPackageCard = packageCardInCurrentRequest;
+      let hasPaidPackageCard = false;
       if (
         packageValidation.packageCardItemId != null &&
-        includedItemIds.size > 0 &&
-        !hasPaidPackageCard
+        includedItemIds.size > 0
       ) {
         const [paidPackageRows] = await conn.execute(
           `SELECT 1
@@ -80,7 +70,9 @@ const orderController = {
       );
 
       const hasRefill = items.some(
-        (item) => Boolean(item.is_refill),
+        (item) =>
+          Boolean(item.is_refill) &&
+          !packageIncludedItemIds.has(Number(item.item_id || item.id)),
       );
 
       if (hasRefill) {
@@ -88,6 +80,7 @@ const orderController = {
         const [lastRefill] = await conn.execute(
           `SELECT created_at FROM kiosk_orders 
          WHERE reservation_id = ? AND is_refill = 1
+           AND COALESCE(customizations, '') NOT LIKE '%PACKAGE INCLUDED%'
          ORDER BY created_at DESC LIMIT 1`,
           [reservation_id],
         );
@@ -130,6 +123,12 @@ const orderController = {
           
           if (table_id && table_id !== "takeout" && table_id !== "null") {
             await Order.linkTableToSession(conn, reservation_id, table_id);
+            if (kioskMode !== "default") {
+              await conn.execute(
+                "UPDATE reservation_tables SET kiosk_mode = ? WHERE reservation_id = ? AND table_id = ?",
+                [kioskMode, reservation_id, table_id],
+              );
+            }
           }
         } else {
           // Reject regular reservations that do not exist
@@ -218,7 +217,7 @@ const orderController = {
           itemId,
           Number(item.quantity),
           customizations,
-          item.is_refill ? 1 : 0,
+          item.is_refill || packageIncludedItemIds.has(itemId) ? 1 : 0,
           req.body.allergy_note,
         );
 

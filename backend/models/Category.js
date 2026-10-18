@@ -13,10 +13,11 @@ const Category = {
     return rows;
   },
   
-  create: async (data) => {
+  create: async (data = {}) => {
+    const categoryName = data.category_name ?? data.name ?? null;
+    const description = data.description ?? null;
     const sql = 'INSERT INTO categories (category_name, description) VALUES (?, ?)';
-    const values = [categoryName, description].map((value) => value ?? null);
-    const [result] = await db.execute(sql, values);
+    const [result] = await db.execute(sql, [categoryName, description]);
     return {
       category_id: result.insertId,
       category_name: categoryName,

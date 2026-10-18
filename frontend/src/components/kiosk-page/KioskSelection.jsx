@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { RefreshCw, ShoppingBag, Calendar } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import axios from "axios";
 import "../../Style/KioskSelection.css";
 import { API_BASE } from "../../api";
@@ -8,9 +8,7 @@ import { API_BASE } from "../../api";
 
 const KioskSelection = () => {
   const navigate = useNavigate();
-  const [eventMode, setEventMode] = useState("loading"); // "loading" | "default"
-  
-  // Track active reservation/event data details from backend polling
+  const [eventMode, setEventMode] = useState("loading");
   const [kioskDetails, setKioskDetails] = useState(null);
 
   // 1. Extract physical table config from URL parameters
@@ -27,7 +25,7 @@ const KioskSelection = () => {
 
         if (res.data && res.data.success) {
           const { mode, reservation } = res.data;
-          setKioskDetails(res.data); // Save the active state details locally
+          setKioskDetails(res.data);
 
           if (mode === "event_active") {
             if (sessionStorage.getItem("kiosk_exit_to_selection") === "true") {
@@ -41,13 +39,16 @@ const KioskSelection = () => {
             }
             const searchString = setupTable ? `?setupTable=${setupTable}` : "";
             navigate(`/kiosk-selection/kiosk-reservation-menu${searchString}`);
-          } 
-          else {
+          } else {
             setEventMode("default");
           }
+        } else {
+          setKioskDetails(null);
+          setEventMode("default");
         }
       } catch (err) {
         console.error("Kiosk event polling error:", err);
+        setKioskDetails(null);
         setEventMode("default");
       }
     };

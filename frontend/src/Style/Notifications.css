@@ -660,6 +660,7 @@
 .deleted-modal-content {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden; /* Force hide horizontal scrollbar */
   padding: 20px;
 }
 
@@ -678,6 +679,9 @@
   padding: 16px;
   border: 1px solid #e8e8e8;
   transition: all 0.2s ease;
+  width: 100%; /* Force width */
+  box-sizing: border-box; /* Prevents padding from adding to width */
+  gap: 16px; /* Consistent spacing */
 }
 
 .deleted-item:hover {
@@ -687,6 +691,7 @@
 
 .deleted-item-content {
   flex: 1;
+  min-width: 0;
 }
 
 .deleted-item-header {
@@ -702,6 +707,8 @@
   font-weight: 700;
   font-size: 15px;
   color: #1a1a1a;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .deleted-expiry {
@@ -717,6 +724,8 @@
   color: #666;
   margin: 0 0 8px 0;
   line-height: 1.4;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .deleted-meta {
@@ -732,6 +741,7 @@
   flex-direction: column;
   gap: 8px;
   margin-left: 16px;
+  flex-shrink: 0; /* Prevents buttons from shrinking and breaking layout */
 }
 
 .restore-btn {

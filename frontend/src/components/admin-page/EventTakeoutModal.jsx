@@ -88,6 +88,7 @@ const EventTakeoutModal = ({ reservationId, onClose, customerMode = false }) => 
       .filter((item) => item.quantity > 0);
     if (items.length === 0) return;
     submitLockRef.current = true;
+    let requestKeyStorageKey = null;
 
     try {
       if (!(await confirm({
@@ -106,7 +107,7 @@ const EventTakeoutModal = ({ reservationId, onClose, customerMode = false }) => 
         .sort((a, b) => a.item_id - b.item_id)
         .map((item) => `${item.item_id}:${item.quantity}`)
         .join("|");
-      const requestKeyStorageKey =
+      requestKeyStorageKey =
         `event_takeout_request_key_${reservationId}_${selectionFingerprint}`;
       const stableRequestKey =
         sessionStorage.getItem(requestKeyStorageKey) ||
@@ -121,6 +122,10 @@ const EventTakeoutModal = ({ reservationId, onClose, customerMode = false }) => 
       setQuantities({});
       sessionStorage.removeItem(requestKeyStorageKey);
     } catch (requestError) {
+      const status = requestError.response?.status;
+      if (status >= 400 && status < 500 && requestKeyStorageKey) {
+        sessionStorage.removeItem(requestKeyStorageKey);
+      }
       setError(
         requestError.response?.data?.error || "Could not request takeout.",
       );

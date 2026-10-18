@@ -14,13 +14,20 @@ const categoryController = {
   
   createCategory: async (req, res) => {
     try {
-      const newCategory = await Category.create(req.body);
-      
+      const payload = req.body && typeof req.body === "object" ? req.body : {};
+      const safePayload = {
+        ...payload,
+        category_name: payload.category_name ?? payload.name ?? null,
+        description: payload.description ?? null,
+      };
+
+      const newCategory = await Category.create(safePayload);
+
       await logActivity(
         req.user?.userId || null,
         "CREATE_CATEGORY",
         newCategory?.category_id || newCategory?.id || null,
-        { category_name: req.body.category_name },
+        { category_name: safePayload.category_name },
         req,
       );
 

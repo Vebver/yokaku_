@@ -9,6 +9,8 @@ const ReservationOrderModal = ({
   item,
   onAdd,
   allProducts,
+  flavorLimit = 4,
+  quantityLimit = 20,
 }) => {
   const [quantity, setQuantity] = useState(1);
   const { showToast } = useToast();
@@ -46,7 +48,7 @@ const ReservationOrderModal = ({
   };
 
   const chickenOptions = getItemsByKeywords(["Chicken", "Wings"]);
-  const drinkOptions = getItemsByKeywords(["Drink", "Beverage", "Soda"]);
+  const drinkOptions = getItemsByKeywords(["Drink", "Beverage", "Soda", "Juice"]);
 
   useEffect(() => {
     if (isOpen) {
@@ -65,14 +67,16 @@ const ReservationOrderModal = ({
       // 2. If it's a NEW bundle selection, set the 4-flavor default
       else if (isBundle && chickenOptions.length > 0) {
         setCustomizations({
-          flavors: chickenOptions.slice(0, 4).map((f) => f.name),
+          flavors: chickenOptions
+            .slice(0, Number.isFinite(flavorLimit) ? flavorLimit : 4)
+            .map((f) => f.name),
           drink: drinkOptions.length > 0 ? drinkOptions[0].name : "",
           spiceLevel: "Medium",
           specialInstructions: "None",
         });
       }
     }
-  }, [isOpen, item, allProducts]); // Added allProducts to dependency to re-run when data arrives
+  }, [isOpen, item, allProducts, flavorLimit]);
 
   if (!isOpen) return null;
 
@@ -86,10 +90,10 @@ const ReservationOrderModal = ({
           flavors: prev.flavors.filter((f) => f !== flavorName),
         };
       } else {
-        if (prev.flavors.length < 4) {
+        if (prev.flavors.length < flavorLimit) {
           return { ...prev, flavors: [...prev.flavors, flavorName] };
         } else {
-          showToast("You can only select up to 4 flavors.");
+          showToast(`You can only select up to ${flavorLimit} flavors.`);
           return prev;
         }
       }
@@ -106,7 +110,10 @@ const ReservationOrderModal = ({
     }
 
     // Parse the quantity state safely (falls back to 1 if empty)
-    const finalQuantity = parseInt(quantity, 10) || 1;
+    const requestedQuantity = parseInt(quantity, 10) || 1;
+    const finalQuantity = Number.isFinite(quantityLimit)
+      ? Math.min(requestedQuantity, quantityLimit)
+      : requestedQuantity;
 
     onAdd({
       ...item,
@@ -151,7 +158,8 @@ const ReservationOrderModal = ({
             {isBundle && (
               <div className="bundle-options">
                 <h3 className="section-title">
-                  1. CHOOSE CHICKEN FLAVORS (UP TO 4)
+                  1. CHOOSE CHICKEN FLAVORS
+                  {Number.isFinite(flavorLimit) ? ` (UP TO ${flavorLimit})` : ""}
                 </h3>
                 <div className="chip-grid">
                   {chickenOptions.map((f) => (
@@ -248,14 +256,14 @@ const ReservationOrderModal = ({
                 <input
                   type="number"
                   min="1"
-                  max="50"
+                  max={Number.isFinite(quantityLimit) ? quantityLimit : undefined}
                   value={quantity}
                   onChange={(e) => {
                     const val = parseInt(e.target.value, 10);
                     if (isNaN(val) || val < 1) {
                       setQuantity(""); // Allow empty temporarily for backspacing
-                    } else if (val > 20) {
-                      setQuantity(20); // Hard ceiling at 50 if they type a larger number
+                    } else if (Number.isFinite(quantityLimit) && val > quantityLimit) {
+                      setQuantity(quantityLimit);
                     } else {
                       setQuantity(val);
                     }
@@ -263,8 +271,8 @@ const ReservationOrderModal = ({
                   onBlur={() => {
                     if (quantity === "" || quantity < 1) {
                       setQuantity(1);
-                    } else if (quantity > 20) {
-                      setQuantity(20);
+                    } else if (Number.isFinite(quantityLimit) && quantity > quantityLimit) {
+                      setQuantity(quantityLimit);
                     }
                   }}
                   className="qty-input-field"
@@ -275,7 +283,7 @@ const ReservationOrderModal = ({
                   onClick={() =>
                     setQuantity((q) => {
                       const current = parseInt(q, 10) || 1;
-                      return Math.min(20, current + 1); // Hard limit to 50
+                      return Math.min(quantityLimit, current + 1);
                     })
                   }
                 >

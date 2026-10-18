@@ -105,6 +105,7 @@ const readKioskMode = async (conn, reservationId, tableId, items = []) => {
     if (reservationRows.length) {
       const mode = reservationRows[0].kiosk_mode || "default";
       if (mode !== "default") return mode;
+      if (reservationRows[0].kiosk_table_id != null) return "default";
       const packageMode = inferPackageMode(reservationRows[0].package_name);
       if (packageMode) return packageMode;
 
@@ -118,7 +119,6 @@ const readKioskMode = async (conn, reservationId, tableId, items = []) => {
       );
       const packageItemMode = inferPackageMode(packageItems[0]?.menu_name);
       if (packageItemMode) return packageItemMode;
-      if (reservationRows[0].kiosk_table_id != null) return "default";
     }
   }
 

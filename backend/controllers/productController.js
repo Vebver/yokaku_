@@ -1,4 +1,5 @@
 const Product = require("../models/Product");
+const UnlimitedPackage = require("../models/UnlimitedPackage");
 const crypto = require("crypto");
 const fs = require("fs/promises");
 // Commented out unused model during peak-pricing disablement
@@ -82,9 +83,29 @@ const productController = {
     try {
       const products = await Product.getAll();
       
-      // COMMENTED OUT: Peak Pricing adjustment
-      // const adjusted = await applyPeakPricing(Array.isArray(products) ? products : []);
-      // res.json(adjusted);
+      // Attach dynamic Unlimited package inclusions (if configured) so the
+      // kiosk and admin UI can use DB-driven package rules.
+      let inclusionRows = [];
+      try {
+        inclusionRows = await UnlimitedPackage.getAll();
+      } catch (err) {
+        console.warn("Inclusions load failed:", err.message);
+      }
+      if (inclusionRows.length > 0) {
+        const grouped = {};
+        for (const row of inclusionRows) {
+          (grouped[row.package_item_id] ||= []).push({
+            inclusion_id: row.inclusion_id,
+            included_item_id: row.included_item_id,
+            included_category_id: row.included_category_id,
+            quantity_limit: row.quantity_limit,
+            is_unlimited: Number(row.is_unlimited) === 1,
+          });
+        }
+        for (const product of products) {
+          product.package_inclusions = grouped[product.item_id] || [];
+        }
+      }
       
       // Send raw unadjusted products directly
       res.json(products);
@@ -179,11 +200,21 @@ const productController = {
       const newId = creation.item_id;
 
       // Dynamic package inclusions (Unlimited menus only).
-      if (packageInclusions.provided) {
-        if (packageInclusions.value === null) {
+      if (req.body.package_inclusions !== undefined) {
+        const rawValue = req.body.package_inclusions;
+        if (rawValue === null || rawValue === "") {
           await UnlimitedPackage.deleteForPackageItem(newId);
         } else {
-          await UnlimitedPackage.replace(newId, packageInclusions.value);
+          let parsed;
+          try {
+            parsed = typeof rawValue === "string" ? JSON.parse(rawValue) : rawValue;
+          } catch (err) {
+            return res.status(400).json({ error: "Package inclusions must be valid JSON." });
+          }
+          if (!Array.isArray(parsed)) {
+            return res.status(400).json({ error: "Package inclusions must be a JSON array." });
+          }
+          await UnlimitedPackage.replace(newId, parsed);
         }
       }
 
@@ -233,18 +264,28 @@ const productController = {
         data.image_url = `/uploads/${req.file.filename}`;
         try {
           const result = await cloudinary.uploader.upload(req.file.path, { folder: "restaurant_products" });
-          data.local_path = result.secure_url; 
+          data.local_path = result.secure_url;
         } catch (err) { console.error("Cloudinary update failed:", err.message); }
       }
       await Product.update(id, data);
 
       // Dynamic package inclusions (Unlimited menus only).
-      if (packageInclusions.provided) {
-        if (packageInclusions.value === null) {
+      if (req.body.package_inclusions !== undefined) {
+        const rawValue = req.body.package_inclusions;
+        if (rawValue === null || rawValue === "") {
           await UnlimitedPackage.deleteForPackageItem(id);
         } else {
-          if (packageInclusions.value.length > 0) {
-            await UnlimitedPackage.replace(id, packageInclusions.value);
+          let parsed;
+          try {
+            parsed = typeof rawValue === "string" ? JSON.parse(rawValue) : rawValue;
+          } catch (err) {
+            return res.status(400).json({ error: "Package inclusions must be valid JSON." });
+          }
+          if (!Array.isArray(parsed)) {
+            return res.status(400).json({ error: "Package inclusions must be a JSON array." });
+          }
+          if (parsed.length > 0) {
+            await UnlimitedPackage.replace(id, parsed);
           } else {
             await UnlimitedPackage.deleteForPackageItem(id);
           }
