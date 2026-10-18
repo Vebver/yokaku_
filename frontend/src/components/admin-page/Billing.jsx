@@ -220,9 +220,16 @@ const Billing = () => {
     setRejectReason("The receipt image is unclear or details do not match.");
 
     try {
+      // Check if it's already completed BEFORE fetching reservation details
+      const isCompleted =
+        (p.order_status || p.status || "").toLowerCase() === "completed";
+
       const [itemsRes, reservationRes] = await Promise.all([
         api.get(`/reservations/${p.reservation_id}/items`),
-        api.get(`/reservations/${p.reservation_id}`).catch(() => null),
+        // Only fetch the live reservation if it's NOT completed
+        isCompleted
+          ? Promise.resolve(null)
+          : api.get(`/reservations/${p.reservation_id}`).catch(() => null),
       ]);
 
       setOrderItems(itemsRes.data);
