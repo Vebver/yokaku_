@@ -8,11 +8,8 @@ const PACKAGE_PRICES = {
   "premium package": 12500,
 };
 const ACTIVE_TAKEOUT_STATUSES = ["requested", "preparing", "ready"];
-<<<<<<< Updated upstream
-=======
 const PACKAGE_MENU_EXCLUSION =
   "COALESCE(LOWER(TRIM(c.category_name)), '') NOT LIKE '%unlimited%'";
->>>>>>> Stashed changes
 const VALID_TRANSITIONS = {
   requested: "preparing",
   preparing: "ready",
@@ -82,7 +79,7 @@ const getSummaryForReservation = async (conn, reservation) => {
          LEFT JOIN categories c ON c.category_id = mi.category_id
          WHERE ko.reservation_id = ?
            AND COALESCE(ko.is_refill, 0) = 0
-             AND LOWER(TRIM(mi.menu_name)) NOT IN ('standard package', 'premium package')`,
+           AND ${PACKAGE_MENU_EXCLUSION}`,
         [reservationId],
       ),
       conn.execute(
@@ -109,7 +106,7 @@ const getSummaryForReservation = async (conn, reservation) => {
          FROM menu_items mi
          LEFT JOIN categories c ON c.category_id = mi.category_id
          WHERE COALESCE(mi.is_available, 1) = 1
-           AND LOWER(TRIM(mi.menu_name)) NOT LIKE '%package%'
+           AND ${PACKAGE_MENU_EXCLUSION}
          ORDER BY c.category_name, mi.menu_name`,
       ),
     ]);
