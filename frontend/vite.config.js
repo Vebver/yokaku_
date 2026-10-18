@@ -18,6 +18,9 @@ export default defineConfig({
         ws: true,
       },
     },
+    fs: {
+      allow: [".."],
+    },
   },
   build: {
     // Reduce the warning threshold noise (real fix is the code-splitting below)

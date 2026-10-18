@@ -4,6 +4,7 @@ import api from "../api";
 
 const TermsModal = ({ isOpen, onAccept, onClose, viewOnly = false }) => {
   const [agreed, setAgreed] = useState(false);
+  const [termsLoading, setTermsLoading] = useState(false);
   // Custom terms saved by the Admin (Maintenance > Footer Management).
   // Empty/null means the default built-in terms below are used.
   const [customTerms, setCustomTerms] = useState(null);
@@ -11,12 +12,17 @@ const TermsModal = ({ isOpen, onAccept, onClose, viewOnly = false }) => {
   useEffect(() => {
     if (!isOpen) return;
     let cancelled = false;
+    setCustomTerms(null);
+    setTermsLoading(true);
     api
       .get("/settings")
       .then((res) => {
         if (!cancelled) setCustomTerms((res.data.footer_terms || "").trim() || null);
       })
-      .catch(() => {}); // Fall back to built-in terms silently.
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setTermsLoading(false);
+      }); // Fall back to built-in terms silently.
     return () => {
       cancelled = true;
     };
@@ -59,7 +65,7 @@ const TermsModal = ({ isOpen, onAccept, onClose, viewOnly = false }) => {
   if (!isOpen) return null;
 
   const handleAccept = () => {
-    if (!agreed) return;
+    if (!agreed || termsLoading) return;
     if (onAccept) onAccept();
   };
 
@@ -283,6 +289,7 @@ const TermsModal = ({ isOpen, onAccept, onClose, viewOnly = false }) => {
               <input
                 type="checkbox"
                 checked={agreed}
+                disabled={termsLoading}
                 onChange={(e) => setAgreed(e.target.checked)}
                 style={{
                   marginTop: "3px",
@@ -319,16 +326,16 @@ const TermsModal = ({ isOpen, onAccept, onClose, viewOnly = false }) => {
               </button>
               <button
                 onClick={handleAccept}
-                disabled={!agreed}
+                disabled={!agreed || termsLoading}
                 style={{
                   flex: 2,
                   padding: "12px",
                   borderRadius: "10px",
                   border: "none",
-                  background: agreed ? "#ffcc00" : "#e0e0e0",
-                  color: agreed ? "#000" : "#999",
+                  background: agreed && !termsLoading ? "#ffcc00" : "#e0e0e0",
+                  color: agreed && !termsLoading ? "#000" : "#999",
                   fontWeight: "800",
-                  cursor: agreed ? "pointer" : "not-allowed",
+                  cursor: agreed && !termsLoading ? "pointer" : "not-allowed",
                   fontSize: "1rem",
                   transition: "background 0.2s",
                 }}

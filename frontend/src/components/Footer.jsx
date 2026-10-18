@@ -2,6 +2,11 @@ import { useEffect, useState } from "react";
 import api from "../api";
 import '../Style/Footer.css'
 
+const DEFAULT_CONTACT =
+  "Facebook: Hangout Resto Marilao Bulacan\nEmail: abrevointernational@gmail.com\nPhone: 0905 804 5458";
+const DEFAULT_ABOUT =
+  "Location: Purok 3, Ibayo, Marilao, Bulacan, 3019 (PS Bank RCH Building near 7-Eleven)\nOpen Daily: 10:00 AM - 11:00 PM";
+
 // Footer content is managed by the Admin (Maintenance > Footer Management) and
 // stored in the database. The API falls back to sensible defaults, so the
 // footer always renders even on first load.
@@ -15,12 +20,24 @@ function Footer() {
       .then((res) => {
         if (!cancelled) {
           setFooter({
-            contact: res.data.footer_contact || "",
-            about: res.data.footer_about || "",
+            contact: res.data.footer_contact ?? DEFAULT_CONTACT,
+            about: res.data.footer_about ?? DEFAULT_ABOUT,
           });
         }
       })
+<<<<<<< Updated upstream
       .catch((err) => console.error("Footer settings fetch error:", err));
+=======
+      .catch((err) => {
+        console.error("Footer settings fetch error:", err);
+        if (!cancelled) {
+          setFooter({
+            contact: DEFAULT_CONTACT,
+            about: DEFAULT_ABOUT,
+          });
+        }
+      });
+>>>>>>> Stashed changes
     return () => {
       cancelled = true;
     };

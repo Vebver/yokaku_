@@ -8,6 +8,11 @@ const PACKAGE_PRICES = {
   "premium package": 12500,
 };
 const ACTIVE_TAKEOUT_STATUSES = ["requested", "preparing", "ready"];
+<<<<<<< Updated upstream
+=======
+const PACKAGE_MENU_EXCLUSION =
+  "COALESCE(LOWER(TRIM(c.category_name)), '') NOT LIKE '%unlimited%'";
+>>>>>>> Stashed changes
 const VALID_TRANSITIONS = {
   requested: "preparing",
   preparing: "ready",
@@ -74,6 +79,7 @@ const getSummaryForReservation = async (conn, reservation) => {
              THEN ko.quantity ELSE 0 END), 0) AS pending_quantity
          FROM kiosk_orders ko
          JOIN menu_items mi ON mi.item_id = ko.item_id
+         LEFT JOIN categories c ON c.category_id = mi.category_id
          WHERE ko.reservation_id = ?
            AND COALESCE(ko.is_refill, 0) = 0
              AND LOWER(TRIM(mi.menu_name)) NOT IN ('standard package', 'premium package')`,
@@ -256,10 +262,11 @@ const EventTakeout = {
       const ids = [...quantities.keys()];
       const placeholders = ids.map(() => "?").join(",");
       const [availableItems] = await conn.execute(
-          `SELECT item_id, price FROM menu_items
-         WHERE item_id IN (${placeholders})
-            AND COALESCE(is_available, 1) = 1
-            AND LOWER(TRIM(menu_name)) NOT LIKE '%package%'`,
+        `SELECT mi.item_id, mi.price FROM menu_items mi
+         LEFT JOIN categories c ON c.category_id = mi.category_id
+         WHERE mi.item_id IN (${placeholders})
+           AND COALESCE(mi.is_available, 1) = 1
+           AND ${PACKAGE_MENU_EXCLUSION}`,
         ids,
       );
       if (availableItems.length !== ids.length) {

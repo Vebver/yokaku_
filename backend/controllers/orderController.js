@@ -35,7 +35,54 @@ const orderController = {
     try {
       await conn.beginTransaction();
 
+<<<<<<< Updated upstream
       const hasRefill = items.some((item) => item.is_refill === true);
+=======
+      const packageValidation = await validateUnlimitedPackageOrder(conn, {
+        reservationId: reservation_id,
+        tableId: table_id,
+        items,
+      });
+      const { mode: kioskMode } = packageValidation;
+      const includedItemIds = new Set(packageValidation.packageIncludedItemIds || []);
+      const packageCardInCurrentRequest =
+        packageValidation.packageCardItemId != null &&
+        items.some(
+          (item) =>
+            Number(item.item_id || item.id) ===
+              Number(packageValidation.packageCardItemId) &&
+            !item.is_refill &&
+            !item.is_package_included,
+        );
+      let hasPaidPackageCard = packageCardInCurrentRequest;
+      if (
+        packageValidation.packageCardItemId != null &&
+        includedItemIds.size > 0 &&
+        !hasPaidPackageCard
+      ) {
+        const [paidPackageRows] = await conn.execute(
+          `SELECT 1
+           FROM kiosk_orders ko
+           JOIN payments p ON p.reservation_id = ko.reservation_id
+           WHERE ko.reservation_id = ? AND ko.item_id = ?
+             AND LOWER(p.payment_status) = 'verified'
+             AND COALESCE(p.amount, 0) >= (
+               SELECT mi.price * ko.quantity
+               FROM menu_items mi WHERE mi.item_id = ko.item_id
+             )
+           LIMIT 1`,
+          [reservation_id, packageValidation.packageCardItemId],
+        );
+        hasPaidPackageCard = paidPackageRows.length > 0;
+      }
+      const packageIncludedItemIds = new Set(
+        hasPaidPackageCard ? includedItemIds : [],
+      );
+
+      const hasRefill = items.some(
+        (item) => Boolean(item.is_refill),
+      );
+>>>>>>> Stashed changes
 
       if (hasRefill) {
         // Query the database for the last refill for this specific reservation
@@ -145,9 +192,15 @@ const orderController = {
         await Order.createOrderEntry(
           conn,
           reservation_id,
+<<<<<<< Updated upstream
           item.item_id || item.id,
           item.quantity,
           item.customizations,
+=======
+          itemId,
+          Number(item.quantity),
+          customizations,
+>>>>>>> Stashed changes
           item.is_refill ? 1 : 0,
           req.body.allergy_note,
         );

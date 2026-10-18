@@ -13,6 +13,24 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_SECRET,
 });
 
+const parsePackageInclusions = (rawValue) => {
+  if (rawValue === undefined) return { provided: false, value: undefined };
+  if (rawValue === null || rawValue === "") {
+    return { provided: true, value: null };
+  }
+
+  let parsed;
+  try {
+    parsed = typeof rawValue === "string" ? JSON.parse(rawValue) : rawValue;
+  } catch {
+    throw new Error("Package inclusions must be valid JSON.");
+  }
+  if (!Array.isArray(parsed)) {
+    throw new Error("Package inclusions must be a JSON array.");
+  }
+  return { provided: true, value: parsed };
+};
+
 // // --- HELPER FUNCTION (Declare this ONLY ONCE) ---
 // // COMMENTED OUT: Peak Pricing helper is disabled
 // const applyPeakPricing = async (products) => {
@@ -105,6 +123,14 @@ const productController = {
 
   createProduct: async (req, res) => {
     try {
+      let packageInclusions;
+      try {
+        packageInclusions = parsePackageInclusions(
+          req.body?.package_inclusions,
+        );
+      } catch (error) {
+        return res.status(400).json({ error: error.message });
+      }
       const { menu_name, description, price, category_id, is_available, is_featured } = req.body;
       if (!req.file) return res.status(400).json({ error: "No image file provided." });
       const submissionKey = req.get("Idempotency-Key");
@@ -152,6 +178,18 @@ const productController = {
       }
       const newId = creation.item_id;
 
+<<<<<<< Updated upstream
+=======
+      // Dynamic package inclusions (Unlimited menus only).
+      if (packageInclusions.provided) {
+        if (packageInclusions.value === null) {
+          await UnlimitedPackage.deleteForPackageItem(newId);
+        } else {
+          await UnlimitedPackage.replace(newId, packageInclusions.value);
+        }
+      }
+
+>>>>>>> Stashed changes
       await logActivity(
         req.user?.userId || null,
         "CREATE_MENU_ITEM",
@@ -183,6 +221,14 @@ const productController = {
 
   updateProduct: async (req, res) => {
     try {
+      let packageInclusions;
+      try {
+        packageInclusions = parsePackageInclusions(
+          req.body?.package_inclusions,
+        );
+      } catch (error) {
+        return res.status(400).json({ error: error.message });
+      }
       const { id } = req.params;
       const { menu_name, description, price, category_id, is_available, is_featured } = req.body;
       const data = { menu_name, description, price: parseFloat(price) || 0.0, category_id: parseInt(category_id), is_available: parseInt(is_available), is_featured: parseInt(is_featured) };
@@ -195,6 +241,22 @@ const productController = {
       }
       await Product.update(id, data);
 
+<<<<<<< Updated upstream
+=======
+      // Dynamic package inclusions (Unlimited menus only).
+      if (packageInclusions.provided) {
+        if (packageInclusions.value === null) {
+          await UnlimitedPackage.deleteForPackageItem(id);
+        } else {
+          if (packageInclusions.value.length > 0) {
+            await UnlimitedPackage.replace(id, packageInclusions.value);
+          } else {
+            await UnlimitedPackage.deleteForPackageItem(id);
+          }
+        }
+      }
+
+>>>>>>> Stashed changes
       await logActivity(
         req.user?.userId || null,
         "UPDATE_MENU_ITEM",

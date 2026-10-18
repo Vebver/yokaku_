@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   FileSpreadsheet,
   RefreshCcw,
@@ -21,8 +21,13 @@ const SystemMaintenance = () => {
   const [backups, setBackups] = useState([]);
   const [backupsLoading, setBackupsLoading] = useState(false);
   const [creatingBackup, setCreatingBackup] = useState(false);
+<<<<<<< Updated upstream
   const [localBackupFile, setLocalBackupFile] = useState(null);
   const [restoringLocalBackup, setRestoringLocalBackup] = useState(false);
+=======
+  const [restoringLocalBackup, setRestoringLocalBackup] = useState(false);
+  const localBackupInputRef = useRef(null);
+>>>>>>> Stashed changes
 
   // ──────────────────────────────────────────────
   // BACKUP & RESTORE FUNCTIONS
@@ -115,6 +120,7 @@ const SystemMaintenance = () => {
     }
   };
 
+<<<<<<< Updated upstream
   const handleRestoreLocalBackup = async () => {
     if (!localBackupFile) return;
     if (!(await confirm({
@@ -135,6 +141,43 @@ const SystemMaintenance = () => {
       showToast(err.response?.data?.error || "Failed to restore local backup.");
     } finally {
       setRestoringLocalBackup(false);
+=======
+  const handleRestoreLocalBackup = async (file) => {
+    if (!file) return;
+    const confirmed = await confirm({
+      title: "Restore local database backup",
+      message: `Restore ${file.name}? This will overwrite all current data and cannot be undone.`,
+      confirmLabel: "Restore database",
+      requireText: "RESTORE",
+    });
+    if (!confirmed) {
+      if (localBackupInputRef.current) localBackupInputRef.current.value = "";
+      return;
+    }
+
+    setRestoringLocalBackup(true);
+    try {
+      const formData = new FormData();
+      formData.append("backup", file);
+      const token = localStorage.getItem("token");
+      const res = await api.post("/admin/backup/restore-local", formData, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      showToast("Success: " + res.data.message, "success");
+    } catch (err) {
+      console.error("Local backup restore failed:", err);
+      showToast(
+        [
+          err.response?.data?.error || "Failed to restore local backup",
+          err.response?.data?.detail,
+        ]
+          .filter(Boolean)
+          .join(" "),
+      );
+    } finally {
+      setRestoringLocalBackup(false);
+      if (localBackupInputRef.current) localBackupInputRef.current.value = "";
+>>>>>>> Stashed changes
     }
   };
 
@@ -429,6 +472,33 @@ const SystemMaintenance = () => {
                 </div>
               </div>
               <div className="d-flex flex-wrap gap-2">
+                <input
+                  ref={localBackupInputRef}
+                  type="file"
+                  accept=".sql,application/sql"
+                  className="d-none"
+                  onChange={(event) =>
+                    handleRestoreLocalBackup(event.target.files?.[0])
+                  }
+                />
+                <button
+                  onClick={() => localBackupInputRef.current?.click()}
+                  className="btn btn-outline-warning btn-lg fw-bold shadow-sm px-4"
+                  style={{ borderRadius: "8px" }}
+                  disabled={restoringLocalBackup}
+                >
+                  {restoringLocalBackup ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2" role="status" />
+                      Restoring...
+                    </>
+                  ) : (
+                    <>
+                      <RotateCcw size={18} className="me-2" />
+                      Restore .sql File
+                    </>
+                  )}
+                </button>
                 <button
                   onClick={handleBackup}
                   className="btn btn-secondary btn-lg fw-bold shadow-sm px-4"

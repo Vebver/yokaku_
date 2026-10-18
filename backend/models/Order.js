@@ -17,7 +17,8 @@ const Order = {
       `SELECT COALESCE(SUM(ko.quantity * mi.price), 0) AS food_total
        FROM kiosk_orders ko
        JOIN menu_items mi ON ko.item_id = mi.item_id
-       WHERE ko.reservation_id = ? AND ko.is_refill = 0`,
+       WHERE ko.reservation_id = ? AND ko.is_refill = 0
+         AND COALESCE(ko.customizations, '') NOT LIKE '%[PACKAGE INCLUDED]%'`,
       [reservationId]
     );
     const foodTotal = parseFloat(totals[0]?.food_total || 0);

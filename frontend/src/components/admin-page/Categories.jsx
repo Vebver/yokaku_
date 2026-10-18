@@ -58,12 +58,15 @@ function Categories() {
   const handleAddCategory = async (e) => {
     e.preventDefault();
     try {
-      await api.post(`/categories`, newCategory);
+      await api.post(`/categories`, {
+        category_name: newCategory.category_name.trim(),
+        description: newCategory.description.trim() || null,
+      });
       fetchCategories();
       setNewCategory({ category_name: "", description: "" });
       if (closeBtnRef.current) closeBtnRef.current.click();
     } catch (err) {
-      showToast("Failed to add category.");
+      showToast(err.response?.data?.error || "Failed to add category.");
     }
   };
 
