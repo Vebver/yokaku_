@@ -14,15 +14,30 @@ export const handlePrintReceipt = ({
   }
 
   const escapeHtml = (value) =>
-    String(value ?? "").replace(/[&<>"']/g, (character) =>
-      ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;",
-      })[character],
+    String(value ?? "").replace(
+      /[&<>"']/g,
+      (character) =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+        })[character],
     );
+
+  // Helper to format time to 12-hour AM/PM format in Asia/Manila timezone
+  const formatTime12Hour = (dateString) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    return date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+      timeZone: "Asia/Manila",
+    });
+  };
+
   const total = Number(selectedPayment.total_bill || calculateItemsSum());
   const paid = Number(selectedPayment.amount || 0);
   const remaining = Math.max(
@@ -34,6 +49,7 @@ export const handlePrintReceipt = ({
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
+
   const itemsMarkup = orderLineItems.length
     ? orderLineItems
         .map((item) => {
@@ -52,14 +68,26 @@ export const handlePrintReceipt = ({
         })
         .join("")
     : '<tr><td colspan="3" class="empty">No order items</td></tr>';
+
   const guestName =
     [selectedPayment.first_name, selectedPayment.last_name]
       .filter(Boolean)
       .join(" ")
       .trim() || "Walk-in Guest";
+
   const receiptDate = selectedPayment.reservation_date
     ? new Date(selectedPayment.reservation_date).toLocaleDateString()
     : new Date().toLocaleDateString();
+
+  // --- NEW: Calculate Time Start and Time End ---
+  const timeStart = selectedPayment.session_started_at
+    ? formatTime12Hour(selectedPayment.session_started_at)
+    : "N/A";
+
+  const timeEnd = selectedPayment.session_ended_at
+    ? formatTime12Hour(selectedPayment.session_ended_at)
+    : "Ongoing";
+  // ----------------------------------------------
 
   printWindow.document.write(`<!doctype html>
     <html>
@@ -99,6 +127,12 @@ export const handlePrintReceipt = ({
             <p><strong>Receipt ID:</strong> ${escapeHtml(selectedPayment.reservation_id)}</p>
             <p><strong>Date:</strong> ${escapeHtml(receiptDate)}</p>
             <p><strong>Guest:</strong> ${escapeHtml(guestName)}</p>
+            
+            <!-- ===== NEW: TIME START AND TIME END ===== -->
+            <p><strong>Time Start:</strong> ${escapeHtml(timeStart)}</p>
+            <p><strong>Time End:</strong> ${escapeHtml(timeEnd)}</p>
+            <!-- ======================================== -->
+
           </section>
           <table>
             <thead><tr><th>Order</th><th class="number">Qty</th><th class="number">Amount</th></tr></thead>
