@@ -41,6 +41,45 @@ function Product() {
     is_featured: 0,
   });
 
+  // Dynamic Unlimited package inclusions (only editable for package items).
+  const [inclusions, setInclusions] = useState([]);
+
+  // A package item is any menu item under an "Unlimited" category.
+  const isPackageItem =
+    String(
+      menuItems.find(
+        (i) =>
+          (isEditing && i.item_id === editId) ||
+          (!isEditing && i.category_id === Number(newItem.category_id)),
+      )?.category_name || "",
+    )
+      .toLowerCase()
+      .includes("unlimited") ||
+    String(newItem.name || "")
+      .toLowerCase()
+      .includes("unlimited");
+
+  const addInclusion = () =>
+    setInclusions((prev) => [
+      ...prev,
+      { included_item_id: null, included_category_id: null, quantity_limit: 1, is_unlimited: false },
+    ]);
+
+  const updateInclusion = (index, field, value) =>
+    setInclusions((prev) =>
+      prev.map((inc, i) => {
+        if (i !== index) return inc;
+        const next = { ...inc, [field]: value };
+        if (field === "included_item_id" && value) next.included_category_id = null;
+        if (field === "included_category_id" && value) next.included_item_id = null;
+        if (field === "is_unlimited") next.quantity_limit = value ? null : 1;
+        return next;
+      }),
+    );
+
+  const removeInclusion = (index) =>
+    setInclusions((prev) => prev.filter((_, i) => i !== index));
+
   const closeBtnRef = useRef(null);
 
   useEffect(() => {
@@ -150,6 +189,14 @@ function Product() {
     setIsEditing(true);
     setEditId(item.item_id);
     setEditOriginalName(originalName);
+    setInclusions(
+      (item.package_inclusions || []).map((inc) => ({
+        included_item_id: inc.included_item_id || null,
+        included_category_id: inc.included_category_id || null,
+        quantity_limit: inc.is_unlimited ? null : inc.quantity_limit ?? 1,
+        is_unlimited: !!inc.is_unlimited,
+      })),
+    );
     setNewItem({
       name: originalName,
       description: item.description,
@@ -165,6 +212,7 @@ function Product() {
 
   const resetForm = () => {
     setIsEditing(false);
+    setInclusions([]);
     setEditId(null);
     setEditOriginalName("");
     setNewItem({
@@ -227,6 +275,9 @@ function Product() {
       formData.append("is_available", newItem.is_available ?? 1);
       formData.append("is_featured", newItem.is_featured ?? 0);
       if (newItem.image) formData.append("image", newItem.image);
+      if (isPackageItem) {
+        formData.append("package_inclusions", JSON.stringify(inclusions));
+      }
 
       if (isEditing) {
         await api.put(`/products/${editId}`, formData);
@@ -706,6 +757,116 @@ function Product() {
                 <option value={0}>Not Available</option>
               </select>
             </div>
+            {/* PACKAGE INCLUSIONS (Unlimited menus only) */}
+            {isPackageItem && (
+              <div className="mb-3 p-3 border rounded bg-light">
+                <div className="d-flex justify-content-between align-items-center mb-2">
+                  <label className="form-label small fw-bold mb-0">
+                    Package Inclusions
+                  </label>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-primary"
+                    onClick={addInclusion}
+                  >
+                    <Plus size={14} /> Add
+                  </button>
+                </div>
+                <p className="text-muted mb-2" style={{ fontSize: "0.75rem" }}>
+                  Pick a category or a specific dish, then set a quantity limit or mark it Unlimited.
+                </p>
+                {inclusions.length === 0 && (
+                  <p className="text-muted small mb-0">No inclusions configured yet.</p>
+                )}
+                {inclusions.map((inc, index) => (
+                  <div
+                    key={index}
+                    className="row g-2 align-items-end mb-2 p-2 border rounded bg-white"
+                  >
+                    <div className="col-12 col-sm-5">
+                      <label className="form-label small text-muted mb-1">Include</label>
+                      <select
+                        className="form-select form-select-sm"
+                        value={
+                          inc.included_item_id
+                            ? `item:${inc.included_item_id}`
+                            : inc.included_category_id
+                              ? `cat:${inc.included_category_id}`
+                              : ""
+                        }
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (v.startsWith("item:")) {
+                            updateInclusion(index, "included_item_id", parseInt(v.slice(5)));
+                            updateInclusion(index, "included_category_id", null);
+                          } else if (v.startsWith("cat:")) {
+                            updateInclusion(index, "included_category_id", parseInt(v.slice(4)));
+                            updateInclusion(index, "included_item_id", null);
+                          }
+                        }}
+                      >
+                        <option value="">— Select —</option>
+                        <optgroup label="Whole category">
+                          {categories.map((cat) => (
+                            <option key={cat.category_id} value={`cat:${cat.category_id}`}>
+                              {cat.category_name} (all items)
+                            </option>
+                          ))}
+                        </optgroup>
+                        <optgroup label="Specific dish">
+                          {menuItems.map((mi) => (
+                            <option key={mi.item_id} value={`item:${mi.item_id}`}>
+                              {mi.menu_name}
+                            </option>
+                          ))}
+                        </optgroup>
+                      </select>
+                    </div>
+                    <div className="col-6 col-sm-4">
+                      <label className="form-label small text-muted mb-1">Limit</label>
+                      <input
+                        type="number"
+                        min="1"
+                        className="form-control form-control-sm"
+                        value={inc.is_unlimited ? "" : inc.quantity_limit ?? 1}
+                        placeholder="∞ Unlimited"
+                        disabled={inc.is_unlimited}
+                        onChange={(e) =>
+                          updateInclusion(index, "quantity_limit", parseInt(e.target.value) || 1)
+                        }
+                      />
+                    </div>
+                    <div className="col-6 col-sm-2">
+                      <div className="form-check mb-1">
+                        <input
+                          type="checkbox"
+                          className="form-check-input"
+                          id={`inc-unlim-${index}`}
+                          checked={inc.is_unlimited}
+                          onChange={(e) =>
+                            updateInclusion(index, "is_unlimited", e.target.checked)
+                          }
+                        />
+                        <label className="form-check-label small" htmlFor={`inc-unlim-${index}`}>
+                          Unlimited
+                        </label>
+                      </div>
+                    </div>
+                    <div className="col-12 col-sm-1 text-end">
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-danger"
+                        onClick={() => removeInclusion(index)}
+                        title="Remove inclusion"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="mb-4 text-center">
               <div className="bg-light p-3 rounded border mb-2">
                 {newItem.image instanceof File ? (

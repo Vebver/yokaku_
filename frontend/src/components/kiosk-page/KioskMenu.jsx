@@ -39,6 +39,7 @@ import {
   getUnlimitedPackage,
   inferUnlimitedPackageMode,
   isJuiceItem,
+  isPackageCardForMode,
   sanitizePackageCart,
   validatePackageCart,
 } from "./unlimitedPackageRules";
@@ -112,6 +113,14 @@ const KioskMenu = () => {
   const hasOrderedUnlimited = [...billItems, ...cart].some((item) =>
     (item.name || item.item_name || "").toLowerCase().includes("unlimited"),
   );
+  // An Unlimited order counts as "placed" only once it exists in the bill
+  // (server-synced) or local bill history — not while it's still sitting in
+  // the cart. The back-button lock engages only after that point.
+  const hasPlacedUnlimitedOrder = [...billItems, ...localBillHistory].some(
+    (item) =>
+      (item.name || item.item_name || "").toLowerCase().includes("unlimited"),
+  );
+  const unlimitedSessionLocked = isUnlimitedMode && hasPlacedUnlimitedOrder;
   const orderedPackageMode = [...billItems, ...localBillHistory, ...cart]
     .map(inferUnlimitedPackageMode)
     .find(Boolean);
@@ -150,6 +159,9 @@ const KioskMenu = () => {
   const [isRefillMode, setIsRefillMode] = useState(false);
   const [refillCooldownSeconds, setRefillCooldownSeconds] = useState(0);
   const [cooldownMessage, setCooldownMessage] = useState(null);
+  // Lets the customer browse the full menu before placing the package order
+  // without losing their current package selections.
+  const [browseFullMenu, setBrowseFullMenu] = useState(false);
 
   const currentTableId = localStorage.getItem("tableId") || "takeout";
 
@@ -797,8 +809,9 @@ const KioskMenu = () => {
     };
   }, [setupTable]);
 
-  // When the mode flips to either Unlimited mode, force the Unlimited category
-  // and start the 90-minute timer (if not already running).
+  // When the mode flips to either Unlimited mode, force the Unlimited
+  // category. NOTE: the 90-minute timer intentionally does NOT start here —
+  // it starts only after the customer places their order.
   useEffect(() => {
     if (!isUnlimitedMode) return;
 
@@ -810,28 +823,30 @@ const KioskMenu = () => {
     setActiveCategory((current) =>
       packageCategories.includes(current) ? current : fallbackCategory,
     );
-
-    if (!sessionStorage.getItem(TIMER_KEY)) {
-      const endTime = Date.now() + DURATION;
-      sessionStorage.setItem(TIMER_KEY, endTime.toString());
-      setTimeLeft(DURATION / 1000);
-      setIsTimerRunning(true);
-    }
   }, [isUnlimitedMode, kioskMenuMode, menuData]);
 
   useEffect(() => {
     if (!isUnlimitedMode) return;
-    setCart((current) => sanitizePackageCart(current, kioskMenuMode));
+    // Only sanitize while the package menu is active; while browsing the full
+    // menu the cart is validated at checkout instead.
+    if (!browseFullMenu) {
+      setCart((current) => sanitizePackageCart(current, kioskMenuMode));
+    }
     const allowedCategories = getPackageCategories(menuData, kioskMenuMode);
-    if (activeCategory && !allowedCategories.includes(activeCategory)) {
+    if (
+      !browseFullMenu &&
+      activeCategory &&
+      !allowedCategories.includes(activeCategory)
+    ) {
       setActiveCategory(allowedCategories[0] || "");
     }
-  }, [activeCategory, isUnlimitedMode, kioskMenuMode, menuData]);
+  }, [activeCategory, isUnlimitedMode, kioskMenuMode, menuData, browseFullMenu]);
 
-  // While in Unlimited mode, block the browser's own back button / swipe-back
-  // so the customer can't escape the locked kiosk session.
+  // While an Unlimited order is actually placed, block the browser's own back
+  // button / swipe-back so the customer can't escape the locked kiosk session.
+  // Before placing an order the customer can still back out to /kiosk-selection.
   useEffect(() => {
-    if (!isUnlimitedMode) return;
+    if (!unlimitedSessionLocked) return;
 
     window.history.pushState(null, "", window.location.href);
 
@@ -847,12 +862,12 @@ const KioskMenu = () => {
     return () => {
       window.removeEventListener("popstate", blockBack);
     };
-  }, [isUnlimitedMode]);
+  }, [unlimitedSessionLocked]);
 
-  // While in Unlimited mode, also block refresh / close / URL-bar navigation
-  // so the customer can't reload to escape the lock.
+  // While an Unlimited order is placed, also block refresh / close / URL-bar
+  // navigation so the customer can't reload to escape the lock.
   useEffect(() => {
-    if (!isUnlimitedMode) return;
+    if (!unlimitedSessionLocked) return;
 
     const blockUnload = (e) => {
       e.preventDefault();
@@ -862,7 +877,7 @@ const KioskMenu = () => {
 
     window.addEventListener("beforeunload", blockUnload);
     return () => window.removeEventListener("beforeunload", blockUnload);
-  }, [isUnlimitedMode]);
+  }, [unlimitedSessionLocked]);
 
   useEffect(() => {
     fetchMenu();
@@ -929,13 +944,31 @@ const KioskMenu = () => {
     const itemName = (item?.name || "").toLowerCase();
     if (inferUnlimitedPackageMode(item)) setIsPackageTimerExpired(false);
 
+    // Unlimited package card: add it straight to the tray (no customization
+    // popup). The customer picks flavors/drinks directly from the full menu.
+    if (isUnlimitedMode && isPackageCardForMode(item, kioskMenuMode)) {
+      const packageError = validatePackageCart(
+        [...packageItems, { ...item, quantity: 1, customizations: null }],
+        kioskMenuMode,
+      );
+      if (packageError) {
+        showToast(packageError, "error");
+        return;
+      }
+      setCart((current) => [
+        ...current.filter((i) => !isPackageCardForMode(i, kioskMenuMode)),
+        { ...item, quantity: 1, customizations: null },
+      ]);
+      return;
+    }
+
     if (activeCategory === "Chicken" && !isUnlimitedMode) {
       setSelectedItem({ ...item, price: 0 });
       setSelectedFlavors([]);
       setSelectedDrink("");
       setIsRefillMode(true);
       setShowFlavorModal(true);
-    } else if (itemName.includes("unlimited") || itemName.includes("ramen")) {
+    } else if (itemName.includes("ramen")) {
       setSelectedItem(item);
       setSelectedFlavors([]);
       setSelectedDrink("");
@@ -1056,10 +1089,11 @@ const KioskMenu = () => {
     }
   }, [cart, billItems, localTotalPaid]);
 
-  // Guarded back-to-selection handler. In Unlimited mode the customer
-  // is not allowed to leave — only the admin can flip the mode.
+  // Guarded back-to-selection handler. The back button stays available while
+  // the customer is only browsing an Unlimited package; once an Unlimited
+  // order has actually been placed, only staff can end the session.
   const handleBackToSelection = () => {
-    if (isUnlimitedMode) {
+    if (unlimitedSessionLocked) {
       showToast(
         "You cannot exit during an Unlimited session. Please call staff.",
         "info",
@@ -1134,7 +1168,7 @@ const KioskMenu = () => {
             <div className="res-cat-scroll-wrapper">
               {Object.keys(menuData)
                 .filter((cat) =>
-                  isUnlimitedMode
+                  isUnlimitedMode && !browseFullMenu
                     ? getPackageCategories(menuData, kioskMenuMode).includes(cat)
                     : !HIDDEN_CATEGORIES.includes(cat) &&
                       !(cat === "Unlimited" && hasOrderedUnlimited),
@@ -1162,6 +1196,7 @@ const KioskMenu = () => {
               style={{
                 display: "flex",
                 flexWrap: "wrap",
+                alignItems: "center",
                 gap: "8px 16px",
                 padding: "12px 16px",
                 marginBottom: "12px",
@@ -1169,8 +1204,18 @@ const KioskMenu = () => {
                 color: "#fff",
               }}
             >
-              <strong>{getUnlimitedPackage(kioskMenuMode)?.label}</strong>
-              <span>{getUnlimitedPackage(kioskMenuMode)?.included}</span>
+              <div style={{ flex: "1 1 auto" }}>
+                <strong>{getUnlimitedPackage(kioskMenuMode)?.label}</strong>
+                <span style={{ marginLeft: "12px" }}>
+                  {getUnlimitedPackage(kioskMenuMode)?.included}
+                </span>
+              </div>
+              <button
+                className="btn btn-sm btn-outline-light"
+                onClick={() => setBrowseFullMenu((v) => !v)}
+              >
+                {browseFullMenu ? "Back to Package Menu" : "Browse Full Menu"}
+              </button>
             </div>
           )}
           <div className="res-grid-container">
@@ -1228,7 +1273,9 @@ const KioskMenu = () => {
       </div>
 
       <footer className="res-bottom-bar">
-        {!storage.getItem(SAVED_RES_ID) && !isUnlimitedMode && (
+        {/* Back is available until an Unlimited order is actually placed.
+            Before that the customer can freely return to the selection screen. */}
+        {!unlimitedSessionLocked && (
           <button
             className="res-btn-cancel"
             onClick={handleBackToSelection}

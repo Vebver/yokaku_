@@ -121,6 +121,16 @@ const KioskReservationMenu = () => {
   const [reservationDetails, setReservationDetails] = useState(null);
   const [reservedPackageMode, setReservedPackageMode] = useState(null);
 
+  // An Unlimited order counts as "placed" only once it exists in the bill
+  // (server-synced) or local bill history — not while it's still sitting in
+  // the cart. The back-button lock engages only after that point.
+  const hasPlacedUnlimitedOrder = [...billItems, ...localBillHistory].some(
+    (item) =>
+      (item.name || item.menu_name || item.item_name || "")
+        .toLowerCase()
+        .includes("unlimited"),
+  );
+  const unlimitedSessionLocked = isUnlimitedMode && hasPlacedUnlimitedOrder;
   const hasOrderedUnlimited = [...billItems, ...cart].some((item) =>
     (item.name || item.menu_name || item.item_name || "")
       .toLowerCase()
@@ -179,7 +189,9 @@ const KioskReservationMenu = () => {
   };
 
   const handleExitKiosk = () => {
-    if (isUnlimitedMode) {
+    // Only lock exit once an Unlimited order has actually been placed —
+    // before that the customer can still back out to the selection screen.
+    if (unlimitedSessionLocked) {
       showToast(
         "You cannot exit during an Unlimited session. Please call staff.",
         "info",
@@ -1010,10 +1022,11 @@ const KioskReservationMenu = () => {
     }
   }, [activeCategory, isUnlimitedMode, kioskMenuMode, menuData]);
 
-  // While in Unlimited mode, block the browser's own back button / swipe-back
-  // so the customer can't escape the locked kiosk session.
+  // While an Unlimited order is actually placed, block the browser's own back
+  // button / swipe-back so the customer can't escape the locked kiosk session.
+  // Before placing an order the customer can still back out to /kiosk-selection.
   useEffect(() => {
-    if (!isUnlimitedMode) return;
+    if (!unlimitedSessionLocked) return;
 
     window.history.pushState(null, "", window.location.href);
 
@@ -1029,12 +1042,12 @@ const KioskReservationMenu = () => {
     return () => {
       window.removeEventListener("popstate", blockBack);
     };
-  }, [isUnlimitedMode]);
+  }, [unlimitedSessionLocked]);
 
-  // While in Unlimited mode, also block refresh / close / URL-bar navigation
-  // so the customer can't reload to escape the lock.
+  // While an Unlimited order is placed, also block refresh / close / URL-bar
+  // navigation so the customer can't reload to escape the lock.
   useEffect(() => {
-    if (!isUnlimitedMode) return;
+    if (!unlimitedSessionLocked) return;
 
     const blockUnload = (e) => {
       e.preventDefault();
@@ -1044,7 +1057,7 @@ const KioskReservationMenu = () => {
 
     window.addEventListener("beforeunload", blockUnload);
     return () => window.removeEventListener("beforeunload", blockUnload);
-  }, [isUnlimitedMode]);
+  }, [unlimitedSessionLocked]);
 
   // Instant mode switch via socket
 

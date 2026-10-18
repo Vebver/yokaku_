@@ -160,6 +160,119 @@ const validateUnlimitedPackageOrder = async (
   const mode = await readKioskMode(conn, reservationId, tableId, items);
   if (!PACKAGE_MODES.has(mode)) return { mode };
 
+  // Prefer DB-driven inclusions for this package (set by the Admin in
+  // Product Management). Falls back to the legacy category rules when the
+  // package has no configured inclusions.
+  const packageItemIds = items
+    .map((item) => Number(item.item_id || item.id))
+    .filter(Number.isInteger);
+  let dbInclusions = null;
+  let packageCardItemId = null;
+  const [packageCardRows] = await conn.execute(
+    `SELECT mi.item_id FROM menu_items mi
+     JOIN categories c ON c.category_id = mi.category_id
+     WHERE c.category_name LIKE '%Unlimited%'`,
+  );
+  const packageCards = packageCardRows || [];
+  const findPackageCard = (id) =>
+    packageCards.find((card) => Number(card.item_id) === id);
+
+  for (const id of packageItemIds) {
+    if (findPackageCard(id)) {
+      packageCardItemId = id;
+      break;
+    }
+  }
+
+  const loadDbInclusions = async (pkgItemId) => {
+    const [rows] = await conn.execute(
+      `SELECT included_item_id, included_category_id, quantity_limit, is_unlimited
+       FROM unlimited_package_inclusions WHERE package_item_id = ?`,
+      [pkgItemId],
+    );
+    return rows;
+  };
+
+  try {
+    if (packageCardItemId != null) {
+      const rows = await loadDbInclusions(packageCardItemId);
+      if (rows.length > 0) dbInclusions = rows;
+    }
+  } catch (err) {
+    // Table may not exist yet — fall back to legacy rules.
+    dbInclusions = null;
+  }
+
+  const validateWithDbInclusions = async () => {
+    const limits = { byItem: new Map(), byCategory: new Map() };
+    const categoryNames = new Map();
+    const [catRows] = await conn.execute(`SELECT category_id, category_name FROM categories`);
+    for (const cat of catRows || []) {
+      categoryNames.set(Number(cat.category_id), String(cat.category_name || ""));
+    }
+    for (const inc of dbInclusions) {
+      const unlimited = Number(inc.is_unlimited) === 1;
+      const limit = unlimited ? Infinity : Math.max(1, Number(inc.quantity_limit) || 1);
+      if (inc.included_item_id) {
+        limits.byItem.set(Number(inc.included_item_id), limit);
+      }
+      if (inc.included_category_id) {
+        const name = categoryNames.get(Number(inc.included_category_id)) || "";
+        limits.byCategory.set(String(name).toLowerCase(), limit);
+      }
+    }
+
+    const counts = { byItem: new Map(), byCategory: new Map() };
+    for (const orderItem of items) {
+      const itemId = Number(orderItem.item_id || orderItem.id);
+      const [menuRow] = await conn.execute(
+        `SELECT mi.item_id, mi.menu_name, mi.category_id, c.category_name
+         FROM menu_items mi LEFT JOIN categories c ON c.category_id = mi.category_id
+         WHERE mi.item_id = ?`,
+        [itemId],
+      );
+      if (!menuRow.length) {
+        throw new Error("The order contains an invalid menu item.");
+      }
+      const menu = menuRow[0];
+      const isPackageCard = findPackageCard(itemId) != null;
+      if (isPackageCard) continue; // The package card itself carries the price.
+
+      const itemLimit = limits.byItem.get(itemId);
+      const categoryKey = String(menu.category_name || "").toLowerCase();
+      const categoryLimit = limits.byCategory.get(categoryKey);
+      if (itemLimit === undefined && categoryLimit === undefined) {
+        throw new Error(
+          `"${menu.menu_name}" is not part of the selected Unlimited Menu package.`,
+        );
+      }
+      const quantity = Math.max(1, Number(orderItem.quantity) || 1);
+      if (itemLimit !== undefined && Number.isFinite(itemLimit)) {
+        const used = (counts.byItem.get(itemId) || 0) + quantity;
+        if (used > itemLimit) {
+          throw new Error(
+            `The selected package allows a maximum of ${itemLimit} × "${menu.menu_name}".`,
+          );
+        }
+        counts.byItem.set(itemId, used);
+      }
+      if (categoryLimit !== undefined && Number.isFinite(categoryLimit)) {
+        const used = (counts.byCategory.get(categoryKey) || 0) + quantity;
+        if (used > categoryLimit) {
+          throw new Error(
+            `The selected package allows a maximum of ${categoryLimit} item(s) from "${menu.category_name}".`,
+          );
+        }
+        counts.byCategory.set(categoryKey, used);
+      }
+    }
+    return { mode };
+  };
+
+  if (dbInclusions && dbInclusions.length > 0) {
+    return await validateWithDbInclusions();
+  }
+
   if (!Array.isArray(items) || items.length === 0) {
     throw new Error("An order must contain at least one item.");
   }
