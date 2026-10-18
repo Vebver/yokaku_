@@ -22,7 +22,14 @@ function Footer() {
       })
       .catch((err) => {
         console.error("Footer settings fetch error:", err);
-        if (!cancelled) setFooter({ contact: "", about: "" });
+        if (!cancelled) {
+          setFooter({
+            contact:
+              "Facebook: Hangout Resto Marilao Bulacan\nEmail: abrevointernational@gmail.com\nPhone: 0905 804 5458",
+            about:
+              "Location: Purok 3, Ibayo, Marilao, Bulacan, 3019 (PS Bank RCH Building near 7-Eleven)\nOpen Daily: 10:00 AM - 11:00 PM",
+          });
+        }
       });
     return () => {
       cancelled = true;

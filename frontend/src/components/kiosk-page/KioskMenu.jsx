@@ -1007,21 +1007,6 @@ const KioskMenu = () => {
     };
   }, [unlimitedSessionLocked]);
 
-  // While an Unlimited order is placed, also block refresh / close / URL-bar
-  // navigation so the customer can't reload to escape the lock.
-  useEffect(() => {
-    if (!unlimitedSessionLocked) return;
-
-    const blockUnload = (e) => {
-      e.preventDefault();
-      e.returnValue = "";
-      return "";
-    };
-
-    window.addEventListener("beforeunload", blockUnload);
-    return () => window.removeEventListener("beforeunload", blockUnload);
-  }, [unlimitedSessionLocked]);
-
   useEffect(() => {
     fetchMenu();
     const interval = setInterval(fetchMenu, 10000);
@@ -1216,7 +1201,12 @@ const KioskMenu = () => {
       setCooldownMessage(`You can select a maximum of ${flavorLimit} flavors.`);
       return;
     }
-    if (getUnlimitedPackage(flavorPackageMode) && !isRefillMode && !selectedDrink) {
+    if (
+      getUnlimitedPackage(flavorPackageMode) &&
+      !isRefillMode &&
+      !selectedDrink &&
+      !inferUnlimitedPackageMode(selectedItem)
+    ) {
       setCooldownMessage("Please select one included drink.");
       return;
     }

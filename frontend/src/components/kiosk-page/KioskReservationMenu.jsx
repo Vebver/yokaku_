@@ -988,7 +988,12 @@ const KioskReservationMenu = () => {
       setCooldownMessage(`You can select a maximum of ${flavorLimit} flavors.`);
       return;
     }
-    if (getUnlimitedPackage(flavorPackageMode) && !isRefillMode && !selectedDrink) {
+    if (
+      getUnlimitedPackage(flavorPackageMode) &&
+      !isRefillMode &&
+      !selectedDrink &&
+      !inferUnlimitedPackageMode(selectedItem)
+    ) {
       setCooldownMessage("Please select one included drink.");
       return;
     }

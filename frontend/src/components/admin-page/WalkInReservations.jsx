@@ -11,7 +11,7 @@ import api from "../../api";
 import { useToast } from "../ToastContext";
 import { useSectionRefresh } from "../shared/sectionRefresh";
 import { getReservationStatusMeta } from "../shared/reservationStatus";
-import { compareByBookingRecency } from "../shared/sortUtils";
+import { byNewestFirst } from "../shared/sortUtils";
 import AdminPagination from "../shared/AdminPagination";
 import PackageMeta, {
   PACKAGE_PRICES,
@@ -140,8 +140,15 @@ const WalkInReservations = () => {
       );
 
       setInquiries(
-        // Newest walk-in first, by reservation date + time (never by name).
-        filtered.slice().sort(compareByBookingRecency),
+        // Newest walk-in first, by creation/submit time (not the reserved date).
+        filtered
+          .slice()
+          .sort(
+            byNewestFirst((item) => {
+              const createdAt = new Date(item?.created_at || 0).getTime();
+              return Number.isNaN(createdAt) ? null : createdAt;
+            }),
+          ),
       );
     } catch (err) {
       console.error("Fetch Walk-ins error:", err);

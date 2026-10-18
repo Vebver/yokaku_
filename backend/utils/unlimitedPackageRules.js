@@ -290,6 +290,17 @@ const validateUnlimitedPackageOrder = async (
       const isPackageCard = findPackageCard(itemId) != null;
       if (isPackageCard) continue; // The package card itself carries the price.
 
+      // A package-card-only order should not be rejected for missing drink
+      // selection; the required drink is a package-level rule, not a per-item
+      // requirement for the package card itself.
+      if (
+        String(menu.category_name || "").toLowerCase().includes("unlimited") &&
+        !orderItem.is_refill &&
+        !orderItem.is_package_included
+      ) {
+        continue;
+      }
+
       const itemLimit = limits.byItem.get(itemId);
       const categoryKey = String(menu.category_name || "").toLowerCase();
       const categoryLimit = limits.byCategory.get(categoryKey);
@@ -396,6 +407,7 @@ const validateUnlimitedPackageOrder = async (
     });
     if (
       String(menuItem.category_name || "").toLowerCase().includes("unlimited") &&
+      !findPackageCard(itemId) &&
       !drink &&
       !hasSeparateDrink &&
       !orderItem.is_refill &&

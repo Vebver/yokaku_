@@ -174,14 +174,21 @@ const productController = {
       const newId = creation.item_id;
 
       // Dynamic package inclusions (Unlimited menus only).
-      if (req.body.package_inclusions) {
-        try {
-          const parsed = JSON.parse(req.body.package_inclusions);
-          if (Array.isArray(parsed)) {
-            await UnlimitedPackage.replace(newId, parsed);
+      if (req.body.package_inclusions !== undefined) {
+        const rawValue = req.body.package_inclusions;
+        if (rawValue === null || rawValue === "") {
+          await UnlimitedPackage.deleteForPackageItem(newId);
+        } else {
+          let parsed;
+          try {
+            parsed = typeof rawValue === "string" ? JSON.parse(rawValue) : rawValue;
+          } catch (err) {
+            return res.status(400).json({ error: "Package inclusions must be valid JSON." });
           }
-        } catch (err) {
-          console.warn("Could not save package inclusions:", err.message);
+          if (!Array.isArray(parsed)) {
+            return res.status(400).json({ error: "Package inclusions must be a JSON array." });
+          }
+          await UnlimitedPackage.replace(newId, parsed);
         }
       }
 
@@ -230,15 +237,24 @@ const productController = {
 
       // Dynamic package inclusions (Unlimited menus only).
       if (req.body.package_inclusions !== undefined) {
-        try {
-          const parsed = JSON.parse(req.body.package_inclusions);
-          if (Array.isArray(parsed) && parsed.length > 0) {
+        const rawValue = req.body.package_inclusions;
+        if (rawValue === null || rawValue === "") {
+          await UnlimitedPackage.deleteForPackageItem(id);
+        } else {
+          let parsed;
+          try {
+            parsed = typeof rawValue === "string" ? JSON.parse(rawValue) : rawValue;
+          } catch (err) {
+            return res.status(400).json({ error: "Package inclusions must be valid JSON." });
+          }
+          if (!Array.isArray(parsed)) {
+            return res.status(400).json({ error: "Package inclusions must be a JSON array." });
+          }
+          if (parsed.length > 0) {
             await UnlimitedPackage.replace(id, parsed);
           } else {
             await UnlimitedPackage.deleteForPackageItem(id);
           }
-        } catch (err) {
-          console.warn("Could not save package inclusions:", err.message);
         }
       }
 

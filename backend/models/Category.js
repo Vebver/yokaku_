@@ -13,10 +13,16 @@ const Category = {
     return rows;
   },
   
-  create: async (data) => {
+  create: async (data = {}) => {
+    const categoryName = data.category_name ?? data.name ?? null;
+    const description = data.description ?? null;
     const sql = 'INSERT INTO categories (category_name, description) VALUES (?, ?)';
-    const [result] = await db.execute(sql, [data.name, data.description]);
-    return { category_id: result.insertId, ...data };
+    const [result] = await db.execute(sql, [categoryName, description]);
+    return {
+      category_id: result.insertId,
+      category_name: categoryName,
+      description,
+    };
   },
 
   delete: async (id) => {
