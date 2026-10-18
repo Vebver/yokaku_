@@ -274,6 +274,7 @@ const validateUnlimitedPackageOrder = async (
         );
       }
     }
+    const packageIncludedItemIds = [];
     for (const orderItem of items) {
       const itemId = Number(orderItem.item_id || orderItem.id);
       const [menuRow] = await conn.execute(
@@ -293,10 +294,9 @@ const validateUnlimitedPackageOrder = async (
       const categoryKey = String(menu.category_name || "").toLowerCase();
       const categoryLimit = limits.byCategory.get(categoryKey);
       if (itemLimit === undefined && categoryLimit === undefined) {
-        throw new Error(
-          `"${menu.menu_name}" is not part of the selected Unlimited Menu package.`,
-        );
+        continue;
       }
+      packageIncludedItemIds.push(itemId);
       const quantity = Number(orderItem.quantity);
       if (itemLimit !== undefined && Number.isFinite(itemLimit)) {
         const used = (counts.byItem.get(itemId) || 0) + quantity;
@@ -320,9 +320,7 @@ const validateUnlimitedPackageOrder = async (
     return {
       mode,
       packageCardItemId,
-      packageIncludedItemIds: items
-        .map((item) => Number(item.item_id || item.id))
-        .filter((itemId) => !findPackageCard(itemId)),
+      packageIncludedItemIds,
     };
   };
 
@@ -371,16 +369,17 @@ const validateUnlimitedPackageOrder = async (
       .map((item) => String(item.menu_name).trim().toLowerCase()),
   );
 
+  const packageIncludedItemIds = [];
   for (const orderItem of items) {
     const itemId = Number(orderItem.item_id || orderItem.id);
     const menuItem = requestedById.get(itemId);
     const quantity = Number(orderItem.quantity);
-    if (!menuItem || !isIncluded(menuItem, mode)) {
-      throw new Error("The order contains an item outside the selected Unlimited Menu package.");
-    }
+    if (!menuItem) throw new Error("The order contains an invalid menu item.");
     if (!Number.isInteger(quantity) || quantity < 1) {
       throw new Error("Order item quantities must be positive whole numbers.");
     }
+    if (!isIncluded(menuItem, mode)) continue;
+    packageIncludedItemIds.push(itemId);
     const flavors = getSelectedFlavors(orderItem.customizations);
     if (flavors.some((flavor) => !allowedFlavors.has(String(flavor).toLowerCase()))) {
       throw new Error("The order contains a flavor outside the selected package.");
@@ -418,7 +417,10 @@ const validateUnlimitedPackageOrder = async (
      WHERE ko.reservation_id = ?`,
     [reservationId],
   );
-  for (const row of existingRows) {
+  const existingPackageRows = existingRows.filter((row) =>
+    isIncluded(row, mode),
+  );
+  for (const row of existingPackageRows) {
     const flavors = getSelectedFlavors(row.customizations);
     if (flavors.some((flavor) => !allowedFlavors.has(String(flavor).toLowerCase()))) {
       throw new Error("The existing order contains a flavor outside the selected package.");
@@ -430,21 +432,25 @@ const validateUnlimitedPackageOrder = async (
   }
 
   if (mode === "unlimited_wings_a") {
-    const existingChicken = existingRows.reduce((total, row) => {
+    const existingChicken = existingPackageRows.reduce((total, row) => {
       if (isChickenCategory(row.category_name)) return total + Number(row.quantity || 0);
       return total + getSelectedFlavors(row.customizations).length * Number(row.quantity || 1);
     }, 0);
     const newChicken = items.reduce((total, row) => {
-      const menuItem = requestedById.get(Number(row.item_id || row.id));
+      const itemId = Number(row.item_id || row.id);
+      if (!packageIncludedItemIds.includes(itemId)) return total;
+      const menuItem = requestedById.get(itemId);
       if (isChickenCategory(menuItem.category_name)) return total + Number(row.quantity);
       return total + getSelectedFlavors(row.customizations).length * Number(row.quantity);
     }, 0);
-    const existingDrinks = existingRows.reduce((total, row) => {
+    const existingDrinks = existingPackageRows.reduce((total, row) => {
       if (isDrinkCategory(row.category_name)) return total + Number(row.quantity || 0);
       return total + (getSelectedDrink(row.customizations) ? Number(row.quantity || 1) : 0);
     }, 0);
     const newDrinks = items.reduce((total, row) => {
-      const menuItem = requestedById.get(Number(row.item_id || row.id));
+      const itemId = Number(row.item_id || row.id);
+      if (!packageIncludedItemIds.includes(itemId)) return total;
+      const menuItem = requestedById.get(itemId);
       if (isDrinkCategory(menuItem.category_name)) return total + Number(row.quantity);
       return total + (getSelectedDrink(row.customizations) ? Number(row.quantity) : 0);
     }, 0);
@@ -460,9 +466,7 @@ const validateUnlimitedPackageOrder = async (
   return {
     mode,
     packageCardItemId,
-    packageIncludedItemIds: items
-      .map((item) => Number(item.item_id || item.id))
-      .filter((itemId) => !findPackageCard(itemId)),
+    packageIncludedItemIds,
   };
 };
 

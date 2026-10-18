@@ -254,10 +254,16 @@ export const isItemIncludedInPackage = (item, mode, packageInclusions = []) => {
 };
 
 export const getPackageCategories = (menuData, mode, packageInclusions = []) =>
-  Object.keys(menuData || {}).filter((category) =>
-    (menuData[category] || []).some((item) =>
-      isItemIncludedInPackage({ ...item, category }, mode, packageInclusions),
-    ),
+  Object.keys(menuData || {}).filter(
+    (category) =>
+      !category.toLowerCase().includes("unlimited") &&
+      (menuData[category] || []).some((item) =>
+        isItemIncludedInPackage(
+          { ...item, category },
+          mode,
+          packageInclusions,
+        ),
+      ),
   );
 
 export const getDrinkOptions = (menuData) =>
@@ -268,6 +274,7 @@ export const getDrinkOptions = (menuData) =>
 export const getPackageMenuData = (menuData, mode, packageInclusions = []) =>
   Object.fromEntries(
     Object.entries(menuData || {})
+      .filter(([category]) => !category.toLowerCase().includes("unlimited"))
       .map(([category, items]) => [
         category,
         getPackageItems(items, category, mode, packageInclusions),
@@ -276,9 +283,17 @@ export const getPackageMenuData = (menuData, mode, packageInclusions = []) =>
   );
 
 export const getPackageItems = (items, category, mode, packageInclusions = []) =>
-  (items || []).filter((item) =>
-    isItemIncludedInPackage({ ...item, category }, mode, packageInclusions),
-  );
+  !String(category || "").toLowerCase().includes("unlimited")
+    ? (items || []).filter(
+        (item) =>
+          !isPackageCardForMode(item, mode) &&
+          isItemIncludedInPackage(
+            { ...item, category },
+            mode,
+            packageInclusions,
+          ),
+      )
+    : [];
 
 export const sanitizePackageCart = (cart, mode, packageInclusions = []) => {
   const rules = getUnlimitedPackage(mode);
@@ -351,14 +366,17 @@ export const validatePackageCart = (cart, mode, packageInclusions = []) => {
   if (!rules) return null;
 
   const foodItems = (cart || []).filter((item) => !isNonFoodCharge(item));
-  const sanitized = sanitizePackageCart(foodItems, mode, packageInclusions);
+  const packageItems = foodItems.filter((item) =>
+    isItemIncludedInPackage(item, mode, packageInclusions),
+  );
+  const sanitized = sanitizePackageCart(packageItems, mode, packageInclusions);
   if (packageInclusions.length > 0) {
-    if (sanitized.length !== foodItems.length) {
+    if (sanitized.length !== packageItems.length) {
       return "Your order contains items outside the selected package. Remove them before checkout.";
     }
     if (
       sanitized.some(
-        (item, index) => item.quantity !== foodItems[index]?.quantity,
+        (item, index) => item.quantity !== packageItems[index]?.quantity,
       )
     ) {
       return `Your order exceeds the limits for ${rules.label}.`;
@@ -366,23 +384,23 @@ export const validatePackageCart = (cart, mode, packageInclusions = []) => {
     return null;
   }
   if (Number.isFinite(rules.chickenLimit)) {
-    const chickenCount = getPackageChickenCount(foodItems, mode);
+    const chickenCount = getPackageChickenCount(packageItems, mode);
     if (chickenCount > rules.chickenLimit) {
       return `Unlimited Menu A allows a maximum of ${rules.chickenLimit} chicken pieces.`;
     }
   }
   if (Number.isFinite(rules.drinkLimit)) {
-    const drinkCount = getPackageDrinkCount(foodItems, mode);
+    const drinkCount = getPackageDrinkCount(packageItems, mode);
     if (drinkCount > rules.drinkLimit) {
       return `Unlimited Menu A allows only ${rules.drinkLimit} drink.`;
     }
   }
-  if (sanitized.length !== foodItems.length) {
+  if (sanitized.length !== packageItems.length) {
     return "Your order contains items outside the selected package. Remove them before checkout.";
   }
   if (
     sanitized.some(
-      (item, index) => item.quantity !== foodItems[index]?.quantity,
+        (item, index) => item.quantity !== packageItems[index]?.quantity,
     )
   ) {
     return `Your order exceeds the limits for ${rules.label}.`;

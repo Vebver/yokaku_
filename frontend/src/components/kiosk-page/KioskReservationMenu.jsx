@@ -438,6 +438,15 @@ const KioskReservationMenu = () => {
       }
     }
 
+    // Only allow refills for customers actually on an Unlimited package.
+    // Non-unlimited customers get a clear notice instead of a hard failure.
+    if (!isUnlimitedMode) {
+      setCooldownMessage(
+        "Refills are only available for Unlimited package customers.",
+      );
+      return;
+    }
+
     const unlimitedItem = findUnlimitedItem();
     if (!unlimitedItem) {
       setCooldownMessage(
@@ -990,6 +999,55 @@ const KioskReservationMenu = () => {
 
   const handleItemClick = (item) => {
     const itemPackageMode = inferUnlimitedPackageMode(item);
+    if (
+      itemPackageMode &&
+      isPackageCardForMode(item, itemPackageMode)
+    ) {
+      setIsPackageTimerExpired(false);
+      if (
+        packageOrderItems.some((orderItem) =>
+          isPackageCardForMode(orderItem, itemPackageMode),
+        )
+      ) {
+        showToast("This Unlimited package is already in your order.", "error");
+        return;
+      }
+      const packageInclusionsForMode = getInclusionsForMode(itemPackageMode);
+      const packageError = validatePackageCart(
+        [...packageOrderItems, { ...item, quantity: 1, customizations: null }],
+        itemPackageMode,
+        packageInclusionsForMode,
+      );
+      if (packageError) {
+        showToast(packageError, "error");
+        return;
+      }
+      setCart((current) => [
+        ...current.filter(
+          (orderItem) =>
+            !isPackageCardForMode(orderItem, itemPackageMode),
+        ),
+        {
+          ...item,
+          price: item.price,
+          quantity: 1,
+          customizations: null,
+          is_refill: false,
+          is_package_included: false,
+        },
+      ]);
+      const packageCategories = getPackageCategories(
+        menuData,
+        itemPackageMode,
+        packageInclusionsForMode,
+      );
+      setActiveCategory(
+        packageCategories.find((category) => category !== "Unlimited") ||
+          packageCategories[0] ||
+          "",
+      );
+      return;
+    }
     if (itemPackageMode) setIsPackageTimerExpired(false);
     if (
       isUnlimitedMode &&
@@ -1226,6 +1284,7 @@ const KioskReservationMenu = () => {
               <button
                 onClick={handleOrderClick}
                 className="refill-action-btn"
+                disabled={isLoading}
                 style={{
                   background: "#ffcc00",
                   border: "none",
@@ -1235,10 +1294,12 @@ const KioskReservationMenu = () => {
                   display: "flex",
                   alignItems: "center",
                   gap: "8px",
-                  cursor: "pointer",
+                  cursor: isLoading ? "wait" : "pointer",
+                  opacity: isLoading ? 0.7 : 1,
                 }}
               >
-                <ShoppingBag size={18} /> ORDER
+                <ShoppingBag size={18} />{" "}
+                {isLoading ? "PLACING..." : "ORDER REFILL"}
               </button>
             </>
           )}
@@ -1284,9 +1345,8 @@ const KioskReservationMenu = () => {
                         menuData,
                         kioskMenuMode,
                         packageInclusions,
-                      ).includes(cat)
-                    : !HIDDEN_CATEGORIES.includes(cat) &&
-                      !(cat === "Unlimited" && hasOrderedUnlimited),
+                      ).includes(cat) && cat !== "Unlimited"
+                    : !HIDDEN_CATEGORIES.includes(cat),
                 )
                 .map((cat) => (
                   <button
