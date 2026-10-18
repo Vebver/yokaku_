@@ -178,8 +178,6 @@ const productController = {
       }
       const newId = creation.item_id;
 
-<<<<<<< Updated upstream
-=======
       // Dynamic package inclusions (Unlimited menus only).
       if (packageInclusions.provided) {
         if (packageInclusions.value === null) {
@@ -189,7 +187,6 @@ const productController = {
         }
       }
 
->>>>>>> Stashed changes
       await logActivity(
         req.user?.userId || null,
         "CREATE_MENU_ITEM",
@@ -241,8 +238,6 @@ const productController = {
       }
       await Product.update(id, data);
 
-<<<<<<< Updated upstream
-=======
       // Dynamic package inclusions (Unlimited menus only).
       if (packageInclusions.provided) {
         if (packageInclusions.value === null) {
@@ -256,7 +251,6 @@ const productController = {
         }
       }
 
->>>>>>> Stashed changes
       await logActivity(
         req.user?.userId || null,
         "UPDATE_MENU_ITEM",

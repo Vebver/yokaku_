@@ -1,6 +1,9 @@
 const db = require("../config/db");
 const Order = require("../models/Order");
 const Notification = require("../models/Notification");
+const { validateUnlimitedPackageOrder } = require("../utils/unlimitedPackageRules");
+const REFILL_COOLDOWN_MS = require("../../shared/refillCooldown.json").milliseconds;
+const PACKAGE_INCLUDED_MARKER = "[PACKAGE INCLUDED]";
 
 const orderController = {
   // --- 1. Update Status ---
@@ -35,9 +38,6 @@ const orderController = {
     try {
       await conn.beginTransaction();
 
-<<<<<<< Updated upstream
-      const hasRefill = items.some((item) => item.is_refill === true);
-=======
       const packageValidation = await validateUnlimitedPackageOrder(conn, {
         reservationId: reservation_id,
         tableId: table_id,
@@ -82,7 +82,6 @@ const orderController = {
       const hasRefill = items.some(
         (item) => Boolean(item.is_refill),
       );
->>>>>>> Stashed changes
 
       if (hasRefill) {
         // Query the database for the last refill for this specific reservation
@@ -96,11 +95,11 @@ const orderController = {
         if (lastRefill.length > 0) {
           const lastTime = new Date(lastRefill[0].created_at);
           const now = new Date();
-          const diffInMinutes = Math.floor((now - lastTime) / (1000 * 60));
 
-          // 15 MINUTE RULE
-          if (diffInMinutes < 15) {
-            const remaining = 15 - diffInMinutes;
+          if (now - lastTime < REFILL_COOLDOWN_MS) {
+            const remaining = Math.ceil(
+              (REFILL_COOLDOWN_MS - (now - lastTime)) / 60000,
+            );
             await conn.rollback();
             conn.release();
             return res.status(429).json({
@@ -182,9 +181,33 @@ const orderController = {
       const enrichedItems = [];
 
       for (const item of items) {
+        const itemId = Number(item.item_id || item.id);
+        const isPackageIncluded = packageIncludedItemIds.has(itemId);
+        let customizations = item.customizations;
+        if (isPackageIncluded) {
+          const alreadyMarked = JSON.stringify(customizations || "")
+            .toLowerCase()
+            .includes(PACKAGE_INCLUDED_MARKER.toLowerCase());
+          if (!alreadyMarked) {
+            if (typeof customizations === "string") {
+              customizations = [customizations.trim(), PACKAGE_INCLUDED_MARKER]
+                .filter(Boolean)
+                .join(" | ");
+            } else if (Array.isArray(customizations)) {
+              customizations = [...customizations, PACKAGE_INCLUDED_MARKER];
+            } else if (customizations && typeof customizations === "object") {
+              customizations = {
+                ...customizations,
+                package_included_marker: PACKAGE_INCLUDED_MARKER,
+              };
+            } else {
+              customizations = PACKAGE_INCLUDED_MARKER;
+            }
+          }
+        }
         const [menuData] = await conn.execute(
           "SELECT menu_name FROM menu_items WHERE item_id = ?",
-          [item.item_id || item.id],
+          [itemId],
         );
 
         const itemName = menuData[0]?.menu_name || "Unknown Item";
@@ -192,15 +215,9 @@ const orderController = {
         await Order.createOrderEntry(
           conn,
           reservation_id,
-<<<<<<< Updated upstream
-          item.item_id || item.id,
-          item.quantity,
-          item.customizations,
-=======
           itemId,
           Number(item.quantity),
           customizations,
->>>>>>> Stashed changes
           item.is_refill ? 1 : 0,
           req.body.allergy_note,
         );
@@ -208,7 +225,7 @@ const orderController = {
         enrichedItems.push({
           name: itemName,
           qty: item.quantity,
-          customizations: item.customizations,
+          customizations,
         });
       }
 
