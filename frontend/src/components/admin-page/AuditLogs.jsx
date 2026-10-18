@@ -47,7 +47,7 @@ const AuditLogs = () => {
             <thead className="bg-light">
               <tr className="text-muted small text-uppercase" style={{ fontSize: "0.75rem" }}>
                 <th className="ps-4">Timestamp</th>
-                <th>User (Actor)</th>
+                <th>User</th>
                 <th>Action</th>
                 <th>Target User</th>
                 <th>Details</th>

@@ -1,4 +1,5 @@
 const Reservation = require("../models/Reservation");
+const Order = require("../models/Order");
 const User = require("../models/User");
 const Notification = require("../models/Notification");
 const db = require("../config/db");
@@ -168,6 +169,18 @@ const reservationController = {
   // ==================== RESERVATION ITEMS ====================
   getReservationItems: async (req, res) => {
     try {
+      const conn = await db.getConnection();
+      try {
+        await conn.beginTransaction();
+        await Order.reconcilePaidPackageItems(conn, req.params.id);
+        await conn.commit();
+      } catch (error) {
+        await conn.rollback();
+        throw error;
+      } finally {
+        conn.release();
+      }
+
       const items = await Reservation.getItemsByReservationId(req.params.id);
       res.json(items);
     } catch (error) {

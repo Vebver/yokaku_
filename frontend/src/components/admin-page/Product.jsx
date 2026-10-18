@@ -780,9 +780,9 @@ function Product() {
                 {inclusions.map((inc, index) => (
                   <div
                     key={index}
-                    className="row g-2 align-items-end mb-2 p-2 border rounded bg-white"
+                    className="d-flex flex-wrap align-items-end gap-2 mb-2 p-2 border rounded bg-white"
                   >
-                    <div className="col-12 col-sm-5">
+                    <div style={{ flex: "1 1 140px", minWidth: 0 }}>
                       <label className="form-label small text-muted mb-1">Include</label>
                       <select
                         className="form-select form-select-sm"
@@ -804,7 +804,7 @@ function Product() {
                           }
                         }}
                       >
-                        <option value="">— Select —</option>
+                        <option value="">Select</option>
                         <optgroup label="Whole category">
                           {categories.map((cat) => (
                             <option key={cat.category_id} value={`cat:${cat.category_id}`}>
@@ -821,7 +821,7 @@ function Product() {
                         </optgroup>
                       </select>
                     </div>
-                    <div className="col-6 col-sm-4">
+                    <div style={{ flex: "1 1 90px", minWidth: "80px" }}>
                       <label className="form-label small text-muted mb-1">Limit</label>
                       <input
                         type="number"
@@ -835,7 +835,7 @@ function Product() {
                         }
                       />
                     </div>
-                    <div className="col-6 col-sm-2">
+                    <div style={{ flex: "0 0 auto" }}>
                       <div className="form-check mb-1">
                         <input
                           type="checkbox"
@@ -851,7 +851,7 @@ function Product() {
                         </label>
                       </div>
                     </div>
-                    <div className="col-12 col-sm-1 text-end">
+                    <div style={{ flex: "0 0 auto", marginLeft: "auto" }}>
                       <button
                         type="button"
                         className="btn btn-sm btn-outline-danger"

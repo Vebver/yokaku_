@@ -22,6 +22,8 @@ const PACKAGE_RULES = {
   },
 };
 
+const EMPTY_PACKAGE_INCLUSIONS = [];
+
 const getName = (item) =>
   String(item?.name || item?.menu_name || item?.item_name || "").toLowerCase();
 
@@ -43,7 +45,9 @@ export const getUnlimitedPackage = (mode) => PACKAGE_RULES[mode] || null;
 export const inferUnlimitedPackageMode = (value) => {
   const name =
     typeof value === "string" ? value.toLowerCase() : getName(value);
-  if (!name.includes("unlimited")) return null;
+  const hasUnlimitedCategory =
+    typeof value !== "string" && getCategory(value).includes("unlimited");
+  if (!name.includes("unlimited") && !hasUnlimitedCategory) return null;
   if (/\bc\b/.test(name)) return "unlimited_wings_c";
   if (/\bb\b/.test(name)) return "unlimited_wings_b";
   return "unlimited_wings_a";
@@ -142,11 +146,45 @@ export const getPackageDrinkCount = (cart, mode) => {
   }, 0);
 };
 
-export const getPackageInclusions = (menuData, mode) => {
-  const packageCard = Object.values(menuData || {})
-    .flat()
-    .find((item) => isPackageCardForMode(item, mode));
-  return packageCard?.package_inclusions || [];
+export const getPackageInclusions = (menuData, mode, packageItem) => {
+  const menuItems = Object.values(menuData || {}).flat();
+  const packageItemId = packageItem?.item_id ?? packageItem?.id;
+  const packageCard = packageItem
+    ? menuItems.find(
+        (item) =>
+          packageItemId != null &&
+          String(item.id ?? item.item_id) === String(packageItemId),
+      ) || packageItem
+    : menuItems.find((item) => isPackageCardForMode(item, mode));
+  return packageCard?.package_inclusions || EMPTY_PACKAGE_INCLUSIONS;
+};
+
+export const getPackageInclusionSummary = (menuData, packageInclusions) => {
+  const menuItems = Object.values(menuData || {}).flat();
+  return (packageInclusions || [])
+    .map((inclusion) => {
+      const includedItem = menuItems.find(
+        (item) =>
+          inclusion.included_item_id != null &&
+          Number(item.id ?? item.item_id) === Number(inclusion.included_item_id),
+      );
+      const includedCategory = Object.entries(menuData || {}).find(([, items]) =>
+        items.some(
+          (item) =>
+            inclusion.included_category_id != null &&
+            Number(item.category_id) === Number(inclusion.included_category_id),
+        ),
+      )?.[0];
+      const label = includedItem?.name || includedItem?.menu_name || includedCategory;
+      if (!label) return null;
+      const limit =
+        inclusion.is_unlimited || inclusion.quantity_limit == null
+          ? "Unlimited"
+          : `up to ${inclusion.quantity_limit}`;
+      return `${label} (${limit})`;
+    })
+    .filter(Boolean)
+    .join(" · ");
 };
 
 const matchesInclusion = (item, inclusion) =>
@@ -154,6 +192,23 @@ const matchesInclusion = (item, inclusion) =>
     Number(item?.id || item?.item_id) === Number(inclusion.included_item_id)) ||
   (inclusion.included_category_id != null &&
     Number(item?.category_id) === Number(inclusion.included_category_id));
+
+export const getUnlimitedPackageRefillItems = (menuData, packageInclusions) => {
+  const unlimitedInclusions = (packageInclusions || []).filter(
+    (inclusion) =>
+      inclusion.is_unlimited || inclusion.quantity_limit == null,
+  );
+  if (unlimitedInclusions.length === 0) return [];
+  return Object.values(menuData || {})
+    .flat()
+    .filter(
+      (item) =>
+        !isUnlimitedPackageItem(item) &&
+        unlimitedInclusions.some((inclusion) =>
+          matchesInclusion(item, inclusion),
+        ),
+    );
+};
 
 const inclusionLimit = (inclusion) =>
   inclusion.is_unlimited || inclusion.quantity_limit == null

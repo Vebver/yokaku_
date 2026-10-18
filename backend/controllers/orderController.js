@@ -45,34 +45,33 @@ const orderController = {
       });
       const { mode: kioskMode } = packageValidation;
       const includedItemIds = new Set(packageValidation.packageIncludedItemIds || []);
-      let hasPaidPackageCard = false;
+      let hasPackageCardInSession = items.some(
+        (item) =>
+          Number(item.item_id || item.id) ===
+          Number(packageValidation.packageCardItemId),
+      );
       if (
+        !hasPackageCardInSession &&
         packageValidation.packageCardItemId != null &&
         includedItemIds.size > 0
       ) {
-        const [paidPackageRows] = await conn.execute(
+        const [existingPackageRows] = await conn.execute(
           `SELECT 1
-           FROM kiosk_orders ko
-           JOIN payments p ON p.reservation_id = ko.reservation_id
-           WHERE ko.reservation_id = ? AND ko.item_id = ?
-             AND LOWER(p.payment_status) = 'verified'
-             AND COALESCE(p.amount, 0) >= (
-               SELECT mi.price * ko.quantity
-               FROM menu_items mi WHERE mi.item_id = ko.item_id
-             )
+           FROM kiosk_orders
+           WHERE reservation_id = ? AND item_id = ?
            LIMIT 1`,
           [reservation_id, packageValidation.packageCardItemId],
         );
-        hasPaidPackageCard = paidPackageRows.length > 0;
+        hasPackageCardInSession = existingPackageRows.length > 0;
       }
       const packageIncludedItemIds = new Set(
-        hasPaidPackageCard ? includedItemIds : [],
+        hasPackageCardInSession ? includedItemIds : [],
       );
 
       const hasRefill = items.some(
         (item) =>
-          Boolean(item.is_refill) &&
-          !packageIncludedItemIds.has(Number(item.item_id || item.id)),
+          Boolean(item.is_refill) ||
+          String(item.customizations || "").includes("[REFILL]"),
       );
 
       if (hasRefill) {
@@ -80,7 +79,7 @@ const orderController = {
         const [lastRefill] = await conn.execute(
           `SELECT created_at FROM kiosk_orders 
          WHERE reservation_id = ? AND is_refill = 1
-           AND COALESCE(customizations, '') NOT LIKE '%PACKAGE INCLUDED%'
+           AND COALESCE(customizations, '') LIKE '%[REFILL]%'
          ORDER BY created_at DESC LIMIT 1`,
           [reservation_id],
         );
@@ -333,11 +332,18 @@ const orderController = {
   },
 
   getReservedItems: async (req, res) => {
+    const conn = await db.getConnection();
     try {
+      await conn.beginTransaction();
+      await Order.reconcilePaidPackageItems(conn, req.params.id);
+      await conn.commit();
       const items = await Order.getPreReservedItems(req.params.id);
       res.status(200).json(items);
     } catch (error) {
+      await conn.rollback();
       res.status(500).json({ error: "Failed" });
+    } finally {
+      conn.release();
     }
   },
 

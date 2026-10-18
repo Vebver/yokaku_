@@ -41,7 +41,7 @@ function Categories() {
         description: cat.description || "",
       }));
 
-      setCategories(mappedData);
+      setCategories(mappedData.sort((a, b) => Number(b.id) - Number(a.id)));
       setCurrentPage(1);
     } catch (err) {
       console.error("Error fetching categories:", err);
@@ -65,8 +65,9 @@ function Categories() {
       fetchCategories();
       setNewCategory({ category_name: "", description: "" });
       if (closeBtnRef.current) closeBtnRef.current.click();
+      showToast("New Category Added", "success");
     } catch (err) {
-      showToast(err.response?.data?.error || "Failed to add category.");
+      showToast(err.response?.data?.error || "Failed to add category.","error");
     }
   };
 
@@ -79,8 +80,9 @@ function Categories() {
     try {
       await api.delete(`/categories/${id}`);
       setCategories(categories.filter((c) => c.id !== id));
+      showToast("Deleted Successfully","success");
     } catch (err) {
-      showToast("Error deleting category.");
+      showToast("Error deleting category.", "error");
     }
   };
 

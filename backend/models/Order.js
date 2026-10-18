@@ -52,6 +52,62 @@ const Order = {
     }
   },
 
+  reconcilePaidPackageItems: async (conn, reservationId) => {
+    const [packageRows] = await conn.execute(
+      `SELECT ko.item_id, ko.quantity, mi.price
+       FROM kiosk_orders ko
+       JOIN menu_items mi ON mi.item_id = ko.item_id
+       JOIN categories c ON c.category_id = mi.category_id
+       WHERE ko.reservation_id = ? AND c.category_name LIKE '%Unlimited%'
+       ORDER BY ko.created_at DESC LIMIT 1`,
+      [reservationId],
+    );
+    const packageCard = packageRows[0];
+    if (!packageCard) return;
+
+    const [verifiedPayments] = await conn.execute(
+      `SELECT 1 FROM payments
+       WHERE reservation_id = ?
+         AND LOWER(payment_status) = 'verified'
+         AND COALESCE(amount, 0) >= ? * ?
+       LIMIT 1`,
+      [reservationId, packageCard.price, packageCard.quantity],
+    );
+    if (verifiedPayments.length === 0) return;
+
+    let result;
+    try {
+      [result] = await conn.execute(
+        `UPDATE kiosk_orders ko
+         JOIN menu_items mi ON mi.item_id = ko.item_id
+         SET ko.customizations = CASE
+           WHEN COALESCE(ko.customizations, '') = ''
+             THEN '[PACKAGE INCLUDED]'
+           ELSE CONCAT(ko.customizations, ' | [PACKAGE INCLUDED]')
+         END
+         WHERE ko.reservation_id = ?
+           AND ko.item_id <> ?
+           AND COALESCE(ko.customizations, '') NOT LIKE '%[PACKAGE INCLUDED]%'
+           AND EXISTS (
+             SELECT 1 FROM unlimited_package_inclusions upi
+             WHERE upi.package_item_id = ?
+               AND (
+                 upi.included_item_id = ko.item_id
+                 OR upi.included_category_id = mi.category_id
+               )
+           )`,
+        [reservationId, packageCard.item_id, packageCard.item_id],
+      );
+    } catch (error) {
+      if (error.code === "ER_NO_SUCH_TABLE") return;
+      throw error;
+    }
+
+    if (result.affectedRows > 0) {
+      await Order.syncBillingTotal(conn, reservationId);
+    }
+  },
+
   // 2. Check current stock levels
   checkStock: async (conn, inventoryId) => {
     const [rows] = await conn.execute(

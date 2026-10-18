@@ -26,15 +26,26 @@ const isRice = (item) =>
 
 const matchesPackageCard = (item, mode) => {
   const name = String(item.menu_name || "").toLowerCase();
-  if (!name.includes("unlimited")) return false;
+  const category = String(item.category_name || "").toLowerCase();
+  if (!name.includes("unlimited") && !category.includes("unlimited")) {
+    return false;
+  }
   if (mode === "unlimited_wings_a") return !/\b(?:b|c)\b/.test(name);
   if (mode === "unlimited_wings_b") return /\bb\b/.test(name);
   return /\bc\b/.test(name);
 };
 
 const inferPackageMode = (name) => {
-  const normalized = String(name || "").toLowerCase();
-  if (!normalized.includes("unlimited")) return null;
+  const normalized = String(
+    typeof name === "object" ? name.menu_name || name.name || "" : name || "",
+  ).toLowerCase();
+  const category =
+    typeof name === "object"
+      ? String(name.category_name || "").toLowerCase()
+      : "";
+  if (!normalized.includes("unlimited") && !category.includes("unlimited")) {
+    return null;
+  }
   if (/\bc\b/.test(normalized)) return "unlimited_wings_c";
   if (/\bb\b/.test(normalized)) return "unlimited_wings_b";
   return "unlimited_wings_a";
@@ -105,20 +116,20 @@ const readKioskMode = async (conn, reservationId, tableId, items = []) => {
     if (reservationRows.length) {
       const mode = reservationRows[0].kiosk_mode || "default";
       if (mode !== "default") return mode;
-      if (reservationRows[0].kiosk_table_id != null) return "default";
       const packageMode = inferPackageMode(reservationRows[0].package_name);
       if (packageMode) return packageMode;
 
       const [packageItems] = await conn.execute(
-        `SELECT mi.menu_name FROM kiosk_orders ko
+        `SELECT mi.menu_name, c.category_name FROM kiosk_orders ko
          JOIN menu_items mi ON mi.item_id = ko.item_id
          JOIN categories c ON c.category_id = mi.category_id
          WHERE ko.reservation_id = ? AND c.category_name LIKE '%Unlimited%'
          ORDER BY ko.created_at ASC LIMIT 1`,
         [reservationId],
       );
-      const packageItemMode = inferPackageMode(packageItems[0]?.menu_name);
+      const packageItemMode = inferPackageMode(packageItems[0]);
       if (packageItemMode) return packageItemMode;
+      if (reservationRows[0].kiosk_table_id != null) return "default";
     }
   }
 
@@ -148,7 +159,7 @@ const readKioskMode = async (conn, reservationId, tableId, items = []) => {
     const requestedPackage = requestedRows.find((item) =>
       String(item.category_name || "").toLowerCase().includes("unlimited"),
     );
-    const requestedMode = inferPackageMode(requestedPackage?.menu_name);
+    const requestedMode = inferPackageMode(requestedPackage);
     if (requestedMode) return requestedMode;
   }
   return "default";
@@ -179,7 +190,7 @@ const validateUnlimitedPackageOrder = async (
   let dbInclusions = null;
   let packageCardItemId = null;
   const [packageCardRows] = await conn.execute(
-    `SELECT mi.item_id, mi.menu_name FROM menu_items mi
+    `SELECT mi.item_id, mi.menu_name, c.category_name FROM menu_items mi
      JOIN categories c ON c.category_id = mi.category_id
      WHERE c.category_name LIKE '%Unlimited%'`,
   );
@@ -189,7 +200,7 @@ const validateUnlimitedPackageOrder = async (
 
   for (const id of packageItemIds) {
     const card = findPackageCard(id);
-    if (card && inferPackageMode(card.menu_name) === mode) {
+    if (card && inferPackageMode(card) === mode) {
       packageCardItemId = id;
       break;
     }
@@ -197,7 +208,7 @@ const validateUnlimitedPackageOrder = async (
 
   if (packageCardItemId == null && reservationId) {
     const [existingCards] = await conn.execute(
-      `SELECT mi.item_id, mi.menu_name
+      `SELECT mi.item_id, mi.menu_name, c.category_name
        FROM kiosk_orders ko
        JOIN menu_items mi ON mi.item_id = ko.item_id
        JOIN categories c ON c.category_id = mi.category_id
@@ -206,7 +217,7 @@ const validateUnlimitedPackageOrder = async (
       [reservationId],
     );
     const existingCard = existingCards.find(
-      (card) => inferPackageMode(card.menu_name) === mode,
+      (card) => inferPackageMode(card) === mode,
     );
     if (existingCard) packageCardItemId = Number(existingCard.item_id);
   }
