@@ -121,15 +121,17 @@ function FeaturedMenu({ onLoginClick }) {
 
   const settings = {
     dots: true,
-    arrows: slidesToShow > 1,
-    infinite: false,
+    arrows: true,
+    infinite: featuredItems.length > 3, // Loops only if more than 3 items
     speed: 500,
-    slidesToShow: slidesToShow,
+    slidesToShow: Math.min(slidesToShow, featuredItems.length || 1),
     slidesToScroll: 1,
     autoplay: true,
     autoplaySpeed: 5000,
     pauseOnHover: true,
     cssEase: "linear",
+    centerMode: true,
+    centerPadding: "60px",
   };
 
   return (

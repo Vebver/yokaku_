@@ -136,7 +136,6 @@
 .featured-menu .slick-slide {
   padding: 0 10px; /* Apply the gap here instead */
   box-sizing: border-box;
-  flex-shrink: 0;
 }
 
 .carousel-container {
