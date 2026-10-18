@@ -8,7 +8,6 @@ import "../Style/FeaturedMenu.css";
 import ExistingModal from "./ExistingModal";
 import { API_BASE, resolveAssetUrl } from "../api";
 
-
 function FeaturedMenu({ onLoginClick }) {
   const [featuredItems, setFeaturedItems] = useState([]);
   const [slidesToShow, setSlidesToShow] = useState(1);
@@ -129,6 +128,8 @@ function FeaturedMenu({ onLoginClick }) {
     slidesToScroll: 1,
     autoplay: true,
     autoplaySpeed: 5000,
+    pauseOnHover: true,
+    cssEase: "linear",
   };
 
   return (
