@@ -95,7 +95,7 @@ const getSelectedDrink = (value) => {
 const readKioskMode = async (conn, reservationId, tableId, items = []) => {
   if (reservationId) {
     const [reservationRows] = await conn.execute(
-      `SELECT rt.kiosk_mode, r.package_name
+      `SELECT rt.table_id AS kiosk_table_id, rt.kiosk_mode, r.package_name
        FROM reservations r
        LEFT JOIN reservation_tables rt ON rt.reservation_id = r.reservation_id
        WHERE r.reservation_id = ?
@@ -105,6 +105,7 @@ const readKioskMode = async (conn, reservationId, tableId, items = []) => {
     if (reservationRows.length) {
       const mode = reservationRows[0].kiosk_mode || "default";
       if (mode !== "default") return mode;
+      if (reservationRows[0].kiosk_table_id != null) return "default";
       const packageMode = inferPackageMode(reservationRows[0].package_name);
       if (packageMode) return packageMode;
 
@@ -159,6 +160,15 @@ const validateUnlimitedPackageOrder = async (
 ) => {
   const mode = await readKioskMode(conn, reservationId, tableId, items);
   if (!PACKAGE_MODES.has(mode)) return { mode };
+  if (!Array.isArray(items) || items.length === 0) {
+    throw new Error("An order must contain at least one item.");
+  }
+  for (const item of items) {
+    const quantity = Number(item.quantity);
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      throw new Error("Order item quantities must be positive whole numbers.");
+    }
+  }
 
   // Prefer DB-driven inclusions for this package (set by the Admin in
   // Product Management). Falls back to the legacy category rules when the
@@ -169,7 +179,7 @@ const validateUnlimitedPackageOrder = async (
   let dbInclusions = null;
   let packageCardItemId = null;
   const [packageCardRows] = await conn.execute(
-    `SELECT mi.item_id FROM menu_items mi
+    `SELECT mi.item_id, mi.menu_name FROM menu_items mi
      JOIN categories c ON c.category_id = mi.category_id
      WHERE c.category_name LIKE '%Unlimited%'`,
   );
@@ -178,10 +188,27 @@ const validateUnlimitedPackageOrder = async (
     packageCards.find((card) => Number(card.item_id) === id);
 
   for (const id of packageItemIds) {
-    if (findPackageCard(id)) {
+    const card = findPackageCard(id);
+    if (card && inferPackageMode(card.menu_name) === mode) {
       packageCardItemId = id;
       break;
     }
+  }
+
+  if (packageCardItemId == null && reservationId) {
+    const [existingCards] = await conn.execute(
+      `SELECT mi.item_id, mi.menu_name
+       FROM kiosk_orders ko
+       JOIN menu_items mi ON mi.item_id = ko.item_id
+       JOIN categories c ON c.category_id = mi.category_id
+       WHERE ko.reservation_id = ? AND c.category_name LIKE '%Unlimited%'
+       ORDER BY ko.created_at DESC`,
+      [reservationId],
+    );
+    const existingCard = existingCards.find(
+      (card) => inferPackageMode(card.menu_name) === mode,
+    );
+    if (existingCard) packageCardItemId = Number(existingCard.item_id);
   }
 
   const loadDbInclusions = async (pkgItemId) => {
@@ -223,6 +250,30 @@ const validateUnlimitedPackageOrder = async (
     }
 
     const counts = { byItem: new Map(), byCategory: new Map() };
+    const [existingRows] = await conn.execute(
+      `SELECT ko.item_id, ko.quantity, mi.category_id, c.category_name
+       FROM kiosk_orders ko
+       JOIN menu_items mi ON mi.item_id = ko.item_id
+       LEFT JOIN categories c ON c.category_id = mi.category_id
+       WHERE ko.reservation_id = ?`,
+      [reservationId],
+    );
+    for (const row of existingRows) {
+      const itemId = Number(row.item_id);
+      if (findPackageCard(itemId)) continue;
+      const quantity = Number(row.quantity);
+      if (!Number.isInteger(quantity) || quantity < 1) continue;
+      const categoryKey = String(row.category_name || "").toLowerCase();
+      if (limits.byItem.has(itemId)) {
+        counts.byItem.set(itemId, (counts.byItem.get(itemId) || 0) + quantity);
+      }
+      if (limits.byCategory.has(categoryKey)) {
+        counts.byCategory.set(
+          categoryKey,
+          (counts.byCategory.get(categoryKey) || 0) + quantity,
+        );
+      }
+    }
     for (const orderItem of items) {
       const itemId = Number(orderItem.item_id || orderItem.id);
       const [menuRow] = await conn.execute(
@@ -246,7 +297,7 @@ const validateUnlimitedPackageOrder = async (
           `"${menu.menu_name}" is not part of the selected Unlimited Menu package.`,
         );
       }
-      const quantity = Math.max(1, Number(orderItem.quantity) || 1);
+      const quantity = Number(orderItem.quantity);
       if (itemLimit !== undefined && Number.isFinite(itemLimit)) {
         const used = (counts.byItem.get(itemId) || 0) + quantity;
         if (used > itemLimit) {
@@ -266,7 +317,13 @@ const validateUnlimitedPackageOrder = async (
         counts.byCategory.set(categoryKey, used);
       }
     }
-    return { mode };
+    return {
+      mode,
+      packageCardItemId,
+      packageIncludedItemIds: items
+        .map((item) => Number(item.item_id || item.id))
+        .filter((itemId) => !findPackageCard(itemId)),
+    };
   };
 
   if (dbInclusions && dbInclusions.length > 0) {
@@ -329,9 +386,19 @@ const validateUnlimitedPackageOrder = async (
       throw new Error("The order contains a flavor outside the selected package.");
     }
     const drink = getSelectedDrink(orderItem.customizations);
+    const hasSeparateDrink = items.some((candidate) => {
+      if (candidate === orderItem) return false;
+      const candidateId = Number(candidate.item_id || candidate.id);
+      const candidateMenu = requestedById.get(candidateId);
+      return (
+        isDrinkCategory(candidateMenu?.category_name) &&
+        (mode === "unlimited_wings_a" || isJuice(candidateMenu))
+      );
+    });
     if (
       String(menuItem.category_name || "").toLowerCase().includes("unlimited") &&
       !drink &&
+      !hasSeparateDrink &&
       !orderItem.is_refill &&
       !orderItem.is_package_included
     ) {
@@ -390,7 +457,13 @@ const validateUnlimitedPackageOrder = async (
     }
   }
 
-  return { mode };
+  return {
+    mode,
+    packageCardItemId,
+    packageIncludedItemIds: items
+      .map((item) => Number(item.item_id || item.id))
+      .filter((itemId) => !findPackageCard(itemId)),
+  };
 };
 
 module.exports = { validateUnlimitedPackageOrder };

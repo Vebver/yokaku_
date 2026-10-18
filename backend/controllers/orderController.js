@@ -2,6 +2,8 @@ const db = require("../config/db");
 const Order = require("../models/Order");
 const Notification = require("../models/Notification");
 const { validateUnlimitedPackageOrder } = require("../utils/unlimitedPackageRules");
+const REFILL_COOLDOWN_MS = require("../../shared/refillCooldown.json").milliseconds;
+const PACKAGE_INCLUDED_MARKER = "[PACKAGE INCLUDED]";
 
 const orderController = {
   // --- 1. Update Status ---
@@ -36,14 +38,41 @@ const orderController = {
     try {
       await conn.beginTransaction();
 
-      const { mode: kioskMode } = await validateUnlimitedPackageOrder(conn, {
+      const packageValidation = await validateUnlimitedPackageOrder(conn, {
         reservationId: reservation_id,
         tableId: table_id,
         items,
       });
+      const { mode: kioskMode } = packageValidation;
+      const includedItemIds = new Set(packageValidation.packageIncludedItemIds || []);
+      let hasPaidPackageCard = false;
+      if (
+        packageValidation.packageCardItemId != null &&
+        includedItemIds.size > 0
+      ) {
+        const [paidPackageRows] = await conn.execute(
+          `SELECT 1
+           FROM kiosk_orders ko
+           JOIN payments p ON p.reservation_id = ko.reservation_id
+           WHERE ko.reservation_id = ? AND ko.item_id = ?
+             AND LOWER(p.payment_status) = 'verified'
+             AND COALESCE(p.amount, 0) >= (
+               SELECT mi.price * ko.quantity
+               FROM menu_items mi WHERE mi.item_id = ko.item_id
+             )
+           LIMIT 1`,
+          [reservation_id, packageValidation.packageCardItemId],
+        );
+        hasPaidPackageCard = paidPackageRows.length > 0;
+      }
+      const packageIncludedItemIds = new Set(
+        hasPaidPackageCard ? includedItemIds : [],
+      );
 
       const hasRefill = items.some(
-        (item) => item.is_refill === true && item.is_package_included !== true,
+        (item) =>
+          Boolean(item.is_refill) &&
+          !packageIncludedItemIds.has(Number(item.item_id || item.id)),
       );
 
       if (hasRefill) {
@@ -59,11 +88,11 @@ const orderController = {
         if (lastRefill.length > 0) {
           const lastTime = new Date(lastRefill[0].created_at);
           const now = new Date();
-          const diffInMinutes = Math.floor((now - lastTime) / (1000 * 60));
 
-          // 15 MINUTE RULE
-          if (diffInMinutes < 15) {
-            const remaining = 15 - diffInMinutes;
+          if (now - lastTime < REFILL_COOLDOWN_MS) {
+            const remaining = Math.ceil(
+              (REFILL_COOLDOWN_MS - (now - lastTime)) / 60000,
+            );
             await conn.rollback();
             conn.release();
             return res.status(429).json({
@@ -151,9 +180,33 @@ const orderController = {
       const enrichedItems = [];
 
       for (const item of items) {
+        const itemId = Number(item.item_id || item.id);
+        const isPackageIncluded = packageIncludedItemIds.has(itemId);
+        let customizations = item.customizations;
+        if (isPackageIncluded) {
+          const alreadyMarked = JSON.stringify(customizations || "")
+            .toLowerCase()
+            .includes(PACKAGE_INCLUDED_MARKER.toLowerCase());
+          if (!alreadyMarked) {
+            if (typeof customizations === "string") {
+              customizations = [customizations.trim(), PACKAGE_INCLUDED_MARKER]
+                .filter(Boolean)
+                .join(" | ");
+            } else if (Array.isArray(customizations)) {
+              customizations = [...customizations, PACKAGE_INCLUDED_MARKER];
+            } else if (customizations && typeof customizations === "object") {
+              customizations = {
+                ...customizations,
+                package_included_marker: PACKAGE_INCLUDED_MARKER,
+              };
+            } else {
+              customizations = PACKAGE_INCLUDED_MARKER;
+            }
+          }
+        }
         const [menuData] = await conn.execute(
           "SELECT menu_name FROM menu_items WHERE item_id = ?",
-          [item.item_id || item.id],
+          [itemId],
         );
 
         const itemName = menuData[0]?.menu_name || "Unknown Item";
@@ -161,17 +214,17 @@ const orderController = {
         await Order.createOrderEntry(
           conn,
           reservation_id,
-          item.item_id || item.id,
-          item.quantity,
-          item.customizations,
-          item.is_refill || item.is_package_included ? 1 : 0,
+          itemId,
+          Number(item.quantity),
+          customizations,
+          item.is_refill || packageIncludedItemIds.has(itemId) ? 1 : 0,
           req.body.allergy_note,
         );
 
         enrichedItems.push({
           name: itemName,
           qty: item.quantity,
-          customizations: item.customizations,
+          customizations,
         });
       }
 

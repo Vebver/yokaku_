@@ -1379,9 +1379,7 @@ const Billing = () => {
               `/reservations/${reservationId}/event-takeout`,
             );
             setTakeoutSummary(response.data);
-          } catch {
-            setTakeoutSummary(null);
-          }
+          } catch {}
         }}
       />
     )}

@@ -67,15 +67,12 @@ const Order = {
       SET quantity = GREATEST(quantity - ?, 0), 
           last_updated = NOW(),
           status = CASE 
-            WHEN (quantity - ?) <= reorder_level AND (quantity - ?) > 0 THEN 'low stock' 
-            WHEN (quantity - ?) <= 0 THEN 'out of stock' 
+            WHEN quantity <= 0 THEN 'out of stock'
+            WHEN quantity <= reorder_level THEN 'low stock'
             ELSE 'available' 
           END
       WHERE inventory_id = ?`;
     return await conn.execute(query, [
-      amountUsed,
-      amountUsed,
-      amountUsed,
       amountUsed,
       inventoryId,
     ]);

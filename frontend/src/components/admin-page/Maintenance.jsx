@@ -54,7 +54,9 @@ const Maintenance = () => {
       await api.put(`/settings`, { settings });
       showToast("Success: Payment details updated.", "success");
     } catch (err) {
-      showToast("Failed to update payment details.");
+      showToast(
+        err.response?.data?.error || "Failed to update payment details.",
+      );
     } finally {
       setSaving(false);
     }

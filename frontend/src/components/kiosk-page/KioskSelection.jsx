@@ -8,6 +8,8 @@ import { API_BASE } from "../../api";
 
 const KioskSelection = () => {
   const navigate = useNavigate();
+  const [eventMode, setEventMode] = useState("loading");
+  const [kioskDetails, setKioskDetails] = useState(null);
 
   // 1. Extract physical table config from URL parameters
   const queryParams = useMemo(() => new URLSearchParams(window.location.search), []);
@@ -15,13 +17,6 @@ const KioskSelection = () => {
 
   // ==================== RESTAURANT-WIDE MONITORING ====================
   useEffect(() => {
-    const openMenu = () => {
-      sessionStorage.removeItem("resId");
-      sessionStorage.setItem("kiosk_mode", "walkin");
-      const searchString = setupTable ? `?setupTable=${setupTable}` : "";
-      navigate(`/kiosk-selection/kiosk-menu${searchString}`);
-    };
-
     const checkActiveEventState = async () => {
       try {
         const res = await axios.get(`${API_BASE}/reservations/active-kiosk`, {
@@ -30,6 +25,7 @@ const KioskSelection = () => {
 
         if (res.data && res.data.success) {
           const { mode, reservation } = res.data;
+          setKioskDetails(res.data);
 
           if (mode === "event_active") {
             if (sessionStorage.getItem("kiosk_exit_to_selection") === "true") {
@@ -43,16 +39,17 @@ const KioskSelection = () => {
             }
             const searchString = setupTable ? `?setupTable=${setupTable}` : "";
             navigate(`/kiosk-selection/kiosk-reservation-menu${searchString}`);
-          } 
-          else {
-            openMenu();
+          } else {
+            setEventMode("default");
           }
         } else {
-          openMenu();
+          setKioskDetails(null);
+          setEventMode("default");
         }
       } catch (err) {
         console.error("Kiosk event polling error:", err);
-        openMenu();
+        setKioskDetails(null);
+        setEventMode("default");
       }
     };
 

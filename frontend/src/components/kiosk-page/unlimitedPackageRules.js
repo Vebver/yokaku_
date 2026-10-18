@@ -25,7 +25,7 @@ const PACKAGE_RULES = {
 const getName = (item) =>
   String(item?.name || item?.menu_name || item?.item_name || "").toLowerCase();
 
-const getCategory = (item) => {
+export const getCategory = (item) => {
   const category = String(item?.category || item?.category_name || "").toLowerCase();
   if (category) return category;
 
@@ -65,7 +65,7 @@ export const isJuiceItem = (item) =>
   /juice|lemonade|orange|calamansi|iced tea/.test(getName(item)) ||
   getCategory(item).includes("juice");
 
-const isChickenCategory = (category) =>
+export const isChickenCategory = (category) =>
   category.includes("chicken") || category.includes("wing");
 
 const isWingItem = (item, category) =>
@@ -135,7 +135,63 @@ export const getPackageDrinkCount = (cart, mode) => {
   }, 0);
 };
 
-export const getPackageQuantityLimit = (cart, item, mode) => {
+export const getPackageInclusions = (menuData, mode) => {
+  const packageCard = Object.values(menuData || {})
+    .flat()
+    .find((item) => isPackageCardForMode(item, mode));
+  return packageCard?.package_inclusions || [];
+};
+
+const matchesInclusion = (item, inclusion) =>
+  (inclusion.included_item_id != null &&
+    Number(item?.id || item?.item_id) === Number(inclusion.included_item_id)) ||
+  (inclusion.included_category_id != null &&
+    Number(item?.category_id) === Number(inclusion.included_category_id));
+
+const inclusionLimit = (inclusion) =>
+  inclusion.is_unlimited || inclusion.quantity_limit == null
+    ? Infinity
+    : Math.max(1, Number(inclusion.quantity_limit) || 1);
+
+export const getPackageQuantityLimit = (
+  cart,
+  item,
+  mode,
+  packageInclusions = [],
+) => {
+  if (packageInclusions.length > 0) {
+    if (isPackageCardForMode(item, mode)) {
+      const existing = (cart || []).reduce(
+        (total, cartItem) =>
+          total +
+          (isPackageCardForMode(cartItem, mode)
+            ? Number.parseInt(cartItem.quantity, 10) || 1
+            : 0),
+        0,
+      );
+      return Math.max(0, 1 - existing);
+    }
+    const matchingInclusions = packageInclusions
+      .map((inclusion, index) => ({ inclusion, index }))
+      .filter(({ inclusion }) => matchesInclusion(item, inclusion));
+    if (matchingInclusions.length === 0) return 0;
+    return Math.max(
+      0,
+      Math.min(
+        ...matchingInclusions.map(({ inclusion, index }) => {
+          const used = (cart || []).reduce(
+            (total, cartItem) =>
+              total +
+              (matchesInclusion(cartItem, inclusion)
+                ? Number.parseInt(cartItem.quantity, 10) || 1
+                : 0),
+            0,
+          );
+          return inclusionLimit(inclusion) - used;
+        }),
+      ),
+    );
+  }
   if (mode !== "unlimited_wings_a") return Infinity;
   const category = getCategory(item);
   if (isChickenCategory(category)) {
@@ -163,12 +219,17 @@ const isDrinkCategory = (category) =>
   category.includes("beverage") ||
   category.includes("juice");
 
-export const isItemIncludedInPackage = (item, mode) => {
+export const isItemIncludedInPackage = (item, mode, packageInclusions = []) => {
   const rules = getUnlimitedPackage(mode);
   if (!rules) return true;
 
   const category = getCategory(item);
   if (isPackageCardForMode(item, mode)) return true;
+  if (packageInclusions.length > 0) {
+    return packageInclusions.some((inclusion) =>
+      matchesInclusion(item, inclusion),
+    );
+  }
   if (isUnlimitedPackageItem(item)) return false;
   if (isChickenCategory(category)) {
     return mode === "unlimited_wings_a" || isWingItem(item, category);
@@ -192,10 +253,10 @@ export const isItemIncludedInPackage = (item, mode) => {
   return false;
 };
 
-export const getPackageCategories = (menuData, mode) =>
+export const getPackageCategories = (menuData, mode, packageInclusions = []) =>
   Object.keys(menuData || {}).filter((category) =>
     (menuData[category] || []).some((item) =>
-      isItemIncludedInPackage({ ...item, category }, mode),
+      isItemIncludedInPackage({ ...item, category }, mode, packageInclusions),
     ),
   );
 
@@ -204,29 +265,57 @@ export const getDrinkOptions = (menuData) =>
     .filter(([category]) => /drink|beverage|juice/i.test(category))
     .flatMap(([, items]) => items || []);
 
-export const getPackageMenuData = (menuData, mode) =>
+export const getPackageMenuData = (menuData, mode, packageInclusions = []) =>
   Object.fromEntries(
     Object.entries(menuData || {})
       .map(([category, items]) => [
         category,
-        getPackageItems(items, category, mode),
+        getPackageItems(items, category, mode, packageInclusions),
       ])
       .filter(([, items]) => items.length > 0),
   );
 
-export const getPackageItems = (items, category, mode) =>
+export const getPackageItems = (items, category, mode, packageInclusions = []) =>
   (items || []).filter((item) =>
-    isItemIncludedInPackage({ ...item, category }, mode),
+    isItemIncludedInPackage({ ...item, category }, mode, packageInclusions),
   );
 
-export const sanitizePackageCart = (cart, mode) => {
+export const sanitizePackageCart = (cart, mode, packageInclusions = []) => {
   const rules = getUnlimitedPackage(mode);
   if (!rules) return cart;
+
+  if (packageInclusions.length > 0) {
+    const counts = new Map();
+    return (cart || []).reduce((validItems, item) => {
+      if (!isItemIncludedInPackage(item, mode, packageInclusions)) {
+        return validItems;
+      }
+      const matchingInclusions = packageInclusions
+        .map((inclusion, index) => ({ inclusion, index }))
+        .filter(({ inclusion }) => matchesInclusion(item, inclusion));
+      const quantity = Math.max(1, Number.parseInt(item.quantity, 10) || 1);
+      const allowedQuantity = matchingInclusions.reduce(
+        (allowed, { inclusion, index }) =>
+          Math.min(
+            allowed,
+            inclusionLimit(inclusion) - (counts.get(index) || 0),
+          ),
+        quantity,
+      );
+      if (allowedQuantity > 0) {
+        validItems.push({ ...item, quantity: allowedQuantity });
+        for (const { index } of matchingInclusions) {
+          counts.set(index, (counts.get(index) || 0) + allowedQuantity);
+        }
+      }
+      return validItems;
+    }, []);
+  }
 
   let chickenCount = 0;
   let drinkCount = 0;
   return (cart || []).reduce((validItems, item) => {
-    if (!isItemIncludedInPackage(item, mode)) return validItems;
+    if (!isItemIncludedInPackage(item, mode, packageInclusions)) return validItems;
 
     const category = getCategory(item);
     const quantity = Math.max(1, Number.parseInt(item.quantity, 10) || 1);
@@ -257,12 +346,25 @@ export const sanitizePackageCart = (cart, mode) => {
   }, []);
 };
 
-export const validatePackageCart = (cart, mode) => {
+export const validatePackageCart = (cart, mode, packageInclusions = []) => {
   const rules = getUnlimitedPackage(mode);
   if (!rules) return null;
 
   const foodItems = (cart || []).filter((item) => !isNonFoodCharge(item));
-  const sanitized = sanitizePackageCart(foodItems, mode);
+  const sanitized = sanitizePackageCart(foodItems, mode, packageInclusions);
+  if (packageInclusions.length > 0) {
+    if (sanitized.length !== foodItems.length) {
+      return "Your order contains items outside the selected package. Remove them before checkout.";
+    }
+    if (
+      sanitized.some(
+        (item, index) => item.quantity !== foodItems[index]?.quantity,
+      )
+    ) {
+      return `Your order exceeds the limits for ${rules.label}.`;
+    }
+    return null;
+  }
   if (Number.isFinite(rules.chickenLimit)) {
     const chickenCount = getPackageChickenCount(foodItems, mode);
     if (chickenCount > rules.chickenLimit) {

@@ -31,18 +31,22 @@ import PortalModal from "./PortalModal";
 import axios from "axios";
 import alertMusicFile from "../../assets/alert-sound.mp3";
 import { useToast } from "../ToastContext";
+import refillCooldown from "../../../../shared/refillCooldown.json";
 import { API_BASE, SERVER_URL as BASE_URL } from "../../api";
 import io from "socket.io-client";
 import {
   getPackageCategories,
   getDrinkOptions,
+  getPackageInclusions,
   getPackageItems,
   getPackageMenuData,
   getPackageChickenCount,
   getPackageQuantityLimit,
+  getCategory,
   getUnlimitedPackage,
   inferUnlimitedPackageMode,
   isJuiceItem,
+  isChickenCategory,
   sanitizePackageCart,
   validatePackageCart,
 } from "./unlimitedPackageRules";
@@ -54,6 +58,24 @@ const HIDDEN_CATEGORIES = [
   "Chicken",
   "Ramen",
 ];
+
+const enrichOrderItems = (items, products) =>
+  (items || []).map((item) => {
+    const itemId = item.item_id ?? item.id;
+    const product =
+      itemId == null
+        ? null
+        : (products || []).find(
+            (candidate) =>
+              Number(candidate.item_id ?? candidate.id) === Number(itemId),
+          );
+    return {
+      ...item,
+      category_id: item.category_id ?? product?.category_id,
+      category_name: item.category_name ?? product?.category_name,
+      category: item.category ?? item.category_name ?? product?.category_name,
+    };
+  });
 
 const categoryIcons = {
   "Best Seller": <Flame />,
@@ -130,7 +152,6 @@ const KioskReservationMenu = () => {
         .toLowerCase()
         .includes("unlimited"),
   );
-  const unlimitedSessionLocked = isUnlimitedMode && hasPlacedUnlimitedOrder;
   const hasOrderedUnlimited = [...billItems, ...cart].some((item) =>
     (item.name || item.menu_name || item.item_name || "")
       .toLowerCase()
@@ -149,6 +170,9 @@ const KioskReservationMenu = () => {
       ? tableKioskMenuMode
       : reservedPackageMode || orderedPackageMode || tableKioskMenuMode;
   const isUnlimitedMode = Boolean(getUnlimitedPackage(kioskMenuMode));
+  const unlimitedSessionLocked = isUnlimitedMode && hasPlacedUnlimitedOrder;
+  const packageInclusions = getPackageInclusions(menuData, kioskMenuMode);
+    const getInclusionsForMode = (mode) => getPackageInclusions(menuData, mode);
   const flavorPackageMode =
     inferUnlimitedPackageMode(selectedItem) || kioskMenuMode;
 
@@ -361,7 +385,12 @@ const KioskReservationMenu = () => {
         `${API_BASE}/reservations/${reservationId}/items`,
         getAuthHeader(),
       );
-      if (res.data) setBillItems(res.data);
+      if (res.data) {
+        const products = Object.values(menuData).flat();
+        const enrichedItems = enrichOrderItems(res.data, products);
+        setBillItems(enrichedItems);
+        return enrichedItems;
+      }
       return res.data;
     } catch (err) {
       console.warn("Error fetching items:", err);
@@ -396,9 +425,10 @@ const KioskReservationMenu = () => {
     const lastRefill = storage.getItem(LAST_REFILL_KEY);
     if (lastRefill) {
       const timeElapsed = Date.now() - parseInt(lastRefill, 10);
-      const tenMinutes = 10 * 60 * 1000;
-      if (timeElapsed < tenMinutes) {
-        const remainingSeconds = Math.ceil((tenMinutes - timeElapsed) / 1000);
+      if (timeElapsed < refillCooldown.milliseconds) {
+        const remainingSeconds = Math.ceil(
+          (refillCooldown.milliseconds - timeElapsed) / 1000,
+        );
         const m = Math.floor(remainingSeconds / 60);
         const s = remainingSeconds % 60;
         setCooldownMessage(
@@ -487,6 +517,8 @@ const KioskReservationMenu = () => {
           image: getFullImage(item),
           price: item.price,
           category: cat,
+          category_id: item.category_id,
+          package_inclusions: item.package_inclusions || [],
         });
       });
 
@@ -566,9 +598,10 @@ const KioskReservationMenu = () => {
         }
 
         if (resItemsRes && resItemsRes.length > 0) {
-          setBillItems(resItemsRes);
+          const enrichedBillItems = enrichOrderItems(resItemsRes, prodRes);
+          setBillItems(enrichedBillItems);
 
-          const filteredCartItems = resItemsRes.filter((i) => {
+          const filteredCartItems = enrichedBillItems.filter((i) => {
             const customizationsStr = (i.customizations || "")
               .toString()
               .toLowerCase();
@@ -586,16 +619,14 @@ const KioskReservationMenu = () => {
 
           setCart(
             filteredCartItems.map((i) => {
-              const product = prodRes.find(
-                (candidate) => Number(candidate.item_id) === Number(i.item_id),
-              );
               return {
                 id: i.item_id,
                 name: i.item_name || i.menu_name,
                 price: i.item_price || i.price,
                 quantity: parseInt(i.qty || i.quantity || 1),
                 customizations: i.customizations,
-                category: product?.category_name,
+                category: i.category_name,
+                category_id: i.category_id,
                 is_placed: true,
               };
             }),
@@ -640,6 +671,8 @@ const KioskReservationMenu = () => {
             image: getFullImage(item),
             price: item.price,
             category: cat,
+            category_id: item.category_id,
+            package_inclusions: item.package_inclusions || [],
           });
         });
 
@@ -673,7 +706,11 @@ const KioskReservationMenu = () => {
   }, [activeResId, reservationId]);
 
   const confirmPaymentChoice = async (choice) => {
-    const packageError = validatePackageCart(packageOrderItems, kioskMenuMode);
+    const packageError = validatePackageCart(
+      packageOrderItems,
+      kioskMenuMode,
+      packageInclusions,
+    );
     if (packageError) {
       showToast(packageError, "error");
       return;
@@ -840,6 +877,7 @@ const KioskReservationMenu = () => {
       const packageError = validatePackageCart(
         [...(currentItems || []), ...cart.filter((item) => !item.is_placed)],
         kioskMenuMode,
+        packageInclusions,
       );
       if (packageError) {
         showToast(packageError, "error");
@@ -938,6 +976,7 @@ const KioskReservationMenu = () => {
         ? validatePackageCart(
             [...packageOrderItems, newItem],
             flavorPackageMode,
+                      getInclusionsForMode(flavorPackageMode),
           )
         : null;
       if (packageError) {
@@ -954,7 +993,12 @@ const KioskReservationMenu = () => {
     if (itemPackageMode) setIsPackageTimerExpired(false);
     if (
       isUnlimitedMode &&
-      getPackageQuantityLimit(packageOrderItems, item, kioskMenuMode) < 1
+      getPackageQuantityLimit(
+        packageOrderItems,
+        item,
+        kioskMenuMode,
+        packageInclusions,
+      ) < 1
     ) {
       showToast("You have reached this package's selection limit.", "error");
       return;
@@ -963,23 +1007,36 @@ const KioskReservationMenu = () => {
     if (isUnlimitedMode || itemPackageMode) {
       const packageMode = itemPackageMode || kioskMenuMode;
       if (
-        getPackageQuantityLimit(packageOrderItems, item, packageMode) < 1
+        getPackageQuantityLimit(
+          packageOrderItems,
+          item,
+          packageMode,
+          getInclusionsForMode(packageMode),
+        ) < 1
       ) {
         showToast("You have reached this package's selection limit.", "error");
         return;
       }
 
+      const isPackageCard = isPackageCardForMode(item, packageMode);
+      const packageItemIncluded =
+        !isPackageCard && (hasPlacedUnlimitedOrder || isPaid);
       const packageItem = {
         ...item,
-        price: 0,
+        price: packageItemIncluded ? 0 : item.price,
         quantity: 1,
-        customizations: "[PACKAGE INCLUDED]",
+        customizations: packageItemIncluded
+          ? "[PACKAGE INCLUDED]"
+          : isPackageCard
+            ? null
+            : item.customizations,
         is_refill: false,
-        is_package_included: true,
+        is_package_included: packageItemIncluded,
       };
       const packageError = validatePackageCart(
         [...packageOrderItems, packageItem],
         packageMode,
+        getInclusionsForMode(packageMode),
       );
       if (packageError) {
         showToast(packageError, "error");
@@ -1005,7 +1062,11 @@ const KioskReservationMenu = () => {
   // `unlimited_wings_a` / `unlimited_wings_b` → force the Unlimited category.
   useEffect(() => {
     if (!isUnlimitedMode) return;
-    const packageCategories = getPackageCategories(menuData, kioskMenuMode);
+    const packageCategories = getPackageCategories(
+      menuData,
+      kioskMenuMode,
+      packageInclusions,
+    );
     setActiveCategory(
       packageCategories.find((category) => category !== "Unlimited") ||
         packageCategories[0] ||
@@ -1016,8 +1077,14 @@ const KioskReservationMenu = () => {
 
   useEffect(() => {
     if (!isUnlimitedMode) return;
-    setCart((current) => sanitizePackageCart(current, kioskMenuMode));
-    const allowedCategories = getPackageCategories(menuData, kioskMenuMode);
+    setCart((current) =>
+      sanitizePackageCart(current, kioskMenuMode, packageInclusions),
+    );
+    const allowedCategories = getPackageCategories(
+      menuData,
+      kioskMenuMode,
+      packageInclusions,
+    );
     if (activeCategory && !allowedCategories.includes(activeCategory)) {
       setActiveCategory(allowedCategories[0] || "");
     }
@@ -1213,7 +1280,11 @@ const KioskReservationMenu = () => {
               {Object.keys(menuData)
                 .filter((cat) =>
                   isUnlimitedMode
-                    ? getPackageCategories(menuData, kioskMenuMode).includes(cat)
+                    ? getPackageCategories(
+                        menuData,
+                        kioskMenuMode,
+                        packageInclusions,
+                      ).includes(cat)
                     : !HIDDEN_CATEGORIES.includes(cat) &&
                       !(cat === "Unlimited" && hasOrderedUnlimited),
                 )
@@ -1257,6 +1328,7 @@ const KioskReservationMenu = () => {
                   menuData[activeCategory],
                   activeCategory,
                   kioskMenuMode,
+                  packageInclusions,
                 )
               : menuData[activeCategory] || []
             ).map((item) => (
@@ -1748,12 +1820,20 @@ const KioskReservationMenu = () => {
               ];
             }
             if (!isUnlimitedMode) return nextCart;
-            const packageError = validatePackageCart(nextCart, kioskMenuMode);
+            const packageError = validatePackageCart(
+              nextCart,
+              kioskMenuMode,
+              packageInclusions,
+            );
             if (packageError) {
               showToast(packageError, "error");
               return prevCart;
             }
-            const validated = sanitizePackageCart(nextCart, kioskMenuMode);
+            const validated = sanitizePackageCart(
+              nextCart,
+              kioskMenuMode,
+              packageInclusions,
+            );
             if (
               validated.length !== nextCart.length ||
               validated.some((item, index) => item.quantity !== nextCart[index]?.quantity)
@@ -1765,7 +1845,7 @@ const KioskReservationMenu = () => {
         }}
         allProducts={
           isUnlimitedMode
-            ? getPackageMenuData(menuData, kioskMenuMode)
+            ? getPackageMenuData(menuData, kioskMenuMode, packageInclusions)
             : menuData
         }
         flavorLimit={
@@ -1784,6 +1864,7 @@ const KioskReservationMenu = () => {
                 packageOrderItems,
                 selectedItem,
                 kioskMenuMode,
+                packageInclusions,
               )
             : 20
         }

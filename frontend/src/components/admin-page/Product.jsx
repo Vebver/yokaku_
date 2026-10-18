@@ -47,10 +47,9 @@ function Product() {
   // A package item is any menu item under an "Unlimited" category.
   const isPackageItem =
     String(
-      menuItems.find(
-        (i) =>
-          (isEditing && i.item_id === editId) ||
-          (!isEditing && i.category_id === Number(newItem.category_id)),
+      categories.find(
+        (category) =>
+          Number(category.category_id) === Number(newItem.category_id),
       )?.category_name || "",
     )
       .toLowerCase()

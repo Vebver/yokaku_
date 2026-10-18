@@ -20,7 +20,10 @@ function Footer() {
           });
         }
       })
-      .catch((err) => console.error("Footer settings fetch error:", err));
+      .catch((err) => {
+        console.error("Footer settings fetch error:", err);
+        if (!cancelled) setFooter({ contact: "", about: "" });
+      });
     return () => {
       cancelled = true;
     };
