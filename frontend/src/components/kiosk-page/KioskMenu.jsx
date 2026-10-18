@@ -1290,7 +1290,6 @@ const KioskMenu = () => {
       }
       return [...current, drinkItem];
     });
-    showToast(`${item.name} added to tray.`, "success");
   };
 
   const addItemDirect = (item) => {
@@ -1481,14 +1480,17 @@ const KioskMenu = () => {
               </span>
             </div>
           )}
-          {isUnlimitedMode && hasPlacedUnlimitedOrder && (
+          {((isUnlimitedMode && hasPlacedUnlimitedOrder) ||
+            (!isUnlimitedMode && hasPlacedOrder)) && (
             <button
               className="billing-btn-header"
               onClick={handleHeaderPayClick}
               disabled={isLoading}
             >
               <CreditCard size={18} />
-              {parseFloat(calculateTotalDue(true)) <= 0 ? "VIEW RECEIPT" : "PAY BILL"}
+              {parseFloat(calculateTotalDue(true)) <= 0
+                ? "VIEW RECEIPT"
+                : "PAY BILL"}
             </button>
           )}
         </div>
@@ -1629,24 +1631,6 @@ const KioskMenu = () => {
           </button>
         )}
         <div className="res-action-btns">
-          {!isUnlimitedMode && (hasPlacedOrder || cart.length > 0) && (
-            <button
-              className="billing-btn-footer"
-              onClick={() =>
-                hasPlacedOrder
-                  ? handleHeaderPayClick()
-                  : setShowAllergyModal(true)
-              }
-              disabled={isLoading}
-            >
-              <CreditCard size={18} />
-              {hasPlacedOrder
-                ? parseFloat(calculateTotalDue(true)) <= 0
-                  ? "VIEW RECEIPT"
-                  : "PAY BILL"
-                : "CHECKOUT"}
-            </button>
-          )}
           <button className="res-btn-cancel" onClick={clearTray}>
             Clear Tray
           </button>
