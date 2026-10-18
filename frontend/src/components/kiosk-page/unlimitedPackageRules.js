@@ -100,6 +100,13 @@ const getFlavorCount = (value) => {
   );
 };
 
+export const hasUnlimitedFlavorSelection = (items) =>
+  (items || []).some(
+    (item) =>
+      getFlavorCount(item.customizations) > 0 ||
+      (!isUnlimitedPackageItem(item) && isChickenCategory(getCategory(item))),
+  );
+
 const isNonFoodCharge = (item) => {
   const name = getName(item);
   const customizations = String(item?.customizations || "").toLowerCase();

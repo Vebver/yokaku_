@@ -21,8 +21,6 @@ const SystemMaintenance = () => {
   const [backups, setBackups] = useState([]);
   const [backupsLoading, setBackupsLoading] = useState(false);
   const [creatingBackup, setCreatingBackup] = useState(false);
-  const [localBackupFile, setLocalBackupFile] = useState(null);
-  const [restoringLocalBackup, setRestoringLocalBackup] = useState(false);
 
   // ──────────────────────────────────────────────
   // BACKUP & RESTORE FUNCTIONS
@@ -110,31 +108,13 @@ const SystemMaintenance = () => {
     } catch (err) {
       console.error(err);
       showToast(
-        "Error: " + (err.response?.data?.error || "Failed to restore backup"),
+        [
+          err.response?.data?.error || "Failed to restore backup",
+          err.response?.data?.detail,
+        ]
+          .filter(Boolean)
+          .join(" "),
       );
-    }
-  };
-
-  const handleRestoreLocalBackup = async () => {
-    if (!localBackupFile) return;
-    if (!(await confirm({
-      title: "Restore database backup",
-      message: `Restore ${localBackupFile.name}? This will overwrite all current data and cannot be undone.`,
-      confirmLabel: "Restore database",
-      requireText: "RESTORE",
-    }))) return;
-
-    const formData = new FormData();
-    formData.append("backup", localBackupFile);
-    setRestoringLocalBackup(true);
-    try {
-      const response = await api.post("/admin/backup/restore-local", formData);
-      showToast(response.data.message, "success");
-      setLocalBackupFile(null);
-    } catch (err) {
-      showToast(err.response?.data?.error || "Failed to restore local backup.");
-    } finally {
-      setRestoringLocalBackup(false);
     }
   };
 
@@ -446,29 +426,6 @@ const SystemMaintenance = () => {
                       Backup Database
                     </>
                   )}
-                </button>
-              </div>
-            </div>
-
-            <div className="row g-2 align-items-end mb-4">
-              <div className="col-12 col-md-8">
-                <label className="form-label small fw-bold" htmlFor="local-backup-file">Restore from device</label>
-                <input
-                  id="local-backup-file"
-                  className="form-control"
-                  type="file"
-                  accept=".sql,application/sql"
-                  onChange={(event) => setLocalBackupFile(event.target.files?.[0] || null)}
-                />
-              </div>
-              <div className="col-12 col-md-4">
-                <button
-                  className="btn btn-outline-danger w-100 fw-bold"
-                  type="button"
-                  onClick={handleRestoreLocalBackup}
-                  disabled={!localBackupFile || restoringLocalBackup}
-                >
-                  {restoringLocalBackup ? "Restoring..." : "Restore Local Backup"}
                 </button>
               </div>
             </div>

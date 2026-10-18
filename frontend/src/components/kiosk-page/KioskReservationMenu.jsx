@@ -47,6 +47,7 @@ import {
   inferUnlimitedPackageMode,
   isJuiceItem,
   isChickenCategory,
+  hasUnlimitedFlavorSelection,
   sanitizePackageCart,
   validatePackageCart,
 } from "./unlimitedPackageRules";
@@ -146,12 +147,15 @@ const KioskReservationMenu = () => {
   // An Unlimited order counts as "placed" only once it exists in the bill
   // (server-synced) or local bill history — not while it's still sitting in
   // the cart. The back-button lock engages only after that point.
-  const hasPlacedUnlimitedOrder = [...billItems, ...localBillHistory].some(
+  const placedOrderItems = [...billItems, ...localBillHistory];
+  const hasPlacedUnlimitedOrder = placedOrderItems.some(
     (item) =>
       (item.name || item.menu_name || item.item_name || "")
         .toLowerCase()
         .includes("unlimited"),
   );
+  const hasPlacedUnlimitedFlavorOrder =
+    hasUnlimitedFlavorSelection(placedOrderItems);
   const hasOrderedUnlimited = [...billItems, ...cart].some((item) =>
     (item.name || item.menu_name || item.item_name || "")
       .toLowerCase()
@@ -175,6 +179,36 @@ const KioskReservationMenu = () => {
     const getInclusionsForMode = (mode) => getPackageInclusions(menuData, mode);
   const flavorPackageMode =
     inferUnlimitedPackageMode(selectedItem) || kioskMenuMode;
+
+  const hasPendingUnlimitedPackage = cart.some(
+    (item) => !item.is_placed && Boolean(inferUnlimitedPackageMode(item)),
+  );
+
+  const resetMenuSelections = () => {
+    setSelectedItem(null);
+    setSelectedFlavors([]);
+    setSelectedDrink("");
+    setShowFlavorModal(false);
+    setIsModalOpen(false);
+    setIsRefillMode(false);
+    setCooldownMessage(null);
+  };
+
+  const clearTray = () => {
+    setCart([]);
+    resetMenuSelections();
+    setShowBillInfo(false);
+    setIsFinalCheckout(false);
+    if (hasPendingUnlimitedPackage) {
+      setTableKioskMenuMode("default");
+      setReservedPackageMode(null);
+      setActiveCategory(
+        Object.keys(menuData).find(
+          (category) => !HIDDEN_CATEGORIES.includes(category),
+        ) || "",
+      );
+    }
+  };
 
   const isEventReservation = useMemo(() => {
     if (!reservationDetails) return false;
@@ -241,6 +275,22 @@ const KioskReservationMenu = () => {
     sessionStorage.setItem("kiosk_exit_to_selection", "true");
     const searchString = setupTable ? `?setupTable=${setupTable}` : "";
     navigate(`/kiosk-selection${searchString}`);
+  };
+
+  const handleBack = () => {
+    if (unlimitedSessionLocked) {
+      showToast(
+        "You cannot exit during an Unlimited session. Please call staff.",
+        "info",
+      );
+      return;
+    }
+    if (hasPendingUnlimitedPackage) {
+      clearTray();
+      return;
+    }
+    clearTray();
+    handleExitKiosk();
   };
 
   const getFetchHeaders = () => {
@@ -422,6 +472,7 @@ const KioskReservationMenu = () => {
   };
 
   const handleOrderClick = async () => {
+    if (!hasPlacedUnlimitedFlavorOrder) return;
     const lastRefill = storage.getItem(LAST_REFILL_KEY);
     if (lastRefill) {
       const timeElapsed = Date.now() - parseInt(lastRefill, 10);
@@ -783,6 +834,7 @@ const KioskReservationMenu = () => {
       await fetchCurrentBill();
 
       setCart([]);
+      resetMenuSelections();
       setShowBillInfo(false);
 
       if (isPayNow) {
@@ -859,7 +911,7 @@ const KioskReservationMenu = () => {
         sessionStorage.removeItem(k);
       });
 
-      setCart([]);
+      clearTray();
       setBillItems([]);
       setLocalBillHistory([]);
       setActiveResId(null);
@@ -868,7 +920,7 @@ const KioskReservationMenu = () => {
       navigate(`/kiosk-selection/kiosk-reservation${searchString}`);
     } catch (e) {
       localStorage.removeItem("resId");
-      setCart([]);
+      clearTray();
       setBillItems([]);
       setActiveResId(null);
 
@@ -880,6 +932,13 @@ const KioskReservationMenu = () => {
   };
 
   const handleHeaderPayClick = async () => {
+    if (
+      isUnlimitedMode
+        ? !hasPlacedUnlimitedFlavorOrder
+        : billItems.length === 0
+    ) {
+      return;
+    }
     setIsLoading(true);
     try {
       const currentItems = await fetchCurrentBill();
@@ -1022,11 +1081,9 @@ const KioskReservationMenu = () => {
         showToast(packageError, "error");
         return;
       }
+      resetMenuSelections();
       setCart((current) => [
-        ...current.filter(
-          (orderItem) =>
-            !isPackageCardForMode(orderItem, itemPackageMode),
-        ),
+        ...current.filter((orderItem) => !inferUnlimitedPackageMode(orderItem)),
         {
           ...item,
           price: item.price,
@@ -1281,7 +1338,7 @@ const KioskReservationMenu = () => {
                   {formatTime(timeLeft)}
                 </span>
               </div>
-              <button
+              {hasPlacedUnlimitedFlavorOrder && <button
                 onClick={handleOrderClick}
                 className="refill-action-btn"
                 disabled={isLoading}
@@ -1300,14 +1357,16 @@ const KioskReservationMenu = () => {
               >
                 <ShoppingBag size={18} />{" "}
                 {isLoading ? "PLACING..." : "ORDER REFILL"}
-              </button>
+              </button>}
             </>
           )}
         </div>
 
         {/* RIGHT: VIEW RECEIPT / PAY */}
         <div className="header-right-group">
-          <button
+          {(isUnlimitedMode
+            ? hasPlacedUnlimitedFlavorOrder
+            : billItems.length > 0) && <button
             className="billing-btn-header"
             onClick={handleHeaderPayClick}
             style={{
@@ -1326,7 +1385,7 @@ const KioskReservationMenu = () => {
           >
             <CreditCard size={18} />{" "}
             {parseFloat(calculateTotalDue()) <= 0 ? "VIEW RECEIPT" : "PAY BILL"}
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -1428,17 +1487,20 @@ const KioskReservationMenu = () => {
       </div>
 
       <footer className="res-bottom-bar">
-        {billItems.length === 0 && !isUnlimitedMode && (
+        {!unlimitedSessionLocked &&
+          (billItems.length === 0 ||
+            hasPendingUnlimitedPackage ||
+            (isUnlimitedMode && !hasPlacedUnlimitedOrder)) && (
           <button
             className="res-btn-cancel"
             style={{ marginRight: "auto", background: "#444" }}
-            onClick={handleExitKiosk}
+            onClick={handleBack}
           >
-            <ArrowLeft size={18} className="me-2" /> Exit Kiosk
+            <ArrowLeft size={18} className="me-2" /> Back
           </button>
         )}
         <div className="res-action-btns" style={{ marginLeft: "auto" }}>
-          <button className="res-btn-cancel" onClick={() => setCart([])}>
+          <button className="res-btn-cancel" onClick={clearTray}>
             Clear Tray
           </button>
           <button
@@ -1778,10 +1840,7 @@ const KioskReservationMenu = () => {
             <div className="modal-footer-actions">
               <button
                 className="res-btn-cancel-ui"
-                onClick={() => {
-                  setShowFlavorModal(false);
-                  setIsRefillMode(false);
-                }}
+                onClick={resetMenuSelections}
               >
                 Cancel
               </button>

@@ -44,6 +44,7 @@ import {
   isJuiceItem,
   isChickenCategory,
   isPackageCardForMode,
+  hasUnlimitedFlavorSelection,
   sanitizePackageCart,
   validatePackageCart,
 } from "./unlimitedPackageRules";
@@ -120,9 +121,15 @@ const KioskMenu = () => {
   // An Unlimited order counts as "placed" only once it exists in the bill
   // (server-synced) or local bill history — not while it's still sitting in
   // the cart. The back-button lock engages only after that point.
-  const hasPlacedUnlimitedOrder = [...billItems, ...localBillHistory].some(
+  const placedOrderItems = [...billItems, ...localBillHistory];
+  const hasPlacedUnlimitedOrder = placedOrderItems.some(
     (item) =>
       (item.name || item.item_name || "").toLowerCase().includes("unlimited"),
+  );
+  const hasPlacedUnlimitedFlavorOrder =
+    hasUnlimitedFlavorSelection(placedOrderItems);
+  const hasPendingUnlimitedPackage = cart.some(
+    (item) => !item.is_placed && Boolean(inferUnlimitedPackageMode(item)),
   );
   const orderedPackageMode = [...billItems, ...localBillHistory, ...cart]
     .map(inferUnlimitedPackageMode)
@@ -167,6 +174,31 @@ const KioskMenu = () => {
   // Lets the customer browse the full menu before placing the package order
   // without losing their current package selections.
   const [browseFullMenu, setBrowseFullMenu] = useState(false);
+
+  const resetMenuSelections = () => {
+    setSelectedItem(null);
+    setSelectedFlavors([]);
+    setSelectedDrink("");
+    setShowFlavorModal(false);
+    setIsModalOpen(false);
+    setIsRefillMode(false);
+    setCooldownMessage(null);
+  };
+
+  const clearTray = () => {
+    setCart([]);
+    resetMenuSelections();
+    setShowBillInfo(false);
+    setIsFinalCheckout(false);
+    if (hasPendingUnlimitedPackage) {
+      setTableKioskMenuMode("default");
+      setActiveCategory(
+        Object.keys(menuData).find(
+          (category) => !HIDDEN_CATEGORIES.includes(category),
+        ) || "",
+      );
+    }
+  };
 
   const showUnlimitedCategory = isUnlimitedMode && !hasOrderedUnlimited;
 
@@ -340,7 +372,7 @@ const KioskMenu = () => {
       localStorage.removeItem(k);
     });
 
-    setCart([]);
+    clearTray();
     setBillItems([]);
     setLocalBillHistory([]);
 
@@ -547,7 +579,7 @@ const KioskMenu = () => {
               mode === "Take-Out"
                 ? `[TAKE-OUT] ${i.customizations || ""}`
                 : i.customizations,
-            is_refill: i.price === 0,
+            is_refill: Boolean(i.is_refill),
           })),
           allergy_note: allergyNote !== "None" ? allergyNote : null,
         },
@@ -562,6 +594,7 @@ const KioskMenu = () => {
       // Queue state updates for the background UI
       setLocalBillHistory((prev) => [...prev, ...itemsToSubmit]);
       setCart([]);
+      resetMenuSelections();
       // Preserve the actual assigned table; only record "takeout" when the
       // customer explicitly chose Take-Out mode.
       const effectiveTableId =
@@ -664,6 +697,7 @@ const KioskMenu = () => {
   // Refill button in the header: adds a 1-piece refill of the current chicken
   // selection directly (same flow as clicking a chicken flavor card).
   const handleRefillClick = () => {
+    if (!hasPlacedUnlimitedFlavorOrder) return;
     const cooldownRemaining = getRefillCooldownSeconds();
     if (cooldownRemaining > 0) {
       setRefillCooldownSeconds(cooldownRemaining);
@@ -843,7 +877,7 @@ const KioskMenu = () => {
         localStorage.removeItem(k);
       });
 
-      setCart([]);
+      clearTray();
       setBillItems([]);
       setLocalBillHistory([]);
       showToast(
@@ -1056,18 +1090,18 @@ const KioskMenu = () => {
         showToast(packageError, "error");
         return;
       }
+      resetMenuSelections();
       setCart((current) => [
-        ...current.filter((i) => !isPackageCardForMode(i, itemPackageMode)),
+        ...current.filter((i) => !inferUnlimitedPackageMode(i)),
         { ...item, quantity: 1, customizations: null },
       ]);
+      setBrowseFullMenu(false);
       return;
     }
 
-    if (
-      isUnlimitedMode &&
-      isChickenCategory(getCategory(item))
-    ) {
-      const cooldownRemaining = getRefillCooldownSeconds();
+    if (isUnlimitedMode && isChickenCategory(getCategory(item))) {
+      const isRefill = hasPlacedUnlimitedFlavorOrder;
+      const cooldownRemaining = isRefill ? getRefillCooldownSeconds() : 0;
       if (cooldownRemaining > 0) {
         setRefillCooldownSeconds(cooldownRemaining);
         setCooldownMessage(
@@ -1075,13 +1109,12 @@ const KioskMenu = () => {
         );
         return;
       }
-
       const refillItem = {
         ...item,
         price: 0,
         quantity: 1,
-        customizations: `[REFILL] Flavors: ${item.name}`,
-        is_refill: true,
+        customizations: `${isRefill ? "[REFILL] " : ""}Flavors: ${item.name}`,
+        is_refill: isRefill,
       };
       const packageError = validatePackageCart(
         [...packageItems, refillItem],
@@ -1285,13 +1318,11 @@ const KioskMenu = () => {
       );
       return;
     }
-    if (isUnlimitedMode || browseFullMenu) {
-      // Return to the default full-menu view instead of leaving the kiosk.
-      setBrowseFullMenu(false);
-      setTableKioskMenuMode("default");
-      setActiveCategory("");
+    if (hasPendingUnlimitedPackage) {
+      clearTray();
       return;
     }
+    clearTray();
     sessionStorage.setItem("kiosk_exit_to_selection", "true");
     navigate("/kiosk-selection");
   };
@@ -1330,7 +1361,9 @@ const KioskMenu = () => {
               </span>
             </div>
           )}
-          {isUnlimitedMode && refillCooldownSeconds > 0 && (
+          {isUnlimitedMode &&
+            hasPlacedUnlimitedFlavorOrder &&
+            refillCooldownSeconds > 0 && (
             <span
               role="status"
               style={{ color: "#fff", fontSize: "12px", whiteSpace: "nowrap" }}
@@ -1338,7 +1371,7 @@ const KioskMenu = () => {
               Refill in {formatCooldownTime(refillCooldownSeconds)}
             </span>
           )}
-          {isUnlimitedMode && (
+          {isUnlimitedMode && hasPlacedUnlimitedFlavorOrder && (
             <button
               className="refill-action-btn"
               onClick={handleRefillClick}
@@ -1359,7 +1392,7 @@ const KioskMenu = () => {
               <RefreshCw size={18} /> REFILL
             </button>
           )}
-          {isUnlimitedMode && hasPlacedUnlimitedOrder && (
+          {isUnlimitedMode && hasPlacedUnlimitedFlavorOrder && (
             <button
               className="billing-btn-header"
               onClick={handleHeaderPayClick}
@@ -1526,7 +1559,7 @@ const KioskMenu = () => {
                 : "CHECKOUT"}
             </button>
           )}
-          <button className="res-btn-cancel" onClick={() => setCart([])}>
+          <button className="res-btn-cancel" onClick={clearTray}>
             Clear Tray
           </button>
           <button
@@ -2103,10 +2136,7 @@ const KioskMenu = () => {
             <div className="modal-footer-actions">
               <button
                 className="res-btn-cancel-ui"
-                onClick={() => {
-                  setShowFlavorModal(false);
-                  setIsRefillMode(false);
-                }}
+                onClick={resetMenuSelections}
               >
                 Cancel
               </button>
