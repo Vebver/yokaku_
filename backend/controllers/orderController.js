@@ -62,41 +62,6 @@ const orderController = {
     try {
       await conn.beginTransaction();
 
-      if (idempotencyKey) {
-        const [claim] = await conn.execute(
-          `INSERT IGNORE INTO kiosk_order_submissions
-             (reservation_id, idempotency_key, payload_hash)
-           VALUES (?, ?, ?)`,
-          [reservation_id, idempotencyKey, payloadHash],
-        );
-        if (claim.affectedRows === 0) {
-          const [existingSubmissions] = await conn.execute(
-            `SELECT payload_hash, response_json
-             FROM kiosk_order_submissions
-             WHERE reservation_id = ? AND idempotency_key = ?
-             FOR UPDATE`,
-            [reservation_id, idempotencyKey],
-          );
-          const submission = existingSubmissions[0];
-          if (!submission || submission.payload_hash !== payloadHash) {
-            const error = new Error("This order key was already used for a different order.");
-            error.statusCode = 409;
-            throw error;
-          }
-          const previousResponse = submission.response_json;
-          if (!previousResponse) {
-            const error = new Error("This order is still being processed. Retry shortly.");
-            error.statusCode = 409;
-            throw error;
-          }
-          await conn.commit();
-          const responseBody = typeof previousResponse === "string"
-            ? JSON.parse(previousResponse)
-            : previousResponse;
-          return res.status(200).json({ ...responseBody, duplicate: true });
-        }
-      }
-
       const packageValidation = await validateUnlimitedPackageOrder(conn, {
         reservationId: reservation_id,
         tableId: table_id,
@@ -255,6 +220,43 @@ const orderController = {
              ON DUPLICATE KEY UPDATE status = 'seated'`,
             [reservation_id, table_id]
           );
+        }
+      }
+
+      // Claim the idempotency key only after the reservation row is guaranteed
+      // to exist (walk-in sessions are created above), so the FK holds.
+      if (idempotencyKey) {
+        const [claim] = await conn.execute(
+          `INSERT IGNORE INTO kiosk_order_submissions
+             (reservation_id, idempotency_key, payload_hash)
+           VALUES (?, ?, ?)`,
+          [reservation_id, idempotencyKey, payloadHash],
+        );
+        if (claim.affectedRows === 0) {
+          const [existingSubmissions] = await conn.execute(
+            `SELECT payload_hash, response_json
+             FROM kiosk_order_submissions
+             WHERE reservation_id = ? AND idempotency_key = ?
+             FOR UPDATE`,
+            [reservation_id, idempotencyKey],
+          );
+          const submission = existingSubmissions[0];
+          if (!submission || submission.payload_hash !== payloadHash) {
+            const error = new Error("This order key was already used for a different order.");
+            error.statusCode = 409;
+            throw error;
+          }
+          const previousResponse = submission.response_json;
+          if (!previousResponse) {
+            const error = new Error("This order is still being processed. Retry shortly.");
+            error.statusCode = 409;
+            throw error;
+          }
+          await conn.commit();
+          const responseBody = typeof previousResponse === "string"
+            ? JSON.parse(previousResponse)
+            : previousResponse;
+          return res.status(200).json({ ...responseBody, duplicate: true });
         }
       }
 

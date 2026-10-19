@@ -2,15 +2,36 @@ import axios from "axios";
 import { API_BASE } from "../api";
 
 const QUEUE_KEY = "kiosk_pending_order_queue_v1";
+// Queued orders older than this are dropped: a food order queued that long is
+// stale and useless (the guest's session would be over by the time it syncs).
+const QUEUE_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
 let isSyncing = false;
 
 const readQueue = () => {
   try {
     const queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]");
-    return Array.isArray(queue) ? queue : [];
+    if (!Array.isArray(queue)) return [];
+    return pruneExpired(queue);
   } catch {
     return [];
   }
+};
+
+const pruneExpired = (queue) => {
+  const cutoff = Date.now() - QUEUE_EXPIRY_MS;
+  const fresh = queue.filter(
+    (entry) => entry.status !== "pending" ||
+      new Date(entry.queuedAt).getTime() > cutoff,
+  );
+  if (fresh.length !== queue.length) {
+    writeQueue(fresh);
+    fresh
+      .filter((entry) => !queue.includes(entry))
+      .forEach((dropped) =>
+        dispatchQueueEvent("kiosk-order-expired", dropped),
+      );
+  }
+  return fresh;
 };
 
 const writeQueue = (queue) =>
