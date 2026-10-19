@@ -27,6 +27,7 @@ import "../../Style/KioskReservationMenu.css";
 import ReservationOrderModal from "./ReservationOrderModal";
 import OrderSummary from "./OrderSummary";
 import PortalModal from "./PortalModal";
+import OfflineMenuImage from "./OfflineMenuImage";
 import axios from "axios";
 import alertMusicFile from "../../assets/alert-sound.mp3";
 import { useToast } from "../ToastContext";
@@ -1940,7 +1941,7 @@ const KioskReservationMenu = () => {
                 onClick={() => handleItemClick(item)}
               >
                 <div className="res-card-image-container">
-                  <img
+                  <OfflineMenuImage
                     src={item.image}
                     alt={item.name || item.menu_name}
                     className="res-food-img"

@@ -24,6 +24,7 @@ import {
 import "../../Style/KioskReservationMenu.css";
 import ReservationOrderModal from "./ReservationOrderModal";
 import OrderSummary from "./OrderSummary";
+import OfflineMenuImage from "./OfflineMenuImage";
 import axios from "axios";
 import { io as ioClient } from "socket.io-client";
 import alertMusicFile from "../../assets/alert-sound.mp3";
@@ -1804,7 +1805,7 @@ const KioskMenu = () => {
                 onClick={() => handleItemClick(item)}
               >
                 <div className="res-card-image-container">
-                  <img
+                  <OfflineMenuImage
                     src={item.image}
                     alt={item.name}
                     className="res-food-img"
