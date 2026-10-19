@@ -538,6 +538,27 @@ const reservationController = {
     }
   },
 
+  extendReservation: async (req, res) => {
+    try {
+      const result = await Reservation.extendActiveEvent(
+        req.params.id,
+        req.body.additionalMinutes,
+      );
+      await logActivity(
+        req.user?.userId || null,
+        "EXTEND_EVENT_RESERVATION",
+        req.params.id,
+        { additionalMinutes: Number(req.body.additionalMinutes), endTime: result.end_time },
+        req,
+      );
+      const io = req.app.get("io");
+      if (io) io.emit("reservation_updated", result);
+      res.json({ success: true, ...result });
+    } catch (error) {
+      res.status(error.statusCode || 500).json({ error: error.message });
+    }
+  },
+
   updateStatus: async (req, res) => {
     console.log("HIT THE STATUS UPDATE ROUTE!");
     try {

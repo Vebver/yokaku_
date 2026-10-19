@@ -27,6 +27,8 @@ const OnlineReservations = () => {
   // States for processing refund
   const [refundAmount, setRefundAmount] = useState("");
   const [refunding, setRefunding] = useState(false);
+  const [extensionMinutes, setExtensionMinutes] = useState(30);
+  const [extendingReservation, setExtendingReservation] = useState(false);
 
   useEffect(() => {
     fetchReservations();
@@ -189,6 +191,36 @@ const OnlineReservations = () => {
       );
     } finally {
       setRefunding(false);
+    }
+  };
+
+  const handleExtendReservation = async () => {
+    if (!selectedRes || !Number.isInteger(Number(extensionMinutes)) || Number(extensionMinutes) < 1) {
+      showToast("Enter a valid extension in minutes.", "error");
+      return;
+    }
+
+    setExtendingReservation(true);
+    try {
+      const response = await api.put(
+        `/reservations/${selectedRes.reservation_id}/extend`,
+        { additionalMinutes: Number(extensionMinutes) },
+      );
+      const updated = { ...selectedRes, end_time: response.data.end_time };
+      setSelectedRes(updated);
+      setInquiries((current) =>
+        current.map((item) =>
+          item.reservation_id === updated.reservation_id ? updated : item,
+        ),
+      );
+      showToast("Reservation extended successfully.", "success");
+    } catch (err) {
+      showToast(
+        err.response?.data?.error || "Could not extend this reservation.",
+        "error",
+      );
+    } finally {
+      setExtendingReservation(false);
     }
   };
 
@@ -879,6 +911,32 @@ const OnlineReservations = () => {
                         : "--:--"}
                     </span>
                   </div>
+                  {String(selectedRes.reservation_type || "").toLowerCase() === "event" &&
+                    ["seated", "confirmed"].includes(String(selectedRes.status || "").toLowerCase()) && (
+                      <div className="d-flex align-items-end gap-2 mt-3 pt-3 border-top">
+                        <label className="small fw-semibold text-muted flex-grow-1">
+                          Extend by (minutes)
+                          <input
+                            className="form-control form-control-sm mt-1"
+                            type="number"
+                            min="1"
+                            max="480"
+                            step="5"
+                            value={extensionMinutes}
+                            onChange={(event) => setExtensionMinutes(event.target.value)}
+                            disabled={extendingReservation}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-primary"
+                          onClick={handleExtendReservation}
+                          disabled={extendingReservation}
+                        >
+                          {extendingReservation ? "Extending..." : "Extend"}
+                        </button>
+                      </div>
+                    )}
                 </div>
               </div>
 

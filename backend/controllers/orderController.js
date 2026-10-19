@@ -1,9 +1,17 @@
 const db = require("../config/db");
+const crypto = require("crypto");
 const Order = require("../models/Order");
 const Notification = require("../models/Notification");
 const { validateUnlimitedPackageOrder } = require("../utils/unlimitedPackageRules");
 const REFILL_COOLDOWN_MS = require("../../shared/refillCooldown.json").milliseconds;
 const PACKAGE_INCLUDED_MARKER = "[PACKAGE INCLUDED]";
+const getManilaDateTime = () => ({
+  date: new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" }),
+  time: new Date().toLocaleTimeString("en-US", {
+    hour12: false,
+    timeZone: "Asia/Manila",
+  }),
+});
 
 const orderController = {
   // --- 1. Update Status ---
@@ -25,6 +33,22 @@ const orderController = {
   // --- 2. Place Order (Fixed) ---
  placeOrder: async (req, res) => {
     const { reservation_id, table_id, items } = req.body;
+    const idempotencyKey = String(req.get("Idempotency-Key") || "").trim();
+    if (idempotencyKey && (!reservation_id || idempotencyKey.length > 80)) {
+      return res.status(400).json({ error: "Invalid order idempotency key." });
+    }
+    const payloadHash = idempotencyKey
+      ? crypto
+          .createHash("sha256")
+          .update(JSON.stringify({
+            reservation_id,
+            table_id: table_id ?? null,
+            items,
+            allergy_note: req.body.allergy_note ?? null,
+            guests: req.body.guests ?? req.body.num_guests ?? null,
+          }))
+          .digest("hex")
+      : null;
     const requestedGuests = Number.parseInt(
       req.body.guests ?? req.body.num_guests,
       10,
@@ -37,6 +61,41 @@ const orderController = {
 
     try {
       await conn.beginTransaction();
+
+      if (idempotencyKey) {
+        const [claim] = await conn.execute(
+          `INSERT IGNORE INTO kiosk_order_submissions
+             (reservation_id, idempotency_key, payload_hash)
+           VALUES (?, ?, ?)`,
+          [reservation_id, idempotencyKey, payloadHash],
+        );
+        if (claim.affectedRows === 0) {
+          const [existingSubmissions] = await conn.execute(
+            `SELECT payload_hash, response_json
+             FROM kiosk_order_submissions
+             WHERE reservation_id = ? AND idempotency_key = ?
+             FOR UPDATE`,
+            [reservation_id, idempotencyKey],
+          );
+          const submission = existingSubmissions[0];
+          if (!submission || submission.payload_hash !== payloadHash) {
+            const error = new Error("This order key was already used for a different order.");
+            error.statusCode = 409;
+            throw error;
+          }
+          const previousResponse = submission.response_json;
+          if (!previousResponse) {
+            const error = new Error("This order is still being processed. Retry shortly.");
+            error.statusCode = 409;
+            throw error;
+          }
+          await conn.commit();
+          const responseBody = typeof previousResponse === "string"
+            ? JSON.parse(previousResponse)
+            : previousResponse;
+          return res.status(200).json({ ...responseBody, duplicate: true });
+        }
+      }
 
       const packageValidation = await validateUnlimitedPackageOrder(conn, {
         reservationId: reservation_id,
@@ -104,9 +163,51 @@ const orderController = {
 
       // 1. Check if reservation exists
       const [existing] = await conn.execute(
-        "SELECT reservation_id FROM reservations WHERE reservation_id = ? FOR UPDATE",
+        `SELECT reservation_id, reservation_type, reservation_date, end_time
+         FROM reservations WHERE reservation_id = ? FOR UPDATE`,
         [reservation_id]
       );
+
+      if (
+        existing.length > 0 &&
+        String(existing[0].reservation_type || "").toLowerCase() === "event"
+      ) {
+        const { date: manilaDate, time: manilaTime } = getManilaDateTime();
+        const [expiredReservations] = await conn.execute(
+          `SELECT reservation_id FROM reservations
+           WHERE reservation_id = ?
+             AND TIMESTAMP(reservation_date, end_time) <= TIMESTAMP(?, ?)`,
+          [reservation_id, manilaDate, manilaTime],
+        );
+        if (expiredReservations.length > 0) {
+          throw new Error("This event reservation has ended. No new orders can be placed.");
+        }
+
+        const packageCardId = packageValidation.packageCardItemId;
+        const packageCardSubmitted = packageCardId != null && items.some(
+          (item) => Number(item.item_id || item.id) === Number(packageCardId),
+        );
+        if (packageCardSubmitted) {
+          const [existingPackageOrders] = await conn.execute(
+            `SELECT 1 FROM kiosk_orders
+             WHERE reservation_id = ? AND item_id = ? LIMIT 1`,
+            [reservation_id, packageCardId],
+          );
+          if (existingPackageOrders.length === 0) {
+            const [nearEndReservations] = await conn.execute(
+              `SELECT reservation_id FROM reservations
+               WHERE reservation_id = ?
+                 AND TIMESTAMP(reservation_date, end_time) <= DATE_ADD(TIMESTAMP(?, ?), INTERVAL 30 MINUTE)`,
+              [reservation_id, manilaDate, manilaTime],
+            );
+            if (nearEndReservations.length > 0) {
+              throw new Error(
+                "Unlimited menus can only be started when more than 30 minutes remain in the reservation.",
+              );
+            }
+          }
+        }
+      }
 
       const isWalkIn = reservation_id && reservation_id.startsWith("WALK");
 
@@ -232,6 +333,18 @@ const orderController = {
       await Order.syncBillingTotal(conn, reservation_id);
       // =========================================================================
 
+      const responseBody = {
+        success: true,
+        message: "Order placed successfully",
+        reservation_id,
+      };
+      if (idempotencyKey) {
+        await conn.execute(
+          `UPDATE kiosk_order_submissions SET response_json = ?
+           WHERE reservation_id = ? AND idempotency_key = ?`,
+          [JSON.stringify(responseBody), reservation_id, idempotencyKey],
+        );
+      }
       await conn.commit();
 
       // Persist an admin alert so the order remains visible after refresh.
@@ -267,15 +380,11 @@ const orderController = {
         console.log("📡 [Socket] Table update signal sent to Admin");
       }
 
-      res.status(201).json({
-        success: true,
-        message: "Order placed successfully",
-        reservation_id,
-      });
+      res.status(201).json(responseBody);
     } catch (error) {
       await conn.rollback();
       console.error("❌ Order Error:", error);
-      res.status(400).json({
+      res.status(error.statusCode || (error.code ? 500 : 400)).json({
         success: false,
         error: error.message,
       });

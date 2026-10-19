@@ -23,6 +23,7 @@ export default defineConfig({
     },
   },
   build: {
+    manifest: "asset-manifest.json",
     // Reduce the warning threshold noise (real fix is the code-splitting below)
     chunkSizeWarningLimit: 600,
     rollupOptions: {

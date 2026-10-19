@@ -8,6 +8,20 @@ import "./Style/utilities.css";
 import App from "./App.jsx";
 import { ToastProvider } from "./components/ToastContext";
 import { ConfirmationProvider } from "./components/ConfirmationContext";
+import { syncPendingKioskOrders } from "./utils/offlineOrderQueue";
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch((error) => {
+      console.warn("Service worker registration failed:", error);
+    });
+  });
+}
+
+window.addEventListener("online", syncPendingKioskOrders);
+window.addEventListener("load", syncPendingKioskOrders, { once: true });
+window.setInterval(syncPendingKioskOrders, 15000);
+if (document.readyState === "complete") syncPendingKioskOrders();
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>

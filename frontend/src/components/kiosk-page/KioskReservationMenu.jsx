@@ -32,6 +32,10 @@ import alertMusicFile from "../../assets/alert-sound.mp3";
 import { useToast } from "../ToastContext";
 import refillCooldown from "../../../../shared/refillCooldown.json";
 import { API_BASE, SERVER_URL as BASE_URL } from "../../api";
+import {
+  getQueuedOrderItemsForReservation,
+  submitKioskOrder,
+} from "../../utils/offlineOrderQueue";
 import io from "socket.io-client";
 import {
   getPackageCategories,
@@ -80,6 +84,32 @@ const enrichOrderItems = (items, products) =>
     };
   });
 
+const getReservationEndTimestamp = (reservation) => {
+  if (reservation?.reservation_end_at) {
+    const timestamp = Date.parse(reservation.reservation_end_at);
+    if (Number.isFinite(timestamp)) return timestamp;
+  }
+  if (!reservation?.reservation_date || !reservation?.end_time) return null;
+  const dateValue = reservation.reservation_date;
+  const date = dateValue instanceof Date
+    ? dateValue.toISOString().slice(0, 10)
+    : String(dateValue).slice(0, 10);
+  const time = String(reservation.end_time).split("T").pop();
+  const match = time.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  const dateMatch = date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match || !dateMatch) return null;
+  const [, year, month, day] = dateMatch;
+  const [, hour, minute, second = "0"] = match;
+  return Date.UTC(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour),
+    Number(minute),
+    Number(second),
+  ) - 8 * 60 * 60 * 1000;
+};
+
 const categoryIcons = {
   "Best Seller": <Flame />,
   "Budget Meals": <Wallet />,
@@ -103,7 +133,7 @@ const KioskReservationMenu = () => {
   const audioObj = useMemo(() => new Audio(alertMusicFile), []);
   const storage = window.localStorage;
   const [activeResId, setActiveResId] = useState(
-    sessionStorage.getItem("resId") || null,
+    sessionStorage.getItem("resId") || localStorage.getItem("resId") || null,
   );
 
   // 1. Extract physical table assignment from URL
@@ -117,6 +147,8 @@ const KioskReservationMenu = () => {
   // 3. Fallback to "GUEST" for normal table walk-in view
   const reservationId = activeResId || "GUEST";
   const TIMER_KEY = `kiosk_res_timer_${reservationId}`;
+  const TIMER_START_KEY = `kiosk_res_timer_start_${reservationId}`;
+  const RESERVATION_SNAPSHOT_KEY = `kiosk_reservation_snapshot_${activeResId || "none"}`;
   const PAYMENT_CHOICE_KEY = `kiosk_pay_choice_${reservationId}`;
   const TOTAL_PAID_KEY = `kiosk_total_paid_${reservationId}`;
   const LAST_REFILL_KEY = `kiosk_last_refill_${reservationId}`;
@@ -127,8 +159,11 @@ const KioskReservationMenu = () => {
   const [tableKioskMenuMode, setTableKioskMenuMode] = useState("default");
   const [cart, setCart] = useState([]);
   const [billItems, setBillItems] = useState([]);
-  const [localBillHistory, setLocalBillHistory] = useState([]);
+  const [localBillHistory, setLocalBillHistory] = useState(() =>
+    getQueuedOrderItemsForReservation(activeResId),
+  );
   const [timeLeft, setTimeLeft] = useState(5400);
+  const [reservationTimeLeft, setReservationTimeLeft] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [isPackageTimerExpired, setIsPackageTimerExpired] = useState(false);
   const [showSessionModal, setShowSessionModal] = useState(false);
@@ -144,7 +179,17 @@ const KioskReservationMenu = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [refillCooldownSeconds, setRefillCooldownSeconds] = useState(0);
   const [isPaymentProcessing, setIsPaymentProcessing] = useState(false);
-  const [reservationDetails, setReservationDetails] = useState(null);
+  const [reservationDetails, setReservationDetails] = useState(() => {
+    try {
+      return JSON.parse(
+        localStorage.getItem(
+          `kiosk_reservation_snapshot_${sessionStorage.getItem("resId") || localStorage.getItem("resId") || "none"}`,
+        ),
+      );
+    } catch {
+      return null;
+    }
+  });
   const [reservedPackageMode, setReservedPackageMode] = useState(null);
 
   // An Unlimited order counts as "placed" only once it exists in the bill
@@ -319,12 +364,17 @@ const KioskReservationMenu = () => {
       "resId",
       "tableId",
       TIMER_KEY,
+      TIMER_START_KEY,
       PAYMENT_CHOICE_KEY,
       TOTAL_PAID_KEY,
       LAST_REFILL_KEY,
+      RESERVATION_SNAPSHOT_KEY,
+      `kiosk_event_warning_${activeResId}`,
+      `kiosk_bill_cache_${activeResId}`,
       "kiosk_last_refill_timestamp",
     ].forEach((k) => {
       sessionStorage.removeItem(k);
+      localStorage.removeItem(k);
     });
 
     sessionStorage.setItem("kiosk_exit_to_selection", "true");
@@ -389,6 +439,8 @@ const KioskReservationMenu = () => {
             if (activeResId) {
               localStorage.removeItem("resId");
               localStorage.removeItem("tableId");
+              sessionStorage.removeItem("resId");
+              sessionStorage.removeItem("tableId");
               setActiveResId(null);
             }
             setKioskMode("event_waiting");
@@ -396,11 +448,67 @@ const KioskReservationMenu = () => {
             const { reservation_id, table_id } = reservation;
             if (activeResId !== reservation_id) {
               sessionStorage.setItem("resId", reservation_id);
+              localStorage.setItem("resId", reservation_id);
               if (table_id)
                 sessionStorage.setItem("tableId", table_id.toString());
+              if (table_id)
+                localStorage.setItem("tableId", table_id.toString());
               setActiveResId(reservation_id);
             }
+            setReservationDetails((current) => {
+              const next = {
+                ...(current?.reservation_id === reservation_id ? current : {}),
+                ...reservation,
+              };
+              localStorage.setItem(
+                `kiosk_reservation_snapshot_${reservation_id}`,
+                JSON.stringify(next),
+              );
+              return next;
+            });
+            if (localStorage.getItem(`kiosk_event_expired_offline_${reservation_id}`)) {
+              localStorage.removeItem(`kiosk_event_expired_offline_${reservation_id}`);
+              const packageStart = Number(storage.getItem(TIMER_START_KEY));
+              const packageDeadline = getReservationEndTimestamp(reservation);
+              const effectivePackageEnd = packageStart && packageDeadline
+                ? Math.min(packageStart + 1.5 * 60 * 60 * 1000, packageDeadline)
+                : 0;
+              if (effectivePackageEnd > Date.now()) {
+                storage.setItem(TIMER_KEY, effectivePackageEnd.toString());
+                setTimeLeft(Math.ceil((effectivePackageEnd - Date.now()) / 1000));
+                setIsTimerRunning(true);
+              }
+              fetchCurrentBill();
+            }
             setKioskMode("active");
+          } else if (mode === "table_default" && activeResId && isEventReservation) {
+            [
+              "resId",
+              "tableId",
+              TIMER_KEY,
+              TIMER_START_KEY,
+              PAYMENT_CHOICE_KEY,
+              TOTAL_PAID_KEY,
+              LAST_REFILL_KEY,
+              RESERVATION_SNAPSHOT_KEY,
+              `kiosk_event_warning_${activeResId}`,
+              `kiosk_event_expired_offline_${activeResId}`,
+              `kiosk_bill_cache_${activeResId}`,
+            ].forEach((key) => {
+              sessionStorage.removeItem(key);
+              localStorage.removeItem(key);
+            });
+            setActiveResId(null);
+            setReservationDetails(null);
+            setReservationTimeLeft(0);
+            setIsTimerRunning(false);
+            setCart([]);
+            setBillItems([]);
+            setLocalBillHistory([]);
+            setTableKioskMenuMode("default");
+            setKioskMode("event_waiting");
+            showToast("Your reservation has ended. The kiosk is ready for the next customer.", "info");
+            navigate(`/kiosk-selection${setupTable ? `?setupTable=${setupTable}` : ""}`);
           } else {
             setKioskMode("active");
           }
@@ -415,7 +523,89 @@ const KioskReservationMenu = () => {
     checkActiveKiosk();
     const pollInterval = setInterval(checkActiveKiosk, 3000);
     return () => clearInterval(pollInterval);
-  }, [activeResId, reservedPackageMode, setupTable]);
+  }, [activeResId, isEventReservation, reservedPackageMode, setupTable]);
+
+  useEffect(() => {
+    if (!isEventReservation || !activeResId) return;
+    const endTimestamp = getReservationEndTimestamp(reservationDetails);
+    if (!endTimestamp) return;
+
+    const warningKey = `kiosk_event_warning_${activeResId}`;
+    const offlineExpiredKey = `kiosk_event_expired_offline_${activeResId}`;
+    let hasEnded = false;
+    const updateReservationTimer = () => {
+      const remaining = Math.max(0, Math.ceil((endTimestamp - Date.now()) / 1000));
+      setReservationTimeLeft(remaining);
+
+      if (
+        remaining > 0 &&
+        remaining <= 30 * 60 &&
+        !sessionStorage.getItem(warningKey) &&
+        !localStorage.getItem(warningKey)
+      ) {
+        sessionStorage.setItem(warningKey, "shown");
+        localStorage.setItem(warningKey, "shown");
+        showToast(
+          "Your reservation time is ending soon. You have 30 minutes remaining.",
+          "info",
+        );
+      }
+
+      if (remaining === 0 && !navigator.onLine) {
+        hasEnded = true;
+        localStorage.setItem(offlineExpiredKey, "true");
+        setIsTimerRunning(false);
+        setCart([]);
+        setBillItems([]);
+        setLocalBillHistory([]);
+        setTableKioskMenuMode("default");
+        setKioskMode("event_waiting");
+        if (!localStorage.getItem(`${offlineExpiredKey}_notified`)) {
+          localStorage.setItem(`${offlineExpiredKey}_notified`, "true");
+          showToast("Reservation time reached. Waiting to verify the latest end time when connection returns.", "info");
+        }
+        return;
+      }
+
+      if (remaining === 0 && !hasEnded) {
+        hasEnded = true;
+        ["resId", "tableId", TIMER_KEY, TIMER_START_KEY, PAYMENT_CHOICE_KEY, TOTAL_PAID_KEY, LAST_REFILL_KEY, warningKey, offlineExpiredKey, `${offlineExpiredKey}_notified`, RESERVATION_SNAPSHOT_KEY, `kiosk_bill_cache_${activeResId}`].forEach((key) => {
+          sessionStorage.removeItem(key);
+          localStorage.removeItem(key);
+        });
+        setActiveResId(null);
+        setReservationDetails(null);
+        setReservationTimeLeft(0);
+        setIsTimerRunning(false);
+        setCart([]);
+        setBillItems([]);
+        setLocalBillHistory([]);
+        setTableKioskMenuMode("default");
+        setKioskMode("event_waiting");
+        showToast("Your reservation has ended. The kiosk is ready for the next customer.", "info");
+        navigate(`/kiosk-selection${setupTable ? `?setupTable=${setupTable}` : ""}`);
+      }
+    };
+
+    updateReservationTimer();
+    const interval = setInterval(updateReservationTimer, 1000);
+    return () => clearInterval(interval);
+  }, [
+    activeResId,
+    isEventReservation,
+    navigate,
+    reservationDetails,
+    showToast,
+    TIMER_KEY,
+    TIMER_START_KEY,
+    PAYMENT_CHOICE_KEY,
+    TOTAL_PAID_KEY,
+    LAST_REFILL_KEY,
+    RESERVATION_SNAPSHOT_KEY,
+    setupTable,
+  ]);
+
+  const reservationEndTimestamp = getReservationEndTimestamp(reservationDetails);
 
   const calculateSessionTotal = () => {
     const databaseTotal = billItems.reduce((sum, item) => {
@@ -500,14 +690,76 @@ const KioskReservationMenu = () => {
         const products = Object.values(menuData).flat();
         const enrichedItems = enrichOrderItems(res.data, products);
         setBillItems(enrichedItems);
+        const pendingKeys = new Set(
+          getQueuedOrderItemsForReservation(activeResId).map((item) => item.local_queue_key),
+        );
+        setLocalBillHistory((items) =>
+          items.filter(
+            (item) => !item.local_queue_key || pendingKeys.has(item.local_queue_key),
+          ),
+        );
+        localStorage.setItem(
+          `kiosk_bill_cache_${activeResId}`,
+          JSON.stringify(res.data),
+        );
         return enrichedItems;
       }
       return res.data;
     } catch (err) {
       console.warn("Error fetching items:", err);
-      return [];
+      try {
+        const cachedItems = JSON.parse(
+          localStorage.getItem(`kiosk_bill_cache_${activeResId}`) || "[]",
+        );
+        setBillItems(enrichOrderItems(cachedItems, Object.values(menuData).flat()));
+        return cachedItems;
+      } catch {
+        return [];
+      }
     }
   };
+
+  useEffect(() => {
+    const handleOffline = () =>
+      showToast("Internet connection lost. Your reservation timer will continue.", "info");
+    const handleOnline = () => {
+      showToast("Internet connection restored. Kiosk data is syncing.", "success");
+      fetchCurrentBill();
+    };
+    const handleOrderSynced = (event) => {
+      const { idempotencyKey, payload } = event.detail || {};
+      if (payload?.reservation_id !== activeResId) return;
+      setLocalBillHistory((items) =>
+        items.filter((item) => item.local_queue_key !== idempotencyKey),
+      );
+      fetchCurrentBill();
+      showToast("Your offline order has synced.", "success");
+    };
+    const handleOrderSyncFailed = (event) => {
+      if (event.detail?.payload?.reservation_id !== activeResId) return;
+      showToast(
+        `An offline order needs staff attention: ${event.detail.error}`,
+        "error",
+      );
+    };
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("kiosk-order-synced", handleOrderSynced);
+    window.addEventListener("kiosk-order-sync-failed", handleOrderSyncFailed);
+    if (!navigator.onLine) handleOffline();
+    const savedOrders = getQueuedOrderItemsForReservation(activeResId);
+    if (savedOrders.some((item) => item.sync_error)) {
+      showToast("A saved offline order needs staff attention.", "error");
+    } else if (savedOrders.length > 0) {
+      showToast(`${savedOrders.length} offline order item(s) are waiting to sync.`, "info");
+    }
+    return () => {
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("kiosk-order-synced", handleOrderSynced);
+      window.removeEventListener("kiosk-order-sync-failed", handleOrderSyncFailed);
+    };
+  }, [activeResId, showToast]);
 
   const playAlert = async () => {
     try {
@@ -531,22 +783,41 @@ const KioskReservationMenu = () => {
 
     setIsLoading(true);
     try {
-      await axios.post(
-        `${API_BASE}/orders/place`,
-        {
-          reservation_id: reservationId,
-          table_id: getCurrentTableId(),
-          items: [
-            {
-              item_id: refillTarget.id,
-              quantity: 1,
-              customizations: `[REFILL] ${refillTarget.name || refillTarget.menu_name}`,
-              is_refill: true,
-            },
-          ],
-        },
+      const refillPayload = {
+        reservation_id: reservationId,
+        table_id: getCurrentTableId(),
+        items: [
+          {
+            item_id: refillTarget.id,
+            quantity: 1,
+            customizations: `[REFILL] ${refillTarget.name || refillTarget.menu_name}`,
+            is_refill: true,
+          },
+        ],
+      };
+      const submission = await submitKioskOrder(
+        refillPayload,
         getAuthHeader(),
       );
+      if (submission.queued) {
+        const queuedAt = Date.now();
+        storage.setItem(LAST_REFILL_KEY, queuedAt.toString());
+        setRefillCooldownSeconds(refillCooldown.milliseconds / 1000);
+        setLocalBillHistory((previous) => [
+          ...previous,
+          {
+            id: refillTarget.id,
+            name: refillTarget.name || refillTarget.menu_name,
+            quantity: 1,
+            customizations: refillPayload.items[0].customizations,
+            is_refill: true,
+            is_placed: true,
+            local_queue_key: submission.idempotencyKey,
+          },
+        ]);
+        showToast("Refill saved offline and will sync when internet returns.", "info");
+        return;
+      }
       storage.setItem(LAST_REFILL_KEY, Date.now().toString());
       setRefillCooldownSeconds(refillCooldown.milliseconds / 1000);
       await fetchCurrentBill();
@@ -652,21 +923,38 @@ const KioskReservationMenu = () => {
     const fetchData = async () => {
       try {
         const [prodRes, resItemsRes, reservationRes] = await Promise.all([
-          fetch(`${API_BASE}/products`, { headers: getFetchHeaders() }).then(
-            (r) => r.json(),
-          ),
+          fetch(`${API_BASE}/products`, { headers: getFetchHeaders() })
+            .then((r) => r.json())
+            .catch(() => JSON.parse(localStorage.getItem("kiosk_menu_cache") || "[]")),
           axios
             .get(
               `${API_BASE}/reservations/${reservationId}/items`,
               getAuthHeader(),
             )
             .then((r) => r.data)
-            .catch(() => null),
+            .catch(() => {
+              try {
+                return JSON.parse(
+                  localStorage.getItem(`kiosk_bill_cache_${activeResId}`) || "null",
+                );
+              } catch {
+                return null;
+              }
+            }),
           axios
             .get(`${API_BASE}/reservations/${reservationId}`, getAuthHeader())
             .then((r) => r.data)
             .catch(() => null),
         ]);
+        if (Array.isArray(prodRes) && prodRes.length > 0) {
+          localStorage.setItem("kiosk_menu_cache", JSON.stringify(prodRes));
+        }
+        if (Array.isArray(resItemsRes)) {
+          localStorage.setItem(
+            `kiosk_bill_cache_${activeResId}`,
+            JSON.stringify(resItemsRes),
+          );
+        }
         const reservationData = reservationRes
           ? reservationRes.data || reservationRes.reservation || reservationRes
           : null;
@@ -685,6 +973,10 @@ const KioskReservationMenu = () => {
         if (reservationData) {
           const targetData = reservationData;
           setReservationDetails(targetData);
+          localStorage.setItem(
+            `kiosk_reservation_snapshot_${activeResId}`,
+            JSON.stringify(targetData),
+          );
           const paidAmount = parseFloat(
             targetData.amount || targetData.downpayment || 0,
           );
@@ -733,10 +1025,22 @@ const KioskReservationMenu = () => {
           );
           const currentTimerKey = `kiosk_res_timer_${activeResId}`;
           if (hasUnlimitedPreBooked && !storage.getItem(currentTimerKey)) {
-            const endTime = Date.now() + 1.5 * 60 * 60 * 1000;
-            storage.setItem(currentTimerKey, endTime.toString());
-            setTimeLeft(5400);
-            setIsTimerRunning(true);
+            const prebookedEvent = String(
+              reservationData?.reservation_type || reservationData?.reservationType || "",
+            ).toLowerCase() === "event";
+            const deadline = getReservationEndTimestamp(reservationData);
+            const startedAt = Date.now();
+            const remainingMs = deadline ? deadline - startedAt : Infinity;
+            if (!prebookedEvent || remainingMs > 30 * 60 * 1000) {
+              const endTime = Math.min(
+                startedAt + 1.5 * 60 * 60 * 1000,
+                deadline || Infinity,
+              );
+              storage.setItem(`kiosk_res_timer_start_${activeResId}`, startedAt.toString());
+              storage.setItem(currentTimerKey, endTime.toString());
+              setTimeLeft(Math.max(0, Math.ceil((endTime - startedAt) / 1000)));
+              setIsTimerRunning(endTime > startedAt);
+            }
           }
         } else {
           setCart([]);
@@ -809,7 +1113,6 @@ const KioskReservationMenu = () => {
       showToast(packageError, "error");
       return;
     }
-    setIsLoading(true);
     const isPayNow = choice === "Pay Now";
 
     const pendingItems = cart.filter((i) => !i.is_placed);
@@ -818,11 +1121,33 @@ const KioskReservationMenu = () => {
       Boolean(inferUnlimitedPackageMode(item)),
     ) || isUnlimitedMode;
 
+    const hasPendingUnlimitedPackage = pendingItems.some((item) =>
+      Boolean(inferUnlimitedPackageMode(item)),
+    );
+    const hasExistingUnlimitedPackage = billItems.some((item) =>
+      Boolean(inferUnlimitedPackageMode(item)),
+    );
+
+    if (
+      hasPendingUnlimitedPackage &&
+      !hasExistingUnlimitedPackage &&
+      isEventReservation &&
+      reservationEndTimestamp != null &&
+      reservationEndTimestamp - Date.now() <= 30 * 60 * 1000
+    ) {
+      showToast(
+        "Unlimited menus can only be started when more than 30 minutes remain in the reservation.",
+        "error",
+      );
+      return;
+    }
+    setIsLoading(true);
+
     try {
       const tableId = getCurrentTableId();
+      let submission = { queued: false };
       if (pendingItems.length > 0) {
-        await axios.post(
-          `${API_BASE}/orders/place`,
+        submission = await submitKioskOrder(
           {
             reservation_id: reservationId,
             table_id: tableId,
@@ -837,10 +1162,47 @@ const KioskReservationMenu = () => {
         );
       }
 
+      if (submission.queued) {
+        if (hasUnlimitedPackage && !storage.getItem(TIMER_KEY)) {
+          const startedAt = Date.now();
+          const normalEndTime = startedAt + 1.5 * 60 * 60 * 1000;
+          const endTime = isEventReservation && reservationEndTimestamp != null
+            ? Math.min(normalEndTime, reservationEndTimestamp)
+            : normalEndTime;
+          storage.setItem(TIMER_START_KEY, startedAt.toString());
+          storage.setItem(TIMER_KEY, endTime.toString());
+          setTimeLeft(Math.max(0, Math.ceil((endTime - startedAt) / 1000)));
+          setIsTimerRunning(true);
+        }
+        setLocalBillHistory((previous) => [
+          ...previous,
+          ...pendingItems.map((item) => ({
+            ...item,
+            is_placed: true,
+            local_queue_key: submission.idempotencyKey,
+          })),
+        ]);
+        setCart([]);
+        resetMenuSelections();
+        setIsPaid(false);
+        setShowBillInfo(false);
+        setIsFinalCheckout(false);
+        showToast(
+          "Order saved on this kiosk. It will sync when internet returns; payment was not processed.",
+          "info",
+        );
+        return;
+      }
+
       if (hasUnlimitedPackage && !storage.getItem(TIMER_KEY)) {
-        const endTime = Date.now() + 1.5 * 60 * 60 * 1000;
+        const startedAt = Date.now();
+        const normalEndTime = startedAt + 1.5 * 60 * 60 * 1000;
+        const endTime = isEventReservation
+          ? Math.min(normalEndTime, reservationEndTimestamp)
+          : normalEndTime;
+        storage.setItem(TIMER_START_KEY, startedAt.toString());
         storage.setItem(TIMER_KEY, endTime.toString());
-        setTimeLeft(5400);
+        setTimeLeft(Math.max(0, Math.ceil((endTime - startedAt) / 1000)));
         setIsTimerRunning(true);
       }
 
@@ -891,6 +1253,7 @@ const KioskReservationMenu = () => {
     await playAlert();
 
     storage.removeItem(TIMER_KEY);
+    storage.removeItem(TIMER_START_KEY);
     setIsTimerRunning(false);
     setTimeLeft(5400);
 
@@ -936,9 +1299,13 @@ const KioskReservationMenu = () => {
         "resId",
         "tableId",
         TIMER_KEY,
+        TIMER_START_KEY,
         PAYMENT_CHOICE_KEY,
         TOTAL_PAID_KEY,
         LAST_REFILL_KEY,
+        RESERVATION_SNAPSHOT_KEY,
+        `kiosk_event_warning_${activeResId}`,
+        `kiosk_bill_cache_${activeResId}`,
         "kiosk_last_ref_timestamp",
       ].forEach((k) => {
         localStorage.removeItem(k);
@@ -997,17 +1364,53 @@ const KioskReservationMenu = () => {
 
   useEffect(() => {
     if (!activeResId) return;
-    const savedEndTime = storage.getItem(TIMER_KEY);
-    if (savedEndTime) {
-      const remaining = Math.floor(
-        (parseInt(savedEndTime) - Date.now()) / 1000,
-      );
-      if (remaining > 0) {
-        setTimeLeft(remaining);
-        setIsTimerRunning(true);
+    const savedEndTime = Number(storage.getItem(TIMER_KEY));
+    if (!Number.isFinite(savedEndTime) || savedEndTime <= 0) return;
+    const remaining = Math.max(0, Math.ceil((savedEndTime - Date.now()) / 1000));
+    setTimeLeft(remaining);
+    setIsTimerRunning(remaining > 0);
+  }, [activeResId, TIMER_KEY]);
+
+  useEffect(() => {
+    if (!isTimerRunning) return;
+    const updateUnlimitedTimer = () => {
+      const savedStart = Number(storage.getItem(TIMER_START_KEY));
+      const savedEnd = Number(storage.getItem(TIMER_KEY));
+      if (!Number.isFinite(savedEnd) || savedEnd <= 0) {
+        setIsTimerRunning(false);
+        return;
       }
-    }
-  }, [activeResId]);
+
+      const startTime = Number.isFinite(savedStart) && savedStart > 0
+        ? savedStart
+        : savedEnd - 1.5 * 60 * 60 * 1000;
+      const packageEnd = startTime + 1.5 * 60 * 60 * 1000;
+      const effectiveEnd = isEventReservation && reservationEndTimestamp
+        ? Math.min(packageEnd, reservationEndTimestamp)
+        : Math.min(packageEnd, savedEnd);
+      storage.setItem(TIMER_START_KEY, startTime.toString());
+      storage.setItem(TIMER_KEY, effectiveEnd.toString());
+
+      const remaining = Math.max(0, Math.ceil((effectiveEnd - Date.now()) / 1000));
+      setTimeLeft(remaining);
+      if (remaining === 0) {
+        setIsTimerRunning(false);
+        if (!(isEventReservation && reservationEndTimestamp <= Date.now())) {
+          handleWingsTimerExpired();
+        }
+      }
+    };
+
+    updateUnlimitedTimer();
+    const interval = setInterval(updateUnlimitedTimer, 1000);
+    return () => clearInterval(interval);
+  }, [
+    isTimerRunning,
+    isEventReservation,
+    reservationEndTimestamp,
+    TIMER_KEY,
+    TIMER_START_KEY,
+  ]);
 
   const confirmFlavors = async () => {
     const flavorLimit =
@@ -1046,22 +1449,35 @@ const KioskReservationMenu = () => {
     if (isRefillMode) {
       setIsLoading(true);
       try {
-        await axios.post(
-          `${API_BASE}/orders/place`,
-          {
-            reservation_id: reservationId,
-            table_id: getCurrentTableId(),
-            items: [
-              {
-                item_id: newItem.id,
-                quantity: 1,
-                customizations: newItem.customizations,
-                is_refill: true,
-              },
-            ],
-          },
+        const refillPayload = {
+          reservation_id: reservationId,
+          table_id: getCurrentTableId(),
+          items: [
+            {
+              item_id: newItem.id,
+              quantity: 1,
+              customizations: newItem.customizations,
+              is_refill: true,
+            },
+          ],
+        };
+        const submission = await submitKioskOrder(
+          refillPayload,
           getAuthHeader(),
         );
+        if (submission.queued) {
+          storage.setItem(LAST_REFILL_KEY, Date.now().toString());
+          setRefillCooldownSeconds(refillCooldown.milliseconds / 1000);
+          setLocalBillHistory((previous) => [
+            ...previous,
+            { ...newItem, is_placed: true, local_queue_key: submission.idempotencyKey },
+          ]);
+          setShowFlavorModal(false);
+          setIsRefillMode(false);
+          setShowSessionModal(true);
+          showToast("Refill saved offline and will sync when internet returns.", "info");
+          return;
+        }
 
         storage.setItem(LAST_REFILL_KEY, Date.now().toString());
 
@@ -1370,7 +1786,28 @@ const KioskReservationMenu = () => {
 
         {/* CENTER: SESSION AND REFILL TIMERS */}
         <div className="header-center-group">
-          {isTimerRunning && (
+          {(isEventReservation || isTimerRunning) && (
+            <div className="d-flex align-items-center gap-2">
+              {isEventReservation && (
+                <div
+                  className="unlimited-timer-pill"
+                  style={{
+                    border: "2px solid #ffcc00",
+                    background: "#111",
+                    padding: "5px 18px",
+                    borderRadius: "50px",
+                    textAlign: "center",
+                  }}
+                >
+                  <span style={{ color: "#ffcc00", fontSize: "10px", fontWeight: "900", display: "block", textTransform: "uppercase" }}>
+                    Reservation
+                  </span>
+                  <span style={{ color: "#fff", fontSize: "22px", fontWeight: "800", fontFamily: "monospace" }}>
+                    {formatTime(reservationTimeLeft)}
+                  </span>
+                </div>
+              )}
+              {isTimerRunning && (
             <div
               className="unlimited-timer-pill"
               style={{
@@ -1402,6 +1839,8 @@ const KioskReservationMenu = () => {
               >
                 {formatTime(timeLeft)}
               </span>
+            </div>
+              )}
             </div>
           )}
         </div>

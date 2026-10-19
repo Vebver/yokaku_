@@ -46,6 +46,12 @@ router.post("/:id/refund", protect, reservationController.processRefund);
 // ==================== ADMIN ROUTES ====================
 router.get("/", protect, adminOnly, reservationController.getReservations);
 router.post("/", protect, adminOnly, reservationController.createReservation);
+router.put(
+  "/:id/extend",
+  protect,
+  adminOnly,
+  reservationController.extendReservation,
+);
 router.put("/:id/status", protect, reservationController.updateStatus);
 router.delete(
   "/:id",

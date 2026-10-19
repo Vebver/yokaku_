@@ -8,7 +8,8 @@
     "start": "node index.js",
     "dev": "nodemon index.js",
     "migrate:kiosk-mode": "node scripts/migrate-kiosk-mode.js",
-    "migrate:event-takeout": "node scripts/migrate-event-takeout.js"
+    "migrate:event-takeout": "node scripts/migrate-event-takeout.js",
+    "migrate:kiosk-order-submissions": "node scripts/migrate-kiosk-order-submissions.js"
   },
   "keywords": [],
   "author": "",

@@ -1,0 +1,17 @@
+{
+  "name": "RESTING Kiosk",
+  "short_name": "RESTING",
+  "start_url": "/kiosk-selection",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#171717",
+  "theme_color": "#171717",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

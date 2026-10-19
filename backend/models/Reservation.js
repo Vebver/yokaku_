@@ -233,8 +233,8 @@ const Reservation = {
 
       const [seated] = await conn.execute(
         `
-            UPDATE reservations r JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
-            SET r.status = 'Seated', rt.status = 'seated'
+        UPDATE reservations r JOIN reservation_tables rt ON r.reservation_id = rt.reservation_id
+        SET r.status = 'Seated', rt.status = 'seated'
             WHERE r.reservation_date = ? AND r.status = 'Confirmed' AND r.reservation_time <= ? AND r.end_time >= ?
           `,
         [today, now, now],
@@ -319,16 +319,23 @@ const Reservation = {
 
     // 2. An explicitly opened event takes priority on its assigned table only.
     const activeEventSql = `
-          SELECT r.*
+          SELECT r.*,
+            CONCAT(DATE_FORMAT(TIMESTAMP(r.reservation_date, r.end_time), '%Y-%m-%dT%H:%i:%s'), '+08:00') AS reservation_end_at
           FROM reservations r
           WHERE r.reservation_type = 'event'
             AND r.is_kiosk_active = 1
             AND r.status IN ('Confirmed', 'Seated', 'Pending')
+            AND (r.reservation_date > ? OR (r.reservation_date = ? AND r.end_time >= ?))
             ${tableFilter}
           ORDER BY r.reservation_date ASC, r.reservation_time ASC
           LIMIT 1
         `;
-    const [activeEvents] = await db.execute(activeEventSql, tableParams);
+    const [activeEvents] = await db.execute(activeEventSql, [
+      today,
+      today,
+      now,
+      ...tableParams,
+    ]);
     if (activeEvents.length > 0) {
       return {
         mode: "event_active",
@@ -339,7 +346,8 @@ const Reservation = {
 
     // 3. Check if there is an event reservation scheduled for right now.
     const eventSql = `
-          SELECT r.* 
+          SELECT r.*,
+            CONCAT(DATE_FORMAT(TIMESTAMP(r.reservation_date, r.end_time), '%Y-%m-%dT%H:%i:%s'), '+08:00') AS reservation_end_at
           FROM reservations r
           WHERE r.reservation_type = 'event' 
             AND r.status IN ('Confirmed', 'Seated', 'Pending')
@@ -788,9 +796,129 @@ const Reservation = {
   },
 
   findById: async (id) => {
-    const sql = `SELECT r.*, p.payment_status, p.amount FROM reservations r LEFT JOIN payments p ON r.reservation_id = p.reservation_id WHERE r.reservation_id = ?`;
+    const sql = `SELECT r.*, p.payment_status, p.amount,
+      CONCAT(DATE_FORMAT(TIMESTAMP(r.reservation_date, r.end_time), '%Y-%m-%dT%H:%i:%s'), '+08:00') AS reservation_end_at
+      FROM reservations r LEFT JOIN payments p ON r.reservation_id = p.reservation_id WHERE r.reservation_id = ?`;
     const [rows] = await db.execute(sql, [id]);
     return rows[0];
+  },
+
+  extendActiveEvent: async (id, additionalMinutes) => {
+    const minutes = Number(additionalMinutes);
+    if (!Number.isInteger(minutes) || minutes < 1 || minutes > 480) {
+      const error = new Error("Extension must be between 1 and 480 minutes.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const conn = await db.getConnection();
+    try {
+      await conn.beginTransaction();
+      const [reservations] = await conn.execute(
+        `SELECT reservation_id, reservation_type, reservation_date, end_time, status
+         FROM reservations WHERE reservation_id = ? FOR UPDATE`,
+        [id],
+      );
+      const reservation = reservations[0];
+      if (!reservation) {
+        const error = new Error("Reservation not found.");
+        error.statusCode = 404;
+        throw error;
+      }
+      if (
+        String(reservation.reservation_type || "").toLowerCase() !== "event" ||
+        !["seated", "confirmed"].includes(String(reservation.status || "").toLowerCase())
+      ) {
+        const error = new Error("Only active event reservations can be extended.");
+        error.statusCode = 400;
+        throw error;
+      }
+
+      const endMatch = String(reservation.end_time).match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+      if (!endMatch) {
+        const error = new Error("Reservation end time is invalid.");
+        error.statusCode = 400;
+        throw error;
+      }
+      const [, hour, minute, second = "0"] = endMatch;
+      const oldEndMinutes = Number(hour) * 60 + Number(minute);
+      const nextEndMinutes = oldEndMinutes + minutes;
+      if (nextEndMinutes >= 24 * 60) {
+        const error = new Error("Reservations cannot be extended past midnight.");
+        error.statusCode = 400;
+        throw error;
+      }
+      const newEndTime = `${String(Math.floor(nextEndMinutes / 60)).padStart(2, "0")}:${String(nextEndMinutes % 60).padStart(2, "0")}:${String(Number(second)).padStart(2, "0")}`;
+      const oldEndTime = `${String(Number(hour)).padStart(2, "0")}:${String(Number(minute)).padStart(2, "0")}:${String(Number(second)).padStart(2, "0")}`;
+
+      const [tableRows] = await conn.execute(
+        `SELECT table_id FROM reservation_tables
+         WHERE reservation_id = ? ORDER BY table_id FOR UPDATE`,
+        [id],
+      );
+      const tableIds = tableRows.map((row) => row.table_id);
+      if (tableIds.length > 0) {
+        await conn.query(
+          `SELECT table_id FROM tables WHERE table_id IN (?) ORDER BY table_id FOR UPDATE`,
+          [tableIds],
+        );
+        const [conflicts] = await conn.query(
+          `SELECT r.reservation_id
+           FROM reservations r
+           JOIN reservation_tables rt ON rt.reservation_id = r.reservation_id
+           WHERE r.reservation_id <> ?
+             AND r.reservation_date = ?
+             AND rt.table_id IN (?)
+             AND r.status IN ('Pending', 'Confirmed', 'Seated')
+             AND CAST(r.reservation_time AS TIME) < CAST(? AS TIME)
+             AND CAST(r.end_time AS TIME) > CAST(? AS TIME)
+           LIMIT 1`,
+          [id, reservation.reservation_date, tableIds, newEndTime, oldEndTime],
+        );
+        if (conflicts.length > 0) {
+          const error = new Error("The requested extension conflicts with another reservation.");
+          error.statusCode = 409;
+          throw error;
+        }
+      }
+
+      const [activeRows] = await conn.execute(
+        `SELECT reservation_id FROM reservations
+         WHERE reservation_id = ?
+           AND (reservation_date > ? OR
+             (reservation_date = ? AND reservation_time <= ? AND end_time > ?))`,
+        [
+          id,
+          new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" }),
+          new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" }),
+          new Date().toLocaleTimeString("en-US", {
+            hour12: false,
+            timeZone: "Asia/Manila",
+          }),
+          new Date().toLocaleTimeString("en-US", {
+            hour12: false,
+            timeZone: "Asia/Manila",
+          }),
+        ],
+      );
+      if (activeRows.length === 0) {
+        const error = new Error("This reservation has already ended and cannot be extended.");
+        error.statusCode = 400;
+        throw error;
+      }
+
+      await conn.execute(
+        "UPDATE reservations SET end_time = ?, duration_hours = duration_hours + ? / 60 WHERE reservation_id = ?",
+        [newEndTime, minutes, id],
+      );
+      await conn.commit();
+      return { reservation_id: id, end_time: newEndTime };
+    } catch (error) {
+      await conn.rollback();
+      throw error;
+    } finally {
+      conn.release();
+    }
   },
 
   delete: async (id) => {
