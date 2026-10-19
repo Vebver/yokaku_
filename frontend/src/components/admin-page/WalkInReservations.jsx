@@ -342,6 +342,7 @@ const WalkInReservations = () => {
       } else if (value === "takeout") {
         defaultPackage = "Take-Out";
       }
+      if (value !== "takeout") setOrderCart([]);
       setNewRes((prev) => ({
         ...prev,
         bookingType: value,
@@ -366,24 +367,6 @@ const WalkInReservations = () => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      if (newRes.bookingType === "table") {
-        const selectedTableId = newRes.tableIds?.[0];
-        if (!selectedTableId) {
-          showToast("Please select a table before creating the reservation.");
-          setSubmitting(false);
-          return;
-        }
-        if (
-          availableTables.find(
-            (table) => String(table.table_id) === String(selectedTableId),
-          )?.isUnavailable
-        ) {
-          showToast("That table is occupied or reserved for the selected time.");
-          setSubmitting(false);
-          return;
-        }
-      }
-
       // The end time drives the event countdown and when tables free up, so
       // it has to be present and after the start.
       if (!newRes.startTime || !newRes.endTime) {
@@ -917,8 +900,7 @@ const WalkInReservations = () => {
               )}
 
               {/* DYNAMIC FOOD & DRINK SELECTOR */}
-              {(newRes.bookingType === "takeout" ||
-                newRes.bookingType === "table") && (
+              {newRes.bookingType === "takeout" && (
                 <div className="mb-4 animate-fade-in">
                   <label className="form-label small fw-bold text-uppercase text-muted">
                     Order Items <span className="fw-normal">(optional)</span>
@@ -988,41 +970,13 @@ const WalkInReservations = () => {
                 </div>
               )}
 
-              {/* Only show and require Table Assignment if NOT booking an event or takeout */}
-              {newRes.bookingType === "table" && (
-                <div className="mb-3 animate-fade-in">
-                  <label className="form-label small fw-bold text-danger">
-                    ASSIGN TABLE (Required)
-                  </label>
-                  <select
-                    name="tableIds"
-                    className="form-select border-danger fw-bold"
-                    value={newRes.tableIds[0] || ""}
-                    onChange={handleInputChange}
-                    required={newRes.bookingType === "table"}
-                  >
-                    <option value="">-- Choose Table for This Time --</option>
-                    {availableTables.map((t) => (
-                      <option
-                        key={t.table_id}
-                        value={t.table_id}
-                        disabled={t.isUnavailable}
-                      >
-                        Table {t.table_number} ({t.capacity} Pax)
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {newRes.bookingType !== "takeout" && (
+              {newRes.bookingType === "event" && (
                 <div className="mb-3 p-3 bg-warning-subtle rounded-3 border border-warning-subtle animate-fade-in">
                   <label className="form-label small fw-bold text-warning-emphasis">
                     Reservation Package
                   </label>
                   <div className="row g-2 mb-2">
                     {[
-                      { name: "Regular Table", price: 0, label: "No package" },
                       {
                         name: "Standard Package",
                         price: 10000,
@@ -1034,7 +988,7 @@ const WalkInReservations = () => {
                         label: "Premium",
                       },
                     ].map((option) => (
-                      <div className="col-12 col-sm-4" key={option.name}>
+                      <div className="col-12 col-sm-6" key={option.name}>
                         <button
                           type="button"
                           className={`w-100 text-start p-2 rounded-3 ${newRes.packageName === option.name ? "border border-2 border-warning bg-warning-subtle" : "border bg-white"}`}
@@ -1087,7 +1041,7 @@ const WalkInReservations = () => {
                 </div>
               </div>
 
-              {(() => {
+              {newRes.bookingType !== "table" && (() => {
                 const packagePrice = PACKAGE_PRICES[newRes.packageName] || 0;
                 const addOnTotal = orderCart.reduce(
                   (sum, item) =>
@@ -1101,15 +1055,17 @@ const WalkInReservations = () => {
                 );
                 return (
                   <div className="p-3 mb-4 bg-white border rounded-3 shadow-sm">
-                    <div className="d-flex justify-content-between small mb-1">
-                      <span className="text-muted">Package</span>
-                      <strong>
-                        ₱
-                        {packagePrice.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                        })}
-                      </strong>
-                    </div>
+                    {newRes.bookingType === "event" && (
+                      <div className="d-flex justify-content-between small mb-1">
+                        <span className="text-muted">Package</span>
+                        <strong>
+                          ₱
+                          {packagePrice.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                          })}
+                        </strong>
+                      </div>
+                    )}
                     <div className="d-flex justify-content-between small mb-1">
                       <span className="text-muted">Add-ons</span>
                       <strong>

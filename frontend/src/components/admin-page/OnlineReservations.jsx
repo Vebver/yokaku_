@@ -248,49 +248,20 @@ const OnlineReservations = () => {
       maximumFractionDigits: 2,
     });
 
-  // Start / End block. Show the times that were entered for the booking rather
-  // than payment amounts in the bookings list.
-  const PaymentCell = ({ item }) => {
+  const ScheduleCell = ({ item }) => {
     const startTime = item.reservation_time
       ? formatTime(item.reservation_time)
       : "--:--";
     const endTime = item.end_time ? formatTime(item.end_time) : "--:--";
 
     return (
-      <div
-        className="border rounded-3 overflow-hidden bg-light border-secondary-subtle"
-        style={{ minWidth: "180px" }}
-      >
-        <div
-          className="px-2 py-1 text-uppercase fw-bold text-muted border-bottom border-secondary-subtle"
-          style={{ fontSize: "0.6rem", letterSpacing: "0.6px" }}
-        >
-          Start / End
-        </div>
-        <div className="d-flex">
-          <div className="flex-fill px-2 py-1 border-end border-light">
-            <div
-              className="text-uppercase text-muted fw-bold"
-              style={{ fontSize: "0.55rem" }}
-            >
-              Start
-            </div>
-            <div className="fw-bold text-dark" style={{ fontSize: "0.8rem" }}>
-              {startTime}
-            </div>
-          </div>
-          <div className="flex-fill px-2 py-1">
-            <div
-              className="text-uppercase text-muted fw-bold"
-              style={{ fontSize: "0.55rem" }}
-            >
-              End
-            </div>
-            <div className="fw-bold text-dark" style={{ fontSize: "0.8rem" }}>
-              {endTime}
-            </div>
-          </div>
-        </div>
+      <div className="d-flex flex-column">
+        <span className="fw-bold small text-dark">
+          {new Date(item.reservation_date).toLocaleDateString()}
+        </span>
+        <span className="small text-muted">
+          {startTime} <span aria-hidden="true">to</span> {endTime}
+        </span>
       </div>
     );
   };
@@ -463,7 +434,6 @@ const OnlineReservations = () => {
                 <th className="ps-4">Guest & ID</th>
                 <th>Table</th>
                 <th>Schedule</th>
-                <th>Start / End</th>
                 <th className="text-center">Status</th>
                 <th className="text-end pe-4">Actions</th>
               </tr>
@@ -490,12 +460,7 @@ const OnlineReservations = () => {
                     </span>
                   </td>
                   <td>
-                    <div className="fw-bold small">
-                      {new Date(item.reservation_date).toLocaleDateString()}
-                    </div>
-                  </td>
-                  <td>
-                    <PaymentCell item={item} />
+                    <ScheduleCell item={item} />
                   </td>
                   <td className="text-center">
                     <span
@@ -563,13 +528,10 @@ const OnlineReservations = () => {
                         ? `Table ${item.assigned_tables}`
                         : "T-?"}
                   </span>
-                  <span className="d-flex align-items-center gap-1">
-                    {new Date(item.reservation_date).toLocaleDateString()}
-                  </span>
                 </div>
 
                 <div className="mb-3">
-                  <PaymentCell item={item} />
+                  <ScheduleCell item={item} />
                 </div>
 
                 <button
