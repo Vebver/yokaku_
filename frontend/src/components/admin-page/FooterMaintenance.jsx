@@ -108,14 +108,14 @@ const FooterMaintenance = () => {
     return (
       <div className="d-flex align-items-center py-3">
         <div className="spinner-border spinner-border-sm text-primary me-2"></div>
-        <span>Loading Footer Management...</span>
+        <span>Loading Website Information...</span>
       </div>
     );
 
   return (
     <div className="card shadow-sm border-0 p-4">
       <div className="d-flex align-items-center mb-1 flex-wrap gap-2">
-        <h3 className="mb-0 text-dark fw-bold">Footer Management</h3>
+        <h3 className="mb-0 text-dark fw-bold">Website Information</h3>
       </div>
       <p className="text-muted small mb-4">
         Edit the public footer sections. Enter each item on its own line using <strong>Name: Value</strong> format.

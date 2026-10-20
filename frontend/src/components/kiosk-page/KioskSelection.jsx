@@ -157,11 +157,8 @@ const KioskSelection = () => {
         {/* Options Grid */}
         <div className="options-container">
           {/* View Menu Card */}
-          <div
-            className="selection-card"
-            onClick={() => handleSelection("menu")}
-          >
-            <h3 className="card-label">Dine-In</h3>
+          <div className="selection-card" onClick={() => handleSelection('menu')}>
+            <h3 className="card-label">DINE-IN</h3>
             <div className="icon-circle">
               <svg
                 viewBox="0 0 24 24"

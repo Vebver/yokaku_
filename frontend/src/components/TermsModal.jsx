@@ -5,7 +5,7 @@ import api from "../api";
 const TermsModal = ({ isOpen, onAccept, onClose, viewOnly = false }) => {
   const [agreed, setAgreed] = useState(false);
   const [termsLoading, setTermsLoading] = useState(false);
-  // Custom terms saved by the Admin (Maintenance > Footer Management).
+  // Custom terms saved by the Admin (Maintenance > Website Information).
   // Empty/null means the default built-in terms below are used.
   const [customTerms, setCustomTerms] = useState(null);
 

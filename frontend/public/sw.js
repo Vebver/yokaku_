@@ -1,8 +1,13 @@
-const CACHE_NAME = "resting-kiosk-v2";
+const CACHE_NAME = "resting-kiosk-v3";
 const APP_SHELL = ["/", "/index.html", "/kiosk-selection", "/manifest.webmanifest"];
+const IS_LOCAL_DEVELOPMENT =
+  self.location.hostname === "localhost" ||
+  self.location.hostname === "127.0.0.1";
 
 self.addEventListener("install", (event) => {
   event.waitUntil((async () => {
+    if (IS_LOCAL_DEVELOPMENT) return;
+
     const cache = await caches.open(CACHE_NAME);
     await cache.addAll(APP_SHELL);
     try {
@@ -36,6 +41,8 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
+  if (IS_LOCAL_DEVELOPMENT) return;
+
   const { request } = event;
   const url = new URL(request.url);
   if (

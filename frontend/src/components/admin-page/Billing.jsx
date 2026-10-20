@@ -43,6 +43,7 @@ const Billing = () => {
   const [rejectReason, setRejectReason] = useState("");
   const [takeoutReservationId, setTakeoutReservationId] = useState(null);
   const [takeoutSummary, setTakeoutSummary] = useState(null);
+  const [takeoutSummaryError, setTakeoutSummaryError] = useState("");
 
   const compareByReservationCreation = (a, b) => {
     const aCreated = new Date(a?.created_at || 0).getTime();
@@ -217,6 +218,7 @@ const Billing = () => {
   const handleReviewClick = async (p) => {
     setSelectedPayment(p);
     setTakeoutSummary(null);
+    setTakeoutSummaryError("");
     setOrderItems([]);
     setLoadingItems(true);
     setShowRejectForm(false);
@@ -230,13 +232,42 @@ const Billing = () => {
 
       setOrderItems(itemsRes.data);
 
+      let paymentDetails = p;
       if (reservationRes && reservationRes.data) {
         const details = reservationRes.data.data || reservationRes.data.reservation || reservationRes.data;
 
-        setSelectedPayment((prev) => ({
-          ...prev,
+        paymentDetails = {
+          ...paymentDetails,
           ...details
-        }));
+        };
+        setSelectedPayment(paymentDetails);
+      }
+
+      const packageName = String(
+        paymentDetails.package_name || paymentDetails.packageName || "",
+      ).toLowerCase();
+      const isEventReservation =
+        String(
+          paymentDetails.reservation_type ||
+            paymentDetails.reservationType ||
+            "",
+        ).toLowerCase() === "event" &&
+        (packageName.includes("standard") ||
+          packageName.includes("premium"));
+
+      if (isEventReservation) {
+        try {
+          const takeoutRes = await api.get(
+            `/reservations/${p.reservation_id}/event-takeout`,
+          );
+          setTakeoutSummary(takeoutRes.data);
+        } catch (takeoutError) {
+          console.error("Takeout summary loading error:", takeoutError);
+          setTakeoutSummaryError(
+            "Takeout values could not be loaded; spend progress may be incomplete.",
+          );
+          showToast("Could not load takeout values for spend progress.", "warning");
+        }
       }
     } catch (err) {
       console.error("Review loading error:", err);
@@ -832,8 +863,10 @@ const Billing = () => {
 
                 {/* ==================== INTEGRATED DYNAMIC EVENT SPEND TRACKER ==================== */}
                 {(() => {
-                  // Kiosk orders only — the reservation downpayment is excluded.
-                  const totalBill = calculateKioskSpend();
+                  // Include kiosk orders and takeout values, but not downpayment.
+                  const kioskSpend = calculateKioskSpend();
+                  const takeoutSpend = Number(takeoutSummary?.takeout_value) || 0;
+                  const totalBill = kioskSpend + takeoutSpend;
 
                   const rawPackageName =
                     selectedPayment?.package_name ||
@@ -927,6 +960,15 @@ const Billing = () => {
                           className="text-muted"
                           style={{ fontSize: "0.72rem" }}
                         >
+                          Spend so far: ₱
+                          {totalBill.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                          })}
+                        </span>
+                        <span
+                          className="text-muted"
+                          style={{ fontSize: "0.72rem" }}
+                        >
                           Target Limit: ₱
                           {targetLimit.toLocaleString(undefined, {
                             minimumFractionDigits: 2,
@@ -955,6 +997,11 @@ const Billing = () => {
                           </span>
                         )}
                       </div>
+                      {takeoutSummaryError && (
+                        <p className="text-danger small mb-0 mt-2">
+                          {takeoutSummaryError}
+                        </p>
+                      )}
                     </div>
                   );
                 })()}
@@ -1057,7 +1104,7 @@ const Billing = () => {
                       setTakeoutReservationId(selectedPayment.reservation_id)
                     }
                   >
-                    View Package Balance / Process Takeout
+                    View Package Balance / Request Meals
                   </button>
                 ) : null;
               })()}

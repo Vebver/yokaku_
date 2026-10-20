@@ -10,7 +10,27 @@ import { ToastProvider } from "./components/ToastContext";
 import { ConfirmationProvider } from "./components/ConfirmationContext";
 import { syncPendingKioskOrders } from "./utils/offlineOrderQueue";
 
-if ("serviceWorker" in navigator) {
+if ("serviceWorker" in navigator && import.meta.env.DEV) {
+  window.addEventListener("load", () => {
+    const clearDevelopmentServiceWorker = async () => {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(
+        registrations.map((registration) => registration.unregister()),
+      );
+
+      const cacheNames = await caches.keys();
+      await Promise.all(
+        cacheNames
+          .filter((name) => name.startsWith("resting-kiosk-"))
+          .map((name) => caches.delete(name)),
+      );
+    };
+
+    clearDevelopmentServiceWorker().catch((error) => {
+      console.warn("Development service worker cleanup failed:", error);
+    });
+  });
+} else if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("/sw.js").catch((error) => {
       console.warn("Service worker registration failed:", error);

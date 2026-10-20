@@ -7,7 +7,7 @@ const DEFAULT_CONTACT =
 const DEFAULT_ABOUT =
   "Location: Purok 3, Ibayo, Marilao, Bulacan, 3019 (PS Bank RCH Building near 7-Eleven)\nOpen Daily: 10:00 AM - 11:00 PM";
 
-// Footer content is managed by the Admin (Maintenance > Footer Management) and
+// Footer content is managed by the Admin (Maintenance > Website Information) and
 // stored in the database. The API falls back to sensible defaults, so the
 // footer always renders even on first load.
 function Footer() {
@@ -88,4 +88,3 @@ function Footer() {
 }
 
 export default Footer
-

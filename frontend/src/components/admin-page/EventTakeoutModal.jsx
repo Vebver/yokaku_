@@ -182,7 +182,7 @@ const EventTakeoutModal = ({ reservationId, onClose, customerMode = false }) => 
         <header className="event-takeout-header">
           <div>
             <span className="event-takeout-eyebrow">{customerMode ? "YOUR RESERVED PACKAGE" : "RESERVED EVENT"} · {reservationId}</span>
-            <h2 id="event-takeout-title">{customerMode ? "Request Takeout" : "Manage Takeout"}</h2>
+            <h2 id="event-takeout-title">{customerMode ? "Request Takeout" : "Event Meal Requests"}</h2>
             {summary && <p>{summary.package_name}</p>}
           </div>
           <button
@@ -279,7 +279,7 @@ const EventTakeoutModal = ({ reservationId, onClose, customerMode = false }) => 
               </section>
 
               <section className="event-takeout-requests">
-                <h3>Takeout activity</h3>
+                <h3>Meal request history</h3>
                 {summary.takeouts.length === 0 ? (
                   <p className="event-takeout-empty">No takeout requests yet.</p>
                 ) : (
