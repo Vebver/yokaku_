@@ -343,8 +343,9 @@ function Product() {
       // Success Alert
       showToast(
         newStatus === 1
-          ? "Added to featured items!"
-          : "Removed from featured items!",
+          ? "Added to featured items successfully!"
+          : "Removed from featured items successfully!",
+        "success",
       );
       fetchData();
     } catch (err) {

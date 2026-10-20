@@ -58,8 +58,6 @@ const TableStatus = ({ compact = false }) => {
   const [linkCandidates, setLinkCandidates] = useState([]);
   const [takeoutReservationId, setTakeoutReservationId] = useState(null);
 
-  const [kioskModeChoice, setKioskModeChoice] = useState({});
-
   // Tick every second to refresh the event countdown timers
   const [now, setNow] = useState(Date.now());
 
@@ -401,39 +399,6 @@ const TableStatus = ({ compact = false }) => {
 
   const todayStr = getTodayDateString();
 
-  // Set the menu mode for a session's kiosk.
-  // 'default' = full event menu, 'unlimited_wings' = wings-only + 90 min timer.
-  const setKioskMode = async (tableId, mode) => {
-    if (!canControlKiosk) {
-      showToast("Only admins or cashiers can change the kiosk mode.");
-      return;
-    }
-    try {
-      setUi((p) => ({ ...p, updating: true }));
-      await api.put(`/admin/kiosk-mode/${tableId}`, {
-        kiosk_mode: mode,
-      });
-      setKioskModeChoice((p) => ({ ...p, [tableId]: mode }));
-      showToast(
-        mode === "unlimited_wings_a"
-          ? "This table is now on Unlimited Wings A (90 min)."
-          : mode === "unlimited_wings_b"
-            ? "This table is now on Unlimited Wings B (90 min)."
-            : mode === "unlimited_wings_c"
-              ? "This table is now on Unlimited Wings C (90 min)."
-              : "This table is back on the full menu.",
-        "success",
-      );
-      fetchData();
-    } catch (err) {
-      showToast(
-        err.response?.data?.error || "Failed to change the kiosk mode.",
-      );
-    } finally {
-      setUi((p) => ({ ...p, updating: false }));
-    }
-  };
-
   // Stats calculation matches visual grid (ignoring future reservations)
   const stats = data.tables.reduce(
     (acc, t) => {
@@ -761,32 +726,6 @@ const TableStatus = ({ compact = false }) => {
                         of the session armed. */}
                         {canControlKiosk && t.reservation_id && (
                           <>
-                            <select
-                              className="form-select form-select-sm py-0 mb-1 fw-bold table-card-action"
-                              style={{ fontSize: "0.7rem" }}
-                              value={
-                                kioskModeChoice[t.table_id] ||
-                                t.kiosk_mode ||
-                                "default"
-                              }
-                              onChange={(e) =>
-                                setKioskMode(t.table_id, e.target.value)
-                              }
-                              disabled={ui.updating}
-                              title="Choose which menu this kiosk shows"
-                            >
-                              <option value="default">Full Menu</option>
-                              <option value="unlimited_wings_a">
-                                Unlimited Wings A (₱239)
-                              </option>
-                              <option value="unlimited_wings_b">
-                                Unlimited Wings B (₱289)
-                              </option>
-                              <option value="unlimited_wings_c">
-                                Unlimited Wings C (₱399)
-                              </option>
-                            </select>
-
                             {isKioskActive ? (
                               <button
                                 className="btn btn-sm btn-danger w-100 py-0 fw-bold table-card-action"

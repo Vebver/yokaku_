@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   PlusSquare,
   Drumstick,
@@ -81,7 +80,6 @@ const categoryIcons = {
 
 const KioskMenu = () => {
   const { showToast } = useToast();
-  const navigate = useNavigate();
   const audioRef = useMemo(() => new Audio(alertMusicFile), []);
   const storage = window.sessionStorage;
 
@@ -127,6 +125,9 @@ const KioskMenu = () => {
     isKioskCategoryVisible(categoryName, menuData, visibleCategoryIds);
 
   const [cart, setCart] = useState([]);
+  // Lets the customer browse the full menu before placing the package order
+  // without losing their current package selections.
+  const [browseFullMenu, setBrowseFullMenu] = useState(false);
   const [billItems, setBillItems] = useState([]);
   const [localBillHistory, setLocalBillHistory] = useState(() =>
     getQueuedOrderItemsForReservation(storage.getItem(SAVED_RES_ID)),
@@ -176,17 +177,29 @@ const KioskMenu = () => {
   const activeSetItem = [...billItems, ...localBillHistory, ...cart].find(
     isSetItem,
   );
-  const setInclusions = activeSetItem
-    ? getPackageInclusions(menuData, "set", activeSetItem).map(
-        (inclusion) => ({
-          ...inclusion,
-          is_unlimited: false,
-          quantity_limit: Math.max(1, Number(inclusion.quantity_limit) || 1),
-        }),
-      )
-    : [];
+  const pendingSetItem = cart.find(
+    (item) => !item.is_placed && isSetItem(item),
+  );
+  const setInclusions = useMemo(
+    () =>
+      activeSetItem
+        ? getPackageInclusions(menuData, "set", activeSetItem).map(
+            (inclusion) => ({
+              ...inclusion,
+              is_unlimited: false,
+              quantity_limit: Math.max(1, Number(inclusion.quantity_limit) || 1),
+            }),
+          )
+        : [],
+    [activeSetItem, menuData],
+  );
   const isSetMode =
-    !isUnlimitedMode && Boolean(activeSetItem) && setInclusions.length > 0;
+    !isUnlimitedMode &&
+    !browseFullMenu &&
+    Boolean(activeSetItem) &&
+    setInclusions.length > 0;
+  const isPackageMenuMode =
+    isSetMode || (isUnlimitedMode && !browseFullMenu);
   const visiblePackageMode = isSetMode ? "set" : kioskMenuMode;
   const visiblePackageInclusions = isSetMode
     ? setInclusions
@@ -197,16 +210,15 @@ const KioskMenu = () => {
       menuData,
       "set",
       setInclusions,
-    ).filter(isCategoryVisible);
-    if (!categories.includes(activeCategory)) {
-      setActiveCategory(categories[0] || "");
+    );
+    if (categories.length > 0 && !categories.includes(activeCategory)) {
+      setActiveCategory(categories[0]);
     }
   }, [
     activeCategory,
     isSetMode,
     menuData,
     setInclusions,
-    visibleCategoryIds,
   ]);
   const activePackageLabel =
     (isSetMode ? activeSetItem : activePackageItem)?.name ||
@@ -263,10 +275,6 @@ const KioskMenu = () => {
   const [isRefillMode, setIsRefillMode] = useState(false);
   const [refillCooldownSeconds, setRefillCooldownSeconds] = useState(0);
   const [cooldownMessage, setCooldownMessage] = useState(null);
-  // Lets the customer browse the full menu before placing the package order
-  // without losing their current package selections.
-  const [browseFullMenu, setBrowseFullMenu] = useState(false);
-
   const resetMenuSelections = () => {
     setSelectedItem(null);
     setSelectedFlavors([]);
@@ -457,13 +465,14 @@ const KioskMenu = () => {
   }, []);
 
   useEffect(() => {
+    if (isPackageMenuMode) return;
     const firstVisibleCategory = Object.keys(menuData).find((category) =>
       isCategoryVisible(category),
     );
     if (!isCategoryVisible(activeCategory)) {
       setActiveCategory(firstVisibleCategory || "");
     }
-  }, [activeCategory, menuData, visibleCategoryIds]);
+  }, [activeCategory, isPackageMenuMode, menuData, visibleCategoryIds]);
 
   const handleEndSession = async () => {
     await playAlert();
@@ -1444,6 +1453,7 @@ const KioskMenu = () => {
         showToast(packageError, "error");
         return;
       }
+      setBrowseFullMenu(false);
       setCart((current) => [...current, { ...item, quantity: 1, customizations: null }]);
       if (inclusions.length > 0) {
         const categories = getPackageCategories(menuData, "set", inclusions);
@@ -1797,10 +1807,8 @@ const KioskMenu = () => {
     }
   }, [cart, billItems, localTotalPaid]);
 
-  // Guarded back-to-default handler. The back button returns the customer to
-  // the default kiosk view (full menu). Once an Unlimited order has actually
-  // been placed, only staff can end the session.
-  const handleBackToSelection = () => {
+  // Return to the full menu without leaving the active kiosk session.
+  const handleBackToMenu = () => {
     if (unlimitedSessionLocked) {
       showToast(
         "You cannot exit during an Unlimited session. Please call staff.",
@@ -1808,13 +1816,37 @@ const KioskMenu = () => {
       );
       return;
     }
-    if (hasPendingUnlimitedPackage) {
-      clearTray();
+    if (pendingSetItem) {
+      setCart((current) =>
+        current.filter(
+          (item) => !isSetItem(item) && !item.is_set_included,
+        ),
+      );
+      setBrowseFullMenu(true);
+      setActiveCategory(
+        Object.keys(menuData).find((category) => isCategoryVisible(category)) ||
+          "",
+      );
       return;
     }
-    clearTray();
-    sessionStorage.setItem("kiosk_exit_to_selection", "true");
-    navigate("/kiosk-selection");
+    if (activeSetItem) {
+      setBrowseFullMenu(true);
+      const firstVisibleCategory = Object.keys(menuData).find((category) =>
+        isCategoryVisible(category),
+      );
+      if (firstVisibleCategory) setActiveCategory(firstVisibleCategory);
+      return;
+    }
+    if (hasPendingUnlimitedPackage) {
+      clearTray();
+      setIsPackageTimerExpired(true);
+      setIsKioskModeResetPending(setupTable != null);
+      return;
+    }
+    const firstVisibleCategory = Object.keys(menuData).find((category) =>
+      isCategoryVisible(category),
+    );
+    if (firstVisibleCategory) setActiveCategory(firstVisibleCategory);
   };
 
   const displayTable =
@@ -1882,7 +1914,7 @@ const KioskMenu = () => {
               {Object.keys(menuData)
                 .filter(
                   (cat) =>
-                    isCategoryVisible(cat) &&
+                    (isPackageMenuMode || isCategoryVisible(cat)) &&
                     ((isUnlimitedMode || isSetMode) &&
                     (!isUnlimitedMode || !browseFullMenu)
                       ? getPackageCategories(
@@ -1999,7 +2031,7 @@ const KioskMenu = () => {
         {!unlimitedSessionLocked && (
           <button
             className="res-btn-cancel"
-            onClick={handleBackToSelection}
+            onClick={handleBackToMenu}
             style={{
               marginRight: "auto",
               background: "#444",

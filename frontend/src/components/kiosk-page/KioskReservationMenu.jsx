@@ -315,11 +315,15 @@ const KioskReservationMenu = () => {
       menuData,
       "set",
       setInclusions,
-    ).filter(isCategoryVisible);
+    );
     const visibleActiveSetCategory = categories.find(
       (category) => category === activeCategory,
     );
-    if (!visibleActiveSetCategory && categories.length > 0) {
+    if (
+      !visibleActiveSetCategory &&
+      categories.length > 0 &&
+      categories[0] !== activeCategory
+    ) {
       setActiveCategory(categories[0]);
     }
   }, [
@@ -491,6 +495,18 @@ const KioskReservationMenu = () => {
       showToast(
         "You cannot exit during an Unlimited session. Please call staff.",
         "info",
+      );
+      return;
+    }
+    if (pendingSetItem) {
+      setCart((current) =>
+        current.filter(
+          (item) => !isSetItem(item) && !item.is_set_included,
+        ),
+      );
+      setActiveCategory(
+        Object.keys(menuData).find((category) => isCategoryVisible(category)) ||
+          "",
       );
       return;
     }
@@ -2083,7 +2099,7 @@ const KioskReservationMenu = () => {
               {Object.keys(menuData)
                 .filter(
                   (cat) =>
-                    isCategoryVisible(cat) &&
+                    (isSetMode || isCategoryVisible(cat)) &&
                     ((isUnlimitedMode || isSetMode)
                       ? getPackageCategories(
                           menuData,
