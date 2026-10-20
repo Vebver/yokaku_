@@ -140,7 +140,7 @@ const KioskSelection = () => {
           
           {/* View Menu Card */}
           <div className="selection-card" onClick={() => handleSelection('menu')}>
-            <h3 className="card-label">WALK-IN</h3>
+            <h3 className="card-label">DINE-IN</h3>
             <div className="icon-circle">
               <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5">
                 <circle cx="12" cy="12" r="9" />

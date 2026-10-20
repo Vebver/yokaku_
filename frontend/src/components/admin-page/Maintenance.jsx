@@ -154,7 +154,7 @@ const Maintenance = () => {
           <HolidayMaintenance />
         </Suspense>
       </section>
-      {/* SECTION 5: Footer Management */}
+      {/* SECTION 5: Website Information */}
       <section className="mb-5 pb-5">
         <Suspense fallback={<SectionLoader />}>
           <FooterMaintenance />

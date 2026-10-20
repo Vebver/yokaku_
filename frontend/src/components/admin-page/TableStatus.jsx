@@ -857,7 +857,7 @@ const TableStatus = ({ compact = false }) => {
                                     setTakeoutReservationId(t.reservation_id)
                                   }
                                 >
-                                  Manage Takeout
+                                  Event Meal Requests
                                 </button>
                               )}
                           </div>
