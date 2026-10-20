@@ -60,6 +60,22 @@ const MyReservation = lazy(() =>
 const Cashier = lazy(() => import("./components/cashier/Cashier.jsx"));
 const FileARefund = lazy(() => import("./components/FileARefund"));
 
+// Prefetch the kiosk chunks during browser idle time so a kiosk tablet that
+// boots straight to /kiosk-selection doesn't wait on a cold chunk download.
+const prefetchKioskChunks = () => {
+  import("./components/kiosk-page/KioskSelection.jsx");
+  import("./components/kiosk-page/KioskMenu.jsx");
+  import("./components/kiosk-page/KioskReservation.jsx");
+  import("./components/kiosk-page/KioskReservationMenu.jsx");
+};
+if (typeof window !== "undefined") {
+  if ("requestIdleCallback" in window) {
+    window.requestIdleCallback(prefetchKioskChunks, { timeout: 3000 });
+  } else {
+    setTimeout(prefetchKioskChunks, 1500);
+  }
+}
+
 import "./Style/App.css";
 
 // Loading fallback shown while a lazy chunk is being fetched

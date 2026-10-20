@@ -154,7 +154,31 @@ const KioskReservationMenu = () => {
   const TOTAL_PAID_KEY = `kiosk_total_paid_${reservationId}`;
   const LAST_REFILL_KEY = `kiosk_last_refill_${reservationId}`;
 
-  const [menuData, setMenuData] = useState({});
+  const [menuData, setMenuData] = useState(() => {
+    // Cache-first seed: group the cached products synchronously on the very
+    // first render so the menu paints instantly while network data loads.
+    try {
+      const cached = JSON.parse(localStorage.getItem("kiosk_menu_cache") || "[]");
+      const grouped = {};
+      cached.forEach((item) => {
+        if (item.is_available === 0 || item.is_available === false) return;
+        const cat = item.category_name || "General";
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push({
+          id: item.item_id,
+          name: item.menu_name || item.name,
+          image: item.local_path || item.image_url || "",
+          price: item.price,
+          category: cat,
+          category_id: item.category_id,
+          package_inclusions: item.package_inclusions || [],
+        });
+      });
+      return grouped;
+    } catch {
+      return {};
+    }
+  });
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("");
   const [tableKioskMenuMode, setTableKioskMenuMode] = useState("default");
@@ -1741,7 +1765,9 @@ const KioskReservationMenu = () => {
   }, [setupTable]);
 
   // ==================== LOADING RENDER ====================
-  if (loading || kioskMode === "loading") {
+  // Only block when we have nothing cached to show; a cached menu paints
+  // instantly while the network data refreshes it.
+  if ((loading && Object.keys(menuData).length === 0) || kioskMode === "loading") {
     return <div className="loading-container">Loading Menu...</div>;
   }
 

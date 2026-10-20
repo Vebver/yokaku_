@@ -297,7 +297,7 @@ const EventTakeout = {
   },
 
   updateStatus: async (takeoutId, nextStatus) => {
-    if (!Object.hasOwn(VALID_TRANSITIONS, nextStatus)) {
+    if (!Object.values(VALID_TRANSITIONS).includes(nextStatus)) {
       throw new Error("Invalid takeout status.");
     }
     const conn = await db.getConnection();

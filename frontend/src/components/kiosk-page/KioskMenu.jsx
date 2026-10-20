@@ -1030,6 +1030,51 @@ const KioskMenu = () => {
     setShowAllergyModal(true);
   };
 
+  // Shared grouping logic used for both live fetches and the localStorage
+  // cache, so the kiosk can paint the cached menu instantly on cold start.
+  const applyMenuData = (data) => {
+    const grouped = data.reduce((acc, item) => {
+      if (item.is_available === 0 || item.is_available === false) return acc;
+
+      const cat = item.category_name || "General";
+      if (!acc[cat]) acc[cat] = [];
+      let img = item.local_path || item.image_url;
+      if (img && !img.startsWith("http")) {
+        const cleanPath = img.startsWith("/") ? img.substring(1) : img;
+        const cleanBase = BASE_URL.endsWith("/") ? BASE_URL : `${BASE_URL}/`;
+        img = `${cleanBase}${cleanPath}`;
+      }
+      const stockBlocked =
+        item.is_stock_available === 0 || item.is_stock_available === false;
+      acc[cat].push({
+        id: item.item_id,
+        name: item.menu_name || item.name,
+        image: img,
+        price: item.price,
+        category: cat,
+        description: item.description || "",
+        isStockAvailable: !stockBlocked,
+        category_id: item.category_id,
+        package_inclusions: item.package_inclusions || [],
+        unavailableReason: stockBlocked
+          ? item.availability_reason || "Not available"
+          : null,
+      });
+      return acc;
+    }, {});
+    setMenuData(grouped);
+    setDynamicFlavors((grouped["Chicken"] || []).map((i) => i.name));
+    setDynamicRamenFlavors((grouped["Ramen"] || []).map((i) => i.name));
+    setDynamicDrinks(getDrinkOptions(grouped).map((item) => item.name));
+    const firstVisibleCat = Object.keys(grouped).find(
+      (cat) => !HIDDEN_CATEGORIES.includes(cat),
+    );
+    setActiveCategory((prev) => {
+      if (prev && grouped[prev]) return prev;
+      return firstVisibleCat || prev;
+    });
+  };
+
   const fetchMenu = async () => {
     try {
       const response = await fetch(`${API_BASE}/products`, {
@@ -1039,76 +1084,12 @@ const KioskMenu = () => {
       if (Array.isArray(data) && data.length > 0) {
         localStorage.setItem("kiosk_menu_cache", JSON.stringify(data));
       }
-      const grouped = data.reduce((acc, item) => {
-        if (item.is_available === 0 || item.is_available === false) return acc;
-
-        const cat = item.category_name || "General";
-        if (!acc[cat]) acc[cat] = [];
-        let img = item.local_path || item.image_url;
-        if (img && !img.startsWith("http")) {
-          const cleanPath = img.startsWith("/") ? img.substring(1) : img;
-          const cleanBase = BASE_URL.endsWith("/") ? BASE_URL : `${BASE_URL}/`;
-          img = `${cleanBase}${cleanPath}`;
-        }
-        const stockBlocked =
-          item.is_stock_available === 0 || item.is_stock_available === false;
-        acc[cat].push({
-          id: item.item_id,
-          name: item.menu_name || item.name,
-          image: img,
-          price: item.price,
-          category: cat,
-          description: item.description || "",
-          isStockAvailable: !stockBlocked,
-          category_id: item.category_id,
-          package_inclusions: item.package_inclusions || [],
-          unavailableReason: stockBlocked
-            ? item.availability_reason || "Not available"
-            : null,
-        });
-        return acc;
-      }, {});
-      setMenuData(grouped);
-      setDynamicFlavors((grouped["Chicken"] || []).map((i) => i.name));
-      setDynamicRamenFlavors((grouped["Ramen"] || []).map((i) => i.name));
-      setDynamicDrinks(getDrinkOptions(grouped).map((item) => item.name));
-      const firstVisibleCat = Object.keys(grouped).find(
-        (cat) => !HIDDEN_CATEGORIES.includes(cat),
-      );
-      setActiveCategory((prev) => {
-        if (prev && grouped[prev]) return prev;
-        return firstVisibleCat || prev;
-      });
+      applyMenuData(data);
     } catch (e) {
       console.error(e);
       try {
         const cachedProducts = JSON.parse(localStorage.getItem("kiosk_menu_cache") || "[]");
-        const grouped = cachedProducts.reduce((acc, item) => {
-          if (item.is_available === 0 || item.is_available === false) return acc;
-          const category = item.category_name || "General";
-          if (!acc[category]) acc[category] = [];
-          let image = item.local_path || item.image_url;
-          if (image && !image.startsWith("http")) {
-            image = `${BASE_URL}/${image.replace(/^\//, "")}`;
-          }
-          acc[category].push({
-            id: item.item_id,
-            name: item.menu_name || item.name,
-            image,
-            price: item.price,
-            category,
-            description: item.description || "",
-            isStockAvailable: item.is_stock_available !== 0 && item.is_stock_available !== false,
-            category_id: item.category_id,
-            package_inclusions: item.package_inclusions || [],
-          });
-          return acc;
-        }, {});
-        setMenuData(grouped);
-        setDynamicFlavors((grouped.Chicken || []).map((item) => item.name));
-        setDynamicRamenFlavors((grouped.Ramen || []).map((item) => item.name));
-        setDynamicDrinks(getDrinkOptions(grouped).map((item) => item.name));
-        setActiveCategory(Object.keys(grouped).find((category) => !HIDDEN_CATEGORIES.includes(category)) || "");
+        if (cachedProducts.length > 0) applyMenuData(cachedProducts);
       } catch (cacheError) {
         console.warn("No cached kiosk menu is available.", cacheError);
       }
@@ -1118,6 +1099,17 @@ const KioskMenu = () => {
   };
 
   useEffect(() => {
+    // Cache-first: paint the menu immediately from localStorage so the kiosk
+    // never sits on a blank "Loading Menu..." screen during a cold start.
+    // The live fetch below then refreshes it in the background.
+    try {
+      const cachedProducts = JSON.parse(
+        localStorage.getItem("kiosk_menu_cache") || "[]",
+      );
+      if (cachedProducts.length > 0) applyMenuData(cachedProducts);
+    } catch {
+      /* no cache — fall through to the network fetch */
+    }
     fetchCurrentBill();
   }, []);
 
@@ -1676,7 +1668,10 @@ const KioskMenu = () => {
     setupTable ||
     window.localStorage.getItem(FIXED_KIOSK_KEY);
 
-  if (loading) return <div className="loading-container">Loading Menu...</div>;
+  // Only show the blocking loader when we truly have nothing to render —
+  // a cached menu paints instantly while the live fetch refreshes it.
+  if (loading && Object.keys(menuData).length === 0)
+    return <div className="loading-container">Loading Menu...</div>;
 
   return (
     <div className="res-kiosk-container">
