@@ -219,6 +219,15 @@ const inclusionLimit = (inclusion) =>
     ? Infinity
     : Math.max(1, Number(inclusion.quantity_limit) || 1);
 
+const isSetIncludedItem = (item) =>
+  Boolean(
+    item?.is_set_included ||
+      item?.is_package_included ||
+      JSON.stringify(item?.customizations || "")
+        .toLowerCase()
+        .includes("[package included]"),
+  );
+
 export const getPackageQuantityLimit = (
   cart,
   item,
@@ -249,11 +258,7 @@ export const getPackageQuantityLimit = (
             (total, cartItem) =>
               total +
               (matchesInclusion(cartItem, inclusion) &&
-              (mode !== "set" ||
-                cartItem.is_set_included ||
-                String(cartItem.customizations || "").includes(
-                  "[PACKAGE INCLUDED]",
-                ))
+              (mode !== "set" || isSetIncludedItem(cartItem))
                 ? Number.parseInt(cartItem.quantity, 10) || 1
                 : 0),
             0,
@@ -369,12 +374,19 @@ export const getPackageItems = (items, category, mode, packageInclusions = []) =
 
 export const sanitizePackageCart = (cart, mode, packageInclusions = []) => {
   const rules = getUnlimitedPackage(mode);
-  if (!rules) return cart;
+  if (!rules && packageInclusions.length === 0) return cart;
 
   if (packageInclusions.length > 0) {
     const counts = new Map();
     return (cart || []).reduce((validItems, item) => {
-      if (!isItemIncludedInPackage(item, mode, packageInclusions)) {
+      if (mode === "set" && isSetItem(item)) {
+        validItems.push(item);
+        return validItems;
+      }
+      if (
+        !isItemIncludedInPackage(item, mode, packageInclusions) ||
+        (mode === "set" && !isSetIncludedItem(item))
+      ) {
         return validItems;
       }
       const matchingInclusions = packageInclusions
@@ -398,6 +410,8 @@ export const sanitizePackageCart = (cart, mode, packageInclusions = []) => {
       return validItems;
     }, []);
   }
+
+  if (!rules) return cart;
 
   let chickenCount = 0;
   let drinkCount = 0;
@@ -440,7 +454,7 @@ export const validatePackageCart = (cart, mode, packageInclusions = []) => {
   const foodItems = (cart || []).filter((item) => !isNonFoodCharge(item));
   const packageItems = foodItems.filter((item) =>
     isItemIncludedInPackage(item, mode, packageInclusions) &&
-    (!isSetItem(item) || item.is_set_included),
+    (mode !== "set" || (!isSetItem(item) && isSetIncludedItem(item))),
   );
   const sanitized = sanitizePackageCart(packageItems, mode, packageInclusions);
   if (packageInclusions.length > 0) {

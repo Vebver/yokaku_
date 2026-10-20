@@ -760,8 +760,8 @@ const KioskMenu = () => {
     }
     const packageError = validatePackageCart(
       [...existingOrderItems, ...itemsToSubmit],
-      kioskMenuMode,
-      packageInclusions,
+      visiblePackageMode,
+      visiblePackageInclusions,
     );
     if (packageError) {
       showToast(packageError, "error");
@@ -823,6 +823,8 @@ const KioskMenu = () => {
                   : `[TAKE-OUT] ${i.customizations || ""}`
                 : itemCustomizations,
             is_refill: Boolean(i.is_refill),
+            is_package_included: Boolean(i.is_package_included),
+            is_set_included: Boolean(i.is_set_included),
           };
         }),
         allergy_note: allergyNote !== "None" ? allergyNote : null,
@@ -1080,8 +1082,8 @@ const KioskMenu = () => {
         ...(billItems.length > 0 ? billItems : localBillHistory),
         ...cart,
       ],
-      kioskMenuMode,
-      packageInclusions,
+      visiblePackageMode,
+      visiblePackageInclusions,
     );
     if (packageError) {
       showToast(packageError, "error");
@@ -1433,6 +1435,15 @@ const KioskMenu = () => {
         return;
       }
       const inclusions = getPackageInclusions(menuData, "set", item);
+      const packageError = validatePackageCart(
+        [...packageItems, { ...item, quantity: 1, customizations: null }],
+        "set",
+        inclusions,
+      );
+      if (packageError) {
+        showToast(packageError, "error");
+        return;
+      }
       setCart((current) => [...current, { ...item, quantity: 1, customizations: null }]);
       if (inclusions.length > 0) {
         const categories = getPackageCategories(menuData, "set", inclusions);
@@ -1511,8 +1522,8 @@ const KioskMenu = () => {
       };
       const packageError = validatePackageCart(
         [...packageItems, refillItem],
-        kioskMenuMode,
-        packageInclusions,
+        visiblePackageMode,
+        visiblePackageInclusions,
       );
       if (packageError) {
         showToast(packageError, "error");
@@ -1557,18 +1568,25 @@ const KioskMenu = () => {
         showToast("This item is not included in the set or its limit was reached.");
         return;
       }
-      setCart((current) => [
-        ...current,
-        {
-          ...item,
-          price: 0,
-          quantity: 1,
-          customizations: "[PACKAGE INCLUDED]",
-          is_package_included: true,
-          is_set_included: true,
-          is_refill: false,
-        },
-      ]);
+      const setIncludedItem = {
+        ...item,
+        price: 0,
+        quantity: 1,
+        customizations: "[PACKAGE INCLUDED]",
+        is_package_included: true,
+        is_set_included: true,
+        is_refill: false,
+      };
+      const packageError = validatePackageCart(
+        [...packageItems, setIncludedItem],
+        "set",
+        setInclusions,
+      );
+      if (packageError) {
+        showToast(packageError, "error");
+        return;
+      }
+      setCart((current) => [...current, setIncludedItem]);
       return;
     }
 
@@ -2727,14 +2745,14 @@ const KioskMenu = () => {
                 },
               ];
             }
-            if (!isUnlimitedMode) return nextCart;
+            if (!isUnlimitedMode && !isSetMode) return nextCart;
             const packageError = validatePackageCart(
               [
                 ...(billItems.length > 0 ? billItems : localBillHistory),
                 ...nextCart,
               ],
-              kioskMenuMode,
-              packageInclusions,
+              visiblePackageMode,
+              visiblePackageInclusions,
             );
             if (packageError) {
               showToast(packageError, "error");
@@ -2742,8 +2760,8 @@ const KioskMenu = () => {
             }
             const validated = sanitizePackageCart(
               nextCart,
-              kioskMenuMode,
-              packageInclusions,
+              visiblePackageMode,
+              visiblePackageInclusions,
             );
             if (
               validated.length !== nextCart.length ||
@@ -2755,8 +2773,12 @@ const KioskMenu = () => {
           });
         }}
         allProducts={
-          isUnlimitedMode
-            ? getPackageMenuData(menuData, kioskMenuMode, packageInclusions)
+          isUnlimitedMode || isSetMode
+            ? getPackageMenuData(
+                menuData,
+                visiblePackageMode,
+                visiblePackageInclusions,
+              )
             : menuData
         }
         flavorLimit={
@@ -2787,6 +2809,16 @@ const KioskMenu = () => {
                 kioskMenuMode,
                 packageInclusions,
               )
+            : isSetMode
+              ? getPackageQuantityLimit(
+                  [
+                    ...(billItems.length > 0 ? billItems : localBillHistory),
+                    ...cart,
+                  ],
+                  selectedItem,
+                  "set",
+                  setInclusions,
+                )
             : 20
         }
       />

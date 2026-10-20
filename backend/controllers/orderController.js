@@ -91,6 +91,9 @@ const orderController = {
       });
       const { mode: kioskMode } = packageValidation;
       const includedItemIds = new Set(packageValidation.packageIncludedItemIds || []);
+      const setIncludedItemIds = new Set(
+        packageValidation.setIncludedItemIds || [],
+      );
       let hasPackageCardInSession = items.some(
         (item) =>
           Number(item.item_id || item.id) ===
@@ -113,30 +116,6 @@ const orderController = {
       const packageIncludedItemIds = new Set(
         hasPackageCardInSession ? includedItemIds : [],
       );
-      let hasRamenSetInSession = items.some(
-        (item) =>
-          Number(item.item_id || item.id) ===
-          Number(packageValidation.setPackageCardItemId),
-      );
-      if (
-        !hasRamenSetInSession &&
-        packageValidation.setPackageCardItemId != null
-      ) {
-        const [existingSetRows] = await conn.execute(
-          `SELECT 1
-           FROM kiosk_orders
-           WHERE reservation_id = ? AND item_id = ?
-           LIMIT 1`,
-          [reservation_id, packageValidation.setPackageCardItemId],
-        );
-        hasRamenSetInSession = existingSetRows.length > 0;
-      }
-      if (hasRamenSetInSession) {
-        for (const itemId of packageValidation.setIncludedItemIds || []) {
-          packageIncludedItemIds.add(Number(itemId));
-        }
-      }
-
       const hasRefill = items.some(
         (item) =>
           Boolean(item.is_refill) ||
@@ -328,7 +307,15 @@ const orderController = {
 
       for (const item of items) {
         const itemId = Number(item.item_id || item.id);
-        const isPackageIncluded = packageIncludedItemIds.has(itemId);
+        const isMarkedLine =
+          Boolean(item.is_package_included) ||
+          JSON.stringify(item.customizations || "")
+            .toLowerCase()
+            .includes(PACKAGE_INCLUDED_MARKER.toLowerCase());
+        const isPackageIncluded =
+          (includedItemIds.has(itemId) &&
+            packageIncludedItemIds.has(itemId)) ||
+          (setIncludedItemIds.has(itemId) && isMarkedLine);
         let customizations = item.customizations;
         if (isPackageIncluded) {
           const alreadyMarked = JSON.stringify(customizations || "")
@@ -366,7 +353,7 @@ const orderController = {
           itemId,
           Number(item.quantity),
           customizations,
-          item.is_refill || packageIncludedItemIds.has(itemId) ? 1 : 0,
+          item.is_refill || isPackageIncluded ? 1 : 0,
           req.body.allergy_note,
         );
 

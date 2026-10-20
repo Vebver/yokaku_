@@ -188,32 +188,47 @@ const validateUnlimitedPackageOrder = async (
        LEFT JOIN categories c ON c.category_id = mi.category_id
        WHERE LOWER(mi.menu_name) REGEXP '(^|[^[:alnum:]])set([^[:alnum:]]|$)'`,
     );
+    const setCardIds = (setCards || []).map((card) => Number(card.item_id));
+    const setCardIdSet = new Set(setCardIds);
+    const requestedSetItems = items.filter((item) =>
+      setCardIdSet.has(Number(item.item_id || item.id)),
+    );
     const requestedSet = (setCards || []).find((card) =>
-      items.some(
+      requestedSetItems.some(
         (item) => Number(item.item_id || item.id) === Number(card.item_id),
       ),
     );
-    if (requestedSet && reservationId) {
+    if (
+      requestedSetItems.reduce(
+        (total, item) => total + Number(item.quantity),
+        0,
+      ) > 1
+    ) {
+      throw new Error("A set is already in this order.");
+    }
+    if (setCardIds.length > 0 && reservationId) {
       const [existingSetOrders] = await conn.execute(
         `SELECT 1 FROM kiosk_orders
-         WHERE reservation_id = ? AND item_id = ? LIMIT 1`,
-        [reservationId, requestedSet.item_id],
+         WHERE reservation_id = ?
+           AND item_id IN (${setCardIds.map(() => "?").join(",")})
+         LIMIT 1`,
+        [reservationId, ...setCardIds],
       );
-      if (existingSetOrders.length > 0) {
+      if (existingSetOrders.length > 0 && requestedSetItems.length > 0) {
         throw new Error("A set is already in this order.");
       }
     }
     let setCard = requestedSet || null;
-    if (!setCard && reservationId) {
+    if (!setCard && reservationId && setCardIds.length > 0) {
       const [existingSetCards] = await conn.execute(
         `SELECT mi.item_id, mi.menu_name, c.category_name
          FROM kiosk_orders ko
          JOIN menu_items mi ON mi.item_id = ko.item_id
          LEFT JOIN categories c ON c.category_id = mi.category_id
          WHERE ko.reservation_id = ?
-           AND LOWER(mi.menu_name) REGEXP '(^|[^[:alnum:]])set([^[:alnum:]]|$)'
+           AND mi.item_id IN (${setCardIds.map(() => "?").join(",")})
          ORDER BY ko.created_at DESC LIMIT 1`,
-        [reservationId],
+        [reservationId, ...setCardIds],
       );
       setCard = existingSetCards[0] || null;
     }

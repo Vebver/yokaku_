@@ -55,6 +55,7 @@ import {
   getCategory,
   getUnlimitedPackage,
   inferUnlimitedPackageMode,
+  isPackageCardForMode,
   isJuiceItem,
   isChickenCategory,
   isUnlimitedPackageItem,
@@ -241,15 +242,6 @@ const KioskReservationMenu = () => {
     };
   }, []);
 
-  useEffect(() => {
-    const firstVisibleCategory = Object.keys(menuData).find((category) =>
-      isCategoryVisible(category),
-    );
-    if (!isCategoryVisible(activeCategory)) {
-      setActiveCategory(firstVisibleCategory || "");
-    }
-  }, [activeCategory, menuData, visibleCategoryIds]);
-
   // An Unlimited order counts as "placed" only once it exists in the bill
   // (server-synced) or local bill history — not while it's still sitting in
   // the cart. The back-button lock engages only after that point.
@@ -284,22 +276,35 @@ const KioskReservationMenu = () => {
     kioskMenuMode,
     activePackageItem,
   );
-  const activeSetItem = [...billItems, ...localBillHistory, ...cart].find(
-    isSetItem,
+  const pendingSetItem = cart.find(
+    (item) => !item.is_placed && isSetItem(item),
   );
-  const setInclusions = activeSetItem
-    ? getPackageInclusions(menuData, "set", activeSetItem).map(
-        (inclusion) => ({
-          ...inclusion,
-          is_unlimited: false,
-          quantity_limit: Math.max(1, Number(inclusion.quantity_limit) || 1),
-        }),
-      )
-    : [];
+  const setInclusions = useMemo(
+    () =>
+      pendingSetItem
+        ? getPackageInclusions(menuData, "set", pendingSetItem).map(
+            (inclusion) => ({
+              ...inclusion,
+              is_unlimited: false,
+              quantity_limit: Math.max(1, Number(inclusion.quantity_limit) || 1),
+            }),
+          )
+        : [],
+    [menuData, pendingSetItem],
+  );
   const isSetMode =
     !isUnlimitedMode &&
-    Boolean(activeSetItem) &&
+    Boolean(pendingSetItem) &&
     setInclusions.length > 0;
+  useEffect(() => {
+    const firstVisibleCategory = Object.keys(menuData).find((category) =>
+      isCategoryVisible(category),
+    );
+    if (isSetMode) return;
+    if (!isCategoryVisible(activeCategory)) {
+      setActiveCategory(firstVisibleCategory || "");
+    }
+  }, [activeCategory, isSetMode, menuData, visibleCategoryIds]);
   const visiblePackageMode = isSetMode ? "set" : kioskMenuMode;
   const visiblePackageInclusions = isSetMode
     ? setInclusions
@@ -311,8 +316,11 @@ const KioskReservationMenu = () => {
       "set",
       setInclusions,
     ).filter(isCategoryVisible);
-    if (!categories.includes(activeCategory)) {
-      setActiveCategory(categories[0] || "");
+    const visibleActiveSetCategory = categories.find(
+      (category) => category === activeCategory,
+    );
+    if (!visibleActiveSetCategory && categories.length > 0) {
+      setActiveCategory(categories[0]);
     }
   }, [
     activeCategory,
@@ -321,6 +329,7 @@ const KioskReservationMenu = () => {
     setInclusions,
     visibleCategoryIds,
   ]);
+  const activeSetItem = pendingSetItem || billItems.find(isSetItem) || null;
   const refillTargets =
     packageInclusions.length > 0
       ? getUnlimitedPackageRefillItems(menuData, packageInclusions).filter(
@@ -1107,6 +1116,16 @@ const KioskReservationMenu = () => {
                 price: i.item_price || i.price,
                 quantity: parseInt(i.qty || i.quantity || 1),
                 customizations: i.customizations,
+                is_package_included:
+                  Boolean(i.is_package_included) ||
+                  JSON.stringify(i.customizations || "")
+                    .toLowerCase()
+                    .includes("[package included]"),
+                is_set_included:
+                  Boolean(i.is_set_included) ||
+                  JSON.stringify(i.customizations || "")
+                    .toLowerCase()
+                    .includes("[package included]"),
                 category: i.category_name,
                 category_id: i.category_id,
                 is_placed: true,
@@ -1203,8 +1222,8 @@ const KioskReservationMenu = () => {
   const confirmPaymentChoice = async (choice) => {
     const packageError = validatePackageCart(
       packageOrderItems,
-      kioskMenuMode,
-      packageInclusions,
+      visiblePackageMode,
+      visiblePackageInclusions,
     );
     if (packageError) {
       showToast(packageError, "error");
@@ -1253,6 +1272,7 @@ const KioskReservationMenu = () => {
               quantity: i.quantity,
               customizations: i.customizations,
               is_package_included: i.is_package_included,
+              is_set_included: i.is_set_included,
             })),
             allergy_note:
               reservationDetails?.allergy ??
@@ -1446,8 +1466,8 @@ const KioskReservationMenu = () => {
       const currentItems = await fetchCurrentBill();
       const packageError = validatePackageCart(
         [...(currentItems || []), ...cart.filter((item) => !item.is_placed)],
-        kioskMenuMode,
-        packageInclusions,
+        visiblePackageMode,
+        visiblePackageInclusions,
       );
       if (packageError) {
         showToast(packageError, "error");
@@ -1613,6 +1633,10 @@ const KioskReservationMenu = () => {
   };
 
   const handleItemClick = (item) => {
+    if (item?.isStockAvailable === false) {
+      showToast(`${item.name || item.menu_name} is currently not available.`, "error");
+      return;
+    }
     const itemPackageMode = inferUnlimitedPackageMode(item);
     if (isSetItem(item)) {
       if (packageOrderItems.some(isSetItem)) {
@@ -1620,6 +1644,15 @@ const KioskReservationMenu = () => {
         return;
       }
       const inclusions = getPackageInclusions(menuData, "set", item);
+      const packageError = validatePackageCart(
+        [...packageOrderItems, { ...item, quantity: 1, customizations: null }],
+        "set",
+        inclusions,
+      );
+      if (packageError) {
+        showToast(packageError, "error");
+        return;
+      }
       setCart((current) => [
         ...current,
         {
@@ -1765,18 +1798,25 @@ const KioskReservationMenu = () => {
         );
         return;
       }
-      setCart((current) => [
-        ...current,
-        {
-          ...item,
-          price: 0,
-          quantity: 1,
-          customizations: "[PACKAGE INCLUDED]",
-          is_refill: false,
-          is_package_included: true,
-          is_set_included: true,
-        },
-      ]);
+      const setIncludedItem = {
+        ...item,
+        price: 0,
+        quantity: 1,
+        customizations: "[PACKAGE INCLUDED]",
+        is_refill: false,
+        is_package_included: true,
+        is_set_included: true,
+      };
+      const packageError = validatePackageCart(
+        [...packageOrderItems, setIncludedItem],
+        "set",
+        setInclusions,
+      );
+      if (packageError) {
+        showToast(packageError, "error");
+        return;
+      }
+      setCart((current) => [...current, setIncludedItem]);
       return;
     }
 
@@ -2610,11 +2650,11 @@ const KioskReservationMenu = () => {
                 },
               ];
             }
-            if (!isUnlimitedMode) return nextCart;
+            if (!isUnlimitedMode && !isSetMode) return nextCart;
             const packageError = validatePackageCart(
               nextCart,
-              kioskMenuMode,
-              packageInclusions,
+              visiblePackageMode,
+              visiblePackageInclusions,
             );
             if (packageError) {
               showToast(packageError, "error");
@@ -2622,8 +2662,8 @@ const KioskReservationMenu = () => {
             }
             const validated = sanitizePackageCart(
               nextCart,
-              kioskMenuMode,
-              packageInclusions,
+              visiblePackageMode,
+              visiblePackageInclusions,
             );
             if (
               validated.length !== nextCart.length ||
@@ -2635,8 +2675,12 @@ const KioskReservationMenu = () => {
           });
         }}
         allProducts={
-          isUnlimitedMode
-            ? getPackageMenuData(menuData, kioskMenuMode, packageInclusions)
+          isUnlimitedMode || isSetMode
+            ? getPackageMenuData(
+                menuData,
+                visiblePackageMode,
+                visiblePackageInclusions,
+              )
             : menuData
         }
         flavorLimit={
@@ -2657,6 +2701,13 @@ const KioskReservationMenu = () => {
                 kioskMenuMode,
                 packageInclusions,
               )
+            : isSetMode
+              ? getPackageQuantityLimit(
+                  packageOrderItems,
+                  selectedItem,
+                  "set",
+                  setInclusions,
+                )
             : 20
         }
       />
