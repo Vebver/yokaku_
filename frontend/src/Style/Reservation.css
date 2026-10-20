@@ -23,15 +23,25 @@
   color: black !important;
   width: 95% !important;
   max-width: 550px !important;
-  max-height: 90vh !important;
+
+  /* Use dvh for mobile viewport */
+  max-height: 90dvh !important;
+
   padding: 35px !important;
   border-radius: 20px !important;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5) !important;
-  display: block !important;
+
+  /* CRITICAL CHANGE: Display Flex, not block */
+  display: flex !important;
+  flex-direction: column !important;
+
   visibility: visible !important;
   opacity: 1 !important;
   z-index: 10000000 !important;
-  overflow-y: auto;
+
+  /* CRITICAL CHANGE: Hide overflow on the wrapper so the inner div scrolls */
+  overflow: hidden !important;
+
   text-align: center;
 }
 
