@@ -79,7 +79,6 @@ const TermsModal = ({ isOpen, onAccept, onClose, viewOnly = false }) => {
           maxWidth: "500px",
           padding: "30px",
           position: "relative",
-          // REMOVED: maxHeight: "90vh",  <-- This was causing the overflow on mobile
           display: "flex",
           flexDirection: "column",
           margin: "auto",

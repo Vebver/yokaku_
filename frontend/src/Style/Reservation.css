@@ -23,26 +23,25 @@
   color: black !important;
   width: 95% !important;
   max-width: 550px !important;
-
-  /* Use dvh for mobile viewport */
+  /* Use dvh to account for mobile browser toolbars */
   max-height: 90dvh !important;
-
-  padding: 35px !important;
+  padding: 30px !important;
   border-radius: 20px !important;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5) !important;
-
-  /* CRITICAL CHANGE: Display Flex, not block */
   display: flex !important;
   flex-direction: column !important;
-
   visibility: visible !important;
   opacity: 1 !important;
   z-index: 10000000 !important;
-
-  /* CRITICAL CHANGE: Hide overflow on the wrapper so the inner div scrolls */
-  overflow: hidden !important;
-
+  overflow: hidden !important; /* Let the inner div scroll, not the modal itself */
   text-align: center;
+}
+
+/* Force the scrollable terms text area to respect the modal's max-height */
+.res-modal-content > div[style*="overflow-y: auto"] {
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
 }
 
 /* --- 2. LOGO & TITLES (DESIGN RESTORED) --- */
