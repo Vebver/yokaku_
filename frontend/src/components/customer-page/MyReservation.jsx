@@ -443,12 +443,12 @@ const MyReservation = () => {
       reservation.reservationType === "event" ||
       reservation.reservationType === "EVENT";
 
-    // ✅ FIX: Force 40 guests for events
     if (isEvent) {
       return "40 Guests";
     }
 
-    const numGuests = reservation.num_guests;
+    // ✅ FIX: Fallback to 'guests' if 'num_guests' is null/empty
+    const numGuests = reservation.num_guests || reservation.guests;
 
     if (!numGuests && numGuests !== 0) return "Not specified";
 
