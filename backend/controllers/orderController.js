@@ -5,6 +5,28 @@ const Notification = require("../models/Notification");
 const { validateUnlimitedPackageOrder } = require("../utils/unlimitedPackageRules");
 const REFILL_COOLDOWN_MS = require("../../shared/refillCooldown.json").milliseconds;
 const PACKAGE_INCLUDED_MARKER = "[PACKAGE INCLUDED]";
+
+const stripPackageIncludedMarker = (value) => {
+  if (typeof value === "string") {
+    return value
+      .replace(/\[PACKAGE INCLUDED\]/gi, "")
+      .replace(/\s*\|\s*$/, "")
+      .trim();
+  }
+  if (Array.isArray(value)) {
+    return value
+      .map(stripPackageIncludedMarker)
+      .filter((entry) => entry !== "");
+  }
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([key]) => key !== "package_included_marker")
+        .map(([key, entry]) => [key, stripPackageIncludedMarker(entry)]),
+    );
+  }
+  return value;
+};
 const getManilaDateTime = () => ({
   date: new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" }),
   time: new Date().toLocaleTimeString("en-US", {
@@ -91,6 +113,29 @@ const orderController = {
       const packageIncludedItemIds = new Set(
         hasPackageCardInSession ? includedItemIds : [],
       );
+      let hasRamenSetInSession = items.some(
+        (item) =>
+          Number(item.item_id || item.id) ===
+          Number(packageValidation.setPackageCardItemId),
+      );
+      if (
+        !hasRamenSetInSession &&
+        packageValidation.setPackageCardItemId != null
+      ) {
+        const [existingSetRows] = await conn.execute(
+          `SELECT 1
+           FROM kiosk_orders
+           WHERE reservation_id = ? AND item_id = ?
+           LIMIT 1`,
+          [reservation_id, packageValidation.setPackageCardItemId],
+        );
+        hasRamenSetInSession = existingSetRows.length > 0;
+      }
+      if (hasRamenSetInSession) {
+        for (const itemId of packageValidation.setIncludedItemIds || []) {
+          packageIncludedItemIds.add(Number(itemId));
+        }
+      }
 
       const hasRefill = items.some(
         (item) =>
@@ -305,6 +350,8 @@ const orderController = {
               customizations = PACKAGE_INCLUDED_MARKER;
             }
           }
+        } else {
+          customizations = stripPackageIncludedMarker(customizations);
         }
         const [menuData] = await conn.execute(
           "SELECT menu_name FROM menu_items WHERE item_id = ?",

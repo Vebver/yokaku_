@@ -41,22 +41,20 @@ function Product() {
     is_featured: 0,
   });
 
-  // Dynamic Unlimited package inclusions (only editable for package items).
+  // Configured inclusions for Unlimited packages and set products.
   const [inclusions, setInclusions] = useState([]);
 
-  // A package item is any menu item under an "Unlimited" category.
-  const isPackageItem =
-    String(
-      categories.find(
-        (category) =>
-          Number(category.category_id) === Number(newItem.category_id),
-      )?.category_name || "",
-    )
-      .toLowerCase()
-      .includes("unlimited") ||
-    String(newItem.name || "")
-      .toLowerCase()
-      .includes("unlimited");
+  const selectedCategoryName = String(
+    categories.find(
+      (category) =>
+        Number(category.category_id) === Number(newItem.category_id),
+    )?.category_name || "",
+  ).toLowerCase();
+  const isSet = /\bset\b/i.test(String(newItem.name || ""));
+  const isUnlimitedPackage =
+    selectedCategoryName.includes("unlimited") ||
+    String(newItem.name || "").toLowerCase().includes("unlimited");
+  const isPackageItem = isUnlimitedPackage || isSet;
 
   const addInclusion = () =>
     setInclusions((prev) => [
@@ -185,6 +183,7 @@ function Product() {
 
   const openEditDrawer = (item) => {
     const originalName = item.menu_name || "";
+    const editingSet = /\bset\b/i.test(originalName);
     setIsEditing(true);
     setEditId(item.item_id);
     setEditOriginalName(originalName);
@@ -192,8 +191,12 @@ function Product() {
       (item.package_inclusions || []).map((inc) => ({
         included_item_id: inc.included_item_id || null,
         included_category_id: inc.included_category_id || null,
-        quantity_limit: inc.is_unlimited ? null : inc.quantity_limit ?? 1,
-        is_unlimited: !!inc.is_unlimited,
+        quantity_limit: editingSet
+          ? inc.quantity_limit ?? 1
+          : inc.is_unlimited
+            ? null
+            : inc.quantity_limit ?? 1,
+        is_unlimited: editingSet ? false : !!inc.is_unlimited,
       })),
     );
     setNewItem({
@@ -275,7 +278,20 @@ function Product() {
       formData.append("is_featured", newItem.is_featured ?? 0);
       if (newItem.image) formData.append("image", newItem.image);
       if (isPackageItem) {
-        formData.append("package_inclusions", JSON.stringify(inclusions));
+        formData.append(
+          "package_inclusions",
+          JSON.stringify(
+            inclusions.map((inclusion) =>
+              isSet
+                ? {
+                    ...inclusion,
+                    is_unlimited: false,
+                    quantity_limit: inclusion.quantity_limit || 1,
+                  }
+                : inclusion,
+            ),
+          ),
+        );
       }
 
       if (isEditing) {
@@ -756,12 +772,12 @@ function Product() {
                 <option value={0}>Not Available</option>
               </select>
             </div>
-            {/* PACKAGE INCLUSIONS (Unlimited menus only) */}
+            {/* PACKAGE INCLUSIONS */}
             {isPackageItem && (
               <div className="mb-3 p-3 border rounded bg-light">
                 <div className="d-flex justify-content-between align-items-center mb-2">
                   <label className="form-label small fw-bold mb-0">
-                    Package Inclusions
+                    {isSet ? "Set Inclusions" : "Package Inclusions"}
                   </label>
                   <button
                     type="button"
@@ -772,7 +788,9 @@ function Product() {
                   </button>
                 </div>
                 <p className="text-muted mb-2" style={{ fontSize: "0.75rem" }}>
-                  Pick a category or a specific dish, then set a quantity limit or mark it Unlimited.
+                  {isSet
+                    ? "Choose the categories or dishes included with this set and set a selection limit."
+                    : "Pick a category or a specific dish, then set a quantity limit or mark it Unlimited."}
                 </p>
                 {inclusions.length === 0 && (
                   <p className="text-muted small mb-0">No inclusions configured yet.</p>
@@ -828,29 +846,31 @@ function Product() {
                         min="1"
                         className="form-control form-control-sm"
                         value={inc.is_unlimited ? "" : inc.quantity_limit ?? 1}
-                        placeholder="∞ Unlimited"
+                        placeholder={isSet ? "Max selections" : "∞ Unlimited"}
                         disabled={inc.is_unlimited}
                         onChange={(e) =>
                           updateInclusion(index, "quantity_limit", parseInt(e.target.value) || 1)
                         }
                       />
                     </div>
-                    <div style={{ flex: "0 0 auto" }}>
-                      <div className="form-check mb-1">
-                        <input
-                          type="checkbox"
-                          className="form-check-input"
-                          id={`inc-unlim-${index}`}
-                          checked={inc.is_unlimited}
-                          onChange={(e) =>
-                            updateInclusion(index, "is_unlimited", e.target.checked)
-                          }
-                        />
-                        <label className="form-check-label small" htmlFor={`inc-unlim-${index}`}>
-                          Unlimited
-                        </label>
+                    {!isSet && (
+                      <div style={{ flex: "0 0 auto" }}>
+                        <div className="form-check mb-1">
+                          <input
+                            type="checkbox"
+                            className="form-check-input"
+                            id={`inc-unlim-${index}`}
+                            checked={inc.is_unlimited}
+                            onChange={(e) =>
+                              updateInclusion(index, "is_unlimited", e.target.checked)
+                            }
+                          />
+                          <label className="form-check-label small" htmlFor={`inc-unlim-${index}`}>
+                            Unlimited
+                          </label>
+                        </div>
                       </div>
-                    </div>
+                    )}
                     <div style={{ flex: "0 0 auto", marginLeft: "auto" }}>
                       <button
                         type="button"

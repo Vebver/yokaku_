@@ -58,6 +58,7 @@ import {
   isJuiceItem,
   isChickenCategory,
   isUnlimitedPackageItem,
+  isSetItem,
   hasUnlimitedFlavorSelection,
   sanitizePackageCart,
   validatePackageCart,
@@ -283,6 +284,43 @@ const KioskReservationMenu = () => {
     kioskMenuMode,
     activePackageItem,
   );
+  const activeSetItem = [...billItems, ...localBillHistory, ...cart].find(
+    isSetItem,
+  );
+  const setInclusions = activeSetItem
+    ? getPackageInclusions(menuData, "set", activeSetItem).map(
+        (inclusion) => ({
+          ...inclusion,
+          is_unlimited: false,
+          quantity_limit: Math.max(1, Number(inclusion.quantity_limit) || 1),
+        }),
+      )
+    : [];
+  const isSetMode =
+    !isUnlimitedMode &&
+    Boolean(activeSetItem) &&
+    setInclusions.length > 0;
+  const visiblePackageMode = isSetMode ? "set" : kioskMenuMode;
+  const visiblePackageInclusions = isSetMode
+    ? setInclusions
+    : packageInclusions;
+  useEffect(() => {
+    if (!isSetMode) return;
+    const categories = getPackageCategories(
+      menuData,
+      "set",
+      setInclusions,
+    ).filter(isCategoryVisible);
+    if (!categories.includes(activeCategory)) {
+      setActiveCategory(categories[0] || "");
+    }
+  }, [
+    activeCategory,
+    isSetMode,
+    menuData,
+    setInclusions,
+    visibleCategoryIds,
+  ]);
   const refillTargets =
     packageInclusions.length > 0
       ? getUnlimitedPackageRefillItems(menuData, packageInclusions).filter(
@@ -300,12 +338,12 @@ const KioskReservationMenu = () => {
   const getInclusionsForMode = (mode, packageItem) =>
     getPackageInclusions(menuData, mode, packageItem);
   const activePackageLabel =
-    activePackageItem?.name ||
-    activePackageItem?.menu_name ||
-    activePackageItem?.item_name ||
+    (isSetMode ? activeSetItem : activePackageItem)?.name ||
+    (isSetMode ? activeSetItem : activePackageItem)?.menu_name ||
+    (isSetMode ? activeSetItem : activePackageItem)?.item_name ||
     getUnlimitedPackage(kioskMenuMode)?.label;
   const activePackageSummary =
-    getPackageInclusionSummary(menuData, packageInclusions) ||
+    getPackageInclusionSummary(menuData, visiblePackageInclusions) ||
     getUnlimitedPackage(kioskMenuMode)?.included;
   const flavorPackageMode =
     inferUnlimitedPackageMode(selectedItem) || kioskMenuMode;
@@ -1576,6 +1614,33 @@ const KioskReservationMenu = () => {
 
   const handleItemClick = (item) => {
     const itemPackageMode = inferUnlimitedPackageMode(item);
+    if (isSetItem(item)) {
+      if (packageOrderItems.some(isSetItem)) {
+        showToast("A set is already in your order.", "error");
+        return;
+      }
+      const inclusions = getPackageInclusions(menuData, "set", item);
+      setCart((current) => [
+        ...current,
+        {
+          ...item,
+          price: item.price,
+          quantity: 1,
+          customizations: null,
+          is_refill: false,
+          is_package_included: false,
+        },
+      ]);
+      if (inclusions.length > 0) {
+        const categories = getPackageCategories(
+          menuData,
+          "set",
+          inclusions,
+        );
+        setActiveCategory(categories[0] || "");
+      }
+      return;
+    }
     if (
       itemPackageMode &&
       isPackageCardForMode(item, itemPackageMode)
@@ -1682,6 +1747,36 @@ const KioskReservationMenu = () => {
         return;
       }
       setCart((current) => [...current, packageItem]);
+      return;
+    }
+
+    if (isSetMode) {
+      if (
+        getPackageQuantityLimit(
+          packageOrderItems,
+          item,
+          "set",
+          setInclusions,
+        ) < 1
+      ) {
+        showToast(
+          "This item is not included in the set or its limit was reached.",
+          "error",
+        );
+        return;
+      }
+      setCart((current) => [
+        ...current,
+        {
+          ...item,
+          price: 0,
+          quantity: 1,
+          customizations: "[PACKAGE INCLUDED]",
+          is_refill: false,
+          is_package_included: true,
+          is_set_included: true,
+        },
+      ]);
       return;
     }
 
@@ -1949,11 +2044,11 @@ const KioskReservationMenu = () => {
                 .filter(
                   (cat) =>
                     isCategoryVisible(cat) &&
-                    (isUnlimitedMode
+                    ((isUnlimitedMode || isSetMode)
                       ? getPackageCategories(
                           menuData,
-                          kioskMenuMode,
-                          packageInclusions,
+                          visiblePackageMode,
+                          visiblePackageInclusions,
                         ).includes(cat) && cat !== "Unlimited"
                       : true),
                 )
@@ -1974,7 +2069,7 @@ const KioskReservationMenu = () => {
         </aside>
 
         <main className="res-content-area">
-          {isUnlimitedMode && (
+          {(isUnlimitedMode || isSetMode) && (
             <div
               className="unlimited-package-summary"
               style={{
@@ -1992,12 +2087,12 @@ const KioskReservationMenu = () => {
             </div>
           )}
           <div className="res-grid-container">
-            {(isUnlimitedMode
+            {(isUnlimitedMode || isSetMode
               ? getPackageItems(
                   menuData[activeCategory],
                   activeCategory,
-                  kioskMenuMode,
-                  packageInclusions,
+                  visiblePackageMode,
+                  visiblePackageInclusions,
                 )
               : menuData[activeCategory] || []
             ).map((item) => (
@@ -2018,7 +2113,9 @@ const KioskReservationMenu = () => {
                     {item.name || item.menu_name}
                   </h4>
                   <p style={{ color: "#ffcc00", fontWeight: "bold" }}>
-                    {isUnlimitedMode || inferUnlimitedPackageMode(item)
+                    {isSetMode
+                      ? "Included with set"
+                      : isUnlimitedMode || inferUnlimitedPackageMode(item)
                       ? "₱0.00"
                       : `₱${parseFloat(item.price).toFixed(2)}`}
                   </p>

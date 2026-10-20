@@ -55,6 +55,7 @@ import {
   isJuiceItem,
   isChickenCategory,
   isUnlimitedPackageItem,
+  isSetItem,
   isPackageCardForMode,
   hasUnlimitedFlavorSelection,
   sanitizePackageCart,
@@ -172,13 +173,48 @@ const KioskMenu = () => {
     kioskMenuMode,
     activePackageItem,
   );
+  const activeSetItem = [...billItems, ...localBillHistory, ...cart].find(
+    isSetItem,
+  );
+  const setInclusions = activeSetItem
+    ? getPackageInclusions(menuData, "set", activeSetItem).map(
+        (inclusion) => ({
+          ...inclusion,
+          is_unlimited: false,
+          quantity_limit: Math.max(1, Number(inclusion.quantity_limit) || 1),
+        }),
+      )
+    : [];
+  const isSetMode =
+    !isUnlimitedMode && Boolean(activeSetItem) && setInclusions.length > 0;
+  const visiblePackageMode = isSetMode ? "set" : kioskMenuMode;
+  const visiblePackageInclusions = isSetMode
+    ? setInclusions
+    : packageInclusions;
+  useEffect(() => {
+    if (!isSetMode) return;
+    const categories = getPackageCategories(
+      menuData,
+      "set",
+      setInclusions,
+    ).filter(isCategoryVisible);
+    if (!categories.includes(activeCategory)) {
+      setActiveCategory(categories[0] || "");
+    }
+  }, [
+    activeCategory,
+    isSetMode,
+    menuData,
+    setInclusions,
+    visibleCategoryIds,
+  ]);
   const activePackageLabel =
-    activePackageItem?.name ||
-    activePackageItem?.menu_name ||
-    activePackageItem?.item_name ||
+    (isSetMode ? activeSetItem : activePackageItem)?.name ||
+    (isSetMode ? activeSetItem : activePackageItem)?.menu_name ||
+    (isSetMode ? activeSetItem : activePackageItem)?.item_name ||
     getUnlimitedPackage(kioskMenuMode)?.label;
   const activePackageSummary =
-    getPackageInclusionSummary(menuData, packageInclusions) ||
+    getPackageInclusionSummary(menuData, visiblePackageInclusions) ||
     getUnlimitedPackage(kioskMenuMode)?.included;
   const refillTargets =
     packageInclusions.length > 0
@@ -1390,6 +1426,20 @@ const KioskMenu = () => {
       ...cart,
     ];
     const itemPackageMode = inferUnlimitedPackageMode(item);
+    if (isSetItem(item)) {
+      const setAlreadyInOrder = packageItems.some(isSetItem);
+      if (setAlreadyInOrder) {
+        showToast("A set is already in your order.");
+        return;
+      }
+      const inclusions = getPackageInclusions(menuData, "set", item);
+      setCart((current) => [...current, { ...item, quantity: 1, customizations: null }]);
+      if (inclusions.length > 0) {
+        const categories = getPackageCategories(menuData, "set", inclusions);
+        setActiveCategory(categories[0] || "");
+      }
+      return;
+    }
     if (itemPackageMode) setIsPackageTimerExpired(false);
     if (
       isUnlimitedMode &&
@@ -1492,6 +1542,33 @@ const KioskMenu = () => {
         return;
       }
       setCart((current) => [...current, packageItem]);
+      return;
+    }
+
+    if (isSetMode) {
+      if (
+        getPackageQuantityLimit(
+          packageItems,
+          item,
+          "set",
+          setInclusions,
+        ) < 1
+      ) {
+        showToast("This item is not included in the set or its limit was reached.");
+        return;
+      }
+      setCart((current) => [
+        ...current,
+        {
+          ...item,
+          price: 0,
+          quantity: 1,
+          customizations: "[PACKAGE INCLUDED]",
+          is_package_included: true,
+          is_set_included: true,
+          is_refill: false,
+        },
+      ]);
       return;
     }
 
@@ -1788,11 +1865,12 @@ const KioskMenu = () => {
                 .filter(
                   (cat) =>
                     isCategoryVisible(cat) &&
-                    (isUnlimitedMode && !browseFullMenu
+                    ((isUnlimitedMode || isSetMode) &&
+                    (!isUnlimitedMode || !browseFullMenu)
                       ? getPackageCategories(
                           menuData,
-                          kioskMenuMode,
-                          packageInclusions,
+                          visiblePackageMode,
+                          visiblePackageInclusions,
                         ).includes(cat) && cat !== "Unlimited"
                       : true),
                 )
@@ -1813,7 +1891,7 @@ const KioskMenu = () => {
         </aside>
 
         <main className="res-content-area">
-          {isUnlimitedMode && (
+          {(isUnlimitedMode || isSetMode) && (
             <div
               className="unlimited-package-summary"
               style={{
@@ -1838,12 +1916,12 @@ const KioskMenu = () => {
           <div className="res-grid-container">
             {(() => {
               const items = menuData[activeCategory] || [];
-              if (!isUnlimitedMode) return items;
+              if (!isUnlimitedMode && !isSetMode) return items;
               return getPackageItems(
                 items,
                 activeCategory,
-                kioskMenuMode,
-                packageInclusions,
+                visiblePackageMode,
+                visiblePackageInclusions,
               );
             })().map((item) => (
               <div

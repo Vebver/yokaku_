@@ -45,6 +45,7 @@ export const getUnlimitedPackage = (mode) => PACKAGE_RULES[mode] || null;
 export const inferUnlimitedPackageMode = (value) => {
   const name =
     typeof value === "string" ? value.toLowerCase() : getName(value);
+  if (/\bset\b/.test(name)) return null;
   const hasUnlimitedCategory =
     typeof value !== "string" && getCategory(value).includes("unlimited");
   if (!name.includes("unlimited") && !hasUnlimitedCategory) return null;
@@ -54,7 +55,10 @@ export const inferUnlimitedPackageMode = (value) => {
 };
 
 export const isUnlimitedPackageItem = (item) =>
-  getCategory(item).includes("unlimited") || getName(item).includes("unlimited");
+  !/\bset\b/.test(getName(item)) &&
+  (getCategory(item).includes("unlimited") || getName(item).includes("unlimited"));
+
+export const isSetItem = (item) => /\bset\b/.test(getName(item));
 
 export const isPackageCardForMode = (item, mode) => {
   if (!isUnlimitedPackageItem(item)) return false;
@@ -244,7 +248,12 @@ export const getPackageQuantityLimit = (
           const used = (cart || []).reduce(
             (total, cartItem) =>
               total +
-              (matchesInclusion(cartItem, inclusion)
+              (matchesInclusion(cartItem, inclusion) &&
+              (mode !== "set" ||
+                cartItem.is_set_included ||
+                String(cartItem.customizations || "").includes(
+                  "[PACKAGE INCLUDED]",
+                ))
                 ? Number.parseInt(cartItem.quantity, 10) || 1
                 : 0),
             0,
@@ -282,16 +291,16 @@ const isDrinkCategory = (category) =>
   category.includes("juice");
 
 export const isItemIncludedInPackage = (item, mode, packageInclusions = []) => {
-  const rules = getUnlimitedPackage(mode);
-  if (!rules) return true;
-
-  const category = getCategory(item);
   if (isPackageCardForMode(item, mode)) return true;
   if (packageInclusions.length > 0) {
     return packageInclusions.some((inclusion) =>
       matchesInclusion(item, inclusion),
     );
   }
+
+  const rules = getUnlimitedPackage(mode);
+  if (!rules) return true;
+  const category = getCategory(item);
   if (isUnlimitedPackageItem(item)) return false;
   if (isChickenCategory(category)) {
     return mode === "unlimited_wings_a" || isWingItem(item, category);
@@ -349,6 +358,7 @@ export const getPackageItems = (items, category, mode, packageInclusions = []) =
     ? (items || []).filter(
         (item) =>
           !isPackageCardForMode(item, mode) &&
+          !isSetItem(item) &&
           isItemIncludedInPackage(
             { ...item, category },
             mode,
@@ -425,11 +435,12 @@ export const sanitizePackageCart = (cart, mode, packageInclusions = []) => {
 
 export const validatePackageCart = (cart, mode, packageInclusions = []) => {
   const rules = getUnlimitedPackage(mode);
-  if (!rules) return null;
+  if (!rules && packageInclusions.length === 0) return null;
 
   const foodItems = (cart || []).filter((item) => !isNonFoodCharge(item));
   const packageItems = foodItems.filter((item) =>
-    isItemIncludedInPackage(item, mode, packageInclusions),
+    isItemIncludedInPackage(item, mode, packageInclusions) &&
+    (!isSetItem(item) || item.is_set_included),
   );
   const sanitized = sanitizePackageCart(packageItems, mode, packageInclusions);
   if (packageInclusions.length > 0) {
@@ -441,7 +452,7 @@ export const validatePackageCart = (cart, mode, packageInclusions = []) => {
         (item, index) => item.quantity !== packageItems[index]?.quantity,
       )
     ) {
-      return `Your order exceeds the limits for ${rules.label}.`;
+      return `Your order exceeds the limits for ${rules?.label || "this set"}.`;
     }
     return null;
   }

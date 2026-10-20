@@ -43,6 +43,7 @@ const inferPackageMode = (name) => {
     typeof name === "object"
       ? String(name.category_name || "").toLowerCase()
       : "";
+  if (/\bset\b/.test(normalized)) return null;
   if (!normalized.includes("unlimited") && !category.includes("unlimited")) {
     return null;
   }
@@ -170,7 +171,203 @@ const validateUnlimitedPackageOrder = async (
   { reservationId, tableId, items },
 ) => {
   const mode = await readKioskMode(conn, reservationId, tableId, items);
-  if (!PACKAGE_MODES.has(mode)) return { mode };
+  if (!PACKAGE_MODES.has(mode)) {
+    if (!Array.isArray(items) || items.length === 0) {
+      throw new Error("An order must contain at least one item.");
+    }
+    for (const item of items) {
+      const quantity = Number(item.quantity);
+      if (!Number.isInteger(quantity) || quantity < 1) {
+        throw new Error("Order item quantities must be positive whole numbers.");
+      }
+    }
+
+    const [setCards] = await conn.execute(
+      `SELECT mi.item_id, mi.menu_name, c.category_name
+       FROM menu_items mi
+       LEFT JOIN categories c ON c.category_id = mi.category_id
+       WHERE LOWER(mi.menu_name) REGEXP '(^|[^[:alnum:]])set([^[:alnum:]]|$)'`,
+    );
+    const requestedSet = (setCards || []).find((card) =>
+      items.some(
+        (item) => Number(item.item_id || item.id) === Number(card.item_id),
+      ),
+    );
+    if (requestedSet && reservationId) {
+      const [existingSetOrders] = await conn.execute(
+        `SELECT 1 FROM kiosk_orders
+         WHERE reservation_id = ? AND item_id = ? LIMIT 1`,
+        [reservationId, requestedSet.item_id],
+      );
+      if (existingSetOrders.length > 0) {
+        throw new Error("A set is already in this order.");
+      }
+    }
+    let setCard = requestedSet || null;
+    if (!setCard && reservationId) {
+      const [existingSetCards] = await conn.execute(
+        `SELECT mi.item_id, mi.menu_name, c.category_name
+         FROM kiosk_orders ko
+         JOIN menu_items mi ON mi.item_id = ko.item_id
+         LEFT JOIN categories c ON c.category_id = mi.category_id
+         WHERE ko.reservation_id = ?
+           AND LOWER(mi.menu_name) REGEXP '(^|[^[:alnum:]])set([^[:alnum:]]|$)'
+         ORDER BY ko.created_at DESC LIMIT 1`,
+        [reservationId],
+      );
+      setCard = existingSetCards[0] || null;
+    }
+    if (!setCard) return { mode };
+
+    const setPackageCardItemId = Number(setCard.item_id);
+    let inclusions;
+    try {
+      [inclusions] = await conn.execute(
+        `SELECT included_item_id, included_category_id, quantity_limit, is_unlimited
+         FROM unlimited_package_inclusions WHERE package_item_id = ?`,
+        [setPackageCardItemId],
+      );
+    } catch (error) {
+      if (error.code === "ER_NO_SUCH_TABLE") {
+        return { mode, setPackageCardItemId };
+      }
+      throw error;
+    }
+    if (!inclusions.length) return { mode, setPackageCardItemId };
+
+    const categoryIds = inclusions
+      .map((inclusion) => Number(inclusion.included_category_id))
+      .filter((id) => Number.isInteger(id) && id > 0);
+    const categoryNames = new Map();
+    if (categoryIds.length > 0) {
+      const [categories] = await conn.execute(
+        `SELECT category_id, category_name FROM categories
+         WHERE category_id IN (${categoryIds.map(() => "?").join(",")})`,
+        categoryIds,
+      );
+      for (const category of categories || []) {
+        categoryNames.set(
+          Number(category.category_id),
+          String(category.category_name || "").toLowerCase(),
+        );
+      }
+    }
+    const includedItemIds = new Set();
+    for (const inclusion of inclusions) {
+      if (inclusion.included_item_id) {
+        includedItemIds.add(Number(inclusion.included_item_id));
+      }
+    }
+
+    const isIncludedBySet = (itemId, categoryId) =>
+      includedItemIds.has(itemId) ||
+      inclusions.some(
+        (inclusion) =>
+          inclusion.included_category_id != null &&
+          categoryNames.get(Number(inclusion.included_category_id)) &&
+          categoryNames.get(Number(inclusion.included_category_id)) ===
+            String(categoryId || "").toLowerCase(),
+      );
+    const selectedItems = items.filter(
+      (item) => Number(item.item_id || item.id) !== setPackageCardItemId,
+    );
+    const lookupIds = [
+      ...new Set([
+        ...selectedItems.map((item) => Number(item.item_id || item.id)),
+        ...includedItemIds,
+      ]),
+    ].filter((id) => Number.isInteger(id) && id > 0);
+    let requestedRows = [];
+    if (lookupIds.length > 0) {
+      [requestedRows] = await conn.execute(
+        `SELECT mi.item_id, mi.menu_name, mi.category_id, c.category_name
+         FROM menu_items mi
+         LEFT JOIN categories c ON c.category_id = mi.category_id
+         WHERE mi.item_id IN (${lookupIds.map(() => "?").join(",")})`,
+        lookupIds,
+      );
+    }
+    const menuById = new Map(
+      (requestedRows || []).map((item) => [Number(item.item_id), item]),
+    );
+    const markedItems = selectedItems.filter(
+      (item) =>
+        item.is_package_included ||
+        JSON.stringify(item.customizations || "").includes("[PACKAGE INCLUDED]"),
+    );
+    const existingCounts = new Map();
+    if (reservationId) {
+      const [existingItems] = await conn.execute(
+        `SELECT ko.item_id, ko.quantity, mi.category_id, c.category_name
+         FROM kiosk_orders ko
+         JOIN menu_items mi ON mi.item_id = ko.item_id
+         LEFT JOIN categories c ON c.category_id = mi.category_id
+         WHERE ko.reservation_id = ?
+           AND ko.created_at >= (
+             SELECT MIN(set_order.created_at)
+             FROM kiosk_orders set_order
+             WHERE set_order.reservation_id = ?
+               AND set_order.item_id = ?
+           )
+           AND COALESCE(ko.customizations, '') LIKE '%[PACKAGE INCLUDED]%'`,
+        [reservationId, reservationId, setPackageCardItemId],
+      );
+      for (const row of existingItems || []) {
+        const id = Number(row.item_id);
+        const categoryName = String(row.category_name || "").toLowerCase();
+        for (const inclusion of inclusions.filter(
+          (entry) =>
+            (entry.included_item_id != null &&
+              Number(entry.included_item_id) === id) ||
+            (entry.included_category_id != null &&
+              categoryNames.get(Number(entry.included_category_id)) ===
+                categoryName),
+        )) {
+          const key =
+            inclusion.included_item_id != null
+              ? `item:${Number(inclusion.included_item_id)}`
+              : `category:${Number(inclusion.included_category_id)}`;
+          existingCounts.set(
+            key,
+            (existingCounts.get(key) || 0) + Number(row.quantity || 0),
+          );
+        }
+      }
+    }
+
+    const setIncludedItemIds = [];
+    const counts = new Map(existingCounts);
+    for (const item of markedItems) {
+      const itemId = Number(item.item_id || item.id);
+      const menuItem = menuById.get(itemId);
+      if (!menuItem || !isIncludedBySet(itemId, menuItem.category_name)) {
+        throw new Error("The selected item is not included in this set.");
+      }
+      const quantity = Number(item.quantity);
+      const matchingInclusions = inclusions.filter(
+        (inclusion) =>
+          (inclusion.included_item_id != null &&
+            Number(inclusion.included_item_id) === itemId) ||
+          (inclusion.included_category_id != null &&
+            categoryNames.get(Number(inclusion.included_category_id)) ===
+              String(menuItem.category_name || "").toLowerCase()),
+      );
+      for (const inclusion of matchingInclusions) {
+        const key =
+          inclusion.included_item_id != null
+            ? `item:${Number(inclusion.included_item_id)}`
+            : `category:${Number(inclusion.included_category_id)}`;
+        const limit = Math.max(1, Number(inclusion.quantity_limit) || 1);
+        const used = (counts.get(key) || 0) + quantity;
+        if (used > limit) {
+          throw new Error("The selected items exceed the set inclusion limit.");
+        }
+        counts.set(key, used);
+      }
+      setIncludedItemIds.push(itemId);
+    }
+    return { mode, setPackageCardItemId, setIncludedItemIds };
+  }
   if (!Array.isArray(items) || items.length === 0) {
     throw new Error("An order must contain at least one item.");
   }
