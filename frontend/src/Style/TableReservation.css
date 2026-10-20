@@ -2622,7 +2622,15 @@ select:disabled {
 @media (max-width: 1100px) {
   /* Reset container max-width when stacked */
   .reservation-flow-container:has(.calendar-details-wrapper.has-selection) {
-    max-width: 800px;
+    max-width: 100% !important; /* Changed from 800px to 100% for mobile */
+  }
+
+  /* Add this to ensure the base container is centered */
+  .reservation-flow-container {
+    margin-left: auto !important;
+    margin-right: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
   }
 
   .calendar-details-wrapper.has-selection {
@@ -2663,19 +2671,32 @@ select:disabled {
 @media (max-width: 1100px) {
   .floor-plan-wrapper {
     flex-direction: column;
-    display: block;
-    padding: 110px 15px 40px 15px;
-    height: 100%;
+    display: flex !important;
+    align-items: center !important;
+    padding: 90px 15px 40px 15px !important; /* Reduced top padding slightly */
+    height: 100vh !important;
     overflow-y: auto;
+    justify-content: flex-start !important;
   }
+
   .floor-plan-main {
     width: 100% !important;
     margin-bottom: 40px;
   }
+
   .floor-sidebar {
     width: 100% !important;
     max-width: 100% !important;
     margin-top: 20px;
+  }
+
+  /* ADD THESE NEW RULES TO FIX THE CENTERING */
+  .reservation-flow-container {
+    margin-left: auto !important;
+    margin-right: auto !important;
+    width: 100% !important;
+    max-width: 800px !important; /* Keep it constrained on tablets */
+    box-sizing: border-box !important;
   }
 }
 
@@ -2697,7 +2718,9 @@ select:disabled {
   }
   .reservation-flow-container {
     padding: 15px;
-    margin: 10px;
+    margin: 0 auto !important; /* Forces horizontal center */
+    width: 100% !important;
+    max-width: 100% !important;
   }
   .step-content {
     max-width: 100%;
