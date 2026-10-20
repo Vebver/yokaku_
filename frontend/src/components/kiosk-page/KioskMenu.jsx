@@ -36,6 +36,10 @@ import {
   submitKioskOrder,
 } from "../../utils/offlineOrderQueue";
 import {
+  isKioskCategoryVisible,
+  parseKioskVisibleCategoryIds,
+} from "../../utils/kioskCategoryVisibility";
+import {
   getPackageCategories,
   getDrinkOptions,
   getPackageInclusions,
@@ -56,14 +60,6 @@ import {
   sanitizePackageCart,
   validatePackageCart,
 } from "./unlimitedPackageRules";
-
-const HIDDEN_CATEGORIES = [
-  "Chicken Wings",
-  "Beverages",
-  "Drinks",
-  "Chicken",
-  "Ramen",
-];
 
 const DURATION = 1.5 * 60 * 60 * 1000; // 1:30 Hours in milliseconds
 
@@ -122,9 +118,12 @@ const KioskMenu = () => {
   const setupTable = queryParams.get("setupTable");
 
   const [menuData, setMenuData] = useState({});
+  const [visibleCategoryIds, setVisibleCategoryIds] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("");
   const [tableKioskMenuMode, setTableKioskMenuMode] = useState("default");
+  const isCategoryVisible = (categoryName) =>
+    isKioskCategoryVisible(categoryName, menuData, visibleCategoryIds);
 
   const [cart, setCart] = useState([]);
   const [billItems, setBillItems] = useState([]);
@@ -208,6 +207,7 @@ const KioskMenu = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [allergyNote, setAllergyNote] = useState("None");
+  const [cookingInstructions, setCookingInstructions] = useState("");
 
   const [isFinalCheckout, setIsFinalCheckout] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
@@ -250,7 +250,7 @@ const KioskMenu = () => {
       setTableKioskMenuMode("default");
       setActiveCategory(
         Object.keys(menuData).find(
-          (category) => !HIDDEN_CATEGORIES.includes(category),
+          (category) => isCategoryVisible(category),
         ) || "",
       );
     }
@@ -397,6 +397,38 @@ const KioskMenu = () => {
     }
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    const loadCategoryVisibility = () =>
+      axios
+        .get(`${API_BASE}/settings`)
+        .then(({ data }) => {
+          const visibleIds = parseKioskVisibleCategoryIds(
+            data.kiosk_visible_categories,
+          );
+          if (!cancelled) setVisibleCategoryIds(visibleIds);
+        })
+        .catch((error) => {
+          console.error("Could not load kiosk category visibility:", error);
+        });
+    loadCategoryVisibility();
+    const interval = setInterval(loadCategoryVisibility, 30000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
+
+  useEffect(() => {
+    const firstVisibleCategory = Object.keys(menuData).find((category) =>
+      isCategoryVisible(category),
+    );
+    if (!isCategoryVisible(activeCategory)) {
+      setActiveCategory(firstVisibleCategory || "");
+    }
+  }, [activeCategory, menuData, visibleCategoryIds]);
+
   const handleEndSession = async () => {
     await playAlert();
 
@@ -531,7 +563,7 @@ const KioskMenu = () => {
   useEffect(() => {
     if (activeCategory === "Unlimited" && hasOrderedUnlimited) {
       const fallbackCategory = Object.keys(menuData).find(
-        (cat) => !HIDDEN_CATEGORIES.includes(cat) && cat !== "Unlimited",
+        (cat) => isCategoryVisible(cat) && cat !== "Unlimited",
       );
       if (fallbackCategory) {
         setActiveCategory(fallbackCategory);
@@ -727,15 +759,36 @@ const KioskMenu = () => {
       const orderPayload = {
         reservation_id: dynamicResId,
         table_id: finalTableId,
-        items: itemsToSubmit.map((i) => ({
+        items: itemsToSubmit.map((i) => {
+          const cookingNote = cookingInstructions.trim();
+          const itemCustomizations = cookingNote
+            ? {
+                ...(i.customizations &&
+                typeof i.customizations === "object" &&
+                !Array.isArray(i.customizations)
+                  ? i.customizations
+                  : i.customizations
+                    ? {
+                        "Order options": Array.isArray(i.customizations)
+                          ? i.customizations.join(" | ")
+                          : String(i.customizations),
+                      }
+                    : {}),
+                "Cooking instructions": cookingNote,
+              }
+            : i.customizations;
+          return {
             item_id: i.id,
             quantity: i.quantity,
             customizations:
               mode === "Take-Out"
-                ? `[TAKE-OUT] ${i.customizations || ""}`
-                : i.customizations,
+                ? cookingNote
+                  ? { ...itemCustomizations, "Order type": "TAKE-OUT" }
+                  : `[TAKE-OUT] ${i.customizations || ""}`
+                : itemCustomizations,
             is_refill: Boolean(i.is_refill),
-          })),
+          };
+        }),
         allergy_note: allergyNote !== "None" ? allergyNote : null,
       };
       const submission = await submitKioskOrder(orderPayload, getAuthHeader());
@@ -1067,10 +1120,16 @@ const KioskMenu = () => {
     setDynamicRamenFlavors((grouped["Ramen"] || []).map((i) => i.name));
     setDynamicDrinks(getDrinkOptions(grouped).map((item) => item.name));
     const firstVisibleCat = Object.keys(grouped).find(
-      (cat) => !HIDDEN_CATEGORIES.includes(cat),
+      (cat) => isKioskCategoryVisible(cat, grouped, visibleCategoryIds),
     );
     setActiveCategory((prev) => {
-      if (prev && grouped[prev]) return prev;
+      if (
+        prev &&
+        grouped[prev] &&
+        isKioskCategoryVisible(prev, grouped, visibleCategoryIds)
+      ) {
+        return prev;
+      }
       return firstVisibleCat || prev;
     });
   };
@@ -1726,14 +1785,16 @@ const KioskMenu = () => {
           <div className="res-category-list">
             <div className="res-cat-scroll-wrapper">
               {Object.keys(menuData)
-                .filter((cat) =>
-                  isUnlimitedMode && !browseFullMenu
-                    ? getPackageCategories(
-                        menuData,
-                        kioskMenuMode,
-                        packageInclusions,
-                      ).includes(cat) && cat !== "Unlimited"
-                    : !HIDDEN_CATEGORIES.includes(cat),
+                .filter(
+                  (cat) =>
+                    isCategoryVisible(cat) &&
+                    (isUnlimitedMode && !browseFullMenu
+                      ? getPackageCategories(
+                          menuData,
+                          kioskMenuMode,
+                          packageInclusions,
+                        ).includes(cat) && cat !== "Unlimited"
+                      : true),
                 )
                 .map((cat) => (
                   <button
@@ -1809,6 +1870,9 @@ const KioskMenu = () => {
                 </div>
                 <div className="res-card-info">
                   <h4 className="res-food-label">{item.name}</h4>
+                  {item.description && (
+                    <p className="res-food-description">{item.description}</p>
+                  )}
                   {item.isStockAvailable === false && (
                     <p
                       style={{
@@ -1906,7 +1970,7 @@ const KioskMenu = () => {
                   gap: "10px",
                 }}
               >
-                <AlertCircle size={28} /> Allergy Information
+                <AlertCircle size={28} /> Allergy & Cooking Preferences
               </h2>
               <button
                 onClick={() => setShowAllergyModal(false)}
@@ -1967,6 +2031,49 @@ const KioskMenu = () => {
               >
                 Default: "None" - Kitchen will be notified of any allergies you
                 specify
+              </p>
+            </div>
+            <div
+              className="allergy-input-group"
+              style={{ marginBottom: "25px" }}
+            >
+              <label
+                htmlFor="kiosk-cooking-instructions"
+                style={{
+                  display: "block",
+                  color: "#ffcc00",
+                  marginBottom: "8px",
+                  fontWeight: "bold",
+                  fontSize: "0.85rem",
+                }}
+              >
+                Cooking preferences or comments (optional)
+              </label>
+              <textarea
+                id="kiosk-cooking-instructions"
+                value={cookingInstructions}
+                onChange={(event) =>
+                  setCookingInstructions(event.target.value)
+                }
+                placeholder="e.g., Cook well-done, sauce on the side, less spicy..."
+                rows="3"
+                maxLength={500}
+                style={{
+                  width: "100%",
+                  padding: "12px",
+                  borderRadius: "10px",
+                  border: "1px solid #333",
+                  background: "#1a1a1a",
+                  color: "#fff",
+                  fontSize: "0.9rem",
+                  resize: "vertical",
+                  fontFamily: "inherit",
+                }}
+              />
+              <p
+                style={{ color: "#888", fontSize: "0.7rem", marginTop: "5px" }}
+              >
+                Your note will be included with each item for the kitchen.
               </p>
             </div>
             <div style={{ display: "flex", gap: "15px" }}>

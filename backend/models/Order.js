@@ -359,9 +359,17 @@ const Order = {
           table: row.table,
           status: row.status,
           timestamp: row.timestamp,
-          allergy_note: row.allergy_note, 
+          allergy_notes: [],
           items: [],
         };
+      }
+      const allergyNote = String(row.allergy_note || "").trim();
+      if (
+        allergyNote &&
+        allergyNote.toLowerCase() !== "none" &&
+        !groupedOrders[groupKey].allergy_notes.includes(allergyNote)
+      ) {
+        groupedOrders[groupKey].allergy_notes.push(allergyNote);
       }
       groupedOrders[groupKey].items.push({
         id: row.item_id,
@@ -372,7 +380,10 @@ const Order = {
       });
     });
 
-    return Object.values(groupedOrders);
+    return Object.values(groupedOrders).map(({ allergy_notes, ...order }) => ({
+      ...order,
+      allergy_note: allergy_notes.length > 0 ? allergy_notes.join(" · ") : null,
+    }));
   },
 };
 

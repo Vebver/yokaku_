@@ -37,6 +37,10 @@ import {
   getQueuedOrderItemsForReservation,
   submitKioskOrder,
 } from "../../utils/offlineOrderQueue";
+import {
+  isKioskCategoryVisible,
+  parseKioskVisibleCategoryIds,
+} from "../../utils/kioskCategoryVisibility";
 import io from "socket.io-client";
 import {
   getPackageCategories,
@@ -58,14 +62,6 @@ import {
   sanitizePackageCart,
   validatePackageCart,
 } from "./unlimitedPackageRules";
-
-const HIDDEN_CATEGORIES = [
-  "Chicken Wings",
-  "Beverages",
-  "Drinks",
-  "Chicken",
-  "Ramen",
-];
 
 const enrichOrderItems = (items, products) =>
   (items || []).map((item) => {
@@ -169,6 +165,7 @@ const KioskReservationMenu = () => {
           name: item.menu_name || item.name,
           image: item.local_path || item.image_url || "",
           price: item.price,
+          description: item.description || "",
           category: cat,
           category_id: item.category_id,
           package_inclusions: item.package_inclusions || [],
@@ -179,9 +176,12 @@ const KioskReservationMenu = () => {
       return {};
     }
   });
+  const [visibleCategoryIds, setVisibleCategoryIds] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("");
   const [tableKioskMenuMode, setTableKioskMenuMode] = useState("default");
+  const isCategoryVisible = (categoryName) =>
+    isKioskCategoryVisible(categoryName, menuData, visibleCategoryIds);
   const [cart, setCart] = useState([]);
   const [billItems, setBillItems] = useState([]);
   const [localBillHistory, setLocalBillHistory] = useState(() =>
@@ -216,6 +216,38 @@ const KioskReservationMenu = () => {
     }
   });
   const [reservedPackageMode, setReservedPackageMode] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadCategoryVisibility = () =>
+      axios
+        .get(`${API_BASE}/settings`)
+        .then(({ data }) => {
+          const visibleIds = parseKioskVisibleCategoryIds(
+            data.kiosk_visible_categories,
+          );
+          if (!cancelled) setVisibleCategoryIds(visibleIds);
+        })
+        .catch((error) => {
+          console.error("Could not load kiosk category visibility:", error);
+        });
+    loadCategoryVisibility();
+    const interval = setInterval(loadCategoryVisibility, 30000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
+
+  useEffect(() => {
+    const firstVisibleCategory = Object.keys(menuData).find((category) =>
+      isCategoryVisible(category),
+    );
+    if (!isCategoryVisible(activeCategory)) {
+      setActiveCategory(firstVisibleCategory || "");
+    }
+  }, [activeCategory, menuData, visibleCategoryIds]);
 
   // An Unlimited order counts as "placed" only once it exists in the bill
   // (server-synced) or local bill history — not while it's still sitting in
@@ -302,7 +334,7 @@ const KioskReservationMenu = () => {
       setReservedPackageMode(null);
       setActiveCategory(
         Object.keys(menuData).find(
-          (category) => !HIDDEN_CATEGORIES.includes(category),
+          (category) => isCategoryVisible(category),
         ) || "",
       );
     }
@@ -871,7 +903,7 @@ const KioskReservationMenu = () => {
   useEffect(() => {
     if (activeCategory === "Unlimited" && hasOrderedUnlimited) {
       const fallbackCategory = Object.keys(menuData).find(
-        (cat) => !HIDDEN_CATEGORIES.includes(cat) && cat !== "Unlimited",
+        (cat) => isCategoryVisible(cat) && cat !== "Unlimited",
       );
       if (fallbackCategory) {
         setActiveCategory(fallbackCategory);
@@ -906,6 +938,7 @@ const KioskReservationMenu = () => {
           name: item.menu_name || item.name,
           image: getFullImage(item),
           price: item.price,
+          description: item.description || "",
           category: cat,
           category_id: item.category_id,
           package_inclusions: item.package_inclusions || [],
@@ -926,7 +959,7 @@ const KioskReservationMenu = () => {
       );
 
       const cats = Object.keys(grouped).filter(
-        (c) => !HIDDEN_CATEGORIES.includes(c),
+        (c) => isKioskCategoryVisible(c, grouped, visibleCategoryIds),
       );
       setActiveCategory((prev) => {
         if (prev && grouped[prev]) return prev;
@@ -1093,6 +1126,7 @@ const KioskReservationMenu = () => {
             name: item.menu_name || item.name,
             image: getFullImage(item),
             price: item.price,
+            description: item.description || "",
             category: cat,
             category_id: item.category_id,
             package_inclusions: item.package_inclusions || [],
@@ -1114,7 +1148,7 @@ const KioskReservationMenu = () => {
         );
 
         const cats = Object.keys(grouped).filter(
-          (c) => !HIDDEN_CATEGORIES.includes(c),
+          (c) => isKioskCategoryVisible(c, grouped, visibleCategoryIds),
         );
         if (cats.length > 0) {
           setActiveCategory(cats[0]);
@@ -1182,6 +1216,10 @@ const KioskReservationMenu = () => {
               customizations: i.customizations,
               is_package_included: i.is_package_included,
             })),
+            allergy_note:
+              reservationDetails?.allergy ??
+              reservationDetails?.allergy_note ??
+              null,
           },
           getAuthHeader(),
         );
@@ -1908,14 +1946,16 @@ const KioskReservationMenu = () => {
           <div className="res-category-list">
             <div className="res-cat-scroll-wrapper">
               {Object.keys(menuData)
-                .filter((cat) =>
-                  isUnlimitedMode
-                    ? getPackageCategories(
-                        menuData,
-                        kioskMenuMode,
-                        packageInclusions,
-                      ).includes(cat) && cat !== "Unlimited"
-                    : !HIDDEN_CATEGORIES.includes(cat),
+                .filter(
+                  (cat) =>
+                    isCategoryVisible(cat) &&
+                    (isUnlimitedMode
+                      ? getPackageCategories(
+                          menuData,
+                          kioskMenuMode,
+                          packageInclusions,
+                        ).includes(cat) && cat !== "Unlimited"
+                      : true),
                 )
                 .map((cat) => (
                   <button
@@ -1982,6 +2022,11 @@ const KioskReservationMenu = () => {
                       ? "₱0.00"
                       : `₱${parseFloat(item.price).toFixed(2)}`}
                   </p>
+                  {item.description && (
+                    <p className="res-food-description">
+                      {item.description}
+                    </p>
+                  )}
                 </div>
               </div>
             ))}

@@ -8,6 +8,7 @@ const ALLOWED_KEYS = [
   "footer_contact",
   "footer_about",
   "footer_terms",
+  "kiosk_visible_categories",
 ];
 
 // Defaults shown until the admin saves real content. They mirror the original
@@ -66,6 +67,26 @@ const settingController = {
       for (const [key, rawValue] of Object.entries(settings)) {
         if (!ALLOWED_KEYS.includes(key)) {
           errors.push(`Unknown setting: ${key}`);
+          continue;
+        }
+        if (key === "kiosk_visible_categories") {
+          let categoryIds;
+          try {
+            categoryIds = JSON.parse(String(rawValue ?? ""));
+          } catch {
+            errors.push("Kiosk visible categories must be a JSON array of category IDs.");
+            continue;
+          }
+          if (
+            !Array.isArray(categoryIds) ||
+            categoryIds.some(
+              (id) => !Number.isSafeInteger(Number(id)) || Number(id) < 1,
+            )
+          ) {
+            errors.push("Kiosk visible categories must be a JSON array of positive category IDs.");
+            continue;
+          }
+          clean[key] = JSON.stringify([...new Set(categoryIds.map(Number))]);
           continue;
         }
         const value = String(rawValue ?? "").trim();

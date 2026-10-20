@@ -19,6 +19,8 @@ function Categories() {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(15);
+  const [visibleCategoryIds, setVisibleCategoryIds] = useState([]);
+  const [savingVisibility, setSavingVisibility] = useState(false);
 
   const [newCategory, setNewCategory] = useState({
     category_name: "", // Changed from name to category_name
@@ -32,21 +34,84 @@ function Categories() {
   const fetchCategories = async () => {
     try {
       setLoading(true);
-      const response = await api.get(`/categories`);
+      const [response, settingsResponse] = await Promise.all([
+        api.get(`/categories`),
+        api.get(`/settings`),
+      ]);
 
-      // FIX 1: Ensure the mapped keys match what the UI calls
       const mappedData = response.data.map((cat, index) => ({
         id: cat.category_id || cat.id || cat._id || `temp-${index}`,
-        category_name: cat.category_name || cat.name || "Unnamed", // Keep category_name
+        category_name: cat.category_name || cat.name || "Unnamed",
         description: cat.description || "",
       }));
 
-      setCategories(mappedData.sort((a, b) => Number(b.id) - Number(a.id)));
+      const sortedCategories = mappedData.sort(
+        (a, b) => Number(b.id) - Number(a.id),
+      );
+      const savedVisibility = settingsResponse.data.kiosk_visible_categories;
+      let selectedIds = sortedCategories.map((category) => String(category.id));
+      if (savedVisibility != null && savedVisibility !== "") {
+        try {
+          const parsedVisibility = JSON.parse(savedVisibility);
+          if (
+            !Array.isArray(parsedVisibility) ||
+            parsedVisibility.some(
+              (id) => !Number.isSafeInteger(Number(id)) || Number(id) < 1,
+            )
+          ) {
+            throw new Error("Saved kiosk category visibility is invalid.");
+          }
+          const validIds = new Set(
+            sortedCategories.map((category) => String(category.id)),
+          );
+          selectedIds = parsedVisibility
+            .map(String)
+            .filter((id) => validIds.has(id));
+        } catch (error) {
+          console.error("Could not read kiosk category visibility:", error);
+          showToast("Saved kiosk category visibility could not be loaded.", "error");
+        }
+      }
+
+      setCategories(sortedCategories);
+      setVisibleCategoryIds(selectedIds);
       setCurrentPage(1);
     } catch (err) {
       console.error("Error fetching categories:", err);
+      showToast("Could not load categories and kiosk visibility settings.", "error");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const toggleCategoryVisibility = (categoryId) => {
+    const id = String(categoryId);
+    setVisibleCategoryIds((current) =>
+      current.includes(id)
+        ? current.filter((visibleId) => visibleId !== id)
+        : [...current, id],
+    );
+  };
+
+  const saveCategoryVisibility = async () => {
+    setSavingVisibility(true);
+    try {
+      await api.put("/settings", {
+        settings: {
+          kiosk_visible_categories: JSON.stringify(visibleCategoryIds),
+        },
+      });
+      showToast("Kiosk categories updated.", "success");
+    } catch (error) {
+      const message = error.response?.data?.error || "";
+      showToast(
+        message.includes("Unknown setting: kiosk_visible_categories")
+          ? "The backend is outdated. Deploy/restart it with the kiosk category settings update, then try again."
+          : message || "Could not save kiosk categories.",
+        "error",
+      );
+    } finally {
+      setSavingVisibility(false);
     }
   };
 
@@ -131,6 +196,23 @@ function Categories() {
         </div>
       </div>
 
+      <div className="mx-2 mb-3 d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2">
+        <div>
+          <h3 className="h6 fw-bold mb-1">Kiosk menu categories</h3>
+          <p className="text-muted small mb-0">
+            Select the categories customers can browse at the kiosk.
+          </p>
+        </div>
+        <button
+          type="button"
+          className="btn btn-primary fw-bold"
+          onClick={saveCategoryVisibility}
+          disabled={savingVisibility}
+        >
+          {savingVisibility ? "Saving..." : "Save kiosk categories"}
+        </button>
+      </div>
+
       {/* LIST SECTION */}
       <div className="mx-2">
         {/* DESKTOP TABLE */}
@@ -140,6 +222,7 @@ function Categories() {
               <tr className="text-muted small text-uppercase">
                 <th className="ps-4">Category Name</th>
                 <th>Description</th>
+                <th>Show on kiosk</th>
                 <th className="text-end pe-4">Actions</th>
               </tr>
             </thead>
@@ -148,6 +231,24 @@ function Categories() {
                 <tr key={cat.id}>
                   <td className="ps-4 py-3 fw-bold">{cat.category_name}</td>
                   <td className="text-muted small">{cat.description || "No description"}</td>
+                  <td>
+                    <div className="form-check">
+                      <input
+                        type="checkbox"
+                        className="form-check-input"
+                        id={`kiosk-category-${cat.id}`}
+                        checked={visibleCategoryIds.includes(String(cat.id))}
+                        onChange={() => toggleCategoryVisibility(cat.id)}
+                        aria-label={`Show ${cat.category_name} on kiosk`}
+                      />
+                      <label
+                        className="form-check-label small"
+                        htmlFor={`kiosk-category-${cat.id}`}
+                      >
+                        Visible
+                      </label>
+                    </div>
+                  </td>
                   <td className="text-end pe-4">
                     <button className="btn btn-sm btn-outline-danger border-0 d-inline-flex align-items-center gap-1" onClick={() => deleteCategory(cat.id)}>
                       <Trash2 size={18} /> Delete
@@ -167,6 +268,16 @@ function Categories() {
                   <div>
                     <div className="fw-bold">{cat.category_name}</div>
                     <div className="text-muted small">{cat.description}</div>
+                    <label className="form-check mt-2">
+                      <input
+                        type="checkbox"
+                        className="form-check-input"
+                        checked={visibleCategoryIds.includes(String(cat.id))}
+                        onChange={() => toggleCategoryVisibility(cat.id)}
+                        aria-label={`Show ${cat.category_name} on kiosk`}
+                      />
+                      <span className="form-check-label small">Show on kiosk</span>
+                    </label>
                   </div>
                   <button className="btn text-danger p-0 d-inline-flex align-items-center gap-1" onClick={() => deleteCategory(cat.id)}>
                     <Trash2 size={18} /> Delete

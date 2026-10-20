@@ -167,6 +167,10 @@ const EventTakeoutModal = ({ reservationId, onClose, customerMode = false }) => 
     const haystack = `${item.name} ${item.category}`.toLowerCase();
     return haystack.includes(appliedSearch.toLowerCase());
   });
+  const visibleTakeouts = (summary?.takeouts || []).filter(
+    (takeout) =>
+      customerMode || String(takeout.status).toLowerCase() !== "completed",
+  );
 
   return (
     <div
@@ -280,11 +284,11 @@ const EventTakeoutModal = ({ reservationId, onClose, customerMode = false }) => 
 
               <section className="event-takeout-requests">
                 <h3>Meal request history</h3>
-                {summary.takeouts.length === 0 ? (
-                  <p className="event-takeout-empty">No takeout requests yet.</p>
+                {visibleTakeouts.length === 0 ? (
+                  <p className="event-takeout-empty">No active takeout requests.</p>
                 ) : (
                   <div className="event-takeout-request-list">
-                    {summary.takeouts.map((takeout) => (
+                    {visibleTakeouts.map((takeout) => (
                       <article className="event-takeout-request" key={takeout.takeout_id}>
                         <div className="event-takeout-request-head">
                           <span>Request #{takeout.takeout_id} · {takeout.quantity} items</span>

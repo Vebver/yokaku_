@@ -38,28 +38,35 @@ const OrderCard = forwardRef(({ order, onUpdateStatus }, ref) => {
   }, [order.timestamp]);
 
   const renderCustomizations = (customs) => {
-    // The API stores customizations as a plain string ("null"/"undefined" when
-    // unset), but older rows can hold a JSON blob, so parse defensively and
-    // fall back to showing the raw text.
     if (customs === null || customs === undefined) return null;
-    if (typeof customs !== "string") return null;
 
-    const raw = customs.trim();
-    if (!raw || raw === "null" || raw === "undefined") return null;
-
-    let lines = [raw];
-
-    if (raw.startsWith("{")) {
+    let parsed = customs;
+    if (typeof customs === "string") {
+      const raw = customs.trim();
+      if (!raw || raw === "null" || raw === "undefined") return null;
       try {
-        const parsed = JSON.parse(raw);
-        lines = Object.entries(parsed)
-          .filter(([, v]) => v !== null && v !== "" && v !== "None")
-          .map(([k, v]) => `${k}: ${v}`);
+        parsed = JSON.parse(raw);
       } catch {
-        // Malformed JSON — fall back to the original text.
-        lines = [raw];
+        parsed = raw;
       }
     }
+
+    const formatValue = (value) =>
+      Array.isArray(value)
+        ? value.join(", ")
+        : value && typeof value === "object"
+          ? JSON.stringify(value)
+          : String(value);
+    const lines =
+      typeof parsed === "string"
+        ? [parsed]
+        : Array.isArray(parsed)
+          ? parsed.map(formatValue)
+          : parsed && typeof parsed === "object"
+            ? Object.entries(parsed)
+                .filter(([, value]) => value !== null && value !== "" && value !== "None")
+                .map(([key, value]) => `${key}: ${formatValue(value)}`)
+            : [];
 
     if (lines.length === 0) return null;
 
