@@ -5,6 +5,8 @@ import api from "../api";
 const TermsModal = ({ isOpen, onAccept, onClose, viewOnly = false }) => {
   const [agreed, setAgreed] = useState(false);
   const [termsLoading, setTermsLoading] = useState(false);
+  // Custom terms saved by the Admin (Maintenance > Footer Management).
+  // Empty/null means the default built-in terms below are used.
   const [customTerms, setCustomTerms] = useState(null);
 
   useEffect(() => {
@@ -21,19 +23,23 @@ const TermsModal = ({ isOpen, onAccept, onClose, viewOnly = false }) => {
       .catch(() => {})
       .finally(() => {
         if (!cancelled) setTermsLoading(false);
-      });
+      }); // Fall back to built-in terms silently.
     return () => {
       cancelled = true;
     };
   }, [isOpen]);
 
+  // Lock body scroll while the modal is open, restore on close.
+  // Also resets the checkbox so it starts unchecked next time.
   useEffect(() => {
     if (!isOpen) return;
 
+    // Remember original values so we can restore them exactly
     const originalBodyOverflow = document.body.style.overflow;
     const originalBodyPaddingRight = document.body.style.paddingRight;
     const originalHtmlOverflow = document.documentElement.style.overflow;
 
+    // Compensate for scrollbar disappearing, so the layout doesn't shift
     const scrollBarWidth =
       window.innerWidth - document.documentElement.clientWidth;
 
@@ -44,12 +50,15 @@ const TermsModal = ({ isOpen, onAccept, onClose, viewOnly = false }) => {
     }
 
     return () => {
+      // Restore whatever was there before
       document.body.style.overflow = originalBodyOverflow;
       document.body.style.paddingRight = originalBodyPaddingRight;
       document.documentElement.style.overflow = originalHtmlOverflow;
     };
   }, [isOpen]);
 
+  // Reset the checkbox each time the modal opens, so a previously
+  // accepted checkbox doesn't leak into the next session.
   useEffect(() => {
     if (isOpen) setAgreed(false);
   }, [isOpen]);
@@ -69,6 +78,7 @@ const TermsModal = ({ isOpen, onAccept, onClose, viewOnly = false }) => {
     <div
       className="res-modal-overlay"
       style={{ display: "flex", zIndex: 99999 }}
+      // Prevent wheel/touch from bubbling to the page beneath.
       onWheel={(e) => e.stopPropagation()}
       onTouchMove={(e) => e.stopPropagation()}
     >
@@ -79,6 +89,7 @@ const TermsModal = ({ isOpen, onAccept, onClose, viewOnly = false }) => {
           maxWidth: "500px",
           padding: "30px",
           position: "relative",
+          maxHeight: "90vh",
           display: "flex",
           flexDirection: "column",
           margin: "auto",
@@ -122,8 +133,7 @@ const TermsModal = ({ isOpen, onAccept, onClose, viewOnly = false }) => {
             lineHeight: "1.6",
             color: "#555",
             border: "1px solid #eee",
-            marginBottom: viewOnly ? "0" : "15px",
-            minHeight: 0, // ADDED: Critical for flexbox to allow shrinking
+            marginBottom: viewOnly ? "0" : "15px", // Adjust margin when viewOnly is true
           }}
         >
           {customTerms ? (
@@ -265,8 +275,12 @@ const TermsModal = ({ isOpen, onAccept, onClose, viewOnly = false }) => {
           )}
         </div>
 
+        {/* ============================================ */}
+        {/* CONDITIONAL FOOTER: ONLY SHOW IF NOT VIEWONLY */}
+        {/* ============================================ */}
         {!viewOnly && (
           <>
+            {/* CHECKBOX */}
             <label
               style={{
                 display: "flex",
@@ -299,6 +313,7 @@ const TermsModal = ({ isOpen, onAccept, onClose, viewOnly = false }) => {
               </span>
             </label>
 
+            {/* BUTTONS */}
             <div style={{ display: "flex", gap: "10px" }}>
               <button
                 onClick={handleClose}
