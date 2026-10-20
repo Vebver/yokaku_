@@ -910,19 +910,19 @@
   color: #d97706;
 }
 
-/* ===== Warning Modal ===== */
 .warning-modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background-color: rgba(0, 0, 0, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
-  animation: fadeIn 0.3s ease;
+
+  /* ADD THIS: Force it to be on top of the other modals */
+  z-index: 9999999 !important;
 }
 
 .warning-modal {

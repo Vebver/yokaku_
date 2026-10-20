@@ -1097,9 +1097,10 @@ const MyReservation = () => {
                         value={reason}
                         checked={selectedCancelReason === reason}
                         onChange={(e) => {
-                          setSelectedCancelReason(e.target.value);
-                          setCancelReason(e.target.value);
-                          if (e.target.value !== "Other") {
+                          const val = e.target.value;
+                          setSelectedCancelReason(val);
+                          setCancelReason(val);
+                          if (val !== "Other") {
                             setCancelReasonText("");
                           }
                         }}
