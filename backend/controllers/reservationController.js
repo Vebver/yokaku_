@@ -283,8 +283,6 @@ const reservationController = {
       }
 
       // ===== FIX: Safely get reservation type (handle array case) =====
-      let reservationType = "per_table";
-      let isEvent = false;
       const isTakeout =
         String(
           body.bookingType ||
@@ -294,6 +292,8 @@ const reservationController = {
         )
           .toLowerCase()
           .trim() === "takeout";
+      let reservationType = isTakeout ? "takeout" : "per_table";
+      let isEvent = false;
 
       // Check reservation_type (snake_case) - could be string or array
       if (

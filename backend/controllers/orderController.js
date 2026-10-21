@@ -436,10 +436,25 @@ const orderController = {
       res.status(201).json(responseBody);
     } catch (error) {
       await conn.rollback();
-      console.error("❌ Order Error:", error);
-      res.status(error.statusCode || (error.code ? 500 : 400)).json({
+      const isRetryableLockError = [
+        "ER_LOCK_WAIT_TIMEOUT",
+        "ER_LOCK_DEADLOCK",
+      ].includes(error.code);
+      if (isRetryableLockError) {
+        console.warn(
+          `⚠️ Order transaction contention for reservation ${reservation_id}; kiosk retry is safe because the request is idempotent.`,
+          error.code,
+        );
+      } else {
+        console.error("❌ Order Error:", error);
+      }
+      res.status(
+        error.statusCode || (isRetryableLockError ? 503 : error.code ? 500 : 400),
+      ).json({
         success: false,
-        error: error.message,
+        error: isRetryableLockError
+          ? "The order is temporarily busy. Please retry shortly."
+          : error.message,
       });
     } finally {
       conn.release();

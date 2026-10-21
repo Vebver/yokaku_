@@ -889,79 +889,9 @@ const KioskReservationMenu = () => {
     } catch (e) {}
   };
 
-  const handleOrderClick = async () => {
+  const handleOrderClick = () => {
     if (!canRefillUnlimited) return;
-    const cooldownRemaining = getRefillCooldownSeconds();
-    if (cooldownRemaining > 0) {
-      setRefillCooldownSeconds(cooldownRemaining);
-      setCooldownMessage(
-        `Refill is on cooldown. Please wait ${formatRefillCooldown(cooldownRemaining)}.`,
-      );
-      return;
-    }
-    const refillTarget = refillTargets[0];
-    if (!refillTarget) return;
-
-    setIsLoading(true);
-    try {
-      const refillPayload = {
-        reservation_id: reservationId,
-        table_id: getCurrentTableId(),
-        items: [
-          {
-            item_id: refillTarget.id,
-            quantity: 1,
-            customizations: `[REFILL] ${refillTarget.name || refillTarget.menu_name}`,
-            is_refill: true,
-          },
-        ],
-      };
-      const submission = await submitKioskOrder(
-        refillPayload,
-        getAuthHeader(),
-      );
-      if (submission.queued) {
-        const queuedAt = Date.now();
-        storage.setItem(LAST_REFILL_KEY, queuedAt.toString());
-        setRefillCooldownSeconds(refillCooldown.milliseconds / 1000);
-        setLocalBillHistory((previous) => [
-          ...previous,
-          {
-            id: refillTarget.id,
-            name: refillTarget.name || refillTarget.menu_name,
-            quantity: 1,
-            customizations: refillPayload.items[0].customizations,
-            is_refill: true,
-            is_placed: true,
-            local_queue_key: submission.idempotencyKey,
-          },
-        ]);
-        showToast("Refill saved offline and will sync when internet returns.", "info");
-        return;
-      }
-      storage.setItem(LAST_REFILL_KEY, Date.now().toString());
-      setRefillCooldownSeconds(refillCooldown.milliseconds / 1000);
-      await fetchCurrentBill();
-      showToast("Refill order placed.", "success");
-    } catch (e) {
-      if (e.response?.data?.error === "Cooldown active") {
-        const message = e.response.data.message || "Refill is on cooldown.";
-        const remainingMinutes = Number(message.match(/(\d+) more minutes?/i)?.[1]);
-        if (remainingMinutes > 0) {
-          const remainingSeconds = remainingMinutes * 60;
-          storage.setItem(
-            LAST_REFILL_KEY,
-            String(Date.now() - (refillCooldown.milliseconds - remainingSeconds * 1000)),
-          );
-          setRefillCooldownSeconds(remainingSeconds);
-        }
-        setCooldownMessage(message);
-      } else {
-        showToast("Order failed.");
-      }
-    } finally {
-      setIsLoading(false);
-    }
+    showToast("Add an item to your cart before placing a refill.", "error");
   };
 
   useEffect(() => {
@@ -1482,7 +1412,7 @@ const KioskReservationMenu = () => {
     if (
       isUnlimitedMode
         ? !hasPlacedUnlimitedFlavorOrder
-        : billItems.length === 0
+        : placedOrderItems.length === 0
     ) {
       return;
     }
@@ -2074,7 +2004,7 @@ const KioskReservationMenu = () => {
         <div className="header-right-group">
           {(isUnlimitedMode
             ? hasPlacedUnlimitedOrder
-            : billItems.length > 0) && <button
+            : placedOrderItems.length > 0) && <button
             className="billing-btn-header"
             onClick={handleHeaderPayClick}
             style={{
@@ -2374,7 +2304,7 @@ const KioskReservationMenu = () => {
               }}
             >
               {isFinalCheckout ? (
-                parseFloat(calculateTotalDue()) > 0 && !isEventReservation ? (
+                parseFloat(calculateTotalDue()) > 0 ? (
                   <>
                     <button
                       className="res-modal-btn-primary"
