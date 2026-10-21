@@ -1,15 +1,21 @@
 /* --- Background & Wrapper --- */
 .kiosk-res-wrapper {
   width: 100vw;
-  height: 100vh;
+  min-height: 100vh; /* fallback */
+  min-height: 100dvh; /* real visible viewport (kiosk-safe) */
+  height: auto; /* ⬅ remove the fixed height */
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start; /* ⬅ was: center — top-align so nothing is clipped at top */
   background: url("/hero.jpg") no-repeat center center;
   background-size: cover;
   position: relative;
-  overflow: hidden;
+  overflow-y: auto; /* ⬅ was: hidden — allow scroll if content is taller */
+  overflow-x: hidden;
   font-family: "Montserrat", sans-serif;
+  padding: max(16px, env(safe-area-inset-top, 0px)) 16px
+    max(16px, env(safe-area-inset-bottom, 0px));
+  box-sizing: border-box;
 }
 
 .kiosk-background-overlay {
@@ -22,9 +28,9 @@
 
 /* --- Back Button --- */
 .back-btn {
-  position: absolute;
-  top: 40px;
-  left: 40px;
+  position: fixed; /* ⬅ was: absolute — stays visible when the page scrolls */
+  top: max(16px, env(safe-area-inset-top, 0px));
+  left: max(16px, env(safe-area-inset-left, 0px));
   z-index: 10;
   background: transparent;
   border: 2px solid #ffcc00;
@@ -52,7 +58,9 @@
   text-align: center;
   width: 100%;
   max-width: 600px;
-  padding: 20px;
+  padding: 20px 20px 40px; /* extra bottom padding for the buttons */
+  margin-top: 16px; /* small gap under the Back button */
+  box-sizing: border-box;
 }
 
 .kiosk-logo-small {
@@ -73,18 +81,21 @@
   opacity: 0.8;
 }
 
+/* --- Title & Subtitle --- */
 .res-title {
   color: #ffcc00;
-  font-size: 3.5rem;
+  font-size: clamp(2rem, 5vw, 3.5rem); /* ⬅ shrinks on smaller screens */
   font-weight: 900;
-  margin: 30px 0 10px 0;
+  margin: clamp(12px, 3vh, 30px) 0 10px 0;
   text-transform: uppercase;
+  line-height: 1.1;
+  word-break: break-word;
 }
 
 .res-subtitle {
   color: #fff;
-  font-size: 1.2rem;
-  margin-bottom: 40px;
+  font-size: clamp(1rem, 2vw, 1.2rem);
+  margin-bottom: clamp(16px, 4vh, 40px);
   opacity: 0.9;
 }
 
@@ -92,11 +103,12 @@
 .res-card {
   background: #f8f9fa;
   border-radius: 40px;
-  padding: 50px 40px;
+  padding: clamp(20px, 5vh, 50px) clamp(16px, 4vw, 40px); /* ⬅ shrinks on short screens */
   box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
   display: flex;
   flex-direction: column;
   align-items: center;
+  box-sizing: border-box;
 }
 
 /* Error Message */
@@ -136,17 +148,19 @@
 
 .confirm-res-btn {
   width: 100%;
-  padding: 20px;
+  padding: clamp(14px, 2.5vh, 20px);
   border-radius: 15px;
   border: none;
   background: #ffcc00;
   color: #000;
-  font-size: 1.2rem;
+  font-size: clamp(0.95rem, 1.8vw, 1.2rem);
   font-weight: 900;
   text-transform: uppercase;
   cursor: pointer;
   box-shadow: 0 10px 20px rgba(255, 204, 0, 0.2);
   transition: all 0.3s ease;
+  min-width: 0; /* ⬅ prevents overflow in flex row */
+  white-space: nowrap;
 }
 
 .confirm-res-btn:hover:not(:disabled) {
@@ -201,4 +215,44 @@
 
 .animate-spin {
   animation: spin 1s linear infinite;
+}
+
+/* --- Extra safety for short landscape tablets (kiosk common size) --- */
+@media (max-height: 820px) {
+  .res-title {
+    font-size: clamp(1.75rem, 4.5vw, 2.75rem);
+    margin-top: 8px;
+  }
+  .res-subtitle {
+    margin-bottom: 16px;
+  }
+  .kiosk-logo-small {
+    margin-bottom: 8px;
+  }
+  .res-card {
+    padding: 24px 24px;
+    border-radius: 28px;
+  }
+}
+
+@media (max-height: 680px) {
+  .kiosk-logo-small {
+    display: none;
+  } /* hide logo if severely short */
+  .res-title {
+    font-size: 1.75rem;
+    margin-top: 4px;
+  }
+  .res-subtitle {
+    font-size: 0.9rem;
+    margin-bottom: 12px;
+  }
+  .res-card {
+    padding: 16px 20px;
+    border-radius: 20px;
+  }
+  .confirm-res-btn {
+    padding: 12px;
+    font-size: 0.9rem;
+  }
 }
