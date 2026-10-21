@@ -2,8 +2,11 @@ const db = require("../config/db");
 const crypto = require("crypto");
 const Order = require("../models/Order");
 const Notification = require("../models/Notification");
-const { validateUnlimitedPackageOrder } = require("../utils/unlimitedPackageRules");
-const REFILL_COOLDOWN_MS = require("../../shared/refillCooldown.json").milliseconds;
+const {
+  validateUnlimitedPackageOrder,
+} = require("../utils/unlimitedPackageRules");
+const REFILL_COOLDOWN_MS =
+  require("../../shared/refillCooldown.json").milliseconds;
 const PACKAGE_INCLUDED_MARKER = "[PACKAGE INCLUDED]";
 
 const stripPackageIncludedMarker = (value) => {
@@ -53,7 +56,7 @@ const orderController = {
   },
 
   // --- 2. Place Order (Fixed) ---
- placeOrder: async (req, res) => {
+  placeOrder: async (req, res) => {
     const { reservation_id, table_id, items } = req.body;
     const idempotencyKey = String(req.get("Idempotency-Key") || "").trim();
     if (idempotencyKey && (!reservation_id || idempotencyKey.length > 80)) {
@@ -62,13 +65,15 @@ const orderController = {
     const payloadHash = idempotencyKey
       ? crypto
           .createHash("sha256")
-          .update(JSON.stringify({
-            reservation_id,
-            table_id: table_id ?? null,
-            items,
-            allergy_note: req.body.allergy_note ?? null,
-            guests: req.body.guests ?? req.body.num_guests ?? null,
-          }))
+          .update(
+            JSON.stringify({
+              reservation_id,
+              table_id: table_id ?? null,
+              items,
+              allergy_note: req.body.allergy_note ?? null,
+              guests: req.body.guests ?? req.body.num_guests ?? null,
+            }),
+          )
           .digest("hex")
       : null;
     const requestedGuests = Number.parseInt(
@@ -90,7 +95,9 @@ const orderController = {
         items,
       });
       const { mode: kioskMode } = packageValidation;
-      const includedItemIds = new Set(packageValidation.packageIncludedItemIds || []);
+      const includedItemIds = new Set(
+        packageValidation.packageIncludedItemIds || [],
+      );
       const setIncludedItemIds = new Set(
         packageValidation.setIncludedItemIds || [],
       );
@@ -154,7 +161,7 @@ const orderController = {
       const [existing] = await conn.execute(
         `SELECT reservation_id, reservation_type, reservation_date, end_time
          FROM reservations WHERE reservation_id = ? FOR UPDATE`,
-        [reservation_id]
+        [reservation_id],
       );
 
       if (
@@ -169,13 +176,17 @@ const orderController = {
           [reservation_id, manilaDate, manilaTime],
         );
         if (expiredReservations.length > 0) {
-          throw new Error("This event reservation has ended. No new orders can be placed.");
+          throw new Error(
+            "This event reservation has ended. No new orders can be placed.",
+          );
         }
 
         const packageCardId = packageValidation.packageCardItemId;
-        const packageCardSubmitted = packageCardId != null && items.some(
-          (item) => Number(item.item_id || item.id) === Number(packageCardId),
-        );
+        const packageCardSubmitted =
+          packageCardId != null &&
+          items.some(
+            (item) => Number(item.item_id || item.id) === Number(packageCardId),
+          );
         if (packageCardSubmitted) {
           const [existingPackageOrders] = await conn.execute(
             `SELECT 1 FROM kiosk_orders
@@ -209,7 +220,7 @@ const orderController = {
             "Walk-in",
             guestCount,
           );
-          
+
           if (table_id && table_id !== "takeout" && table_id !== "null") {
             await Order.linkTableToSession(conn, reservation_id, table_id);
             if (kioskMode !== "default") {
@@ -221,13 +232,15 @@ const orderController = {
           }
         } else {
           // Reject regular reservations that do not exist
-          throw new Error(`Reservation ID ${reservation_id} does not exist. Please create a reservation first.`);
+          throw new Error(
+            `Reservation ID ${reservation_id} does not exist. Please create a reservation first.`,
+          );
         }
       } else {
         // Update the existing reservation to Seated
         await conn.execute(
           "UPDATE reservations SET status = 'Seated' WHERE reservation_id = ?",
-          [reservation_id]
+          [reservation_id],
         );
 
         if (isWalkIn) {
@@ -236,13 +249,13 @@ const orderController = {
             [guestCount, reservation_id],
           );
         }
-        
+
         if (table_id && table_id !== "takeout" && table_id !== "null") {
           await conn.execute(
             `INSERT INTO reservation_tables (reservation_id, table_id, status, check_in_time)
              VALUES (?, ?, 'seated', NOW())
              ON DUPLICATE KEY UPDATE status = 'seated'`,
-            [reservation_id, table_id]
+            [reservation_id, table_id],
           );
         }
       }
@@ -266,20 +279,25 @@ const orderController = {
           );
           const submission = existingSubmissions[0];
           if (!submission || submission.payload_hash !== payloadHash) {
-            const error = new Error("This order key was already used for a different order.");
+            const error = new Error(
+              "This order key was already used for a different order.",
+            );
             error.statusCode = 409;
             throw error;
           }
           const previousResponse = submission.response_json;
           if (!previousResponse) {
-            const error = new Error("This order is still being processed. Retry shortly.");
+            const error = new Error(
+              "This order is still being processed. Retry shortly.",
+            );
             error.statusCode = 409;
             throw error;
           }
           await conn.commit();
-          const responseBody = typeof previousResponse === "string"
-            ? JSON.parse(previousResponse)
-            : previousResponse;
+          const responseBody =
+            typeof previousResponse === "string"
+              ? JSON.parse(previousResponse)
+              : previousResponse;
           return res.status(200).json({ ...responseBody, duplicate: true });
         }
       }
@@ -290,7 +308,7 @@ const orderController = {
       if (table_id && table_id !== "takeout" && table_id !== "null") {
         await conn.execute(
           "UPDATE tables SET status = 'occupied', available_seats = 0 WHERE table_id = ?",
-          [table_id]
+          [table_id],
         );
       }
 
@@ -313,8 +331,7 @@ const orderController = {
             .toLowerCase()
             .includes(PACKAGE_INCLUDED_MARKER.toLowerCase());
         const isPackageIncluded =
-          (includedItemIds.has(itemId) &&
-            packageIncludedItemIds.has(itemId)) ||
+          (includedItemIds.has(itemId) && packageIncludedItemIds.has(itemId)) ||
           (setIncludedItemIds.has(itemId) && isMarkedLine);
         let customizations = item.customizations;
         if (isPackageIncluded) {
@@ -392,7 +409,7 @@ const orderController = {
           reservationId: reservation_id,
           title: "New Kiosk Order",
           message: `${itemSummary || "New items"} from ${table_id ? `Table ${table_id}` : "Walk-in"}.`,
-          type: "order",
+          type: "alert",
           isAdminAlert: true,
         });
       } catch (notificationError) {
