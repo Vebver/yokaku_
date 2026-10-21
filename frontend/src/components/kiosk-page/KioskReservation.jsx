@@ -280,19 +280,17 @@ const KioskReservation = () => {
             return;
           }
 
-          // 1. Clear the check-in flag
+          // Clear the check-in flag
           sessionStorage.removeItem("kiosk_reservation_checkin");
 
-          // 2. Tell KioskSelection to IGNORE this specific reservation ID
+          // Tell the selection page to ignore this specific reservation
           const activeId = sessionStorage.getItem("resId");
           if (activeId) {
             sessionStorage.setItem("kiosk_ignored_res_id", activeId);
           }
 
-          // 3. Set the exit flag
           sessionStorage.setItem("kiosk_exit_to_selection", "true");
 
-          // 4. Navigate back
           navigate(
             `/kiosk-selection${setupTable ? "?setupTable=" + setupTable : ""}`,
           );

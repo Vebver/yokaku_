@@ -25,7 +25,12 @@ const KioskSelection = () => {
     let disposed = false;
 
     const checkAdminOpenedKiosk = async () => {
-      // IF the user clicked BACK, check WHICH ID they backed out of
+      // 1. If the user clicked "Back", DO NOT redirect.
+      if (sessionStorage.getItem("kiosk_exit_to_selection") === "true") {
+        return;
+      }
+
+      // 2. Get the ID they backed out of (if any)
       const ignoredId = sessionStorage.getItem("kiosk_ignored_res_id");
 
       try {
@@ -46,7 +51,7 @@ const KioskSelection = () => {
           return;
         }
 
-        // 🚨 THE FIX: If the backend tries to redirect to the ID we just backed out of, STOP.
+        // 3. If the database returns the ID they just backed out of, DO NOT redirect.
         if (ignoredId && data.reservation.reservation_id === ignoredId) {
           return;
         }
@@ -64,11 +69,12 @@ const KioskSelection = () => {
       }
     };
 
-    // Check ONCE on load.
     checkAdminOpenedKiosk();
+    const interval = setInterval(checkAdminOpenedKiosk, 3000);
 
     return () => {
       disposed = true;
+      clearInterval(interval);
     };
   }, [kioskTableId, navigate, searchString]);
 

@@ -292,21 +292,21 @@ const Reservation = {
       : "";
     const tableParams = hasTable ? [parsedTableId] : [];
 
-    // 1. A single-customer session on THIS table always wins, so a walk-in
-    //    already seated keeps their own kiosk while an event runs elsewhere.
+    // 1. A single-customer session on THIS table always wins
     const tableScopedSingleSql = `
           SELECT r.*
           FROM reservations r
           WHERE r.is_kiosk_active = 1
             AND COALESCE(r.reservation_type, 'per_table') <> 'event'
-            AND r.status IN ('Confirmed', 'Seated', 'Pending')
+            AND LOWER(r.status) IN ('confirmed', 'seated', 'pending')
+            AND (r.reservation_date > ? OR (r.reservation_date = ? AND r.end_time >= ?))
             ${tableFilter}
           LIMIT 1
         `;
     if (hasTable) {
       const [tableSingles] = await db.execute(
         tableScopedSingleSql,
-        tableParams,
+        [today, today, now, ...tableParams], // Pass today, today, now, then tableParams
       );
       if (tableSingles.length > 0) {
         return {
@@ -386,11 +386,17 @@ const Reservation = {
           FROM reservations r
           WHERE r.is_kiosk_active = 1
             AND COALESCE(r.reservation_type, 'per_table') <> 'event'
-            AND r.status IN ('Confirmed', 'Seated', 'Pending')
+            AND LOWER(r.status) IN ('confirmed', 'seated', 'pending')
+            AND (r.reservation_date > ? OR (r.reservation_date = ? AND r.end_time >= ?))
             ${tableFilter}
           LIMIT 1
         `;
-    const [actives] = await db.execute(activeSql, tableParams);
+    const [actives] = await db.execute(activeSql, [
+      today,
+      today,
+      now,
+      ...tableParams,
+    ]);
     if (actives.length > 0) {
       return {
         mode: "single_active",
@@ -827,14 +833,20 @@ const Reservation = {
       }
       if (
         String(reservation.reservation_type || "").toLowerCase() !== "event" ||
-        !["seated", "confirmed"].includes(String(reservation.status || "").toLowerCase())
+        !["seated", "confirmed"].includes(
+          String(reservation.status || "").toLowerCase(),
+        )
       ) {
-        const error = new Error("Only active event reservations can be extended.");
+        const error = new Error(
+          "Only active event reservations can be extended.",
+        );
         error.statusCode = 400;
         throw error;
       }
 
-      const endMatch = String(reservation.end_time).match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+      const endMatch = String(reservation.end_time).match(
+        /^(\d{1,2}):(\d{2})(?::(\d{2}))?/,
+      );
       if (!endMatch) {
         const error = new Error("Reservation end time is invalid.");
         error.statusCode = 400;
@@ -844,7 +856,9 @@ const Reservation = {
       const oldEndMinutes = Number(hour) * 60 + Number(minute);
       const nextEndMinutes = oldEndMinutes + minutes;
       if (nextEndMinutes >= 24 * 60) {
-        const error = new Error("Reservations cannot be extended past midnight.");
+        const error = new Error(
+          "Reservations cannot be extended past midnight.",
+        );
         error.statusCode = 400;
         throw error;
       }
@@ -876,7 +890,9 @@ const Reservation = {
           [id, reservation.reservation_date, tableIds, newEndTime, oldEndTime],
         );
         if (conflicts.length > 0) {
-          const error = new Error("The requested extension conflicts with another reservation.");
+          const error = new Error(
+            "The requested extension conflicts with another reservation.",
+          );
           error.statusCode = 409;
           throw error;
         }
@@ -902,7 +918,9 @@ const Reservation = {
         ],
       );
       if (activeRows.length === 0) {
-        const error = new Error("This reservation has already ended and cannot be extended.");
+        const error = new Error(
+          "This reservation has already ended and cannot be extended.",
+        );
         error.statusCode = 400;
         throw error;
       }
