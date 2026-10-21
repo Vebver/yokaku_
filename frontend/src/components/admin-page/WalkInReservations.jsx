@@ -1079,6 +1079,7 @@ const WalkInReservations = () => {
                             className="form-control"
                             value={newRes.date}
                             onChange={handleInputChange}
+                            onKeyDown={(e) => e.preventDefault()}
                             required
                           />
                         </div>
@@ -1249,6 +1250,7 @@ const WalkInReservations = () => {
                         className="form-control"
                         value={newRes.date}
                         onChange={handleInputChange}
+                        onKeyDown={(e) => e.preventDefault()}
                         required
                       />
                     </div>
@@ -1521,7 +1523,9 @@ const WalkInReservations = () => {
                         type="time"
                         name="startTime"
                         className="form-control"
+                        value={newRes.startTime || ""}
                         onChange={handleInputChange}
+                        onKeyDown={(e) => e.preventDefault()}
                         required
                       />
                     </div>
@@ -1534,7 +1538,9 @@ const WalkInReservations = () => {
                         name="endTime"
                         className="form-control"
                         min={newRes.startTime || undefined}
+                        value={newRes.endTime || ""}
                         onChange={handleInputChange}
+                        onKeyDown={(e) => e.preventDefault()}
                         required
                       />
                       <div className="form-text" style={{ fontSize: "0.7rem" }}>
