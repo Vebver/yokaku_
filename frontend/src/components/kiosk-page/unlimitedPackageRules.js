@@ -45,9 +45,11 @@ export const getUnlimitedPackage = (mode) => PACKAGE_RULES[mode] || null;
 export const inferUnlimitedPackageMode = (value) => {
   const name =
     typeof value === "string" ? value.toLowerCase() : getName(value);
-  if (/\bset\b/.test(name)) return null;
   const hasUnlimitedCategory =
     typeof value !== "string" && getCategory(value).includes("unlimited");
+  if (/\bset\b/.test(name) && !name.includes("unlimited") && !hasUnlimitedCategory) {
+    return null;
+  }
   if (!name.includes("unlimited") && !hasUnlimitedCategory) return null;
   if (/\bc\b/.test(name)) return "unlimited_wings_c";
   if (/\bb\b/.test(name)) return "unlimited_wings_b";
@@ -55,10 +57,10 @@ export const inferUnlimitedPackageMode = (value) => {
 };
 
 export const isUnlimitedPackageItem = (item) =>
-  !/\bset\b/.test(getName(item)) &&
   (getCategory(item).includes("unlimited") || getName(item).includes("unlimited"));
 
-export const isSetItem = (item) => /\bset\b/.test(getName(item));
+export const isSetItem = (item) =>
+  !isUnlimitedPackageItem(item) && /\bset\b/.test(getName(item));
 
 export const isPackageCardForMode = (item, mode) => {
   if (!isUnlimitedPackageItem(item)) return false;

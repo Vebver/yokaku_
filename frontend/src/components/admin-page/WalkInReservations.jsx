@@ -367,6 +367,18 @@ const WalkInReservations = () => {
     e.preventDefault();
     setSubmitting(true);
     try {
+      if (newRes.bookingType === "table") {
+        const selectedTableId = Number(newRes.tableIds[0]);
+        const selectedTable = availableTables.find(
+          (table) => Number(table.table_id) === selectedTableId,
+        );
+        if (!selectedTable || selectedTable.isUnavailable) {
+          showToast("Please select an available table.");
+          setSubmitting(false);
+          return;
+        }
+      }
+
       // The end time drives the event countdown and when tables free up, so
       // it has to be present and after the start.
       if (!newRes.startTime || !newRes.endTime) {
@@ -899,6 +911,46 @@ const WalkInReservations = () => {
                 </div>
               )}
 
+              {newRes.bookingType === "table" && (
+                <div className="mb-3">
+                  <label className="form-label small fw-bold">
+                    Select Table
+                  </label>
+                  <select
+                    name="tableIds"
+                    className="form-select form-select-sm"
+                    value={newRes.tableIds[0] || ""}
+                    onChange={handleInputChange}
+                    required
+                  >
+                    <option value="">-- Select an available table --</option>
+                    {availableTables
+                      .filter(
+                        (table) =>
+                          Number.isInteger(Number(table.table_id)) &&
+                          Number(table.table_id) > 0,
+                      )
+                      .map((table) => (
+                        <option
+                          key={table.table_id}
+                          value={table.table_id}
+                          disabled={table.isUnavailable}
+                        >
+                          Table {table.table_number}
+                          {table.capacity
+                            ? ` (${table.capacity} seats)`
+                            : ""}
+                        </option>
+                      ))}
+                  </select>
+                  {availableTables.length === 0 && (
+                    <div className="form-text text-danger">
+                      No tables are available to select.
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* DYNAMIC FOOD & DRINK SELECTOR */}
               {newRes.bookingType === "takeout" && (
                 <div className="mb-4 animate-fade-in">
@@ -1121,6 +1173,7 @@ const WalkInReservations = () => {
                     type="date"
                     name="date"
                     className="form-control"
+                    value={newRes.date}
                     onChange={handleInputChange}
                     required
                   />

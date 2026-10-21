@@ -534,13 +534,14 @@ const KioskReservationMenu = () => {
     const parsed = parseInt(rawTableId, 10);
     return Number.isInteger(parsed) ? parsed : null;
   };
+  const resolvedKioskTableId = getCurrentTableId();
 
   // ==================== POLLING & MODE DETECTOR ====================
   useEffect(() => {
     const checkActiveKiosk = async () => {
       try {
         const res = await axios.get(`${API_BASE}/reservations/active-kiosk`, {
-          params: { tableId: setupTable },
+          params: { tableId: getCurrentTableId() },
         });
 
         if (res.data && res.data.success) {
@@ -1322,8 +1323,12 @@ const KioskReservationMenu = () => {
         setCart([]);
         resetMenuSelections();
         setIsPaid(false);
-        setShowBillInfo(false);
-        setIsFinalCheckout(false);
+        setBillItems((previous) => [
+          ...previous,
+          ...pendingItems.map((item) => ({ ...item, is_placed: true })),
+        ]);
+        setIsFinalCheckout(true);
+        setShowBillInfo(true);
         showToast(
           "Order saved on this kiosk. It will sync when internet returns; payment was not processed.",
           "info",
@@ -1364,11 +1369,15 @@ const KioskReservationMenu = () => {
         setIsPaid(true);
       }
 
-      await fetchCurrentBill();
+      const updatedBillItems = await fetchCurrentBill();
 
       setCart([]);
       resetMenuSelections();
-      setShowBillInfo(false);
+      if (updatedBillItems) {
+        setBillItems(updatedBillItems);
+      }
+      setIsFinalCheckout(true);
+      setShowBillInfo(true);
 
       if (isPayNow) {
         showToast("Your order has been placed. Thank you!", "success");
@@ -1945,13 +1954,13 @@ const KioskReservationMenu = () => {
     socket.on("kiosk_mode_changed", (payload) => {
       if (
         payload?.tableId != null &&
-        String(payload.tableId) === String(setupTable)
+        String(payload.tableId) === String(resolvedKioskTableId)
       ) {
         setTableKioskMenuMode(payload.kiosk_mode || "default");
       }
     });
     return () => socket.disconnect();
-  }, [setupTable]);
+  }, [resolvedKioskTableId]);
 
   // ==================== LOADING RENDER ====================
   // Only block when we have nothing cached to show; a cached menu paints

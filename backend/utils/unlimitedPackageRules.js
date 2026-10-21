@@ -43,7 +43,13 @@ const inferPackageMode = (name) => {
     typeof name === "object"
       ? String(name.category_name || "").toLowerCase()
       : "";
-  if (/\bset\b/.test(normalized)) return null;
+  if (
+    /\bset\b/.test(normalized) &&
+    !normalized.includes("unlimited") &&
+    !category.includes("unlimited")
+  ) {
+    return null;
+  }
   if (!normalized.includes("unlimited") && !category.includes("unlimited")) {
     return null;
   }
