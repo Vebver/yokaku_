@@ -25,11 +25,8 @@ const KioskSelection = () => {
     let disposed = false;
 
     const checkAdminOpenedKiosk = async () => {
-      // IF THE USER CLICKED BACK, DO NOT AUTO-REDIRECT.
-      // They must manually click the "Reservation" button again.
-      if (sessionStorage.getItem("kiosk_exit_to_selection") === "true") {
-        return;
-      }
+      // IF the user clicked BACK, check WHICH ID they backed out of
+      const ignoredId = sessionStorage.getItem("kiosk_ignored_res_id");
 
       try {
         const { data } = await axios.get(
@@ -49,6 +46,11 @@ const KioskSelection = () => {
           return;
         }
 
+        // 🚨 THE FIX: If the backend tries to redirect to the ID we just backed out of, STOP.
+        if (ignoredId && data.reservation.reservation_id === ignoredId) {
+          return;
+        }
+
         const { reservation_id, table_id } = data.reservation;
         sessionStorage.setItem("resId", reservation_id);
         sessionStorage.setItem("kiosk_mode", "reservation");
@@ -62,7 +64,7 @@ const KioskSelection = () => {
       }
     };
 
-    // Check ONCE on load. (Removed the 3-second interval)
+    // Check ONCE on load.
     checkAdminOpenedKiosk();
 
     return () => {
@@ -81,9 +83,9 @@ const KioskSelection = () => {
   // ==================== SELECTION CLICK HANDLER ====================
   const handleSelection = (type) => {
     if (type === "menu") {
-      // MODE: WALK-IN (sessionStorage)
       sessionStorage.removeItem("kiosk_reservation_checkin");
       sessionStorage.removeItem("kiosk_exit_to_selection");
+      sessionStorage.removeItem("kiosk_ignored_res_id"); // <-- Add this
       sessionStorage.removeItem("resId");
       sessionStorage.setItem("kiosk_mode", "walkin");
       navigate(`/kiosk-selection/kiosk-menu${searchString}`);
@@ -91,6 +93,7 @@ const KioskSelection = () => {
       sessionStorage.setItem("kiosk_reservation_checkin", "true");
       sessionStorage.setItem("kiosk_mode", "reservation");
       sessionStorage.removeItem("kiosk_exit_to_selection");
+      sessionStorage.removeItem("kiosk_ignored_res_id"); // <-- Add this
       navigate(`/kiosk-selection/kiosk-reservation${searchString}`);
     }
   };
