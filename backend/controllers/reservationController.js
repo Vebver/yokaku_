@@ -898,7 +898,7 @@ const reservationController = {
           reservationId: id,
           title: "Refund Processed",
           message: `A refund of ₱${Number(refundAmount).toFixed(2)} has been processed for your reservation (${id}).`,
-          type: "reservation",
+          type: "alert",
           isAdminAlert: false,
         });
       }
