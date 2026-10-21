@@ -751,6 +751,21 @@ export default function ReservationSteps({ onClose, onSuccess }) {
           })();
           const isMuniValid = form.muni && form.muni !== "";
           const isBrgyValid = form.brgy && form.brgy !== "";
+
+          //Add this check (Event has a fixed 40 guest limit)
+          const isAllergyCountValid =
+            form.allergy === "None" ||
+            !form.allergyCount ||
+            (parseInt(form.allergyCount) >= 1 &&
+              parseInt(form.allergyCount) <= 40);
+
+          /*const isAllergyCountValid =
+            form.allergy === "None" ||
+            !form.allergyCount ||
+            (parseInt(form.allergyCount) >= 1 &&
+              parseInt(form.allergyCount) <=
+                (parseInt(form.num_guests) || totalSeats || 0));*/
+
           return (
             isFirstNameValid &&
             isLastNameValid &&
@@ -760,7 +775,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
             isBrgyValid &&
             isStartTimeValid &&
             isEndTimeValid &&
-            isTimeValid
+            isTimeValid &&
+            isAllergyCountValid
           );
         } else {
           // Select Table step for per_table
@@ -825,6 +841,20 @@ export default function ReservationSteps({ onClose, onSuccess }) {
             isPhoneValid,
           });
 
+          const isAllergyCountValid =
+            form.allergy === "None" ||
+            !form.allergyCount ||
+            (parseInt(form.allergyCount) >= 1 &&
+              parseInt(form.allergyCount) <=
+                (parseInt(form.num_guests) || totalSeats || 0));
+
+          /* Add this check (Event has a fixed 40 guest limit)
+          const isAllergyCountValid =
+            form.allergy === "None" ||
+            !form.allergyCount ||
+            (parseInt(form.allergyCount) >= 1 &&
+              parseInt(form.allergyCount) <= 40);*/
+
           return (
             isFirstNameValid &&
             isLastNameValid &&
@@ -834,7 +864,8 @@ export default function ReservationSteps({ onClose, onSuccess }) {
             isBrgyValid &&
             isStartTimeValid &&
             isEndTimeValid &&
-            isTimeValid
+            isTimeValid &&
+            isAllergyCountValid
           );
         }
       case 4:
@@ -1563,7 +1594,6 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       const sanitized = sanitizeStringInput(value);
       setForm((prev) => ({ ...prev, [name]: sanitized }));
     } else if (name === "allergyCount") {
-      // ===== FIX: Restrict allergyCount to numbers only, max 40, no negative =====
       // Remove any non-numeric characters
       let numericValue = value.replace(/[^0-9]/g, "");
 
@@ -1576,17 +1606,22 @@ export default function ReservationSteps({ onClose, onSuccess }) {
       // Parse as integer
       let numValue = parseInt(numericValue, 10);
 
-      // Check if it's a valid number and within range
+      // Determine max allowed based on guest count
+      const maxGuests =
+        reservationType === "event"
+          ? 40
+          : parseInt(form.num_guests) || totalSeats || 38;
+
       if (!isNaN(numValue)) {
-        // Don't allow negative numbers (0 is the minimum)
-        if (numValue < 0) {
-          numValue = 0;
+        // Don't allow below 1
+        if (numValue < 1) {
+          numValue = 1;
         }
-        // Max is 40
-        if (numValue > 40) {
-          numValue = 40;
+        // Don't allow above max guests
+        if (numValue > maxGuests) {
+          numValue = maxGuests;
           showToast(
-            "Maximum number of people with allergies is 40.",
+            `Maximum number of people with allergies is ${maxGuests} (based on your guest count).`,
             "warning",
           );
         }
@@ -2573,7 +2608,14 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                         <input
                           type="text"
                           name="allergyCount"
-                          className="allergy-count-input"
+                          className={`allergy-count-input ${
+                            form.allergy !== "None" &&
+                            form.allergyCount &&
+                            parseInt(form.allergyCount) >
+                              (parseInt(form.num_guests) || totalSeats || 42)
+                              ? "input-error"
+                              : ""
+                          }`}
                           value={form.allergyCount}
                           onChange={handleInputChange}
                           placeholder="Enter number (1-40)"
@@ -3468,7 +3510,14 @@ export default function ReservationSteps({ onClose, onSuccess }) {
                         <input
                           type="text"
                           name="allergyCount"
-                          className="allergy-count-input"
+                          className={`allergy-count-input ${
+                            form.allergy !== "None" &&
+                            form.allergyCount &&
+                            parseInt(form.allergyCount) >
+                              (parseInt(form.num_guests) || totalSeats || 0)
+                              ? "input-error"
+                              : ""
+                          }`}
                           min="1"
                           max={40}
                           value={form.allergyCount}

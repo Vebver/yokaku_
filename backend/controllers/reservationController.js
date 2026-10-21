@@ -259,6 +259,28 @@ const reservationController = {
       body.guests = guestCount;
       body.num_guests = guestCount;
 
+      // ===== NEW: Validate Allergy Count does not exceed Guest Count =====
+      const allergyCount = parseInt(body.allergyCount) || 0;
+
+      // Only validate if an allergy was actually specified
+      const hasAllergy =
+        body.allergy &&
+        body.allergy !== "None" &&
+        body.allergy !== "Specify all Allergy";
+
+      if (hasAllergy && allergyCount > 0) {
+        if (allergyCount > guestCount) {
+          return res.status(400).json({
+            error: `Invalid allergy count. You cannot have ${allergyCount} people with allergies when there are only ${guestCount} guests.`,
+          });
+        }
+        if (allergyCount < 1) {
+          return res.status(400).json({
+            error:
+              "Allergy count must be at least 1 if an allergy is specified.",
+          });
+        }
+      }
 
       // ===== FIX: Safely get reservation type (handle array case) =====
       let reservationType = "per_table";
@@ -548,7 +570,10 @@ const reservationController = {
         req.user?.userId || null,
         "EXTEND_EVENT_RESERVATION",
         req.params.id,
-        { additionalMinutes: Number(req.body.additionalMinutes), endTime: result.end_time },
+        {
+          additionalMinutes: Number(req.body.additionalMinutes),
+          endTime: result.end_time,
+        },
         req,
       );
       const io = req.app.get("io");
@@ -675,9 +700,7 @@ const reservationController = {
         const scheduledTime = new Date(
           `${reservation.reservation_date} ${reservation.reservation_time}`,
         );
-        const diffInMinutes = Math.floor(
-          (now - scheduledTime) / (1000 * 60),
-        );
+        const diffInMinutes = Math.floor((now - scheduledTime) / (1000 * 60));
 
         if (diffInMinutes < -30) {
           return res.status(400).json({
