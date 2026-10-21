@@ -120,11 +120,21 @@ const Inventory = {
   },
 
   getUnits: async () => {
-    await Inventory.ensureOptionTables();
-    const [rows] = await db.query(
-      "SELECT unit_name AS value, unit_name AS label, unit_group AS grp FROM inventory_units ORDER BY unit_group, unit_name",
-    );
-    return rows;
+    // DO NOT put ensureOptionTables here
+    try {
+      const [rows] = await db.query(
+        "SELECT unit_name AS value, unit_name AS label, unit_group AS grp FROM inventory_units ORDER BY unit_group, unit_name",
+      );
+      return rows;
+    } catch (error) {
+      if (error.code === "ER_LOCK_DEADLOCK") {
+        const [rows] = await db.query(
+          "SELECT unit_name AS value, unit_name AS label, unit_group AS grp FROM inventory_units ORDER BY unit_group, unit_name",
+        );
+        return rows;
+      }
+      throw error;
+    }
   },
 
   addUnit: async (unitName, unitGroup = "Other") => {
@@ -151,11 +161,21 @@ const Inventory = {
   },
 
   getStorageLocations: async () => {
-    await Inventory.ensureOptionTables();
-    const [rows] = await db.query(
-      "SELECT storage_name AS value, storage_name AS label FROM inventory_storage_locations ORDER BY storage_name",
-    );
-    return rows;
+    // DO NOT put ensureOptionTables here
+    try {
+      const [rows] = await db.query(
+        "SELECT storage_name AS value, storage_name AS label FROM inventory_storage_locations ORDER BY storage_name",
+      );
+      return rows;
+    } catch (error) {
+      if (error.code === "ER_LOCK_DEADLOCK") {
+        const [rows] = await db.query(
+          "SELECT storage_name AS value, storage_name AS label FROM inventory_storage_locations ORDER BY storage_name",
+        );
+        return rows;
+      }
+      throw error;
+    }
   },
 
   addStorageLocation: async (storageName) => {
@@ -195,7 +215,9 @@ const Inventory = {
   addDishLink: async (inventoryId, itemId, quantityRequired) => {
     const qty = Number(quantityRequired);
     if (!inventoryId || !itemId || !Number.isFinite(qty) || qty <= 0) {
-      throw new Error("A dish and a positive quantity per serving are required.");
+      throw new Error(
+        "A dish and a positive quantity per serving are required.",
+      );
     }
     // Prevent duplicates: update the quantity instead of failing outright.
     const [existing] = await db.execute(
