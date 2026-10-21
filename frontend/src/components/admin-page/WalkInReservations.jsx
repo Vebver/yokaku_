@@ -387,6 +387,22 @@ const WalkInReservations = () => {
       return;
     }
 
+    // 3. First Name & Last Name Validation (Letters and spaces only)
+    if (name === "firstName" || name === "lastName") {
+      // Replace anything that is NOT a letter (a-z, A-Z) or a space with nothing
+      const sanitizedValue = value.replace(/[^a-zA-Z\s]/g, "");
+      setNewRes((prev) => ({ ...prev, [name]: sanitizedValue }));
+      return;
+    }
+
+    // 4. Email Validation (Alphanumeric + @ . _ -)
+    if (name === "email") {
+      // Allow only letters, numbers, and @ . _ -
+      const sanitizedEmail = value.replace(/[^a-zA-Z0-9@._-]/g, "");
+      setNewRes((prev) => ({ ...prev, email: sanitizedEmail }));
+      return;
+    }
+
     // ... The rest of your existing logic (bookingType, startTime, etc.) ...
     if (name === "bookingType") {
       let defaultPackage = "Regular Table";
