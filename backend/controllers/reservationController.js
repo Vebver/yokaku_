@@ -227,6 +227,26 @@ const reservationController = {
     try {
       const { tableId } = req.query;
       const result = await Reservation.getActiveKioskReservation(tableId);
+
+      // 🚨 THE FIX: If the backend thinks there is an active session,
+      // double-check that it hasn't already been completed or cancelled.
+      if (result.mode === "single_active" && result.reservation) {
+        const status = String(result.reservation.status || "").toLowerCase();
+
+        if (
+          status === "completed" ||
+          status === "cancelled" ||
+          status === "rejected"
+        ) {
+          // It's dead! Force the kiosk back to the default state.
+          return res.json({
+            success: true,
+            mode: "table_default",
+            kioskMode: result.kioskMode || "default",
+          });
+        }
+      }
+
       res.json({ success: true, ...result });
     } catch (error) {
       console.error("Fetch active kiosk state error:", error);
