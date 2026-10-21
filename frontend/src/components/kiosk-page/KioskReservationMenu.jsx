@@ -271,10 +271,9 @@ const KioskReservationMenu = () => {
       : reservedPackageMode || orderedPackageMode || tableKioskMenuMode;
   const isUnlimitedMode = Boolean(getUnlimitedPackage(kioskMenuMode));
   const unlimitedSessionLocked = isUnlimitedMode && hasPlacedUnlimitedOrder;
-  const packageInclusions = getPackageInclusions(
-    menuData,
-    kioskMenuMode,
-    activePackageItem,
+  const packageInclusions = useMemo(
+    () => getPackageInclusions(menuData, kioskMenuMode, activePackageItem),
+    [menuData, kioskMenuMode, activePackageItem],
   );
   const pendingSetItem = cart.find(
     (item) => !item.is_placed && isSetItem(item),
@@ -300,11 +299,12 @@ const KioskReservationMenu = () => {
     const firstVisibleCategory = Object.keys(menuData).find((category) =>
       isCategoryVisible(category),
     );
-    if (isSetMode) return;
-    if (!isCategoryVisible(activeCategory)) {
-      setActiveCategory(firstVisibleCategory || "");
+    if (isSetMode || isUnlimitedMode) return;
+    const nextCategory = firstVisibleCategory || "";
+    if (!isCategoryVisible(activeCategory) && nextCategory !== activeCategory) {
+      setActiveCategory(nextCategory);
     }
-  }, [activeCategory, isSetMode, menuData, visibleCategoryIds]);
+  }, [activeCategory, isSetMode, isUnlimitedMode, menuData, visibleCategoryIds]);
   const visiblePackageMode = isSetMode ? "set" : kioskMenuMode;
   const visiblePackageInclusions = isSetMode
     ? setInclusions
@@ -319,11 +319,7 @@ const KioskReservationMenu = () => {
     const visibleActiveSetCategory = categories.find(
       (category) => category === activeCategory,
     );
-    if (
-      !visibleActiveSetCategory &&
-      categories.length > 0 &&
-      categories[0] !== activeCategory
-    ) {
+    if (!visibleActiveSetCategory && categories[0] && categories[0] !== activeCategory) {
       setActiveCategory(categories[0]);
     }
   }, [
@@ -1805,11 +1801,15 @@ const KioskReservationMenu = () => {
       kioskMenuMode,
       packageInclusions,
     );
-    setActiveCategory(
+    const nextCategory =
       packageCategories.find((category) => category !== "Unlimited") ||
-        packageCategories[0] ||
-        "",
-    );
+      packageCategories[0] ||
+      "";
+    if (nextCategory) {
+      setActiveCategory((current) =>
+        current === nextCategory ? current : nextCategory,
+      );
+    }
 
   }, [
     isUnlimitedMode,
@@ -1829,8 +1829,9 @@ const KioskReservationMenu = () => {
       kioskMenuMode,
       packageInclusions,
     );
-    if (activeCategory && !allowedCategories.includes(activeCategory)) {
-      setActiveCategory(allowedCategories[0] || "");
+    const nextCategory = allowedCategories[0] || "";
+    if (activeCategory && !allowedCategories.includes(activeCategory) && nextCategory !== activeCategory) {
+      setActiveCategory(nextCategory);
     }
   }, [
     activeCategory,
@@ -1920,19 +1921,10 @@ const KioskReservationMenu = () => {
           >
             <User size={20} color="#ffcc00" />
             <div className="id-details">
-              <span
-                style={{
-                  color: "#ffcc00",
-                  fontSize: "10px",
-                  fontWeight: "900",
-                  display: "block",
-                }}
-              >
+              <span className="id-label">
                 RESERVATION ID
               </span>
-              <span
-                style={{ color: "#fff", fontWeight: "900", fontSize: "16px" }}
-              >
+              <span className="id-value">
                 {reservationId}
               </span>
             </div>
@@ -2038,7 +2030,7 @@ const KioskReservationMenu = () => {
               {Object.keys(menuData)
                 .filter(
                   (cat) =>
-                    (isSetMode || isCategoryVisible(cat)) &&
+                    ((isUnlimitedMode || isSetMode) || isCategoryVisible(cat)) &&
                     ((isUnlimitedMode || isSetMode)
                       ? getPackageCategories(
                           menuData,
@@ -2107,12 +2099,10 @@ const KioskReservationMenu = () => {
                   <h4 className="res-food-label">
                     {item.name || item.menu_name}
                   </h4>
-                  <p style={{ color: "#ffcc00", fontWeight: "bold" }}>
+                  <p className="res-food-price">
                     {isSetMode
                       ? "Included with set"
-                      : isUnlimitedMode || inferUnlimitedPackageMode(item)
-                      ? "₱0.00"
-                      : `₱${parseFloat(item.price).toFixed(2)}`}
+                      : `₱${Number(item.price || 0).toFixed(2)}`}
                   </p>
                   {item.description && (
                     <p className="res-food-description">

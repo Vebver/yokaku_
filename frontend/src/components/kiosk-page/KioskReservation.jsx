@@ -42,7 +42,6 @@ const KioskReservation = () => {
   const [resId, setResId] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [activeResId, setActiveResId] = useState(sessionStorage.getItem("resId") || null);
   // Holds the looked-up reservation while the guest confirms it is theirs.
   const [pending, setPending] = useState(null);
 
@@ -64,28 +63,12 @@ const KioskReservation = () => {
         });
 
         if (res.data && res.data.success) {
-          const { mode, reservation } = res.data;
+          const { mode } = res.data;
 
           if (mode === "event_waiting") {
             // Lock this entry interface down into the event waiting screen
             setEventMode("event_waiting");
-          }
-          // Opened event and single-customer sessions both enter the menu directly.
-          else if (
-            (mode === "event_active" || mode === "single_active") &&
-            sessionStorage.getItem("kiosk_exit_to_selection") !== "true"
-          ) {
-            sessionStorage.setItem("resId", reservation.reservation_id);
-            if (reservation.table_id) {
-              sessionStorage.setItem(
-                "tableId",
-                reservation.table_id.toString(),
-              );
-            }
-            const searchString = setupTable ? `?setupTable=${setupTable}` : "";
-            navigate(`/kiosk-selection/kiosk-reservation-menu${searchString}`);
           } else {
-            // "table_default" / "table_assigned" - Stay on the manual check-in screen
             setEventMode("default");
           }
         }
@@ -97,7 +80,7 @@ const KioskReservation = () => {
     checkActiveEventState();
     const pollInterval = setInterval(checkActiveEventState, 3000);
     return () => clearInterval(pollInterval);
-  }, [setupTable, navigate]);
+  }, [setupTable]);
 
   // Function to validate custom table reservation ID manually with database
   const validateAndProceed = async (id) => {
@@ -154,6 +137,7 @@ const KioskReservation = () => {
 
       if (response.ok && data?.success) {
         sessionStorage.removeItem("kiosk_exit_to_selection");
+        sessionStorage.removeItem("kiosk_reservation_checkin");
         sessionStorage.setItem("resId", pending.id);
         sessionStorage.setItem("kiosk_mode", "reservation");
         if (pending.tables.length > 0) {
@@ -292,6 +276,7 @@ const KioskReservation = () => {
             setError("");
             return;
           }
+          sessionStorage.removeItem("kiosk_reservation_checkin");
           navigate(
             `/kiosk-selection${setupTable ? "?setupTable=" + setupTable : ""}`,
           );
@@ -456,9 +441,10 @@ const KioskReservation = () => {
               Is this you? If not, tap Back and enter the correct ID.
             </p>
 
-            <div style={{ display: "flex", gap: "12px" }}>
+            <div className="res-confirm-actions" style={{ display: "flex", gap: "12px" }}>
               <button
                 className="confirm-res-btn"
+                type="button"
                 style={{
                   flex: 1,
                   background: "#333",
@@ -474,6 +460,7 @@ const KioskReservation = () => {
               </button>
               <button
                 className="confirm-res-btn"
+                type="button"
                 style={{ flex: 2 }}
                 onClick={confirmAndEnter}
                 disabled={loading}
