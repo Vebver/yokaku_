@@ -754,6 +754,8 @@ function AdminDashboard() {
               <button
                 className="btn btn-light position-relative p-0 rounded-circle border-0 d-flex align-items-center justify-content-center"
                 onClick={() => setShowNotifications(!showNotifications)}
+                aria-label="Notifications"
+                aria-expanded={showNotifications}
                 style={{
                   width: "40px",
                   height: "40px",
@@ -791,8 +793,7 @@ function AdminDashboard() {
                     )}
                   </div>
                   <div
-                    className="overflow-auto custom-scrollbar"
-                    style={{ maxHeight: "320px" }}
+                    className="overflow-auto custom-scrollbar admin-notif-list"
                   >
                     {notifications.length > 0 ? (
                       notifications.map((notif, index) => {
@@ -868,17 +869,6 @@ function AdminDashboard() {
                         <p className="mb-0 small">Your inbox is empty.</p>
                       </div>
                     )}
-                  </div>
-                  <div className="px-3 pt-2 text-center border-top">
-                    <button
-                      className="btn btn-link btn-sm text-decoration-none text-primary fw-bold p-0"
-                      onClick={() => {
-                        setActiveSection("online-reservations");
-                        setShowNotifications(false);
-                      }}
-                    >
-                      Open Reservation Manager
-                    </button>
                   </div>
                 </div>
               )}

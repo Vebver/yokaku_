@@ -78,6 +78,17 @@
   background: #198754;
 }
 
+.inventory-stock-amount {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  white-space: nowrap;
+}
+
+.inventory-stock-amount small {
+  white-space: nowrap;
+}
+
 .inventory-option-toggle {
   min-height: 36px;
 }
@@ -218,6 +229,17 @@
     min-height: 44px;
     padding-left: 1.25rem;
     padding-right: 1.25rem;
+  }
+}
+
+@media (min-width: 1400px) {
+  .inventory-container .table {
+    min-width: 1050px;
+  }
+
+  .inventory-container .table th:nth-child(3),
+  .inventory-container .table td[data-label="Stock Level"] {
+    min-width: 105px;
   }
 }
 

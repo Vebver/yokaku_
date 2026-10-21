@@ -789,9 +789,9 @@ function Inventory({ isKitchenStaff = false, onBack }) {
                   </td>
                   <td data-label="Stock Level">
                     <div
-                      className={`fw-bold ${status === "ok" ? "text-dark" : "text-danger"}`}
+                      className={`inventory-stock-amount fw-bold ${status === "ok" ? "text-dark" : "text-danger"}`}
                     >
-                      {item.stock}{" "}
+                      <span>{item.stock}</span>
                       <small className="text-muted fw-normal">
                         {item.unit}
                       </small>
