@@ -1,8 +1,6 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
 import "../../Style/KioskSelection.css";
-import { API_BASE } from "../../api";
 
 const KioskSelection = () => {
   const navigate = useNavigate();
@@ -13,70 +11,11 @@ const KioskSelection = () => {
     [],
   );
   const setupTable = queryParams.get("setupTable");
-  const kioskTableId =
-    setupTable ||
-    sessionStorage.getItem("tableId") ||
-    localStorage.getItem("tableId");
-  const searchString = kioskTableId
-    ? `?setupTable=${encodeURIComponent(kioskTableId)}`
+  const tableId =
+    setupTable || sessionStorage.getItem("tableId") || localStorage.getItem("tableId");
+  const searchString = tableId
+    ? `?setupTable=${encodeURIComponent(tableId)}`
     : "";
-
-  useEffect(() => {
-    let disposed = false;
-
-    const checkAdminOpenedKiosk = async () => {
-      // 1. If the user clicked "Back", DO NOT redirect.
-      if (sessionStorage.getItem("kiosk_exit_to_selection") === "true") {
-        return;
-      }
-
-      // 2. Get the ID they backed out of (if any)
-      const ignoredId = sessionStorage.getItem("kiosk_ignored_res_id");
-
-      try {
-        const { data } = await axios.get(
-          `${API_BASE}/reservations/active-kiosk`,
-          {
-            params: { tableId: kioskTableId },
-          },
-        );
-
-        if (
-          disposed ||
-          !data?.success ||
-          !["single_active", "event_active"].includes(data.mode) ||
-          !data.reservation?.reservation_id ||
-          data.reservation.is_kiosk_active !== 1
-        ) {
-          return;
-        }
-
-        // 3. If the database returns the ID they just backed out of, DO NOT redirect.
-        if (ignoredId && data.reservation.reservation_id === ignoredId) {
-          return;
-        }
-
-        const { reservation_id, table_id } = data.reservation;
-        sessionStorage.setItem("resId", reservation_id);
-        sessionStorage.setItem("kiosk_mode", "reservation");
-        if (table_id) {
-          sessionStorage.setItem("tableId", String(table_id));
-        }
-
-        navigate(`/kiosk-selection/kiosk-reservation-menu${searchString}`);
-      } catch (error) {
-        console.error("Could not check admin-opened kiosk:", error);
-      }
-    };
-
-    checkAdminOpenedKiosk();
-    const interval = setInterval(checkAdminOpenedKiosk, 3000);
-
-    return () => {
-      disposed = true;
-      clearInterval(interval);
-    };
-  }, [kioskTableId, navigate, searchString]);
 
   // Dynamic greeting based on time of day
   const getGreeting = () => {

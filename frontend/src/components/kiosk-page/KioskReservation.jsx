@@ -55,13 +55,24 @@ const KioskReservation = () => {
   const setupTable = queryParams.get("setupTable");
   // ==================== RESTAURANT-WIDE EVENT MONITORING ====================
   useEffect(() => {
+    let disposed = false;
+    let checking = false;
+
     const checkActiveEventState = async () => {
+      if (checking || disposed) return;
+      checking = true;
       try {
         const res = await axios.get(`${API_BASE}/reservations/active-kiosk`, {
-          params: { tableId: setupTable },
+          params: {
+            tableId:
+              setupTable ||
+              sessionStorage.getItem("tableId") ||
+              localStorage.getItem("tableId"),
+          },
+          timeout: 5000,
         });
 
-        if (res.data && res.data.success) {
+        if (!disposed && res.data?.success) {
           const { mode } = res.data;
 
           if (mode === "event_waiting") {
@@ -73,13 +84,18 @@ const KioskReservation = () => {
         }
       } catch (err) {
         console.error("Kiosk event polling error:", err);
+      } finally {
+        checking = false;
       }
     };
 
     checkActiveEventState();
     const pollInterval = setInterval(checkActiveEventState, 3000);
-    return () => clearInterval(pollInterval);
-  }, [setupTable]);
+    return () => {
+      disposed = true;
+      clearInterval(pollInterval);
+    };
+  }, [navigate, setupTable]);
 
   // Function to validate custom table reservation ID manually with database
   const validateAndProceed = async (id) => {
