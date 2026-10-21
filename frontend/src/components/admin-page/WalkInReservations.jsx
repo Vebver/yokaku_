@@ -60,8 +60,6 @@ const WalkInReservations = () => {
 
   const closeBtnRef = useRef(null);
 
-
-
   const getLocalISODate = () => {
     const tzOffset = new Date().getTimezoneOffset() * 60000; // offset in milliseconds
     return new Date(Date.now() - tzOffset).toISOString().slice(0, 10);
@@ -154,14 +152,12 @@ const WalkInReservations = () => {
 
       setInquiries(
         // Newest walk-in first, by creation/submit time (not the reserved date).
-        filtered
-          .slice()
-          .sort(
-            byNewestFirst((item) => {
-              const createdAt = new Date(item?.created_at || 0).getTime();
-              return Number.isNaN(createdAt) ? null : createdAt;
-            }),
-          ),
+        filtered.slice().sort(
+          byNewestFirst((item) => {
+            const createdAt = new Date(item?.created_at || 0).getTime();
+            return Number.isNaN(createdAt) ? null : createdAt;
+          }),
+        ),
       );
     } catch (err) {
       console.error("Fetch Walk-ins error:", err);
@@ -247,8 +243,9 @@ const WalkInReservations = () => {
       const status = (t.bridge_status || t.status || "available")
         .toString()
         .toLowerCase();
-      const tableStatus = String(t.table_status || t.status || "available")
-        .toLowerCase();
+      const tableStatus = String(
+        t.table_status || t.status || "available",
+      ).toLowerCase();
       const requestedStart = toMinutes(newRes.startTime);
       const requestedEnd = toMinutes(newRes.endTime);
       const reservations = tableSchedules[tableId] || [];
@@ -270,8 +267,7 @@ const WalkInReservations = () => {
         (tableStatus === "occupied" ||
           tableStatus === "busy" ||
           status === "seated");
-      const hasSelectedTime =
-        requestedStart !== null && requestedEnd !== null;
+      const hasSelectedTime = requestedStart !== null && requestedEnd !== null;
       const isOccupied =
         isOccupiedNow &&
         (!hasSelectedTime || reservations.length === 0 || isReservedForTime);
@@ -292,7 +288,13 @@ const WalkInReservations = () => {
         isUnavailable,
       };
     });
-  }, [rawTables, newRes.date, newRes.startTime, newRes.endTime, tableSchedules]);
+  }, [
+    rawTables,
+    newRes.date,
+    newRes.startTime,
+    newRes.endTime,
+    tableSchedules,
+  ]);
 
   const formatTime = (timeStr) => {
     if (!timeStr) return "--:--";
@@ -312,7 +314,8 @@ const WalkInReservations = () => {
 
   // --- HANDLERS FOR MANUALLY ADDING DISHES ---
   const getProductImageUrl = (product, path) => {
-    const imagePath = path || product.local_path || product.image_url || product.image;
+    const imagePath =
+      path || product.local_path || product.image_url || product.image;
     if (!imagePath) return "";
     if (
       !imagePath.startsWith("/") &&
@@ -362,6 +365,17 @@ const WalkInReservations = () => {
   // --- HANDLERS FOR NEW RESERVATION ---
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+
+    // 1. ADD THIS PHONE VALIDATION BLOCK
+    if (name === "phone") {
+      let val = value.replace(/\D/g, ""); // Remove non-numbers
+      if (!val.startsWith("09")) val = "09"; // Force start with 09
+      if (val.length <= 11) {
+        setNewRes((prev) => ({ ...prev, phone: val }));
+      }
+      return; // Stop here so it doesn't fall through
+    }
+
     if (name === "bookingType") {
       let defaultPackage = "Regular Table";
       if (value === "event") {
@@ -569,7 +583,8 @@ const WalkInReservations = () => {
     const type = String(
       selectedRes?.reservation_type || selectedRes?.reservationType || "",
     ).toLowerCase();
-    if (type === "event" || type === "event_a" || type === "event_b") return true;
+    if (type === "event" || type === "event_a" || type === "event_b")
+      return true;
     // Fall back to the package name so older rows that lost their type still
     // resolve to the correct branch.
     return readPackageName(selectedRes) in EVENT_PACKAGE_LIMITS;
@@ -581,7 +596,7 @@ const WalkInReservations = () => {
 
   // The quoted event limit (₱10,000 or ₱12,500), shown as package information.
   const walkInEventLimit = walkInIsEvent
-    ? EVENT_PACKAGE_LIMITS[readPackageName(selectedRes)] ?? 0
+    ? (EVENT_PACKAGE_LIMITS[readPackageName(selectedRes)] ?? 0)
     : 0;
 
   const walkInTableLabel =
@@ -590,8 +605,7 @@ const WalkInReservations = () => {
     selectedRes?.table_names ||
     "";
   const takeoutSubtotal = orderCart.reduce(
-    (sum, item) =>
-      sum + Number(item.price || 0) * Number(item.quantity || 1),
+    (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 1),
     0,
   );
   const takeoutAmountTendered = Math.max(Number(newRes.amountPaid || 0), 0);
@@ -925,7 +939,8 @@ const WalkInReservations = () => {
                           onChange={(e) => {
                             const selectedId = Number(e.target.value);
                             const found = products.find(
-                              (product) => Number(product.item_id) === selectedId,
+                              (product) =>
+                                Number(product.item_id) === selectedId,
                             );
                             if (found) handleAddProductToCart(found);
                             e.target.value = "";
@@ -933,7 +948,10 @@ const WalkInReservations = () => {
                         >
                           <option value="">＋　Add food or drink</option>
                           {products.map((product) => (
-                            <option key={product.item_id} value={product.item_id}>
+                            <option
+                              key={product.item_id}
+                              value={product.item_id}
+                            >
                               {product.menu_name || product.name} (₱
                               {Number(product.price || 0).toFixed(2)})
                             </option>
@@ -959,7 +977,10 @@ const WalkInReservations = () => {
                                       onError={(event) => {
                                         const image = event.currentTarget;
                                         const fallback = image.dataset.fallback;
-                                        if (fallback && image.src !== fallback) {
+                                        if (
+                                          fallback &&
+                                          image.src !== fallback
+                                        ) {
                                           image.dataset.fallback = "";
                                           image.src = fallback;
                                           return;
@@ -1119,387 +1140,410 @@ const WalkInReservations = () => {
                         </div>
                       </div>
                     </section>
-
                   </div>
                 </>
               ) : (
                 <>
-              {/* SECTION: CUSTOMER */}
-              <p className="x-small fw-bold text-primary text-uppercase mb-3 border-bottom pb-2">
-                Customer Information
-              </p>
-              <div className="row g-3 mb-4">
-                <div className="col-12 col-md-6">
-                  <label className="form-label small fw-bold">First Name</label>
-                  <input
-                    type="text"
-                    name="firstName"
-                    className="form-control form-control-sm"
-                    value={newRes.firstName}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-                <div className="col-12 col-md-6">
-                  <label className="form-label small fw-bold">Last Name</label>
-                  <input
-                    type="text"
-                    name="lastName"
-                    className="form-control form-control-sm"
-                    value={newRes.lastName}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-                <div className="col-12 col-md-6">
-                  <label className="form-label small fw-bold">Email</label>
-                  <input
-                    type="text"
-                    name="email"
-                    className="form-control form-control-sm"
-                    onChange={handleInputChange}
-                  />
-                </div>
-                <div className="col-12 col-md-6">
-                  <label className="form-label small fw-bold">
-                    Phone Number
-                  </label>
-                  <input
-                    type="text"
-                    name="phone"
-                    className="form-control form-control-sm"
-                    onChange={handleInputChange}
-                  />
-                </div>
-              </div>
-
-              <hr />
-
-              {/* SECTION: BOOKING DETAILS */}
-              <p className="x-small fw-bold text-primary text-uppercase mb-3 border-bottom pb-2">
-                Booking Details
-              </p>
-
-              <div className="walkin-booking-grid">
-              <div className="mb-3 walkin-booking-field">
-                <label className="form-label small fw-bold">Guests</label>
-                <input
-                  type="number"
-                  name="guests"
-                  className="form-control"
-                  min="1"
-                  max="35"
-                  step="1"
-                  value={newRes.guests}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-
-              <div className="mb-3 walkin-booking-field">
-                <label className="form-label small fw-bold">Payment Method</label>
-                <select
-                  name="paymentMethod"
-                  className="form-select"
-                  value={newRes.paymentMethod}
-                  onChange={handleInputChange}
-                >
-                  <option value="Cash">Cash (Paid at Counter)</option>
-                  <option value="GCash">GCash</option>
-                </select>
-                <div className="x-small text-muted mt-1 italic">
-                  * Manual entries are automatically verified.
-                </div>
-              </div>
-
-              <div className="mb-3 walkin-booking-field">
-                <label className="form-label small fw-bold">Date</label>
-                <input
-                  type="date"
-                  name="date"
-                  className="form-control"
-                  value={newRes.date}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-
-              {/* Take-Out Info Banner */}
-              {newRes.bookingType === "takeout" && (
-                <div className="mb-3 p-3 bg-success-subtle rounded-3 border border-success-subtle animate-fade-in walkin-booking-wide">
-                  <div className="x-small text-success-emphasis fw-bold">
-                    ✓ Take-Out Order Selected
-                  </div>
-                  <div className="x-small text-muted mt-1">
-                    No physical tables will be marked as occupied for this
-                    session.
-                  </div>
-                </div>
-              )}
-
-              {newRes.bookingType === "table" && (
-                <div className="mb-3 walkin-booking-field">
-                  <label className="form-label small fw-bold">
-                    Select Table
-                  </label>
-                  <select
-                    name="tableIds"
-                    className="form-select form-select-sm"
-                    value={newRes.tableIds[0] || ""}
-                    onChange={handleInputChange}
-                    required
-                  >
-                    <option value="">-- Select an available table --</option>
-                    {availableTables
-                      .filter(
-                        (table) =>
-                          Number.isInteger(Number(table.table_id)) &&
-                          Number(table.table_id) > 0,
-                      )
-                      .map((table) => (
-                        <option
-                          key={table.table_id}
-                          value={table.table_id}
-                          disabled={table.isUnavailable}
-                        >
-                          Table {table.table_number}
-                          {table.capacity
-                            ? ` (${table.capacity} seats)`
-                            : ""}
-                        </option>
-                      ))}
-                  </select>
-                  {availableTables.length === 0 && (
-                    <div className="form-text text-danger">
-                      No tables are available to select.
+                  {/* SECTION: CUSTOMER */}
+                  <p className="x-small fw-bold text-primary text-uppercase mb-3 border-bottom pb-2">
+                    Customer Information
+                  </p>
+                  <div className="row g-3 mb-4">
+                    <div className="col-12 col-md-6">
+                      <label className="form-label small fw-bold">
+                        First Name
+                      </label>
+                      <input
+                        type="text"
+                        name="firstName"
+                        className="form-control form-control-sm"
+                        value={newRes.firstName}
+                        onChange={handleInputChange}
+                        required
+                      />
                     </div>
-                  )}
-                </div>
-              )}
-
-              {/* DYNAMIC FOOD & DRINK SELECTOR */}
-              {newRes.bookingType === "takeout" && (
-                <div className="mb-4 animate-fade-in walkin-booking-wide">
-                  <label className="form-label small fw-bold text-uppercase text-muted">
-                    Order Items <span className="fw-normal">(optional)</span>
-                  </label>
-                  <select
-                    className="form-select form-select-sm fw-semibold mb-2"
-                    value=""
-                    onChange={(e) => {
-                      const selectedId = parseInt(e.target.value, 10);
-                      const found = products.find(
-                        (p) => p.item_id === selectedId,
-                      );
-                      if (found) handleAddProductToCart(found);
-                      e.target.value = "";
-                    }}
-                  >
-                    <option value="">-- Add food or drink --</option>
-                    {products.map((p) => (
-                      <option key={p.item_id} value={p.item_id}>
-                        {p.menu_name || p.name} (₱
-                        {parseFloat(p.price).toFixed(2)})
-                      </option>
-                    ))}
-                  </select>
-
-                  {/* Selected Items Tray List */}
-                  {orderCart.length > 0 && (
-                    <div
-                      className="p-3 bg-white border rounded-3 mb-3"
-                      style={{ maxHeight: "150px", overflowY: "auto" }}
-                    >
-                      {orderCart.map((item) => (
-                        <div
-                          key={item.product_id}
-                          className="d-flex justify-content-between align-items-center mb-2 small fw-semibold"
-                        >
-                          <span className="text-dark-emphasis">
-                            {item.name}
-                          </span>
-                          <div className="d-flex align-items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleUpdateCartQty(item.product_id, -1)
-                              }
-                              className="btn btn-light btn-sm border py-0 px-2 fw-bold"
-                            >
-                              -
-                            </button>
-                            <span className="font-monospace">
-                              {item.quantity}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleUpdateCartQty(item.product_id, 1)
-                              }
-                              className="btn btn-light btn-sm border py-0 px-2 fw-bold"
-                            >
-                              +
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                    <div className="col-12 col-md-6">
+                      <label className="form-label small fw-bold">
+                        Last Name
+                      </label>
+                      <input
+                        type="text"
+                        name="lastName"
+                        className="form-control form-control-sm"
+                        value={newRes.lastName}
+                        onChange={handleInputChange}
+                        required
+                      />
                     </div>
-                  )}
-                </div>
-              )}
+                    <div className="col-12 col-md-6">
+                      <label className="form-label small fw-bold">Email</label>
+                      <input
+                        type="text"
+                        name="email"
+                        className="form-control form-control-sm"
+                        onChange={handleInputChange}
+                      />
+                    </div>
+                    <div className="col-12 col-md-6">
+                      <label className="form-label small fw-bold">
+                        Phone Number
+                      </label>
+                      <input
+                        type="text"
+                        name="phone"
+                        className="form-control form-control-sm"
+                        placeholder="09XXXXXXXXX"
+                        maxLength={11}
+                        value={newRes.phone}
+                        onChange={handleInputChange}
+                      />
+                    </div>
+                  </div>
 
-              {newRes.bookingType === "event" && (
-                <div className="mb-3 p-3 bg-warning-subtle rounded-3 border border-warning-subtle animate-fade-in walkin-booking-wide">
-                  <label className="form-label small fw-bold text-warning-emphasis">
-                    Reservation Package
-                  </label>
-                  <div className="row g-2 mb-2">
-                    {[
-                      {
-                        name: "Standard Package",
-                        price: 10000,
-                        label: "Standard",
-                      },
-                      {
-                        name: "Premium Package",
-                        price: 12500,
-                        label: "Premium",
-                      },
-                    ].map((option) => (
-                      <div className="col-12 col-sm-6" key={option.name}>
-                        <button
-                          type="button"
-                          className={`w-100 text-start p-2 rounded-3 ${newRes.packageName === option.name ? "border border-2 border-warning bg-warning-subtle" : "border bg-white"}`}
-                          onClick={() =>
-                            setNewRes((prev) => ({
-                              ...prev,
-                              packageName: option.name,
-                            }))
-                          }
-                        >
-                          <span className="d-block fw-bold small">
-                            {option.label}
-                          </span>
-                          <span className="d-block text-muted small">
-                            {option.price
-                              ? `₱${option.price.toLocaleString()}`
-                              : "Base menu only"}
-                          </span>
-                        </button>
+                  <hr />
+
+                  {/* SECTION: BOOKING DETAILS */}
+                  <p className="x-small fw-bold text-primary text-uppercase mb-3 border-bottom pb-2">
+                    Booking Details
+                  </p>
+
+                  <div className="walkin-booking-grid">
+                    <div className="mb-3 walkin-booking-field">
+                      <label className="form-label small fw-bold">Guests</label>
+                      <input
+                        type="number"
+                        name="guests"
+                        className="form-control"
+                        min="1"
+                        max="35"
+                        step="1"
+                        value={newRes.guests}
+                        onChange={handleInputChange}
+                        required
+                      />
+                    </div>
+
+                    <div className="mb-3 walkin-booking-field">
+                      <label className="form-label small fw-bold">
+                        Payment Method
+                      </label>
+                      <select
+                        name="paymentMethod"
+                        className="form-select"
+                        value={newRes.paymentMethod}
+                        onChange={handleInputChange}
+                      >
+                        <option value="Cash">Cash (Paid at Counter)</option>
+                        <option value="GCash">GCash</option>
+                      </select>
+                      <div className="x-small text-muted mt-1 italic">
+                        * Manual entries are automatically verified.
                       </div>
-                    ))}
-                  </div>
-                  <div className="x-small text-muted mb-2">
-                    Standard: ₱10,000 · Premium: ₱12,500
-                  </div>
-                  {newRes.bookingType === "event" && (
-                    <div className="x-small text-muted">
-                      Event packages reserve the full venue automatically.
                     </div>
-                  )}
-                </div>
-              )}
 
-              {newRes.bookingType !== "table" && (() => {
-                const packagePrice = PACKAGE_PRICES[newRes.packageName] || 0;
-                const addOnTotal = orderCart.reduce(
-                  (sum, item) =>
-                    sum + Number(item.price || 0) * Number(item.quantity || 1),
-                  0,
-                );
-                const totalBill = packagePrice + addOnTotal;
-                const paid = Math.min(
-                  Math.max(Number(newRes.amountPaid || 0), 0),
-                  totalBill,
-                );
-                return (
-                  <div className="p-3 mb-4 bg-white border rounded-3 shadow-sm walkin-booking-wide">
-                    {newRes.bookingType === "event" && (
-                      <div className="d-flex justify-content-between small mb-1">
-                        <span className="text-muted">Package</span>
-                        <strong>
-                          ₱
-                          {packagePrice.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                          })}
-                        </strong>
+                    <div className="mb-3 walkin-booking-field">
+                      <label className="form-label small fw-bold">Date</label>
+                      <input
+                        type="date"
+                        name="date"
+                        className="form-control"
+                        value={newRes.date}
+                        onChange={handleInputChange}
+                        required
+                      />
+                    </div>
+
+                    {/* Take-Out Info Banner */}
+                    {newRes.bookingType === "takeout" && (
+                      <div className="mb-3 p-3 bg-success-subtle rounded-3 border border-success-subtle animate-fade-in walkin-booking-wide">
+                        <div className="x-small text-success-emphasis fw-bold">
+                          ✓ Take-Out Order Selected
+                        </div>
+                        <div className="x-small text-muted mt-1">
+                          No physical tables will be marked as occupied for this
+                          session.
+                        </div>
                       </div>
                     )}
-                    <div className="d-flex justify-content-between small mb-1">
-                      <span className="text-muted">Add-ons</span>
-                      <strong>
-                        ₱
-                        {addOnTotal.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                        })}
-                      </strong>
+
+                    {newRes.bookingType === "table" && (
+                      <div className="mb-3 walkin-booking-field">
+                        <label className="form-label small fw-bold">
+                          Select Table
+                        </label>
+                        <select
+                          name="tableIds"
+                          className="form-select form-select-sm"
+                          value={newRes.tableIds[0] || ""}
+                          onChange={handleInputChange}
+                          required
+                        >
+                          <option value="">
+                            -- Select an available table --
+                          </option>
+                          {availableTables
+                            .filter(
+                              (table) =>
+                                Number.isInteger(Number(table.table_id)) &&
+                                Number(table.table_id) > 0,
+                            )
+                            .map((table) => (
+                              <option
+                                key={table.table_id}
+                                value={table.table_id}
+                                disabled={table.isUnavailable}
+                              >
+                                Table {table.table_number}
+                                {table.capacity
+                                  ? ` (${table.capacity} seats)`
+                                  : ""}
+                              </option>
+                            ))}
+                        </select>
+                        {availableTables.length === 0 && (
+                          <div className="form-text text-danger">
+                            No tables are available to select.
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* DYNAMIC FOOD & DRINK SELECTOR */}
+                    {newRes.bookingType === "takeout" && (
+                      <div className="mb-4 animate-fade-in walkin-booking-wide">
+                        <label className="form-label small fw-bold text-uppercase text-muted">
+                          Order Items{" "}
+                          <span className="fw-normal">(optional)</span>
+                        </label>
+                        <select
+                          className="form-select form-select-sm fw-semibold mb-2"
+                          value=""
+                          onChange={(e) => {
+                            const selectedId = parseInt(e.target.value, 10);
+                            const found = products.find(
+                              (p) => p.item_id === selectedId,
+                            );
+                            if (found) handleAddProductToCart(found);
+                            e.target.value = "";
+                          }}
+                        >
+                          <option value="">-- Add food or drink --</option>
+                          {products.map((p) => (
+                            <option key={p.item_id} value={p.item_id}>
+                              {p.menu_name || p.name} (₱
+                              {parseFloat(p.price).toFixed(2)})
+                            </option>
+                          ))}
+                        </select>
+
+                        {/* Selected Items Tray List */}
+                        {orderCart.length > 0 && (
+                          <div
+                            className="p-3 bg-white border rounded-3 mb-3"
+                            style={{ maxHeight: "150px", overflowY: "auto" }}
+                          >
+                            {orderCart.map((item) => (
+                              <div
+                                key={item.product_id}
+                                className="d-flex justify-content-between align-items-center mb-2 small fw-semibold"
+                              >
+                                <span className="text-dark-emphasis">
+                                  {item.name}
+                                </span>
+                                <div className="d-flex align-items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleUpdateCartQty(item.product_id, -1)
+                                    }
+                                    className="btn btn-light btn-sm border py-0 px-2 fw-bold"
+                                  >
+                                    -
+                                  </button>
+                                  <span className="font-monospace">
+                                    {item.quantity}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleUpdateCartQty(item.product_id, 1)
+                                    }
+                                    className="btn btn-light btn-sm border py-0 px-2 fw-bold"
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {newRes.bookingType === "event" && (
+                      <div className="mb-3 p-3 bg-warning-subtle rounded-3 border border-warning-subtle animate-fade-in walkin-booking-wide">
+                        <label className="form-label small fw-bold text-warning-emphasis">
+                          Reservation Package
+                        </label>
+                        <div className="row g-2 mb-2">
+                          {[
+                            {
+                              name: "Standard Package",
+                              price: 10000,
+                              label: "Standard",
+                            },
+                            {
+                              name: "Premium Package",
+                              price: 12500,
+                              label: "Premium",
+                            },
+                          ].map((option) => (
+                            <div className="col-12 col-sm-6" key={option.name}>
+                              <button
+                                type="button"
+                                className={`w-100 text-start p-2 rounded-3 ${newRes.packageName === option.name ? "border border-2 border-warning bg-warning-subtle" : "border bg-white"}`}
+                                onClick={() =>
+                                  setNewRes((prev) => ({
+                                    ...prev,
+                                    packageName: option.name,
+                                  }))
+                                }
+                              >
+                                <span className="d-block fw-bold small">
+                                  {option.label}
+                                </span>
+                                <span className="d-block text-muted small">
+                                  {option.price
+                                    ? `₱${option.price.toLocaleString()}`
+                                    : "Base menu only"}
+                                </span>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="x-small text-muted mb-2">
+                          Standard: ₱10,000 · Premium: ₱12,500
+                        </div>
+                        {newRes.bookingType === "event" && (
+                          <div className="x-small text-muted">
+                            Event packages reserve the full venue automatically.
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {newRes.bookingType !== "table" &&
+                      (() => {
+                        const packagePrice =
+                          PACKAGE_PRICES[newRes.packageName] || 0;
+                        const addOnTotal = orderCart.reduce(
+                          (sum, item) =>
+                            sum +
+                            Number(item.price || 0) *
+                              Number(item.quantity || 1),
+                          0,
+                        );
+                        const totalBill = packagePrice + addOnTotal;
+                        const paid = Math.min(
+                          Math.max(Number(newRes.amountPaid || 0), 0),
+                          totalBill,
+                        );
+                        return (
+                          <div className="p-3 mb-4 bg-white border rounded-3 shadow-sm walkin-booking-wide">
+                            {newRes.bookingType === "event" && (
+                              <div className="d-flex justify-content-between small mb-1">
+                                <span className="text-muted">Package</span>
+                                <strong>
+                                  ₱
+                                  {packagePrice.toLocaleString(undefined, {
+                                    minimumFractionDigits: 2,
+                                  })}
+                                </strong>
+                              </div>
+                            )}
+                            <div className="d-flex justify-content-between small mb-1">
+                              <span className="text-muted">Add-ons</span>
+                              <strong>
+                                ₱
+                                {addOnTotal.toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                })}
+                              </strong>
+                            </div>
+                            <div className="d-flex justify-content-between border-top pt-2 mb-2">
+                              <strong>Total Bill</strong>
+                              <strong>
+                                ₱
+                                {totalBill.toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                })}
+                              </strong>
+                            </div>
+                            <label className="form-label small fw-bold mb-1">
+                              Amount Paid
+                            </label>
+                            <input
+                              type="number"
+                              name="amountPaid"
+                              min="0"
+                              max={totalBill}
+                              step="0.01"
+                              className="form-control form-control-sm mb-2"
+                              value={newRes.amountPaid}
+                              onChange={handleInputChange}
+                            />
+                            <div className="d-flex justify-content-between small">
+                              <span className="text-muted">
+                                Remaining Balance
+                              </span>
+                              <strong
+                                className={
+                                  totalBill - paid > 0
+                                    ? "text-danger"
+                                    : "text-success"
+                                }
+                              >
+                                ₱
+                                {(totalBill - paid).toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                })}
+                              </strong>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                    <div className="mb-3 walkin-booking-field">
+                      <label className="form-label small fw-bold">
+                        Start Time
+                      </label>
+                      <input
+                        type="time"
+                        name="startTime"
+                        className="form-control"
+                        onChange={handleInputChange}
+                        required
+                      />
                     </div>
-                    <div className="d-flex justify-content-between border-top pt-2 mb-2">
-                      <strong>Total Bill</strong>
-                      <strong>
-                        ₱
-                        {totalBill.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                        })}
-                      </strong>
-                    </div>
-                    <label className="form-label small fw-bold mb-1">
-                      Amount Paid
-                    </label>
-                    <input
-                      type="number"
-                      name="amountPaid"
-                      min="0"
-                      max={totalBill}
-                      step="0.01"
-                      className="form-control form-control-sm mb-2"
-                      value={newRes.amountPaid}
-                      onChange={handleInputChange}
-                    />
-                    <div className="d-flex justify-content-between small">
-                      <span className="text-muted">Remaining Balance</span>
-                      <strong
-                        className={
-                          totalBill - paid > 0 ? "text-danger" : "text-success"
-                        }
-                      >
-                        ₱
-                        {(totalBill - paid).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                        })}
-                      </strong>
+                    <div className="mb-3 walkin-booking-field">
+                      <label className="form-label small fw-bold">
+                        End Time
+                      </label>
+                      <input
+                        type="time"
+                        name="endTime"
+                        className="form-control"
+                        min={newRes.startTime || undefined}
+                        onChange={handleInputChange}
+                        required
+                      />
+                      <div className="form-text" style={{ fontSize: "0.7rem" }}>
+                        {newRes.startTime && newRes.endTime
+                          ? `Duration: ${formatDuration(newRes.startTime, newRes.endTime)}`
+                          : "Used for the event timer and table release."}
+                      </div>
                     </div>
                   </div>
-                );
-              })()}
-
-              <div className="mb-3 walkin-booking-field">
-                <label className="form-label small fw-bold">Start Time</label>
-                <input
-                  type="time"
-                  name="startTime"
-                  className="form-control"
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-              <div className="mb-3 walkin-booking-field">
-                <label className="form-label small fw-bold">End Time</label>
-                <input
-                  type="time"
-                  name="endTime"
-                  className="form-control"
-                  min={newRes.startTime || undefined}
-                  onChange={handleInputChange}
-                  required
-                />
-                <div className="form-text" style={{ fontSize: "0.7rem" }}>
-                  {newRes.startTime && newRes.endTime
-                    ? `Duration: ${formatDuration(newRes.startTime, newRes.endTime)}`
-                    : "Used for the event timer and table release."}
-                </div>
-              </div>
-              </div>
                 </>
               )}
             </div>
@@ -1581,7 +1625,9 @@ const WalkInReservations = () => {
                 </span>
                 <div className="small text-dark">
                   <div>{selectedRes.phone || "No contact number"}</div>
-                  <div className="text-muted">{selectedRes.email || "No email"}</div>
+                  <div className="text-muted">
+                    {selectedRes.email || "No email"}
+                  </div>
                 </div>
               </div>
 
@@ -1614,8 +1660,12 @@ const WalkInReservations = () => {
                     </span>
                   </div>
                   <div className="col-6">
-                    <small className="text-muted d-block">Reservation Status</small>
-                    <span className="small fw-semibold">{selectedRes.status || "Pending"}</span>
+                    <small className="text-muted d-block">
+                      Reservation Status
+                    </small>
+                    <span className="small fw-semibold">
+                      {selectedRes.status || "Pending"}
+                    </span>
                   </div>
                   <div className="col-6">
                     <small className="text-muted d-block">Payment Status</small>
@@ -1645,18 +1695,16 @@ const WalkInReservations = () => {
                   </div>
                 )}
 
-                {!walkInIsEvent &&
-                  !walkInIsTakeout &&
-                  walkInTableLabel && (
-                    <div className="mt-3 p-2 bg-light border rounded-3">
-                      <div className="x-small text-muted text-uppercase fw-bold">
-                        Table Reservation
-                      </div>
-                      <div className="small fw-bold text-dark">
-                        {walkInTableLabel}
-                      </div>
+                {!walkInIsEvent && !walkInIsTakeout && walkInTableLabel && (
+                  <div className="mt-3 p-2 bg-light border rounded-3">
+                    <div className="x-small text-muted text-uppercase fw-bold">
+                      Table Reservation
                     </div>
-                  )}
+                    <div className="small fw-bold text-dark">
+                      {walkInTableLabel}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {!walkInIsTakeout && (
@@ -1666,7 +1714,9 @@ const WalkInReservations = () => {
                   </span>
                   <div className="small text-dark">
                     {selectedRes.reservation_date
-                      ? new Date(selectedRes.reservation_date).toLocaleDateString()
+                      ? new Date(
+                          selectedRes.reservation_date,
+                        ).toLocaleDateString()
                       : "Date not set"}
                     {selectedRes.reservation_time
                       ? ` · ${formatTime(selectedRes.reservation_time)}`
