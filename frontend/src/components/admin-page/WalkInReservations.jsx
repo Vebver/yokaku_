@@ -366,16 +366,28 @@ const WalkInReservations = () => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
 
-    // 1. ADD THIS PHONE VALIDATION BLOCK
-    if (name === "phone") {
+    // 1. Guests Validation (Caps at 35, no letters)
+    if (name === "guests") {
       let val = value.replace(/\D/g, ""); // Remove non-numbers
-      if (!val.startsWith("09")) val = "09"; // Force start with 09
+      if (val !== "") {
+        const num = parseInt(val, 10);
+        if (num > 35) val = "35";
+      }
+      setNewRes((prev) => ({ ...prev, guests: val }));
+      return;
+    }
+
+    // 2. Phone Number Validation (11 digits, starts with 09)
+    if (name === "phone") {
+      let val = value.replace(/\D/g, "");
+      if (!val.startsWith("09")) val = "09";
       if (val.length <= 11) {
         setNewRes((prev) => ({ ...prev, phone: val }));
       }
-      return; // Stop here so it doesn't fall through
+      return;
     }
 
+    // ... The rest of your existing logic (bookingType, startTime, etc.) ...
     if (name === "bookingType") {
       let defaultPackage = "Regular Table";
       if (value === "event") {
@@ -394,7 +406,6 @@ const WalkInReservations = () => {
     } else if (name === "tableIds") {
       setNewRes((prev) => ({ ...prev, tableIds: value ? [value] : [] }));
     } else if (name === "startTime") {
-      // Keep the end time sensible when the start moves past it.
       setNewRes((prev) => ({
         ...prev,
         startTime: value,
@@ -1080,6 +1091,7 @@ const WalkInReservations = () => {
                             value={newRes.date}
                             onChange={handleInputChange}
                             onKeyDown={(e) => e.preventDefault()}
+                            onPaste={(e) => e.preventDefault()}
                             required
                           />
                         </div>
@@ -1220,6 +1232,11 @@ const WalkInReservations = () => {
                         step="1"
                         value={newRes.guests}
                         onChange={handleInputChange}
+                        onKeyDown={(e) => {
+                          if (["e", "E", "+", "-"].includes(e.key)) {
+                            e.preventDefault();
+                          }
+                        }}
                         required
                       />
                     </div>
@@ -1251,6 +1268,7 @@ const WalkInReservations = () => {
                         value={newRes.date}
                         onChange={handleInputChange}
                         onKeyDown={(e) => e.preventDefault()}
+                        onPaste={(e) => e.preventDefault()}
                         required
                       />
                     </div>
@@ -1526,6 +1544,7 @@ const WalkInReservations = () => {
                         value={newRes.startTime || ""}
                         onChange={handleInputChange}
                         onKeyDown={(e) => e.preventDefault()}
+                        onPaste={(e) => e.preventDefault()}
                         required
                       />
                     </div>
