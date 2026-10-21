@@ -303,7 +303,6 @@ const startCronJobs = () => {
                   '+08:00', '+00:00'
                 ) > UTC_TIMESTAMP()
                 
-            // LOOK FOR RESERVATIONS HAPPENING WITHIN THE NEXT 5 MINUTES //
             AND CONVERT_TZ(
                   TIMESTAMP(r.reservation_date, r.reservation_time), 
                   '+08:00', '+00:00'
@@ -348,6 +347,8 @@ const startCronJobs = () => {
 
             if (emailResult?.success) {
               console.log(`📧 Email sent to ${row.email}`);
+            } else {
+              console.error(`❌ Email failed:`, emailResult?.error);
             }
           } catch (emailErr) {
             console.error("Email service error:", emailErr.message);
