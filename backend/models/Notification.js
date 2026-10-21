@@ -257,6 +257,7 @@ const Notification = {
       DELETE FROM notifications 
       WHERE deleted_at IS NOT NULL 
       AND deleted_at < DATE_SUB(NOW(), INTERVAL 30 DAY)
+      LIMIT 1000
     `;
     const [result] = await db.execute(sql);
     return result.affectedRows;
