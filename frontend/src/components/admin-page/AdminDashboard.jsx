@@ -13,6 +13,7 @@ import {
   Legend,
   PointElement,
   LineElement,
+  Filler,
 } from "chart.js";
 import { Line } from "react-chartjs-2";
 import {
@@ -65,6 +66,7 @@ ChartJS.register(
   Title,
   Tooltip,
   Legend,
+  Filler,
 );
 
 const Icons = {
@@ -185,10 +187,13 @@ function AdminDashboard() {
       // Standard Notification listener
       socket.on("new_notification", (notification) => {
         setNotifications((prev) => {
-          const isDuplicate = prev.some(n =>
-            (n.notification_id && n.notification_id === notification.notification_id) ||
-            (n.id && n.id === notification.id) ||
-            (n.message === notification.message && n.created_at === notification.created_at)
+          const isDuplicate = prev.some(
+            (n) =>
+              (n.notification_id &&
+                n.notification_id === notification.notification_id) ||
+              (n.id && n.id === notification.id) ||
+              (n.message === notification.message &&
+                n.created_at === notification.created_at),
           );
 
           if (isDuplicate) return prev;
@@ -292,8 +297,8 @@ function AdminDashboard() {
       await api.put(`/notifications/${id}/read`);
       setNotifications(
         notifications.map((n) =>
-          n.notification_id === id ? { ...n, is_read: 1 } : n
-        )
+          n.notification_id === id ? { ...n, is_read: 1 } : n,
+        ),
       );
       setUnreadCount((prev) => Math.max(0, prev - 1));
     } catch (err) {
@@ -317,7 +322,7 @@ function AdminDashboard() {
     try {
       await api.delete(`/notifications/${notificationToDelete}`);
       setNotifications(
-        notifications.filter((n) => n.notification_id !== notificationToDelete)
+        notifications.filter((n) => n.notification_id !== notificationToDelete),
       );
       // Fetch updated count
       const res = await api.get(`/notifications`);
@@ -389,7 +394,6 @@ function AdminDashboard() {
         revenueTrend: data.revenueTrend || [],
         trendLabels: data.trendLabels || [],
       });
-
     } catch (error) {
       console.error("Fetch error", error);
     } finally {
@@ -497,9 +501,7 @@ function AdminDashboard() {
 
   const DashboardOverview = () => (
     <div className="dashboard-content">
-      <h1 className="fw-bold mb-3">
-        Welcome back, {adminName || "Admin"}
-      </h1>
+      <h1 className="fw-bold mb-3">Welcome back, {adminName || "Admin"}</h1>
 
       {/* REPORT OVERVIEW */}
       <section className="report-overview-section">
@@ -535,10 +537,7 @@ function AdminDashboard() {
               title="Today's Revenue"
               value={stats.todayRevenue}
             />
-            <MiniFinanceCard
-              title="Avg. Order"
-              value={stats.avgOrder}
-            />
+            <MiniFinanceCard title="Avg. Order" value={stats.avgOrder} />
             <MiniFinanceCard
               title="Total Orders"
               value={stats.totalOrders}
@@ -649,14 +648,24 @@ function AdminDashboard() {
             type="button"
             className="toggle-sidebar-btn sidebar-chevron-indicator"
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            aria-label={sidebarOpen ? "Collapse navigation drawer" : "Expand navigation drawer"}
+            aria-label={
+              sidebarOpen
+                ? "Collapse navigation drawer"
+                : "Expand navigation drawer"
+            }
             aria-expanded={sidebarOpen}
           >
-            {sidebarOpen ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
+            {sidebarOpen ? (
+              <ChevronLeft size={20} />
+            ) : (
+              <ChevronRight size={20} />
+            )}
           </button>
 
           <div className="sidebar-header-branding">
-            <div className="brand-mark" aria-label="Hangout brand mark">H</div>
+            <div className="brand-mark" aria-label="Hangout brand mark">
+              H
+            </div>
             <div className="sidebar-brand-copy">
               <div className="brand-name fw-bold">HANGOUT</div>
               <div className="brand-sub">Resto Bar</div>
@@ -714,7 +723,11 @@ function AdminDashboard() {
             <button
               className="toggle-sidebar-btn"
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              aria-label={sidebarOpen ? "Close navigation drawer" : "Open navigation drawer"}
+              aria-label={
+                sidebarOpen
+                  ? "Close navigation drawer"
+                  : "Open navigation drawer"
+              }
               aria-expanded={sidebarOpen}
             >
               {sidebarOpen ? <ChevronLeft size={20} /> : <Menu size={20} />}
@@ -821,7 +834,10 @@ function AdminDashboard() {
                                       <button
                                         className="view-btn"
                                         onClick={(e) =>
-                                          handleViewReservation(reservationId, e)
+                                          handleViewReservation(
+                                            reservationId,
+                                            e,
+                                          )
                                         }
                                       >
                                         View
@@ -831,7 +847,10 @@ function AdminDashboard() {
                                   <button
                                     className="delete-notif-btn btn-xs"
                                     onClick={(e) =>
-                                      openDeleteConfirm(notif.notification_id, e)
+                                      openDeleteConfirm(
+                                        notif.notification_id,
+                                        e,
+                                      )
                                     }
                                     title="Move to trash"
                                   >
@@ -867,7 +886,9 @@ function AdminDashboard() {
 
             <div className="text-end d-none d-sm-block">
               <p className="mb-0 fw-bold small text-dark">
-                {adminName || localStorage.getItem("userRole")?.toUpperCase() || "ADMIN"}
+                {adminName ||
+                  localStorage.getItem("userRole")?.toUpperCase() ||
+                  "ADMIN"}
               </p>
             </div>
             <div className="avatar-circle" title={adminName || "Admin"}>
@@ -876,7 +897,7 @@ function AdminDashboard() {
           </div>
         </header>
 
-<main className="app-content-area px-4 py-3">
+        <main className="app-content-area px-4 py-3">
           {loading ? (
             <div className="text-center py-5">
               <div className="spinner-border text-primary"></div>
@@ -889,10 +910,7 @@ function AdminDashboard() {
 
       {/* Confirm Delete Modal */}
       {showConfirmDelete && (
-        <div
-          className="admin-confirm-backdrop"
-          tabIndex="-1"
-        >
+        <div className="admin-confirm-backdrop" tabIndex="-1">
           <div className="admin-confirm-dialog">
             <div className="admin-confirm-content">
               <div className="admin-confirm-header">
@@ -938,82 +956,116 @@ function AdminDashboard() {
       {/* 2. RESERVATION DETAILS DETAIL MODAL */}
       {showReservationModal && (
         <div className="admin-confirm-backdrop" style={{ zIndex: 1100 }}>
-              <div className="admin-confirm-dialog">
-                <div className="admin-confirm-content">
-                  <div className="admin-confirm-header">
-                    <div className="d-flex align-items-center gap-2 min-w-0">
-                      <h5 className="modal-title admin-confirm-title">
-                        Reservation Details
-                      </h5>
-                    </div>
-                    <button
-                      type="button"
-                      className="btn-close flex-shrink-0 ms-auto"
-                      onClick={() => {
-                        setShowReservationModal(false);
-                        setSelectedReservation(null);
-                      }}
-                    ></button>
-                  </div>
-                  <div className="admin-confirm-body text-start">
-                    {modalLoading ? (
+          <div className="admin-confirm-dialog">
+            <div className="admin-confirm-content">
+              <div className="admin-confirm-header">
+                <div className="d-flex align-items-center gap-2 min-w-0">
+                  <h5 className="modal-title admin-confirm-title">
+                    Reservation Details
+                  </h5>
+                </div>
+                <button
+                  type="button"
+                  className="btn-close flex-shrink-0 ms-auto"
+                  onClick={() => {
+                    setShowReservationModal(false);
+                    setSelectedReservation(null);
+                  }}
+                ></button>
+              </div>
+              <div className="admin-confirm-body text-start">
+                {modalLoading ? (
                   <div className="text-center py-4">
                     <div className="spinner-border text-primary spinner-border-sm mb-2"></div>
-                    <p className="text-muted small">Loading reservation details...</p>
+                    <p className="text-muted small">
+                      Loading reservation details...
+                    </p>
                   </div>
                 ) : selectedReservation ? (
-                  <div className="d-flex flex-column gap-2" style={{ fontSize: "0.85rem" }}>
+                  <div
+                    className="d-flex flex-column gap-2"
+                    style={{ fontSize: "0.85rem" }}
+                  >
                     <div className="d-flex justify-content-between align-items-center py-1.5 border-bottom">
-                      <span className="text-muted fw-semibold">Reservation ID:</span>
-                      <span className="fw-bold text-dark">{selectedReservation.reservation_id}</span>
+                      <span className="text-muted fw-semibold">
+                        Reservation ID:
+                      </span>
+                      <span className="fw-bold text-dark">
+                        {selectedReservation.reservation_id}
+                      </span>
                     </div>
                     <div className="d-flex justify-content-between align-items-center py-1.5 border-bottom">
                       <span className="text-muted fw-semibold">Date:</span>
-                      <span className="fw-semibold text-dark">{formatDateReadable(selectedReservation.reservation_date)}</span>
+                      <span className="fw-semibold text-dark">
+                        {formatDateReadable(
+                          selectedReservation.reservation_date,
+                        )}
+                      </span>
                     </div>
                     <div className="d-flex justify-content-between align-items-center py-1.5 border-bottom">
                       <span className="text-muted fw-semibold">Time:</span>
                       <span className="fw-semibold text-dark">
-                        {formatTimeDisplay(selectedReservation.reservation_time)} - {formatTimeDisplay(selectedReservation.end_time)}
+                        {formatTimeDisplay(
+                          selectedReservation.reservation_time,
+                        )}{" "}
+                        - {formatTimeDisplay(selectedReservation.end_time)}
                       </span>
                     </div>
                     <div className="d-flex justify-content-between align-items-center py-1.5 border-bottom">
                       <span className="text-muted fw-semibold">Guests:</span>
-                      <span className="fw-semibold text-dark">{selectedReservation.num_guests}</span>
+                      <span className="fw-semibold text-dark">
+                        {selectedReservation.num_guests}
+                      </span>
                     </div>
                     <div className="d-flex justify-content-between align-items-center py-1.5 border-bottom">
                       <span className="text-muted fw-semibold">Status:</span>
-                      <span className={`badge text-uppercase ${
-                        selectedReservation.status?.toLowerCase() === "completed"
-                          ? "bg-success-subtle text-success"
-                          : selectedReservation.status?.toLowerCase() === "pending"
-                          ? "bg-warning-subtle text-warning"
-                          : "bg-secondary-subtle text-secondary"
-                      }`}>
+                      <span
+                        className={`badge text-uppercase ${
+                          selectedReservation.status?.toLowerCase() ===
+                          "completed"
+                            ? "bg-success-subtle text-success"
+                            : selectedReservation.status?.toLowerCase() ===
+                                "pending"
+                              ? "bg-warning-subtle text-warning"
+                              : "bg-secondary-subtle text-secondary"
+                        }`}
+                      >
                         {selectedReservation.status}
                       </span>
                     </div>
                     {selectedReservation.assigned_tables && (
                       <div className="d-flex justify-content-between align-items-center py-1.5 border-bottom">
                         <span className="text-muted fw-semibold">Tables:</span>
-                        <span className="fw-semibold text-dark">{selectedReservation.assigned_tables}</span>
+                        <span className="fw-semibold text-dark">
+                          {selectedReservation.assigned_tables}
+                        </span>
                       </div>
                     )}
                     {selectedReservation.package_name && (
                       <div className="d-flex justify-content-between align-items-center py-1.5 border-bottom">
                         <span className="text-muted fw-semibold">Package:</span>
-                        <span className="fw-semibold text-dark">{selectedReservation.package_name}</span>
+                        <span className="fw-semibold text-dark">
+                          {selectedReservation.package_name}
+                        </span>
                       </div>
                     )}
                     {selectedReservation.payment_method && (
                       <div className="d-flex justify-content-between align-items-center py-1.5 border-bottom">
-                        <span className="text-muted fw-semibold">Payment Method:</span>
-                        <span className="fw-semibold text-dark">{selectedReservation.payment_method}</span>
+                        <span className="text-muted fw-semibold">
+                          Payment Method:
+                        </span>
+                        <span className="fw-semibold text-dark">
+                          {selectedReservation.payment_method}
+                        </span>
                       </div>
                     )}
                     <div className="d-flex justify-content-between align-items-center py-1.5 border-bottom">
-                      <span className="text-muted fw-semibold">Payment Status:</span>
-                      <span className="fw-semibold text-dark">{selectedReservation.payment_status || "Pending"}</span>
+                      <span className="text-muted fw-semibold">
+                        Payment Status:
+                      </span>
+                      <span className="fw-semibold text-dark">
+                        {selectedReservation.payment_status || "Pending"}
+                      </span>
                     </div>
                   </div>
                 ) : (
@@ -1038,7 +1090,6 @@ function AdminDashboard() {
           </div>
         </div>
       )}
-
     </div>
   );
 }
