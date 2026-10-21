@@ -13,6 +13,7 @@ import {
 import { useToast } from "../ToastContext";
 import { useSectionRefresh } from "../shared/sectionRefresh";
 import { useConfirmation } from "../ConfirmationContext";
+import "./ProductInclusions.css";
 
 function Product() {
   const [menuItems, setMenuItems] = useState([]);
@@ -50,10 +51,11 @@ function Product() {
         Number(category.category_id) === Number(newItem.category_id),
     )?.category_name || "",
   ).toLowerCase();
-  const isSet = /\bset\b/i.test(String(newItem.name || ""));
   const isUnlimitedPackage =
     selectedCategoryName.includes("unlimited") ||
     String(newItem.name || "").toLowerCase().includes("unlimited");
+  const isSet =
+    !isUnlimitedPackage && /\bset\b/i.test(String(newItem.name || ""));
   const isPackageItem = isUnlimitedPackage || isSet;
 
   const addInclusion = () =>
@@ -61,6 +63,81 @@ function Product() {
       ...prev,
       { included_item_id: null, included_category_id: null, quantity_limit: 1, is_unlimited: false },
     ]);
+
+  const getUnlimitedSetDefaults = (name, categoryName) => {
+    const unlimitedSetMode =
+      (String(categoryName || "").toLowerCase().includes("unlimited") ||
+        String(name || "").toLowerCase().includes("unlimited")) &&
+      /\bset\s*([ab])\b/i.exec(String(name || ""))?.[1]?.toLowerCase();
+    if (!unlimitedSetMode) return [];
+
+    const createInclusion = (selection, quantityLimit = null) => ({
+      ...selection,
+      quantity_limit: quantityLimit,
+      is_unlimited: quantityLimit == null,
+    });
+    const defaults = [];
+    const addCategoryOrItems = (categoryPattern, itemPattern, limit = null) => {
+      const matchingCategories = categories.filter((category) =>
+        categoryPattern.test(category.category_name || ""),
+      );
+      if (matchingCategories.length > 0) {
+        matchingCategories.forEach((category) =>
+          defaults.push(
+            createInclusion(
+              { included_category_id: category.category_id },
+              limit,
+            ),
+          ),
+        );
+        return;
+      }
+
+      menuItems
+        .filter((item) => itemPattern.test(item.menu_name || ""))
+        .forEach((item) =>
+          defaults.push(createInclusion({ included_item_id: item.item_id }, limit)),
+        );
+    };
+
+    if (unlimitedSetMode === "a") {
+      addCategoryOrItems(/\b(?:chicken|wings?)\b/i, /\bwings?\b/i, 6);
+      addCategoryOrItems(/\b(?:rice)\b/i, /\brice\b/i);
+      addCategoryOrItems(
+        /\b(?:drinks?|beverages?|water|soft\s*drinks?)\b/i,
+        /juice|lemonade|orange|calamansi|iced tea|water|soft drinks?|soda/i,
+        1,
+      );
+      return defaults;
+    }
+
+    addCategoryOrItems(/\bchicken\s*wings\b/i, /\bwings?\b/i);
+    addCategoryOrItems(/\brice\b/i, /\brice\b/i);
+    const juiceCategory = categories.find((category) =>
+      /\bjuice\b/i.test(category.category_name || ""),
+    );
+    if (juiceCategory) {
+      defaults.push(
+        createInclusion({
+          included_category_id: juiceCategory.category_id,
+        }),
+      );
+    } else {
+      menuItems
+        .filter((item) =>
+          /juice|lemonade|orange|calamansi|iced tea/i.test(
+            item.menu_name || "",
+          ),
+        )
+        .forEach((item) =>
+          defaults.push(
+            createInclusion({ included_item_id: item.item_id }),
+          ),
+        );
+    }
+
+    return defaults;
+  };
 
   const updateInclusion = (index, field, value) =>
     setInclusions((prev) =>
@@ -183,12 +260,22 @@ function Product() {
 
   const openEditDrawer = (item) => {
     const originalName = item.menu_name || "";
-    const editingSet = /\bset\b/i.test(originalName);
+    const editingSet =
+      /\bset\b/i.test(originalName) &&
+      !String(item.category_name || "").toLowerCase().includes("unlimited") &&
+      !originalName.toLowerCase().includes("unlimited");
+    const savedInclusions = Array.isArray(item.package_inclusions)
+      ? item.package_inclusions
+      : [];
+    const packageInclusions =
+      savedInclusions.length > 0
+        ? savedInclusions
+        : getUnlimitedSetDefaults(originalName, item.category_name);
     setIsEditing(true);
     setEditId(item.item_id);
     setEditOriginalName(originalName);
     setInclusions(
-      (item.package_inclusions || []).map((inc) => ({
+      packageInclusions.map((inc) => ({
         included_item_id: inc.included_item_id || null,
         included_category_id: inc.included_category_id || null,
         quantity_limit: editingSet
@@ -775,20 +862,20 @@ function Product() {
             </div>
             {/* PACKAGE INCLUSIONS */}
             {isPackageItem && (
-              <div className="mb-3 p-3 border rounded bg-light">
-                <div className="d-flex justify-content-between align-items-center mb-2">
-                  <label className="form-label small fw-bold mb-0">
+              <div className="product-inclusions mb-3 p-3 border rounded bg-light">
+                <div className="inclusions-heading d-flex justify-content-between align-items-center mb-1">
+                  <label className="form-label fw-bold mb-0">
                     {isSet ? "Set Inclusions" : "Package Inclusions"}
                   </label>
                   <button
                     type="button"
-                    className="btn btn-sm btn-outline-primary"
+                    className="btn btn-sm btn-primary"
                     onClick={addInclusion}
                   >
-                    <Plus size={14} /> Add
+                    <Plus size={14} /> Add Inclusion
                   </button>
                 </div>
-                <p className="text-muted mb-2" style={{ fontSize: "0.75rem" }}>
+                <p className="text-muted mb-3" style={{ fontSize: "0.85rem" }}>
                   {isSet
                     ? "Choose the categories or dishes included with this set and set a selection limit."
                     : "Pick a category or a specific dish, then set a quantity limit or mark it Unlimited."}
@@ -796,13 +883,20 @@ function Product() {
                 {inclusions.length === 0 && (
                   <p className="text-muted small mb-0">No inclusions configured yet.</p>
                 )}
-                {inclusions.map((inc, index) => (
+                {inclusions.length > 0 && (
                   <div
-                    key={index}
-                    className="d-flex flex-wrap align-items-end gap-2 mb-2 p-2 border rounded bg-white"
+                    className="inclusion-grid-header px-2 pb-2 text-muted small fw-semibold border-bottom mb-2"
                   >
-                    <div style={{ flex: "1 1 140px", minWidth: 0 }}>
-                      <label className="form-label small text-muted mb-1">Include</label>
+                    <span>INCLUDE</span>
+                    <span>QUANTITY</span>
+                    {!isSet ? <span className="text-center">UNLIMITED</span> : <span />}
+                    <span className="text-center">ACTION</span>
+                  </div>
+                )}
+                {inclusions.map((inc, index) => (
+                  <div key={index} className="inclusion-card mb-2 p-2 border rounded bg-white">
+                    <div className="inclusion-grid-row">
+                    <div className="inclusion-select">
                       <select
                         className="form-select form-select-sm"
                         value={
@@ -840,23 +934,34 @@ function Product() {
                         </optgroup>
                       </select>
                     </div>
-                    <div style={{ flex: "1 1 90px", minWidth: "80px" }}>
-                      <label className="form-label small text-muted mb-1">Limit</label>
+                    <div className="inclusion-quantity">
                       <input
-                        type="number"
-                        min="1"
+                        type={isSet ? "number" : "text"}
+                        min={isSet ? "1" : undefined}
+                        inputMode={isSet ? "numeric" : undefined}
                         className="form-control form-control-sm"
-                        value={inc.is_unlimited ? "" : inc.quantity_limit ?? 1}
-                        placeholder={isSet ? "Max selections" : "∞ Unlimited"}
-                        disabled={inc.is_unlimited}
+                        style={{ minWidth: 0, width: "100%" }}
+                        value={
+                          isSet
+                            ? inc.quantity_limit ?? 1
+                            : inc.is_unlimited
+                              ? "∞  Unlimited"
+                              : inc.quantity_limit ?? 1
+                        }
+                        disabled={!isSet && inc.is_unlimited}
+                        aria-label="Quantity limit"
                         onChange={(e) =>
-                          updateInclusion(index, "quantity_limit", parseInt(e.target.value) || 1)
+                          updateInclusion(
+                            index,
+                            "quantity_limit",
+                            e.target.value === "" ? "" : parseInt(e.target.value, 10),
+                          )
                         }
                       />
                     </div>
-                    {!isSet && (
-                      <div style={{ flex: "0 0 auto" }}>
-                        <div className="form-check mb-1">
+                    {!isSet ? (
+                      <div className="inclusion-unlimited d-flex justify-content-center">
+                        <div className="form-check form-switch mb-0">
                           <input
                             type="checkbox"
                             className="form-check-input"
@@ -866,21 +971,20 @@ function Product() {
                               updateInclusion(index, "is_unlimited", e.target.checked)
                             }
                           />
-                          <label className="form-check-label small" htmlFor={`inc-unlim-${index}`}>
-                            Unlimited
-                          </label>
                         </div>
                       </div>
+                    ) : (
+                      <span />
                     )}
-                    <div style={{ flex: "0 0 auto", marginLeft: "auto" }}>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-danger"
-                        onClick={() => removeInclusion(index)}
-                        title="Remove inclusion"
-                      >
-                        <X size={14} />
-                      </button>
+                    <button
+                      type="button"
+                      className="inclusion-remove btn btn-sm btn-outline-danger p-1"
+                      onClick={() => removeInclusion(index)}
+                      title="Remove inclusion"
+                      aria-label="Remove inclusion"
+                    >
+                      <X size={14} />
+                    </button>
                     </div>
                   </div>
                 ))}

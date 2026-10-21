@@ -16,13 +16,20 @@ const KioskSelection = () => {
     [],
   );
   const setupTable = queryParams.get("setupTable");
+  const kioskTableId =
+    setupTable ||
+    sessionStorage.getItem("tableId") ||
+    localStorage.getItem("tableId");
+  const searchString = kioskTableId
+    ? `?setupTable=${encodeURIComponent(kioskTableId)}`
+    : "";
 
   // ==================== RESTAURANT-WIDE MONITORING ====================
   useEffect(() => {
     const checkActiveEventState = async () => {
       try {
         const res = await axios.get(`${API_BASE}/reservations/active-kiosk`, {
-          params: { tableId: setupTable },
+          params: { tableId: kioskTableId },
         });
 
         if (res.data && res.data.success) {
@@ -42,7 +49,6 @@ const KioskSelection = () => {
                 reservation.table_id.toString(),
               );
             }
-            const searchString = setupTable ? `?setupTable=${setupTable}` : "";
             navigate(`/kiosk-selection/kiosk-reservation-menu${searchString}`);
           } else {
             setEventMode("default");
@@ -61,7 +67,7 @@ const KioskSelection = () => {
     checkActiveEventState();
     const pollInterval = setInterval(checkActiveEventState, 3000);
     return () => clearInterval(pollInterval);
-  }, [setupTable, navigate]);
+  }, [kioskTableId, navigate, searchString]);
 
   // Dynamic greeting based on time of day
   const getGreeting = () => {
@@ -73,8 +79,6 @@ const KioskSelection = () => {
 
   // ==================== SELECTION CLICK HANDLER ====================
   const handleSelection = (type) => {
-    const searchString = setupTable ? `?setupTable=${setupTable}` : "";
-
     if (type === "menu") {
       // MODE: WALK-IN (sessionStorage)
       sessionStorage.removeItem("kiosk_exit_to_selection");
@@ -84,24 +88,20 @@ const KioskSelection = () => {
     } else if (type === "reservation") {
       sessionStorage.setItem("kiosk_mode", "reservation");
 
-      // BYPASS CHECK: If admin has already assigned a Table Reservation on the dashboard
       if (
-        sessionStorage.getItem("kiosk_exit_to_selection") !== "true" &&
         kioskDetails &&
-        kioskDetails.mode === "single_active"
+        ["single_active", "event_active"].includes(kioskDetails.mode)
       ) {
         const { reservation_id, table_id } = kioskDetails.reservation;
+        sessionStorage.removeItem("kiosk_exit_to_selection");
 
-        // Write to sessionStorage so the menu page can read it successfully
         sessionStorage.setItem("resId", reservation_id);
         if (table_id) {
           sessionStorage.setItem("tableId", table_id.toString());
         }
 
-        // Auto-unlock: Skip the ID typing page and open the menu immediately
         navigate(`/kiosk-selection/kiosk-reservation-menu${searchString}`);
       } else {
-        // Normal Flow: Let the customer manually type their ID on the next screen
         navigate(`/kiosk-selection/kiosk-reservation${searchString}`);
       }
     }
@@ -184,7 +184,7 @@ const KioskSelection = () => {
             className="selection-card"
             onClick={() => handleSelection("reservation")}
           >
-            <h3 className="card-label">Reservation</h3>
+            <h3 className="card-label">RESERVATION</h3>
             <div className="icon-circle">
               <svg
                 viewBox="0 0 24 24"

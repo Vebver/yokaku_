@@ -115,6 +115,11 @@ const KioskMenu = () => {
     [],
   );
   const setupTable = queryParams.get("setupTable");
+  const kioskTableId =
+    setupTable ||
+    storage.getItem("tableId") ||
+    localStorage.getItem("tableId") ||
+    localStorage.getItem(FIXED_KIOSK_KEY);
 
   const [menuData, setMenuData] = useState({});
   const [visibleCategoryIds, setVisibleCategoryIds] = useState(null);
@@ -558,7 +563,7 @@ const KioskMenu = () => {
 
   useEffect(() => {
     if (!isKioskModeResetPending) return;
-    if (setupTable == null) {
+    if (kioskTableId == null) {
       setIsKioskModeResetPending(false);
       return;
     }
@@ -570,7 +575,7 @@ const KioskMenu = () => {
       isRequestInFlight = true;
       try {
         await axios.post(
-          `${API_BASE}/admin/kiosk-mode-expired/${setupTable}`,
+          `${API_BASE}/admin/kiosk-mode-expired/${kioskTableId}`,
           {},
           { ...getAuthHeader(), timeout: 5000 },
         );
@@ -591,7 +596,7 @@ const KioskMenu = () => {
       isActive = false;
       clearInterval(interval);
     };
-  }, [isKioskModeResetPending, setupTable]);
+  }, [isKioskModeResetPending, kioskTableId]);
 
   useEffect(() => {
     const syncRefillCooldown = () => {
@@ -1287,10 +1292,10 @@ const KioskMenu = () => {
 
   useEffect(() => {
     const fetchMode = async () => {
-      if (!setupTable) return;
+      if (!kioskTableId) return;
       try {
         const res = await axios.get(`${API_BASE}/reservations/active-kiosk`, {
-          params: { tableId: setupTable },
+          params: { tableId: kioskTableId },
         });
         if (res.data?.success) {
           const serverMode = res.data.kioskMode || "default";
@@ -1323,7 +1328,7 @@ const KioskMenu = () => {
     const handleMode = (payload) => {
       if (
         payload?.tableId != null &&
-        String(payload.tableId) === String(setupTable)
+        String(payload.tableId) === String(kioskTableId)
       ) {
         if (getUnlimitedPackage(payload.kiosk_mode)) {
           setIsKioskModeResetPending(false);
@@ -1339,7 +1344,7 @@ const KioskMenu = () => {
       socket.off("kiosk_mode_changed", handleMode);
       socket.disconnect();
     };
-  }, [isKioskModeResetPending, isPackageTimerExpired, setupTable]);
+  }, [isKioskModeResetPending, isPackageTimerExpired, kioskTableId]);
 
   // When the mode flips to either Unlimited mode, force the Unlimited
   // category. NOTE: the 90-minute timer intentionally does NOT start here —
@@ -1510,6 +1515,12 @@ const KioskMenu = () => {
         { ...item, quantity: 1, customizations: null },
       ]);
       setBrowseFullMenu(false);
+      const categories = getPackageCategories(
+        menuData,
+        itemPackageMode,
+        packageInclusionsForMode,
+      );
+      setActiveCategory(categories[0] || "");
       return;
     }
 
@@ -1807,7 +1818,7 @@ const KioskMenu = () => {
     }
   }, [cart, billItems, localTotalPaid]);
 
-  // Return to the full menu without leaving the active kiosk session.
+  // Return to the full menu from a package view, or to selection from the menu.
   const handleBackToMenu = () => {
     if (unlimitedSessionLocked) {
       showToast(
@@ -1840,13 +1851,20 @@ const KioskMenu = () => {
     if (hasPendingUnlimitedPackage) {
       clearTray();
       setIsPackageTimerExpired(true);
-      setIsKioskModeResetPending(setupTable != null);
+      setIsKioskModeResetPending(kioskTableId != null);
+      setBrowseFullMenu(true);
+      setActiveCategory(
+        Object.keys(menuData).find((category) => isCategoryVisible(category)) ||
+          "",
+      );
       return;
     }
-    const firstVisibleCategory = Object.keys(menuData).find((category) =>
-      isCategoryVisible(category),
-    );
-    if (firstVisibleCategory) setActiveCategory(firstVisibleCategory);
+    clearTray();
+    sessionStorage.setItem("kiosk_exit_to_selection", "true");
+    const searchString = setupTable
+      ? `?setupTable=${encodeURIComponent(setupTable)}`
+      : "";
+    window.location.href = `/kiosk-selection${searchString}`;
   };
 
   const displayTable =
@@ -1966,7 +1984,7 @@ const KioskMenu = () => {
           <div className="res-grid-container">
             {(() => {
               const items = menuData[activeCategory] || [];
-              if (!isUnlimitedMode && !isSetMode) return items;
+              if (!isPackageMenuMode) return items;
               return getPackageItems(
                 items,
                 activeCategory,

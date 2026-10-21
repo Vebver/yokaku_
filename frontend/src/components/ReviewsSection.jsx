@@ -81,13 +81,16 @@ function ReviewsSection() {
           headers: { Authorization: `Bearer ${token}` },
         },
       );
-      showToast("Feedback submitted!",success);
+      showToast("Feedback submitted!", "success");
       setComment("");
       setShowForm(false);
       fetchReviews();
       checkEligibility(); // Re-check eligibility after submission
     } catch (err) {
-      showToast("Error submitting feedback");
+      showToast(
+        err.response?.data?.error || "Error submitting feedback",
+        "error",
+      );
     }
   };
 
