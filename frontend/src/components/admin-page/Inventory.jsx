@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import api from "../../api";
+import api, { resolveAssetUrl } from "../../api";
 import {
   Trash2,
   Package,
@@ -10,7 +10,6 @@ import {
   ArrowLeft,
   AlertTriangle,
   Plus,
-  Box,
   Edit2,
   X,
 } from "lucide-react";
@@ -73,7 +72,7 @@ function Inventory({ isKitchenStaff = false, onBack }) {
 
   const [newItem, setNewItem] = useState({
     item_name: "",
-    category: "Produce",
+    category: "",
     quantity: "",
     unit: "kg",
     unit_price: "",
@@ -101,7 +100,6 @@ function Inventory({ isKitchenStaff = false, onBack }) {
   // ==================== DYNAMIC UNITS & STORAGE LOCATIONS ====================
   const [unitOptions, setUnitOptions] = useState([]);
   const [storageOptions, setStorageOptions] = useState([]);
-  const [showNewUnit, setShowNewUnit] = useState(false);
   const [showNewStorage, setShowNewStorage] = useState(false);
   const [newUnitName, setNewUnitName] = useState("");
   const [newUnitGroup, setNewUnitGroup] = useState("Count");
@@ -161,7 +159,6 @@ function Inventory({ isKitchenStaff = false, onBack }) {
       await fetchUnitOptions();
       setNewItem((prev) => ({ ...prev, unit: name }));
       setNewUnitName("");
-      setShowNewUnit(false);
       showToast(`Unit "${name}" added.`, "success");
     } catch (err) {
       showToast(err.response?.data?.error || "Failed to add unit.");
@@ -231,7 +228,11 @@ function Inventory({ isKitchenStaff = false, onBack }) {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setNewItem({ ...newItem, [name]: value });
+    const nextValue =
+      e.target.type === "number" && value !== "" && Number(value) < 0
+        ? "0"
+        : value;
+    setNewItem((previous) => ({ ...previous, [name]: nextValue }));
   };
 
   const openAddMode = () => {
@@ -240,7 +241,7 @@ function Inventory({ isKitchenStaff = false, onBack }) {
     setRecipeLinks([]);
     setNewItem({
       item_name: "",
-      category: "Produce",
+      category: "",
       quantity: "",
       unit: unitOptions[0]?.value || "kg",
       unit_price: "",
@@ -788,9 +789,9 @@ function Inventory({ isKitchenStaff = false, onBack }) {
                   </td>
                   <td data-label="Stock Level">
                     <div
-                      className={`fw-bold ${status === "ok" ? "text-dark" : "text-danger"}`}
+                      className={`inventory-stock-amount fw-bold ${status === "ok" ? "text-dark" : "text-danger"}`}
                     >
-                      {item.stock}{" "}
+                      <span>{item.stock}</span>
                       <small className="text-muted fw-normal">
                         {item.unit}
                       </small>
@@ -940,53 +941,72 @@ function Inventory({ isKitchenStaff = false, onBack }) {
 
       {/* DRAWER FOR BOTH ADD & EDIT */}
       <div
-        className="offcanvas offcanvas-end border-0 shadow"
+        className={`offcanvas offcanvas-end border-0 shadow inventory-edit-drawer ${
+          showDishModal && isEditMode ? "inventory-edit-drawer-linked" : ""
+        }`}
         id="addInvDrawer"
         style={{ width: "min(100%, 500px)" }}
       >
-        <div className="offcanvas-header border-bottom">
-          <h5 className="fw-bold m-0">
-            <Box size={20} className="me-2 text-primary" />
-            {isEditMode ? "Edit Inventory Stock" : "Receive New Stock"}
-          </h5>
+        <div className="offcanvas-header border-bottom inventory-drawer-header">
+          <Package size={22} className="text-primary flex-shrink-0" />
+          <div className="flex-grow-1">
+            <h5 className="fw-bold m-0">
+              {isEditMode ? "Edit Inventory Stock" : "Receive New Stock"}
+            </h5>
+            <p className="small text-muted mb-0 mt-1">
+              {isEditMode
+                ? "Update stock details and quantity levels."
+                : "Add new stock to your inventory and update quantity levels."}
+            </p>
+          </div>
           <button
             type="button"
             className="btn-close"
             data-bs-dismiss="offcanvas"
             ref={closeBtnRef}
+            aria-label="Close"
           ></button>
         </div>
         {/*START DRAWER*/}
         <div className="offcanvas-body">
-          <form onSubmit={handleSubmit} className="d-flex flex-column gap-3">
-            <div className="row g-2">
-              <div className="col-12">
-                <label className="x-small fw-bold text-muted">ITEM NAME</label>
+          <form onSubmit={handleSubmit} className="inventory-stock-form">
+            <section className="inventory-form-section">
+              <div className="inventory-form-section-heading">
+                <strong>ITEM DETAILS</strong>
+              </div>
+              <div className="inventory-form-grid inventory-form-grid-two">
+                <div className="inventory-form-field inventory-form-field-full">
+                <label className="x-small fw-bold text-muted">ITEM NAME <span className="text-danger">*</span></label>
                 <input
                   type="text"
                   name="item_name"
                   value={newItem.item_name}
                   className="form-control"
                   onChange={handleInputChange}
+                  placeholder="Search or enter item name..."
                   required
                 />
               </div>
-              <div className="col-6">
-                <label className="x-small fw-bold text-muted">CATEGORY</label>
-                <select
+                <div className="inventory-form-field">
+                <label className="x-small fw-bold text-muted">CATEGORY <span className="text-danger">*</span></label>
+                <input
+                  type="text"
                   name="category"
                   value={newItem.category}
-                  className="form-select"
+                  className="form-control"
                   onChange={handleInputChange}
-                >
-                  <option value="Meat">Meat</option>
-                  <option value="Dairy">Dairy</option>
-                  <option value="Produce">Produce</option>
-                  <option value="Dry Goods">Dry Goods</option>
-                </select>
+                  list="inventory-category-options"
+                  placeholder="Select or enter category"
+                  required
+                />
+                <datalist id="inventory-category-options">
+                  {categoryNames.map((category) => (
+                    <option key={category} value={category} />
+                  ))}
+                </datalist>
               </div>
-              <div className="col-6">
-                <label className="x-small fw-bold text-muted">STORAGE</label>
+                <div className="inventory-form-field">
+                <label className="x-small fw-bold text-muted">STORAGE LOCATION <span className="text-danger">*</span></label>
                 <select
                   name="storage_location"
                   value={newItem.storage_location}
@@ -1056,10 +1076,12 @@ function Inventory({ isKitchenStaff = false, onBack }) {
                   </div>
                 )}
               </div>
-            </div>
-            <div className="row g-2">
-              <div className="col-4">
-                <label className="x-small fw-bold text-muted">QTY</label>
+              </div>
+            </section>
+            <section className="inventory-form-section">
+              <div className="inventory-form-grid inventory-form-grid-three">
+              <div className="inventory-form-field">
+                <label className="x-small fw-bold text-muted">QUANTITY <span className="text-danger">*</span></label>
                 <input
                   type="number"
                   name="quantity"
@@ -1073,8 +1095,8 @@ function Inventory({ isKitchenStaff = false, onBack }) {
                   placeholder="How many?"
                 />
               </div>
-              <div className="col-4">
-                <label className="x-small fw-bold text-muted">UNIT</label>
+              <div className="inventory-form-field">
+                <label className="x-small fw-bold text-muted">UNIT <span className="text-danger">*</span></label>
                 <select
                   name="unit"
                   value={newItem.unit}
@@ -1101,71 +1123,13 @@ function Inventory({ isKitchenStaff = false, onBack }) {
                       <option value={newItem.unit}>{newItem.unit}</option>
                     )}
                 </select>
-                <button
-                  type="button"
-                  className="btn btn-outline-primary btn-sm w-100 mt-2 inventory-option-toggle"
-                  onClick={() => setShowNewUnit((v) => !v)}
-                  aria-expanded={showNewUnit}
-                  aria-controls="new-unit-option"
-                >
-                  <Plus size={14} className="me-1" />
-                  Add unit
-                </button>
-                {showNewUnit && (
-                  <div
-                    id="new-unit-option"
-                    className="inventory-option-editor mt-2"
-                  >
-                    <div className="d-flex align-items-center justify-content-between mb-2">
-                      <span className="small fw-bold">New unit</span>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-link text-muted p-0"
-                        aria-label="Close new unit form"
-                        onClick={() => setShowNewUnit(false)}
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                    <input
-                      type="text"
-                      className="form-control form-control-sm"
-                      placeholder="e.g. Sack"
-                      value={newUnitName}
-                      onChange={(e) => setNewUnitName(e.target.value)}
-                      onKeyDown={(e) =>
-                        e.key === "Enter" &&
-                        (e.preventDefault(), addUnitOption())
-                      }
-                      maxLength={50}
-                    />
-                    <select
-                      className="form-select form-select-sm mt-2"
-                      value={newUnitGroup}
-                      onChange={(e) => setNewUnitGroup(e.target.value)}
-                      aria-label="Unit group"
-                    >
-                      <option value="Weight">Weight</option>
-                      <option value="Volume">Volume</option>
-                      <option value="Count">Count</option>
-                      <option value="Other">Other</option>
-                    </select>
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-primary fw-bold w-100 mt-2"
-                      onClick={addUnitOption}
-                      disabled={savingOption}
-                    >
-                      {savingOption ? "Adding..." : "Add unit"}
-                    </button>
-                  </div>
-                )}
               </div>
-              <div className="col-4">
-                <label className="x-small fw-bold text-muted">COST (PHP)</label>
+              <div className="inventory-form-field">
+                <label className="x-small fw-bold text-muted">COST (PHP) <span className="text-danger">*</span></label>
                 <input
                   type="number"
                   step="0.01"
+                  min="0"
                   name="unit_price"
                   value={newItem.unit_price}
                   className="form-control"
@@ -1173,11 +1137,55 @@ function Inventory({ isKitchenStaff = false, onBack }) {
                   required
                 />
               </div>
-            </div>
-            <div className="row g-2">
-              <div className="col-6">
+              </div>
+            </section>
+            <section className="inventory-form-section inventory-form-optional-section">
+              <div className="inventory-form-section-heading">
+                <strong>NEW UNIT</strong> <span>(OPTIONAL)</span>
+                <small>Add a new unit if the item is not in the list.</small>
+              </div>
+              <div className="inventory-form-grid inventory-form-grid-two inventory-new-unit-row">
+                <div className="inventory-form-field">
+                  <label className="x-small fw-bold text-muted">UNIT NAME</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="e.g. Sack, Box, Piece"
+                    value={newUnitName}
+                    onChange={(e) => setNewUnitName(e.target.value)}
+                    maxLength={50}
+                  />
+                </div>
+                <div className="inventory-form-field">
+                  <label className="x-small fw-bold text-muted">UNIT GROUP</label>
+                  <select
+                    className="form-select"
+                    value={newUnitGroup}
+                    onChange={(e) => setNewUnitGroup(e.target.value)}
+                    aria-label="Unit group"
+                  >
+                    <option value="Weight">Weight</option>
+                    <option value="Volume">Volume</option>
+                    <option value="Count">Count</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-outline-primary inventory-new-unit-button"
+                  onClick={addUnitOption}
+                  disabled={savingOption || !newUnitName.trim()}
+                >
+                  <Plus size={14} className="me-1" />
+                  Add unit
+                </button>
+              </div>
+            </section>
+            <section className="inventory-form-section">
+              <div className="inventory-form-grid inventory-form-grid-two">
+              <div className="inventory-form-field">
                 <label className="x-small fw-bold text-muted">
-                  EXPIRY DATE
+                  EXPIRY DATE <span className="fw-normal">(Optional)</span>
                 </label>
                 <input
                   type="date"
@@ -1187,9 +1195,9 @@ function Inventory({ isKitchenStaff = false, onBack }) {
                   onChange={handleInputChange}
                 />
               </div>
-              <div className="col-6">
+              <div className="inventory-form-field">
                 <label className="x-small fw-bold text-muted">
-                  REORDER LVL
+                  REORDER LEVEL <span className="text-danger">*</span>
                 </label>
                 <input
                   type="number"
@@ -1197,19 +1205,22 @@ function Inventory({ isKitchenStaff = false, onBack }) {
                   value={newItem.reorder_level}
                   className="form-control"
                   onChange={handleInputChange}
+                  min="0"
                   required
                 />
               </div>
-            </div>
+              </div>
+            </section>
             {/* DISH LINKS — moved to a dedicated modal so the drawer stays
                 compact. Links are staged (new item) or saved via the API
                 (existing item) inside the modal. The drawer shows the actual
                 dish names (not just a count) so the admin can see at a glance
                 what the material is used in. */}
-            <div className="border rounded-3 p-3 mt-3 bg-light">
-              <label className="x-small fw-bold text-muted d-block mb-1">
-                USED IN DISHES
-              </label>
+            <section className="inventory-form-section inventory-form-optional-section">
+              <div className="inventory-form-section-heading">
+                <strong>USED IN DISHES</strong>
+                <small>Link this item to dishes that use it.</small>
+              </div>
               {usedDishNames.length > 0 ? (
                 <div className="d-flex flex-wrap gap-1 mb-2">
                   {usedDishNames.map((name, idx) => (
@@ -1223,32 +1234,32 @@ function Inventory({ isKitchenStaff = false, onBack }) {
                 </div>
               ) : (
                 <p className="text-muted mb-2" style={{ fontSize: "0.72rem" }}>
-                  Not linked to any dish yet.
+                  No dishes linked yet.
                 </p>
               )}
               <button
                 type="button"
-                className="btn btn-outline-primary btn-sm w-100 fw-bold"
+                className="btn btn-outline-primary btn-sm w-100 fw-bold inventory-link-dishes-button"
                 onClick={openDishModal}
               >
                 <Plus size={14} className="me-1" />
                 Link Dishes
               </button>
-            </div>
+            </section>
 
-            <div className="mt-2">
-              <button
-                type="submit"
-                className="btn btn-primary w-100 py-2 fw-bold shadow-sm"
-              >
-                {isEditMode ? "Save Changes" : "Save to Inventory"}
-              </button>
+            <div className="inventory-form-footer">
               <button
                 type="button"
-                className="btn btn-light w-100 mt-2 py-2 fw-bold border"
+                className="btn btn-light py-2 fw-bold border"
                 data-bs-dismiss="offcanvas"
               >
                 Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn btn-primary py-2 fw-bold shadow-sm"
+              >
+                {isEditMode ? "Save Changes" : "Save Item"}
               </button>
             </div>
           </form>
@@ -1259,21 +1270,24 @@ function Inventory({ isKitchenStaff = false, onBack }) {
           compact. Scrollable list, search, mobile-friendly sizing. */}
       {showDishModal && (
         <div
-          className="admin-confirm-backdrop"
-          style={{ zIndex: 4000 }}
+          className={`admin-confirm-backdrop inventory-dish-link-backdrop ${
+            isEditMode ? "inventory-dish-link-edit" : ""
+          }`}
           onClick={() => setShowDishModal(false)}
         >
           <div
-            className="admin-confirm-dialog dish-link-modal"
+            className={`admin-confirm-dialog dish-link-modal ${
+              isEditMode ? "inventory-dish-link-panel" : ""
+            }`}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="admin-confirm-content">
-              <div className="admin-confirm-header">
-                <div className="d-flex align-items-center gap-2 min-w-0">
-                  <Box size={20} className="text-primary flex-shrink-0" />
+            <div className="admin-confirm-content inventory-dish-link-content">
+              <div className="admin-confirm-header inventory-dish-link-header">
+                <div className="min-w-0">
                   <h5 className="modal-title admin-confirm-title">
                     {isEditMode ? "Linked Dishes" : "Link Dishes (new item)"}
                   </h5>
+                  <small>Choose dishes that use this inventory item.</small>
                 </div>
                 <button
                   type="button"
@@ -1283,8 +1297,7 @@ function Inventory({ isKitchenStaff = false, onBack }) {
                 ></button>
               </div>
               <div
-                className="admin-confirm-body dish-link-body text-start"
-                style={{ maxHeight: "55vh", overflowY: "auto" }}
+                className="admin-confirm-body dish-link-body inventory-dish-link-body text-start"
               >
                 {dishModalLoading ? (
                   <div className="text-center py-4">
@@ -1293,123 +1306,175 @@ function Inventory({ isKitchenStaff = false, onBack }) {
                   </div>
                 ) : (
                   <>
-                    {/* Currently linked dishes */}
-                    <label className="x-small fw-bold text-muted d-block mb-1">
-                      LINKED DISHES
-                    </label>
-                    {dishModalLinks.length === 0 ? (
-                      <p className="text-muted small mb-3">
-                        No dishes linked yet. Add one below.
-                      </p>
-                    ) : (
-                      <div className="mb-3">
-                        {dishModalLinks.map((l) => (
-                          <div
-                            key={l.item_id}
-                            className="d-flex justify-content-between align-items-center bg-light border rounded-2 px-2 py-1 mb-1"
-                          >
-                            <span className="small fw-semibold text-dark text-truncate">
-                              {l.name}
-                              <small className="text-muted ms-2 fw-normal">
-                                {l.quantity_required} {newItem.unit || "unit"} / serving
-                              </small>
-                            </span>
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-link text-danger p-0 border-0 flex-shrink-0 ms-2"
-                              onClick={() => removeDishModalLink(l.item_id)}
-                              title={`Unlink ${l.name}`}
-                            >
-                              <Trash2 size={13} /> Unlink
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Add a new link */}
-                    <label className="x-small fw-bold text-muted d-block mb-1">
-                      ADD A DISH
+                    <label className="inventory-dish-search-label" htmlFor="inventory-dish-search">
+                      Find dishes
                     </label>
                     <input
-                      type="text"
-                      className="form-control form-control-sm mb-2"
-                      placeholder="Search dishes..."
+                      id="inventory-dish-search"
+                      type="search"
+                      className="form-control form-control-sm inventory-dish-search"
+                      placeholder="Search menu..."
                       value={dishSearch}
                       onChange={(e) => setDishSearch(e.target.value)}
                     />
-                    {filteredDishChoices.length === 0 ? (
-                      <p className="text-muted small mb-2">
-                        {dishSearch
-                          ? "No dishes match your search."
-                          : "All dishes are already linked."}
-                      </p>
-                    ) : (
-                      <div
-                        className="border rounded-2 mb-2 dish-link-list"
-                        style={{ maxHeight: "180px", overflowY: "auto" }}
-                      >
-                        {filteredDishChoices.map((m) => (
-                          <button
-                            key={m.item_id}
-                            type="button"
-                            className="d-flex w-100 align-items-center justify-content-between border-0 bg-white text-start px-2 py-2 dish-link-choice"
-                            onClick={() => setDishLinkId(String(m.item_id))}
-                          >
-                            <span className="small text-dark text-truncate">
-                              {m.menu_name}
-                            </span>
-                            {String(dishLinkId) === String(m.item_id) && (
-                              <span className="badge bg-primary flex-shrink-0 ms-2">
-                                Selected
+
+                    <div className="inventory-dish-choice-list">
+                      {filteredDishChoices.length === 0 ? (
+                        <p className="text-muted small p-3 mb-0">
+                          {dishSearch
+                            ? "No dishes match your search."
+                            : "All dishes are already linked."}
+                        </p>
+                      ) : (
+                        filteredDishChoices.map((m) => {
+                          const imagePath = m.local_path || m.image_url || "";
+                          const imageUrl = imagePath
+                            ? resolveAssetUrl(
+                                imagePath.startsWith("/") ||
+                                  /^https?:|^data:|^blob:/i.test(imagePath)
+                                  ? imagePath
+                                  : `/uploads/${imagePath}`,
+                              )
+                            : "";
+                          const selected = String(dishLinkId) === String(m.item_id);
+                          return (
+                            <button
+                              key={m.item_id}
+                              type="button"
+                              className={`inventory-dish-choice ${
+                                selected ? "is-selected" : ""
+                              }`}
+                              onClick={() => setDishLinkId(String(m.item_id))}
+                            >
+                              {imageUrl ? (
+                                <img
+                                  src={imageUrl}
+                                  alt=""
+                                  onError={(event) => {
+                                    event.currentTarget.style.display = "none";
+                                  }}
+                                />
+                              ) : (
+                                <span className="inventory-dish-image-placeholder">
+                                  {(m.menu_name || "D").slice(0, 1).toUpperCase()}
+                                </span>
+                              )}
+                              <span className="inventory-dish-choice-name">
+                                <strong>{m.menu_name}</strong>
+                                <small>{m.category_name || "Menu item"}</small>
                               </span>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    <div className="row g-2 align-items-end">
-                      <div className="col-7">
+                              <span className="inventory-dish-select-action">
+                                {selected ? "Selected" : "Select"}
+                              </span>
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    <div className="inventory-dish-add-row">
+                      <label htmlFor="inventory-dish-quantity">Quantity / serving</label>
+                      <div className="inventory-dish-add-controls">
                         <input
+                          id="inventory-dish-quantity"
                           type="number"
                           step="0.01"
                           min="0"
-                          className="form-control form-control-sm"
-                          placeholder="Qty / serving"
+                          className="form-control form-control-sm no-spinner"
+                          placeholder={`Qty (${newItem.unit || "unit"})`}
                           value={dishLinkQty}
-                          onChange={(e) => setDishLinkQty(e.target.value)}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setDishLinkQty(
+                              value !== "" && Number(value) < 0 ? "0" : value,
+                            );
+                          }}
                           disabled={!dishLinkId}
                         />
-                      </div>
-                      <div className="col-5 d-grid">
                         <button
                           type="button"
-                          className="btn btn-outline-primary btn-sm fw-bold"
+                          className="btn btn-primary btn-sm fw-bold"
                           onClick={addDishModalLink}
                           disabled={!dishLinkId}
                         >
-                          <Plus size={14} className="me-1" /> Add Link
+                          Add Link
                         </button>
                       </div>
+                    </div>
+
+                    <div className="inventory-linked-list">
+                      <div className="inventory-linked-heading">
+                        Linked Dishes <span>({dishModalLinks.length})</span>
+                      </div>
+                      {dishModalLinks.length === 0 ? (
+                        <p className="inventory-linked-empty">
+                          No dishes linked yet.
+                        </p>
+                      ) : (
+                        dishModalLinks.map((link) => {
+                          const linkedDish = menuItems.find(
+                            (item) => String(item.item_id) === String(link.item_id),
+                          );
+                          const imagePath =
+                            linkedDish?.local_path || linkedDish?.image_url || "";
+                          const imageUrl = imagePath
+                            ? resolveAssetUrl(
+                                imagePath.startsWith("/") ||
+                                  /^https?:|^data:|^blob:/i.test(imagePath)
+                                  ? imagePath
+                                  : `/uploads/${imagePath}`,
+                              )
+                            : "";
+                          return (
+                            <div className="inventory-linked-dish" key={link.item_id}>
+                              {imageUrl ? (
+                                <img
+                                  src={imageUrl}
+                                  alt=""
+                                  onError={(event) => {
+                                    event.currentTarget.style.display = "none";
+                                  }}
+                                />
+                              ) : (
+                                <span className="inventory-dish-image-placeholder">
+                                  {(link.name || "D").slice(0, 1).toUpperCase()}
+                                </span>
+                              )}
+                              <div className="inventory-linked-dish-name">
+                                <strong>{link.name}</strong>
+                                <small>{link.quantity_required} {newItem.unit || "unit"} / serving</small>
+                              </div>
+                              <button
+                                type="button"
+                                className="inventory-unlink-button"
+                                onClick={() => removeDishModalLink(link.item_id)}
+                                title={`Unlink ${link.name}`}
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          );
+                        })
+                      )}
                     </div>
                   </>
                 )}
               </div>
-              <div className="admin-confirm-footer">
+              <div className="inventory-dish-link-footer">
                 <button
                   type="button"
-                  className="btn btn-outline-secondary admin-confirm-btn"
+                  className="btn btn-outline-secondary"
                   onClick={() => setShowDishModal(false)}
                 >
-                  Cancel
+                  Close
                 </button>
                 <button
                   type="button"
-                  className="btn btn-primary admin-confirm-btn"
+                  className="btn btn-primary fw-bold"
                   onClick={saveDishModal}
                   disabled={dishModalSaving}
                 >
-                  Done
+                  {dishModalSaving ? "Saving..." : "Done"}
                 </button>
               </div>
             </div>

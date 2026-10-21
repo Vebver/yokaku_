@@ -1,0 +1,416 @@
+.walkin-reservation-panel {
+  width: min(980px, calc(100vw - 32px)) !important;
+  max-width: calc(100vw - 32px) !important;
+  height: min(86dvh, 820px) !important;
+  max-height: calc(100dvh - 32px) !important;
+  border-radius: 14px !important;
+  background: #f4f7fb;
+  box-shadow: 0 24px 70px rgba(8, 15, 25, 0.35) !important;
+}
+
+.walkin-reservation-panel .offcanvas-header {
+  min-height: 66px;
+  padding: 14px 24px;
+  background: linear-gradient(110deg, #202832, #111820) !important;
+}
+
+.walkin-reservation-panel .offcanvas-body {
+  min-height: 0;
+  background: #f4f7fb !important;
+}
+
+.walkin-reservation-body {
+  padding: 24px 32px !important;
+  scrollbar-gutter: stable;
+}
+
+.walkin-reservation-body > hr {
+  border-color: #d9e1eb;
+  margin: 20px 0;
+}
+
+.walkin-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #596a80 !important;
+  letter-spacing: 0.075em;
+  border-bottom: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+.walkin-section-heading::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #d9e1eb;
+}
+
+.walkin-reservation-form .form-label {
+  margin-bottom: 6px;
+  color: #596a80;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.walkin-reservation-form .form-control,
+.walkin-reservation-form .form-select {
+  min-height: 44px;
+  border-color: #d5deea;
+  border-radius: 8px;
+  background-color: #fff;
+  color: #202a36;
+  box-shadow: none;
+}
+
+.walkin-reservation-form .form-control:focus,
+.walkin-reservation-form .form-select:focus {
+  border-color: #6ba2f8;
+  box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.12);
+}
+
+.walkin-booking-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 22px;
+  row-gap: 4px;
+}
+
+.walkin-booking-field {
+  min-width: 0;
+}
+
+.walkin-booking-wide {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.walkin-takeout-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: 16px;
+}
+
+.walkin-takeout-items,
+.walkin-takeout-details {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.walkin-takeout-card {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #e0e7f0;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.walkin-add-product-select {
+  border-color: #2f80ff !important;
+  background-color: #f8fbff !important;
+  color: #1265dc !important;
+  font-weight: 700;
+  text-align: center;
+}
+
+.walkin-selected-items-heading {
+  margin: 12px 0 8px;
+  color: #5e6f84;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.walkin-takeout-item-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.walkin-takeout-item {
+  display: grid;
+  grid-template-columns: 38px minmax(55px, 1fr) auto auto 20px;
+  align-items: center;
+  gap: 6px;
+  min-height: 52px;
+  padding: 6px;
+  border: 1px solid #e5eaf1;
+  border-radius: 7px;
+}
+
+.walkin-takeout-image-wrap {
+  position: relative;
+  width: 38px;
+  height: 38px;
+}
+
+.walkin-takeout-item-image {
+  width: 38px;
+  height: 38px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.walkin-takeout-item-placeholder {
+  display: grid;
+  place-items: center;
+  background: #f2f5f9;
+  color: #77869a;
+}
+
+.walkin-takeout-image-wrap .walkin-takeout-item-placeholder {
+  display: none;
+  position: absolute;
+  inset: 0;
+}
+
+.walkin-takeout-item-name {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  color: #263548;
+  font-size: 0.75rem;
+}
+
+.walkin-takeout-item-name strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.walkin-takeout-item-name small {
+  color: #8895a5;
+}
+
+.walkin-takeout-item-price {
+  white-space: nowrap;
+  color: #263548;
+  font-size: 0.72rem;
+}
+
+.walkin-quantity-control {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid #e5eaf1;
+  border-radius: 6px;
+  color: #34445a;
+  font-size: 0.75rem;
+}
+
+.walkin-quantity-control button {
+  width: 24px;
+  height: 26px;
+  border: 0;
+  border-radius: 5px;
+  background: #f5f7fa;
+  color: #34445a;
+}
+
+.walkin-quantity-control span {
+  min-width: 12px;
+  text-align: center;
+}
+
+.walkin-remove-item {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #e14b4b;
+}
+
+.walkin-empty-items {
+  margin: 0;
+  padding: 12px 4px;
+  color: #7b899a;
+  font-size: 0.8rem;
+}
+
+.walkin-takeout-total {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.walkin-total-row,
+.walkin-change-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: #617187;
+  font-size: 0.8rem;
+}
+
+.walkin-total-row strong {
+  color: #34445a;
+}
+
+.walkin-grand-total {
+  margin-top: 3px;
+  padding-top: 10px;
+  border-top: 1px solid #e0e7f0;
+  color: #34445a;
+  font-size: 0.95rem;
+}
+
+.walkin-grand-total strong:last-child {
+  font-size: 1.1rem;
+}
+
+.walkin-input-with-icon {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding-left: 10px;
+  border: 1px solid #d5deea;
+  border-radius: 8px;
+  background: #fff;
+  color: #64758a;
+}
+
+.walkin-input-with-icon:focus-within {
+  border-color: #6ba2f8;
+  box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.12);
+}
+
+.walkin-input-with-icon > svg {
+  flex: 0 0 auto;
+}
+
+.walkin-input-with-icon .form-control,
+.walkin-input-with-icon .form-select {
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.walkin-takeout-card .form-label span {
+  color: #8794a5;
+  font-weight: 400;
+  text-transform: none;
+}
+
+.walkin-takeout-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 11px;
+  border: 1px solid #d5e6ff;
+  border-radius: 8px;
+  background: #f0f6ff;
+  color: #53749e;
+  font-size: 0.73rem;
+}
+
+.walkin-takeout-notice svg {
+  flex: 0 0 auto;
+  color: #3676ce;
+}
+
+.walkin-change-row {
+  margin-top: 10px;
+  padding: 10px 2px 0;
+  border-top: 1px solid #e5eaf1;
+  color: #34445a;
+}
+
+.walkin-change-row strong:last-child {
+  color: #1e9b63;
+}
+
+.walkin-reservation-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 32px !important;
+  box-shadow: 0 -6px 18px rgba(35, 53, 75, 0.04);
+}
+
+.walkin-confirm-button {
+  order: 2;
+  width: min(220px, 42%);
+  min-height: 44px;
+  margin: 0 !important;
+  border-radius: 8px;
+}
+
+.walkin-cancel-button {
+  order: 1;
+  width: min(150px, 35%);
+  min-height: 44px;
+  border: 1px solid #c5d0de !important;
+  border-radius: 8px;
+}
+
+@media (max-width: 700px) {
+  .walkin-reservation-panel {
+    width: calc(100vw - 20px) !important;
+    max-width: calc(100vw - 20px) !important;
+    height: calc(100dvh - 20px) !important;
+    max-height: calc(100dvh - 20px) !important;
+    border-radius: 12px !important;
+  }
+
+  .walkin-reservation-panel .offcanvas-header {
+    min-height: 60px;
+    padding: 12px 16px;
+  }
+
+  .walkin-reservation-body {
+    padding: 18px 16px !important;
+  }
+
+  .walkin-booking-grid {
+    grid-template-columns: minmax(0, 1fr);
+    column-gap: 0;
+  }
+
+  .walkin-booking-wide {
+    grid-column: 1;
+  }
+
+  .walkin-takeout-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .walkin-takeout-item {
+    grid-template-columns: 36px minmax(0, 1fr) auto auto 18px;
+    gap: 5px;
+  }
+
+  .walkin-takeout-image-wrap {
+    width: 36px;
+    height: 36px;
+  }
+
+  .walkin-takeout-item-image {
+    width: 36px;
+    height: 36px;
+  }
+
+  .walkin-remove-item {
+    justify-self: center;
+  }
+
+  .walkin-reservation-footer {
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 16px max(12px, env(safe-area-inset-bottom)) !important;
+  }
+
+  .walkin-confirm-button,
+  .walkin-cancel-button {
+    order: initial;
+    width: 100%;
+  }
+}

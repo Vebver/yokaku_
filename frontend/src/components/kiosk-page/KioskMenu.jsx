@@ -994,102 +994,6 @@ const KioskMenu = () => {
     }
   };
 
-  // Place one admin-configured refill directly from the footer action.
-  const handleRefillClick = async () => {
-    if (!hasPlacedUnlimitedOrder || !canRefillUnlimited) return;
-    const cooldownRemaining = getRefillCooldownSeconds();
-    if (cooldownRemaining > 0) {
-      setRefillCooldownSeconds(cooldownRemaining);
-      setCooldownMessage(
-        `Refill is on cooldown. Please wait ${formatCooldownTime(cooldownRemaining)} before requesting another.`,
-      );
-      return;
-    }
-    const refillTarget = refillTargets[0];
-    if (!refillTarget) {
-      showToast("No included items are available for refill.", "error");
-      return;
-    }
-    const packageItems = [
-      ...(billItems.length > 0 ? billItems : localBillHistory),
-      ...cart,
-    ];
-    const refillItem = {
-      ...refillTarget,
-      price: 0,
-      quantity: 1,
-      customizations: `[REFILL] ${refillTarget.name}`,
-      is_refill: true,
-    };
-    const packageError = validatePackageCart(
-      [...packageItems, refillItem],
-      kioskMenuMode,
-      packageInclusions,
-    );
-    if (packageError) {
-      showToast(packageError, "error");
-      return;
-    }
-    const activeResId = storage.getItem(SAVED_RES_ID);
-    if (!activeResId) {
-      showToast("Place the Unlimited package order before requesting a refill.", "error");
-      return;
-    }
-    const activeTable = storage.getItem(SAVED_TABLE_ID) || setupTable;
-    const parsedTableId = Number.parseInt(activeTable, 10);
-    setIsLoading(true);
-    try {
-      const submission = await submitKioskOrder(
-        {
-          reservation_id: activeResId,
-          table_id: Number.isInteger(parsedTableId) ? parsedTableId : null,
-          items: [
-            {
-              item_id: refillItem.id,
-              quantity: 1,
-              customizations: refillItem.customizations,
-              is_refill: true,
-            },
-          ],
-        },
-        getAuthHeader(),
-      );
-      if (submission.queued) {
-        const queuedAt = Date.now();
-        persistKioskValue(LAST_REFILL_KEY, queuedAt.toString());
-        setRefillCooldownSeconds(refillCooldown.milliseconds / 1000);
-        setLocalBillHistory((previous) => [
-          ...previous,
-          { ...refillItem, is_placed: true, local_queue_key: submission.idempotencyKey },
-        ]);
-        showToast("Refill saved offline and will sync when internet returns.", "info");
-        return;
-      }
-      persistKioskValue(LAST_REFILL_KEY, Date.now().toString());
-      setRefillCooldownSeconds(refillCooldown.milliseconds / 1000);
-      await fetchCurrentBill();
-      showToast("Refill order placed.", "success");
-    } catch (error) {
-      if (error.response?.data?.error === "Cooldown active") {
-        const message = error.response.data.message || "Refill is on cooldown.";
-        const remainingMinutes = Number(message.match(/(\d+) more minutes?/i)?.[1]);
-        if (remainingMinutes > 0) {
-          const remainingSeconds = remainingMinutes * 60;
-          persistKioskValue(
-            LAST_REFILL_KEY,
-            String(Date.now() - (refillCooldown.milliseconds - remainingSeconds * 1000)),
-          );
-          setRefillCooldownSeconds(remainingSeconds);
-        }
-        setCooldownMessage(message);
-      } else {
-        showToast("Refill order failed.", "error");
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleHeaderPayClick = async () => {
     const packageError = validatePackageCart(
       [
@@ -1118,7 +1022,7 @@ const KioskMenu = () => {
       hasPlacedUnlimitedOrder &&
       canRefillUnlimited
     ) {
-      await handleRefillClick();
+      showToast("Add an item to your cart before placing a refill.", "error");
       return;
     }
     const hasRefillOrder = cart.some(

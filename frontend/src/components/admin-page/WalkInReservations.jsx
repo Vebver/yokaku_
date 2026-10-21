@@ -6,8 +6,14 @@ import {
   Plus,
   CalendarCheck,
   Search,
+  ShoppingBag,
+  CalendarDays,
+  UserRound,
+  CreditCard,
+  Info,
+  Trash2,
 } from "lucide-react";
-import api from "../../api";
+import api, { resolveAssetUrl } from "../../api";
 import { useToast } from "../ToastContext";
 import { useSectionRefresh } from "../shared/sectionRefresh";
 import { getReservationStatusMeta } from "../shared/reservationStatus";
@@ -18,6 +24,7 @@ import PackageMeta, {
   EVENT_PACKAGE_LIMITS,
   readPackageName,
 } from "../shared/PackageMeta";
+import "../../Style/WalkInReservations.css";
 
 // "HH:MM" to minutes since midnight
 const toMinutes = (value) => {
@@ -67,7 +74,13 @@ const WalkInReservations = () => {
     ) {
       return "Whole Table Reserved";
     }
-    return item.assigned_tables || "Take-Out";
+    if (
+      item.reservation_type === "takeout" ||
+      item.package_name?.toLowerCase() === "take-out"
+    ) {
+      return "Take-Out";
+    }
+    return item.assigned_tables || "No table assigned";
   };
 
   // --- STATES FOR MANUALLY PLACING AN ORDER ---
@@ -298,6 +311,18 @@ const WalkInReservations = () => {
   };
 
   // --- HANDLERS FOR MANUALLY ADDING DISHES ---
+  const getProductImageUrl = (product, path) => {
+    const imagePath = path || product.local_path || product.image_url || product.image;
+    if (!imagePath) return "";
+    if (
+      !imagePath.startsWith("/") &&
+      !/^https?:|^data:|^blob:/i.test(imagePath)
+    ) {
+      return resolveAssetUrl(`/uploads/${imagePath}`);
+    }
+    return resolveAssetUrl(imagePath);
+  };
+
   const handleAddProductToCart = (product) => {
     setOrderCart((prev) => {
       const exists = prev.find((item) => item.product_id === product.item_id);
@@ -314,6 +339,8 @@ const WalkInReservations = () => {
           product_id: product.item_id,
           name: product.menu_name || product.name,
           price: parseFloat(product.price),
+          image: getProductImageUrl(product, product.local_path),
+          fallbackImage: getProductImageUrl(product, product.image_url),
           quantity: 1,
         },
       ];
@@ -348,6 +375,7 @@ const WalkInReservations = () => {
         bookingType: value,
         packageName: defaultPackage,
         tableIds: value === "takeout" ? ["takeout"] : [],
+        ...(value === "takeout" ? { firstName: "", lastName: "" } : {}),
       }));
     } else if (name === "tableIds") {
       setNewRes((prev) => ({ ...prev, tableIds: value ? [value] : [] }));
@@ -367,6 +395,7 @@ const WalkInReservations = () => {
     e.preventDefault();
     setSubmitting(true);
     try {
+      const isTakeout = newRes.bookingType === "takeout";
       if (newRes.bookingType === "table") {
         const selectedTableId = Number(newRes.tableIds[0]);
         const selectedTable = availableTables.find(
@@ -381,19 +410,34 @@ const WalkInReservations = () => {
 
       // The end time drives the event countdown and when tables free up, so
       // it has to be present and after the start.
-      if (!newRes.startTime || !newRes.endTime) {
-        showToast("Please set both a start and end time.");
+      if (
+        !newRes.date ||
+        (!isTakeout && !newRes.startTime) ||
+        (!isTakeout && !newRes.endTime)
+      ) {
+        showToast(
+          isTakeout
+            ? "Please set the pickup date."
+            : "Please set both a start and end time.",
+        );
         setSubmitting(false);
         return;
       }
       const startMins = toMinutes(newRes.startTime);
-      const endMins = toMinutes(newRes.endTime);
-      if (startMins === null || endMins === null) {
-        showToast("Please enter valid start and end times.");
+      const endMins = isTakeout
+        ? startMins === null
+          ? null
+          : startMins + 60
+        : toMinutes(newRes.endTime);
+      if (
+        (!isTakeout && startMins === null) ||
+        (!isTakeout && endMins === null)
+      ) {
+        showToast("Please enter valid reservation times.");
         setSubmitting(false);
         return;
       }
-      if (endMins <= startMins) {
+      if (!isTakeout && endMins <= startMins) {
         showToast("The end time must be after the start time.");
         setSubmitting(false);
         return;
@@ -413,10 +457,17 @@ const WalkInReservations = () => {
 
       const payload = {
         ...newRes,
-        // Event length is derived from the entered times so the timer and the
-        // automatic table release both agree with what staff typed.
-        durationHours:
-          (endMins - startMins) / 60 > 0
+        // The database requires a time even though take-out only collects a date.
+        startTime: isTakeout ? "00:00" : newRes.startTime,
+        firstName:
+          isTakeout && !newRes.firstName.trim()
+            ? "Guest"
+            : newRes.firstName.trim(),
+        lastName: isTakeout ? "" : newRes.lastName,
+        endTime: isTakeout ? "" : newRes.endTime,
+        durationHours: isTakeout
+          ? 1
+          : (endMins - startMins) / 60 > 0
             ? (endMins - startMins) / 60
             : (endMins + 24 * 60 - startMins) / 60,
         totalAmount: totalBill,
@@ -523,6 +574,10 @@ const WalkInReservations = () => {
     // resolve to the correct branch.
     return readPackageName(selectedRes) in EVENT_PACKAGE_LIMITS;
   })();
+  const walkInIsTakeout =
+    String(
+      selectedRes?.reservation_type || selectedRes?.reservationType || "",
+    ).toLowerCase() === "takeout";
 
   // The quoted event limit (₱10,000 or ₱12,500), shown as package information.
   const walkInEventLimit = walkInIsEvent
@@ -534,6 +589,13 @@ const WalkInReservations = () => {
     selectedRes?.table_number ||
     selectedRes?.table_names ||
     "";
+  const takeoutSubtotal = orderCart.reduce(
+    (sum, item) =>
+      sum + Number(item.price || 0) * Number(item.quantity || 1),
+    0,
+  );
+  const takeoutAmountTendered = Math.max(Number(newRes.amountPaid || 0), 0);
+  const takeoutChange = Math.max(takeoutAmountTendered - takeoutSubtotal, 0);
 
   if (loading)
     return (
@@ -587,6 +649,15 @@ const WalkInReservations = () => {
               className="btn btn-primary admin-toolbar-button fw-bold shadow-sm d-inline-flex align-items-center justify-content-center"
               data-bs-toggle="offcanvas"
               data-bs-target="#addReservationDrawer"
+              onClick={() => {
+                setNewRes((prev) => ({
+                  ...prev,
+                  bookingType: "table",
+                  packageName: "Regular Table",
+                  tableIds: [],
+                }));
+                setOrderCart([]);
+              }}
             >
               <Plus size={18} className="me-1 flex-shrink-0" /> Make a
               Reservation
@@ -773,7 +844,7 @@ const WalkInReservations = () => {
 
       {/* --- ADD RESERVATION SIDEBAR --- */}
       <div
-        className="offcanvas border-0 shadow-lg reservation-modal-panel"
+        className="offcanvas border-0 shadow-lg reservation-modal-panel walkin-reservation-panel"
         tabIndex="-1"
         id="addReservationDrawer"
         style={{
@@ -793,11 +864,19 @@ const WalkInReservations = () => {
         <div className="offcanvas-header border-bottom bg-dark text-white">
           <div>
             <h5 className="fw-bold m-0 d-flex align-items-center">
-              <CalendarCheck size={20} className="me-2 text-warning" />
-              Create Reservation
+              {newRes.bookingType === "takeout" ? (
+                <ShoppingBag size={20} className="me-2 text-warning" />
+              ) : (
+                <CalendarCheck size={20} className="me-2 text-warning" />
+              )}
+              {newRes.bookingType === "takeout"
+                ? "Create Take-Out Order"
+                : "Create Reservation"}
             </h5>
             <small className="text-white-50 ms-4">
-              Set the table, order, and payment details.
+              {newRes.bookingType === "takeout"
+                ? "Set the order, payment, and pickup details."
+                : "Set the table, order, and payment details."}
             </small>
           </div>
           <button
@@ -811,77 +890,9 @@ const WalkInReservations = () => {
         <div className="offcanvas-body p-0 bg-light">
           <form
             onSubmit={handleAddReservation}
-            className="d-flex flex-column h-100"
+            className="d-flex flex-column h-100 walkin-reservation-form"
           >
-            <div className="p-4 flex-grow-1 overflow-auto">
-              {/* SECTION: CUSTOMER */}
-              <p className="x-small fw-bold text-primary text-uppercase mb-3 border-bottom pb-2">
-                Customer Information
-              </p>
-              <div className="row g-3 mb-4">
-                <div className="col-6">
-                  <label className="form-label small fw-bold">First Name</label>
-                  <input
-                    type="text"
-                    name="firstName"
-                    className="form-control form-control-sm"
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-                <div className="col-6">
-                  <label className="form-label small fw-bold">Last Name</label>
-                  <input
-                    type="text"
-                    name="lastName"
-                    className="form-control form-control-sm"
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-                <div className="col-12">
-                  <label className="form-label small fw-bold">Email</label>
-                  <input
-                    type="text"
-                    name="email"
-                    className="form-control form-control-sm"
-                    onChange={handleInputChange}
-                  />
-                </div>
-                <div className="col-12">
-                  <label className="form-label small fw-bold">
-                    Phone Number
-                  </label>
-                  <input
-                    type="text"
-                    name="phone"
-                    className="form-control form-control-sm"
-                    onChange={handleInputChange}
-                  />
-                </div>
-                <div className="col-6">
-                  <label className="form-label small fw-bold">Guests</label>
-                  <input
-                    type="number"
-                    name="guests"
-                    className="form-control form-control-sm"
-                    min="1"
-                    max="35"
-                    step="1"
-                    value={newRes.guests}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-              </div>
-
-              <hr />
-
-              {/* SECTION: BOOKING DETAILS */}
-              <p className="x-small fw-bold text-primary text-uppercase mb-3 border-bottom pb-2">
-                Booking Details
-              </p>
-
+            <div className="p-4 flex-grow-1 overflow-auto walkin-reservation-body">
               <div className="mb-3">
                 <label className="form-label small fw-bold">
                   Reservation Type
@@ -897,10 +908,325 @@ const WalkInReservations = () => {
                   <option value="event">Special Event</option>
                 </select>
               </div>
+              {newRes.bookingType === "takeout" ? (
+                <>
+                  <p className="x-small fw-bold text-primary text-uppercase mb-3 walkin-section-heading">
+                    Order Details
+                  </p>
+                  <div className="walkin-takeout-layout">
+                    <section className="walkin-takeout-items">
+                      <div className="walkin-takeout-card">
+                        <label className="form-label small fw-bold">
+                          Order Items
+                        </label>
+                        <select
+                          className="form-select walkin-add-product-select"
+                          value=""
+                          onChange={(e) => {
+                            const selectedId = Number(e.target.value);
+                            const found = products.find(
+                              (product) => Number(product.item_id) === selectedId,
+                            );
+                            if (found) handleAddProductToCart(found);
+                            e.target.value = "";
+                          }}
+                        >
+                          <option value="">＋　Add food or drink</option>
+                          {products.map((product) => (
+                            <option key={product.item_id} value={product.item_id}>
+                              {product.menu_name || product.name} (₱
+                              {Number(product.price || 0).toFixed(2)})
+                            </option>
+                          ))}
+                        </select>
+
+                        <div className="walkin-selected-items-heading">
+                          Selected Items ({orderCart.length})
+                        </div>
+                        {orderCart.length > 0 ? (
+                          <div className="walkin-takeout-item-list">
+                            {orderCart.map((item) => (
+                              <div
+                                className="walkin-takeout-item"
+                                key={item.product_id}
+                              >
+                                {item.image ? (
+                                  <div className="walkin-takeout-image-wrap">
+                                    <img
+                                      src={item.image}
+                                      alt=""
+                                      className="walkin-takeout-item-image"
+                                      onError={(event) => {
+                                        const image = event.currentTarget;
+                                        const fallback = image.dataset.fallback;
+                                        if (fallback && image.src !== fallback) {
+                                          image.dataset.fallback = "";
+                                          image.src = fallback;
+                                          return;
+                                        }
+                                        image.style.display = "none";
+                                        image.parentElement.querySelector(
+                                          ".walkin-takeout-item-placeholder",
+                                        ).style.display = "grid";
+                                      }}
+                                      data-fallback={item.fallbackImage}
+                                    />
+                                    <div className="walkin-takeout-item-image walkin-takeout-item-placeholder">
+                                      <ShoppingBag size={18} />
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="walkin-takeout-item-image walkin-takeout-item-placeholder">
+                                    <ShoppingBag size={18} />
+                                  </div>
+                                )}
+                                <div className="walkin-takeout-item-name">
+                                  <strong>{item.name}</strong>
+                                  <small>Regular</small>
+                                </div>
+                                <strong className="walkin-takeout-item-price">
+                                  ₱{Number(item.price || 0).toFixed(2)}
+                                </strong>
+                                <div className="walkin-quantity-control">
+                                  <button
+                                    type="button"
+                                    aria-label={`Remove one ${item.name}`}
+                                    onClick={() =>
+                                      handleUpdateCartQty(item.product_id, -1)
+                                    }
+                                  >
+                                    −
+                                  </button>
+                                  <span>{item.quantity}</span>
+                                  <button
+                                    type="button"
+                                    aria-label={`Add one ${item.name}`}
+                                    onClick={() =>
+                                      handleUpdateCartQty(item.product_id, 1)
+                                    }
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                                <button
+                                  type="button"
+                                  className="walkin-remove-item"
+                                  aria-label={`Remove ${item.name}`}
+                                  onClick={() =>
+                                    handleUpdateCartQty(
+                                      item.product_id,
+                                      -item.quantity,
+                                    )
+                                  }
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="walkin-empty-items">
+                            No items added yet. Choose food or drinks above.
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="walkin-takeout-card walkin-takeout-total">
+                        <div className="walkin-total-row">
+                          <span>Subtotal</span>
+                          <strong>₱{takeoutSubtotal.toFixed(2)}</strong>
+                        </div>
+                        <div className="walkin-total-row">
+                          <span>Add-ons</span>
+                          <strong>₱0.00</strong>
+                        </div>
+                        <div className="walkin-total-row walkin-grand-total">
+                          <strong>Total Bill</strong>
+                          <strong>₱{takeoutSubtotal.toFixed(2)}</strong>
+                        </div>
+                      </div>
+                    </section>
+
+                    <section className="walkin-takeout-details">
+                      <div className="walkin-takeout-card">
+                        <label className="form-label small fw-bold">Date</label>
+                        <div className="walkin-input-with-icon">
+                          <CalendarDays size={17} />
+                          <input
+                            type="date"
+                            name="date"
+                            className="form-control"
+                            value={newRes.date}
+                            onChange={handleInputChange}
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div className="walkin-takeout-card">
+                        <label className="form-label small fw-bold">
+                          Customer Name <span>(Optional)</span>
+                        </label>
+                        <div className="walkin-input-with-icon">
+                          <UserRound size={17} />
+                          <input
+                            type="text"
+                            name="firstName"
+                            className="form-control"
+                            placeholder="Enter customer name"
+                            value={newRes.firstName}
+                            onChange={handleInputChange}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="walkin-takeout-card">
+                        <label className="form-label small fw-bold">
+                          Payment Method
+                        </label>
+                        <div className="walkin-input-with-icon">
+                          <CreditCard size={17} />
+                          <select
+                            name="paymentMethod"
+                            className="form-select"
+                            value={newRes.paymentMethod}
+                            onChange={handleInputChange}
+                          >
+                            <option value="Cash">Cash (Paid at Counter)</option>
+                            <option value="GCash">GCash</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="walkin-takeout-card">
+                        <label className="form-label small fw-bold">
+                          Amount Paid
+                        </label>
+                        <div className="walkin-input-with-icon">
+                          <input
+                            type="number"
+                            name="amountPaid"
+                            min="0"
+                            step="0.01"
+                            className="form-control"
+                            value={newRes.amountPaid}
+                            onChange={handleInputChange}
+                          />
+                        </div>
+                        <div className="walkin-change-row">
+                          <strong>Change</strong>
+                          <strong>₱{takeoutChange.toFixed(2)}</strong>
+                        </div>
+                      </div>
+                    </section>
+
+                  </div>
+                </>
+              ) : (
+                <>
+              {/* SECTION: CUSTOMER */}
+              <p className="x-small fw-bold text-primary text-uppercase mb-3 border-bottom pb-2">
+                Customer Information
+              </p>
+              <div className="row g-3 mb-4">
+                <div className="col-12 col-md-6">
+                  <label className="form-label small fw-bold">First Name</label>
+                  <input
+                    type="text"
+                    name="firstName"
+                    className="form-control form-control-sm"
+                    value={newRes.firstName}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+                <div className="col-12 col-md-6">
+                  <label className="form-label small fw-bold">Last Name</label>
+                  <input
+                    type="text"
+                    name="lastName"
+                    className="form-control form-control-sm"
+                    value={newRes.lastName}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+                <div className="col-12 col-md-6">
+                  <label className="form-label small fw-bold">Email</label>
+                  <input
+                    type="text"
+                    name="email"
+                    className="form-control form-control-sm"
+                    onChange={handleInputChange}
+                  />
+                </div>
+                <div className="col-12 col-md-6">
+                  <label className="form-label small fw-bold">
+                    Phone Number
+                  </label>
+                  <input
+                    type="text"
+                    name="phone"
+                    className="form-control form-control-sm"
+                    onChange={handleInputChange}
+                  />
+                </div>
+              </div>
+
+              <hr />
+
+              {/* SECTION: BOOKING DETAILS */}
+              <p className="x-small fw-bold text-primary text-uppercase mb-3 border-bottom pb-2">
+                Booking Details
+              </p>
+
+              <div className="walkin-booking-grid">
+              <div className="mb-3 walkin-booking-field">
+                <label className="form-label small fw-bold">Guests</label>
+                <input
+                  type="number"
+                  name="guests"
+                  className="form-control"
+                  min="1"
+                  max="35"
+                  step="1"
+                  value={newRes.guests}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+
+              <div className="mb-3 walkin-booking-field">
+                <label className="form-label small fw-bold">Payment Method</label>
+                <select
+                  name="paymentMethod"
+                  className="form-select"
+                  value={newRes.paymentMethod}
+                  onChange={handleInputChange}
+                >
+                  <option value="Cash">Cash (Paid at Counter)</option>
+                  <option value="GCash">GCash</option>
+                </select>
+                <div className="x-small text-muted mt-1 italic">
+                  * Manual entries are automatically verified.
+                </div>
+              </div>
+
+              <div className="mb-3 walkin-booking-field">
+                <label className="form-label small fw-bold">Date</label>
+                <input
+                  type="date"
+                  name="date"
+                  className="form-control"
+                  value={newRes.date}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
 
               {/* Take-Out Info Banner */}
               {newRes.bookingType === "takeout" && (
-                <div className="mb-3 p-3 bg-success-subtle rounded-3 border border-success-subtle animate-fade-in">
+                <div className="mb-3 p-3 bg-success-subtle rounded-3 border border-success-subtle animate-fade-in walkin-booking-wide">
                   <div className="x-small text-success-emphasis fw-bold">
                     ✓ Take-Out Order Selected
                   </div>
@@ -912,7 +1238,7 @@ const WalkInReservations = () => {
               )}
 
               {newRes.bookingType === "table" && (
-                <div className="mb-3">
+                <div className="mb-3 walkin-booking-field">
                   <label className="form-label small fw-bold">
                     Select Table
                   </label>
@@ -953,7 +1279,7 @@ const WalkInReservations = () => {
 
               {/* DYNAMIC FOOD & DRINK SELECTOR */}
               {newRes.bookingType === "takeout" && (
-                <div className="mb-4 animate-fade-in">
+                <div className="mb-4 animate-fade-in walkin-booking-wide">
                   <label className="form-label small fw-bold text-uppercase text-muted">
                     Order Items <span className="fw-normal">(optional)</span>
                   </label>
@@ -1023,7 +1349,7 @@ const WalkInReservations = () => {
               )}
 
               {newRes.bookingType === "event" && (
-                <div className="mb-3 p-3 bg-warning-subtle rounded-3 border border-warning-subtle animate-fade-in">
+                <div className="mb-3 p-3 bg-warning-subtle rounded-3 border border-warning-subtle animate-fade-in walkin-booking-wide">
                   <label className="form-label small fw-bold text-warning-emphasis">
                     Reservation Package
                   </label>
@@ -1074,25 +1400,6 @@ const WalkInReservations = () => {
                 </div>
               )}
 
-              {/* NEW SECTION: PAYMENT METHOD */}
-              <div className="mb-4">
-                <label className="form-label small fw-bold text-success text-uppercase border-bottom pb-2 w-100">
-                  Payment Method
-                </label>
-                <select
-                  name="paymentMethod"
-                  className="form-select border-success fw-bold"
-                  value={newRes.paymentMethod}
-                  onChange={handleInputChange}
-                >
-                  <option value="Cash">Cash (Paid at Counter)</option>
-                  <option value="GCash">GCash</option>
-                </select>
-                <div className="x-small text-muted mt-1 italic">
-                  * Manual entries are automatically verified.
-                </div>
-              </div>
-
               {newRes.bookingType !== "table" && (() => {
                 const packagePrice = PACKAGE_PRICES[newRes.packageName] || 0;
                 const addOnTotal = orderCart.reduce(
@@ -1106,7 +1413,7 @@ const WalkInReservations = () => {
                   totalBill,
                 );
                 return (
-                  <div className="p-3 mb-4 bg-white border rounded-3 shadow-sm">
+                  <div className="p-3 mb-4 bg-white border rounded-3 shadow-sm walkin-booking-wide">
                     {newRes.bookingType === "event" && (
                       <div className="d-flex justify-content-between small mb-1">
                         <span className="text-muted">Package</span>
@@ -1166,58 +1473,52 @@ const WalkInReservations = () => {
                 );
               })()}
 
-              <div className="row g-3">
-                <div className="col-6">
-                  <label className="form-label small fw-bold">Date</label>
-                  <input
-                    type="date"
-                    name="date"
-                    className="form-control"
-                    value={newRes.date}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-                <div className="col-6">
-                  <label className="form-label small fw-bold">Start Time</label>
-                  <input
-                    type="time"
-                    name="startTime"
-                    className="form-control"
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-                <div className="col-6">
-                  <label className="form-label small fw-bold">End Time</label>
-                  <input
-                    type="time"
-                    name="endTime"
-                    className="form-control"
-                    min={newRes.startTime || undefined}
-                    onChange={handleInputChange}
-                    required
-                  />
-                  <div className="form-text" style={{ fontSize: "0.7rem" }}>
-                    {newRes.startTime && newRes.endTime
-                      ? `Duration: ${formatDuration(newRes.startTime, newRes.endTime)}`
-                      : "Used for the event timer and table release."}
-                  </div>
+              <div className="mb-3 walkin-booking-field">
+                <label className="form-label small fw-bold">Start Time</label>
+                <input
+                  type="time"
+                  name="startTime"
+                  className="form-control"
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              <div className="mb-3 walkin-booking-field">
+                <label className="form-label small fw-bold">End Time</label>
+                <input
+                  type="time"
+                  name="endTime"
+                  className="form-control"
+                  min={newRes.startTime || undefined}
+                  onChange={handleInputChange}
+                  required
+                />
+                <div className="form-text" style={{ fontSize: "0.7rem" }}>
+                  {newRes.startTime && newRes.endTime
+                    ? `Duration: ${formatDuration(newRes.startTime, newRes.endTime)}`
+                    : "Used for the event timer and table release."}
                 </div>
               </div>
+              </div>
+                </>
+              )}
             </div>
 
-            <div className="p-3 bg-white border-top mt-auto">
+            <div className="p-3 bg-white border-top mt-auto walkin-reservation-footer">
               <button
                 type="submit"
-                className="btn btn-primary w-100 py-2 fw-bold mb-2 shadow-sm"
+                className="btn btn-primary py-2 fw-bold shadow-sm walkin-confirm-button"
                 disabled={submitting}
               >
-                {submitting ? "Creating..." : "Confirm Reservation"}
+                {submitting
+                  ? "Creating..."
+                  : newRes.bookingType === "takeout"
+                    ? "Confirm Take-Out"
+                    : "Confirm Reservation"}
               </button>
               <button
                 type="button"
-                className="btn btn-outline-secondary w-100 py-2 fw-bold border-0"
+                className="btn btn-outline-secondary py-2 fw-bold walkin-cancel-button"
                 data-bs-dismiss="offcanvas"
               >
                 Cancel
@@ -1301,7 +1602,7 @@ const WalkInReservations = () => {
                     >
                       {walkInIsEvent
                         ? "Special Event"
-                        : selectedRes.reservation_type === "takeout"
+                        : walkInIsTakeout
                           ? "Take-Out"
                           : "Per Table"}
                     </span>
@@ -1326,15 +1627,10 @@ const WalkInReservations = () => {
                     <small className="text-muted d-block">
                       {walkInIsEvent ? "Event Package" : "Selected Package"}
                     </small>
-                    {/* For an event the ₱10,000 / ₱12,500 limit is the point of
-                        this block; for a per-table booking it stays "No package"
-                        so a table booking is never mistaken for an event. */}
                     <PackageMeta reservation={selectedRes} />
                   </div>
                 </div>
 
-                {/* Event limit spelled out as reservation information, kept
-                    deliberately out of the Order Summary below. */}
                 {walkInIsEvent && walkInEventLimit > 0 && (
                   <div className="mt-3 p-2 bg-warning-subtle border border-warning-subtle rounded-3">
                     <div className="x-small fw-bold text-uppercase text-warning-emphasis">
@@ -1349,9 +1645,8 @@ const WalkInReservations = () => {
                   </div>
                 )}
 
-                {/* Per-table bookings name the table instead of a package. */}
                 {!walkInIsEvent &&
-                  selectedRes.reservation_type !== "takeout" &&
+                  !walkInIsTakeout &&
                   walkInTableLabel && (
                     <div className="mt-3 p-2 bg-light border rounded-3">
                       <div className="x-small text-muted text-uppercase fw-bold">
@@ -1364,19 +1659,21 @@ const WalkInReservations = () => {
                   )}
               </div>
 
-              <div className="p-3 flex-grow-1 overflow-auto bg-light-subtle">
-                <span className="x-small fw-bold text-muted text-uppercase d-block mb-2">
-                  Reservation Schedule
-                </span>
-                <div className="small text-dark">
-                  {selectedRes.reservation_date
-                    ? new Date(selectedRes.reservation_date).toLocaleDateString()
-                    : "Date not set"}
-                  {selectedRes.reservation_time
-                    ? ` · ${formatTime(selectedRes.reservation_time)}`
-                    : ""}
+              {!walkInIsTakeout && (
+                <div className="p-3 flex-grow-1 overflow-auto bg-light-subtle">
+                  <span className="x-small fw-bold text-muted text-uppercase d-block mb-2">
+                    Reservation Schedule
+                  </span>
+                  <div className="small text-dark">
+                    {selectedRes.reservation_date
+                      ? new Date(selectedRes.reservation_date).toLocaleDateString()
+                      : "Date not set"}
+                    {selectedRes.reservation_time
+                      ? ` · ${formatTime(selectedRes.reservation_time)}`
+                      : ""}
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="p-3 bg-dark text-white sticky-bottom mt-auto flex-shrink-0 drawer-footer">
                 <div className="d-flex justify-content-between align-items-center mb-3">

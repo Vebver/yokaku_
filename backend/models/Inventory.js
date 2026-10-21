@@ -1,5 +1,7 @@
 const db = require("../config/db");
 
+let optionTablesInitialization;
+
 const Inventory = {
   // GET ALL ITEMS
   // Each row also carries the dishes it is used in, so the inventory table can
@@ -81,42 +83,64 @@ const Inventory = {
   // TABLE IF NOT EXISTS) so no manual migration is required. If you prefer a
   // formal migration, run the same SQL in your migration step and this becomes
   // a no-op.
-  ensureOptionTables: async () => {
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS inventory_units (
-        unit_id INT NOT NULL AUTO_INCREMENT,
-        unit_name VARCHAR(50) NOT NULL,
-        unit_group VARCHAR(30) DEFAULT 'Other',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (unit_id),
-        UNIQUE KEY uq_inventory_units_name (unit_name)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    `);
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS inventory_storage_locations (
-        storage_id INT NOT NULL AUTO_INCREMENT,
-        storage_name VARCHAR(100) NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (storage_id),
-        UNIQUE KEY uq_inventory_storage_name (storage_name)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    `);
+  ensureOptionTables: () => {
+    if (!optionTablesInitialization) {
+      optionTablesInitialization = (async () => {
+        const initialize = async () => {
+          await db.query(`
+            CREATE TABLE IF NOT EXISTS inventory_units (
+              unit_id INT NOT NULL AUTO_INCREMENT,
+              unit_name VARCHAR(50) NOT NULL,
+              unit_group VARCHAR(30) DEFAULT 'Other',
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              PRIMARY KEY (unit_id),
+              UNIQUE KEY uq_inventory_units_name (unit_name)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+          `);
+          await db.query(`
+            CREATE TABLE IF NOT EXISTS inventory_storage_locations (
+              storage_id INT NOT NULL AUTO_INCREMENT,
+              storage_name VARCHAR(100) NOT NULL,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              PRIMARY KEY (storage_id),
+              UNIQUE KEY uq_inventory_storage_name (storage_name)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+          `);
 
-    // Seed defaults once — the UNIQUE KEY keeps this idempotent.
-    await db.query(`
-      INSERT IGNORE INTO inventory_units (unit_name, unit_group) VALUES
-        ('kg','Weight'), ('g','Weight'), ('lb','Weight'), ('oz','Weight'),
-        ('L','Volume'), ('mL','Volume'), ('cup','Volume'), ('tbsp','Volume'),
-        ('tsp','Volume'), ('gal','Volume'),
-        ('pcs','Count'), ('sachet','Count'), ('can','Count'), ('bottle','Count'),
-        ('box','Count'), ('tray','Count'), ('dozen','Count'), ('bunch','Count'),
-        ('head','Count'), ('slice','Count'), ('stick','Count'), ('roll','Count'),
-        ('bag','Count'), ('set','Count');
-    `);
-    await db.query(`
-      INSERT IGNORE INTO inventory_storage_locations (storage_name) VALUES
-        ('Dry Pantry'), ('Fridge'), ('Freezer');
-    `);
+          await db.query(`
+            INSERT IGNORE INTO inventory_units (unit_name, unit_group) VALUES
+              ('kg','Weight'), ('g','Weight'), ('lb','Weight'), ('oz','Weight'),
+              ('L','Volume'), ('mL','Volume'), ('cup','Volume'), ('tbsp','Volume'),
+              ('tsp','Volume'), ('gal','Volume'),
+              ('pcs','Count'), ('sachet','Count'), ('can','Count'), ('bottle','Count'),
+              ('box','Count'), ('tray','Count'), ('dozen','Count'), ('bunch','Count'),
+              ('head','Count'), ('slice','Count'), ('stick','Count'), ('roll','Count'),
+              ('bag','Count'), ('set','Count');
+          `);
+          await db.query(`
+            INSERT IGNORE INTO inventory_storage_locations (storage_name) VALUES
+              ('Dry Pantry'), ('Fridge'), ('Freezer');
+          `);
+        };
+
+        for (let attempt = 0; ; attempt += 1) {
+          try {
+            await initialize();
+            return;
+          } catch (error) {
+            const isTransientLockError =
+              error.code === "ER_LOCK_DEADLOCK" ||
+              error.code === "ER_LOCK_WAIT_TIMEOUT";
+            if (!isTransientLockError || attempt >= 2) throw error;
+            await new Promise((resolve) => setTimeout(resolve, 100 * (attempt + 1)));
+          }
+        }
+      })().catch((error) => {
+        optionTablesInitialization = null;
+        throw error;
+      });
+    }
+    return optionTablesInitialization;
   },
 
   getUnits: async () => {
