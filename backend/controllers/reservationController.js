@@ -514,7 +514,7 @@ const reservationController = {
           reservationId: null,
           title: "New Reservation",
           message: `New booking from ${fullName} (Reservation ID: ${newId})`,
-          type: "reservation",
+          type: "alert",
           isAdminAlert: true,
         });
       } catch (dbErr) {
