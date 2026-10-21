@@ -24,21 +24,30 @@ const KioskSelection = () => {
   useEffect(() => {
     let disposed = false;
     const checkAdminOpenedKiosk = async () => {
+      // ONLY auto-navigate if the Admin explicitly opened a session
+      // (This removes the automatic bypass for regular customers)
       if (
         sessionStorage.getItem("kiosk_reservation_checkin") === "true" ||
         sessionStorage.getItem("kiosk_exit_to_selection") === "true"
       ) {
         return;
       }
+
       try {
-        const { data } = await axios.get(`${API_BASE}/reservations/active-kiosk`, {
-          params: { tableId: kioskTableId },
-        });
+        const { data } = await axios.get(
+          `${API_BASE}/reservations/active-kiosk`,
+          {
+            params: { tableId: kioskTableId },
+          },
+        );
+
+        // Check if the backend says an event is active AND the kiosk was explicitly opened by staff
         if (
           disposed ||
           !data?.success ||
           !["single_active", "event_active"].includes(data.mode) ||
-          !data.reservation?.reservation_id
+          !data.reservation?.reservation_id ||
+          data.reservation.is_kiosk_active !== 1 // ADD THIS CHECK
         ) {
           return;
         }
@@ -112,7 +121,10 @@ const KioskSelection = () => {
         {/* Options Grid */}
         <div className="options-container">
           {/* View Menu Card */}
-          <div className="selection-card" onClick={() => handleSelection('menu')}>
+          <div
+            className="selection-card"
+            onClick={() => handleSelection("menu")}
+          >
             <h3 className="card-label">DINE-IN</h3>
             <div className="icon-circle">
               <svg
