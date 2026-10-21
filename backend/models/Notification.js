@@ -253,14 +253,28 @@ const Notification = {
   },
 
   permanentlyDeleteExpired: async () => {
-    const sql = `
-      DELETE FROM notifications 
-      WHERE deleted_at IS NOT NULL 
-      AND deleted_at < DATE_SUB(NOW(), INTERVAL 30 DAY)
-      LIMIT 1000
-    `;
-    const [result] = await db.execute(sql);
-    return result.affectedRows;
+    const conn = await db.getConnection();
+    try {
+      // 1. Tell MySQL to give up after 3 seconds instead of hanging for 50
+      await conn.execute("SET SESSION innodb_lock_wait_timeout = 3");
+
+      // 2. Run the delete
+      const sql = `
+        DELETE FROM notifications 
+        WHERE deleted_at IS NOT NULL 
+        AND deleted_at < DATE_SUB(NOW(), INTERVAL 30 DAY)
+        LIMIT 1000
+      `;
+      const [result] = await conn.execute(sql);
+      return result.affectedRows;
+    } catch (err) {
+      // 3. If it fails due to a lock, ignore it (it will try again next minute)
+      if (err.code !== "ER_LOCK_WAIT_TIMEOUT") {
+        console.error("Cleanup error:", err.message);
+      }
+    } finally {
+      conn.release();
+    }
   },
 
   delete: async (notificationId, userId) => {
