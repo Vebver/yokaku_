@@ -245,7 +245,7 @@ const startCronJobs = () => {
             reservationId: row.reservation_id,
             title: "Upcoming Reservation Reminder",
             message: `Reminder: You have a table reservation today at ${prettyTime}. We look forward to seeing you at HANGOUT Resto Bar!`,
-            type: "reservation",
+            type: "alert",
             isAdminAlert: false,
           });
 
