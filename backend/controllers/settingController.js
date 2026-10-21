@@ -1,4 +1,5 @@
 const Setting = require("../models/Settings");
+const cloudinary = require("cloudinary").v2;
 
 // Whitelist of keys the API accepts. Anything outside this list is rejected so
 // the generic settings table cannot be polluted with arbitrary keys.
@@ -9,6 +10,7 @@ const ALLOWED_KEYS = [
   "footer_about",
   "footer_terms",
   "kiosk_visible_categories",
+  "exclusive_offers",
 ];
 
 // Defaults shown until the admin saves real content. They mirror the original
@@ -23,36 +25,46 @@ const FOOTER_DEFAULTS = {
 
 const settingController = {
   getSettings: async (req, res) => {
-  try {
-    const rows = await Setting.getAll();
+    try {
+      const rows = await Setting.getAll();
+      const settingsMap = {};
+      if (Array.isArray(rows)) {
+        rows.forEach((row) => {
+          if (row && row.setting_key) {
+            settingsMap[row.setting_key] = row.setting_value;
+          }
+        });
+      }
 
-    const settingsMap = {};
-    // Ensure rows is an array before looping
-    if (Array.isArray(rows)) {
-      rows.forEach((row) => {
-        if (row && row.setting_key) {
-          settingsMap[row.setting_key] = row.setting_value;
+      // Parse exclusive offers safely
+      let exclusiveOffers = [];
+      if (settingsMap.exclusive_offers) {
+        try {
+          exclusiveOffers = JSON.parse(settingsMap.exclusive_offers);
+        } catch (e) {
+          console.error("Failed to parse exclusive offers", e);
         }
+      }
+
+      res.json({
+        gcash_number: settingsMap.gcash_number || "09123456789",
+        gcash_name: settingsMap.gcash_name || "Hangout Resto Bar",
+        ...settingsMap,
+        footer_contact:
+          settingsMap.footer_contact || FOOTER_DEFAULTS.footer_contact,
+        footer_about: settingsMap.footer_about || FOOTER_DEFAULTS.footer_about,
+        footer_terms: settingsMap.footer_terms || FOOTER_DEFAULTS.footer_terms,
+        exclusive_offers: exclusiveOffers, // <-- NEW
+      });
+    } catch (error) {
+      console.error("Error fetching settings:", error);
+      res.json({
+        gcash_number: "09123456789",
+        gcash_name: "Hangout Resto Bar",
+        exclusive_offers: [],
       });
     }
-
-    res.json({
-      gcash_number: settingsMap.gcash_number || "09123456789",
-      gcash_name: settingsMap.gcash_name || "Hangout Resto Bar",
-      ...settingsMap,
-      // Footer sections fall back to defaults when not yet saved by the admin.
-      footer_contact: settingsMap.footer_contact || FOOTER_DEFAULTS.footer_contact,
-      footer_about: settingsMap.footer_about || FOOTER_DEFAULTS.footer_about,
-      footer_terms: settingsMap.footer_terms || FOOTER_DEFAULTS.footer_terms,
-    });
-  } catch (error) {
-    console.error("Error fetching settings:", error);
-    res.json({
-      gcash_number: "09123456789",
-      gcash_name: "Hangout Resto Bar",
-    });
-  }
-},
+  },
 
   updateSettings: async (req, res) => {
     try {
@@ -74,7 +86,9 @@ const settingController = {
           try {
             categoryIds = JSON.parse(String(rawValue ?? ""));
           } catch {
-            errors.push("Kiosk visible categories must be a JSON array of category IDs.");
+            errors.push(
+              "Kiosk visible categories must be a JSON array of category IDs.",
+            );
             continue;
           }
           if (
@@ -83,7 +97,9 @@ const settingController = {
               (id) => !Number.isSafeInteger(Number(id)) || Number(id) < 1,
             )
           ) {
-            errors.push("Kiosk visible categories must be a JSON array of positive category IDs.");
+            errors.push(
+              "Kiosk visible categories must be a JSON array of positive category IDs.",
+            );
             continue;
           }
           clean[key] = JSON.stringify([...new Set(categoryIds.map(Number))]);
@@ -114,6 +130,73 @@ const settingController = {
     } catch (error) {
       console.error("Error updating settings:", error);
       res.status(500).json({ error: error.message });
+    }
+  },
+  // NEW: Upload Exclusive Offer
+  uploadExclusiveOffer: async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No image uploaded." });
+      }
+
+      // Get current offers
+      const currentSetting = await Setting.getByKey("exclusive_offers");
+      let offers = [];
+      if (currentSetting && currentSetting.setting_value) {
+        try {
+          offers = JSON.parse(currentSetting.setting_value);
+        } catch (e) {}
+      }
+
+      // Add new image data (Cloudinary provides path and filename)
+      const newOffer = {
+        id: Date.now().toString(), // Unique ID for deletion
+        url: req.file.path, // Cloudinary URL
+        public_id: req.file.filename, // Cloudinary public ID for deletion
+      };
+
+      offers.push(newOffer);
+
+      // Save back to DB
+      await Setting.update("exclusive_offers", JSON.stringify(offers));
+
+      res.json({ message: "Image uploaded successfully", offers });
+    } catch (error) {
+      console.error("Upload error:", error);
+      res.status(500).json({ error: "Failed to upload image." });
+    }
+  },
+
+  // NEW: Delete Exclusive Offer
+  deleteExclusiveOffer: async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const currentSetting = await Setting.getByKey("exclusive_offers");
+      if (!currentSetting || !currentSetting.setting_value) {
+        return res.status(404).json({ error: "No offers found." });
+      }
+
+      let offers = JSON.parse(currentSetting.setting_value);
+      const offerToDelete = offers.find((o) => o.id === id);
+
+      if (!offerToDelete) {
+        return res.status(404).json({ error: "Offer not found." });
+      }
+
+      // Delete from Cloudinary
+      if (offerToDelete.public_id) {
+        await cloudinary.uploader.destroy(offerToDelete.public_id);
+      }
+
+      // Remove from array and save
+      offers = offers.filter((o) => o.id !== id);
+      await Setting.update("exclusive_offers", JSON.stringify(offers));
+
+      res.json({ message: "Image deleted successfully", offers });
+    } catch (error) {
+      console.error("Delete error:", error);
+      res.status(500).json({ error: "Failed to delete image." });
     }
   },
 };

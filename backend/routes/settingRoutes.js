@@ -1,12 +1,25 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const settingController = require('../controllers/settingController');
-const priceController = require('../controllers/priceController'); // Import the new controller
-const { protect, adminOnly } = require('../middleware/authMiddleware');
+const settingController = require("../controllers/settingController");
+const upload = require("../middleware/exclusiveOfferUpload"); // The new upload middleware
+const { protect, adminOnly } = require("../middleware/authMiddleware"); // Adjust based on your auth middleware
 
-// ORIGINAL: /api/settings
-// GET is public (customer footer / payment info need it without login).
-// PUT is admin-only so only the Admin can change footer/payment content.
-router.get('/', settingController.getSettings);
-router.put('/', protect, adminOnly, settingController.updateSettings);
+router.get("/", settingController.getSettings);
+router.put("/", protect, adminOnly, settingController.updateSettings);
+
+// NEW ROUTES
+router.post(
+  "/exclusive-offers",
+  protect,
+  adminOnly,
+  upload.single("image"),
+  settingController.uploadExclusiveOffer,
+);
+router.delete(
+  "/exclusive-offers/:id",
+  protect,
+  adminOnly,
+  settingController.deleteExclusiveOffer,
+);
+
 module.exports = router;

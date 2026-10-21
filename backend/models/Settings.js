@@ -17,7 +17,19 @@ const Setting = {
       ];
     }
   },
-
+  // NEW: Get a single setting by its key
+  getByKey: async (key) => {
+    try {
+      const [rows] = await db.execute(
+        "SELECT setting_key, setting_value FROM system_settings WHERE setting_key = ?",
+        [key],
+      );
+      return rows.length > 0 ? rows[0] : null;
+    } catch (error) {
+      console.error(`Error fetching setting ${key}:`, error);
+      return null;
+    }
+  },
   // Update one row by key
   update: async (key, value) => {
     try {
