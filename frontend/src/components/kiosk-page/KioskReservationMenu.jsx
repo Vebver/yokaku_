@@ -1405,13 +1405,6 @@ const KioskReservationMenu = () => {
   };
 
   const handleHeaderPayClick = async () => {
-    if (
-      isUnlimitedMode
-        ? !hasPlacedUnlimitedFlavorOrder
-        : placedOrderItems.length === 0
-    ) {
-      return;
-    }
     setIsLoading(true);
     try {
       const currentItems = await fetchCurrentBill();
@@ -1990,32 +1983,20 @@ const KioskReservationMenu = () => {
               )}
             </div>
           )}
-        </div>
-
-        {/* RIGHT: VIEW RECEIPT / PAY */}
-        <div className="header-right-group">
           {(isUnlimitedMode
             ? hasPlacedUnlimitedOrder
-            : placedOrderItems.length > 0) && <button
-            className="billing-btn-header"
-            onClick={handleHeaderPayClick}
-            style={{
-              background:
-                parseFloat(calculateTotalDue()) <= 0 ? "#28a745" : "#ffcc00",
-              color: parseFloat(calculateTotalDue()) <= 0 ? "#fff" : "#000",
-              border: "none",
-              padding: "12px 20px",
-              borderRadius: "8px",
-              fontWeight: "900",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-            }}
-          >
-            <CreditCard size={18} />{" "}
-            {parseFloat(calculateTotalDue()) <= 0 ? "VIEW RECEIPT" : "PAY BILL"}
-          </button>}
+            : placedOrderItems.length > 0) && (
+            <button
+              className="billing-btn-header"
+              onClick={handleHeaderPayClick}
+              disabled={isLoading}
+            >
+              <CreditCard size={18} />
+              {parseFloat(calculateTotalDue()) <= 0
+                ? "VIEW RECEIPT"
+                : "PAY BILL"}
+            </button>
+          )}
         </div>
       </div>
 
@@ -2099,11 +2080,13 @@ const KioskReservationMenu = () => {
                   <h4 className="res-food-label">
                     {item.name || item.menu_name}
                   </h4>
-                  <p className="res-food-price">
-                    {isSetMode
-                      ? "Included with set"
-                      : `₱${Number(item.price || 0).toFixed(2)}`}
-                  </p>
+                  {!isUnlimitedMode && (
+                    <p className="res-food-price">
+                      {isSetMode
+                        ? "Included with set"
+                        : `₱${Number(item.price || 0).toFixed(2)}`}
+                    </p>
+                  )}
                   {item.description && (
                     <p className="res-food-description">
                       {item.description}

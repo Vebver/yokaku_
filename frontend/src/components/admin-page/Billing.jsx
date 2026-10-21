@@ -1357,46 +1357,66 @@ const Billing = () => {
                     )}
 
                   {!showRejectForm &&
-                    (selectedPayment?.order_status?.toLowerCase() !==
-                      "completed" &&
-                    selectedPayment?.status?.toLowerCase() !== "completed" ? (
-                      <button
-                        className="btn btn-primary fw-bold py-2 d-flex align-items-center justify-content-center"
-                        onClick={async () => {
-                          if (
-                            !(await confirm({
-                              title: "Settle transaction",
-                              message:
-                                "Mark this transaction as fully paid and completed?",
-                              confirmLabel: "Settle bill",
-                              variant: "primary",
-                            }))
-                          )
-                            return;
+                    (balanceInfo.remaining > 0 ? (
+                      <>
+                        <div className="alert alert-warning border-0 py-2 mb-0">
+                          <div className="fw-bold small text-uppercase">
+                            Partial bill
+                          </div>
+                          <small>
+                            Collect the remaining balance before settling this
+                            bill. Reservation status does not mean payment is
+                            complete.
+                          </small>
+                        </div>
+                        <button
+                          className="btn btn-primary fw-bold py-2 d-flex align-items-center justify-content-center"
+                          onClick={async () => {
+                            if (
+                              !(await confirm({
+                                title: "Settle transaction",
+                                message: `Confirm that the remaining balance of ₱${balanceInfo.remaining.toLocaleString(
+                                  undefined,
+                                  { minimumFractionDigits: 2 },
+                                )} has been collected and mark this bill fully paid?`,
+                                confirmLabel: "Settle bill",
+                                variant: "primary",
+                              }))
+                            )
+                              return;
 
-                          try {
-                            await api.put(
-                              `/billing/settle/${selectedPayment.reservation_id}`,
-                              {},
-                            );
+                            try {
+                              await api.put(
+                                `/billing/settle/${selectedPayment.reservation_id}`,
+                                {},
+                              );
 
-                            setSelectedPayment((prev) => ({
-                              ...prev,
-                              order_status: "completed",
-                              payment_status: "verified",
-                            }));
+                              setSelectedPayment((prev) => {
+                                const total = Number(
+                                  prev.total_bill || calculateItemsSum(),
+                                );
+                                return {
+                                  ...prev,
+                                  amount: total,
+                                  balance_due: 0,
+                                  settlement_status: "paid",
+                                  order_status: "completed",
+                                  payment_status: "verified",
+                                };
+                              });
 
-                            await fetchPayments();
-                            showToast("Transaction Settled!", "success");
-                          } catch (err) {
-                            console.error("Settle error:", err.response?.data);
-                            showToast("Failed to settle bill.");
-                          }
-                        }}
-                      >
-                        <Layers size={16} className="me-2" /> Settle Bill (Fully
-                        Paid)
-                      </button>
+                              await fetchPayments();
+                              showToast("Transaction Settled!", "success");
+                            } catch (err) {
+                              console.error("Settle error:", err.response?.data);
+                              showToast("Failed to settle bill.");
+                            }
+                          }}
+                        >
+                          <Layers size={16} className="me-2" /> Settle Bill (Fully
+                          Paid)
+                        </button>
+                      </>
                     ) : (
                       <div className="alert alert-success border-0 py-2 text-center mb-0 d-flex flex-column align-items-center bg-success bg-opacity-10 text-success">
                         <CheckCircle2 size={20} className="mb-1" />
@@ -1404,13 +1424,13 @@ const Billing = () => {
                           className="fw-bold small text-uppercase tracking-wide"
                           style={{ fontSize: "0.75rem" }}
                         >
-                          Transaction Settle Complete
+                          Bill Paid in Full
                         </div>
                         <small
                           className="opacity-75"
                           style={{ fontSize: "0.7rem" }}
                         >
-                          This bill has been paid and completed.
+                          No remaining balance is due.
                         </small>
                       </div>
                     ))}

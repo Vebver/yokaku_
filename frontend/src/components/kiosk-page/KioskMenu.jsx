@@ -1920,9 +1920,11 @@ const KioskMenu = () => {
                 </div>
                 <div className="res-card-info">
                   <h4 className="res-food-label">{item.name}</h4>
-                  <p className="res-food-price">
-                    ₱{Number(item.price || 0).toFixed(2)}
-                  </p>
+                  {!isUnlimitedMode && (
+                    <p className="res-food-price">
+                      ₱{Number(item.price || 0).toFixed(2)}
+                    </p>
+                  )}
                   {item.description && (
                     <p className="res-food-description">{item.description}</p>
                   )}

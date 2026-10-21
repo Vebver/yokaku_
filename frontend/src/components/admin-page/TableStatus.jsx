@@ -549,7 +549,8 @@ const TableStatus = ({ compact = false }) => {
               <div>
                 <h2 className="h6 fw-bold mb-1">Incoming Reservations</h2>
                 <p className="text-muted small mb-0">
-                  Upcoming bookings, sorted by date and time
+                  Future bookings only. Link Table lists parties already using
+                  a table, including seated reservations and walk-ins.
                 </p>
               </div>
             </div>
@@ -944,8 +945,9 @@ const TableStatus = ({ compact = false }) => {
                   <div>
                     <p className="text-muted small">
                       Which party is using Table {ui.linkTable?.table_number}?
-                      The table joins their reservation so it shares one kiosk
-                      and one bill.
+                      Choose an active party already using another table. The
+                      selected table joins their reservation so it shares one
+                      kiosk and one bill.
                     </p>
                     <div
                       className="d-flex flex-column gap-2"

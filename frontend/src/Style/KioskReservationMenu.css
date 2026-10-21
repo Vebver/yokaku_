@@ -1306,6 +1306,78 @@
   }
 }
 
+@media (min-width: 769px) and (max-width: 1200px) {
+  .kiosk-timer-wrapper {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    grid-template-areas:
+      "identity identity"
+      "timer timer";
+    align-items: center;
+    gap: 8px 12px;
+    padding: 10px 16px;
+    position: sticky;
+    top: 0;
+    z-index: 100002;
+  }
+
+  .header-left-group {
+    grid-area: identity;
+    justify-self: start;
+    width: auto;
+  }
+
+  .header-center-group {
+    grid-area: timer;
+    justify-self: center;
+    width: auto;
+  }
+
+  .header-id-section {
+    width: auto;
+    margin: 0;
+  }
+
+  .billing-btn-header {
+    min-height: 48px;
+    padding: 10px 16px !important;
+    white-space: nowrap;
+  }
+
+  .res-main-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(250px, 300px);
+    grid-template-rows: auto auto;
+    align-items: start;
+    overflow: visible;
+  }
+
+  .res-main-layout > .res-sidebar {
+    grid-column: 1 / -1;
+    width: 100%;
+    min-width: 0;
+    height: auto;
+  }
+
+  .res-main-layout > .res-content-area {
+    grid-column: 1;
+    grid-row: 2;
+    min-width: 0;
+  }
+
+  .res-main-layout > .order-summary-panel {
+    grid-column: 2;
+    grid-row: 2;
+    width: 100%;
+    min-width: 0;
+    height: auto;
+    max-height: 450px;
+    min-height: 180px;
+    margin: 0;
+  }
+}
+
 @keyframes res-modalPop {
   from {
     opacity: 0;
