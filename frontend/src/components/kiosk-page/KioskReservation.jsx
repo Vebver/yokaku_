@@ -11,7 +11,6 @@ import axios from "axios";
 import "../../Style/KioskReservation.css";
 import { API_BASE } from "../../api";
 
-
 // Reservation dates arrive as YYYY-MM-DD, which the browser would otherwise
 // parse as UTC and shift a day backwards for some timezones.
 const formatDate = (value) => {
@@ -102,7 +101,11 @@ const KioskReservation = () => {
       const data = await response.json();
 
       if (response.ok && data?.success) {
-        setPending({ id, reservation: data.reservation, tables: data.tables || [] });
+        setPending({
+          id,
+          reservation: data.reservation,
+          tables: data.tables || [],
+        });
         setResId("");
       } else {
         setError(
@@ -276,7 +279,12 @@ const KioskReservation = () => {
             setError("");
             return;
           }
+
+          // 1. Clear the flags so KioskSelection doesn't auto-redirect again
           sessionStorage.removeItem("kiosk_reservation_checkin");
+          sessionStorage.removeItem("kiosk_exit_to_selection");
+
+          // 2. Navigate back to the selection screen
           navigate(
             `/kiosk-selection${setupTable ? "?setupTable=" + setupTable : ""}`,
           );
@@ -441,7 +449,10 @@ const KioskReservation = () => {
               Is this you? If not, tap Back and enter the correct ID.
             </p>
 
-            <div className="res-confirm-actions" style={{ display: "flex", gap: "12px" }}>
+            <div
+              className="res-confirm-actions"
+              style={{ display: "flex", gap: "12px" }}
+            >
               <button
                 className="confirm-res-btn"
                 type="button"
@@ -470,32 +481,32 @@ const KioskReservation = () => {
             </div>
           </div>
         ) : (
-        <div className="res-card fade-in">
-          {error && (
-            <div className="res-error-msg">
-              <AlertCircle size={18} />
-              <span>{error}</span>
-            </div>
-          )}
+          <div className="res-card fade-in">
+            {error && (
+              <div className="res-error-msg">
+                <AlertCircle size={18} />
+                <span>{error}</span>
+              </div>
+            )}
 
-          <div className="input-section">
-            <input
-              type="text"
-              className="res-input"
-              placeholder="Enter Reservation ID"
-              value={resId}
-              onChange={(e) => setResId(e.target.value)}
-              disabled={loading}
-            />
-            <button
-              className="confirm-res-btn"
-              disabled={!resId.trim() || loading}
-              onClick={handleConfirmClick}
-            >
-              Confirm Reservation
-            </button>
+            <div className="input-section">
+              <input
+                type="text"
+                className="res-input"
+                placeholder="Enter Reservation ID"
+                value={resId}
+                onChange={(e) => setResId(e.target.value)}
+                disabled={loading}
+              />
+              <button
+                className="confirm-res-btn"
+                disabled={!resId.trim() || loading}
+                onClick={handleConfirmClick}
+              >
+                Confirm Reservation
+              </button>
+            </div>
           </div>
-        </div>
         )}
       </div>
     </div>
