@@ -249,8 +249,55 @@ const testBrevoConnection = async () => {
   }
 };
 
+// Function to send the 1-hour reservation reminder to the customer
+const sendReminderEmail = async ({ toEmail, toName, reservationTime }) => {
+  if (!toEmail) {
+    return { success: false, error: "No recipient email provided" };
+  }
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #f38d31; color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center; }
+        .content { padding: 24px; background: #f9f9f9; border-radius: 0 0 8px 8px; }
+        .time-highlight { font-size: 26px; font-weight: bold; color: #f38d31; text-align: center; margin: 20px 0; }
+        .footer { text-align: center; padding: 15px; color: #888; font-size: 12px; border-top: 1px solid #ddd; margin-top: 20px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h2>🍽️ Upcoming Reservation Reminder</h2>
+        </div>
+        <div class="content">
+          <p>Hi ${toName || "Guest"},</p>
+          <p>This is a friendly reminder that you have a table reservation at <strong>HANGOUT Resto Bar</strong> in about 1 hour.</p>
+          <div class="time-highlight">${reservationTime}</div>
+          <p>We look forward to seeing you soon!</p>
+        </div>
+        <div class="footer">
+          <p>HANGOUT Resto Bar</p>
+          <p>This is an automated reminder. Please do not reply to this email.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return await sendBrevoEmail(
+    toEmail,
+    "Upcoming Reservation Reminder",
+    htmlContent,
+  );
+};
+
 module.exports = {
   sendRefundNotificationEmail,
   sendRefundConfirmationEmail,
+  sendReminderEmail,
   testBrevoConnection,
 };

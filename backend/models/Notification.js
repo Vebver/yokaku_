@@ -31,7 +31,7 @@ const Notification = {
       VALUES (?, ?, ?, ?, ?, 0, NOW())
     `;
 
-    const dbType = "info"; 
+    const dbType = data.type || "info";
     const storedMessage = data.announcement
       ? JSON.stringify({ kind: "announcement", ...data.announcement })
       : data.message;
@@ -44,12 +44,14 @@ const Notification = {
       try {
         // Look for the first Admin or Manager to act as the primary recipient
         const [adminRows] = await conn.execute(
-          "SELECT user_id FROM users WHERE LOWER(role) IN ('admin', 'manager') LIMIT 1"
+          "SELECT user_id FROM users WHERE LOWER(role) IN ('admin', 'manager') LIMIT 1",
         );
         if (adminRows.length > 0) {
           targetUserId = adminRows[0].user_id;
         } else {
-          const [firstUser] = await conn.execute("SELECT user_id FROM users LIMIT 1");
+          const [firstUser] = await conn.execute(
+            "SELECT user_id FROM users LIMIT 1",
+          );
           if (firstUser.length > 0) targetUserId = firstUser[0].user_id;
         }
       } catch (fallbackErr) {
@@ -58,7 +60,7 @@ const Notification = {
     }
 
     if (!targetUserId) {
-      targetUserId = 1; 
+      targetUserId = 1;
     }
 
     const values = [
@@ -98,7 +100,7 @@ const Notification = {
         let adminIds = [];
         try {
           const [rows] = await conn.execute(
-            "SELECT user_id FROM users WHERE LOWER(role) IN ('admin', 'manager')"
+            "SELECT user_id FROM users WHERE LOWER(role) IN ('admin', 'manager')",
           );
           adminIds = rows.map((r) => r.user_id).filter(Boolean);
         } catch (colErr) {

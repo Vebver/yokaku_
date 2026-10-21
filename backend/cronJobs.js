@@ -1,7 +1,7 @@
 const cron = require("node-cron");
 const db = require("./config/db");
 const Notification = require("./models/Notification");
-
+const { sendReminderEmail } = require("./utils/emailService");
 const startCronJobs = () => {
   // This cron job runs every minute to keep statuses in sync
   cron.schedule("* * * * *", async () => {
@@ -145,44 +145,221 @@ const startCronJobs = () => {
         WHERE p.payment_status = 'rejected'
           AND p.rejected_at < NOW() - INTERVAL 12 HOUR
           AND r.status = 'rejected'
-      `
+      `,
       );
 
       if (expiredRejections.length > 0) {
         // Collect unique reservation IDs to modify
-        const resIds = [...new Set(expiredRejections.map((i) => i.reservation_id))];
-        const tableIds = expiredRejections.map((i) => i.table_id).filter(Boolean);
+        const resIds = [
+          ...new Set(expiredRejections.map((i) => i.reservation_id)),
+        ];
+        const tableIds = expiredRejections
+          .map((i) => i.table_id)
+          .filter(Boolean);
 
         // Cancel reservations
         await conn.query(
           "UPDATE reservations SET status = 'Cancelled' WHERE reservation_id IN (?)",
-          [resIds]
+          [resIds],
         );
 
         // Expire the payments record status
         await conn.query(
           "UPDATE payments SET payment_status = 'expired' WHERE reservation_id IN (?)",
-          [resIds]
+          [resIds],
         );
 
         // Terminate reservation table bindings
         await conn.query(
           "UPDATE reservation_tables SET status = 'cancelled' WHERE reservation_id IN (?)",
-          [resIds]
+          [resIds],
         );
 
         // Make the assigned tables available on the floor again
         if (tableIds.length > 0) {
           await conn.query(
             "UPDATE tables SET status = 'available', available_seats = capacity WHERE table_id IN (?)",
-            [tableIds]
+            [tableIds],
           );
         }
 
-        console.log(`✅ Automatically cancelled ${resIds.length} expired reservation(s) due to 12-hour unpaid window.`);
+        console.log(
+          `✅ Automatically cancelled ${resIds.length} expired reservation(s) due to 12-hour unpaid window.`,
+        );
       }
 
-      // --- 6. Notification Cleanup ---
+      /* --- 6. 1-HOUR PER-TABLE RESERVATION REMINDER ---
+      try {
+        const [dueReminders] = await conn.execute(
+          `
+          SELECT
+            r.reservation_id,
+            r.user_id,
+            r.email,
+            r.first_name,
+            r.last_name,
+            r.reservation_date,
+            r.reservation_time
+          FROM reservations r
+          WHERE COALESCE(r.reservation_type, 'per_table') = 'per_table'
+            AND r.status = 'Confirmed'
+            AND r.user_id IS NOT NULL
+            AND r.email IS NOT NULL 
+            AND r.email <> ''
+            
+            // Convert the Manila reservation time to UTC, and compare against UTC NOW() //
+            AND CONVERT_TZ(
+                  TIMESTAMP(r.reservation_date, r.reservation_time), 
+                  '+08:00', '+00:00'
+                ) > UTC_TIMESTAMP()
+                
+            AND CONVERT_TZ(
+                  TIMESTAMP(r.reservation_date, r.reservation_time), 
+                  '+08:00', '+00:00'
+                ) <= DATE_ADD(UTC_TIMESTAMP(), INTERVAL 60 MINUTE)
+                
+            AND CONVERT_TZ(
+                  TIMESTAMP(r.reservation_date, r.reservation_time), 
+                  '+08:00', '+00:00'
+                ) > DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 MINUTE)
+                
+            AND NOT EXISTS (
+              SELECT 1 FROM notifications n
+              WHERE n.reservation_id = r.reservation_id
+                AND n.user_id = r.user_id
+                AND n.title = 'Upcoming Reservation Reminder'
+            )
+          `,
+        );
+
+        for (const row of dueReminders) {
+          // Format the time for the message: "3:00 PM"
+          const [hh, mm] = String(row.reservation_time).slice(0, 5).split(":");
+          const hour24 = Number(hh);
+          const suffix = hour24 >= 12 ? "PM" : "AM";
+          const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
+          const prettyTime = `${hour12}:${mm} ${suffix}`;
+
+          await Notification.create(conn, {
+            userId: row.user_id,
+            reservationId: row.reservation_id,
+            title: "Upcoming Reservation Reminder",
+            message: `Reminder: You have a table reservation today at ${prettyTime}. We look forward to seeing you at HANGOUT Resto Bar!`,
+            type: "reservation",
+            isAdminAlert: false,
+          });
+
+          try {
+            const emailResult = await sendReminderEmail({
+              toEmail: row.email,
+              toName: `${row.first_name} ${row.last_name || ""}`.trim(),
+              reservationTime: prettyTime,
+            });
+
+            if (emailResult?.success) {
+              console.log(
+                `📧 Email reminder sent to ${row.email} (id: ${emailResult.messageId})`,
+              );
+            } else {
+              console.error(
+                `❌ Reminder email failed for ${row.email}:`,
+                emailResult?.error,
+              );
+            }
+          } catch (emailErr) {
+            console.error("Email service error:", emailErr.message);
+          }
+
+          console.log(
+            `🔔 1-hour reminder sent to user ${row.user_id} for ${row.reservation_id} (${prettyTime})`,
+          );
+        }
+      } catch (reminderErr) {
+        // Non-blocking: one bad reminder must never abort the status sync.
+        console.error("1-hour reminder error:", reminderErr.message);
+      }*/
+
+      // --- 6. 5-MINUTE PER-TABLE RESERVATION REMINDER (TEST MODE) ---
+      try {
+        const [dueReminders] = await conn.execute(
+          `
+          SELECT
+            r.reservation_id,
+            r.user_id,
+            r.email,
+            r.first_name,
+            r.last_name,
+            r.reservation_date,
+            r.reservation_time
+          FROM reservations r
+          WHERE COALESCE(r.reservation_type, 'per_table') = 'per_table'
+            AND r.status = 'Confirmed'
+            AND r.user_id IS NOT NULL
+            AND r.email IS NOT NULL 
+            AND r.email <> ''
+            
+            AND CONVERT_TZ(
+                  TIMESTAMP(r.reservation_date, r.reservation_time), 
+                  '+08:00', '+00:00'
+                ) > UTC_TIMESTAMP()
+                
+            // LOOK FOR RESERVATIONS HAPPENING WITHIN THE NEXT 5 MINUTES //
+            AND CONVERT_TZ(
+                  TIMESTAMP(r.reservation_date, r.reservation_time), 
+                  '+08:00', '+00:00'
+                ) <= DATE_ADD(UTC_TIMESTAMP(), INTERVAL 5 MINUTE) 
+                
+            AND CONVERT_TZ(
+                  TIMESTAMP(r.reservation_date, r.reservation_time), 
+                  '+08:00', '+00:00'
+                ) > DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 MINUTE)
+                
+            AND NOT EXISTS (
+              SELECT 1 FROM notifications n
+              WHERE n.reservation_id = r.reservation_id
+                AND n.user_id = r.user_id
+                AND n.title = 'Upcoming Reservation Reminder'
+            )
+          `,
+        );
+
+        for (const row of dueReminders) {
+          const [hh, mm] = String(row.reservation_time).slice(0, 5).split(":");
+          const hour24 = Number(hh);
+          const suffix = hour24 >= 12 ? "PM" : "AM";
+          const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
+          const prettyTime = `${hour12}:${mm} ${suffix}`;
+
+          await Notification.create(conn, {
+            userId: row.user_id,
+            reservationId: row.reservation_id,
+            title: "Upcoming Reservation Reminder",
+            message: `Reminder: You have a table reservation today at ${prettyTime}. We look forward to seeing you at HANGOUT Resto Bar!`,
+            type: "reservation",
+            isAdminAlert: false,
+          });
+
+          try {
+            const emailResult = await sendReminderEmail({
+              toEmail: row.email,
+              toName: `${row.first_name} ${row.last_name || ""}`.trim(),
+              reservationTime: prettyTime,
+            });
+
+            if (emailResult?.success) {
+              console.log(`📧 Email sent to ${row.email}`);
+            }
+          } catch (emailErr) {
+            console.error("Email service error:", emailErr.message);
+          }
+
+          console.log(`🔔 5-min reminder sent for ${row.reservation_id}`);
+        }
+      } catch (reminderErr) {
+        console.error("Reminder error:", reminderErr.message);
+      }
+
+      // --- 7. Notification Cleanup ---
       await Notification.permanentlyDeleteExpired();
 
       await conn.commit();
