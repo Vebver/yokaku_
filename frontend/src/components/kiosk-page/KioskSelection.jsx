@@ -25,6 +25,12 @@ const KioskSelection = () => {
     let disposed = false;
 
     const checkAdminOpenedKiosk = async () => {
+      // IF THE USER CLICKED BACK, DO NOT AUTO-REDIRECT.
+      // They must manually click the "Reservation" button again.
+      if (sessionStorage.getItem("kiosk_exit_to_selection") === "true") {
+        return;
+      }
+
       try {
         const { data } = await axios.get(
           `${API_BASE}/reservations/active-kiosk`,
@@ -33,21 +39,13 @@ const KioskSelection = () => {
           },
         );
 
-        // ONLY auto-navigate if the Admin explicitly activated the kiosk session
-        // AND the user hasn't explicitly backed out to the selection screen.
         if (
           disposed ||
           !data?.success ||
           !["single_active", "event_active"].includes(data.mode) ||
           !data.reservation?.reservation_id ||
-          data.reservation.is_kiosk_active !== 1 ||
-          sessionStorage.getItem("kiosk_exit_to_selection") === "true"
+          data.reservation.is_kiosk_active !== 1
         ) {
-          return;
-        }
-
-        // If we are already on the reservation checkin page, do not re-navigate
-        if (window.location.pathname.includes("kiosk-reservation")) {
           return;
         }
 
@@ -57,21 +55,18 @@ const KioskSelection = () => {
         if (table_id) {
           sessionStorage.setItem("tableId", String(table_id));
         }
+
         navigate(`/kiosk-selection/kiosk-reservation-menu${searchString}`);
       } catch (error) {
         console.error("Could not check admin-opened kiosk:", error);
       }
     };
 
-    // Do NOT run this if we just came from the checkin screen and want to stay here
-    if (sessionStorage.getItem("kiosk_reservation_checkin") !== "true") {
-      checkAdminOpenedKiosk();
-    }
+    // Check ONCE on load. (Removed the 3-second interval)
+    checkAdminOpenedKiosk();
 
-    const interval = setInterval(checkAdminOpenedKiosk, 3000);
     return () => {
       disposed = true;
-      clearInterval(interval);
     };
   }, [kioskTableId, navigate, searchString]);
 
