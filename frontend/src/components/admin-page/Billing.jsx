@@ -161,12 +161,13 @@ const Billing = () => {
   };
 
   const getRemainingBalanceInfo = () => {
-    const total = Number(selectedPayment?.total_bill || calculateItemsSum());
+    const paymentTotal = Number(selectedPayment?.total_bill);
+    const total =
+      Number.isFinite(paymentTotal) && paymentTotal > 0
+        ? paymentTotal
+        : calculateItemsSum();
     const paid = Number(selectedPayment?.amount || 0);
-    const remaining = Math.max(
-      Number(selectedPayment?.balance_due ?? total - paid),
-      0,
-    );
+    const remaining = Math.max(total - paid, 0);
     return {
       remaining,
       overpaid: paid > total ? paid - total : 0,
@@ -237,8 +238,8 @@ const Billing = () => {
         const details = reservationRes.data.data || reservationRes.data.reservation || reservationRes.data;
 
         paymentDetails = {
+          ...details,
           ...paymentDetails,
-          ...details
         };
         setSelectedPayment(paymentDetails);
       }
@@ -1359,14 +1360,13 @@ const Billing = () => {
                   {!showRejectForm &&
                     (balanceInfo.remaining > 0 ? (
                       <>
-                        <div className="alert alert-warning border-0 py-2 mb-0">
+                        <div className="alert alert-warning border-0 py-2 mb-1">
                           <div className="fw-bold small text-uppercase">
                             Partial bill
                           </div>
                           <small>
                             Collect the remaining balance before settling this
-                            bill. Reservation status does not mean payment is
-                            complete.
+                            bill.
                           </small>
                         </div>
                         <button
@@ -1436,7 +1436,7 @@ const Billing = () => {
                     ))}
 
                 <button
-                  className="btn btn-outline-secondary text-white-50 border-0 mt-0.5 py-2 drawer-footer-action"
+                  className="btn btn-outline-secondary text-white-50 border-0 mt-1 py-2 drawer-footer-action"
                   data-bs-dismiss="offcanvas"
                 >
                   Close Drawer
