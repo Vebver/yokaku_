@@ -228,7 +228,12 @@ const Billing = () => {
     try {
       const [itemsRes, reservationRes] = await Promise.all([
         api.get(`/reservations/${p.reservation_id}/items`),
-        api.get(`/reservations/${p.reservation_id}`).catch(() => null)
+        api
+          .get(`/reservations/details/${p.reservation_id}`)
+          .catch((detailsError) => {
+            console.error("Reservation details loading error:", detailsError);
+            return null;
+          }),
       ]);
 
       setOrderItems(itemsRes.data);
@@ -256,7 +261,15 @@ const Billing = () => {
         (packageName.includes("standard") ||
           packageName.includes("premium"));
 
-      if (isEventReservation) {
+      const isSeated =
+        String(
+          paymentDetails.order_status ||
+            paymentDetails.status ||
+            paymentDetails.reservation_status ||
+            "",
+        ).toLowerCase() === "seated";
+
+      if (isEventReservation && isSeated) {
         try {
           const takeoutRes = await api.get(
             `/reservations/${p.reservation_id}/event-takeout`,
@@ -901,7 +914,15 @@ const Billing = () => {
                     pkgName.includes("standard") ||
                     pkgName.includes("premium");
 
-                  if (!isEvent) return null;
+                  const isSeated =
+                    String(
+                      selectedPayment?.order_status ||
+                        selectedPayment?.status ||
+                        selectedPayment?.reservation_status ||
+                        "",
+                    ).toLowerCase() === "seated";
+
+                  if (!isEvent || !isSeated) return null;
 
                   const eventLimits = {
                     "standard package": 10000,
@@ -1386,7 +1407,7 @@ const Billing = () => {
                               return;
 
                             try {
-                              await api.put(
+                              const settlementRes = await api.put(
                                 `/billing/settle/${selectedPayment.reservation_id}`,
                                 {},
                               );
@@ -1400,7 +1421,9 @@ const Billing = () => {
                                   amount: total,
                                   balance_due: 0,
                                   settlement_status: "paid",
-                                  order_status: "completed",
+                                  order_status:
+                                    settlementRes.data.reservation_status ||
+                                    prev.order_status,
                                   payment_status: "verified",
                                 };
                               });

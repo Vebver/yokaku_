@@ -96,24 +96,49 @@ const Billing = {
   },
 
   settleReservation: async (resId) => {
-    // Mark reservation as completed
-    await db.execute(
-      "UPDATE reservations SET status = 'completed' WHERE reservation_id = ?",
-      [resId],
-    );
+    const conn = await db.getConnection();
+    try {
+      await conn.beginTransaction();
+      const [reservations] = await conn.execute(
+        "SELECT status FROM reservations WHERE reservation_id = ? FOR UPDATE",
+        [resId],
+      );
+      if (reservations.length === 0) {
+        await conn.rollback();
+        return null;
+      }
 
-    // Set paid_at to NOW() if it is currently NULL, so it registers in reports (Fixed)
-    await db.execute(
-      `UPDATE payments 
-       SET amount = total_bill, 
-           payment_status = 'verified', 
-           rejection_reason = NULL, 
-           rejected_at = NULL,
-           paid_at = COALESCE(paid_at, NOW()) 
-       WHERE reservation_id = ?`,
-      [resId],
-    );
-    return true;
+      const currentStatus = String(reservations[0].status || "");
+      const shouldCompleteSession = currentStatus.toLowerCase() === "seated";
+
+      if (shouldCompleteSession) {
+        await conn.execute(
+          "UPDATE reservations SET status = 'completed', session_ended_at = NOW() WHERE reservation_id = ?",
+          [resId],
+        );
+      }
+
+      await conn.execute(
+        `UPDATE payments
+         SET amount = total_bill,
+             payment_status = 'verified',
+             rejection_reason = NULL,
+             rejected_at = NULL,
+             paid_at = COALESCE(paid_at, NOW())
+         WHERE reservation_id = ?`,
+        [resId],
+      );
+
+      await conn.commit();
+      return {
+        reservation_status: shouldCompleteSession ? "completed" : currentStatus,
+      };
+    } catch (error) {
+      await conn.rollback();
+      throw error;
+    } finally {
+      conn.release();
+    }
   },
 
   updatePaymentStatusByReservation: async (resId, paymentStatus) => {

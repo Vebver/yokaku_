@@ -196,17 +196,11 @@ exports.settleFullBill = async (req, res) => {
     const result = await Billing.settleReservation(resId);
 
     if (result) {
-      // --- NEW: Set session_ended_at when settled ---
-      await db.execute(
-        "UPDATE reservations SET session_ended_at = NOW() WHERE reservation_id = ?",
-        [resId],
-      );
-
       await logActivity(
         req.user?.userId || null,
         "SETTLE_BILL_COMPLETED",
         resId,
-        { message: "Transaction fully paid and marked completed" },
+        { message: "Transaction fully paid" },
         req,
       );
 
@@ -215,7 +209,7 @@ exports.settleFullBill = async (req, res) => {
       if (io) {
         io.emit("new_notification", {
           title: "Bill Settled",
-          message: `Bill for reservation ${resId} has been fully paid and completed`,
+          message: `Bill for reservation ${resId} has been fully paid`,
           type: "payment",
           is_read: 0,
           created_at: new Date().toISOString(),
@@ -225,7 +219,8 @@ exports.settleFullBill = async (req, res) => {
       }
 
       res.json({
-        message: "Bill settled and reservation completed successfully",
+        message: "Bill settled successfully",
+        reservation_status: result.reservation_status,
       });
     } else {
       res.status(404).json({ error: "Reservation not found" });
