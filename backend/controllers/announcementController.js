@@ -59,7 +59,7 @@ const notifyCustomers = async ({
     await Notification.createForCustomers(null, {
       title: "New announcement",
       message: `${title}\n\n${description}`,
-      type: "announcement",
+      type: "promo",
       announcement: {
         title,
         description,

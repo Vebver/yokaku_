@@ -34,10 +34,13 @@ function CustomerNavbar() {
         setUnreadCount((prev) => prev + 1); // Increment count when new notification arrives
 
         if (
-          notification.type === "announcement" ||
-          notification.title?.startsWith("New announcement:")
+          notification.announcement ||
+          notification.title?.startsWith("New announcement")
         ) {
-          showToast(`${notification.title}: ${notification.message}`, "success");
+          showToast(
+            notification.announcement?.title || notification.title,
+            "success",
+          );
         }
       });
 
