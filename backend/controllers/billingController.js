@@ -340,7 +340,7 @@ exports.rejectPaymentByReservation = async (req, res) => {
           reservationId: resId,
           title: "Payment Proof Rejected",
           message: `Your proof of payment was rejected for reservation ${resId}. Reason: ${finalReason}. Please upload a valid proof within 12 hours.`,
-          type: "warning",
+          type: "alert",
           isAdminAlert: false,
         });
 
@@ -350,7 +350,7 @@ exports.rejectPaymentByReservation = async (req, res) => {
           reservationId: resId,
           title: "Payment Proof Rejected",
           message: `Payment for reservation ${resId} was rejected. Reason: ${finalReason}`,
-          type: "warning",
+          type: "alert",
           isAdminAlert: true,
         });
       }
